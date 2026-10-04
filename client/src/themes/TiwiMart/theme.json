@@ -1,0 +1,29 @@
+{
+  "id": "theme-tiwimart-enterprise-v1",
+  "uniqueId": "tiwimart_multi_vendor_ecom_2026",
+  "name": "TiwiMart",
+  "displayName": "TiwiMart Global Multi-Vendor Marketplace",
+  "version": "1.0.0",
+  "author": "Tiwlo Engineering",
+  "defaultActive": true,
+  "createdAt": "2026-09-26T00:00:00.000Z",
+  "description": "High-conversion multi-vendor marketplace theme with sliding banner system, zero popups, dedicated pages for product details, shopping cart, and multi-method checkout.",
+  "features": [
+    "banner-sliding-system",
+    "zero-popup-dedicated-pages",
+    "multi-vendor-support",
+    "cash-on-delivery",
+    "online-payment",
+    "mobile-banking",
+    "realtime-json-stock-sync"
+  ],
+  "routes": [
+    { "route": "/store", "title": "Store Home" },
+    { "route": "/store/product/:id", "title": "Product Details" },
+    { "route": "/store/cart", "title": "Shopping Cart" },
+    { "route": "/store/checkout", "title": "Checkout & Payment" },
+    { "route": "/store/order-success/:id", "title": "Order Confirmation" },
+    { "route": "/store/deals", "title": "Today's Flash Deals" },
+    { "route": "/store/category/:name", "title": "Category Catalog" }
+  ]
+}

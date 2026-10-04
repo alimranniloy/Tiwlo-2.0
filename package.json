@@ -1,0 +1,22 @@
+{
+  "name": "tiwlo-stockpro",
+  "version": "1.0.0",
+  "description": "StockPro Inventory Management System",
+  "private": true,
+  "scripts": {
+    "start": "node server/server.js",
+    "client": "npm --prefix client run dev",
+    "server": "npm --prefix server start",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "build": "npm --prefix client run build",
+    "docker:up": "docker-compose -f docker/docker-compose.yml up -d",
+    "docker:down": "docker-compose -f docker/docker-compose.yml down",
+    "docker:db": "docker-compose -f docker/docker-compose.yml up -d postgres pgadmin",
+    "install:all": "npm install && npm --prefix server install && npm --prefix client install",
+    "deploy:live": "node \"../Tiwlo Live Server Config/update_live_server.js\"",
+    "deploy:production": "bash ./deploy-production.sh"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

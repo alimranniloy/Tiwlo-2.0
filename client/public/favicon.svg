@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="tiwlo-bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0B1329" />
+      <stop offset="100%" stop-color="#030712" />
+    </linearGradient>
+    <linearGradient id="tiwlo-grad-top" x1="16" y1="8" x2="48" y2="30" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#60A5FA" />
+      <stop offset="50%" stop-color="#3B82F6" />
+      <stop offset="100%" stop-color="#2563EB" />
+    </linearGradient>
+    <linearGradient id="tiwlo-grad-left" x1="8" y1="26" x2="32" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2563EB" />
+      <stop offset="100%" stop-color="#1D4ED8" />
+    </linearGradient>
+    <linearGradient id="tiwlo-grad-right" x1="56" y1="26" x2="32" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8B5CF6" />
+      <stop offset="100%" stop-color="#6D28D9" />
+    </linearGradient>
+    <filter id="tiwlo-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3.5" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- High-contrast badge container so it shines on both Dark and Light browser tabs -->
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#tiwlo-bg)" />
+  <rect x="2" y="2" width="60" height="60" rx="16" stroke="rgba(96, 165, 250, 0.4)" stroke-width="2" />
+
+  <!-- Isometric 3D Tiwlo Cube -->
+  <g transform="translate(32, 32)">
+    <!-- Top Face -->
+    <path d="M0 -19 L19 -8 L0 3 L-19 -8 Z" fill="url(#tiwlo-grad-top)" />
+    <!-- Left Face -->
+    <path d="M-19 -8 L0 3 L0 23 L-19 12 Z" fill="url(#tiwlo-grad-left)" opacity="0.95" />
+    <!-- Right Face -->
+    <path d="M0 3 L19 -8 L19 12 L0 23 Z" fill="url(#tiwlo-grad-right)" />
+
+    <!-- Top facet specular highlight -->
+    <path d="M-12 -8 L0 -14 L12 -8 L0 -2 Z" fill="#FFFFFF" opacity="0.4" />
+
+    <!-- Dynamic Neon Cyber Core -->
+    <circle cx="0" cy="3" r="3.5" fill="#38BDF8" filter="url(#tiwlo-glow)" />
+    <circle cx="0" cy="3" r="1.5" fill="#FFFFFF" />
+  </g>
+</svg>

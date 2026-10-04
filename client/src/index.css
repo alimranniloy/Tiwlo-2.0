@@ -1,0 +1,754 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --theme-primary: #2563eb;
+    --theme-primary-hover: #1d4ed8;
+    --theme-primary-light: #eff6ff;
+    --theme-primary-border: rgba(37, 99, 235, 0.25);
+    --theme-primary-glow: rgba(37, 99, 235, 0.2);
+  }
+  
+  * {
+    font-family: var(--font-sans);
+    box-sizing: border-box;
+  }
+}
+
+/* Dynamic Tiwlo Theme Engine Color Utilities */
+.bg-theme-primary {
+  background-color: var(--theme-primary, #2563eb) !important;
+}
+.text-theme-primary {
+  color: var(--theme-primary, #2563eb) !important;
+}
+.border-theme-primary {
+  border-color: var(--theme-primary, #2563eb) !important;
+}
+.hover\:bg-theme-primary-hover:hover {
+  background-color: var(--theme-primary-hover, #1d4ed8) !important;
+}
+.hover\:text-theme-primary:hover {
+  color: var(--theme-primary, #2563eb) !important;
+}
+.hover\:border-theme-primary:hover {
+  border-color: var(--theme-primary, #2563eb) !important;
+}
+.bg-theme-primary-light {
+  background-color: var(--theme-primary-light, #eff6ff) !important;
+}
+.focus-within\:border-theme-primary:focus-within {
+  border-color: var(--theme-primary, #2563eb) !important;
+}
+
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+/* Clean card helpers (Rule code-ui.md) */
+.glass-card {
+  background: #ffffff;
+}
+
+.dark .glass-card {
+  background: #111827;
+}
+
+/* ===================================================
+   GOOGLE-INSPIRED CLEAN DESIGN SYSTEM (Rule: code-ui.md)
+   Clean surfaces, subtle elevation, generous spacing,
+   controlled borders, crisp typography hierarchy
+=================================================== */
+
+.aura-banner-wrapper {
+  position: relative;
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px 0 rgba(60, 64, 67, 0.08), 0 1px 2px 0 rgba(60, 64, 67, 0.04);
+}
+
+.dark .aura-banner-wrapper {
+  border: 1px solid #1f2937;
+  background-color: #111827;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Strip all background wave images and neon pseudo-overlays */
+.aura-banner-wrapper::before,
+.dark .aura-banner-wrapper::before,
+.aura-cyan-emerald::before,
+.dark .aura-cyan-emerald::before,
+.aura-purple-rose::before,
+.dark .aura-purple-rose::before,
+.aura-amber-fire::before,
+.dark .aura-amber-fire::before {
+  display: none !important;
+}
+
+/* Content layer sitting inside clean card */
+.aura-banner-content {
+  position: relative;
+  z-index: 1;
+}
+
+/* Clean Google-style Quick Actions Card */
+.aura-quick-actions-card {
+  position: relative;
+  border-radius: 1rem;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px 0 rgba(60, 64, 67, 0.08), 0 1px 2px 0 rgba(60, 64, 67, 0.04);
+  overflow: hidden;
+}
+
+.dark .aura-quick-actions-card {
+  background-color: #111827;
+  border: 1px solid #1f2937;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+}
+
+.aura-quick-actions-card::before,
+.dark .aura-quick-actions-card::before,
+.aura-quick-actions-card::after,
+.dark .aura-quick-actions-card::after {
+  display: none !important;
+}
+
+/* Clean Dashboard Section Cards */
+.aura-section-border {
+  position: relative;
+  border-radius: 1rem;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px 0 rgba(60, 64, 67, 0.08), 0 1px 2px 0 rgba(60, 64, 67, 0.04);
+  overflow: hidden;
+}
+
+.dark .aura-section-border {
+  background-color: #111827;
+  border: 1px solid #1f2937;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+}
+
+.aura-section-border::before,
+.dark .aura-section-border::before,
+.aura-border-cyan::before,
+.aura-border-purple::before,
+.aura-border-amber::before {
+  display: none !important;
+}
+
+/* ===================================================
+   TIWLO QUANTUM RELOAD & SYNC ANIMATIONS
+   Unique 3D isometric morphing & sync beam animations
+=================================================== */
+@keyframes syncBeam {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(30%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes progress {
+  0% {
+    width: 10%;
+    transform: translateX(-5%);
+  }
+  50% {
+    width: 75%;
+    transform: translateX(15%);
+  }
+  100% {
+    width: 100%;
+    transform: translateX(0%);
+  }
+}
+
+/* ==========================================================================
+   Tiwlo x Google Clone UI Loading Animations (Material Design + Website Theme)
+   ========================================================================== */
+
+/* 1. Google Material Circular Indeterminate Spinner (Tiwlo Brand Colors) */
+.google-spinner {
+  animation: google-rotator 1.4s linear infinite;
+  transform-origin: center center;
+}
+
+@keyframes google-rotator {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(270deg);
+  }
+}
+
+.google-spinner-path {
+  stroke-dasharray: 187;
+  stroke-dashoffset: 0;
+  transform-origin: center center;
+  animation:
+    google-dash 1.4s ease-in-out infinite,
+    tiwlo-theme-colors 5.6s ease-in-out infinite;
+}
+
+@keyframes google-dash {
+  0% {
+    stroke-dashoffset: 187;
+  }
+  50% {
+    stroke-dashoffset: 46.75;
+    transform: rotate(135deg);
+  }
+  100% {
+    stroke-dashoffset: 187;
+    transform: rotate(450deg);
+  }
+}
+
+/* Tiwlo Website Theme Palette Transitions (Electric Blue, Sky Cyan, Cloud Blue, Royal Blue) */
+@keyframes tiwlo-theme-colors {
+  0%, 100% {
+    stroke: #0066FF; /* Tiwlo Electric Brand Blue */
+  }
+  25% {
+    stroke: #38BDF8; /* Sky Cyan Highlight */
+  }
+  50% {
+    stroke: #0B57D0; /* Google Cloud Deep Blue */
+  }
+  75% {
+    stroke: #2563EB; /* Royal Primary Blue */
+  }
+}
+
+/* 2. Tiwlo Blue Static/Monochrome Variant */
+.google-spinner-blue-path {
+  stroke-dasharray: 187;
+  stroke-dashoffset: 0;
+  transform-origin: center center;
+  stroke: #0066FF;
+  animation: google-dash 1.4s ease-in-out infinite;
+}
+
+/* 3. Google Linear Indeterminate Progress Bar (Tiwlo Electric Blue Top Bar) */
+.google-linear-progress {
+  position: relative;
+  width: 100%;
+  height: 2.5px;
+  background-color: rgba(0, 102, 255, 0.1);
+  overflow: hidden;
+}
+
+.google-linear-progress::before {
+  content: '';
+  position: absolute;
+  background: linear-gradient(90deg, #0066FF, #38BDF8);
+  top: 0;
+  left: 0;
+  bottom: 0;
+  will-change: left, right;
+  animation: google-linear-anim 2.1s cubic-bezier(0.65, 0.815, 0.735, 0.395) infinite;
+}
+
+.google-linear-progress::after {
+  content: '';
+  position: absolute;
+  background: linear-gradient(90deg, #0B57D0, #0066FF);
+  top: 0;
+  left: 0;
+  bottom: 0;
+  will-change: left, right;
+  animation: google-linear-anim-short 2.1s cubic-bezier(0.165, 0.84, 0.44, 1) infinite;
+  animation-delay: 1.15s;
+}
+
+@keyframes google-linear-anim {
+  0% {
+    left: -35%;
+    right: 100%;
+  }
+  60% {
+    left: 100%;
+    right: -90%;
+  }
+  100% {
+    left: 100%;
+    right: -90%;
+  }
+}
+
+@keyframes google-linear-anim-short {
+  0% {
+    left: -200%;
+    right: 100%;
+  }
+  60% {
+    left: 107%;
+    right: -8%;
+  }
+  100% {
+    left: 107%;
+    right: -8%;
+  }
+}
+
+/* 4. Tiwlo Brand Dots Wave (Matching Website Theme Palette) */
+.tiwlo-dot-pulse,
+.google-dot-pulse {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tiwlo-dot,
+.google-dot {
+  width: 9.5px;
+  height: 9.5px;
+  border-radius: 50%;
+  animation: tiwlo-dot-scale 1.4s ease-in-out infinite;
+}
+
+.tiwlo-dot:nth-child(1),
+.google-dot:nth-child(1) {
+  background-color: #0066FF;
+  animation-delay: 0s;
+}
+.tiwlo-dot:nth-child(2),
+.google-dot:nth-child(2) {
+  background-color: #38BDF8;
+  animation-delay: 0.18s;
+}
+.tiwlo-dot:nth-child(3),
+.google-dot:nth-child(3) {
+  background-color: #0B57D0;
+  animation-delay: 0.36s;
+}
+.tiwlo-dot:nth-child(4),
+.google-dot:nth-child(4) {
+  background-color: #2563EB;
+  animation-delay: 0.54s;
+}
+
+@keyframes tiwlo-dot-scale {
+  0%, 80%, 100% {
+    transform: scale(0.65);
+    opacity: 0.35;
+  }
+  40% {
+    transform: scale(1.35);
+    opacity: 1;
+  }
+}
+
+/* ==========================================================================
+   Tiwlo Morphing Loader: Spinner Spiral Collapse & 4-Dot Spring Slide
+   ========================================================================== */
+
+/* 1. Spinner Ring spiral collapse inward into center point */
+@keyframes ring-spiral-collapse {
+  0% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.55) rotate(180deg);
+    opacity: 0.95;
+  }
+  80% {
+    transform: scale(0.22) rotate(320deg);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(0.08) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+.ring-collapse-anim {
+  animation: ring-spiral-collapse 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+}
+
+/* 2. Single center dot materializing as the ring collapses */
+@keyframes single-dot-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.4);
+    opacity: 1;
+    box-shadow: 0 0 16px rgba(0, 102, 255, 0.65);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 0 8px rgba(0, 102, 255, 0.35);
+  }
+}
+
+.single-dot-anim {
+  width: 9.5px;
+  height: 9.5px;
+  border-radius: 50%;
+  background-color: #0066FF;
+  animation: single-dot-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+}
+
+/* 3. Elastic slide-out from center single dot into 4 horizontal dots */
+@keyframes dot-slide-out-1 {
+  0% {
+    transform: translateX(29.25px) scale(0.7);
+    opacity: 0.8;
+  }
+  70% {
+    transform: translateX(-4px) scale(1.18);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes dot-slide-out-2 {
+  0% {
+    transform: translateX(9.75px) scale(0.7);
+    opacity: 0.8;
+  }
+  70% {
+    transform: translateX(-2px) scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes dot-slide-out-3 {
+  0% {
+    transform: translateX(-9.75px) scale(0.7);
+    opacity: 0.8;
+  }
+  70% {
+    transform: translateX(2px) scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes dot-slide-out-4 {
+  0% {
+    transform: translateX(-29.25px) scale(0.7);
+    opacity: 0.8;
+  }
+  70% {
+    transform: translateX(4px) scale(1.18);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.dot-slide-1 {
+  animation: dot-slide-out-1 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.dot-slide-2 {
+  animation: dot-slide-out-2 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.dot-slide-3 {
+  animation: dot-slide-out-3 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.dot-slide-4 {
+  animation: dot-slide-out-4 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ==========================================================================
+   Tiwlo Vector Logo Pencil Sketch & Vortex Twist-Merge Animations
+   ========================================================================== */
+
+/* 1. Mark Outline Trace (Pencil Sketch effect) */
+@keyframes mark-stroke-draw {
+  0% {
+    stroke-dashoffset: 120;
+    fill-opacity: 0;
+    stroke-width: 2.2;
+  }
+  65% {
+    stroke-dashoffset: 0;
+    fill-opacity: 0.3;
+    stroke-width: 1.5;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    fill-opacity: 1;
+    stroke-width: 0;
+  }
+}
+
+.tiwlo-mark-blue {
+  stroke: #0066FF;
+  stroke-width: 2.2;
+  stroke-dasharray: 120;
+  stroke-dashoffset: 120;
+  animation: mark-stroke-draw 1.1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.tiwlo-mark-navy {
+  stroke: #0A1128;
+  stroke-width: 2.2;
+  stroke-dasharray: 120;
+  stroke-dashoffset: 120;
+  animation: mark-stroke-draw 1.1s cubic-bezier(0.4, 0, 0.2, 1) 0.15s forwards;
+}
+
+.dark .tiwlo-mark-navy {
+  stroke: #F8FAFC;
+}
+
+/* 2. Brand Letters "tiwlo." Precision Pencil Trace (Multi-Cycle Loop before solid lock) */
+@keyframes text-sketch-triple {
+  /* Cycle 1 (0% to 33%): First pencil sketch trace & glow */
+  0% {
+    stroke-dashoffset: 360;
+    fill-opacity: 0;
+    stroke-opacity: 1;
+    stroke-width: 1.8px;
+  }
+  20% {
+    stroke-dashoffset: 0;
+    fill-opacity: 0.3;
+    stroke-opacity: 1;
+    stroke-width: 1.3px;
+  }
+  28% {
+    stroke-dashoffset: 0;
+    fill-opacity: 0.85;
+    stroke-opacity: 0.3;
+    stroke-width: 0.8px;
+  }
+  33% {
+    stroke-dashoffset: 360;
+    fill-opacity: 0;
+    stroke-opacity: 0.8;
+    stroke-width: 1.8px;
+  }
+
+  /* Cycle 2 (34% to 66%): Second pencil sketch re-trace */
+  34% {
+    stroke-dashoffset: 360;
+    fill-opacity: 0;
+    stroke-opacity: 1;
+    stroke-width: 1.8px;
+  }
+  52% {
+    stroke-dashoffset: 0;
+    fill-opacity: 0.35;
+    stroke-opacity: 1;
+    stroke-width: 1.3px;
+  }
+  60% {
+    stroke-dashoffset: 0;
+    fill-opacity: 0.9;
+    stroke-opacity: 0.3;
+    stroke-width: 0.8px;
+  }
+  66% {
+    stroke-dashoffset: 360;
+    fill-opacity: 0;
+    stroke-opacity: 0.8;
+    stroke-width: 1.8px;
+  }
+
+  /* Cycle 3 (67% to 100%): Final definitive sketch locking into rich solid brand color */
+  67% {
+    stroke-dashoffset: 360;
+    fill-opacity: 0;
+    stroke-opacity: 1;
+    stroke-width: 1.8px;
+  }
+  86% {
+    stroke-dashoffset: 0;
+    fill-opacity: 0.45;
+    stroke-opacity: 1;
+    stroke-width: 1.2px;
+  }
+  95% {
+    stroke-dashoffset: 0;
+    fill-opacity: 1;
+    stroke-opacity: 0.1;
+    stroke-width: 0.4px;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    fill-opacity: 1;
+    stroke-opacity: 0;
+    stroke-width: 0px;
+  }
+}
+
+.tiwlo-text-draw {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 800;
+  font-size: 42px;
+  letter-spacing: -0.04em;
+  stroke-width: 1.8px;
+  stroke-dasharray: 360;
+  stroke-dashoffset: 360;
+  animation: text-sketch-triple 3.0s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* 3. Logo Spiral Twist & Vortex Merge */
+@keyframes logo-twist-merge {
+  0% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+    filter: blur(0px);
+  }
+  40% {
+    transform: scale(0.85) rotate(140deg);
+    opacity: 0.85;
+  }
+  75% {
+    transform: scale(0.5) rotate(280deg);
+    opacity: 0.4;
+    filter: blur(1px);
+  }
+  100% {
+    transform: scale(0.15) rotate(360deg);
+    opacity: 0;
+    filter: blur(2px);
+  }
+}
+
+.logo-twist-anim {
+  animation: logo-twist-merge 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+}
+
+/* 4. Spinner Emerges from the Twisted Logo */
+@keyframes spinner-emerge {
+  0% {
+    transform: scale(0.35) rotate(-180deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08) rotate(90deg);
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.spinner-emerge-anim {
+  animation: spinner-emerge 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* 5. Trailing Accent Dot 3-Cycle Loop Animation (Synchronized with text-sketch-triple) */
+@keyframes dot-sketch-triple {
+  /* Cycle 1 (0% to 33%): Pop in & pulse with text cycle 1 */
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  14% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  20% {
+    transform: scale(1.35);
+    opacity: 1;
+  }
+  27% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  33% {
+    transform: scale(0);
+    opacity: 0;
+  }
+
+  /* Cycle 2 (34% to 66%): Pop in & pulse with text cycle 2 */
+  34% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  46% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  52% {
+    transform: scale(1.35);
+    opacity: 1;
+  }
+  59% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  66% {
+    transform: scale(0);
+    opacity: 0;
+  }
+
+  /* Cycle 3 (67% to 100%): Final pop & solid lock with text cycle 3 */
+  67% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  80% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  86% {
+    transform: scale(1.4);
+    opacity: 1;
+  }
+  94% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.tiwlo-logo-dot-draw {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dot-sketch-triple 3.0s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+
+

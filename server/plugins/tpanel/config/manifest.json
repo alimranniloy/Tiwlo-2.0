@@ -1,0 +1,9 @@
+{
+  "id": "tpanel",
+  "name": "TPanel Cloud Web Hosting Manager",
+  "version": "2.4.0",
+  "description": "High-performance cPanel-alternative hosting and server virtualization add-on",
+  "author": "Tiwlo Engineering",
+  "permissions": ["admin", "server:manage", "domains:manage"],
+  "enabled": true
+}

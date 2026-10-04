@@ -1,0 +1,27 @@
+{
+    email {$ACME_EMAIL}
+
+    # Certificates are issued only after the application confirms the host is
+    # one of this deployment's primary-domain subdomains. This keeps a public
+    # proxy from being abused to request arbitrary certificates.
+    on_demand_tls {
+        ask http://app:5000/api/tls/allow
+        interval 2m
+        burst 10
+    }
+}
+
+# HTTP is used only for the ACME challenge and then redirected to HTTPS.
+http:// {
+    redir https://{host}{uri} permanent
+}
+
+# A wildcard DNS record (*.PRIMARY_DOMAIN) points every tenant subdomain here.
+# Caddy obtains and renews each required certificate automatically on first use.
+https:// {
+    tls {
+        on_demand
+    }
+    encode zstd gzip
+    reverse_proxy app:5000
+}

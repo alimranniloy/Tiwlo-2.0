@@ -1,0 +1,56 @@
+{
+  "panelName": "TPanel",
+  "panelVersion": "1.0.0",
+  "branding": {
+    "title": "T Panel",
+    "tagline": "Your Projects. Our Power.",
+    "theme": "Google-Inspired Cloud Aesthetic"
+  },
+  "databases": [
+    {
+      "name": "MySQL",
+      "version": "8.0",
+      "defaultPort": 3306,
+      "serviceStatus": "active",
+      "autoInstall": true,
+      "driverPackage": "mysql2"
+    },
+    {
+      "name": "PostgreSQL",
+      "version": "16",
+      "defaultPort": 5432,
+      "serviceStatus": "active",
+      "autoInstall": true,
+      "driverPackage": "pg"
+    }
+  ],
+  "runtimes": [
+    {
+      "name": "Node.js",
+      "version": "20.x LTS / 22.x",
+      "supportedExtensions": [".js", ".mjs", ".cjs", ".ts", ".jsx", ".tsx"],
+      "packageManagers": ["npm", "pnpm", "yarn"],
+      "status": "ready"
+    },
+    {
+      "name": "PHP",
+      "version": "8.2 / 8.3 FPM",
+      "supportedExtensions": [".php", ".phtml", ".php8"],
+      "frameworks": ["WordPress", "Laravel", "OpenCart", "Symfony", "CodeIgniter"],
+      "status": "ready"
+    },
+    {
+      "name": "Python",
+      "version": "3.11 / 3.12",
+      "supportedExtensions": [".py"],
+      "frameworks": ["Django", "FastAPI", "Flask"],
+      "packageManagers": ["pip", "uv", "virtualenv"],
+      "status": "ready"
+    }
+  ],
+  "storageDefaults": {
+    "defaultQuota": "100 GB",
+    "backupFrequency": "daily",
+    "sslProvider": "Let's Encrypt"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Tiwi",
+    "slug": "Tiwi",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/tiwi.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tiwlo.tiwi"
+    },
+    "android": {
+      "package": "com.tiwlo.tiwi",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/tiwi.png"
+      }
+    },
+    "androidStatusBar": {
+      "barStyle": "dark-content",
+      "backgroundColor": "#FFFFFF",
+      "translucent": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      "expo-video"
+    ]
+  }
+}

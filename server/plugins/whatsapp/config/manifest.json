@@ -1,0 +1,9 @@
+{
+  "id": "whatsapp",
+  "name": "WhatsApp Multi-Tenant Smart Bot",
+  "version": "1.5.0",
+  "description": "WhatsApp Baileys multi-device store assistant and auto-reply add-on",
+  "author": "Tiwlo Engineering",
+  "permissions": ["merchant", "messages:send", "whatsapp:manage"],
+  "enabled": true
+}

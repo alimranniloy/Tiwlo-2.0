@@ -1,0 +1,27 @@
+{
+  "name": "@tiwlo/tpanel",
+  "version": "1.0.0",
+  "description": "TPanel - Next-Generation Web Hosting & Cloud Server Control Panel by Tiwlo",
+  "main": "server/tpanelRoutes.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server/tpanelRoutes.js",
+    "install-runtimes": "node runtimes/installer.js",
+    "check-env": "node runtimes/installer.js --check"
+  },
+  "keywords": [
+    "tpanel",
+    "control-panel",
+    "hosting",
+    "tiwlo",
+    "cloud",
+    "droplet-service"
+  ],
+  "author": "Tiwlo Cloud Systems Ltd.",
+  "license": "Proprietary",
+  "dependencies": {
+    "express": "^4.21.2",
+    "mysql2": "^3.12.0",
+    "pg": "^8.23.0"
+  }
+}
