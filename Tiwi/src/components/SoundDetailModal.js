@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import * as Clipboard from 'expo-clipboard';
 import ScreenHeader from './ScreenHeader';
+import { BASE_URL } from '../config/api';
 import { COLORS } from '../config/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -112,7 +113,7 @@ export default function SoundDetailModal({
   const handleShareSound = async () => {
     try {
       await Share.share({
-        message: `Listen to "${soundTitle}" by ${soundArtist} on Tiwi Shorts 🎵 https://tiwlo.com/sound/${encodeURIComponent(soundTitle)}`,
+        message: `Listen to "${soundTitle}" by ${soundArtist} on Tiwi Shorts 🎵 ${BASE_URL}/sound/${encodeURIComponent(soundTitle)}`,
       });
     } catch (e) {
       // Ignored

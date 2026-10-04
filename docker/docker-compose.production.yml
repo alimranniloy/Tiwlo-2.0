@@ -21,10 +21,11 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     restart: unless-stopped
+    env_file:
+      - ../.env
     environment:
       NODE_ENV: production
       PORT: 5000
-      PRIMARY_DOMAIN: ${PRIMARY_DOMAIN}
       DATABASE_URL: postgres://${POSTGRES_USER:-tiwlo}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-tiwlo_master}
       DB_HOST: postgres
       DB_PORT: 5432
@@ -42,7 +43,7 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     environment:
-      ACME_EMAIL: ${ACME_EMAIL}
+      ACME_EMAIL: ${VITE_SSL_EMAIL_LOCAL_PART:-support}@${VITE_PRIMARY_DOMAIN:-tiwlo.com}
     ports:
       - "80:80"
       - "443:443"

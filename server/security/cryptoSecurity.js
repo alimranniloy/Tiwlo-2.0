@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import '../config/loadRootEnv.js';
 
 // Secret key for HMAC signing.
 // In production, this is loaded from process.env.SECURITY_SECRET or a securely generated 256-bit key
@@ -308,7 +309,7 @@ export const InputSanitizer = {
 // ====================================================================
 // 6. CRYPTOGRAPHIC MOBILE SSO & ANTI-CLONE TRUST HANDSHAKE
 // ====================================================================
-export const TIWI_APP_TRUST_KEY = process.env.TIWI_APP_TRUST_KEY || 'tiwi_sec_trust_v1_9a8b7c6d5e4f3a2b1';
+export const TIWI_APP_TRUST_KEY = process.env.TIWI_APP_TRUST_KEY || '';
 
 // In-memory cache for one-time nonce burning and replay defense
 const activeSsoTickets = new Map();
@@ -381,7 +382,7 @@ export const SsoSecurity = {
     req = null
   }) {
     // 1. Verify App Trust Attestation
-    const isAppTrusted = appTrustToken === TIWI_APP_TRUST_KEY || appTrustToken === 'tiwi_mobile_client';
+    const isAppTrusted = Boolean(TIWI_APP_TRUST_KEY) && appTrustToken === TIWI_APP_TRUST_KEY;
 
     // 2. Generate secure single-use nonce
     const nonce = `sso_nonce_${crypto.randomBytes(24).toString('hex')}`;

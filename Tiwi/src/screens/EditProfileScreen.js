@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
 import { TiwiAPI } from '../services/tiwiApi';
+import { API_BASE_URL } from '../config';
 import { LAYOUT, getActiveTopBarTheme } from '../config/layout';
 import SharedDrawer from '../components/SharedDrawer';
 import { COLORS } from '../config/colors';
@@ -846,7 +847,7 @@ export default function EditProfileScreen({ onNavigate }) {
           style={[styles.dialogInput, { color: textPrimary, backgroundColor: isDarkMode ? COLORS.hex_282A2C : COLORS.inputBackground }]}
           value={website}
           onChangeText={setWebsite}
-          placeholder="https://tiwlo.com"
+          placeholder={API_BASE_URL}
           placeholderTextColor={theme.textMuted}
           autoCapitalize="none"
         />

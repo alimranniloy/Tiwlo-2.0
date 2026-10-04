@@ -17,7 +17,6 @@ import {
   sendPasswordResetOtpEmail,
   sendLoginActivityAlertEmail,
   getEmailConfig,
-  updateEmailConfig,
   getOutboxList,
   verifySmtpConnection,
   sendTiwloEmail
@@ -26,6 +25,7 @@ import { renderBaseEmail } from '../email/index.js';
 import { logActivity } from '../db/storeDataAdapter.js';
 import { requireAdmin } from '../administrator/adminRoutes.js';
 import { SocialDB } from '../social/socialDb.js';
+import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 
 const router = express.Router();
 const passwordResetGrants = new Map();
@@ -47,7 +47,10 @@ const PLAN_CATALOG = {
 
 function getSessionCookieOptions(req) {
   const host = (req?.headers?.host || req?.hostname || '').toLowerCase();
-  const isTiwloDomain = host === 'tiwlo.com' || host.endsWith('.tiwlo.com');
+  const hostname = host.replace(/:\d+$/, '');
+  const isTiwloDomain = [PLATFORM_CONFIG.primaryDomain, PLATFORM_CONFIG.storeDomain].some(
+    domain => hostname === domain || hostname.endsWith(`.${domain}`)
+  );
   const isSecure = process.env.NODE_ENV === 'production' || req?.secure || req?.headers?.['x-forwarded-proto'] === 'https';
 
   return {
@@ -55,7 +58,7 @@ function getSessionCookieOptions(req) {
     secure: isSecure,
     sameSite: 'lax',
     path: '/',
-    ...(isTiwloDomain ? { domain: '.tiwlo.com' } : {})
+    ...(isTiwloDomain ? { domain: PLATFORM_CONFIG.cookieDomain } : {})
   };
 }
 
@@ -69,8 +72,8 @@ export function setSessionCookie(res, req, sessionToken) {
 
 export function clearSessionCookie(res, req) {
   const isSecure = process.env.NODE_ENV === 'production' || req?.secure || req?.headers?.['x-forwarded-proto'] === 'https';
-  res.clearCookie('tiwlo_session', { path: '/', domain: '.tiwlo.com', secure: isSecure, sameSite: 'lax' });
-  res.clearCookie('tiwlo_session', { path: '/', domain: 'tiwlo.com', secure: isSecure, sameSite: 'lax' });
+  res.clearCookie('tiwlo_session', { path: '/', domain: PLATFORM_CONFIG.cookieDomain, secure: isSecure, sameSite: 'lax' });
+  res.clearCookie('tiwlo_session', { path: '/', domain: PLATFORM_CONFIG.primaryDomain, secure: isSecure, sameSite: 'lax' });
   res.clearCookie('tiwlo_session', { path: '/', secure: isSecure, sameSite: 'lax' });
   res.clearCookie('tiwlo_session');
 }
@@ -347,8 +350,7 @@ router.post('/auth/register', async (req, res) => {
     }
 
     const cleanSlug = candidateHandle.toLowerCase().replace(/[^a-z0-9]/g, '') || 'store';
-    const platformDomain = String(process.env.PRIMARY_DOMAIN || 'tiwlo.com').trim().toLowerCase().replace(/^\*\./, '');
-    const subdomain = `${cleanSlug}.${platformDomain}`;
+    const subdomain = `${cleanSlug}.${PLATFORM_CONFIG.storeDomain}`;
     const selectedPlan = PLAN_CATALOG[planId] || PLAN_CATALOG.free;
     const securePassword = password || `sso_${authMethod}_${crypto.randomBytes(16).toString('hex')}`;
 
@@ -593,7 +595,7 @@ router.post('/auth/login', async (req, res) => {
           email: user.email,
           planId: user.planId || 'enterprise',
           planName: user.planName || 'Enterprise Super Admin',
-          subdomain: user.subdomain || 'admin.tiwlo.com',
+          subdomain: user.subdomain || `admin.${PLATFORM_CONFIG.storeDomain}`,
           billingDetails: user.billingDetails
         },
         message: `Welcome back, Super Admin ${user.name || 'Alimran Niloy'}!`
@@ -1256,15 +1258,6 @@ router.get('/admin/email-config', requireAdmin, async (req, res) => {
   }
 });
 
-router.put('/admin/email-config', requireAdmin, async (req, res) => {
-  try {
-    const updated = updateEmailConfig(req.body);
-    res.json({ success: true, config: updated, message: 'Email configuration updated successfully' });
-  } catch (e) {
-    res.status(500).json({ error: 'Failed to update email config' });
-  }
-});
-
 router.get('/admin/email-outbox', requireAdmin, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit || '100', 10);
@@ -1294,8 +1287,8 @@ router.post('/admin/email-test', requireAdmin, async (req, res) => {
         smtpConfig: {
           host: config.smtp?.host,
           port: config.smtp?.port,
-          user: config.smtp?.auth?.user,
-          provider: config.smtp?.provider
+          provider: config.smtp?.provider,
+          credentialsConfigured: Boolean(process.env.SMTP_USER && process.env.SMTP_PASS)
         },
         troubleshooting: 'Outbound port 25 is blocked by VPS provider. Please configure an authenticated SMTP relay on port 465 or 587.'
       });

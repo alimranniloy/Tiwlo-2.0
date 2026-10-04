@@ -16,6 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { TiwiAPI } from '../services/tiwiApi';
+import { API_BASE_URL } from '../config';
 import SharedDrawer from '../components/SharedDrawer';
 import { LAYOUT, getActiveTopBarTheme } from '../config/layout';
 import { COLORS } from '../config/colors';
@@ -735,7 +736,7 @@ export default function ProfileSettingsScreen({ onNavigate }) {
               currentUser?.isPro || currentUser?.planId === 'pro' ? 'Manage Membership' : 'Tiwi Pro Upgrade',
               currentUser?.isPro || currentUser?.planId === 'pro'
                 ? 'Your subscription is active.'
-                : 'Tiwi Pro subscriptions can be activated in the Billing & Subscriptions portal on tiwlo.com'
+                : `Tiwi Pro subscriptions can be activated in the Billing & Subscriptions portal on ${API_BASE_URL}`
             );
           }}
         >
@@ -992,7 +993,7 @@ export default function ProfileSettingsScreen({ onNavigate }) {
           <Text style={{ fontSize: 13, color: textSecondary, marginBottom: 8 }}>• How to edit your billing address and phone</Text>
           <Text style={{ fontSize: 13, color: textSecondary, marginBottom: 8 }}>• How 2-step verification keeps your account safe</Text>
           <Text style={{ fontSize: 13, color: textSecondary, marginBottom: 8 }}>• Changing profile picture, handle, or bio</Text>
-          <Text style={{ fontSize: 13, color: textSecondary, marginBottom: 8 }}>• Contact Tiwi Support: support@tiwlo.com</Text>
+          <Text style={{ fontSize: 13, color: textSecondary, marginBottom: 8 }}>• Contact Tiwi Support: support@{API_BASE_URL.replace(/^https?:\/\//, '').split('/')[0]}</Text>
         </View>
 
         <TouchableOpacity

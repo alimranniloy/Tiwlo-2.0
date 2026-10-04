@@ -1,4 +1,5 @@
 import React from 'react';
+import { PLATFORM_DOMAIN } from '../config/platformConfig';
 import {
   ShoppingBag,
   UserPlus,
@@ -23,7 +24,7 @@ export default function RecentActivities({ activities, onViewAll }) {
     { id: '2', title: 'New customer registered', target: 'user@example.com', timeAgo: '12m ago', icon: 'user-plus' },
     { id: '3', title: 'Server deployed', target: 'web-2 (Ubuntu 22.04)', timeAgo: '18m ago', icon: 'server' },
     { id: '4', title: 'Coupon created', target: 'SAVE20 - 20% off', timeAgo: '32m ago', icon: 'tag' },
-    { id: '5', title: 'Domain registered', target: 'tiwlo.com', timeAgo: '1h ago', icon: 'globe' },
+    { id: '5', title: 'Domain registered', target: PLATFORM_DOMAIN, timeAgo: '1h ago', icon: 'globe' },
     { id: '6', title: 'Refund processed', target: 'Order #TWL-1037', timeAgo: '2h ago', icon: 'refresh-cw' }
   ];
 

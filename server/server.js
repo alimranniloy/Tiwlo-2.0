@@ -1,3 +1,4 @@
+import './config/loadRootEnv.js';
 import express from 'express';
 import cors from 'cors';
 import fs from 'fs';
@@ -8,6 +9,7 @@ import http from 'http';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
+import { PLATFORM_CONFIG, getSubdomain } from './config/platformConfig.js';
 
 import { ensureCertificates } from './scripts/generate-cert.js';
 import { testPgConnection } from './db/postgres.js';
@@ -88,16 +90,16 @@ app.use('/api', apiLimiter);
 app.use(cookieParser());
 
 const allowedOrigins = [
-  'https://tiwlo.com',
-  'https://www.tiwlo.com',
-  'https://auth.tiwlo.com',
-  'https://tpanel.tiwlo.com',
+  `https://${PLATFORM_CONFIG.primaryDomain}`,
+  `https://${getSubdomain(PLATFORM_CONFIG.wwwSubdomain)}`,
+  `https://${getSubdomain(PLATFORM_CONFIG.authSubdomain)}`,
+  `https://${getSubdomain(PLATFORM_CONFIG.tpanelSubdomain)}`,
   'http://localhost:5173',
   'http://localhost:3000',
   'http://localhost:5000',
-  'http://auth.localhost:5173',
-  'http://auth.localhost:3000',
-  'http://auth.localhost:5000',
+  `http://${PLATFORM_CONFIG.authSubdomain}.localhost:5173`,
+  `http://${PLATFORM_CONFIG.authSubdomain}.localhost:3000`,
+  `http://${PLATFORM_CONFIG.authSubdomain}.localhost:5000`,
   'http://127.0.0.1:5173',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:5000'
@@ -107,8 +109,15 @@ app.use(cors({
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
-    if (/^https?:\/\/([a-zA-Z0-9-]+\.)*tiwlo\.(com|shop)(:\d+)?$/.test(origin)) {
-      return callback(null, true);
+    try {
+      const hostname = new URL(origin).hostname.toLowerCase();
+      if ([PLATFORM_CONFIG.primaryDomain, PLATFORM_CONFIG.storeDomain].some(
+        domain => hostname === domain || hostname.endsWith(`.${domain}`)
+      )) {
+        return callback(null, true);
+      }
+    } catch (error) {
+      return callback(error);
     }
     if (/^https?:\/\/([a-zA-Z0-9-]+\.)*(localhost|127\.0\.0\.1|10\.0\.2\.2)(:\d+)?$/.test(origin)) {
       return callback(null, true);

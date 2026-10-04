@@ -28,7 +28,7 @@ export default function ReferralRewardsScreen({ onNavigate }) {
   const [refreshing, setRefreshing] = useState(false);
 
   const refCode = currentUser?.tiwiId || `TIW-${String(currentUser?.id || '8192').padStart(5, '0')}`;
-  const referralLink = `https://tiwlo.com/join?ref=${refCode}`;
+  const referralLink = `${API_BASE_URL}/join?ref=${refCode}`;
 
   const fetchReferralData = useCallback(async () => {
     try {

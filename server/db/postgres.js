@@ -61,6 +61,12 @@ export async function initPgSchema() {
       CREATE INDEX IF NOT EXISTS idx_users_email ON system_users(email);
       CREATE INDEX IF NOT EXISTS idx_users_tiwi_id ON system_users(tiwi_id);
 
+      CREATE TABLE IF NOT EXISTS system_settings (
+        setting_key VARCHAR(64) PRIMARY KEY,
+        settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
       -- Keep standalone initialization compatible with docker/init-db.sql and
       -- the fields used by MasterDB. ADD COLUMN is safe for existing installs.
       ALTER TABLE system_users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);

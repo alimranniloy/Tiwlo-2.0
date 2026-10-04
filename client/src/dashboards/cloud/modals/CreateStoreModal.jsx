@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Store, Sparkles, MapPin, Building, Globe, Phone, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
+import { getStoreHostname, STORE_DOMAIN } from '../../../config/platformConfig';
 
 export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
   const [storeName, setStoreName] = useState('');
@@ -22,7 +23,7 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
   const handleNameChange = (val) => {
     setStoreName(val);
     const slug = val.toLowerCase().replace(/[^a-z0-9]/g, '');
-    setSubdomain(slug ? `${slug}.tiwlo.com` : '');
+    setSubdomain(slug ? getStoreHostname(slug) : '');
   };
 
   const handleSubmit = async (e) => {
@@ -121,7 +122,7 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="fashionhub.tiwlo.com"
+                    placeholder={`fashionhub.${STORE_DOMAIN}`}
                     value={subdomain}
                     onChange={(e) => setSubdomain(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50/60 dark:bg-gray-800/60 text-slate-900 dark:text-white text-xs font-mono focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition"

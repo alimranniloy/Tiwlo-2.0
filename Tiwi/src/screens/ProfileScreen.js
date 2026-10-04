@@ -20,6 +20,7 @@ import { LinearGradient } from '../components/SafeLinearGradient';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
 import { TiwiAPI } from '../services/tiwiApi';
+import { BASE_URL } from '../config/api';
 import PostCard from '../components/PostCard';
 import { ProfileSkeleton, PostSkeleton } from '../components/SkeletonLoader';
 import CommentsModal from '../components/CommentsModal';
@@ -241,7 +242,7 @@ export default function ProfileScreen({ onNavigate, user: propUser }) {
     try {
       const handleName = displayUser?.handle || '@tiwlo_user';
       await Share.share({
-        message: `Connect with ${displayUser?.name || 'User'} (${handleName}) on Tiwi: https://tiwlo.com/${handleName.replace('@', '')}`,
+        message: `Connect with ${displayUser?.name || 'User'} (${handleName}) on Tiwi: ${BASE_URL}/${handleName.replace('@', '')}`,
       });
     } catch (err) {
       console.error('Share error:', err);

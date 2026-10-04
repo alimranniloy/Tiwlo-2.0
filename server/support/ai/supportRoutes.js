@@ -11,6 +11,7 @@ import { RestoreSessions } from '../../db/restoreSessions.js';
 
 import { SupportDB } from '../../db/supportDb.js';
 import { MasterDB } from '../../db/multiTenant.js';
+import { PLATFORM_CONFIG } from '../../config/platformConfig.js';
 
 const router = express.Router();
 
@@ -509,7 +510,7 @@ router.post('/appeal-chat', async (req, res) => {
     }
 
     // Extract email from message if not provided
-    if (!email || email === 'user@tiwlo.com' || !email.trim()) {
+    if (!email || email === `user@${PLATFORM_CONFIG.primaryDomain}` || !email.trim()) {
       const emailMatch = message.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
       if (emailMatch) {
         email = emailMatch[0];

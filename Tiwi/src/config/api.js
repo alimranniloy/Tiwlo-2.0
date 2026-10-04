@@ -1,20 +1,10 @@
 /**
  * Tiwi Social Media App - API Configuration
- * Connects seamlessly to Tiwlo Live Production Server (https://tiwlo.com)
- * or local development server.
+ * Connects to the configured Tiwlo API server.
  */
 
-import { Platform } from 'react-native';
-
-// Default Production Host
-export const LIVE_PRODUCTION_URL = 'https://tiwlo.com';
-
-// Local Development Fallbacks
-const LOCAL_HOST = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
-
-// Current active base URL: defaults to LIVE_PRODUCTION_URL, allows local dev switch via env var
-const USE_LOCAL_SERVER = process.env.EXPO_PUBLIC_USE_LOCAL === 'true';
-export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || (USE_LOCAL_SERVER ? LOCAL_HOST : LIVE_PRODUCTION_URL);
+const configuredBaseUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
+export const BASE_URL = (configuredBaseUrl || 'https://tiwlo.com').replace(/\/+$/, '');
 export const API_BASE_URL = BASE_URL;
 
 // The session token is kept in memory by the API layer and restored by

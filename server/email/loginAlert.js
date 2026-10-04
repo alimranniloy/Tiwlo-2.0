@@ -1,4 +1,5 @@
 import { renderBaseEmail } from './baseTemplate.js';
+import { getPlatformUrl } from '../config/platformConfig.js';
 
 /**
  * Login Activity Alert Email Template
@@ -16,7 +17,7 @@ export function renderLoginAlertEmail({
   userAgent = 'Web Browser',
   location = 'Dhaka, Bangladesh',
   timestamp = null,
-  actionUrl = 'https://tiwlo.com'
+  actionUrl = getPlatformUrl()
 }) {
   const formattedTime = timestamp || new Date().toUTCString();
   const deviceDisplay = userAgent && userAgent.length > 55 ? userAgent.slice(0, 55) + '...' : (userAgent || 'Desktop Web Browser');

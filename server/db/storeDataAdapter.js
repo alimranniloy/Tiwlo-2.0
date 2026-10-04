@@ -14,7 +14,6 @@ export const SALES_FILE = 'sales.json';
 export const CUSTOMERS_FILE = 'customers.json';
 export const SUPPLIERS_FILE = 'suppliers.json';
 export const ADJUSTMENTS_FILE = 'inventory_adjustments.json';
-export const SETTINGS_FILE = 'system_settings.json';
 export const STORE_SETTINGS_FILE = 'store_settings.json';
 export const SUBSCRIPTION_FILE = 'subscription.json';
 export const ACTIVITIES_FILE = 'activities.json';
@@ -41,8 +40,6 @@ export function readData(filePath, defaultVal = [], tiwiId = null) {
 
   if (base === 'users.json') return master.users || defaultVal;
   if (base === 'sessions.json') return master.sessions || defaultVal;
-  if (base === 'system_settings.json') return master.system_settings || defaultVal;
-
   if (!targetTiwiId) return defaultVal;
 
   const store = TenantDB.getStoreDb(targetTiwiId);
@@ -77,12 +74,6 @@ export function writeData(filePath, data, tiwiId = null) {
     MasterDB.saveMasterData(master);
     return;
   }
-  if (base === 'system_settings.json') {
-    master.system_settings = data;
-    MasterDB.saveMasterData(master);
-    return;
-  }
-
   if (!store) return;
 
   if (base === 'products.json') store.products = data;

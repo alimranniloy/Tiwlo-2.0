@@ -1,10 +1,11 @@
 import { renderBaseEmail } from './baseTemplate.js';
+import { getPlatformUrl } from '../config/platformConfig.js';
 
 /**
  * Account Disabled Security Notice Email Template (1000% Google Standard)
  */
 export function renderAccountDisabledEmail({ to, name, reason, restoreUrl }) {
-  const targetUrl = restoreUrl || 'https://tiwlo.com/account-disabled';
+  const targetUrl = restoreUrl || getPlatformUrl('account-disabled');
 
   const contentHtml = `
     <h1 style="margin: 0 0 16px 0; font-size: 24px; font-weight: 400; line-height: 32px; color: #202124; text-align: center; font-family: 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;">

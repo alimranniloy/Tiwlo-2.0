@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getAuthUrl } from '../../utils/navigation';
+import { ADMIN_EMAIL, DNS_TTL, SERVER_IPV4, STORE_DOMAIN } from '../../config/platformConfig';
 import {
   LayoutDashboard,
   Globe,
@@ -57,6 +58,9 @@ import {
   Eye,
   ArrowUpRight
 } from 'lucide-react';
+
+const STORE_HOST = `store.${STORE_DOMAIN}`;
+const STORE_ROOT = `/public_html/${STORE_HOST}`;
 
 // Google Cloud Inspired Brand Logo for TPanel
 export function TPanelBrandLogo({ className = "w-7 h-7" }) {
@@ -142,10 +146,10 @@ export default function TPanelDashboard({ currentUser, onLogout }) {
   const [siteForm, setSiteForm] = useState({ domain: '', cms: 'Static HTML', phpVersion: 'PHP 8.2' });
   const [domainForm, setDomainForm] = useState({ domain: '' });
   const [dbForm, setDbForm] = useState({ name: '', engine: 'MySQL 8.0', user: '', password: '', charset: 'utf8mb4_unicode_ci' });
-  const [emailForm, setEmailForm] = useState({ mailbox: '', domain: 'store.tiwlo.com', quota: '1024 MB' });
-  const [ftpForm, setFtpForm] = useState({ username: '', homeDir: '/public_html/store.tiwlo.com' });
-  const [ruleForm, setRuleForm] = useState({ name: '', port: 8080, protocol: 'TCP', targetSite: 'store.tiwlo.com', source: '0.0.0.0/0', action: 'ALLOW' });
-  const [appForm, setAppForm] = useState({ domain: 'store.tiwlo.com', adminUser: 'admin', adminPass: 'Secret_WP_2026!', adminEmail: 'admin@store.tiwlo.com' });
+  const [emailForm, setEmailForm] = useState({ mailbox: '', domain: STORE_HOST, quota: '1024 MB' });
+  const [ftpForm, setFtpForm] = useState({ username: '', homeDir: STORE_ROOT });
+  const [ruleForm, setRuleForm] = useState({ name: '', port: 8080, protocol: 'TCP', targetSite: STORE_HOST, source: '0.0.0.0/0', action: 'ALLOW' });
+  const [appForm, setAppForm] = useState({ domain: STORE_HOST, adminUser: 'admin', adminPass: '', adminEmail: ADMIN_EMAIL });
   const [settingsForm, setSettingsForm] = useState({ phpVersion: '8.2', nodeVersion: '20', maxUploadSize: '100M', memoryLimit: '512M', maxExecutionTime: '300' });
 
   // Sync Sub-Route URL with browser history
@@ -531,8 +535,8 @@ export default function TPanelDashboard({ currentUser, onLogout }) {
     panelUser: 'alimran',
     serverStatus: {
       serverName: 'tpanel-server-01',
-      hostname: 'store.tiwlo.com',
-      ip: '162.35.124.233',
+      hostname: STORE_HOST,
+      ip: SERVER_IPV4,
       status: 'RUNNING',
       uptime: '99.99%',
       cpuPercent: 8,
@@ -545,28 +549,28 @@ export default function TPanelDashboard({ currentUser, onLogout }) {
       loadAvg: '0.12, 0.08, 0.05'
     },
     websites: [
-      { id: 'site-store-01', domain: 'store.tiwlo.com', cms: 'WordPress 6.6', documentRoot: '/public_html/store.tiwlo.com', storage: '142 MB', status: 'ACTIVE', ssl: true, sslExpiry: 'Dec 28, 2026', phpVersion: 'PHP 8.2', port: 443 }
+      { id: 'site-store-01', domain: STORE_HOST, cms: 'WordPress 6.6', documentRoot: STORE_ROOT, storage: '142 MB', status: 'ACTIVE', ssl: true, sslExpiry: 'Dec 28, 2026', phpVersion: 'PHP 8.2', port: 443 }
     ],
     domains: [
-      { id: 'dom-1', domain: 'store.tiwlo.com', targetType: 'Primary Website', targetName: 'store.tiwlo.com', ip: '162.35.124.233', sslStatus: 'ACTIVE', isPrimary: true }
+      { id: 'dom-1', domain: STORE_HOST, targetType: 'Primary Website', targetName: STORE_HOST, ip: SERVER_IPV4, sslStatus: 'ACTIVE', isPrimary: true }
     ],
     databases: [
       { id: 'db-mysql-01', name: 'alimran_store_db', engine: 'MySQL 8.0', user: 'alimran_store_user', host: '127.0.0.1:3306', charset: 'utf8mb4_unicode_ci', size: '14.2 MB', tablesCount: 28 },
       { id: 'db-pg-01', name: 'alimran_analytics_pg', engine: 'PostgreSQL 16', user: 'alimran_pg_user', host: '127.0.0.1:5432', charset: 'UTF8', size: '28.6 MB', tablesCount: 16 }
     ],
     sslCertificates: [
-      { id: 'ssl-store-01', domain: 'store.tiwlo.com', issuer: "Let's Encrypt Authority X3", validFrom: 'Sep 28, 2026', validUntil: 'Dec 28, 2026', daysRemaining: 89, autoRenew: true, status: 'ACTIVE', tlsVersion: 'TLS 1.3 / HTTP/2' }
+      { id: 'ssl-store-01', domain: STORE_HOST, issuer: "Let's Encrypt Authority X3", validFrom: 'Sep 28, 2026', validUntil: 'Dec 28, 2026', daysRemaining: 89, autoRenew: true, status: 'ACTIVE', tlsVersion: 'TLS 1.3 / HTTP/2' }
     ],
     emails: [
-      { id: 'email-1', address: 'support@store.tiwlo.com', mailbox: 'support', domain: 'store.tiwlo.com', quota: '1024 MB', used: '18 MB', status: 'ACTIVE' },
-      { id: 'email-2', address: 'admin@store.tiwlo.com', mailbox: 'admin', domain: 'store.tiwlo.com', quota: '2048 MB', used: '4.5 MB', status: 'ACTIVE' }
+      { id: 'email-1', address: `support@${STORE_HOST}`, mailbox: 'support', domain: STORE_HOST, quota: '1024 MB', used: '18 MB', status: 'ACTIVE' },
+      { id: 'email-2', address: `admin@${STORE_HOST}`, mailbox: 'admin', domain: STORE_HOST, quota: '2048 MB', used: '4.5 MB', status: 'ACTIVE' }
     ],
     ftpAccounts: [
-      { id: 'ftp-1', username: 'alimran_deploy', homeDir: '/public_html/store.tiwlo.com', host: '162.35.124.233', port: 22022, protocol: 'SFTP / FTPS', status: 'ACTIVE' }
+      { id: 'ftp-1', username: 'alimran_deploy', homeDir: STORE_ROOT, host: SERVER_IPV4, port: 22022, protocol: 'SFTP / FTPS', status: 'ACTIVE' }
     ],
     securityRules: [
-      { id: 'sec-1', name: 'HTTP Web Traffic', port: 80, protocol: 'TCP', targetSite: 'store.tiwlo.com', source: '0.0.0.0/0', action: 'ALLOW', status: 'ENABLED' },
-      { id: 'sec-2', name: 'HTTPS Secure Traffic', port: 443, protocol: 'TCP', targetSite: 'store.tiwlo.com', source: '0.0.0.0/0', action: 'ALLOW', status: 'ENABLED' }
+      { id: 'sec-1', name: 'HTTP Web Traffic', port: 80, protocol: 'TCP', targetSite: STORE_HOST, source: '0.0.0.0/0', action: 'ALLOW', status: 'ENABLED' },
+      { id: 'sec-2', name: 'HTTPS Secure Traffic', port: 443, protocol: 'TCP', targetSite: STORE_HOST, source: '0.0.0.0/0', action: 'ALLOW', status: 'ENABLED' }
     ],
     settings: {
       phpVersion: '8.2',
@@ -663,7 +667,7 @@ export default function TPanelDashboard({ currentUser, onLogout }) {
             >
               <Server className="w-3.5 h-3.5 text-blue-200" />
               <span className="font-semibold">{currentAcc.serverStatus?.serverName || 'tpanel-server-01'}</span>
-              <span className="text-[11px] text-blue-100 font-mono">({currentAcc.serverStatus?.ip || '162.35.124.233'})</span>
+              <span className="text-[11px] text-blue-100 font-mono">({currentAcc.serverStatus?.ip || SERVER_IPV4})</span>
               <ChevronDown className="w-3 h-3 text-white/70" />
             </button>
 
@@ -918,7 +922,7 @@ export default function TPanelDashboard({ currentUser, onLogout }) {
                     <Globe className="w-4 h-4 text-blue-500" />
                   </div>
                   <p className="text-2xl font-bold text-slate-900 dark:text-white">{currentAcc.websites?.length || 1}</p>
-                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium">● store.tiwlo.com (Live)</p>
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium">● {STORE_HOST} (Live)</p>
                 </div>
 
                 <div onClick={() => navigateToTab('databases')} className="p-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1A2234] hover:border-blue-500/50 transition cursor-pointer">
@@ -1194,7 +1198,7 @@ export default function TPanelDashboard({ currentUser, onLogout }) {
                           )}
                         </td>
                         <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">{d.targetType}</td>
-                        <td className="py-3.5 px-4 font-mono text-[11px] text-slate-500">A → 162.35.124.233 (TTL 300)</td>
+                        <td className="py-3.5 px-4 font-mono text-[11px] text-slate-500">A → {SERVER_IPV4} (TTL {DNS_TTL})</td>
                         <td className="py-3.5 px-4 font-mono text-[11px] text-slate-500">{d.ip}</td>
                         <td className="py-3.5 px-4">
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
@@ -1466,7 +1470,7 @@ export default function TPanelDashboard({ currentUser, onLogout }) {
 
                 <div className="flex items-center gap-2.5">
                   <button
-                    onClick={() => handleRenewSsl('store.tiwlo.com')}
+                    onClick={() => handleRenewSsl(STORE_HOST)}
                     disabled={actionLoading}
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#1A73E8] hover:bg-blue-700 text-white font-semibold text-xs shadow-xs transition cursor-pointer"
                   >
@@ -1568,7 +1572,7 @@ export default function TPanelDashboard({ currentUser, onLogout }) {
                       <tr key={sec.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                         <td className="py-2.5 px-4 font-semibold text-slate-900 dark:text-white">{sec.name}</td>
                         <td className="py-2.5 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">{sec.port}</td>
-                        <td className="py-2.5 px-4 font-medium text-slate-700 dark:text-slate-300">{sec.targetSite || 'store.tiwlo.com'}</td>
+                        <td className="py-2.5 px-4 font-medium text-slate-700 dark:text-slate-300">{sec.targetSite || STORE_HOST}</td>
                         <td className="py-2.5 px-4 font-mono text-[11px] text-slate-500">{sec.protocol}</td>
                         <td className="py-2.5 px-4 font-mono text-[11px] text-slate-500">{sec.source}</td>
                         <td className="py-2.5 px-4 font-bold text-emerald-600 dark:text-emerald-400">{sec.action}</td>
@@ -2219,7 +2223,7 @@ export default function TPanelDashboard({ currentUser, onLogout }) {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. blog.store.tiwlo.com"
+                  placeholder={`e.g. blog.${STORE_HOST}`}
                   value={siteForm.domain}
                   onChange={(e) => setSiteForm({ ...siteForm, domain: e.target.value })}
                   className="w-full px-3 py-2 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium"

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, StyleSheet, Pressable, Image, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import { BASE_URL } from '../config/api';
 import { COLORS } from '../config/colors';
 
 const videoStatusCache = new Map();
@@ -47,16 +48,16 @@ function normalizeVideoSource(sourceUri) {
   let source = sourceUri?.startsWith('http')
     ? sourceUri
     : sourceUri?.startsWith('/')
-    ? `https://tiwlo.com${sourceUri}`
+    ? `${BASE_URL}${sourceUri}`
     : sourceUri
-    ? `https://tiwlo.com/${sourceUri}`
+    ? `${BASE_URL}/${sourceUri}`
     : null;
 
   if (source) {
-    if (source.includes('tiwlo.com/upload/') && !source.includes('tiwlo.com/api/upload/')) {
-      source = source.replace('tiwlo.com/upload/', 'tiwlo.com/api/upload/');
-    } else if (source.includes('tiwlo.com/uploads/') && !source.includes('tiwlo.com/api/uploads/')) {
-      source = source.replace('tiwlo.com/uploads/', 'tiwlo.com/api/uploads/');
+    if (source.includes('/upload/') && !source.includes('/api/upload/')) {
+      source = source.replace('/upload/', '/api/upload/');
+    } else if (source.includes('/uploads/') && !source.includes('/api/uploads/')) {
+      source = source.replace('/uploads/', '/api/uploads/');
     }
   }
 
@@ -65,16 +66,16 @@ function normalizeVideoSource(sourceUri) {
 
 function normalizePosterSource(posterUri, videoSource) {
   let poster = posterUri
-    ? (posterUri.startsWith('http') ? posterUri : `https://tiwlo.com${posterUri.startsWith('/') ? '' : '/'}${posterUri}`)
+    ? (posterUri.startsWith('http') ? posterUri : `${BASE_URL}${posterUri.startsWith('/') ? '' : '/'}${posterUri}`)
     : videoSource && /\.(mp4|mov|webm|mkv|m4v)(\?|$)/i.test(videoSource)
     ? videoSource.replace(/\.(mp4|mov|webm|mkv|m4v)(\?|$)/i, '_poster.jpg$2')
     : null;
 
   if (poster) {
-    if (poster.includes('tiwlo.com/upload/') && !poster.includes('tiwlo.com/api/upload/')) {
-      poster = poster.replace('tiwlo.com/upload/', 'tiwlo.com/api/upload/');
-    } else if (poster.includes('tiwlo.com/uploads/') && !poster.includes('tiwlo.com/api/uploads/')) {
-      poster = poster.replace('tiwlo.com/uploads/', 'tiwlo.com/api/uploads/');
+    if (poster.includes('/upload/') && !poster.includes('/api/upload/')) {
+      poster = poster.replace('/upload/', '/api/upload/');
+    } else if (poster.includes('/uploads/') && !poster.includes('/api/uploads/')) {
+      poster = poster.replace('/uploads/', '/api/uploads/');
     }
   }
 

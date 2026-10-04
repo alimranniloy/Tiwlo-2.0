@@ -25,7 +25,7 @@ export default function ProfileQrScreen({ onNavigate }) {
   const username = currentUser?.username || 'user';
   const displayName = currentUser?.name || currentUser?.full_name || username;
   const tiwiId = currentUser?.tiwi_id || `TIW-${String(currentUser?.id || '00000').padStart(5, '0')}`;
-  const profileUrl = `https://tiwlo.com/@${username}`;
+  const profileUrl = `${API_BASE_URL}/@${username}`;
   const avatar = currentUser?.avatar || currentUser?.avatar_url;
 
   const handleShare = async () => {

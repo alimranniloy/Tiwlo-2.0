@@ -17,6 +17,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import { BASE_URL } from '../config/api';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from './SafeLinearGradient';
 import { useAuth } from '../context/AuthContext';
@@ -306,7 +307,7 @@ function PostCardContent({ post, onCommentPress, onProfilePress, onDeletePost, o
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `${post.author?.name || 'User'} on Tiwi: "${currentCaption || ''}" https://tiwlo.com/post/${post.id}`,
+        message: `${post.author?.name || 'User'} on Tiwi: "${currentCaption || ''}" ${BASE_URL}/post/${post.id}`,
       });
     } catch (err) {
       // Ignored
@@ -891,7 +892,7 @@ function PostCardContent({ post, onCommentPress, onProfilePress, onDeletePost, o
               style={styles.menuActionItem}
               onPress={async () => {
                 setMenuVisible(false);
-                await Clipboard.setStringAsync(`https://tiwlo.com/post/${post.id}`);
+                await Clipboard.setStringAsync(`${BASE_URL}/post/${post.id}`);
                 Alert.alert('Link Copied', 'Direct post link copied to clipboard.');
               }}
               activeOpacity={0.7}
@@ -995,7 +996,7 @@ function PostCardContent({ post, onCommentPress, onProfilePress, onDeletePost, o
               style={styles.menuActionItem}
               onPress={async () => {
                 setMenuVisible(false);
-                await Clipboard.setStringAsync(`https://tiwlo.com/post/${post.id}`);
+                await Clipboard.setStringAsync(`${BASE_URL}/post/${post.id}`);
                 Alert.alert('Link Copied', 'Post link copied to clipboard.');
               }}
               activeOpacity={0.7}
@@ -1091,7 +1092,7 @@ function PostCardContent({ post, onCommentPress, onProfilePress, onDeletePost, o
           style={styles.menuActionItem}
           onPress={async () => {
             setShareDrawerVisible(false);
-            await Clipboard.setStringAsync(`https://tiwlo.com/post/${post.id}`);
+            await Clipboard.setStringAsync(`${BASE_URL}/post/${post.id}`);
             Alert.alert('Link Copied', 'Direct post link copied to clipboard.');
           }}
           activeOpacity={0.7}

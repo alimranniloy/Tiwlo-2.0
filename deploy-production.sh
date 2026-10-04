@@ -14,11 +14,18 @@ fi
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODE="${1:-native}"
 
+# Load the shared, non-secret platform settings. Systemd/PM2 environment values
+# take precedence over this file.
+if [[ -f "$ROOT_DIR/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  . "$ROOT_DIR/.env"
+  set +a
+fi
+
 # If explicitly running Docker mode
 if [[ "$MODE" == "--docker" || "$MODE" == "docker" ]]; then
   echo "=== Running Docker Deployment Mode ==="
-  PRIMARY_DOMAIN="${PRIMARY_DOMAIN:-tiwlo.com}"
-  ACME_EMAIL="${ACME_EMAIL:-admin@tiwlo.com}"
   ENV_FILE="$ROOT_DIR/docker/.env.production"
 
   if ! command -v docker >/dev/null 2>&1; then
@@ -31,8 +38,6 @@ if [[ "$MODE" == "--docker" || "$MODE" == "docker" ]]; then
     DB_PASSWORD="$(openssl rand -hex 32)"
     umask 077
     cat > "$ENV_FILE" <<EOF
-PRIMARY_DOMAIN=$PRIMARY_DOMAIN
-ACME_EMAIL=$ACME_EMAIL
 POSTGRES_USER=tiwlo
 POSTGRES_DB=tiwlo_master
 POSTGRES_PASSWORD=$DB_PASSWORD
@@ -40,8 +45,8 @@ EOF
   fi
 
   cd "$ROOT_DIR"
-  docker compose --env-file docker/.env.production -f docker/docker-compose.production.yml up -d --build --remove-orphans
-  docker compose --env-file docker/.env.production -f docker/docker-compose.production.yml ps
+  docker compose --env-file .env --env-file docker/.env.production -f docker/docker-compose.production.yml up -d --build --remove-orphans
+  docker compose --env-file .env --env-file docker/.env.production -f docker/docker-compose.production.yml ps
   exit 0
 fi
 
@@ -161,5 +166,5 @@ fi
 
 echo "=========================================================="
 echo "   DEPLOYMENT COMPLETED SUCCESSFULLY ON TIWLO LIVE SERVER!"
-echo "   Domain: https://tiwlo.com"
+echo "   Domain: https://${VITE_PRIMARY_DOMAIN:-tiwlo.com}"
 echo "=========================================================="

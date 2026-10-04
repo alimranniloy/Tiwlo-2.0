@@ -12,11 +12,12 @@ import {
   CUSTOMERS_FILE,
   SUPPLIERS_FILE,
   ADJUSTMENTS_FILE,
-  SETTINGS_FILE,
   ACTIVITIES_FILE
 } from '../db/storeDataAdapter.js';
 
 import { getFfmpegStatus } from '../security/videoProcessor.js';
+import { PLATFORM_CONFIG } from '../config/platformConfig.js';
+import { MasterDB } from '../db/multiTenant.js';
 
 const router = express.Router();
 
@@ -36,12 +37,14 @@ router.get('/ffmpeg-status', async (req, res) => {
 // deliberately stays before the authenticated system-route middleware.
 router.get('/tls/allow', (req, res) => {
   const requestedHost = String(req.query.domain || '').trim().toLowerCase().replace(/\.$/, '');
-  const primaryDomain = String(process.env.PRIMARY_DOMAIN || '').trim().toLowerCase().replace(/^\*\./, '');
+  const primaryDomain = PLATFORM_CONFIG.primaryDomain;
   if (!requestedHost || !primaryDomain) return res.sendStatus(403);
 
-  const isPrimaryDomain = requestedHost === primaryDomain;
-  const isSubdomain = requestedHost.endsWith(`.${primaryDomain}`);
-  return res.sendStatus(isPrimaryDomain || isSubdomain ? 200 : 403);
+  const allowedDomains = [primaryDomain, PLATFORM_CONFIG.storeDomain];
+  const isAllowedDomain = allowedDomains.some(
+    domain => requestedHost === domain || requestedHost.endsWith(`.${domain}`)
+  );
+  return res.sendStatus(isAllowedDomain ? 200 : 403);
 });
 
 router.use((req, res, next) => {
@@ -122,32 +125,39 @@ router.get('/stats', (req, res) => {
 });
 
 // System Settings
-router.get('/system/settings', (req, res) => {
-  const settings = readData(SETTINGS_FILE, {
-    companyName: 'Tiwlo Cloud Platform',
-    storeEmail: 'support@tiwlo.com',
-    phone: '+1 (800) 555-TIWLO',
-    currency: 'USD',
-    currencySymbol: '$',
-    taxRate: 8.0,
-    lowStockThreshold: 50,
-    enableLowStockAlerts: true,
-    warehouseName: 'Central Distribution Hub #1',
-    warehouseLocation: 'Sector 4, Dhaka Logistics Zone'
-  });
-  res.json(settings);
+const defaultSystemSettings = {
+  companyName: 'Tiwlo Cloud Platform',
+  storeEmail: PLATFORM_CONFIG.supportEmail,
+  currency: 'USD',
+  currencySymbol: '$',
+  taxRate: 0,
+  lowStockThreshold: 50,
+  enableLowStockAlerts: true
+};
+
+router.get('/system/settings', async (req, res) => {
+  try {
+    res.json(await MasterDB.getSystemSettings(defaultSystemSettings));
+  } catch (error) {
+    console.error('[SystemRoutes] Failed to read PostgreSQL settings:', error);
+    res.status(503).json({ error: 'System settings are unavailable because PostgreSQL could not be reached.' });
+  }
 });
 
-router.put('/system/settings', (req, res) => {
-  const current = readData(SETTINGS_FILE, {});
-  const updated = {
-    ...current,
-    ...req.body,
-    updatedAt: new Date().toISOString()
-  };
-  writeData(SETTINGS_FILE, updated);
-  logActivity('settings', 'System settings updated', `Settings saved by administrator`);
-  res.json(updated);
+router.put('/system/settings', requireAdmin, async (req, res) => {
+  try {
+    const current = await MasterDB.getSystemSettings(defaultSystemSettings);
+    const updated = {
+      ...current,
+      ...req.body,
+      updatedAt: new Date().toISOString()
+    };
+    res.json(await MasterDB.saveSystemSettings(updated));
+    logActivity('settings', 'System settings updated', 'Settings saved by administrator');
+  } catch (error) {
+    console.error('[SystemRoutes] Failed to save PostgreSQL settings:', error);
+    res.status(503).json({ error: 'System settings could not be saved because PostgreSQL is unavailable.' });
+  }
 });
 
 // System Info
@@ -187,22 +197,27 @@ router.get('/system/info', (req, res) => {
 });
 
 // System Backup (Admin Only)
-router.get('/system/backup', requireAdmin, (req, res) => {
-  const fullBackup = {
-    exportDate: new Date().toISOString(),
-    systemVersion: 'v3.2.0',
-    products: readData(PRODUCTS_FILE, []),
-    categories: readData(CATEGORIES_FILE, []),
-    subcategories: readData(SUBCATEGORIES_FILE, []),
-    purchases: readData(PURCHASES_FILE, []),
-    sales: readData(SALES_FILE, []),
-    customers: readData(CUSTOMERS_FILE, []),
-    suppliers: readData(SUPPLIERS_FILE, []),
-    adjustments: readData(ADJUSTMENTS_FILE, []),
-    settings: readData(SETTINGS_FILE, {}),
-    activities: readData(ACTIVITIES_FILE, [])
-  };
-  res.json(fullBackup);
+router.get('/system/backup', requireAdmin, async (req, res) => {
+  try {
+    const fullBackup = {
+      exportDate: new Date().toISOString(),
+      systemVersion: 'v3.2.0',
+      products: readData(PRODUCTS_FILE, []),
+      categories: readData(CATEGORIES_FILE, []),
+      subcategories: readData(SUBCATEGORIES_FILE, []),
+      purchases: readData(PURCHASES_FILE, []),
+      sales: readData(SALES_FILE, []),
+      customers: readData(CUSTOMERS_FILE, []),
+      suppliers: readData(SUPPLIERS_FILE, []),
+      adjustments: readData(ADJUSTMENTS_FILE, []),
+      settings: await MasterDB.getSystemSettings(defaultSystemSettings),
+      activities: readData(ACTIVITIES_FILE, [])
+    };
+    res.json(fullBackup);
+  } catch (error) {
+    console.error('[SystemRoutes] Failed to create backup:', error);
+    res.status(503).json({ error: 'Backup could not be created because PostgreSQL is unavailable.' });
+  }
 });
 
 // Activities Log

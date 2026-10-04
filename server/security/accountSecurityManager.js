@@ -12,6 +12,7 @@
 
 import { sendContentRemovedEmail, sendAccountDisabledEmail } from '../db/emailService.js';
 import { MasterDB } from '../db/multiTenant.js';
+import { getPlatformUrl } from '../config/platformConfig.js';
 
 let runtimeViolations = {};
 
@@ -199,7 +200,7 @@ export async function recordViolation({
           to: email,
           name,
           reason: `${policyName}: ${reason}`,
-          restoreUrl: 'https://tiwlo.com/account-disabled'
+          restoreUrl: getPlatformUrl('account-disabled')
         });
       } catch (err) {
         console.warn('[AccountSecurity] Could not send account disabled email:', err.message);
@@ -218,7 +219,7 @@ export async function recordViolation({
           contentType,
           policyName,
           reason: `${reason} (Warning 2 of 3: 24-hour publishing freeze applied). Next violation will result in permanent account termination.`,
-          appealUrl: 'https://tiwlo.com/help-support'
+          appealUrl: getPlatformUrl('help-support')
         });
       } catch (e) {}
     }
@@ -234,7 +235,7 @@ export async function recordViolation({
           contentType,
           policyName,
           reason,
-          appealUrl: 'https://tiwlo.com/help-support'
+          appealUrl: getPlatformUrl('help-support')
         });
       } catch (e) {}
     }

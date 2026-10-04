@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ADMIN_EMAIL } from '../../../config/platformConfig';
 import {
   ArrowLeft,
   Copy,
@@ -175,7 +176,7 @@ export default function CloudBillingView({
       const res = await createCloudBudget(userId, {
         name: newBudgetName.trim(),
         targetAmount: target,
-        alertEmail: currentUser?.email || 'admin@tiwlo.com'
+        alertEmail: currentUser?.email || ADMIN_EMAIL
       });
       if (res.budget) {
         setBudgetsList((prev) => [...prev, res.budget]);
@@ -1355,7 +1356,7 @@ export default function CloudBillingView({
               <div>
                 <span className="text-[11px] font-semibold text-[#5F6368] dark:text-[#9AA0A6] uppercase tracking-wider">Billed To</span>
                 <p className="font-semibold text-[#202124] dark:text-[#F1F3F4] mt-0.5">{currentUser?.name || currentUser?.storeName || 'Tiwlo Store'}</p>
-                <p className="text-[#5F6368] dark:text-[#9AA0A6] font-mono">{currentUser?.email || 'admin@tiwlo.com'}</p>
+                <p className="text-[#5F6368] dark:text-[#9AA0A6] font-mono">{currentUser?.email || ADMIN_EMAIL}</p>
               </div>
               <div>
                 <span className="text-[11px] font-semibold text-[#5F6368] dark:text-[#9AA0A6] uppercase tracking-wider">Account ID</span>

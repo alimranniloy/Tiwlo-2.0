@@ -1,11 +1,4 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const CONFIG_FILE = path.join(__dirname, '../config/runtime-config.json');
 
 /**
  * TPanel Runtime Checker & Auto-Installer
@@ -14,7 +7,6 @@ const CONFIG_FILE = path.join(__dirname, '../config/runtime-config.json');
 export async function verifyAndSetupTPanelRuntimes() {
   console.log('🚀 [TPanel Service] Checking runtime prerequisites for TPanel...');
 
-  const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
   const results = {
     databases: {},
     runtimes: {},
@@ -37,8 +29,8 @@ export async function verifyAndSetupTPanelRuntimes() {
     console.log(`✅ Python detected: ${pyVer}`);
     results.runtimes['Python'] = { available: true, version: pyVer };
   } catch (e) {
-    console.log('ℹ️ Python runtime available via system sandbox.');
-    results.runtimes['Python'] = { available: true, version: '3.11.x (Bundled)' };
+    console.log('⚠️ Python runtime not detected.');
+    results.runtimes['Python'] = { available: false };
   }
 
   // 3. Check PHP
@@ -47,32 +39,22 @@ export async function verifyAndSetupTPanelRuntimes() {
     console.log(`✅ PHP detected: ${phpVer}`);
     results.runtimes['PHP'] = { available: true, version: phpVer };
   } catch (e) {
-    console.log('ℹ️ PHP engine available via FastCGI / FPM proxy.');
-    results.runtimes['PHP'] = { available: true, version: '8.2 FPM (FastCGI)' };
+    console.log('⚠️ PHP runtime not detected.');
+    results.runtimes['PHP'] = { available: false };
   }
 
   // 4. Check PostgreSQL
   try {
+    const pgStatus = execSync('pg_isready', { encoding: 'utf-8' }).trim();
     results.databases['PostgreSQL'] = {
       available: true,
-      version: '16.x',
-      status: 'active'
+      status: 'accepting_connections',
+      details: pgStatus
     };
-    console.log('✅ PostgreSQL engine configured.');
+    console.log(`✅ PostgreSQL is accepting connections: ${pgStatus}`);
   } catch (e) {
-    results.databases['PostgreSQL'] = { available: false };
-  }
-
-  // 5. Check MySQL
-  try {
-    results.databases['MySQL'] = {
-      available: true,
-      version: '8.0.x',
-      status: 'active'
-    };
-    console.log('✅ MySQL database engine configured.');
-  } catch (e) {
-    results.databases['MySQL'] = { available: false };
+    console.warn('⚠️ PostgreSQL is not accepting connections:', e.message);
+    results.databases['PostgreSQL'] = { available: false, status: 'unavailable' };
   }
 
   console.log('🎉 [TPanel Service] All runtime requirements verified and operational!');

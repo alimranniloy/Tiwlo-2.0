@@ -1,4 +1,5 @@
 import { renderBaseEmail } from './baseTemplate.js';
+import { getPlatformUrl } from '../config/platformConfig.js';
 
 /**
  * Content Removed Due to Policy Violation Email Template (1000% Google Standard)
@@ -9,7 +10,7 @@ export function renderContentRemovedEmail({
   contentType = 'photo',
   policyName = 'Community Standards',
   reason,
-  appealUrl = 'https://tiwlo.com/help-support'
+  appealUrl = getPlatformUrl('help-support')
 }) {
   const recipientName = name || (to ? to.split('@')[0] : 'Member');
 

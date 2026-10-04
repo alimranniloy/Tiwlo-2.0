@@ -28,6 +28,12 @@ CREATE TABLE IF NOT EXISTS system_users (
 CREATE INDEX IF NOT EXISTS idx_users_email ON system_users(email);
 CREATE INDEX IF NOT EXISTS idx_users_tiwi_id ON system_users(tiwi_id);
 
+CREATE TABLE IF NOT EXISTS system_settings (
+    setting_key VARCHAR(64) PRIMARY KEY,
+    settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS system_sessions (
     session_token VARCHAR(128) PRIMARY KEY,
     user_id VARCHAR(64) REFERENCES system_users(id) ON DELETE CASCADE,

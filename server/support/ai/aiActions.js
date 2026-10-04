@@ -1,6 +1,7 @@
 import { CloudDB } from '../../db/cloud.js';
 import { MasterDB } from '../../db/multiTenant.js';
 import { SupportDB } from '../../db/supportDb.js';
+import { getPlatformUrl } from '../../config/platformConfig.js';
 import {
   generateSecureOtp,
   sendTwoFactorOtpEmail,
@@ -246,7 +247,7 @@ export const AiActionsEngine = {
         otpCode,
         email: cleanEmail,
         deliveryStatus: sendResult.status,
-        message: `A password reset code (${otpCode}) and security link have been sent to ${cleanEmail}. You can reset your password securely on https://tiwlo.com/login?reset=true.`
+        message: `A password reset code (${otpCode}) and security link have been sent to ${cleanEmail}. You can reset your password securely on ${getPlatformUrl('login')}?reset=true.`
       };
     } catch (err) {
       console.error('[AiActionsEngine] Error sending password reset email:', err);

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { STORE_DOMAIN } from '../../config/platformConfig';
 import {
   ArrowLeft,
   Search,
@@ -44,7 +45,7 @@ export default function HelpCenterView({ initialQuery = '', onBack, onOpenInbox 
       snippet: 'Understand the multi-tenant architecture that ensures strict row-level isolation and zero cross-leakage.',
       content: `Every online store created in Tiwlo receives a unique tenant identifier (e.g. TIW-XXXXX):
 1. **Isolated Data Schema:** Products, inventory, transactions, customers, and orders are partitioned strictly by user ID and store ID.
-2. **Subdomain Routing:** Each store gets a distinct *.tiwlo.com or custom domain with automated SSL.
+2. **Subdomain Routing:** Each store gets a distinct *.${STORE_DOMAIN} or custom domain with automated SSL.
 3. **Database Security:** Cloud operations and POS transactions run through isolated GraphQL endpoints that verify authorization on every mutation.`
     },
     {

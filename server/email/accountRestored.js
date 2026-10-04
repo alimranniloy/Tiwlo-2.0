@@ -1,4 +1,5 @@
 import { renderBaseEmail } from './baseTemplate.js';
+import { getPlatformUrl } from '../config/platformConfig.js';
 
 /**
  * Account Restored Notice Email Template
@@ -10,7 +11,7 @@ import { renderBaseEmail } from './baseTemplate.js';
  * - Primary CTA: "Sign in to your account"
  */
 export function renderAccountRestoredEmail({ to, name, checkupUrl }) {
-  const targetUrl = checkupUrl || 'https://tiwlo.com/security-checkup';
+  const targetUrl = checkupUrl || getPlatformUrl('security-checkup');
 
   const contentHtml = `
     <h1 style="margin: 0 0 16px 0; font-size: 22px; font-weight: 500; line-height: 28px; color: #202124; text-align: center;">

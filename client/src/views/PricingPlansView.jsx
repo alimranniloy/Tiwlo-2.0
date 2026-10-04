@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { STORE_DOMAIN } from '../config/platformConfig';
 import {
   Sparkles,
   Check,
@@ -105,14 +106,14 @@ export default function PricingPlansView({
       productLimitLabel: '50 Products Quota',
       warehouseLimit: 1,
       warehouseLabel: '1 Warehouse Location',
-      domainLabel: 'Free Tiwlo Subdomain (*.tiwlo.com)',
+      domainLabel: `Free Tiwlo Subdomain (*.${STORE_DOMAIN})`,
       hasCustomDomain: false,
       buttonLabel: 'Current Plan',
       isPopular: false,
       isEnterprise: false,
       features: [
         'Up to 50 active products & SKUs',
-        'Free Tiwlo subdomain (yourstore.tiwlo.com)',
+        `Free Tiwlo subdomain (yourstore.${STORE_DOMAIN})`,
         '1 Warehouse inventory management',
         'Single POS register terminal',
         'Real-time barcode generation & scanning',
@@ -209,7 +210,7 @@ export default function PricingPlansView({
   const faqs = [
     {
       q: 'How does the Free Subdomain work?',
-      a: 'Every Tiwlo store on the Free Starter plan receives an instant SSL subdomain (such as yourstore.tiwlo.com). Your store is live immediately and accessible worldwide.'
+      a: `Every Tiwlo store on the Free Starter plan receives an instant SSL subdomain (such as yourstore.${STORE_DOMAIN}). Your store is live immediately and accessible worldwide.`
     },
     {
       q: 'What happens when I reach my product limit?',
@@ -463,9 +464,9 @@ export default function PricingPlansView({
               </tr>
               <tr>
                 <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">Storefront Subdomain</td>
-                <td className="py-3.5 px-4 text-emerald-600 dark:text-emerald-400 font-semibold">Free *.tiwlo.com</td>
-                <td className="py-3.5 px-4 text-emerald-600 dark:text-emerald-400 font-semibold">Free *.tiwlo.com</td>
-                <td className="py-3.5 px-4 text-emerald-600 dark:text-emerald-400 font-semibold">Free *.tiwlo.com</td>
+                <td className="py-3.5 px-4 text-emerald-600 dark:text-emerald-400 font-semibold">Free *.{STORE_DOMAIN}</td>
+                <td className="py-3.5 px-4 text-emerald-600 dark:text-emerald-400 font-semibold">Free *.{STORE_DOMAIN}</td>
+                <td className="py-3.5 px-4 text-emerald-600 dark:text-emerald-400 font-semibold">Free *.{STORE_DOMAIN}</td>
                 <td className="py-3.5 px-4 text-emerald-600 dark:text-emerald-400 font-semibold">White-label Subdomain</td>
               </tr>
               <tr>

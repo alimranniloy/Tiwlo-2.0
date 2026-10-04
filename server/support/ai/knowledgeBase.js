@@ -1,3 +1,5 @@
+import { PLATFORM_CONFIG } from '../../config/platformConfig.js';
+
 // ====================================================================
 // TIWLO SYSTEM KNOWLEDGE BASE (BRAIN 2: PLATFORM CORE ARCHITECTURE)
 // Comprehensive internal knowledge base for Tiwlo Cloud, Multi-Tenancy,
@@ -51,7 +53,7 @@ export const KnowledgeBaseBrain = {
       'All database queries in GraphQL and REST are enforced with WHERE tiwi_id = $tenant_id.',
       'Inventory ledgers, sales records, customer PII, and financial invoices are strictly partitioned.',
       'Cross-tenant data leakage is cryptographically prevented via session tokens and schema separation.',
-      'Each tenant can attach custom subdomains (*.tiwlo.com) or apex custom domains with automated Let’s Encrypt wildcard SSL.'
+      `Each tenant can attach custom subdomains (*.${PLATFORM_CONFIG.storeDomain}) or apex custom domains with automated Let’s Encrypt wildcard SSL.`
     ]
   },
 

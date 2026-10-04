@@ -10,11 +10,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { LAYOUT, getActiveTopBarTheme } from '../config/layout';
+import { BASE_URL } from '../config/api';
 import { COLORS } from '../config/colors';
 
 export default function AboutTiwiScreen({ onNavigate }) {
   const { theme, isDarkMode } = useAuth();
   const topTheme = getActiveTopBarTheme(isDarkMode);
+  const baseUrl = BASE_URL;
 
   const openUrl = (url) => {
     Linking.openURL(url).catch(() => {});
@@ -56,7 +58,7 @@ export default function AboutTiwiScreen({ onNavigate }) {
         <View style={[styles.card, { backgroundColor: theme.cardBg, borderColor: theme.borderLight }]}>
           <View style={styles.infoRow}>
             <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Connected Server</Text>
-            <Text style={[styles.infoVal, { color: theme.text }]}>https://tiwlo.com</Text>
+            <Text style={[styles.infoVal, { color: theme.text }]}>{baseUrl}</Text>
           </View>
 
           <View style={[styles.divider, { backgroundColor: theme.borderLight }]} />
@@ -87,7 +89,7 @@ export default function AboutTiwiScreen({ onNavigate }) {
           <TouchableOpacity
             style={styles.linkRow}
             activeOpacity={0.7}
-            onPress={() => openUrl('https://tiwlo.com/terms')}
+            onPress={() => openUrl(`${baseUrl}/terms`)}
           >
             <View style={styles.linkLeft}>
               <Ionicons name="document-text-outline" size={18} color={theme.accent || COLORS.hex_1D9BF0} style={{ marginRight: 12 }} />
@@ -101,7 +103,7 @@ export default function AboutTiwiScreen({ onNavigate }) {
           <TouchableOpacity
             style={styles.linkRow}
             activeOpacity={0.7}
-            onPress={() => openUrl('https://tiwlo.com/privacy')}
+            onPress={() => openUrl(`${baseUrl}/privacy`)}
           >
             <View style={styles.linkLeft}>
               <Ionicons name="shield-checkmark-outline" size={18} color={theme.accent || COLORS.hex_1D9BF0} style={{ marginRight: 12 }} />
@@ -115,7 +117,7 @@ export default function AboutTiwiScreen({ onNavigate }) {
           <TouchableOpacity
             style={styles.linkRow}
             activeOpacity={0.7}
-            onPress={() => openUrl('https://tiwlo.com/community-guidelines')}
+            onPress={() => openUrl(`${baseUrl}/community-guidelines`)}
           >
             <View style={styles.linkLeft}>
               <Ionicons name="people-outline" size={18} color={theme.accent || COLORS.hex_1D9BF0} style={{ marginRight: 12 }} />

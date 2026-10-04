@@ -1,4 +1,5 @@
 import React from 'react';
+import { PLATFORM_DOMAIN } from '../../config/platformConfig';
 import { ArrowRight, ShoppingBag, Star } from 'lucide-react';
 
 export default function EcommerceFeatureSection({ onNavigate }) {
@@ -45,7 +46,7 @@ export default function EcommerceFeatureSection({ onNavigate }) {
                 <div className="flex-1 flex justify-center">
                   <div className="px-4 py-1 rounded-full bg-white/[0.04] border border-white/5 text-[11px] text-slate-400 font-mono tracking-tight flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    <span>tiwlo.com/store</span>
+                    <span>{PLATFORM_DOMAIN}/store</span>
                   </div>
                 </div>
               </div>

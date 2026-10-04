@@ -24,6 +24,7 @@ import {
   checkAssetScope
 } from '../security/index.js';
 import { PaymentSecurity } from '../security/cryptoSecurity.js';
+import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1182,9 +1183,8 @@ router.get('/subscription', (req, res) => {
   const remainingQuota = Math.max(0, productLimit - currentProducts);
   const isLimitReached = currentProducts >= productLimit;
 
-  const platformDomain = String(process.env.PRIMARY_DOMAIN || 'tiwlo.com').trim().toLowerCase().replace(/^\*\./, '');
   const cleanStoreName = (storeSettings.storeName || req.activeUser?.storeName || 'store').toLowerCase().replace(/[^a-z0-9]/g, '');
-  const dynamicSubdomain = `${cleanStoreName || 'store'}.${platformDomain}`;
+  const dynamicSubdomain = `${cleanStoreName || 'store'}.${PLATFORM_CONFIG.storeDomain}`;
 
   res.json({
     ...sub,
@@ -1207,7 +1207,6 @@ router.post('/subscription/upgrade', (req, res) => {
 
     const currentSub = readData(SUBSCRIPTION_FILE, DEFAULT_SUBSCRIPTION);
     const storeSettings = readData(STORE_SETTINGS_FILE, {});
-    const platformDomain = String(process.env.PRIMARY_DOMAIN || 'tiwlo.com').trim().toLowerCase().replace(/^\*\./, '');
     const cleanStoreName = (storeSettings.storeName || req.activeUser?.storeName || 'store').toLowerCase().replace(/[^a-z0-9]/g, '');
 
     const updated = {
@@ -1219,7 +1218,7 @@ router.post('/subscription/upgrade', (req, res) => {
       productLimit: planInfo.productLimit,
       warehouseLimit: planInfo.warehouseLimit,
       hasCustomDomain: planInfo.hasCustomDomain,
-      subdomain: currentSub.subdomain || `${cleanStoreName || 'store'}.${platformDomain}`,
+      subdomain: currentSub.subdomain || `${cleanStoreName || 'store'}.${PLATFORM_CONFIG.storeDomain}`,
       updatedAt: new Date().toISOString()
     };
 

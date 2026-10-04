@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { MasterDB } from '../db/multiTenant.js';
 import { sendAccountDisabledEmail, sendAccountRestoredEmail } from '../db/emailService.js';
 import { RestoreSessions } from '../db/restoreSessions.js';
+import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -150,7 +151,7 @@ router.get('/overview', requireAdmin, async (req, res) => {
       { id: 'act-2', type: 'user', title: 'New customer registered', target: 'user@example.com', timeAgo: '12m ago', icon: 'user-plus', color: 'indigo' },
       { id: 'act-3', type: 'server', title: 'Server deployed', target: 'web-2 (Ubuntu 22.04)', timeAgo: '18m ago', icon: 'server', color: 'emerald' },
       { id: 'act-4', type: 'coupon', title: 'Coupon created', target: 'SAVE20 - 20% off', timeAgo: '32m ago', icon: 'tag', color: 'amber' },
-      { id: 'act-5', type: 'domain', title: 'Domain registered', target: 'tiwlo.com', timeAgo: '1h ago', icon: 'globe', color: 'sky' },
+      { id: 'act-5', type: 'domain', title: 'Domain registered', target: PLATFORM_CONFIG.primaryDomain, timeAgo: '1h ago', icon: 'globe', color: 'sky' },
       { id: 'act-6', type: 'refund', title: 'Refund processed', target: 'Order #TWL-1037', timeAgo: '2h ago', icon: 'refresh-cw', color: 'orange' }
     ];
 
@@ -261,7 +262,7 @@ router.get('/customers', requireAdmin, async (req, res) => {
         })),
         storeNames,
         primaryStoreName: userStores[0]?.storeName || u.storeName || 'Primary Store',
-        subdomain: userStores[0]?.subdomain || u.subdomain || 'shop.tiwlo.com',
+        subdomain: userStores[0]?.subdomain || u.subdomain || `shop.${PLATFORM_CONFIG.storeDomain}`,
         planName: u.planName || 'Free Starter',
         planId: u.planId || 'free',
         isBanned: !!u.isBanned,

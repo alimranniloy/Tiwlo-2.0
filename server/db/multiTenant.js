@@ -1,27 +1,19 @@
 import { getPgPool, isPgActive, queryPg } from './postgres.js';
 import { PasswordSecurity, SessionSecurity } from '../security/cryptoSecurity.js';
+import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 
 let masterRuntimeData = {
   users: [],
   sessions: [],
   stores: [],
-  subscriptions: [],
-  system_settings: {
-    serverPort: 5000,
-    httpsEnabled: true,
-    multiTenantEnabled: true,
-    version: '3.2.0-enterprise'
-  }
+  subscriptions: []
 };
 
 let tenantStoresRuntimeData = {};
 
-const getPlatformDomain = () => String(process.env.PRIMARY_DOMAIN || 'tiwlo.com')
-  .trim().toLowerCase().replace(/^\*\./, '');
-
 const makeStoreSubdomain = (name) => {
   const slug = String(name || 'store').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 30) || 'store';
-  return `${slug}.${getPlatformDomain()}`;
+  return `${slug}.${PLATFORM_CONFIG.storeDomain}`;
 };
 
 function readDbFile(filePath, defaultData) {
@@ -43,6 +35,33 @@ export const MasterDB = {
 
   saveMasterData(data) {
     masterRuntimeData = data;
+  },
+
+  async getSystemSettings(defaultSettings = {}) {
+    await queryPg(
+      `INSERT INTO system_settings (setting_key, settings)
+       VALUES ('platform', $1::jsonb)
+       ON CONFLICT (setting_key) DO NOTHING`,
+      [JSON.stringify(defaultSettings)]
+    );
+    const result = await queryPg(
+      "SELECT settings FROM system_settings WHERE setting_key = 'platform'"
+    );
+    if (!result.rows[0]) throw new Error('Platform settings row is missing');
+    return result.rows[0].settings;
+  },
+
+  async saveSystemSettings(settings) {
+    const result = await queryPg(
+      `INSERT INTO system_settings (setting_key, settings, updated_at)
+       VALUES ('platform', $1::jsonb, CURRENT_TIMESTAMP)
+       ON CONFLICT (setting_key) DO UPDATE
+       SET settings = EXCLUDED.settings, updated_at = CURRENT_TIMESTAMP
+       RETURNING settings`,
+      [JSON.stringify(settings)]
+    );
+    if (!result.rows[0]) throw new Error('Platform settings could not be saved');
+    return result.rows[0].settings;
   },
 
   // Users

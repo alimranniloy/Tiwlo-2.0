@@ -2,7 +2,7 @@
  * Tiwlo Enterprise Email & OTP Security Service
  * 
  * Manages:
- * - noreply@tiwlo.com SMTP SSL transmission
+ * - Configured no-reply SMTP delivery
  * - Two-Step Verification (2FA) OTP lifecycle
  * - Password reset codes & Signup verification
  * - Real-time Login Activity notifications
@@ -11,10 +11,8 @@
  */
 
 import nodemailer from 'nodemailer';
-import fs from 'fs';
-import path from 'path';
 import crypto from 'crypto';
-import { fileURLToPath } from 'url';
+import { PLATFORM_CONFIG, getPlatformUrl, getSubdomain } from '../config/platformConfig.js';
 
 import {
   renderBaseEmail,
@@ -28,57 +26,30 @@ import {
   renderContentRemovedEmail
 } from '../email/index.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Paths
-const CONFIG_PATH = path.join(__dirname, '../config/email_config.json');
-
-// Ensure parent directory exists
-const ensureDir = (filePath) => {
-  const dir = path.dirname(filePath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-};
-
-ensureDir(CONFIG_PATH);
-
-// Load or initialize Email Config
+// Runtime email configuration is derived from environment and platform config.
 export function getEmailConfig() {
-  try {
-    if (fs.existsSync(CONFIG_PATH)) {
-      return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
-    }
-  } catch (e) {
-    console.error('[EmailService] Error reading config:', e);
-  }
-
-  const defaultConfig = {
-    senderEmail: 'noreply@tiwlo.com',
-    senderName: 'Tiwlo',
-    replyTo: 'noreply@tiwlo.com',
+  return {
+    senderEmail: PLATFORM_CONFIG.noreplyEmail,
+    senderName: PLATFORM_CONFIG.emailSenderName,
+    replyTo: PLATFORM_CONFIG.noreplyEmail,
     accountType: 'system_noreply',
     storage: 'unlimited',
     inboundPolicy: 'reject_all_incoming',
     smtp: {
-      provider: 'local_postfix',
+      provider: process.env.SMTP_PROVIDER || 'local_postfix',
       host: process.env.SMTP_HOST || '127.0.0.1',
-      port: parseInt(process.env.SMTP_PORT || '25', 10),
-      secure: false,
+      port: Number.parseInt(process.env.SMTP_PORT || '25', 10),
+      secure: process.env.SMTP_SECURE === 'true',
       ignoreTLS: true,
-      auth: {
-        user: process.env.SMTP_USER || '',
-        pass: process.env.SMTP_PASS || ''
-      },
       tls: {
-        rejectUnauthorized: false
+        rejectUnauthorized: process.env.SMTP_TLS_REJECT_UNAUTHORIZED !== 'false'
       }
     },
     dnsRecords: {
-      mx: { host: 'mail.tiwlo.com', priority: 10 },
-      spf: 'v=spf1 mx ip4:162.35.124.233 ~all',
-      dmarc: 'v=DMARC1; p=quarantine; rua=mailto:security@tiwlo.com; pct=100; sp=quarantine'
+      mx: { host: getSubdomain(PLATFORM_CONFIG.mailSubdomain), priority: 10 },
+      spf: `v=spf1 mx ip4:${PLATFORM_CONFIG.serverIpv4} ${PLATFORM_CONFIG.dnsSpfPolicy}`,
+      dmarc: `v=DMARC1; p=${PLATFORM_CONFIG.dnsDmarcPolicy}; rua=mailto:${PLATFORM_CONFIG.securityEmail}; pct=100; sp=${PLATFORM_CONFIG.dnsDmarcPolicy}`,
+      dkimSelector: `${PLATFORM_CONFIG.dkimSelector}._domainkey.${PLATFORM_CONFIG.primaryDomain}`
     },
     antiSpam: {
       googleVerified: true,
@@ -91,23 +62,6 @@ export function getEmailConfig() {
     },
     updatedAt: new Date().toISOString()
   };
-
-  try {
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(defaultConfig, null, 2));
-  } catch (e) { }
-
-  return defaultConfig;
-}
-
-export function updateEmailConfig(updates) {
-  const current = getEmailConfig();
-  const merged = {
-    ...current,
-    ...updates,
-    updatedAt: new Date().toISOString()
-  };
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(merged, null, 2));
-  return merged;
 }
 
 // ==========================================
@@ -292,15 +246,16 @@ function buildHtmlEmail({ title, recipientEmail, mainMessage, otpCode, details, 
  */
 export function createTransporter(config = getEmailConfig()) {
   const smtp = config.smtp || {};
+  const provider = process.env.SMTP_PROVIDER || smtp.provider;
+  const host = process.env.SMTP_HOST || smtp.host;
+  const user = process.env.SMTP_USER || '';
+  const pass = process.env.SMTP_PASS || '';
 
   // If provider is gmail or host is smtp.gmail.com
-  if (smtp.provider === 'gmail' || (smtp.host && smtp.host.includes('gmail.com'))) {
+  if (provider === 'gmail' || (host && host.includes('gmail.com'))) {
     return nodemailer.createTransport({
       service: 'gmail',
-      auth: {
-        user: process.env.SMTP_USER || smtp.auth?.user,
-        pass: process.env.SMTP_PASS || smtp.auth?.pass
-      },
+      auth: { user, pass },
       connectionTimeout: 10000,
       greetingTimeout: 10000,
       socketTimeout: 15000
@@ -308,8 +263,9 @@ export function createTransporter(config = getEmailConfig()) {
   }
 
   // Local Postfix Loopback (127.0.0.1:25) - Standard for Linux VPS
-  const isLocal = !smtp.host || smtp.host === '127.0.0.1' || smtp.host === 'localhost' || smtp.provider === 'local_postfix';
-  const port = parseInt(process.env.SMTP_PORT || smtp.port || (isLocal ? '25' : '587'), 10);
+  const isLocal = !host || host === '127.0.0.1' || host === 'localhost' ||
+    (provider === 'local_postfix' && !process.env.SMTP_HOST);
+  const port = Number.parseInt(process.env.SMTP_PORT || smtp.port || (isLocal ? '25' : '587'), 10);
   const isPort25 = port === 25;
 
   if (isLocal) {
@@ -320,7 +276,7 @@ export function createTransporter(config = getEmailConfig()) {
       ignoreTLS: isPort25,
       tls: { rejectUnauthorized: false },
       // NEVER provide invalid auth on trusted local loopback port 25
-      ...(smtp.auth?.user && smtp.auth?.pass && !isPort25 ? { auth: { user: smtp.auth.user, pass: smtp.auth.pass } } : {}),
+      ...(user && pass && !isPort25 ? { auth: { user, pass } } : {}),
       connectionTimeout: 8000,
       greetingTimeout: 8000,
       socketTimeout: 12000
@@ -329,15 +285,10 @@ export function createTransporter(config = getEmailConfig()) {
 
   // Standard External SMTP / SSL / TLS Relay (Brevo, Resend, SendGrid, Custom)
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || smtp.host,
-    port: parseInt(process.env.SMTP_PORT || smtp.port || '587', 10),
+    host,
+    port: Number.parseInt(process.env.SMTP_PORT || smtp.port || '587', 10),
     secure: process.env.SMTP_SECURE !== undefined ? process.env.SMTP_SECURE === 'true' : (smtp.secure === true),
-    ...(smtp.auth?.user && smtp.auth?.pass ? {
-      auth: {
-        user: process.env.SMTP_USER || smtp.auth?.user,
-        pass: process.env.SMTP_PASS || smtp.auth?.pass
-      }
-    } : {}),
+    ...(user && pass ? { auth: { user, pass } } : {}),
     tls: smtp.tls || { rejectUnauthorized: false },
     connectionTimeout: 8000,
     greetingTimeout: 8000,
@@ -571,7 +522,7 @@ export async function sendAccountDisabledEmail({ to, name, reason, restoreUrl })
     to,
     subject: 'Your Tiwlo Account is disabled',
     html,
-    text: `Your Tiwlo Account has been disabled due to a policy violation: ${reason || 'Terms of Service violation'}. Visit ${restoreUrl || 'https://tiwlo.com/account-disabled'} to request a review.`,
+    text: `Your Tiwlo Account has been disabled due to a policy violation: ${reason || 'Terms of Service violation'}. Visit ${restoreUrl || getPlatformUrl('account-disabled')} to request a review.`,
     type: 'account_disabled',
     metadata: { recipientName: name, reason, restoreUrl }
   });
@@ -587,7 +538,7 @@ export async function sendAccountRestoredEmail({ to, name, checkupUrl }) {
     to,
     subject: 'Your Tiwlo Account has been restored',
     html,
-    text: `Good news. We reviewed your account and confirmed that access to your Tiwlo Account has been restored. You can now complete your security checkup and sign in at ${checkupUrl || 'https://tiwlo.com/security-checkup'}`,
+    text: `Good news. We reviewed your account and confirmed that access to your Tiwlo Account has been restored. You can now complete your security checkup and sign in at ${checkupUrl || getPlatformUrl('security-checkup')}`,
     type: 'account_restored',
     metadata: { recipientName: name, checkupUrl }
   });
@@ -603,10 +554,8 @@ export async function sendContentRemovedEmail({ to, name, contentType, policyNam
     to,
     subject: `Notice: Content removed from your account - ${policyName || 'Platform Safety'}`,
     html,
-    text: `Notice: Your ${contentType || 'content'} was removed because it violated Tiwlo's ${policyName || 'Acceptable Use Policy'}. Reason: ${reason || 'Safety compliance violation'}. Visit ${appealUrl || 'https://tiwlo.com/help-support'} to review or appeal.`,
+    text: `Notice: Your ${contentType || 'content'} was removed because it violated Tiwlo's ${policyName || 'Acceptable Use Policy'}. Reason: ${reason || 'Safety compliance violation'}. Visit ${appealUrl || getPlatformUrl('help-support')} to review or appeal.`,
     type: 'content_removed',
     metadata: { recipientName: name, contentType, policyName, reason, appealUrl }
   });
 }
-
-

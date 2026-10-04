@@ -1,6 +1,7 @@
 import { CloudDB } from '../../db/cloud.js';
 import { MasterDB } from '../../db/multiTenant.js';
 import { SupportDB } from '../../db/supportDb.js';
+import { PLATFORM_CONFIG, getPlatformUrl } from '../../config/platformConfig.js';
 
 function readSupportDB() {
   return SupportDB.getAllData();
@@ -79,7 +80,7 @@ export const UserBrain = {
           stores: userStores.map(s => ({
             tiwiId: s.tiwiId,
             name: s.storeName,
-            domain: s.subdomain || `store.${process.env.PRIMARY_DOMAIN || 'tiwlo.com'}`,
+            domain: s.subdomain || `store.${PLATFORM_CONFIG.storeDomain}`,
             category: s.category || 'Retail Enterprise',
             currency: s.currency || 'USD ($)',
             billingLocation: `${s.billingDetails?.city || 'Dhaka'}, ${s.billingDetails?.country || 'Bangladesh'}`
@@ -127,11 +128,11 @@ export const UserBrain = {
 AUTHENTICATION STATUS: UNVERIFIED GUEST VISITOR (NOT LOGGED IN)
 ================================================================================
 • Customer is an anonymous guest visitor. They are NOT authenticated.
-• STRICT PRIVACY RULE: You must NEVER disclose, speculate, or mention ANY registered user's email (such as admin@tiwlo.com, Imran's email, or other customer accounts), server IPs, store names, or credentials.
+• STRICT PRIVACY RULE: You must NEVER disclose, speculate, or mention ANY registered user's email (such as ${PLATFORM_CONFIG.adminEmail}, Imran's email, or other customer accounts), server IPs, store names, or credentials.
 • If the visitor mentions they cannot log in:
   1. Politely ask: "Could you please tell me your registered email address or store subdomain?"
-  2. NEVER guess or suggest that their email is admin@tiwlo.com.
-  3. Direct them to https://tiwlo.com/login or https://tiwlo.com/create-account.
+  2. NEVER guess or suggest that their email is ${PLATFORM_CONFIG.adminEmail}.
+  3. Direct them to ${getPlatformUrl('login')} or ${getPlatformUrl('create-account')}.
   4. If they provide their own email address and ask for an OTP or verification code, you can initiate a 6-digit OTP code to their provided email.
 ================================================================================
 `;

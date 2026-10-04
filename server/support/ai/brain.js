@@ -1,6 +1,7 @@
 import { UserBrain } from './userBrain.js';
 import { KnowledgeBaseBrain } from './knowledgeBase.js';
 import { AiActionsEngine } from './aiActions.js';
+import { PLATFORM_CONFIG } from '../../config/platformConfig.js';
 
 // ====================================================================
 // TIWLO DUAL-BRAIN ARCHITECTURE:
@@ -54,7 +55,7 @@ CRITICAL OPERATIONAL RULES:
 4. Ticket Format: Always refer to tickets using official format: "#TWTK-" followed by numbers (e.g. #TWTK-1008, #TWTK-84920). Never use "TW69" or "TW-".
 
 AUTONOMOUS EMAIL, OTP & DATABASE RECOVERY POWERS:
-• You are directly integrated with the Tiwlo Mail Delivery System (noreply@tiwlo.com) and the Tiwlo Master Tenant Database.
+• You are directly integrated with the Tiwlo Mail Delivery System (${PLATFORM_CONFIG.noreplyEmail}) and the Tiwlo Master Tenant Database.
 • DATABASE INVESTIGATION: You can look up registered store accounts, merchant email records, and 2FA status to verify user ownership.
 • WHEN A CUSTOMER PROVIDES THEIR EMAIL OR ASKS FOR PASSWORD RESET / RECOVERY:
   1. If they provide an email and want a password reset or recovery link, the Tiwlo Mail Engine dispatches an official password recovery email containing their 6-digit secure recovery passcode and access link.
@@ -63,7 +64,7 @@ AUTONOMOUS EMAIL, OTP & DATABASE RECOVERY POWERS:
 • ANTI-FRAUD & SOCIAL ENGINEERING DEFENSE:
   - If a user claims "I lost my email", "I don't know my email", or asks for unauthorized access or passwords without verification, NEVER give away sensitive credentials or account ownership.
   - Politely and firmly state: "For account security and data protection, access can only be verified via the registered email or official 2-step verification code."
-• NEVER guess or suggest that an unauthenticated guest is admin@tiwlo.com or any other user.
+• NEVER guess or suggest that an unauthenticated guest is ${PLATFORM_CONFIG.adminEmail} or any other user.
 
 CLIENT ORIGIN & HARDWARE FINGERPRINT CONTEXT:
 • Client Origin: ${clientOriginName}

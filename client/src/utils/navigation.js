@@ -1,19 +1,20 @@
 /**
  * Subdomain Navigation & Authentication Router Utility
- * Seamlessly manages routing between main app (tiwlo.com) and authentication subdomain (auth.tiwlo.com)
+ * Seamlessly manages routing between the main app and configured subdomains
  * Both on production and local development (auth.localhost:port / localhost:port).
  */
+import { AUTH_SUBDOMAIN, PLATFORM_DOMAIN, TPANEL_SUBDOMAIN } from '../config/platformConfig';
 
 export function isAuthSubdomain() {
   if (typeof window === 'undefined') return false;
   const h = window.location.hostname.toLowerCase();
-  return h === 'auth.tiwlo.com' || h.startsWith('auth.') || h === 'auth.localhost';
+  return h === `${AUTH_SUBDOMAIN}.${PLATFORM_DOMAIN}` || h === `${AUTH_SUBDOMAIN}.localhost`;
 }
 
 export function isTPanelSubdomain() {
   if (typeof window === 'undefined') return false;
   const h = window.location.hostname.toLowerCase();
-  return h === 'tpanel.tiwlo.com' || h.startsWith('tpanel.') || h === 'tpanel.localhost';
+  return h === `${TPANEL_SUBDOMAIN}.${PLATFORM_DOMAIN}` || h === `${TPANEL_SUBDOMAIN}.localhost`;
 }
 
 export function getAuthUrl(path = '') {
@@ -25,9 +26,9 @@ export function getAuthUrl(path = '') {
 
   const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.localhost');
   if (isLocal) {
-    return `${protocol}//auth.localhost${port}${cleanPath}`;
+    return `${protocol}//${AUTH_SUBDOMAIN}.localhost${port}${cleanPath}`;
   }
-  return `https://auth.tiwlo.com${cleanPath}`;
+  return `https://${AUTH_SUBDOMAIN}.${PLATFORM_DOMAIN}${cleanPath}`;
 }
 
 export function getMainAppUrl(path = '') {
@@ -41,5 +42,5 @@ export function getMainAppUrl(path = '') {
   if (isLocal) {
     return `${protocol}//localhost${port}${cleanPath}`;
   }
-  return `https://tiwlo.com${cleanPath}`;
+  return `https://${PLATFORM_DOMAIN}${cleanPath}`;
 }

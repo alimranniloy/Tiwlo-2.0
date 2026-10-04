@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { getPlatformUrl } from '../config/platformConfig.js';
 
 let runtimeRestoreSessions = {};
 
@@ -36,7 +37,7 @@ export const RestoreSessions = {
 
     return {
       token,
-      url: `https://tiwlo.com/account-restore?token=${token}`,
+      url: `${getPlatformUrl('account-restore')}?token=${token}`,
       expiresAt: record.expiresAt
     };
   },
@@ -65,7 +66,7 @@ export const RestoreSessions = {
 
     return {
       token,
-      url: `https://tiwlo.com/security-checkup?token=${token}`,
+      url: `${getPlatformUrl('security-checkup')}?token=${token}`,
       expiresAt: record.expiresAt
     };
   },

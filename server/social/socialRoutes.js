@@ -3,6 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { getPlatformUrl } from '../config/platformConfig.js';
 import { SocialDB } from './socialDb.js';
 import { executeSocialGraphQL } from './socialSchema.js';
 import {
@@ -294,7 +295,7 @@ router.get('/video-status', async (req, res) => {
   const mediaUrl = typeof req.query.url === 'string' ? req.query.url : '';
   let mediaPath;
   try {
-    mediaPath = new URL(mediaUrl, 'https://tiwlo.com').pathname;
+    mediaPath = new URL(mediaUrl, getPlatformUrl()).pathname;
   } catch (error) {
     return res.status(400).json({ error: 'Invalid video URL' });
   }

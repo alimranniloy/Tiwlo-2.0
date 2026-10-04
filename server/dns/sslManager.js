@@ -3,7 +3,7 @@
  *
  * Provides automated, zero-touch SSL certificate provisioning & renewal
  * via Let's Encrypt / Certbot and ACME webroot / DNS verification for:
- * - tiwlo.com, www.tiwlo.com, *.tiwlo.com (Wildcard SSL)
+ * - The configured primary/store domains and their subdomains (Wildcard SSL)
  * - Custom tenant/store domains connected via Tiwlo Nameservers
  */
 
@@ -11,14 +11,23 @@ import { execSync, execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { PLATFORM_CONFIG, getSubdomain } from '../config/platformConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export const SSL_CONFIG = {
-  EMAIL: process.env.SSL_EMAIL || 'support@tiwlo.com',
-  PRIMARY_DOMAIN: process.env.PRIMARY_DOMAIN || 'tiwlo.com',
-  DOMAINS: ['tiwlo.com', 'www.tiwlo.com'],
+  EMAIL: PLATFORM_CONFIG.sslEmail,
+  PRIMARY_DOMAIN: PLATFORM_CONFIG.primaryDomain,
+  DOMAINS: [
+    PLATFORM_CONFIG.primaryDomain,
+    PLATFORM_CONFIG.storeDomain,
+    getSubdomain(PLATFORM_CONFIG.wwwSubdomain),
+    getSubdomain(PLATFORM_CONFIG.authSubdomain),
+    getSubdomain(PLATFORM_CONFIG.tpanelSubdomain),
+    getSubdomain(PLATFORM_CONFIG.dns1Subdomain),
+    getSubdomain(PLATFORM_CONFIG.dns2Subdomain)
+  ],
   CERTBOT_WEBROOT: '/var/www/certbot',
   NGINX_CONF: '/etc/nginx/sites-available/tiwlo',
   RENEWAL_HOOK_PATH: '/etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh'
@@ -142,7 +151,7 @@ export function generateNginxConfig(primaryDomain = SSL_CONFIG.PRIMARY_DOMAIN) {
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
-    server_name tiwlo.com www.tiwlo.com *.tiwlo.com dns1.tiwlo.com dns2.tiwlo.com 162.35.124.233 _;
+    server_name ${[...new Set([...SSL_CONFIG.DOMAINS, `*.${SSL_CONFIG.PRIMARY_DOMAIN}`, `*.${PLATFORM_CONFIG.storeDomain}`, PLATFORM_CONFIG.serverIpv4])].join(' ')} _;
 
     client_max_body_size 100M;
 
@@ -159,12 +168,12 @@ server {
 }
 
 # ========================================================
-# HTTPS Server (Port 443) -> Full Wildcard SSL (*.tiwlo.com)
+# HTTPS Server (Port 443) -> Full Wildcard SSL (*.${SSL_CONFIG.PRIMARY_DOMAIN})
 # ========================================================
 server {
     listen 443 ssl http2 default_server;
     listen [::]:443 ssl http2 default_server;
-    server_name tiwlo.com www.tiwlo.com *.tiwlo.com dns1.tiwlo.com dns2.tiwlo.com 162.35.124.233 _;
+    server_name ${[...new Set([...SSL_CONFIG.DOMAINS, `*.${SSL_CONFIG.PRIMARY_DOMAIN}`, `*.${PLATFORM_CONFIG.storeDomain}`, PLATFORM_CONFIG.serverIpv4])].join(' ')} _;
 
     ssl_certificate ${certPath};
     ssl_certificate_key ${keyPath};
@@ -192,7 +201,7 @@ server {
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
-    server_name tiwlo.com www.tiwlo.com *.tiwlo.com dns1.tiwlo.com dns2.tiwlo.com 162.35.124.233 _;
+    server_name ${[...new Set([...SSL_CONFIG.DOMAINS, `*.${SSL_CONFIG.PRIMARY_DOMAIN}`, `*.${PLATFORM_CONFIG.storeDomain}`, PLATFORM_CONFIG.serverIpv4])].join(' ')} _;
 
     client_max_body_size 100M;
 
@@ -235,9 +244,11 @@ export function provisionCustomDomain(domain) {
 
   console.log(`🔒 Checking SSL provisioning for domain: ${cleanDomain}...`);
 
-  // Subdomains of tiwlo.com are already 100% protected by the Wildcard certificate!
-  if (cleanDomain.endsWith('.tiwlo.com') || cleanDomain === 'tiwlo.com') {
-    console.log(`✅ ${cleanDomain} is covered by *.tiwlo.com Wildcard SSL.`);
+  // Configured platform/store subdomains are covered by wildcard SSL.
+  if ([SSL_CONFIG.PRIMARY_DOMAIN, PLATFORM_CONFIG.storeDomain].some(
+    domain => cleanDomain === domain || cleanDomain.endsWith(`.${domain}`)
+  )) {
+    console.log(`✅ ${cleanDomain} is covered by the configured platform/store wildcard certificate.`);
     return true;
   }
 

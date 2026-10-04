@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { MasterDB } from './multiTenant.js';
 import { CloudDB } from './cloud.js';
 
@@ -288,7 +289,7 @@ export const BillingDB = {
       targetAmount: parseFloat(budgetInput.targetAmount) || 50.0,
       spentAmount: account.monthToDateSpent || 0.0,
       thresholds: budgetInput.thresholds || [50, 90, 100],
-      alertEmail: budgetInput.alertEmail || 'admin@tiwlo.com',
+      alertEmail: budgetInput.alertEmail || PLATFORM_CONFIG.adminEmail,
       status: 'Active',
       createdAt: new Date().toISOString()
     };

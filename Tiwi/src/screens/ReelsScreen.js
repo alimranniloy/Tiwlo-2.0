@@ -23,6 +23,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 import { useAuth } from '../context/AuthContext';
 import { TiwiAPI } from '../services/tiwiApi';
+import { BASE_URL } from '../config/api';
 import CommentsModal from '../components/CommentsModal';
 import SoundDetailModal from '../components/SoundDetailModal';
 import RemixModal from '../components/RemixModal';
@@ -267,7 +268,7 @@ export default function ReelsScreen({ onNavigate, routeParams }) {
   const handleShare = async (reel) => {
     try {
       await Share.share({
-        message: `${reel.author?.name || 'Creator'} on Tiwi Shorts: "${reel.caption || ''}" https://tiwlo.com/shorts/${reel.id}`,
+        message: `${reel.author?.name || 'Creator'} on Tiwi Shorts: "${reel.caption || ''}" ${BASE_URL}/shorts/${reel.id}`,
       });
     } catch (err) {
       // Ignored
@@ -747,7 +748,7 @@ export default function ReelsScreen({ onNavigate, routeParams }) {
           onPress={async () => {
             setOptionsMenuVisible(false);
             if (activeReel) {
-              await Clipboard.setStringAsync(`https://tiwlo.com/shorts/${activeReel.id}`);
+              await Clipboard.setStringAsync(`${BASE_URL}/shorts/${activeReel.id}`);
               Alert.alert('Link Copied', 'Short link copied to clipboard.');
             }
           }}

@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { MasterDB, TenantDB } from './multiTenant.js';
+import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,6 +41,11 @@ export async function runMigration() {
   const oldAdjustments = readOldJson('inventory_adjustments.json', []);
   const oldActivities = readOldJson('activities.json', []);
   const oldStoreSettings = readOldJson('store_settings.json', {});
+  const oldSystemSettings = readOldJson('system_settings.json', null);
+
+  if (oldSystemSettings && typeof oldSystemSettings === 'object' && !Array.isArray(oldSystemSettings)) {
+    await MasterDB.saveSystemSettings(oldSystemSettings);
+  }
 
   // 2. Populate Master Database
   const masterData = MasterDB.getMasterData();
@@ -65,7 +71,7 @@ export async function runMigration() {
     id: `store_${u.tiwiId.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
     tiwiId: u.tiwiId,
     storeName: u.storeName,
-    subdomain: u.subdomain || `${u.storeName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'store'}.${process.env.PRIMARY_DOMAIN || 'tiwlo.com'}`,
+    subdomain: u.subdomain || `${u.storeName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'store'}.${PLATFORM_CONFIG.storeDomain}`,
     ownerId: u.id,
     planId: u.planId || 'free',
     dbSchema: `store_${u.tiwiId.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,

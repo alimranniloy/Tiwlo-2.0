@@ -1,4 +1,5 @@
 import { renderBaseEmail } from './baseTemplate.js';
+import { getPlatformUrl } from '../config/platformConfig.js';
 
 /**
  * Invoice & Payment Receipt Email Template
@@ -20,7 +21,7 @@ export function renderInvoiceEmail({
   paymentMethod = 'Online Payment',
   storeName = 'Tiwlo Store',
   items = [],
-  actionUrl = 'https://tiwlo.com'
+  actionUrl = getPlatformUrl()
 }) {
   const formattedDate = date || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const currencySymbol = currency === 'BDT' ? '৳' : '$';

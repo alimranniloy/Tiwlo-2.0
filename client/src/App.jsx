@@ -7,6 +7,7 @@ import CreateAccountView from './views/CreateAccountView';
 import { CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import TiwloPageLoader, { TiwloTopSyncBar } from './components/TiwloUniqueLoader';
 import { isAuthSubdomain, getAuthUrl, getMainAppUrl } from './utils/navigation';
+import { getPlatformUrl, getSubdomain, PLATFORM_DOMAIN, TPANEL_SUBDOMAIN } from './config/platformConfig';
 
 // Dedicated Dashboards (Code-Split via React.lazy)
 const CloudDashboard = lazy(() => import('./dashboards/cloud/CloudDashboard'));
@@ -61,8 +62,9 @@ const getSafeRedirectPath = (value) => {
     return null;
   }
   try {
-    const target = new URL(value, 'https://tiwlo.com');
-    if (target.origin !== 'https://tiwlo.com' || /^\/(login|signin|create-account|register|signup)(\/|$)/i.test(target.pathname)) {
+    const platformUrl = getPlatformUrl();
+    const target = new URL(value, platformUrl);
+    if (target.origin !== platformUrl || /^\/(login|signin|create-account|register|signup)(\/|$)/i.test(target.pathname)) {
       return null;
     }
     return `${target.pathname}${target.search}${target.hash}`;
@@ -89,13 +91,13 @@ export default function App() {
       }
 
       // TPanel Subdomain or Direct Route Detection
-      const isTpanelRoute = !isAuthSubdomain() && (hostname === 'tpanel.tiwlo.com' || hostname.startsWith('tpanel.') || pathname === 'tpanel' || pathname.startsWith('tpanel/') || searchParams.get('panel') === 'tpanel' || searchParams.get('tab') === 'tpanel' || searchParams.get('view') === 'tpanel');
+      const isTpanelRoute = !isAuthSubdomain() && (hostname === getSubdomain(TPANEL_SUBDOMAIN) || pathname === 'tpanel' || pathname.startsWith('tpanel/') || searchParams.get('panel') === 'tpanel' || searchParams.get('tab') === 'tpanel' || searchParams.get('view') === 'tpanel');
 
       if (isTpanelRoute) {
         return 'tpanel';
       }
 
-      // Check if user is navigating on Authentication Subdomain (auth.tiwlo.com or auth.localhost)
+      // Check if user is navigating on the configured authentication subdomain.
       if (isAuthSubdomain()) {
         const isExplicitLogout = searchParams.get('logout') === '1';
         if (isExplicitLogout) {
@@ -115,7 +117,7 @@ export default function App() {
         return 'login';
       }
 
-      // Store Route Detection (tiwlo.com/store)
+      // Store Route Detection on the main platform.
       const isStoreRoute = pathname === 'store' || pathname.startsWith('store/');
       if (isStoreRoute) {
         return 'store';
@@ -397,7 +399,7 @@ export default function App() {
     }
   });
 
-  // Cross-Subdomain Auth Auto-Discovery State (Validating shared .tiwlo.com cookie)
+  // Cross-subdomain auth shares a cookie scoped to the configured platform domain.
   const [authChecking, setAuthChecking] = useState(() => {
     return new URLSearchParams(window.location.search).get('logout') !== '1';
   });

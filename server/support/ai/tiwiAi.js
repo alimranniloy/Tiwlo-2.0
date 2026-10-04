@@ -1,5 +1,6 @@
 import { SystemBrain } from './brain.js';
 import { AiActionsEngine } from './aiActions.js';
+import { getPlatformUrl } from '../../config/platformConfig.js';
 
 // ====================================================================
 // TIWI AI API ENGINE (POWERED INTERNALLY BY GEMINI FLASH)
@@ -209,7 +210,7 @@ export const TiwiAI = {
               otpCode: resetResult.otpCode,
               message: resetResult.message
             };
-            responseText = `Hello ${accountInfo.found ? accountInfo.name : 'Customer'}! I have checked our system and dispatched an official password recovery email to ${resetResult.email}. It contains your 6-digit security code and instructions to reset your password. Please check your inbox (and spam folder), or visit https://tiwlo.com/login to complete recovery.`;
+            responseText = `Hello ${accountInfo.found ? accountInfo.name : 'Customer'}! I have checked our system and dispatched an official password recovery email to ${resetResult.email}. It contains your 6-digit security code and instructions to reset your password. Please check your inbox (and spam folder), or visit ${getPlatformUrl('login')} to complete recovery.`;
           }
         } else if ((agentOfferedOtp && isAffirmative) || mentionsOtp || lowerQuery.includes('send') || lowerQuery.includes('পাঠাও')) {
           // Send 2FA / Login Verification OTP via Tiwlo SMTP

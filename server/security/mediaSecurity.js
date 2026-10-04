@@ -11,8 +11,9 @@ import crypto from 'crypto';
 import sharp from 'sharp';
 import * as tf from '@tensorflow/tfjs';
 import * as nsfwjs from 'nsfwjs';
+import '../config/loadRootEnv.js';
 
-const HMAC_SECRET = process.env.SECURITY_HMAC_SECRET || 'tiwlo_media_integrity_secret_2026_supersecure';
+const HMAC_SECRET = process.env.SECURITY_HMAC_SECRET || process.env.SECURITY_SECRET || crypto.randomBytes(32).toString('hex');
 
 // Registry of verified uploaded assets and their immutable purpose
 // Key: file path or relative URL, Value: { purpose, userId, uploadedAt, verifiedSafe }

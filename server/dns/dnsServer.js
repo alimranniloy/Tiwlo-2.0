@@ -2,7 +2,7 @@
  * Tiwlo Enterprise Authoritative DNS Server
  * 
  * High-performance, anti-DDoS, authoritative nameserver for Tiwlo Platform.
- * Serves primary records for tiwlo.com, dns1.tiwlo.com, dns2.tiwlo.com,
+ * Serves primary records for the configured platform domain and nameservers,
  * and dynamically resolves all multi-tenant custom domains & subdomains.
  *
  * Security Features:
@@ -16,6 +16,7 @@ import dns2 from 'dns2';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { PLATFORM_CONFIG, getSubdomain } from '../config/platformConfig.js';
 
 const { Packet } = dns2;
 
@@ -26,16 +27,19 @@ const __dirname = path.dirname(__filename);
 // CONFIGURATION & CONSTANTS
 // ==========================================
 export const DNS_CONFIG = {
-  PRIMARY_IP: process.env.PRIMARY_IP || '162.35.124.233',
-  PRIMARY_DOMAIN: process.env.PRIMARY_DOMAIN || 'tiwlo.com',
-  NS1: process.env.NS1 || 'dns1.tiwlo.com',
-  NS2: process.env.NS2 || 'dns2.tiwlo.com',
-  ADMIN_EMAIL: 'admin.tiwlo.com',
+  PRIMARY_IP: PLATFORM_CONFIG.serverIpv4,
+  PRIMARY_DOMAIN: PLATFORM_CONFIG.primaryDomain,
+  STORE_DOMAIN: PLATFORM_CONFIG.storeDomain,
+  NS1: getSubdomain(PLATFORM_CONFIG.dns1Subdomain),
+  NS2: getSubdomain(PLATFORM_CONFIG.dns2Subdomain),
+  ADMIN_EMAIL: PLATFORM_CONFIG.adminEmail,
+  MAIL_HOST: getSubdomain(PLATFORM_CONFIG.mailSubdomain),
+  SECURITY_EMAIL: PLATFORM_CONFIG.securityEmail,
   PORT: parseInt(process.env.DNS_PORT || '53', 10),
   HOST: process.env.DNS_HOST || '0.0.0.0',
-  DEFAULT_TTL: 300,
-  NS_TTL: 86400,
-  SOA_TTL: 3600,
+  DEFAULT_TTL: PLATFORM_CONFIG.dnsTtl,
+  NS_TTL: PLATFORM_CONFIG.dnsNsTtl,
+  SOA_TTL: PLATFORM_CONFIG.dnsSoaTtl,
   SERIAL: 2026092801,
   // Rate limiting (RRL)
   MAX_QUERIES_PER_SEC: 60,
@@ -98,17 +102,14 @@ function isDomainAuthoritative(queryDomain) {
   const d = queryDomain.toLowerCase().replace(/\.$/, '');
 
   // 1. All tiwlo domains and subdomains
-  if (
-    d === 'tiwlo.com' ||
-    d.endsWith('.tiwlo.com') ||
-    d === (process.env.PRIMARY_DOMAIN || 'tiwlo.com').toLowerCase() ||
-    d.endsWith(`.${(process.env.PRIMARY_DOMAIN || 'tiwlo.com').toLowerCase()}`)
-  ) {
+  if ([DNS_CONFIG.PRIMARY_DOMAIN, DNS_CONFIG.STORE_DOMAIN].some(
+    domain => d === domain || d.endsWith(`.${domain}`)
+  )) {
     return true;
   }
 
   // 2. Nameservers
-  if (d === 'dns1.tiwlo.com' || d === 'dns2.tiwlo.com') {
+  if (d === DNS_CONFIG.NS1 || d === DNS_CONFIG.NS2) {
     return true;
   }
 
@@ -247,11 +248,11 @@ function handleDnsRequest(request, send, rinfo) {
           type: Packet.TYPE.MX,
           class: Packet.CLASS.IN,
           ttl: DNS_CONFIG.DEFAULT_TTL,
-          exchange: `mail.${DNS_CONFIG.PRIMARY_DOMAIN}`,
+          exchange: DNS_CONFIG.MAIL_HOST,
           priority: 10
         });
         response.additionals.push({
-          name: `mail.${DNS_CONFIG.PRIMARY_DOMAIN}`,
+          name: DNS_CONFIG.MAIL_HOST,
           type: Packet.TYPE.A,
           class: Packet.CLASS.IN,
           ttl: DNS_CONFIG.DEFAULT_TTL,
@@ -264,13 +265,15 @@ function handleDnsRequest(request, send, rinfo) {
       // TYPE TXT (Text / SPF / DMARC / ACME Verification)
       // -------------------------------------------------------------
       case Packet.TYPE.TXT: {
-        // 1. Dynamic ACME Challenge for Wildcard SSL (*.tiwlo.com)
+        // 1. Dynamic ACME Challenge for Wildcard SSL
         if (queryDomain.startsWith('_acme-challenge')) {
           try {
             const tokenPath = '/var/www/certbot/dns_tokens.json';
             if (fs.existsSync(tokenPath)) {
               const tokens = JSON.parse(fs.readFileSync(tokenPath, 'utf8'));
-              const list = tokens[queryDomain] || tokens['_acme-challenge.tiwlo.com'] || tokens['tiwlo.com'];
+              const list = tokens[queryDomain] ||
+                tokens[`_acme-challenge.${DNS_CONFIG.PRIMARY_DOMAIN}`] ||
+                tokens[DNS_CONFIG.PRIMARY_DOMAIN];
               if (list) {
                 const tokenArray = Array.isArray(list) ? list : [list];
                 tokenArray.forEach(val => {
@@ -296,7 +299,7 @@ function handleDnsRequest(request, send, rinfo) {
             type: Packet.TYPE.TXT,
             class: Packet.CLASS.IN,
             ttl: DNS_CONFIG.DEFAULT_TTL,
-            data: 'v=DMARC1; p=quarantine; rua=mailto:security@tiwlo.com; pct=100; sp=quarantine'
+            data: `v=DMARC1; p=${PLATFORM_CONFIG.dnsDmarcPolicy}; rua=mailto:${DNS_CONFIG.SECURITY_EMAIL}; pct=100; sp=${PLATFORM_CONFIG.dnsDmarcPolicy}`
           });
         } else {
           response.answers.push({
@@ -304,7 +307,7 @@ function handleDnsRequest(request, send, rinfo) {
             type: Packet.TYPE.TXT,
             class: Packet.CLASS.IN,
             ttl: DNS_CONFIG.DEFAULT_TTL,
-            data: `v=spf1 mx ip4:${DNS_CONFIG.PRIMARY_IP} ~all`
+            data: `v=spf1 mx ip4:${DNS_CONFIG.PRIMARY_IP} ${PLATFORM_CONFIG.dnsSpfPolicy}`
           });
         }
         break;
@@ -406,4 +409,3 @@ export async function startDnsServer() {
 
 // Start DNS Server
 startDnsServer();
-

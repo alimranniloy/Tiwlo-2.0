@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getPlatformUrl } from '../config/platformConfig';
 import {
   Mail,
   Lock,
@@ -1006,7 +1007,7 @@ export default function CreateAccountView({
             <div>
               {/* Tiwlo Logo */}
               <div className="mb-5 sm:mb-6">
-                <a href="https://tiwlo.com" className="inline-block transition-opacity hover:opacity-90">
+                <a href={getPlatformUrl()} className="inline-block transition-opacity hover:opacity-90">
                   <img
                     src="/tiwlologo.png"
                     alt="Tiwlo"
@@ -2242,9 +2243,9 @@ export default function CreateAccountView({
         </div>
 
         <div className="flex items-center gap-6">
-          <a href="https://tiwlo.com" className="hover:text-[#1f1f1f] transition-colors">Help</a>
-          <a href="https://tiwlo.com" className="hover:text-[#1f1f1f] transition-colors">Privacy</a>
-          <a href="https://tiwlo.com" className="hover:text-[#1f1f1f] transition-colors">Terms</a>
+          <a href={getPlatformUrl()} className="hover:text-[#1f1f1f] transition-colors">Help</a>
+          <a href={getPlatformUrl()} className="hover:text-[#1f1f1f] transition-colors">Privacy</a>
+          <a href={getPlatformUrl()} className="hover:text-[#1f1f1f] transition-colors">Terms</a>
           <span>&copy; 2026 Tiwlo, Inc.</span>
         </div>
       </footer>

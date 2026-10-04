@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { SUPPORT_EMAIL } from '../config/platformConfig';
 import {
   Server,
   Cpu,
@@ -26,7 +27,7 @@ export default function SystemView({ showToast, onBackToDashboard }) {
   const [systemInfo, setSystemInfo] = useState(null);
   const [settings, setSettings] = useState({
     companyName: 'Tiwlo Cloud Platform',
-    storeEmail: 'support@tiwlo.com',
+    storeEmail: SUPPORT_EMAIL,
     phone: '+1 (800) 555-TIWLO',
     currency: 'USD',
     currencySymbol: '$',

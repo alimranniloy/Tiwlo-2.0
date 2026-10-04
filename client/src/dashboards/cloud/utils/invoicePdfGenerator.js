@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { BILLING_EMAIL, getPlatformUrl, PLATFORM_DOMAIN } from '../../../config/platformConfig';
 
 /**
  * Generates an authentic, official Tiwlo Cloud PDF Invoice / Statement
@@ -32,7 +33,7 @@ export function generateInvoicePdf(invoice, user, billingAccountId) {
   doc.setFontSize(9);
   doc.setTextColor(95, 99, 104); // #5F6368
   doc.text('Enterprise Cloud Infrastructure & AI Neural Platform', margin, y + 13);
-  doc.text('Tiwlo Systems Ltd. • https://tiwlo.com • billing@tiwlo.com', margin, y + 17);
+  doc.text(`Tiwlo Systems Ltd. • ${getPlatformUrl()} • ${BILLING_EMAIL}`, margin, y + 17);
 
   // Status Badge on Top Right
   const isGrant = invoice.isCreditGrant || invoice.grossAmount === 0;
@@ -85,7 +86,7 @@ export function generateInvoicePdf(invoice, user, billingAccountId) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(95, 99, 104);
-  doc.text(user?.email || 'customer@tiwlo.com', leftX, y + 17);
+  doc.text(user?.email || `customer@${PLATFORM_DOMAIN}`, leftX, y + 17);
   doc.text(`Billing Account: ${billingAccountId || 'BA-TIWLO-CLOUD-TCP'}`, leftX, y + 22);
 
   // Right Column: Invoice Metadata
@@ -237,7 +238,7 @@ export function generateInvoicePdf(invoice, user, billingAccountId) {
   doc.setTextColor(95, 99, 104);
   doc.text('This document is an electronically generated official receipt issued under the Tiwlo Cloud Service Level Agreement (SLA).', margin + 4, y + 9.5);
   doc.text(`Security Hash: SHA256-${invoice.id.replace(/[^A-Za-z0-9]/g, '')}-${Date.now().toString(16).toUpperCase()}`, margin + 4, y + 13.5);
-  doc.text('For billing inquiries or tax compliance invoices, contact billing@tiwlo.com with your Billing Account ID.', margin + 4, y + 17.5);
+  doc.text(`For billing inquiries or tax compliance invoices, contact ${BILLING_EMAIL} with your Billing Account ID.`, margin + 4, y + 17.5);
 
   // 8. Footer
   doc.setFontSize(7);

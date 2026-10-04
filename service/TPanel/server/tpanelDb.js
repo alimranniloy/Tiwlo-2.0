@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { PLATFORM_CONFIG, getSubdomain } from '../../../server/config/platformConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,8 +41,8 @@ export const TPanelDB = {
         role: 'Droplet Owner',
         serverStatus: {
           serverName: `droplet-${userId.slice(-5)}`,
-          hostname: `node-${userId.slice(-5)}.tiwlo.com`,
-          ip: '162.35.124.233',
+          hostname: getSubdomain(`node-${userId.slice(-5)}`),
+          ip: PLATFORM_CONFIG.serverIpv4,
           internalIp: '10.128.0.3',
           region: 'Singapore (SGP1)',
           status: 'RUNNING',
@@ -251,7 +252,7 @@ export const TPanelDB = {
     let acc = await this.getAccount(userId);
     let target = db.accounts.find(a => a.userId === userId || a.tiwiId === userId) || acc;
 
-    const domain = websiteData.domain || 'newsite.tiwlo.com';
+    const domain = websiteData.domain || `newsite.${PLATFORM_CONFIG.storeDomain}`;
     const subFolder = `/public_html/${domain}`;
 
     const newSite = {
@@ -304,10 +305,10 @@ export const TPanelDB = {
         domain,
         targetType: 'Website',
         targetName: domain,
-        ip: '162.35.124.233',
+        ip: PLATFORM_CONFIG.serverIpv4,
         sslStatus: 'ACTIVE',
         isPrimary: false,
-        dnsConfig: { type: 'A', value: '162.35.124.233', ttl: 300 },
+        dnsConfig: { type: 'A', value: PLATFORM_CONFIG.serverIpv4, ttl: PLATFORM_CONFIG.dnsTtl },
         createdAt: new Date().toISOString()
       });
     }
@@ -557,7 +558,7 @@ export const TPanelDB = {
       name: name || `Port ${port} Traffic`,
       port: parseInt(port, 10),
       protocol: protocol || 'TCP',
-      targetSite: targetSite || 'store.tiwlo.com',
+      targetSite: targetSite || `store.${PLATFORM_CONFIG.storeDomain}`,
       source: source || '0.0.0.0/0',
       action: action || 'ALLOW',
       status: 'ENABLED'

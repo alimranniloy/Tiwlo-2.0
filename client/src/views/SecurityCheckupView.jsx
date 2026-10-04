@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { getPlatformUrl } from '../config/platformConfig';
 import {
   ShieldCheck,
   CheckCircle2,
@@ -184,7 +185,7 @@ export default function SecurityCheckupView({ user, onComplete }) {
       <header className="sticky top-0 z-40 bg-white border-b border-[#dadce0] h-16 px-4 sm:px-8 flex items-center justify-between">
         {/* Left: Tiwlo Brand + Account Label */}
         <div className="flex items-center gap-3">
-          <a href="https://tiwlo.com" className="flex items-center gap-2.5 transition-opacity hover:opacity-90">
+          <a href={getPlatformUrl()} className="flex items-center gap-2.5 transition-opacity hover:opacity-90">
             <img
               src="/tiwlologo.png"
               alt="Tiwlo"
@@ -542,9 +543,9 @@ export default function SecurityCheckupView({ user, onComplete }) {
           </div>
 
           <div className="flex items-center gap-6">
-            <a href="https://tiwlo.com" className="hover:text-[#202124] transition-colors">Help</a>
-            <a href="https://tiwlo.com" className="hover:text-[#202124] transition-colors">Privacy</a>
-            <a href="https://tiwlo.com" className="hover:text-[#202124] transition-colors">Terms</a>
+            <a href={getPlatformUrl()} className="hover:text-[#202124] transition-colors">Help</a>
+            <a href={getPlatformUrl()} className="hover:text-[#202124] transition-colors">Privacy</a>
+            <a href={getPlatformUrl()} className="hover:text-[#202124] transition-colors">Terms</a>
             <span>&copy; 2026 Tiwlo, Inc.</span>
           </div>
         </div>

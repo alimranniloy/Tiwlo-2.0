@@ -12,6 +12,7 @@
 
 import { MasterDB } from '../../db/multiTenant.js';
 import { SupportDB } from '../../db/supportDb.js';
+import { getPlatformUrl } from '../../config/platformConfig.js';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const CANDIDATE_MODELS = [
@@ -247,7 +248,7 @@ export async function processSecurityAppeal({ email, message, conversationHistor
 
   if (!userProfile.isBanned) {
     return {
-      reply: `Your Tiwlo Account (${userProfile.email}) is currently active and not disabled. You can log in directly at https://tiwlo.com/login.`,
+      reply: `Your Tiwlo Account (${userProfile.email}) is currently active and not disabled. You can log in directly at ${getPlatformUrl('login')}.`,
       restored: true,
       alreadyActive: true,
       decision: 'ALREADY_ACTIVE'

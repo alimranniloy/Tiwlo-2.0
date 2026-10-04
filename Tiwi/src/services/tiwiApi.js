@@ -3,7 +3,7 @@
  * Handles all network requests to Tiwlo Server with robust error handling
  */
 
-import { ENDPOINTS, getAuthHeaders } from '../config/api';
+import { BASE_URL, ENDPOINTS, getAuthHeaders } from '../config/api';
 import { getScreenDataCache, setScreenDataCache } from '../utils/screenDataCache';
 
 const feedCacheKey = (userId, filter) => `feed:${userId || 'guest'}:${filter}`;
@@ -972,7 +972,7 @@ export const TiwiAPI = {
             const relativeOrFull = data.url;
             return relativeOrFull?.startsWith('http')
               ? relativeOrFull
-              : `https://tiwlo.com${relativeOrFull}`;
+              : `${BASE_URL}${relativeOrFull}`;
           }
         } catch (b64Err) {
           console.warn('[TiwiAPI.uploadMedia] Direct Base64 upload attempt failed:', b64Err.message);
@@ -1020,7 +1020,7 @@ export const TiwiAPI = {
         if (relativeOrFull) {
           return relativeOrFull.startsWith('http')
             ? relativeOrFull
-            : `https://tiwlo.com${relativeOrFull}`;
+            : `${BASE_URL}${relativeOrFull}`;
         }
       } catch (xhrErr) {
         console.warn('[TiwiAPI.uploadMedia] Native XHR upload failed, trying Blob:', xhrErr.message);
@@ -1043,7 +1043,7 @@ export const TiwiAPI = {
           const relativeOrFull = data.url;
           return relativeOrFull?.startsWith('http')
             ? relativeOrFull
-            : `https://tiwlo.com${relativeOrFull}`;
+            : `${BASE_URL}${relativeOrFull}`;
         }
       } catch (blobErr) {
         console.warn('[TiwiAPI.uploadMedia] Blob upload failed:', blobErr.message);
@@ -1075,7 +1075,7 @@ export const TiwiAPI = {
               const relativeOrFull = data.url;
               return relativeOrFull?.startsWith('http')
                 ? relativeOrFull
-                : `https://tiwlo.com${relativeOrFull}`;
+                : `${BASE_URL}${relativeOrFull}`;
             }
           }
         } catch (base64FallbackErr) {

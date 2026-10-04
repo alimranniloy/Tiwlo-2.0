@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { default as makeWASocket, useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys';
 import QRCode from 'qrcode';
 import { TenantDB, MasterDB } from '../db/multiTenant.js';
+import { PLATFORM_CONFIG, getPlatformUrl } from '../config/platformConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -548,7 +549,7 @@ ${storeKnowledge?.customKnowledge ? `STORE KNOWLEDGE BASE & FAQS:\n${storeKnowle
       storeType,
       storeName,
       tiwiId: storeId,
-      storeUrl: storeUrl || (storeType === 'registered' ? `https://tiwlo.com/store/${storeId}` : ''),
+      storeUrl: storeUrl || (storeType === 'registered' ? getPlatformUrl(`store/${storeId}`) : ''),
       currency,
       productCount: products.length,
       products,

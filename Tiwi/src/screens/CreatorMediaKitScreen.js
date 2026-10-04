@@ -78,7 +78,7 @@ export default function CreatorMediaKitScreen({ onNavigate }) {
   const handleShareMediaKit = async () => {
     try {
       await Share.share({
-        message: `Verified Creator Media Kit & Rates for ${currentUser?.name || 'Creator'}: https://tiwlo.com/@${currentUser?.handle || currentUser?.username || 'creator'}/mediakit`,
+        message: `Verified Creator Media Kit & Rates for ${currentUser?.name || 'Creator'}: ${API_BASE_URL}/@${currentUser?.handle || currentUser?.username || 'creator'}/mediakit`,
         title: `${currentUser?.name} - Tiwi Media Kit`,
       });
     } catch {

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getStoreHostname, STORE_DOMAIN } from '../../../config/platformConfig';
 import {
   Store,
   ArrowLeft,
@@ -37,7 +38,7 @@ export default function CreateStoreView({ onBack, onCreateStore, showToast }) {
   const handleStoreNameChange = (val) => {
     setStoreName(val);
     const slug = val.toLowerCase().replace(/[^a-z0-9]/g, '');
-    setSubdomain(slug ? `${slug}.tiwlo.com` : '');
+    setSubdomain(slug ? getStoreHostname(slug) : '');
   };
 
   const handleSubmit = async (e) => {
@@ -157,7 +158,7 @@ export default function CreateStoreView({ onBack, onCreateStore, showToast }) {
                 type="text"
                 value={subdomain}
                 onChange={(e) => setSubdomain(e.target.value)}
-                placeholder="storename.tiwlo.com"
+                placeholder={`storename.${STORE_DOMAIN}`}
                 className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-800 bg-slate-50/50 dark:bg-gray-900 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-mono transition"
               />
             </div>

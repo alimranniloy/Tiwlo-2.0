@@ -10,6 +10,8 @@
  * - Clean neutral footer (no garish colors or badges)
  */
 
+import { PLATFORM_CONFIG, getPlatformUrl } from '../config/platformConfig.js';
+
 export function renderBaseEmail({
   title,
   recipientEmail,
@@ -73,8 +75,8 @@ export function renderBaseEmail({
               <table role="presentation" border="0" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center">
-                    <a href="https://tiwlo.com" target="_blank" style="text-decoration: none; display: inline-block;">
-                      <img src="https://tiwlo.com/tiwlologo.png" alt="Tiwlo" width="105" height="30" style="display: block; width: 105px; height: 30px; object-fit: contain; border: 0;" />
+                    <a href="${getPlatformUrl()}" target="_blank" style="text-decoration: none; display: inline-block;">
+                      <img src="${getPlatformUrl('tiwlologo.png')}" alt="${PLATFORM_CONFIG.emailSenderName}" width="105" height="30" style="display: block; width: 105px; height: 30px; object-fit: contain; border: 0;" />
                     </a>
                   </td>
                 </tr>
