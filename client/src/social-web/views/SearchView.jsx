@@ -1,27 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Hash, User, Image, Flame, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Search, Settings, MoreHorizontal, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
+import PostCard from '../components/PostCard';
 
 export default function SearchView() {
   const { tabParams, navigateTo } = useSocial();
   const [query, setQuery] = useState(tabParams?.q || '');
-  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'creators' | 'tags' | 'media'
+  const [activeTab, setActiveTab] = useState(tabParams?.q ? 'top' : 'for_you');
   const [results, setResults] = useState({ users: [], posts: [], tags: [] });
-  const [trendingTags, setTrendingTags] = useState([]);
+  const [trendingTopics, setTrendingTopics] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [followedMap, setFollowedMap] = useState({});
 
   const executeSearch = async (searchTerm) => {
+    setLoading(true);
     try {
       const data = await TiwiSocialAPI.search(searchTerm);
-      setResults(data);
+      setResults(data || { users: [], posts: [], tags: [] });
     } catch (e) {
       console.warn('Search failed:', e);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     if (tabParams?.q) {
       setQuery(tabParams.q);
+      setActiveTab('top');
       executeSearch(tabParams.q);
     } else {
       executeSearch('');
@@ -30,157 +37,253 @@ export default function SearchView() {
 
   useEffect(() => {
     TiwiSocialAPI.getTrending().then((tags) => {
-      if (Array.isArray(tags)) setTrendingTags(tags);
+      if (Array.isArray(tags) && tags.length > 0) {
+        setTrendingTopics(tags);
+      } else {
+        setTrendingTopics([
+          { category: 'Technology · Trending', tag: '#ArtificialIntelligence', count: '94.2K posts' },
+          { category: 'Sports · Trending', tag: '#WorldCup2026', count: '142.8K posts' },
+          { category: 'Entertainment · Trending', tag: 'New Music Friday', count: '52.1K posts' },
+          { category: 'Business · Trending', tag: '#StockMarket', count: '38.4K posts' },
+          { category: 'Development · Trending', tag: '#React19', count: '29.7K posts' },
+          { category: 'Politics · Trending', tag: 'Global Summit 2026', count: '64.9K posts' },
+          { category: 'Science · Trending', tag: 'James Webb Telescope', count: '18.1K posts' },
+        ]);
+      }
     });
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSearchSubmit = (e) => {
     e.preventDefault();
+    if (!query.trim()) return;
     executeSearch(query);
   };
 
-  return (
-    <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full pb-20 md:pb-10">
-      {/* Search Input Banner */}
-      <div className="bg-white dark:bg-[#1E293B] p-4 sm:p-6 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs flex flex-col gap-4">
-        <form onSubmit={handleSubmit} className="relative">
-          <Search className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search creators, keywords, or #hashtags..."
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              executeSearch(e.target.value);
-            }}
-            className="w-full pl-12 pr-4 py-3 bg-[#F1F3F4] dark:bg-[#111827] text-sm text-[#1F1F1F] dark:text-white rounded-full border border-transparent focus:border-[#0B57D0] focus:bg-white dark:focus:bg-[#111827] focus:outline-none transition-all"
-          />
-        </form>
+  const handleToggleFollow = async (userId) => {
+    const isNowFollowing = !followedMap[userId];
+    setFollowedMap((prev) => ({ ...prev, [userId]: isNowFollowing }));
+    try {
+      await TiwiSocialAPI.followUser(userId);
+    } catch (e) {
+      setFollowedMap((prev) => ({ ...prev, [userId]: !isNowFollowing }));
+    }
+  };
 
-        {/* Filter Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-          {[
-            { id: 'all', label: 'All Results' },
-            { id: 'creators', label: 'Creators' },
-            { id: 'tags', label: 'Hashtags' },
-            { id: 'media', label: 'Photos & Media' },
-          ].map((tab) => (
+  const isSearchMode = !!query.trim();
+
+  return (
+    <div className="w-full flex flex-col min-h-screen">
+      {/* 1. Sticky Header with Search Input Bar */}
+      <div className="sticky top-0 z-20 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-[#EFF3F4] dark:border-[#2F3336]">
+        <div className="flex items-center gap-3 px-4 py-2">
+          {isSearchMode && (
+            <button
+              onClick={() => {
+                setQuery('');
+                setActiveTab('for_you');
+                navigateTo('search');
+              }}
+              className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+              title="Back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
+
+          <form onSubmit={handleSearchSubmit} className="flex-1">
+            <div className="flex items-center bg-[#EFF3F4] dark:bg-[#202327] rounded-full px-4 py-2.5 text-[#0F1419] dark:text-[#E7E9EA] focus-within:bg-transparent focus-within:ring-1 focus-within:ring-[#1D9BF0] focus-within:border-[#1D9BF0] border border-transparent transition">
+              <Search className="w-4 h-4 text-[#536471] dark:text-[#71767B] mr-3 flex-shrink-0" />
+              <input
+                type="text"
+                placeholder="Search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="bg-transparent text-[15px] outline-none w-full placeholder-[#536471] dark:placeholder-[#71767B]"
+              />
+            </div>
+          </form>
+
+          <button
+            onClick={() => navigateTo('settings')}
+            className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+            title="Settings"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Explore Tabs */}
+        <div className="flex border-t border-[#EFF3F4] dark:border-[#2F3336] overflow-x-auto no-scrollbar">
+          {(isSearchMode
+            ? [
+                { id: 'top', label: 'Top' },
+                { id: 'latest', label: 'Latest' },
+                { id: 'people', label: 'People' },
+                { id: 'media', label: 'Media' },
+              ]
+            : [
+                { id: 'for_you', label: 'For you' },
+                { id: 'trending', label: 'Trending' },
+                { id: 'news', label: 'News' },
+                { id: 'sports', label: 'Sports' },
+                { id: 'entertainment', label: 'Entertainment' },
+              ]
+          ).map((tab) => (
             <button
               key={tab.id}
+              type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
-                activeTab === tab.id
-                  ? 'bg-[#0B57D0] text-white shadow-xs'
-                  : 'bg-[#F1F3F4] dark:bg-[#111827] text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800'
-              }`}
+              className="flex-1 min-w-[80px] py-3.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative text-center cursor-pointer"
             >
-              {tab.label}
+              <span
+                className={`text-[15px] whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'font-bold text-[#0F1419] dark:text-[#E7E9EA]'
+                    : 'font-medium text-[#536471] dark:text-[#71767B]'
+                }`}
+              >
+                {tab.label}
+              </span>
+              {activeTab === tab.id && (
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-1 bg-[#1D9BF0] rounded-full" />
+              )}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Creators Results */}
-      {(activeTab === 'all' || activeTab === 'creators') && results.users?.length > 0 && (
-        <div className="bg-white dark:bg-[#1E293B] p-5 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs flex flex-col gap-3">
-          <h3 className="font-bold text-sm text-[#1F1F1F] dark:text-white flex items-center gap-2">
-            <User className="w-4 h-4 text-[#0B57D0]" />
-            Creators
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {results.users.map((user) => (
-              <div
-                key={user.id}
-                onClick={() => navigateTo('profile', user.handle || user.id)}
-                className="flex items-center justify-between p-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-[#111827] border border-gray-100 dark:border-gray-800 cursor-pointer transition-colors"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <img
-                    src={user.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'}
-                    alt={user.name}
-                    className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                  />
-                  <div className="min-w-0">
-                    <div className="text-sm font-bold text-[#1F1F1F] dark:text-white flex items-center gap-1 truncate">
-                      {user.name}
-                      {user.isVerified && <CheckCircle2 className="w-3.5 h-3.5 text-[#0B57D0] inline" />}
+      {/* 2. Main Content Stream */}
+      <div className="flex flex-col pb-24 md:pb-12">
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="w-7 h-7 rounded-full border-2 border-[#1D9BF0] border-t-transparent animate-spin" />
+          </div>
+        ) : isSearchMode ? (
+          /* Search Results */
+          <div>
+            {/* If people tab or top tab, show matched users */}
+            {(activeTab === 'people' || activeTab === 'top') && results.users?.length > 0 && (
+              <div className="border-b border-[#EFF3F4] dark:border-[#2F3336]">
+                <div className="px-4 py-3 font-extrabold text-[20px] text-[#0F1419] dark:text-[#E7E9EA]">
+                  People
+                </div>
+                {results.users.map((user) => {
+                  const isFollowing = followedMap[user.id];
+                  return (
+                    <div
+                      key={user.id}
+                      onClick={() => navigateTo('profile', user.handle || user.id)}
+                      className="px-4 py-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] cursor-pointer transition flex items-center justify-between gap-3 border-b border-[#EFF3F4] dark:border-[#2F3336]"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img
+                          src={
+                            user.avatar ||
+                            'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'
+                          }
+                          alt={user.name}
+                          className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                        />
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-1 font-bold text-[15px] text-[#0F1419] dark:text-[#E7E9EA] truncate">
+                            <span className="truncate">{user.name}</span>
+                            {user.isVerified && (
+                              <CheckCircle2 className="w-4 h-4 text-[#1D9BF0] fill-current inline flex-shrink-0" />
+                            )}
+                          </div>
+                          <span className="text-[14px] text-[#536471] dark:text-[#71767B] truncate">
+                            @{user.handle}
+                          </span>
+                          {user.bio && (
+                            <p className="text-[14px] text-[#0F1419] dark:text-[#E7E9EA] mt-1 line-clamp-1">
+                              {user.bio}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleFollow(user.id);
+                        }}
+                        className={`font-bold text-[14px] px-4 py-1.5 rounded-full transition active:scale-95 flex-shrink-0 ${
+                          isFollowing
+                            ? 'border border-[#CFD9DE] dark:border-[#536471] text-[#0F1419] dark:text-[#E7E9EA]'
+                            : 'bg-[#0F1419] dark:bg-[#EFF3F4] text-white dark:text-[#0F1419]'
+                        }`}
+                      >
+                        {isFollowing ? 'Following' : 'Follow'}
+                      </button>
                     </div>
-                    <div className="text-xs text-gray-500 truncate">@{user.handle}</div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Matched Tweets */}
+            {results.posts?.length > 0 ? (
+              results.posts.map((post) => <PostCard key={post.id} post={post} />)
+            ) : (
+              <div className="py-20 px-6 text-center">
+                <h3 className="font-extrabold text-[22px] text-[#0F1419] dark:text-[#E7E9EA] mb-2">
+                  No results for "{query}"
+                </h3>
+                <p className="text-[15px] text-[#536471] dark:text-[#71767B]">
+                  Try searching for something else, or check your spelling.
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Default Explore: Trends for you */
+          <div>
+            <div className="px-4 py-3 font-extrabold text-[20px] text-[#0F1419] dark:text-[#E7E9EA] border-b border-[#EFF3F4] dark:border-[#2F3336]">
+              Trends for you
+            </div>
+
+            <div className="flex flex-col divide-y divide-[#EFF3F4] dark:divide-[#2F3336]">
+              {trendingTopics.map((topic, idx) => {
+                const categoryText = topic.category || 'Trending worldwide';
+                const topicText = topic.tag ? (topic.tag.startsWith('#') ? topic.tag : `#${topic.tag}`) : topic.title || 'Breaking';
+                const postCount = topic.count || topic.postsCount || '22.3K posts';
+
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      setQuery(topicText);
+                      setActiveTab('top');
+                      executeSearch(topicText);
+                    }}
+                    className="px-4 py-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] cursor-pointer transition flex items-start justify-between"
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-[13px] text-[#536471] dark:text-[#71767B]">
+                        {categoryText}
+                      </span>
+                      <span className="font-bold text-[15px] text-[#0F1419] dark:text-[#E7E9EA] mt-0.5">
+                        {topicText}
+                      </span>
+                      <span className="text-[13px] text-[#536471] dark:text-[#71767B] mt-0.5">
+                        {postCount}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-8 h-8 rounded-full hover:bg-[#1D9BF0]/10 flex items-center justify-center text-[#536471] dark:text-[#71767B] hover:text-[#1D9BF0] transition"
+                    >
+                      <MoreHorizontal className="w-4 h-4" />
+                    </button>
                   </div>
-                </div>
-                <ArrowRight className="w-4 h-4 text-gray-400" />
-              </div>
-            ))}
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* Trending Hashtags Section */}
-      {(activeTab === 'all' || activeTab === 'tags') && (
-        <div className="bg-white dark:bg-[#1E293B] p-5 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs flex flex-col gap-3">
-          <h3 className="font-bold text-sm text-[#1F1F1F] dark:text-white flex items-center gap-2">
-            <Flame className="w-4 h-4 text-orange-500" />
-            Popular Topics & Hashtags
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {(trendingTags.length > 0 ? trendingTags : [
-              { tag: 'Technology', postsCount: '2.4K' },
-              { tag: 'AIRevolution', postsCount: '1.8K' },
-              { tag: 'Photography', postsCount: '950' },
-              { tag: 'WebDevelopment', postsCount: '620' },
-              { tag: 'DesignInspiration', postsCount: '410' },
-              { tag: 'Innovation', postsCount: '380' }
-            ]).map((item, idx) => (
-              <button
-                key={idx}
-                onClick={() => {
-                  setQuery(`#${item.tag}`);
-                  executeSearch(`#${item.tag}`);
-                }}
-                className="p-3 rounded-2xl bg-[#F8F9FA] dark:bg-[#111827] hover:bg-[#E8F0FE] dark:hover:bg-[#1E293B] text-left transition-colors flex flex-col gap-1 border border-transparent hover:border-[#0B57D0]/30"
-              >
-                <div className="text-xs font-bold text-[#1F1F1F] dark:text-white flex items-center gap-1">
-                  <Hash className="w-3.5 h-3.5 text-[#0B57D0]" />
-                  <span>{item.tag}</span>
-                </div>
-                <div className="text-[11px] text-gray-500">{item.postsCount || '1.2K'} posts</div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Media Grid */}
-      {(activeTab === 'all' || activeTab === 'media') && (
-        <div className="bg-white dark:bg-[#1E293B] p-5 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs flex flex-col gap-3">
-          <h3 className="font-bold text-sm text-[#1F1F1F] dark:text-white flex items-center gap-2">
-            <Image className="w-4 h-4 text-emerald-500" />
-            Explore Media & Photos
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {(results.posts?.length > 0 ? results.posts : [
-              { id: 'exp_1', image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=500&h=500&fit=crop' },
-              { id: 'exp_2', image: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=500&h=500&fit=crop' },
-              { id: 'exp_3', image: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=500&h=500&fit=crop' },
-              { id: 'exp_4', image: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=500&h=500&fit=crop' },
-              { id: 'exp_5', image: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=500&h=500&fit=crop' },
-              { id: 'exp_6', image: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=500&h=500&fit=crop' },
-            ]).map((item, idx) => (
-              <div
-                key={idx}
-                onClick={() => navigateTo('post-detail', item.id)}
-                className="aspect-square rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-800 cursor-pointer group relative"
-              >
-                <img
-                  src={item.image || (Array.isArray(item.images) ? item.images[0] : null)}
-                  alt="Explore item"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

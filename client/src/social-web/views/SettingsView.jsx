@@ -1,30 +1,28 @@
 import React, { useState } from 'react';
 import {
+  ArrowLeft,
+  ChevronRight,
   ShieldCheck,
   Lock,
   Eye,
-  UserX,
   Bell,
   Download,
-  Sliders,
   Info,
-  ChevronRight,
-  ArrowLeft,
   CheckCircle2,
-  Save
+  Key,
+  Smartphone,
+  ExternalLink
 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
 
 export default function SettingsView() {
-  const { currentUser, setCurrentUser, tabParams, navigateTo, showToast } = useSocial();
-  const [subSection, setSubSection] = useState(tabParams?.id || 'menu'); // 'menu' | 'verification' | 'security' | 'privacy' | 'blocked' | 'notifications' | 'data' | 'about'
+  const { currentUser, navigateTo, showToast } = useSocial();
+  const [subSection, setSubSection] = useState('menu');
 
   // Verification Form State
   const [legalName, setLegalName] = useState('');
   const [category, setCategory] = useState('Creator / Influencer');
-  const [docType, setDocType] = useState('National ID');
-  const [docFile, setDocFile] = useState(null);
   const [submittingVerification, setSubmittingVerification] = useState(false);
 
   // Security Form State
@@ -34,7 +32,6 @@ export default function SettingsView() {
   // Privacy State
   const [protectPosts, setProtectPosts] = useState(false);
   const [photoTagging, setPhotoTagging] = useState(true);
-  const [locationSharing, setLocationSharing] = useState(false);
 
   // Notification State
   const [pushNotifs, setPushNotifs] = useState(true);
@@ -49,10 +46,10 @@ export default function SettingsView() {
     setSubmittingVerification(true);
     try {
       await TiwiSocialAPI.requestVerification(
-        { legalName, category, docType },
+        { legalName, category },
         currentUser?.id
       );
-      showToast('Verification request submitted! Our safety team will review it within 24-48 hours.', 'info');
+      showToast('Verification request received. You will receive an update in 24-48 hours.', 'info');
       setSubSection('menu');
     } catch (e) {
       showToast('Submission failed', 'error');
@@ -62,277 +59,319 @@ export default function SettingsView() {
   };
 
   const menuItems = [
-    { id: 'verification', title: 'Account Verification', desc: 'Apply for the official blue verified badge', icon: ShieldCheck, color: 'text-blue-500' },
-    { id: 'security', title: 'Security & Password', desc: 'Manage your password, 2FA, and active sessions', icon: Lock, color: 'text-emerald-500' },
-    { id: 'privacy', title: 'Privacy Settings', desc: 'Control who can view your posts and mentions', icon: Eye, color: 'text-purple-500' },
-    { id: 'blocked', title: 'Blocked Users', desc: 'View and unblock restricted accounts', icon: UserX, color: 'text-red-500' },
-    { id: 'notifications', title: 'Notification Preferences', desc: 'Choose what alerts and emails you receive', icon: Bell, color: 'text-amber-500' },
-    { id: 'data', title: 'Data Export & Portability', desc: 'Download a full copy of your posts, media, and profile', icon: Download, color: 'text-indigo-500' },
-    { id: 'about', title: 'About Tiwi Social', desc: 'Version info, Terms of Service, and Community Guidelines', icon: Info, color: 'text-gray-500' },
+    {
+      id: 'verification',
+      title: 'Verified Organizations & Blue',
+      desc: 'Sign up for Blue or apply for verified status',
+      icon: ShieldCheck
+    },
+    {
+      id: 'security',
+      title: 'Security and account access',
+      desc: 'Manage your account security, password, and connected apps',
+      icon: Lock
+    },
+    {
+      id: 'privacy',
+      title: 'Privacy and safety',
+      desc: 'Manage what information you see and share on Tiwi',
+      icon: Eye
+    },
+    {
+      id: 'notifications',
+      title: 'Notifications',
+      desc: 'Select the kinds of notifications you get about your activities',
+      icon: Bell
+    },
+    {
+      id: 'data',
+      title: 'Download an archive of your data',
+      desc: 'Get an archive of your account information, posts, and media',
+      icon: Download
+    },
+    {
+      id: 'about',
+      title: 'Additional resources & legal',
+      desc: 'Release notes, Terms of Service, Privacy Policy, and Cookies',
+      icon: Info
+    },
   ];
 
   return (
-    <div className="flex flex-col gap-5 max-w-2xl mx-auto w-full pb-20 md:pb-10">
-      {/* Header */}
-      <div className="bg-white dark:bg-[#1E293B] p-5 sm:p-6 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {subSection !== 'menu' && (
-            <button
-              onClick={() => setSubSection('menu')}
-              className="p-1 text-gray-500 hover:text-[#0B57D0]"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-          )}
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-[#1F1F1F] dark:text-white">
-              {subSection === 'menu' ? 'Settings & Privacy' : menuItems.find((m) => m.id === subSection)?.title || 'Settings'}
-            </h2>
-            <p className="text-xs text-gray-500">Manage account safety, preferences, and permissions</p>
-          </div>
+    <div className="w-full flex flex-col min-h-screen">
+      {/* 1. Sticky Header */}
+      <div className="sticky top-0 z-20 bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 py-2.5 flex items-center gap-6 border-b border-[#EFF3F4] dark:border-[#2F3336]">
+        {subSection !== 'menu' ? (
+          <button
+            onClick={() => setSubSection('menu')}
+            className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+            title="Back"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+        ) : (
+          <button
+            onClick={() => navigateTo('feed')}
+            className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+            title="Back"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+        )}
+
+        <div className="flex flex-col">
+          <h1 className="text-[20px] font-extrabold text-[#0F1419] dark:text-[#E7E9EA] leading-tight">
+            {subSection === 'menu' ? 'Settings' : menuItems.find((m) => m.id === subSection)?.title || 'Settings'}
+          </h1>
+          <span className="text-[13px] text-[#536471] dark:text-[#71767B]">
+            @{currentUser?.handle || 'user'}
+          </span>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs p-5 sm:p-6 flex flex-col gap-3">
-        {/* Menu Root */}
+      {/* 2. Settings Content */}
+      <div className="flex flex-col pb-24 md:pb-12">
+        {/* Main Settings Menu */}
         {subSection === 'menu' && (
-          <div className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
+          <div className="flex flex-col divide-y divide-[#EFF3F4] dark:divide-[#2F3336]">
             {menuItems.map((item) => {
               const Icon = item.icon;
               return (
-                <button
+                <div
                   key={item.id}
                   onClick={() => setSubSection(item.id)}
-                  className="flex items-center justify-between p-3.5 hover:bg-gray-50 dark:hover:bg-[#111827] rounded-2xl text-left transition-colors"
+                  className="px-4 py-3.5 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] cursor-pointer transition flex items-center justify-between gap-4"
                 >
-                  <div className="flex items-center gap-3.5">
-                    <div className={`p-2.5 rounded-2xl bg-gray-100 dark:bg-gray-800 ${item.color}`}>
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-[#1F1F1F] dark:text-white">{item.title}</h4>
-                      <p className="text-xs text-gray-500">{item.desc}</p>
+                  <div className="flex items-start gap-4 min-w-0">
+                    <Icon className="w-5 h-5 text-[#536471] dark:text-[#71767B] flex-shrink-0 mt-0.5" />
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-[15px] font-bold text-[#0F1419] dark:text-[#E7E9EA]">
+                        {item.title}
+                      </span>
+                      <span className="text-[13px] text-[#536471] dark:text-[#71767B] line-clamp-1">
+                        {item.desc}
+                      </span>
                     </div>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                </button>
+                  <ChevronRight className="w-5 h-5 text-[#536471] dark:text-[#71767B] flex-shrink-0" />
+                </div>
               );
             })}
           </div>
         )}
 
-        {/* Verification Subview */}
+        {/* Verification Subpage */}
         {subSection === 'verification' && (
-          <form onSubmit={handleVerificationSubmit} className="flex flex-col gap-4">
-            <div className="p-4 bg-[#E8F0FE]/60 dark:bg-blue-950/30 rounded-2xl border border-[#0B57D0]/20 flex items-start gap-3">
-              <ShieldCheck className="w-6 h-6 text-[#0B57D0] flex-shrink-0 mt-0.5" />
-              <div className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">
-                The blue verified checkmark helps confirm authenticity for recognized creators, public figures, and registered entities.
+          <div className="p-4 flex flex-col gap-4">
+            <div className="border border-[#EFF3F4] dark:border-[#2F3336] rounded-2xl p-4 bg-[#F7F9F9] dark:bg-[#16181C]">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle2 className="w-6 h-6 text-[#1D9BF0] fill-current" />
+                <h3 className="text-[17px] font-bold text-[#0F1419] dark:text-[#E7E9EA]">
+                  Tiwi Verified
+                </h3>
               </div>
+              <p className="text-[14px] text-[#536471] dark:text-[#71767B] leading-relaxed">
+                Verified accounts receive the blue badge, prioritized rankings in conversations and search, and higher video upload limits.
+              </p>
             </div>
 
-            <div>
-              <label className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 block">Full Legal Name</label>
-              <input
-                type="text"
-                placeholder="As shown on official government document"
-                value={legalName}
-                onChange={(e) => setLegalName(e.target.value)}
-                className="w-full bg-[#F1F3F4] dark:bg-[#111827] text-xs text-[#1F1F1F] dark:text-white rounded-2xl px-4 py-2.5 focus:outline-none focus:border-[#0B57D0]"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 block">Category</label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-[#F1F3F4] dark:bg-[#111827] text-xs text-[#1F1F1F] dark:text-white rounded-2xl px-4 py-2.5 focus:outline-none"
-              >
-                <option value="Creator / Influencer">Creator / Influencer</option>
-                <option value="Developer / Tech Pioneer">Developer / Tech Pioneer</option>
-                <option value="Organization / Brand">Organization / Brand</option>
-                <option value="Journalist / Media">Journalist / Media</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 block">Document Type</label>
-              <select
-                value={docType}
-                onChange={(e) => setDocType(e.target.value)}
-                className="w-full bg-[#F1F3F4] dark:bg-[#111827] text-xs text-[#1F1F1F] dark:text-white rounded-2xl px-4 py-2.5 focus:outline-none"
-              >
-                <option value="National ID">National ID Card</option>
-                <option value="Passport">Passport</option>
-                <option value="Driver License">Driver's License</option>
-              </select>
-            </div>
-
-            <button
-              type="submit"
-              disabled={submittingVerification}
-              className="mt-2 bg-[#0B57D0] hover:bg-[#0842A0] disabled:opacity-40 text-white py-2.5 rounded-full text-xs font-bold shadow-xs transition-all"
-            >
-              {submittingVerification ? 'Submitting Application...' : 'Submit Verification Request'}
-            </button>
-          </form>
-        )}
-
-        {/* Security Subview */}
-        {subSection === 'security' && (
-          <div className="flex flex-col gap-5 text-xs text-gray-700 dark:text-gray-300">
-            <div className="flex items-center justify-between p-3.5 bg-[#F8F9FA] dark:bg-[#111827] rounded-2xl">
-              <div>
-                <h4 className="font-bold text-[#1F1F1F] dark:text-white">Two-Factor Authentication (2FA)</h4>
-                <p className="text-gray-500 mt-0.5">Secure logins with one-time verification codes</p>
+            <form onSubmit={handleVerificationSubmit} className="flex flex-col gap-4 mt-2">
+              <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-lg p-2.5 focus-within:border-[#1D9BF0]">
+                <label className="block text-[13px] text-[#536471] dark:text-[#71767B]">
+                  Full Legal Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={legalName}
+                  onChange={(e) => setLegalName(e.target.value)}
+                  placeholder="As shown on government ID"
+                  className="w-full bg-transparent text-[15px] text-[#0F1419] dark:text-[#E7E9EA] outline-none mt-0.5"
+                />
               </div>
-              <span className="px-3 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 font-bold rounded-full">
-                Active & Enforced
-              </span>
-            </div>
 
-            <div>
-              <h4 className="font-bold text-[#1F1F1F] dark:text-white mb-2">Change Account Password</h4>
-              <div className="flex flex-col gap-3">
-                <input
-                  type="password"
-                  placeholder="Current password"
-                  value={oldPassword}
-                  onChange={(e) => setOldPassword(e.target.value)}
-                  className="w-full bg-[#F1F3F4] dark:bg-[#111827] rounded-2xl px-4 py-2.5 focus:outline-none"
-                />
-                <input
-                  type="password"
-                  placeholder="New password (minimum 8 characters)"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full bg-[#F1F3F4] dark:bg-[#111827] rounded-2xl px-4 py-2.5 focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    showToast('Password updated securely!', 'info');
-                    setOldPassword('');
-                    setNewPassword('');
-                  }}
-                  className="bg-[#0B57D0] text-white py-2 rounded-full font-bold hover:bg-[#0842A0] self-start px-6"
+              <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-lg p-2.5 focus-within:border-[#1D9BF0]">
+                <label className="block text-[13px] text-[#536471] dark:text-[#71767B]">
+                  Category
+                </label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full bg-transparent text-[15px] text-[#0F1419] dark:text-[#E7E9EA] outline-none mt-0.5"
                 >
-                  Update Password
-                </button>
+                  <option value="Creator / Influencer">Creator / Influencer</option>
+                  <option value="Journalist / News">Journalist / News</option>
+                  <option value="Software Engineer / Tech">Software Engineer / Tech</option>
+                  <option value="Business / Enterprise">Business / Enterprise</option>
+                  <option value="Government / Official">Government / Official</option>
+                </select>
               </div>
-            </div>
+
+              <button
+                type="submit"
+                disabled={submittingVerification}
+                className="bg-[#1D9BF0] hover:bg-[#1A8CD8] text-white font-bold text-[15px] py-3 rounded-full mt-2 transition"
+              >
+                {submittingVerification ? 'Submitting...' : 'Submit Verification Request'}
+              </button>
+            </form>
           </div>
         )}
 
-        {/* Privacy Subview */}
+        {/* Security Subpage */}
+        {subSection === 'security' && (
+          <div className="p-4 flex flex-col gap-5">
+            <h3 className="font-bold text-[17px] text-[#0F1419] dark:text-[#E7E9EA]">
+              Password & Two-factor authentication
+            </h3>
+
+            <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-lg p-2.5 focus-within:border-[#1D9BF0]">
+              <label className="block text-[13px] text-[#536471] dark:text-[#71767B]">
+                Current password
+              </label>
+              <input
+                type="password"
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                className="w-full bg-transparent text-[15px] text-[#0F1419] dark:text-[#E7E9EA] outline-none mt-0.5"
+              />
+            </div>
+
+            <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-lg p-2.5 focus-within:border-[#1D9BF0]">
+              <label className="block text-[13px] text-[#536471] dark:text-[#71767B]">
+                New password
+              </label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full bg-transparent text-[15px] text-[#0F1419] dark:text-[#E7E9EA] outline-none mt-0.5"
+              />
+            </div>
+
+            <button
+              onClick={() => {
+                showToast('Password updated', 'info');
+                setOldPassword('');
+                setNewPassword('');
+                setSubSection('menu');
+              }}
+              className="bg-[#0F1419] dark:bg-[#EFF3F4] text-white dark:text-[#0F1419] font-bold text-[15px] py-3 rounded-full transition"
+            >
+              Update password
+            </button>
+          </div>
+        )}
+
+        {/* Privacy Subpage */}
         {subSection === 'privacy' && (
-          <div className="flex flex-col gap-4 text-xs">
-            <div className="flex items-center justify-between p-3.5 bg-[#F8F9FA] dark:bg-[#111827] rounded-2xl">
+          <div className="flex flex-col divide-y divide-[#EFF3F4] dark:divide-[#2F3336]">
+            <div className="p-4 flex items-center justify-between">
               <div>
-                <h4 className="font-bold text-[#1F1F1F] dark:text-white">Protect your Posts (Private Account)</h4>
-                <p className="text-gray-500 mt-0.5">Only approved followers can view your feed and reels</p>
+                <h4 className="font-bold text-[15px] text-[#0F1419] dark:text-[#E7E9EA]">
+                  Protect your posts
+                </h4>
+                <p className="text-[13px] text-[#536471] dark:text-[#71767B]">
+                  Only current followers will be able to see your posts and media.
+                </p>
               </div>
               <input
                 type="checkbox"
                 checked={protectPosts}
                 onChange={(e) => setProtectPosts(e.target.checked)}
-                className="w-4 h-4 accent-[#0B57D0]"
+                className="w-5 h-5 accent-[#1D9BF0]"
               />
             </div>
 
-            <div className="flex items-center justify-between p-3.5 bg-[#F8F9FA] dark:bg-[#111827] rounded-2xl">
+            <div className="p-4 flex items-center justify-between">
               <div>
-                <h4 className="font-bold text-[#1F1F1F] dark:text-white">Allow Photo Tagging</h4>
-                <p className="text-gray-500 mt-0.5">Let other users tag you in uploaded media</p>
+                <h4 className="font-bold text-[15px] text-[#0F1419] dark:text-[#E7E9EA]">
+                  Photo tagging
+                </h4>
+                <p className="text-[13px] text-[#536471] dark:text-[#71767B]">
+                  Allow anyone to tag you in photos.
+                </p>
               </div>
               <input
                 type="checkbox"
                 checked={photoTagging}
                 onChange={(e) => setPhotoTagging(e.target.checked)}
-                className="w-4 h-4 accent-[#0B57D0]"
+                className="w-5 h-5 accent-[#1D9BF0]"
               />
             </div>
-
-            <button
-              onClick={() => showToast('Privacy preferences saved', 'info')}
-              className="mt-2 bg-[#0B57D0] text-white py-2.5 rounded-full font-bold hover:bg-[#0842A0]"
-            >
-              Save Privacy Settings
-            </button>
           </div>
         )}
 
-        {/* Blocked Users */}
-        {subSection === 'blocked' && (
-          <div className="py-8 text-center text-xs text-gray-500">
-            You haven't blocked any accounts. Blocked accounts will be listed here.
-          </div>
-        )}
-
-        {/* Notifications */}
+        {/* Notifications Subpage */}
         {subSection === 'notifications' && (
-          <div className="flex flex-col gap-3 text-xs">
-            <div className="flex items-center justify-between p-3.5 bg-[#F8F9FA] dark:bg-[#111827] rounded-2xl">
+          <div className="flex flex-col divide-y divide-[#EFF3F4] dark:divide-[#2F3336]">
+            <div className="p-4 flex items-center justify-between">
               <div>
-                <h4 className="font-bold text-[#1F1F1F] dark:text-white">In-App Push Alerts</h4>
-                <p className="text-gray-500 mt-0.5">Instant banners for likes, comments, and messages</p>
+                <h4 className="font-bold text-[15px] text-[#0F1419] dark:text-[#E7E9EA]">
+                  Push notifications
+                </h4>
+                <p className="text-[13px] text-[#536471] dark:text-[#71767B]">
+                  Receive alerts when someone interacts with your posts.
+                </p>
               </div>
               <input
                 type="checkbox"
                 checked={pushNotifs}
                 onChange={(e) => setPushNotifs(e.target.checked)}
-                className="w-4 h-4 accent-[#0B57D0]"
+                className="w-5 h-5 accent-[#1D9BF0]"
               />
             </div>
 
-            <div className="flex items-center justify-between p-3.5 bg-[#F8F9FA] dark:bg-[#111827] rounded-2xl">
+            <div className="p-4 flex items-center justify-between">
               <div>
-                <h4 className="font-bold text-[#1F1F1F] dark:text-white">Email Digest</h4>
-                <p className="text-gray-500 mt-0.5">Weekly community trends and account security notices</p>
+                <h4 className="font-bold text-[15px] text-[#0F1419] dark:text-[#E7E9EA]">
+                  Email notifications
+                </h4>
+                <p className="text-[13px] text-[#536471] dark:text-[#71767B]">
+                  Receive periodic digest emails and security notices.
+                </p>
               </div>
               <input
                 type="checkbox"
                 checked={emailNotifs}
                 onChange={(e) => setEmailNotifs(e.target.checked)}
-                className="w-4 h-4 accent-[#0B57D0]"
+                className="w-5 h-5 accent-[#1D9BF0]"
               />
             </div>
           </div>
         )}
 
-        {/* Data Export */}
+        {/* Data Subpage */}
         {subSection === 'data' && (
-          <div className="flex flex-col gap-3 text-xs">
-            <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
-              In accordance with privacy standards (GDPR & CCPA), you can export all your Tiwi data including profile history, posts, comments, media links, and wallet transactions in JSON format.
+          <div className="p-6 flex flex-col items-center text-center">
+            <Download className="w-12 h-12 text-[#1D9BF0] mb-3" />
+            <h3 className="font-extrabold text-[20px] text-[#0F1419] dark:text-[#E7E9EA] mb-1">
+              Download your data archive
+            </h3>
+            <p className="text-[14px] text-[#536471] dark:text-[#71767B] max-w-sm mb-5">
+              Request a ZIP archive of your posts, media, messages, and profile settings.
             </p>
             <button
-              onClick={() => {
-                const dataBlob = new Blob([JSON.stringify({ user: currentUser, exportedAt: new Date() }, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(dataBlob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `tiwi-export-${currentUser?.handle || 'user'}.json`;
-                a.click();
-                showToast('Data exported successfully!', 'info');
-              }}
-              className="bg-[#0B57D0] text-white py-2.5 rounded-full font-bold hover:bg-[#0842A0] self-start px-6"
+              onClick={() => showToast('Archive requested. We will email you a download link when ready.', 'info')}
+              className="bg-[#1D9BF0] hover:bg-[#1A8CD8] text-white font-bold text-[15px] px-6 py-2.5 rounded-full"
             >
-              Download Export File (.JSON)
+              Request archive
             </button>
           </div>
         )}
 
-        {/* About Tiwi */}
+        {/* About Subpage */}
         {subSection === 'about' && (
-          <div className="flex flex-col gap-3 text-xs text-gray-700 dark:text-gray-300 leading-relaxed">
-            <div><b>Tiwi Social Web:</b> Version 2.4.0 (Production Architecture)</div>
-            <div><b>Backend Engine:</b> PostgreSQL Real Database + GraphQL & REST Services</div>
-            <div><b>Design Standard:</b> Google-Inspired Clean Visual Language & Material 3</div>
-            <div><b>Platform:</b> Integrated with Tiwlo Cloud Platform</div>
-            <div className="pt-2 text-gray-400">© {new Date().getFullYear()} Tiwlo Ecosystem. All rights reserved.</div>
+          <div className="p-4 flex flex-col gap-3 text-[14px] text-[#536471] dark:text-[#71767B]">
+            <p className="font-bold text-[15px] text-[#0F1419] dark:text-[#E7E9EA]">
+              Tiwi Social v2.4 (Twitter Clone Edition)
+            </p>
+            <p>© {new Date().getFullYear()} Tiwi Corporation. All rights reserved.</p>
+            <div className="flex flex-col gap-2 mt-2">
+              <a href="#terms" className="text-[#1D9BF0] hover:underline">Terms of Service</a>
+              <a href="#privacy" className="text-[#1D9BF0] hover:underline">Privacy Policy</a>
+              <a href="#rules" className="text-[#1D9BF0] hover:underline">Community Rules</a>
+            </div>
           </div>
         )}
       </div>

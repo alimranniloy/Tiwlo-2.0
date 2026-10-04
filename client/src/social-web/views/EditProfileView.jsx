@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Camera, UploadCloud, CheckCircle2, Save } from 'lucide-react';
+import { ArrowLeft, Camera, Check } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
 
 export default function EditProfileView() {
   const { currentUser, setCurrentUser, navigateTo, showToast } = useSocial();
   const [name, setName] = useState(currentUser?.name || '');
-  const [handle, setHandle] = useState(currentUser?.handle || '');
   const [bio, setBio] = useState(currentUser?.bio || '');
+  const [location, setLocation] = useState('Worldwide');
   const [website, setWebsite] = useState(currentUser?.website || '');
   const [avatar, setAvatar] = useState(currentUser?.avatar || '');
   const [coverPhoto, setCoverPhoto] = useState(currentUser?.coverPhoto || '');
@@ -24,7 +24,7 @@ export default function EditProfileView() {
       setAvatar(url);
       showToast('Avatar updated', 'info');
     } catch (err) {
-      showToast('Failed to upload image', 'error');
+      showToast('Avatar upload failed', 'error');
     } finally {
       setUploadingAvatar(false);
     }
@@ -37,9 +37,9 @@ export default function EditProfileView() {
     try {
       const url = await TiwiSocialAPI.uploadMedia(file);
       setCoverPhoto(url);
-      showToast('Cover photo updated', 'info');
+      showToast('Header banner updated', 'info');
     } catch (err) {
-      showToast('Failed to upload cover', 'error');
+      showToast('Header banner upload failed', 'error');
     } finally {
       setUploadingCover(false);
     }
@@ -48,16 +48,15 @@ export default function EditProfileView() {
   const handleSave = async (e) => {
     e.preventDefault();
     if (!name.trim()) {
-      showToast('Name cannot be empty', 'error');
+      showToast('Name cannot be blank', 'error');
       return;
     }
 
     setSaving(true);
     try {
-      const updated = await TiwiSocialAPI.updateProfile(
+      await TiwiSocialAPI.updateProfile(
         {
           name: name.trim(),
-          handle: handle.trim().toLowerCase().replace(/[^a-z0-9_]/g, ''),
           bio: bio.trim(),
           website: website.trim(),
           avatar,
@@ -68,9 +67,7 @@ export default function EditProfileView() {
 
       const mergedUser = {
         ...currentUser,
-        ...(updated?.user || updated),
         name: name.trim(),
-        handle: handle.trim(),
         bio: bio.trim(),
         website: website.trim(),
         avatar: avatar || currentUser?.avatar,
@@ -78,145 +75,127 @@ export default function EditProfileView() {
       };
 
       setCurrentUser(mergedUser);
-      try {
-        localStorage.setItem('stockpro_user', JSON.stringify(mergedUser));
-      } catch (e) {}
-
-      showToast('Profile updated successfully!', 'info');
+      showToast('Profile saved', 'info');
       navigateTo('profile', mergedUser.handle || mergedUser.id);
     } catch (err) {
-      showToast(err.message || 'Failed to update profile', 'error');
+      showToast(err.message || 'Failed to save', 'error');
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="max-w-2xl mx-auto w-full pb-20 md:pb-10 flex flex-col gap-5">
-      {/* Header */}
-      <div className="flex items-center justify-between bg-white dark:bg-[#1E293B] p-4 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs">
-        <button
-          onClick={() => navigateTo('profile')}
-          className="flex items-center gap-2 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:text-[#0B57D0]"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to Profile</span>
-        </button>
-        <h2 className="text-sm font-bold text-[#1F1F1F] dark:text-white">Edit Profile</h2>
+    <div className="w-full flex flex-col min-h-screen">
+      {/* 1. Sticky Header: Back Button + Edit Profile + Save Button */}
+      <div className="sticky top-0 z-20 bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 py-2.5 flex items-center justify-between border-b border-[#EFF3F4] dark:border-[#2F3336]">
+        <div className="flex items-center gap-6">
+          <button
+            onClick={() => navigateTo('profile')}
+            className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+            title="Back"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-[20px] font-extrabold text-[#0F1419] dark:text-[#E7E9EA]">
+            Edit profile
+          </h1>
+        </div>
+
         <button
           onClick={handleSave}
-          disabled={saving}
-          className="bg-[#0B57D0] hover:bg-[#0842A0] disabled:opacity-40 text-white px-5 py-2 rounded-full text-xs font-bold shadow-xs transition-all flex items-center gap-1.5"
+          disabled={saving || uploadingAvatar || uploadingCover}
+          className="bg-[#0F1419] dark:bg-[#EFF3F4] text-white dark:text-[#0F1419] font-bold text-[15px] px-5 py-1.5 rounded-full hover:opacity-90 active:scale-95 transition"
         >
-          <Save className="w-3.5 h-3.5" />
-          <span>{saving ? 'Saving...' : 'Save'}</span>
+          {saving ? 'Saving...' : 'Save'}
         </button>
       </div>
 
-      {/* Main Edit Form Box */}
-      <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-6 sm:p-8 border border-gray-200/70 dark:border-gray-800/80 shadow-xs flex flex-col gap-6">
-        {/* Cover Photo */}
-        <div>
-          <label className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2 block">
-            Cover Banner
-          </label>
-          <div className="relative h-40 sm:h-48 rounded-2xl overflow-hidden bg-gradient-to-r from-[#0B57D0] to-[#4285F4] flex items-center justify-center group">
-            {coverPhoto && (
-              <img src={coverPhoto} alt="Cover" className="w-full h-full object-cover" />
-            )}
-            <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity text-white text-xs font-semibold gap-2">
-              <Camera className="w-5 h-5" />
-              <span>{uploadingCover ? 'Uploading...' : 'Change Cover Photo'}</span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleCoverUpload}
-                disabled={uploadingCover}
-                className="hidden"
-              />
-            </label>
-          </div>
-        </div>
+      {/* 2. Cover Banner with Upload Button */}
+      <div className="h-[200px] w-full bg-[#CFD9DE] dark:bg-[#333639] relative flex items-center justify-center overflow-hidden group">
+        {coverPhoto && (
+          <img src={coverPhoto} alt="Cover" className="w-full h-full object-cover" />
+        )}
+        <label className="w-11 h-11 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center cursor-pointer transition z-10">
+          <Camera className="w-5 h-5" />
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleCoverUpload}
+            className="hidden"
+          />
+        </label>
+      </div>
 
-        {/* Avatar */}
-        <div className="flex items-center gap-5">
-          <div className="relative group">
+      {/* 3. Avatar with Upload Button */}
+      <div className="px-4 pb-4 relative">
+        <div className="absolute -top-[67px] left-4">
+          <div className="relative w-[134px] h-[134px] rounded-full border-4 border-white dark:border-black overflow-hidden bg-white dark:bg-black flex items-center justify-center group">
             <img
-              src={avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop'}
+              src={
+                avatar ||
+                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop'
+              }
               alt="Avatar"
-              className="w-20 h-20 rounded-full object-cover border-2 border-white dark:border-[#1E293B] shadow-md"
+              className="w-full h-full object-cover"
             />
-            <label className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity text-white">
-              <Camera className="w-5 h-5" />
+            <label className="absolute inset-0 bg-black/40 hover:bg-black/60 text-white flex items-center justify-center cursor-pointer transition">
+              <Camera className="w-6 h-6" />
               <input
                 type="file"
                 accept="image/*"
                 onChange={handleAvatarUpload}
-                disabled={uploadingAvatar}
                 className="hidden"
               />
             </label>
           </div>
-          <div>
-            <span className="text-sm font-bold text-[#1F1F1F] dark:text-white block">Profile Picture</span>
-            <span className="text-xs text-gray-500">
-              {uploadingAvatar ? 'Uploading new avatar...' : 'JPG, PNG or GIF. Square 1:1 recommended.'}
-            </span>
-          </div>
         </div>
 
-        {/* Inputs */}
-        <div className="flex flex-col gap-4">
-          <div>
-            <label className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 block">
-              Display Name
-            </label>
+        {/* 4. Twitter Input Fields */}
+        <div className="mt-20 flex flex-col gap-5">
+          {/* Name Field */}
+          <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-lg p-2.5 focus-within:border-[#1D9BF0] focus-within:ring-1 focus-within:ring-[#1D9BF0] transition">
+            <label className="block text-[13px] text-[#536471] dark:text-[#71767B]">Name</label>
             <input
               type="text"
               value={name}
+              maxLength={50}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-[#F8F9FA] dark:bg-[#111827] text-sm text-[#1F1F1F] dark:text-white rounded-2xl px-4 py-2.5 border border-transparent focus:border-[#0B57D0] focus:outline-none"
+              className="w-full bg-transparent text-[16px] text-[#0F1419] dark:text-[#E7E9EA] outline-none mt-0.5"
             />
           </div>
 
-          <div>
-            <label className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 block">
-              Username (@handle)
-            </label>
-            <div className="flex items-center bg-[#F8F9FA] dark:bg-[#111827] rounded-2xl px-4 py-2.5">
-              <span className="text-sm text-gray-400 mr-1">@</span>
-              <input
-                type="text"
-                value={handle}
-                onChange={(e) => setHandle(e.target.value)}
-                className="w-full bg-transparent text-sm text-[#1F1F1F] dark:text-white border-none focus:outline-none"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 block">
-              Bio
-            </label>
+          {/* Bio Field */}
+          <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-lg p-2.5 focus-within:border-[#1D9BF0] focus-within:ring-1 focus-within:ring-[#1D9BF0] transition">
+            <label className="block text-[13px] text-[#536471] dark:text-[#71767B]">Bio</label>
             <textarea
               rows={3}
               value={bio}
+              maxLength={160}
               onChange={(e) => setBio(e.target.value)}
-              placeholder="Tell the community about yourself..."
-              className="w-full bg-[#F8F9FA] dark:bg-[#111827] text-sm text-[#1F1F1F] dark:text-white rounded-2xl p-4 border border-transparent focus:border-[#0B57D0] focus:outline-none resize-none leading-relaxed"
+              className="w-full bg-transparent text-[16px] text-[#0F1419] dark:text-[#E7E9EA] outline-none resize-none mt-0.5"
             />
           </div>
 
-          <div>
-            <label className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 block">
-              Website / Link
-            </label>
+          {/* Location Field */}
+          <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-lg p-2.5 focus-within:border-[#1D9BF0] focus-within:ring-1 focus-within:ring-[#1D9BF0] transition">
+            <label className="block text-[13px] text-[#536471] dark:text-[#71767B]">Location</label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="w-full bg-transparent text-[16px] text-[#0F1419] dark:text-[#E7E9EA] outline-none mt-0.5"
+            />
+          </div>
+
+          {/* Website Field */}
+          <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-lg p-2.5 focus-within:border-[#1D9BF0] focus-within:ring-1 focus-within:ring-[#1D9BF0] transition">
+            <label className="block text-[13px] text-[#536471] dark:text-[#71767B]">Website</label>
             <input
               type="text"
               value={website}
-              onChange={(e) => setWebsite(e.target.value)}
               placeholder="https://yourwebsite.com"
-              className="w-full bg-[#F8F9FA] dark:bg-[#111827] text-sm text-[#1F1F1F] dark:text-white rounded-2xl px-4 py-2.5 border border-transparent focus:border-[#0B57D0] focus:outline-none"
+              onChange={(e) => setWebsite(e.target.value)}
+              className="w-full bg-transparent text-[16px] text-[#0F1419] dark:text-[#E7E9EA] outline-none mt-0.5 placeholder-[#536471] dark:placeholder-[#71767B]"
             />
           </div>
         </div>

@@ -1,6 +1,5 @@
 import React, { Suspense, lazy } from 'react';
 import { SocialProvider, useSocial } from './context/SocialContext';
-import SocialNavbar from './components/SocialNavbar';
 import SocialSidebar from './components/SocialSidebar';
 import SocialRightPanel from './components/SocialRightPanel';
 import BottomNav from './components/BottomNav';
@@ -32,7 +31,7 @@ const LiveTriviaView = lazy(() => import('./views/LiveTriviaView'));
 const MemoriesView = lazy(() => import('./views/MemoriesView'));
 const SettingsView = lazy(() => import('./views/SettingsView'));
 
-function SocialWebLayout({ onNavigateHome }) {
+function TwitterLayout({ onNavigateHome }) {
   const { activeTab } = useSocial();
 
   const renderActiveView = () => {
@@ -92,24 +91,28 @@ function SocialWebLayout({ onNavigateHome }) {
     }
   };
 
-  const isFullWidthView = ['reels', 'call', 'messages'].includes(activeTab);
+  const isWideMessages = activeTab === 'messages' || activeTab === 'call';
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0B0F17] text-[#1F1F1F] dark:text-[#E2E8F0] font-sans antialiased flex flex-col transition-colors selection:bg-[#0B57D0]/20 selection:text-[#0B57D0]">
-      {/* Google-Inspired Top Navbar */}
-      <SocialNavbar onBackToPortal={onNavigateHome} />
+    <div className="min-h-screen bg-white dark:bg-black text-[#0F1419] dark:text-[#E7E9EA] font-sans antialiased flex justify-center selection:bg-[#1D9BF0]/20 selection:text-[#1D9BF0]">
+      <div className="w-full max-w-[1265px] flex justify-between min-h-screen">
+        {/* Left Column: Iconic Twitter Navigation Sidebar */}
+        <header className="flex-shrink-0 z-30">
+          <SocialSidebar onNavigateHome={onNavigateHome} />
+        </header>
 
-      {/* Main Container Layout */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 flex justify-center gap-6">
-        {/* Left Sidebar */}
-        <SocialSidebar />
-
-        {/* Center Dynamic Content Area */}
-        <main className={`flex-1 min-w-0 py-6 ${isFullWidthView ? 'max-w-none' : 'max-w-3xl'}`}>
+        {/* Center Column: Iconic 600px Twitter Feed / Page Column */}
+        <main
+          className={`flex-1 min-h-screen border-x border-[#EFF3F4] dark:border-[#2F3336] ${
+            isWideMessages
+              ? 'max-w-[990px] w-full'
+              : 'max-w-[600px] w-full min-w-0'
+          }`}
+        >
           <Suspense
             fallback={
               <div className="flex items-center justify-center min-h-[50vh]">
-                <div className="w-8 h-8 rounded-full border-3 border-[#0B57D0] border-t-transparent animate-spin" />
+                <div className="w-7 h-7 rounded-full border-2 border-[#1D9BF0] border-t-transparent animate-spin" />
               </div>
             }
           >
@@ -117,11 +120,15 @@ function SocialWebLayout({ onNavigateHome }) {
           </Suspense>
         </main>
 
-        {/* Right Panel (Hidden on narrow screens and full-width views) */}
-        {!isFullWidthView && <SocialRightPanel />}
+        {/* Right Column: Twitter Right Sidebar (Search, Trends, Who to follow) */}
+        {!isWideMessages && (
+          <aside className="w-[350px] flex-shrink-0 hidden lg:block px-6">
+            <SocialRightPanel />
+          </aside>
+        )}
       </div>
 
-      {/* Mobile Sticky Bottom Navigation */}
+      {/* Twitter Mobile Bottom Bar */}
       <BottomNav />
     </div>
   );
@@ -130,7 +137,7 @@ function SocialWebLayout({ onNavigateHome }) {
 export default function TiwiSocialWeb({ currentUser = null, onNavigateHome = null }) {
   return (
     <SocialProvider initialUser={currentUser}>
-      <SocialWebLayout onNavigateHome={onNavigateHome} />
+      <TwitterLayout onNavigateHome={onNavigateHome} />
     </SocialProvider>
   );
 }

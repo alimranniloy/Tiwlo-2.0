@@ -1,58 +1,57 @@
 import React from 'react';
-import { Home, Compass, Plus, Film, MessageCircle, User } from 'lucide-react';
+import { Home, Search, Sparkles, Bell, Mail, Feather } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 
 export default function BottomNav() {
-  const { activeTab, navigateTo, currentUser, unreadMessages } = useSocial();
+  const { activeTab, navigateTo, unreadNotifications, unreadMessages } = useSocial();
 
   const navItems = [
-    { id: 'feed', icon: Home, label: 'Feed' },
-    { id: 'search', icon: Compass, label: 'Explore' },
-    { id: 'create-post', icon: Plus, label: 'Create', isSpecial: true },
-    { id: 'reels', icon: Film, label: 'Reels' },
-    { id: 'messages', icon: MessageCircle, label: 'Messages', badge: unreadMessages },
-    { id: 'profile', icon: User, label: 'Profile' },
+    { id: 'feed', icon: Home, label: 'Home' },
+    { id: 'search', icon: Search, label: 'Search' },
+    { id: 'ai-studio', icon: Sparkles, label: 'Grok' },
+    { id: 'notifications', icon: Bell, label: 'Notifications', badge: unreadNotifications },
+    { id: 'messages', icon: Mail, label: 'Messages', badge: unreadMessages },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#0B0F17]/95 backdrop-blur-md border-t border-gray-200/80 dark:border-gray-800/80 md:hidden px-3 py-1 flex items-center justify-around">
-      {navItems.map((item) => {
-        const Icon = item.icon;
-        const isActive = activeTab === item.id;
+    <>
+      {/* Twitter Floating Action Button (FAB) for Post on Mobile */}
+      <button
+        onClick={() => navigateTo('create-post')}
+        className="fixed right-4 bottom-18 w-14 h-14 rounded-full bg-[#1D9BF0] hover:bg-[#1A8CD8] active:scale-95 text-white flex items-center justify-center shadow-lg transition-transform md:hidden z-30 cursor-pointer"
+        title="Post"
+      >
+        <Feather className="w-6 h-6 stroke-[2.2]" />
+      </button>
 
-        if (item.isSpecial) {
+      {/* Twitter Mobile Bottom Bar */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-black/95 backdrop-blur-md border-t border-[#EFF3F4] dark:border-[#2F3336] md:hidden px-2 py-2 flex items-center justify-around">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+
           return (
             <button
               key={item.id}
-              onClick={() => navigateTo('create-post')}
-              className="w-11 h-11 -mt-4 bg-[#0B57D0] text-white rounded-full flex items-center justify-center shadow-lg shadow-[#0B57D0]/30 active:scale-95 transition-transform"
-              title="Create Post"
+              onClick={() => navigateTo(item.id)}
+              className="relative p-2.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
             >
-              <Plus className="w-6 h-6 stroke-[2.5]" />
+              <Icon
+                className={`w-6 h-6 ${
+                  isActive
+                    ? 'text-[#0F1419] dark:text-[#E7E9EA] stroke-[2.5]'
+                    : 'text-[#536471] dark:text-[#71767B] stroke-[1.8]'
+                }`}
+              />
+              {item.badge > 0 && (
+                <span className="absolute top-1 right-1 min-w-4 h-4 px-1 bg-[#1D9BF0] text-white text-[10px] font-bold rounded-full flex items-center justify-center ring-2 ring-white dark:ring-black">
+                  {item.badge > 99 ? '99+' : item.badge}
+                </span>
+              )}
             </button>
           );
-        }
-
-        return (
-          <button
-            key={item.id}
-            onClick={() => navigateTo(item.id, item.id === 'profile' ? (currentUser?.handle || currentUser?.id) : null)}
-            className={`relative flex flex-col items-center py-1.5 px-3 rounded-2xl transition-colors ${
-              isActive
-                ? 'text-[#0B57D0] dark:text-[#8AB4F8]'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-          >
-            <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
-            <span className="text-[10px] mt-0.5 font-medium">{item.label}</span>
-            {item.badge > 0 && (
-              <span className="absolute top-1 right-2 w-4 h-4 bg-[#B3261E] text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                {item.badge}
-              </span>
-            )}
-          </button>
-        );
-      })}
-    </nav>
+        })}
+      </nav>
+    </>
   );
 }

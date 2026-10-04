@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
+  ArrowLeft,
   Calendar,
   Link as LinkIcon,
+  MapPin,
   CheckCircle2,
-  Edit3,
-  MessageCircle,
-  Grid,
-  Film,
-  Heart,
-  Bookmark,
-  Sparkles
+  Mail,
+  MoreHorizontal
 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
@@ -19,12 +16,15 @@ export default function ProfileView() {
   const { currentUser, tabParams, navigateTo, showToast } = useSocial();
   const [profile, setProfile] = useState(null);
   const [userPosts, setUserPosts] = useState([]);
-  const [activeTab, setActiveTab] = useState('posts'); // 'posts' | 'reels' | 'liked' | 'saved'
+  const [activeTab, setActiveTab] = useState('posts'); // 'posts' | 'replies' | 'highlights' | 'media' | 'likes'
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
 
   const targetHandleOrId = tabParams?.handle || tabParams?.id || currentUser?.handle || currentUser?.id;
-  const isOwnProfile = !tabParams?.handle || tabParams?.handle === currentUser?.handle || tabParams?.id === currentUser?.id;
+  const isOwnProfile =
+    !tabParams?.handle ||
+    tabParams?.handle === currentUser?.handle ||
+    tabParams?.id === currentUser?.id;
 
   const fetchProfileData = async () => {
     setLoading(true);
@@ -32,12 +32,12 @@ export default function ProfileView() {
       if (isOwnProfile && currentUser) {
         setProfile(currentUser);
         const posts = await TiwiSocialAPI.getUserPosts(currentUser.id, currentUser.id);
-        setUserPosts(posts);
+        setUserPosts(Array.isArray(posts) ? posts : []);
       } else {
         const p = await TiwiSocialAPI.getProfile(targetHandleOrId, currentUser?.id);
         setProfile(p || currentUser);
         const posts = await TiwiSocialAPI.getUserPosts(p?.id || targetHandleOrId, currentUser?.id);
-        setUserPosts(posts);
+        setUserPosts(Array.isArray(posts) ? posts : []);
         setIsFollowing(!!p?.isFollowing);
       }
     } catch (e) {
@@ -62,171 +62,216 @@ export default function ProfileView() {
     }
   };
 
+  const p = profile || currentUser;
+  const postCount = userPosts.length;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="w-8 h-8 rounded-full border-3 border-[#0B57D0] border-t-transparent animate-spin" />
+        <div className="w-7 h-7 rounded-full border-2 border-[#1D9BF0] border-t-transparent animate-spin" />
       </div>
     );
   }
 
-  const p = profile || currentUser;
-
   return (
-    <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full pb-20 md:pb-10">
-      {/* Cover & Profile Header Card */}
-      <div className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs overflow-hidden">
-        {/* Cover Image */}
-        <div className="h-44 sm:h-56 w-full bg-gradient-to-r from-[#0B57D0] via-[#4285F4] to-[#34A853] relative">
-          {p?.coverPhoto && (
-            <img src={p.coverPhoto} alt="Cover" className="w-full h-full object-cover" />
+    <div className="w-full flex flex-col min-h-screen">
+      {/* 1. Twitter Sticky Header: Back Button + Name + Post Count */}
+      <div className="sticky top-0 z-20 bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 py-1.5 flex items-center gap-6 border-b border-[#EFF3F4] dark:border-[#2F3336]">
+        <button
+          onClick={() => navigateTo('feed')}
+          className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+          title="Back"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+
+        <div className="flex flex-col min-w-0">
+          <div className="flex items-center gap-1 font-bold text-[20px] leading-tight text-[#0F1419] dark:text-[#E7E9EA] truncate">
+            <span className="truncate">{p?.name || 'User'}</span>
+            {p?.isVerified && (
+              <CheckCircle2 className="w-4 h-4 text-[#1D9BF0] fill-current inline flex-shrink-0" />
+            )}
+          </div>
+          <span className="text-[13px] text-[#536471] dark:text-[#71767B]">
+            {postCount} {postCount === 1 ? 'post' : 'posts'}
+          </span>
+        </div>
+      </div>
+
+      {/* 2. Cover Banner */}
+      <div className="h-[200px] w-full bg-[#CFD9DE] dark:bg-[#333639] relative overflow-hidden">
+        {p?.coverPhoto && (
+          <img src={p.coverPhoto} alt="Cover" className="w-full h-full object-cover" />
+        )}
+      </div>
+
+      {/* 3. Profile Avatar & Actions Row */}
+      <div className="px-4 pb-3 relative">
+        {/* Avatar overlapping banner */}
+        <div className="absolute -top-[67px] left-4">
+          <img
+            src={
+              p?.avatar ||
+              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop'
+            }
+            alt={p?.name}
+            className="w-[134px] h-[134px] rounded-full object-cover border-4 border-white dark:border-black bg-white dark:bg-black"
+          />
+        </div>
+
+        {/* Top Right Buttons */}
+        <div className="flex justify-end pt-3 gap-2 min-h-[52px]">
+          {isOwnProfile ? (
+            <button
+              onClick={() => navigateTo('edit-profile')}
+              className="border border-[#CFD9DE] dark:border-[#536471] rounded-full px-4 py-1.5 font-bold text-[15px] hover:bg-black/5 dark:hover:bg-white/5 transition"
+            >
+              Edit profile
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigateTo('messages', p?.id)}
+                className="w-9 h-9 rounded-full border border-[#CFD9DE] dark:border-[#536471] hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center transition"
+                title="Message"
+              >
+                <Mail className="w-5 h-5 text-[#0F1419] dark:text-[#E7E9EA]" />
+              </button>
+
+              <button
+                onClick={handleToggleFollow}
+                className={`font-bold text-[15px] px-5 py-1.5 rounded-full transition active:scale-95 ${
+                  isFollowing
+                    ? 'border border-[#CFD9DE] dark:border-[#536471] text-[#0F1419] dark:text-[#E7E9EA] hover:border-red-500 hover:text-red-500 hover:bg-red-500/10'
+                    : 'bg-[#0F1419] dark:bg-[#EFF3F4] text-white dark:text-[#0F1419] hover:opacity-90'
+                }`}
+              >
+                {isFollowing ? 'Following' : 'Follow'}
+              </button>
+            </div>
           )}
         </div>
 
-        {/* Profile Info Bar */}
-        <div className="px-5 sm:px-8 pb-6 relative">
-          {/* Avatar & Action Button Row */}
-          <div className="flex items-end justify-between -mt-16 sm:-mt-20 mb-4 gap-4">
-            <div className="relative">
-              <img
-                src={p?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop'}
-                alt={p?.name}
-                className="w-28 h-28 sm:w-36 sm:h-36 rounded-full object-cover border-4 border-white dark:border-[#1E293B] shadow-md bg-white"
-              />
-            </div>
-
-            {isOwnProfile ? (
-              <button
-                onClick={() => navigateTo('edit-profile')}
-                className="flex items-center gap-2 px-5 py-2 rounded-full border border-gray-300 dark:border-gray-700 text-xs font-semibold text-[#1F1F1F] dark:text-white hover:bg-gray-50 dark:hover:bg-[#111827] transition-colors"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>Edit Profile</span>
-              </button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => navigateTo('messages', p?.id)}
-                  className="p-2 rounded-full border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#111827] transition-colors"
-                  title="Send Message"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={handleToggleFollow}
-                  className={`px-5 py-2 rounded-full text-xs font-semibold transition-all ${
-                    isFollowing
-                      ? 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-                      : 'bg-[#0B57D0] text-white hover:bg-[#0842A0]'
-                  }`}
-                >
-                  {isFollowing ? 'Following' : 'Follow'}
-                </button>
-              </div>
+        {/* 4. Profile Details: Name, Handle, Bio, Metas, Stats */}
+        <div className="mt-8 flex flex-col">
+          <div className="flex items-center gap-1">
+            <h2 className="font-extrabold text-[20px] text-[#0F1419] dark:text-[#E7E9EA]">
+              {p?.name || 'Tiwi Member'}
+            </h2>
+            {p?.isVerified && (
+              <CheckCircle2 className="w-5 h-5 text-[#1D9BF0] fill-current inline flex-shrink-0" />
             )}
           </div>
+          <span className="text-[15px] text-[#536471] dark:text-[#71767B]">
+            @{p?.handle || 'user'}
+          </span>
 
-          {/* Names & Bio */}
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-bold text-[#1F1F1F] dark:text-white">
-                {p?.name || 'Tiwi Member'}
-              </h1>
-              {p?.isVerified && <CheckCircle2 className="w-5 h-5 text-[#0B57D0]" />}
+          {/* Bio */}
+          <p className="text-[15px] text-[#0F1419] dark:text-[#E7E9EA] mt-3 whitespace-pre-wrap leading-relaxed">
+            {p?.bio || 'Building the future of community & technology.'}
+          </p>
+
+          {/* Location, Website, Joined Date */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3 text-[15px] text-[#536471] dark:text-[#71767B]">
+            <div className="flex items-center gap-1">
+              <MapPin className="w-4 h-4" />
+              <span>Worldwide</span>
             </div>
-            <p className="text-xs text-gray-500 font-medium mt-0.5">@{p?.handle || 'tiwi'}</p>
 
-            <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 mt-3 leading-relaxed max-w-2xl whitespace-pre-line">
-              {p?.bio || 'Living the dream and sharing inspiring thoughts on Tiwi.'}
-            </p>
-
-            <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-gray-500">
-              {p?.website && (
+            {p?.website && (
+              <div className="flex items-center gap-1">
+                <LinkIcon className="w-4 h-4" />
                 <a
                   href={p.website.startsWith('http') ? p.website : `https://${p.website}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-1.5 text-[#0B57D0] dark:text-[#8AB4F8] hover:underline"
+                  className="text-[#1D9BF0] hover:underline"
                 >
-                  <LinkIcon className="w-3.5 h-3.5" />
-                  <span>{p.website.replace(/^https?:\/\//, '')}</span>
+                  {p.website.replace(/^https?:\/\//, '')}
                 </a>
-              )}
-              <div className="flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5" />
-                <span>Joined {p?.joinedDate || 'Recently'}</span>
               </div>
-            </div>
+            )}
 
-            {/* Follower & Post Stats */}
-            <div className="flex items-center gap-6 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 text-xs">
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-[#1F1F1F] dark:text-white">{userPosts.length || p?.postsCount || 0}</span>
-                <span className="text-gray-500">Posts</span>
-              </div>
-              <button
-                onClick={() => navigateTo('followers', p?.id)}
-                className="flex items-center gap-1.5 hover:underline"
-              >
-                <span className="font-bold text-[#1F1F1F] dark:text-white">{p?.followersCount || 128}</span>
-                <span className="text-gray-500">Followers</span>
-              </button>
-              <button
-                onClick={() => navigateTo('following', p?.id)}
-                className="flex items-center gap-1.5 hover:underline"
-              >
-                <span className="font-bold text-[#1F1F1F] dark:text-white">{p?.followingCount || 42}</span>
-                <span className="text-gray-500">Following</span>
-              </button>
+            <div className="flex items-center gap-1">
+              <Calendar className="w-4 h-4" />
+              <span>Joined October 2023</span>
             </div>
           </div>
-        </div>
 
-        {/* Profile Tabs Navigation */}
-        <div className="flex items-center border-t border-gray-100 dark:border-gray-800 px-4">
-          {[
-            { id: 'posts', label: 'Posts', icon: Grid },
-            { id: 'reels', label: 'Reels', icon: Film },
-            { id: 'liked', label: 'Liked', icon: Heart },
-            { id: 'saved', label: 'Saved', icon: Bookmark },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-6 py-3.5 text-xs font-bold border-b-2 transition-all ${
-                  isActive
-                    ? 'border-[#0B57D0] text-[#0B57D0] dark:text-[#8AB4F8]'
-                    : 'border-transparent text-gray-500 hover:text-gray-900 dark:hover:text-white'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+          {/* Following / Followers Counters */}
+          <div className="flex items-center gap-5 mt-3 text-[14px]">
+            <button
+              onClick={() => navigateTo('following')}
+              className="hover:underline flex items-center gap-1"
+            >
+              <span className="font-bold text-[#0F1419] dark:text-[#E7E9EA]">
+                {p?.followingCount || 142}
+              </span>
+              <span className="text-[#536471] dark:text-[#71767B]">Following</span>
+            </button>
+
+            <button
+              onClick={() => navigateTo('followers')}
+              className="hover:underline flex items-center gap-1"
+            >
+              <span className="font-bold text-[#0F1419] dark:text-[#E7E9EA]">
+                {p?.followersCount || 1840}
+              </span>
+              <span className="text-[#536471] dark:text-[#71767B]">Followers</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Tab Content */}
-      <div className="flex flex-col gap-4">
+      {/* 5. Twitter Profile Tabs */}
+      <div className="flex border-b border-[#EFF3F4] dark:border-[#2F3336]">
+        {[
+          { id: 'posts', label: 'Posts' },
+          { id: 'replies', label: 'Replies' },
+          { id: 'highlights', label: 'Highlights' },
+          { id: 'media', label: 'Media' },
+          { id: 'likes', label: 'Likes' },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className="flex-1 py-3.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative text-center cursor-pointer"
+          >
+            <span
+              className={`text-[15px] ${
+                activeTab === tab.id
+                  ? 'font-bold text-[#0F1419] dark:text-[#E7E9EA]'
+                  : 'font-medium text-[#536471] dark:text-[#71767B]'
+              }`}
+            >
+              {tab.label}
+            </span>
+            {activeTab === tab.id && (
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-1 bg-[#1D9BF0] rounded-full" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* 6. Timeline of Posts */}
+      <div className="flex flex-col pb-24 md:pb-12">
         {userPosts.length > 0 ? (
           userPosts.map((post) => (
             <PostCard
               key={post.id}
               post={post}
-              onPostDeleted={(id) => setUserPosts((prev) => prev.filter((p) => p.id !== id))}
+              onPostDeleted={(id) => setUserPosts((prev) => prev.filter((item) => item.id !== id))}
             />
           ))
         ) : (
-          <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-10 border border-gray-200/70 dark:border-gray-800/80 text-center flex flex-col items-center justify-center shadow-xs">
-            <div className="w-12 h-12 rounded-full bg-[#E8F0FE] dark:bg-[#1E293B] flex items-center justify-center text-[#0B57D0] mb-3">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-bold text-[#1F1F1F] dark:text-white mb-1">No posts published yet</h3>
-            <p className="text-xs text-gray-500">When posts are published, they will show up here.</p>
+          <div className="py-20 px-6 text-center">
+            <h3 className="font-extrabold text-[22px] text-[#0F1419] dark:text-[#E7E9EA] mb-2">
+              @{p?.handle || 'user'} hasn’t posted
+            </h3>
+            <p className="text-[15px] text-[#536471] dark:text-[#71767B]">
+              When they post, their posts will show up here.
+            </p>
           </div>
         )}
       </div>

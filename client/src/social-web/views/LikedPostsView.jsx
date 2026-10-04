@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, ArrowLeft, Sparkles } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
 import PostCard from '../components/PostCard';
@@ -17,47 +17,47 @@ export default function LikedPostsView() {
   }, [currentUser?.id]);
 
   return (
-    <div className="flex flex-col gap-5 max-w-2xl mx-auto w-full pb-20 md:pb-10">
-      {/* Header */}
-      <div className="bg-white dark:bg-[#1E293B] p-5 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigateTo('feed')}
-            className="p-1.5 text-gray-500 hover:text-[#0B57D0]"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div>
-            <h2 className="text-base font-bold text-[#1F1F1F] dark:text-white flex items-center gap-2">
-              <Heart className="w-5 h-5 text-[#B3261E] fill-current" />
-              Liked Posts
-            </h2>
-            <p className="text-xs text-gray-500">Posts you've liked on Tiwi</p>
-          </div>
+    <div className="w-full flex flex-col min-h-screen">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-20 bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 py-1.5 flex items-center gap-6 border-b border-[#EFF3F4] dark:border-[#2F3336]">
+        <button
+          onClick={() => navigateTo('profile', currentUser?.handle || currentUser?.id)}
+          className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+          title="Back"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="flex flex-col">
+          <h1 className="text-[20px] font-extrabold text-[#0F1419] dark:text-[#E7E9EA] leading-tight">
+            Likes
+          </h1>
+          <span className="text-[13px] text-[#536471] dark:text-[#71767B]">
+            @{currentUser?.handle || 'user'}
+          </span>
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 rounded-full border-3 border-[#0B57D0] border-t-transparent animate-spin" />
-        </div>
-      ) : likedPosts.length > 0 ? (
-        <div className="flex flex-col gap-4">
-          {likedPosts.map((post) => (
-            <PostCard key={post.id} post={post} />
-          ))}
-        </div>
-      ) : (
-        <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-12 border border-gray-200/70 dark:border-gray-800/80 text-center flex flex-col items-center justify-center shadow-xs">
-          <div className="w-12 h-12 rounded-full bg-[#FCE8E6] dark:bg-red-950/40 flex items-center justify-center text-[#B3261E] mb-3">
-            <Heart className="w-5 h-5" />
+      {/* Stream */}
+      <div className="flex flex-col pb-24 md:pb-12">
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="w-7 h-7 rounded-full border-2 border-[#1D9BF0] border-t-transparent animate-spin" />
           </div>
-          <h3 className="text-sm font-bold text-[#1F1F1F] dark:text-white mb-1">No liked posts yet</h3>
-          <p className="text-xs text-gray-500 max-w-xs">
-            Tap the heart icon on any post you enjoy to keep track of your favorites.
-          </p>
-        </div>
-      )}
+        ) : likedPosts.length > 0 ? (
+          likedPosts.map((post) => (
+            <PostCard key={post.id} post={post} />
+          ))
+        ) : (
+          <div className="py-24 px-8 text-center flex flex-col items-center">
+            <h3 className="font-extrabold text-[28px] text-[#0F1419] dark:text-[#E7E9EA] mb-2">
+              You don’t have any likes yet
+            </h3>
+            <p className="text-[15px] text-[#536471] dark:text-[#71767B] max-w-sm">
+              Tap the heart on any post to show it some love. When you do, it’ll show up here.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

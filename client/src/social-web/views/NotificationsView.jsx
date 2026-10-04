@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Heart, MessageCircle, UserPlus, CheckCheck, Sparkles } from 'lucide-react';
+import {
+  Settings,
+  Heart,
+  Repeat2,
+  UserPlus,
+  MessageCircle,
+  Sparkles,
+  CheckCircle2,
+  CheckCheck
+} from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
 
@@ -7,7 +16,7 @@ export default function NotificationsView() {
   const { currentUser, navigateTo, setUnreadNotifications, showToast } = useSocial();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all'); // 'all' | 'unread'
+  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'verified' | 'mentions'
 
   useEffect(() => {
     fetchNotifications();
@@ -54,124 +63,141 @@ export default function NotificationsView() {
     }
   };
 
-  const filteredNotifications = filter === 'unread'
-    ? notifications.filter((n) => !n.isRead && !n.read)
-    : notifications;
+  const filtered = notifications.filter((notif) => {
+    if (activeTab === 'verified') return notif.isVerifiedSender || notif.senderVerified;
+    if (activeTab === 'mentions') return notif.type === 'mention' || notif.type === 'comment';
+    return true;
+  });
 
   return (
-    <div className="flex flex-col gap-5 max-w-2xl mx-auto w-full pb-20 md:pb-10">
-      {/* Header Banner */}
-      <div className="bg-white dark:bg-[#1E293B] p-5 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-[#1F1F1F] dark:text-white flex items-center gap-2">
-            <Bell className="w-5 h-5 text-[#0B57D0]" />
+    <div className="w-full flex flex-col min-h-screen">
+      {/* 1. Sticky Header: Notifications + Settings */}
+      <div className="sticky top-0 z-20 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-[#EFF3F4] dark:border-[#2F3336]">
+        <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
+          <h1 className="text-[20px] font-extrabold text-[#0F1419] dark:text-[#E7E9EA]">
             Notifications
-          </h2>
-          <p className="text-xs text-gray-500 mt-0.5">Stay updated with your community activities</p>
+          </h1>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleMarkAllRead}
+              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-[#536471] dark:text-[#71767B] hover:text-[#1D9BF0] transition"
+              title="Mark all as read"
+            >
+              <CheckCheck className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => navigateTo('settings')}
+              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-[#536471] dark:text-[#71767B] transition"
+              title="Settings"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
-        <button
-          onClick={handleMarkAllRead}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold text-[#0B57D0] dark:text-[#8AB4F8] hover:bg-[#E8F0FE] dark:hover:bg-[#111827] transition-colors"
-        >
-          <CheckCheck className="w-4 h-4" />
-          <span>Mark all read</span>
-        </button>
-      </div>
-
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => setFilter('all')}
-          className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
-            filter === 'all'
-              ? 'bg-[#0B57D0] text-white shadow-xs'
-              : 'bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300 border border-gray-200/70 dark:border-gray-800'
-          }`}
-        >
-          All Activity
-        </button>
-        <button
-          onClick={() => setFilter('unread')}
-          className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
-            filter === 'unread'
-              ? 'bg-[#0B57D0] text-white shadow-xs'
-              : 'bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300 border border-gray-200/70 dark:border-gray-800'
-          }`}
-        >
-          Unread Only
-        </button>
-      </div>
-
-      {/* Notifications List */}
-      {loading ? (
-        <div className="flex flex-col gap-3">
-          {[1, 2, 3].map((n) => (
-            <div
-              key={n}
-              className="bg-white dark:bg-[#1E293B] p-4 rounded-2xl border border-gray-100 dark:border-gray-800 animate-pulse flex items-center gap-3"
+        {/* Twitter Tabs: All, Verified, Mentions */}
+        <div className="flex border-t border-[#EFF3F4] dark:border-[#2F3336]">
+          {[
+            { id: 'all', label: 'All' },
+            { id: 'verified', label: 'Verified' },
+            { id: 'mentions', label: 'Mentions' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className="flex-1 py-3.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative text-center cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700" />
-              <div className="flex-1">
-                <div className="h-3.5 bg-gray-200 dark:bg-gray-700 rounded w-48 mb-1.5" />
-                <div className="h-2.5 bg-gray-200 dark:bg-gray-700 rounded w-24" />
-              </div>
-            </div>
+              <span
+                className={`text-[15px] ${
+                  activeTab === tab.id
+                    ? 'font-bold text-[#0F1419] dark:text-[#E7E9EA]'
+                    : 'font-medium text-[#536471] dark:text-[#71767B]'
+                }`}
+              >
+                {tab.label}
+              </span>
+              {activeTab === tab.id && (
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-1 bg-[#1D9BF0] rounded-full" />
+              )}
+            </button>
           ))}
         </div>
-      ) : filteredNotifications.length > 0 ? (
-        <div className="flex flex-col gap-2.5">
-          {filteredNotifications.map((notif) => {
+      </div>
+
+      {/* 2. Notifications List */}
+      <div className="flex flex-col pb-24 md:pb-12 divide-y divide-[#EFF3F4] dark:divide-[#2F3336]">
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="w-7 h-7 rounded-full border-2 border-[#1D9BF0] border-t-transparent animate-spin" />
+          </div>
+        ) : filtered.length > 0 ? (
+          filtered.map((notif) => {
             const isUnread = !notif.isRead && !notif.read;
+
             return (
               <div
                 key={notif.id}
                 onClick={() => handleNotificationClick(notif)}
-                className={`flex items-center gap-3.5 p-4 rounded-2xl border cursor-pointer transition-all ${
-                  isUnread
-                    ? 'bg-[#E8F0FE]/40 dark:bg-[#1E293B] border-[#0B57D0]/30 shadow-xs'
-                    : 'bg-white dark:bg-[#1E293B] border-gray-200/60 dark:border-gray-800/80 hover:bg-gray-50 dark:hover:bg-[#111827]'
+                className={`px-4 py-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] cursor-pointer transition flex gap-3 ${
+                  isUnread ? 'bg-[#1D9BF0]/[0.04]' : ''
                 }`}
               >
-                <div className="relative">
-                  <img
-                    src={notif.senderAvatar || notif.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'}
-                    alt="Sender"
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
-                  <div className="absolute -bottom-1 -right-1 p-1 rounded-full bg-[#0B57D0] text-white">
-                    {notif.type === 'like' ? (
-                      <Heart className="w-2.5 h-2.5 fill-current" />
-                    ) : notif.type === 'comment' ? (
-                      <MessageCircle className="w-2.5 h-2.5" />
-                    ) : (
-                      <UserPlus className="w-2.5 h-2.5" />
-                    )}
-                  </div>
+                {/* Left Notification Icon */}
+                <div className="w-8 flex justify-end flex-shrink-0 pt-0.5">
+                  {notif.type === 'like' ? (
+                    <Heart className="w-6 h-6 text-[#F91880] fill-current" />
+                  ) : notif.type === 'repost' ? (
+                    <Repeat2 className="w-6 h-6 text-[#00BA7C]" />
+                  ) : notif.type === 'follow' ? (
+                    <UserPlus className="w-6 h-6 text-[#1D9BF0]" />
+                  ) : notif.type === 'comment' ? (
+                    <MessageCircle className="w-6 h-6 text-[#1D9BF0]" />
+                  ) : (
+                    <Sparkles className="w-6 h-6 text-[#1D9BF0]" />
+                  )}
                 </div>
 
+                {/* Right Body */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs leading-relaxed text-[#1F1F1F] dark:text-gray-200">
-                    <span className="font-bold mr-1">{notif.senderName || notif.author || 'Someone'}</span>
-                    {notif.message || notif.text || 'interacted with your content.'}
-                  </p>
-                  <span className="text-[11px] text-gray-400 mt-0.5 block">{notif.timeAgo || 'Recently'}</span>
-                </div>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <img
+                      src={
+                        notif.senderAvatar ||
+                        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop'
+                      }
+                      alt={notif.senderName || 'Sender'}
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                  </div>
 
-                {isUnread && <span className="w-2 h-2 rounded-full bg-[#0B57D0] flex-shrink-0" />}
+                  <p className="text-[15px] leading-snug text-[#0F1419] dark:text-[#E7E9EA]">
+                    <span className="font-bold hover:underline">
+                      {notif.senderName || 'Someone'}
+                    </span>{' '}
+                    {notif.text || notif.message || 'interacted with your content.'}
+                  </p>
+
+                  {notif.postSnippet && (
+                    <p className="text-[15px] text-[#536471] dark:text-[#71767B] mt-1 line-clamp-2">
+                      {notif.postSnippet}
+                    </p>
+                  )}
+                </div>
               </div>
             );
-          })}
-        </div>
-      ) : (
-        <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-10 border border-gray-200/70 dark:border-gray-800/80 text-center flex flex-col items-center justify-center shadow-xs">
-          <div className="w-12 h-12 rounded-full bg-[#E8F0FE] dark:bg-[#1E293B] flex items-center justify-center text-[#0B57D0] mb-3">
-            <Sparkles className="w-5 h-5" />
+          })
+        ) : (
+          <div className="py-20 px-6 text-center flex flex-col items-center">
+            <h3 className="font-extrabold text-[22px] text-[#0F1419] dark:text-[#E7E9EA] mb-2">
+              Nothing to see here — yet
+            </h3>
+            <p className="text-[15px] text-[#536471] dark:text-[#71767B] max-w-sm">
+              From likes to reposts and a whole lot more, this is where all the action about your posts and account happens.
+            </p>
           </div>
-          <h3 className="text-sm font-bold text-[#1F1F1F] dark:text-white mb-1">No notifications yet</h3>
-          <p className="text-xs text-gray-500">When someone likes, comments, or follows you, you'll see it here.</p>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

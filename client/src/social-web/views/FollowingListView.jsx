@@ -1,67 +1,162 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, UserCheck, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
 
 export default function FollowingListView() {
-  const { tabParams, currentUser, navigateTo } = useSocial();
+  const { currentUser, navigateTo } = useSocial();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const targetUserId = tabParams?.id || currentUser?.id;
+  const [activeTab, setActiveTab] = useState('following');
+  const [followedMap, setFollowedMap] = useState({});
 
   useEffect(() => {
-    TiwiSocialAPI.getFollowing(targetUserId).then((data) => {
-      setUsers(Array.isArray(data) ? data : []);
+    TiwiSocialAPI.getUsers().then((all) => {
+      if (Array.isArray(all)) {
+        const filtered = all.filter((u) => u.id !== currentUser?.id);
+        setUsers(filtered);
+        // By default on following list, mark them as following
+        const initialMap = {};
+        filtered.forEach((u) => {
+          initialMap[u.id] = true;
+        });
+        setFollowedMap(initialMap);
+      }
       setLoading(false);
     });
-  }, [targetUserId]);
+  }, [currentUser?.id]);
+
+  const handleToggleFollow = async (userId) => {
+    const isNow = !followedMap[userId];
+    setFollowedMap((prev) => ({ ...prev, [userId]: isNow }));
+    try {
+      await TiwiSocialAPI.followUser(userId);
+    } catch (e) {
+      setFollowedMap((prev) => ({ ...prev, [userId]: !isNow }));
+    }
+  };
 
   return (
-    <div className="flex flex-col gap-5 max-w-xl mx-auto w-full pb-20 md:pb-10">
-      <div className="bg-white dark:bg-[#1E293B] p-5 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigateTo('profile', targetUserId)} className="p-1.5 text-gray-500 hover:text-[#0B57D0]">
-            <ArrowLeft className="w-4 h-4" />
+    <div className="w-full flex flex-col min-h-screen">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-20 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-[#EFF3F4] dark:border-[#2F3336]">
+        <div className="px-4 py-1.5 flex items-center gap-6">
+          <button
+            onClick={() => navigateTo('profile', currentUser?.handle || currentUser?.id)}
+            className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+            title="Back"
+          >
+            <ArrowLeft className="w-5 h-5" />
           </button>
-          <div>
-            <h2 className="text-base font-bold text-[#1F1F1F] dark:text-white flex items-center gap-2">
-              <UserCheck className="w-5 h-5 text-[#0B57D0]" />
-              Following
-            </h2>
-            <p className="text-xs text-gray-500">Accounts followed by this user</p>
+          <div className="flex flex-col">
+            <h1 className="text-[20px] font-extrabold text-[#0F1419] dark:text-[#E7E9EA] leading-tight">
+              {currentUser?.name || 'User'}
+            </h1>
+            <span className="text-[13px] text-[#536471] dark:text-[#71767B]">
+              @{currentUser?.handle || 'user'}
+            </span>
           </div>
+        </div>
+
+        {/* Twitter Tabs: Verified Followers / Followers / Following */}
+        <div className="flex border-t border-[#EFF3F4] dark:border-[#2F3336]">
+          {[
+            { id: 'verified', label: 'Verified Followers', to: 'followers' },
+            { id: 'followers', label: 'Followers', to: 'followers' },
+            { id: 'following', label: 'Following' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                if (tab.to) navigateTo(tab.to);
+                else setActiveTab(tab.id);
+              }}
+              className="flex-1 py-3.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative text-center"
+            >
+              <span
+                className={`text-[15px] ${
+                  activeTab === tab.id
+                    ? 'font-bold text-[#0F1419] dark:text-[#E7E9EA]'
+                    : 'font-medium text-[#536471] dark:text-[#71767B]'
+                }`}
+              >
+                {tab.label}
+              </span>
+              {activeTab === tab.id && (
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-1 bg-[#1D9BF0] rounded-full" />
+              )}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs p-4 flex flex-col gap-2">
+      {/* Users List */}
+      <div className="flex flex-col pb-24 md:pb-12 divide-y divide-[#EFF3F4] dark:divide-[#2F3336]">
         {loading ? (
-          <div className="text-center py-10 text-xs text-gray-400">Loading following list...</div>
+          <div className="flex items-center justify-center py-20">
+            <div className="w-7 h-7 rounded-full border-2 border-[#1D9BF0] border-t-transparent animate-spin" />
+          </div>
         ) : users.length > 0 ? (
-          users.map((u) => (
-            <div
-              key={u.id}
-              onClick={() => navigateTo('profile', u.handle || u.id)}
-              className="flex items-center justify-between p-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-[#111827] cursor-pointer transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <img
-                  src={u.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'}
-                  alt={u.name}
-                  className="w-10 h-10 rounded-full object-cover"
-                />
-                <div>
-                  <div className="text-sm font-bold text-[#1F1F1F] dark:text-white flex items-center gap-1">
-                    {u.name}
-                    {u.isVerified && <CheckCircle2 className="w-3.5 h-3.5 text-[#0B57D0]" />}
+          users.map((user) => {
+            const isFollowing = followedMap[user.id];
+            return (
+              <div
+                key={user.id}
+                onClick={() => navigateTo('profile', user.handle || user.id)}
+                className="px-4 py-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] cursor-pointer transition flex items-start justify-between gap-3"
+              >
+                <div className="flex items-start gap-3 min-w-0">
+                  <img
+                    src={
+                      user.avatar ||
+                      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'
+                    }
+                    alt={user.name}
+                    className="w-10 h-10 rounded-full object-cover flex-shrink-0 mt-0.5"
+                  />
+                  <div className="flex flex-col min-w-0">
+                    <div className="flex items-center gap-1 font-bold text-[15px] text-[#0F1419] dark:text-[#E7E9EA] truncate">
+                      <span className="truncate">{user.name}</span>
+                      {user.isVerified && (
+                        <CheckCircle2 className="w-4 h-4 text-[#1D9BF0] fill-current inline flex-shrink-0" />
+                      )}
+                    </div>
+                    <span className="text-[14px] text-[#536471] dark:text-[#71767B] truncate">
+                      @{user.handle}
+                    </span>
+                    {user.bio && (
+                      <p className="text-[14px] text-[#0F1419] dark:text-[#E7E9EA] mt-1 leading-relaxed">
+                        {user.bio}
+                      </p>
+                    )}
                   </div>
-                  <div className="text-xs text-gray-500">@{u.handle}</div>
                 </div>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleFollow(user.id);
+                  }}
+                  className={`font-bold text-[14px] px-4 py-1.5 rounded-full transition active:scale-95 flex-shrink-0 ${
+                    isFollowing
+                      ? 'border border-[#CFD9DE] dark:border-[#536471] text-[#0F1419] dark:text-[#E7E9EA] hover:border-red-500 hover:text-red-500 hover:bg-red-500/10'
+                      : 'bg-[#0F1419] dark:bg-[#EFF3F4] text-white dark:text-[#0F1419]'
+                  }`}
+                >
+                  {isFollowing ? 'Following' : 'Follow'}
+                </button>
               </div>
-            </div>
-          ))
+            );
+          })
         ) : (
-          <div className="text-center py-12 text-xs text-gray-400">Not following anyone yet.</div>
+          <div className="py-24 px-8 text-center flex flex-col items-center">
+            <h3 className="font-extrabold text-[28px] text-[#0F1419] dark:text-[#E7E9EA] mb-2">
+              Be in the know
+            </h3>
+            <p className="text-[15px] text-[#536471] dark:text-[#71767B] max-w-sm">
+              Following accounts is an easy way to curate your timeline and know what’s happening with topics and people you're interested in.
+            </p>
+          </div>
         )}
       </div>
     </div>
