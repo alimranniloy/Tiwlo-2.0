@@ -140,6 +140,7 @@ async function syncLocalFilesToDrive(processed) {
   for (const account of accounts) {
     for (const root of roots) {
       await setSyncState('running', {
+        direction: 'to_drive',
         processedFiles: processed.count,
         failedFiles: 0,
         currentFile: `Preparing folders under ${root.urlPrefix}`
@@ -191,6 +192,7 @@ async function syncLocalFilesToDrive(processed) {
       const buffer = await fs.promises.readFile(filename);
       const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
       await setSyncState('running', {
+        direction: 'to_drive',
         processedFiles: processed.count,
         failedFiles: 0,
         currentFile: storagePath
@@ -208,6 +210,7 @@ async function syncLocalFilesToDrive(processed) {
       }
       processed.count += 1;
       await setSyncState('running', {
+        direction: 'to_drive',
         processedFiles: processed.count,
         failedFiles: 0,
         currentFile: storagePath
@@ -232,6 +235,7 @@ async function migratePostgresRowsToDrive(processed) {
     }
     if (!result.migrated) throw new Error('PostgreSQL media migration made no progress.');
     await setSyncState('running', {
+      direction: 'to_drive',
       processedFiles: processed.count,
       failedFiles: 0,
       currentFile: 'Migrating PostgreSQL media records'
@@ -316,6 +320,7 @@ async function syncDriveToServer(processed) {
         .filter((storagePath) => !storagePath.startsWith('/api/'));
       if (!aliases.length) throw new Error(`Media ${media.id} has no URL aliases.`);
       await setSyncState('running', {
+        direction: 'to_server',
         processedFiles: processed.count,
         failedFiles: 0,
         currentFile: aliases[0]
@@ -343,6 +348,7 @@ async function syncDriveToServer(processed) {
       processed.count += 1;
       changed = true;
       await setSyncState('running', {
+        direction: 'to_server',
         processedFiles: processed.count,
         failedFiles: 0,
         currentFile: aliases[0]
@@ -440,6 +446,7 @@ async function runSync(direction) {
       await syncLocalFilesToDrive(processed);
       await migratePostgresRowsToDrive(processed);
       await setSyncState('running', {
+        direction,
         processedFiles: processed.count,
         totalFiles,
         failedFiles: 0,
@@ -447,6 +454,7 @@ async function runSync(direction) {
       });
       await verifyAllDriveRows();
       await setSyncState('running', {
+        direction,
         processedFiles: processed.count,
         totalFiles,
         failedFiles: 0,
