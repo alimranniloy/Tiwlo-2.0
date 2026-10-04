@@ -407,7 +407,7 @@ export const SocialDB = {
 
     // 3. Two-Step Verification (2FA) Check
     if (masterUser.twoFactorEnabled === true) {
-      const otpResult = generateSecureOtp(masterUser.email, 'login_2fa', 10);
+      const otpResult = await generateSecureOtp(masterUser.email, 'login_2fa', 10);
       const [u, d] = masterUser.email.split('@');
       const masked = `${u[0]}***@${d}`;
 
@@ -439,7 +439,7 @@ export const SocialDB = {
       throw new Error('Verification token and 6-digit code are required.');
     }
     const cleanCode = String(otpCode).trim();
-    const verification = verifySecureOtp(tempToken, cleanCode, 'login_2fa');
+    const verification = await verifySecureOtp(tempToken, cleanCode, 'login_2fa');
     if (!verification.valid) {
       throw new Error(verification.error || 'Invalid or expired 2FA code.');
     }
@@ -480,7 +480,7 @@ export const SocialDB = {
     if (!tempToken) {
       throw new Error('Temporary verification token is required.');
     }
-    const session = getOtpSession(tempToken);
+    const session = await getOtpSession(tempToken);
     if (!session) {
       throw new Error('Verification session expired. Please sign in again.');
     }
@@ -489,8 +489,8 @@ export const SocialDB = {
       throw new Error('User not found.');
     }
 
-    deleteOtpSession(tempToken);
-    const newOtp = generateSecureOtp(user.email, 'login_2fa', 10);
+    await deleteOtpSession(tempToken);
+    const newOtp = await generateSecureOtp(user.email, 'login_2fa', 10);
     const [u, d] = user.email.split('@');
     const masked = `${u[0]}***@${d}`;
 

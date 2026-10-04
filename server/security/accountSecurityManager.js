@@ -13,45 +13,33 @@
 import { sendContentRemovedEmail, sendAccountDisabledEmail } from '../db/emailService.js';
 import { MasterDB } from '../db/multiTenant.js';
 import { getPlatformUrl } from '../config/platformConfig.js';
-
-let runtimeViolations = {};
-
-/**
- * Load violations registry
- */
-function loadViolations() {
-  return runtimeViolations;
-}
-
-/**
- * Save violations registry
- */
-function saveViolations(data) {
-  runtimeViolations = data;
-}
+import { queryPg } from '../db/postgres.js';
+import { recordSecurityEvent } from '../db/securityPersistence.js';
 
 /**
  * Checks if a user is currently under a temporary action freeze or ban
  */
-export function isUserRestricted(userId) {
+export async function isUserRestricted(userId) {
   if (!userId) return { restricted: false };
-  const violations = loadViolations();
-  const record = violations[userId];
+  const { rows } = await queryPg(
+    `SELECT strikes, cooldown_until, permanently_disabled, last_reason
+     FROM system_account_security WHERE user_id = $1`,
+    [String(userId).slice(0, 64)]
+  );
+  const record = rows[0];
 
   if (!record) return { restricted: false };
 
-  // 1. Permanent ban check
-  if (record.isPermanentlyDisabled) {
+  if (record.permanently_disabled) {
     return {
       restricted: true,
       action: 'PERMANENTLY_DISABLED',
-      reason: record.lastReason || 'Account suspended for policy violations'
+      reason: record.last_reason || 'Account suspended for policy violations'
     };
   }
 
-  // 2. Temporary freeze check (24 hours cooldown)
-  if (record.cooldownUntil && Date.now() < record.cooldownUntil) {
-    const minutesLeft = Math.ceil((record.cooldownUntil - Date.now()) / (1000 * 60));
+  if (record.cooldown_until && new Date(record.cooldown_until).getTime() > Date.now()) {
+    const minutesLeft = Math.ceil((new Date(record.cooldown_until).getTime() - Date.now()) / (1000 * 60));
     return {
       restricted: true,
       action: 'TEMPORARY_COOLDOWN',
@@ -87,111 +75,77 @@ export async function recordViolation({
   let email = user.email;
   let name = user.name || user.storeName;
 
-  // Resolve user identity & email from MasterDB if not directly provided
-  if ((!email || userId === 'anonymous') && (user.id || user.email || user.tiwiId || user.authorId)) {
-    try {
-      const searchKey = user.id || user.authorId || user.email || user.tiwiId;
-      const master = MasterDB.getMasterData();
-      const u = (master.users || []).find(x => 
-        (searchKey && (x.id === searchKey || x.tiwiId === searchKey || x.email === searchKey)) ||
-        (user.email && x.email && x.email.toLowerCase() === user.email.toLowerCase())
-      );
-      if (u) {
-        userId = u.id || u.email;
-        email = u.email;
-        name = name || u.name;
-      }
-    } catch (e) {}
-  }
-
-  // If still no email, check SocialDB
-  if (!email && userId && userId !== 'anonymous') {
-    try {
-      const { SocialDB } = await import('../social/socialDb.js');
-      const sUser = await SocialDB.findUserById(userId);
-      if (sUser) {
-        email = sUser.email;
-        name = name || sUser.name;
-      }
-    } catch (e) {}
-  }
-
-  const violations = loadViolations();
-  const currentRecord = violations[userId] || {
-    userId,
-    email,
-    strikes: 0,
-    history: []
-  };
-
-  // If email was cached in previous violation record, reuse it
-  if (!email && currentRecord.email) {
-    email = currentRecord.email;
-  }
-  if (email && !currentRecord.email) {
-    currentRecord.email = email;
+  if (userId === 'anonymous') return { actionTaken: 'WARNING', strikes: 0, policyName, reason };
+  const resolvedUser = await MasterDB.findUserByIdentifier(userId);
+  if (resolvedUser) {
+    userId = resolvedUser.id;
+    email = email || resolvedUser.email;
+    name = name || resolvedUser.name || resolvedUser.storeName;
+  } else if (!email && userId) {
+    const { SocialDB } = await import('../social/socialDb.js');
+    const socialUser = await SocialDB.findUserById(userId);
+    if (socialUser) {
+      email = socialUser.email;
+      name = name || socialUser.name;
+    }
   }
 
   name = name || (email ? email.split('@')[0] : 'User');
+  const shouldImmediatelyDisable = isCritical || category === 'WEAPONS_AND_CONTRABAND';
+  const { rows: stateRows } = await queryPg(
+    `INSERT INTO system_account_security
+       (user_id, strikes, cooldown_until, permanently_disabled, last_reason, updated_at)
+     VALUES (
+       $1, 1, NULL, $2, $3, CURRENT_TIMESTAMP
+     )
+     ON CONFLICT (user_id) DO UPDATE SET
+       strikes = CASE
+         WHEN system_account_security.cooldown_until > CURRENT_TIMESTAMP
+              AND system_account_security.strikes < 2 THEN 3
+         ELSE system_account_security.strikes + 1
+       END,
+       permanently_disabled = system_account_security.permanently_disabled OR $2 OR
+         (CASE
+           WHEN system_account_security.cooldown_until > CURRENT_TIMESTAMP
+                AND system_account_security.strikes < 2 THEN 3
+           ELSE system_account_security.strikes + 1
+         END >= 3),
+       cooldown_until = CASE
+         WHEN system_account_security.permanently_disabled OR $2 OR
+           (CASE
+             WHEN system_account_security.cooldown_until > CURRENT_TIMESTAMP
+                  AND system_account_security.strikes < 2 THEN 3
+             ELSE system_account_security.strikes + 1
+           END >= 3) THEN NULL
+         WHEN (CASE
+           WHEN system_account_security.cooldown_until > CURRENT_TIMESTAMP
+                AND system_account_security.strikes < 2 THEN 3
+           ELSE system_account_security.strikes + 1
+         END) = 2 THEN CURRENT_TIMESTAMP + INTERVAL '24 hours'
+         ELSE system_account_security.cooldown_until
+       END,
+       last_reason = EXCLUDED.last_reason,
+       updated_at = CURRENT_TIMESTAMP
+     RETURNING strikes, cooldown_until, permanently_disabled`,
+    [String(userId).slice(0, 64), shouldImmediatelyDisable, reason]
+  );
+  const { strikes: strikeCount, permanently_disabled: permanentlyDisabled } = stateRows[0];
+  const actionTaken = permanentlyDisabled ? 'DISABLED' : strikeCount === 2 ? 'COOLDOWN' : 'WARNING';
 
-  const wasInCooldown = currentRecord.cooldownUntil && Date.now() < currentRecord.cooldownUntil;
+  await recordSecurityEvent({
+    eventType: 'moderation.policy_violation',
+    severity: actionTaken === 'DISABLED' ? 'critical' : 'warning',
+    userId,
+    details: { category, policyName, contentType, actionTaken, strikes: strikeCount }
+  });
 
-  currentRecord.strikes += 1;
-  // If user was already under 24-hr cooldown and violates policy again, immediately escalate to Strike 3
-  if (wasInCooldown && currentRecord.strikes < 3) {
-    currentRecord.strikes = 3;
-  }
-  const strikeCount = currentRecord.strikes;
-
-  const violationEntry = {
-    id: `viol_${Date.now()}`,
-    timestamp: new Date().toISOString(),
-    category,
-    policyName,
-    reason,
-    contentType,
-    strikeNumber: strikeCount
-  };
-
-  currentRecord.history.push(violationEntry);
-  currentRecord.lastReason = reason;
-
-  // Determine disciplinary action
-  let actionTaken = 'WARNING';
-
-  // CRITICAL THREAT OR 3 STRIKES -> IMMEDIATE PERMANENT DISABLE
-  if (isCritical || strikeCount >= 3 || category === 'WEAPONS_AND_CONTRABAND') {
-    actionTaken = 'DISABLED';
-    currentRecord.isPermanentlyDisabled = true;
-    currentRecord.disabledAt = new Date().toISOString();
-
-    // 1. Mark user disabled in Master Database & invalidate active sessions
-    try {
-      const master = MasterDB.getMasterData();
-      if (master.users) {
-        const uIdx = master.users.findIndex(u => u.id === userId || (email && u.email === email));
-        if (uIdx !== -1) {
-          master.users[uIdx].isBanned = true;
-          master.users[uIdx].banReason = reason;
-          master.users[uIdx].bannedAt = new Date().toISOString();
-        }
-      }
-      // Revoke all sessions for this user
-      if (master.sessions) {
-        master.sessions = master.sessions.filter(s => s.userId !== userId && (!email || s.email !== email));
-      }
-      MasterDB.saveMasterData(master);
-    } catch (e) {
-      console.error('[AccountSecurity] Error disabling user in MasterDB:', e);
-    }
-
-    // Also disable in SocialDB
-    try {
-      const { SocialDB } = await import('../social/socialDb.js');
-      if (userId && userId !== 'anonymous') {
-        await SocialDB.updateUser(userId, { isBanned: true, banReason: reason });
-      }
-    } catch (e) {}
+  if (actionTaken === 'DISABLED') {
+    await queryPg(
+      `UPDATE system_users SET is_banned = TRUE, ban_reason = $2, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [userId, reason]
+    );
+    await queryPg('DELETE FROM system_sessions WHERE user_id = $1', [userId]);
 
     // 2. Dispatch Official Suspension Email
     if (email) {
@@ -206,11 +160,8 @@ export async function recordViolation({
         console.warn('[AccountSecurity] Could not send account disabled email:', err.message);
       }
     }
-  } else if (strikeCount === 2) {
+  } else if (actionTaken === 'COOLDOWN') {
     // STRIKE 2: 24-HOUR ACTION FREEZE
-    actionTaken = 'COOLDOWN';
-    currentRecord.cooldownUntil = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
-
     if (email) {
       try {
         await sendContentRemovedEmail({
@@ -225,8 +176,6 @@ export async function recordViolation({
     }
   } else {
     // STRIKE 1: NOTICE & CONTENT REMOVAL
-    actionTaken = 'WARNING';
-
     if (email) {
       try {
         await sendContentRemovedEmail({
@@ -240,9 +189,6 @@ export async function recordViolation({
       } catch (e) {}
     }
   }
-
-  violations[userId] = currentRecord;
-  saveViolations(violations);
 
   // 3. Dispatch In-App Activity Notification (Instant delivery to Tiwi mobile app & web)
   try {

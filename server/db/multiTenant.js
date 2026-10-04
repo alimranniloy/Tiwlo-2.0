@@ -1,6 +1,7 @@
 import { getPgPool, isPgActive, queryPg } from './postgres.js';
 import { PasswordSecurity, SessionSecurity } from '../security/cryptoSecurity.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
+import { recordSecurityEvent } from './securityPersistence.js';
 
 let masterRuntimeData = {
   users: [],
@@ -66,10 +67,9 @@ export const MasterDB = {
 
   // Users
   async getUsers() {
-    if (isPgActive()) {
-      try {
-        const res = await queryPg('SELECT * FROM system_users ORDER BY created_at DESC');
-        return res.rows.map(r => ({
+    if (!isPgActive()) throw new Error('PostgreSQL is unavailable; account lookup is disabled.');
+    const res = await queryPg('SELECT * FROM system_users ORDER BY created_at DESC');
+    return res.rows.map(r => ({
           id: r.id,
           tiwiId: r.tiwi_id,
           storeId: r.tiwi_id,
@@ -101,12 +101,7 @@ export const MasterDB = {
           twoFactorEnabled: r.two_factor_enabled === true,
           authMethod: r.auth_method || 'credentials',
           createdAt: r.created_at
-        }));
-      } catch (e) {
-        console.warn('PostgreSQL query fallback to local DB:', e.message);
-      }
-    }
-    return this.getMasterData().users || [];
+    }));
   },
 
   async findUserByIdentifier(identifier) {
@@ -203,7 +198,27 @@ export const MasterDB = {
         }
       } catch (e) {
         console.warn('PostgreSQL update error:', e.message);
+        if (updates.isBanned !== undefined) throw e;
       }
+    }
+
+    if (updates.isBanned === false) {
+      await queryPg(
+        `UPDATE system_account_security
+         SET strikes = 0, cooldown_until = NULL, permanently_disabled = FALSE,
+             last_reason = NULL, updated_at = CURRENT_TIMESTAMP
+         WHERE user_id = (
+           SELECT id FROM system_users
+           WHERE id::text = $1 OR tiwi_id = $1 OR LOWER(email) = LOWER($1)
+           LIMIT 1
+         )`,
+        [userId]
+      );
+      await recordSecurityEvent({
+        eventType: 'moderation.account_restored',
+        severity: 'info',
+        userId: idx >= 0 ? master.users[idx].id : userId
+      });
     }
 
     return idx !== -1 ? master.users[idx] : await this.findUserByIdentifier(userId);
@@ -341,12 +356,13 @@ export const MasterDB = {
 
   // Sessions with 384-bit token entropy and a persisted client consistency check.
   async createSession(userId, tiwiId, email, req = null) {
+    if (!isPgActive()) throw new Error('PostgreSQL is unavailable; sessions cannot be created.');
+    await queryPg('DELETE FROM system_sessions WHERE expires_at <= CURRENT_TIMESTAMP');
     const sessionToken = SessionSecurity.generateToken();
     const fingerprint = req ? SessionSecurity.createFingerprint(req) : null;
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-    if (isPgActive()) {
-      await queryPg(`
+    await queryPg(`
         INSERT INTO system_sessions
           (token, session_token, user_id, tiwi_id, email, ip, user_agent, device_fingerprint, expires_at)
         VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8)
@@ -358,7 +374,7 @@ export const MasterDB = {
           user_agent = EXCLUDED.user_agent,
           device_fingerprint = EXCLUDED.device_fingerprint,
           expires_at = EXCLUDED.expires_at
-      `, [
+    `, [
         sessionToken,
         userId,
         tiwiId,
@@ -367,53 +383,41 @@ export const MasterDB = {
         req?.headers?.['user-agent'] || null,
         fingerprint,
         expiresAt
-      ]);
+    ]);
+    try {
+        await recordSecurityEvent({
+          eventType: 'auth.session_created',
+          severity: 'info',
+          userId,
+          subject: email,
+          ip: req?.ip,
+          userAgent: req?.get?.('user-agent') || req?.headers?.['user-agent']
+        });
+    } catch (error) {
+        await queryPg('DELETE FROM system_sessions WHERE session_token = $1', [sessionToken]);
+        throw error;
     }
-
-    const master = this.getMasterData();
-    master.sessions = master.sessions || [];
-    master.sessions.push({
-      sessionToken,
-      userId,
-      tiwiId,
-      storeId: tiwiId,
-      email,
-      fingerprint,
-      createdAt: new Date().toISOString(),
-      expiresAt
-    });
-    this.saveMasterData(master);
 
     return { sessionToken, expiresAt };
   },
 
   async getSession(token, req = null) {
     if (!token) return null;
-    const master = this.getMasterData();
-    let session = (master.sessions || []).find(s => s.sessionToken === token);
-
-    // If not in runtime memory (e.g. after server reload), restore from PostgreSQL
-    if (!session && isPgActive()) {
-      try {
-        const res = await queryPg('SELECT * FROM system_sessions WHERE session_token = $1 AND expires_at > NOW()', [token]);
-        if (res.rows && res.rows.length > 0) {
-          const row = res.rows[0];
-          session = {
-            sessionToken: row.session_token,
-            userId: row.user_id,
-            tiwiId: row.tiwi_id,
-            storeId: row.tiwi_id,
-            email: row.email,
-            fingerprint: row.device_fingerprint || null,
-            expiresAt: row.expires_at ? new Date(row.expires_at).toISOString() : new Date(Date.now() + 86400000).toISOString()
-          };
-          // Cache in runtime memory
-          master.sessions = master.sessions || [];
-          master.sessions.push(session);
-        }
-      } catch (e) {}
-    }
-
+    if (!isPgActive()) throw new Error('PostgreSQL is unavailable; session validation is disabled.');
+    const res = await queryPg(
+      'SELECT * FROM system_sessions WHERE session_token = $1 AND expires_at > NOW()',
+      [token]
+    );
+    const row = res.rows[0];
+    const session = row ? {
+      sessionToken: row.session_token,
+      userId: row.user_id,
+      tiwiId: row.tiwi_id,
+      storeId: row.tiwi_id,
+      email: row.email,
+      fingerprint: row.device_fingerprint || null,
+      expiresAt: row.expires_at.toISOString()
+    } : null;
     if (!session) return null;
     if (new Date(session.expiresAt) < new Date()) return null;
 
@@ -421,7 +425,13 @@ export const MasterDB = {
     if (req && session.fingerprint) {
       const isValid = SessionSecurity.validateFingerprint(req, session.fingerprint);
       if (!isValid) {
-        console.warn(`[SECURITY] Session client fingerprint mismatch for Tiwi ID: ${session.tiwiId}.`);
+        await recordSecurityEvent({
+          eventType: 'auth.session_fingerprint_mismatch',
+          severity: 'warning',
+          userId: session.userId,
+          ip: req.ip,
+          userAgent: req.get?.('user-agent')
+        });
         return null;
       }
     }
@@ -432,59 +442,48 @@ export const MasterDB = {
 
   async deleteSession(token) {
     if (!token) return;
-    if (isPgActive()) {
-      await queryPg('DELETE FROM system_sessions WHERE session_token = $1 OR token = $1', [token]);
+    if (!isPgActive()) throw new Error('PostgreSQL is unavailable; session revocation cannot be completed.');
+    const { rows } = await queryPg(
+      `DELETE FROM system_sessions
+       WHERE session_token = $1 OR token = $1
+       RETURNING user_id, email`,
+      [token]
+    );
+    if (rows[0]) {
+      await recordSecurityEvent({
+        eventType: 'auth.session_revoked',
+        userId: rows[0].user_id,
+        subject: rows[0].email
+      });
     }
-    const master = this.getMasterData();
-    master.sessions = (master.sessions || []).filter(s => s.sessionToken !== token);
-    this.saveMasterData(master);
   },
 
   async updatePasswordAndRevokeSessions(userId, passwordHash, exceptToken = null) {
     if (!userId || !passwordHash) throw new Error('User ID and password hash are required.');
+    if (!isPgActive()) throw new Error('PostgreSQL is unavailable; password reset cannot be completed.');
 
-    if (isPgActive()) {
-      const pool = getPgPool();
-      if (!pool) throw new Error('PostgreSQL pool is not available.');
-      const client = await pool.connect();
-      try {
-        await client.query('BEGIN');
-        const updated = await client.query(
-          'UPDATE system_users SET password_hash = $1, updated_at = NOW() WHERE id = $2 RETURNING id',
-          [passwordHash, userId]
-        );
-        if (!updated.rowCount) throw new Error('User account not found.');
-        await client.query(`
-          DELETE FROM system_sessions
-          WHERE user_id = $1
-            AND ($2::VARCHAR IS NULL OR COALESCE(session_token, token) <> $2)
-        `, [userId, exceptToken]);
-        await client.query('COMMIT');
-      } catch (err) {
-        await client.query('ROLLBACK');
-        throw err;
-      } finally {
-        client.release();
-      }
-    } else {
-      const updated = await this.updateUser(userId, { password: passwordHash });
-      if (!updated) throw new Error('User account not found.');
+    const pool = getPgPool();
+    if (!pool) throw new Error('PostgreSQL pool is not available.');
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const updated = await client.query(
+        'UPDATE system_users SET password_hash = $1, updated_at = NOW() WHERE id = $2 RETURNING id',
+        [passwordHash, userId]
+      );
+      if (!updated.rowCount) throw new Error('User account not found.');
+      await client.query(`
+        DELETE FROM system_sessions
+        WHERE user_id = $1
+          AND ($2::VARCHAR IS NULL OR COALESCE(session_token, token) <> $2)
+      `, [userId, exceptToken]);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
-
-    const master = this.getMasterData();
-    const user = (master.users || []).find((item) => item.id === userId);
-    if (user) {
-      user.password = passwordHash;
-      user.updatedAt = new Date().toISOString();
-      this.saveMasterData(master);
-    }
-
-    master.sessions = (master.sessions || []).filter(
-      (session) =>
-        session.userId !== userId ||
-        (exceptToken && session.sessionToken === exceptToken)
-    );
-    this.saveMasterData(master);
   },
 
   // Subscriptions

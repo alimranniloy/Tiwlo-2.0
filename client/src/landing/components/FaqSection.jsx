@@ -27,7 +27,7 @@ export default function FaqSection({ onNavigate }) {
     },
     {
       q: 'Are there any hidden transaction fees or setup charges?',
-      a: 'No. Tiwlo has transparent, predictable pricing. There are zero setup fees and zero forced commission surcharges on your payment gateways.'
+      a: 'No. Tiwlo has transparent, predictable pricing. External payment gateway processing is not enabled in the current deployment.'
     }
   ];
 

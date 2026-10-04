@@ -68,7 +68,7 @@ export default function HelpCenterView({ initialQuery = '', onBack, onOpenInbox 
 1. Go to "Upgrade & Plans" or "Billing" in the sidebar.
 2. Choose between monthly or annual billing to unlock enterprise storage and multi-store expansions.
 3. Invoices are automatically generated as verified PDF documents ready for accounting and tax reporting.
-4. Payments are secured via Stripe 256-bit SSL encryption.`
+4. Payment gateway integrations and processing are not currently available in this deployment.`
     },
     {
       id: 'art_5',

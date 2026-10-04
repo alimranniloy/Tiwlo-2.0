@@ -29,7 +29,7 @@ export default function EcommerceSection({ onNavigate }) {
       desc: 'Accept payments from customers worldwide with localized currencies, international credit cards, and digital wallets.',
       icon: CreditCard,
       badgeColor: 'bg-[#e6f4ea] text-[#137333]',
-      features: ['Native USD, EUR, GBP, and BDT support', 'Direct bKash, Nagad & card integrations', 'Sub-second checkout verification']
+      features: ['Native USD, EUR, GBP, and BDT support', 'Customer payment-method selection for order records', 'External gateway processing is not enabled yet']
     },
     {
       title: 'Automated Multi-Warehouse Inventory',

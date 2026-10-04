@@ -13,7 +13,6 @@ import { checkUrlSafety } from './domainFilter.js';
 import {
   generateUploadToken,
   verifyUploadToken,
-  registerAsset,
   checkAssetScope,
   scanAndSanitizeImage
 } from './mediaSecurity.js';
@@ -26,7 +25,6 @@ export {
   checkUrlSafety,
   generateUploadToken,
   verifyUploadToken,
-  registerAsset,
   checkAssetScope,
   scanAndSanitizeImage,
   isUserRestricted,
@@ -52,7 +50,7 @@ export function contentSafetyMiddleware(context = 'public_feed') {
 
       // 1. Check if user is currently frozen or permanently banned
       if (userId) {
-        const restriction = isUserRestricted(userId);
+        const restriction = await isUserRestricted(userId);
         if (restriction.restricted) {
           return res.status(403).json({
             error: 'ACCOUNT_RESTRICTED',
@@ -111,7 +109,10 @@ export function contentSafetyMiddleware(context = 'public_feed') {
       next();
     } catch (err) {
       console.error('[ContentSafetyMiddleware] Error:', err);
-      next(); // Fail open for resilience if internal inspection throws
+      return res.status(503).json({
+        error: 'CONTENT_SAFETY_UNAVAILABLE',
+        message: 'Content inspection is temporarily unavailable. Please retry later.'
+      });
     }
   };
 }
@@ -121,7 +122,6 @@ export default {
   checkUrlSafety,
   generateUploadToken,
   verifyUploadToken,
-  registerAsset,
   checkAssetScope,
   scanAndSanitizeImage,
   isUserRestricted,

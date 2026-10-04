@@ -25,7 +25,8 @@ export const SSL_CONFIG = {
     getSubdomain(PLATFORM_CONFIG.authSubdomain),
     getSubdomain(PLATFORM_CONFIG.tpanelSubdomain),
     getSubdomain(PLATFORM_CONFIG.dns1Subdomain),
-    getSubdomain(PLATFORM_CONFIG.dns2Subdomain)
+    getSubdomain(PLATFORM_CONFIG.dns2Subdomain),
+    getSubdomain(PLATFORM_CONFIG.driveSubdomain)
   ],
   CERTBOT_WEBROOT: '/var/www/certbot',
   NGINX_CONF: '/etc/nginx/sites-available/tiwlo',
@@ -112,6 +113,8 @@ export function generateNginxConfig(primaryDomain = SSL_CONFIG.PRIMARY_DOMAIN) {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
+        proxy_buffering off;
+        proxy_request_buffering off;
     }
 
     # GraphQL Proxy
@@ -126,19 +129,27 @@ export function generateNginxConfig(primaryDomain = SSL_CONFIG.PRIMARY_DOMAIN) {
         proxy_cache_bypass $http_upgrade;
     }
 
-    # Static Uploads & Media (profile pics, covers, reels, posts)
+    # PostgreSQL-first media serving; Express falls back to legacy disk files.
     location /upload/ {
-        alias /var/www/tiwlo/upload/;
-        expires 30d;
-        add_header Cache-Control "public, no-transform";
-        try_files $uri =404;
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_request_buffering off;
     }
 
     location /uploads/ {
-        alias /var/www/tiwlo/server/uploads/;
-        expires 30d;
-        add_header Cache-Control "public, no-transform";
-        try_files $uri =404;
+        proxy_pass http://127.0.0.1:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_request_buffering off;
     }
   `;
 

@@ -8,14 +8,12 @@
  * 2. Multi-Lane Parallel Worker Pool:
  *    - Processes multiple serial queues simultaneously (e.g. 8 parallel lanes) to prevent bottlenecking.
  *    - Ensures every item finishes inspection within 30 seconds to 2-3 minutes max.
- * 3. Instant Hash De-Duplication Cache (SHA-256):
- *    - Intercepts previously flagged viral adult content / spam images in 0.001ms without decoding.
- * 4. Memory & OOM Shielding (Backpressure):
- *    - Streaming to disk quarantine buffer prevents RAM exhaustion under burst loads.
+ * 3. Memory & OOM Shielding (Backpressure):
+ *    - Short-lived temporary files prevent large upload bodies from staying in RAM.
  *    - Adaptive throttling when system heap approaches safety thresholds.
- * 5. Two-Way State Handshake:
- *    - Moves approved media from /quarantine to /uploads.
- *    - Shreds rejected media, logs strikes, and fires notification emails.
+ * 4. Two-Way State Handshake:
+ *    - Stores approved media in PostgreSQL after inspection.
+ *    - Removes rejected temporary data, records strikes, and sends notifications.
  */
 
 import fs from 'fs';
@@ -23,28 +21,21 @@ import path from 'path';
 import crypto from 'crypto';
 import os from 'os';
 import { EventEmitter } from 'events';
-import { fileURLToPath } from 'url';
-import { scanAndSanitizeImage, registerAsset } from './mediaSecurity.js';
+import { scanAndSanitizeImage } from './mediaSecurity.js';
 import { recordViolation } from './accountSecurityManager.js';
+import { inferMediaType, storeMedia } from '../db/mediaStorage.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Directories
-const QUARANTINE_DIR = path.join(__dirname, '../data/quarantine');
-const UPLOADS_DIR = path.join(__dirname, '../uploads');
-
-// Ensure directories exist
-[QUARANTINE_DIR, UPLOADS_DIR].forEach(dir => {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+const QUARANTINE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'tiwlo-quarantine-'));
+process.once('exit', () => {
+  try {
+    fs.rmSync(QUARANTINE_DIR, { recursive: true, force: true });
+  } catch (error) {
+    console.error('[InspectionQueue] Could not remove temporary quarantine directory:', error.message);
+  }
 });
 
 // Calculate optimal worker concurrency based on CPU cores (min 4, max 16)
 const NUM_LANES = Math.min(Math.max(os.cpus().length * 2, 4), 16);
-
-// Known Flagged Hash Cache (Instant O(1) matching for viral adult content & contraband)
-const FLAGGED_HASH_CACHE = new Set();
-const VERIFIED_CLEAN_HASH_CACHE = new Set();
 
 class MultiLaneInspectionQueue extends EventEmitter {
   constructor(laneCount = NUM_LANES) {
@@ -88,47 +79,20 @@ class MultiLaneInspectionQueue extends EventEmitter {
     const quarantineFilename = `quar_${ticketId}${ext}`;
     const quarantineFilePath = path.join(QUARANTINE_DIR, quarantineFilename);
 
-    // Fast atomic move or copy into quarantine storage on disk (not held in RAM)
+    if (!tempFilePath || !fs.existsSync(tempFilePath)) {
+      throw new Error('Temporary upload file is missing.');
+    }
+
     try {
-      if (tempFilePath && fs.existsSync(tempFilePath)) {
-        fs.renameSync(tempFilePath, quarantineFilePath);
-      }
-    } catch (e) {
+      fs.renameSync(tempFilePath, quarantineFilePath);
+    } catch {
       try {
         fs.copyFileSync(tempFilePath, quarantineFilePath);
         fs.unlinkSync(tempFilePath);
-      } catch (err) {}
-    }
-
-    // Compute fast SHA-256 fingerprint of file
-    let fileHash = null;
-    try {
-      const bufferSample = fs.readFileSync(quarantineFilePath);
-      fileHash = crypto.createHash('sha256').update(bufferSample).digest('hex');
-
-      // Instant rejection if hash matches known viral adult/contraband content
-      if (FLAGGED_HASH_CACHE.has(fileHash)) {
-        try { fs.unlinkSync(quarantineFilePath); } catch (e) {}
-
-        const strikeResult = await recordViolation({
-          user,
-          category: 'ADULT_CONTENT',
-          policyName: 'Adult & Sexually Explicit Content Policy',
-          reason: 'Identified as known prohibited adult media via fingerprint match.',
-          contentType: 'Image'
-        });
-
-        const rejectedTicket = {
-          ticketId,
-          status: 'REJECTED',
-          reason: 'Prohibited adult content identified via fingerprint match.',
-          actionTaken: strikeResult.actionTaken,
-          completedAt: new Date().toISOString()
-        };
-        this.ticketRegistry.set(ticketId, rejectedTicket);
-        return rejectedTicket;
+      } catch (error) {
+        throw new Error(`Could not move upload into temporary quarantine: ${error.message}`);
       }
-    } catch (e) {}
+    }
 
     // Estimated turnaround time in seconds based on current backlog divided by parallel lanes
     const estimatedSeconds = Math.max(Math.ceil((this.queue.length / this.laneCount) * 1.5), 2);
@@ -142,7 +106,6 @@ class MultiLaneInspectionQueue extends EventEmitter {
       user,
       priority,
       metadata,
-      fileHash,
       status: 'QUEUED',
       enqueuedAt: Date.now(),
       estimatedSeconds
@@ -218,8 +181,7 @@ class MultiLaneInspectionQueue extends EventEmitter {
       quarantineFilePath,
       quarantineFilename,
       purpose,
-      user,
-      fileHash
+      user
     } = job;
 
     // Update status to SCANNING
@@ -235,21 +197,16 @@ class MultiLaneInspectionQueue extends EventEmitter {
         throw new Error('Quarantine file missing or inaccessible');
       }
 
-      // 1. Check if hash was already verified clean in previous identical upload
-      if (fileHash && VERIFIED_CLEAN_HASH_CACHE.has(fileHash)) {
-        return this.promoteApprovedAsset(job, null, Date.now() - startTime);
-      }
-
-      // 2. Read quarantined file from disk for deep visual & adult screening
+      // Read quarantined data only for the active inspection job.
       const fileBuffer = fs.readFileSync(quarantineFilePath);
       const scanResult = await scanAndSanitizeImage(fileBuffer, purpose, quarantineFilename);
+      if (scanResult.isVideo) {
+        throw new Error('Video files are not accepted by the image inspection queue.');
+      }
 
       if (!scanResult.safe) {
         // Adult/NSFW content detected: Shred file immediately from disk
         try { fs.unlinkSync(quarantineFilePath); } catch (e) {}
-
-        // Store hash in flagged cache for instant future blocking
-        if (fileHash) FLAGGED_HASH_CACHE.add(fileHash);
 
         // Record violation, compute strikes, and send warning/ban email
         const enforcement = await recordViolation({
@@ -276,11 +233,11 @@ class MultiLaneInspectionQueue extends EventEmitter {
         return rejectionResult;
       }
 
-      // 3. Approved: Cache clean hash
-      if (fileHash) VERIFIED_CLEAN_HASH_CACHE.add(fileHash);
-
-      // 4. Promote verified asset to live /uploads storage
-      return this.promoteApprovedAsset(job, scanResult.sanitizedBuffer, Date.now() - startTime);
+      return await this.promoteApprovedAsset(
+        job,
+        scanResult.sanitizedBuffer || fileBuffer,
+        Date.now() - startTime
+      );
     } catch (err) {
       console.error(`[InspectionQueue] Error processing ticket ${ticketId}:`, err);
       // Clean up quarantine file on error
@@ -298,32 +255,24 @@ class MultiLaneInspectionQueue extends EventEmitter {
   }
 
   /**
-   * Promotes safe media from quarantine to live /uploads directory
+   * Stores safe media in PostgreSQL after inspection.
    */
-  promoteApprovedAsset(job, sanitizedBuffer, processingTimeMs) {
+  async promoteApprovedAsset(job, mediaBuffer, processingTimeMs) {
     const { ticketId, quarantineFilePath, purpose, user } = job;
-    const finalFilename = `pub_${ticketId}.jpg`;
-    const finalPath = path.join(UPLOADS_DIR, finalFilename);
-
-    try {
-      if (sanitizedBuffer) {
-        fs.writeFileSync(finalPath, sanitizedBuffer);
-        try { fs.unlinkSync(quarantineFilePath); } catch (e) {}
-      } else {
-        fs.renameSync(quarantineFilePath, finalPath);
-      }
-    } catch (e) {
-      try {
-        fs.copyFileSync(quarantineFilePath, finalPath);
-        fs.unlinkSync(quarantineFilePath);
-      } catch (err) {}
-    }
-
+    const extension = path.extname(job.originalFilename) || '.jpg';
+    const finalFilename = `pub_${ticketId}${extension}`;
     const publicUrl = `/uploads/${finalFilename}`;
     const userId = user?.id || user?.tiwiId || user?.email || 'anonymous';
 
-    // Register approved asset in scope registry
-    registerAsset(publicUrl, { userId, purpose, isSafe: true });
+    await storeMedia({
+      aliases: [publicUrl],
+      buffer: mediaBuffer,
+      contentType: inferMediaType(finalFilename),
+      originalFilename: job.originalFilename || finalFilename,
+      ownerId: userId,
+      purpose,
+    });
+    await fs.promises.unlink(quarantineFilePath);
 
     const approvalResult = {
       ticketId,

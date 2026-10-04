@@ -8,6 +8,8 @@ import {
   SsoSecurity
 } from '../security/cryptoSecurity.js';
 import {
+  consumeSecureGrant,
+  createSecureGrant,
   generateSecureOtp,
   verifySecureOtp,
   getOtpSession,
@@ -17,18 +19,18 @@ import {
   sendPasswordResetOtpEmail,
   sendLoginActivityAlertEmail,
   getEmailConfig,
-  getOutboxList,
   verifySmtpConnection,
   sendTiwloEmail
 } from '../db/emailService.js';
+import { listEmailDeliveries } from '../db/securityPersistence.js';
 import { renderBaseEmail } from '../email/index.js';
 import { logActivity } from '../db/storeDataAdapter.js';
 import { requireAdmin } from '../administrator/adminRoutes.js';
 import { SocialDB } from '../social/socialDb.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
+import { recordSecurityEvent } from '../db/securityPersistence.js';
 
 const router = express.Router();
-const passwordResetGrants = new Map();
 
 function getRequestSessionToken(req) {
   const authHeader = req.headers.authorization;
@@ -107,7 +109,7 @@ router.post('/auth/social-check', async (req, res) => {
 
     if (user) {
       if (!user.emailVerified) {
-        const otpResult = generateSecureOtp(user.email, 'email_verify', 15);
+        const otpResult = await generateSecureOtp(user.email, 'email_verify', 15);
         const masked = maskEmail(user.email);
         await sendSignupVerificationOtpEmail({
           to: user.email,
@@ -125,7 +127,7 @@ router.post('/auth/social-check', async (req, res) => {
       }
 
       if (!user.twoFactorEnabled) {
-        const otpResult = generateSecureOtp(user.email, 'setup_2fa', 15);
+        const otpResult = await generateSecureOtp(user.email, 'setup_2fa', 15);
         const masked = maskEmail(user.email);
         await sendTwoFactorOtpEmail({
           to: user.email,
@@ -142,7 +144,7 @@ router.post('/auth/social-check', async (req, res) => {
         });
       }
 
-      const otpResult = generateSecureOtp(user.email, 'login_2fa', 10);
+      const otpResult = await generateSecureOtp(user.email, 'login_2fa', 10);
       const masked = maskEmail(user.email);
       await sendTwoFactorOtpEmail({
         to: user.email,
@@ -457,7 +459,7 @@ router.post('/auth/register', async (req, res) => {
       });
     }
 
-    const verifyOtp = generateSecureOtp(newUser.email, 'email_verify', 15);
+    const verifyOtp = await generateSecureOtp(newUser.email, 'email_verify', 15);
     const masked = maskEmail(newUser.email);
     const emailResult = await sendSignupVerificationOtpEmail({
       to: newUser.email,
@@ -504,10 +506,10 @@ router.post('/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Please enter both your Email/Tiwi ID and password.' });
     }
 
-    const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
+    const clientIp = req.ip || req.socket?.remoteAddress || '127.0.0.1';
     const cleanId = identifier.trim().toLowerCase();
 
-    const ipLocked = BruteForceShield.isLocked(clientIp);
+    const ipLocked = await BruteForceShield.isLocked(clientIp);
     if (ipLocked) {
       const waitTime = formatRemainingWaitTime(ipLocked.remainingSeconds);
       return res.status(429).json({
@@ -517,7 +519,7 @@ router.post('/auth/login', async (req, res) => {
       });
     }
 
-    const acctLocked = BruteForceShield.isLocked(cleanId);
+    const acctLocked = await BruteForceShield.isLocked(cleanId);
     if (acctLocked) {
       const waitTime = formatRemainingWaitTime(acctLocked.remainingSeconds);
       return res.status(429).json({
@@ -531,8 +533,16 @@ router.post('/auth/login', async (req, res) => {
     const isPasswordValid = user ? PasswordSecurity.verify(password, user.password) : false;
 
     if (!user || !isPasswordValid) {
-      BruteForceShield.recordFailure(clientIp);
-      const acctRecord = BruteForceShield.recordFailure(cleanId);
+      await BruteForceShield.recordFailure(clientIp);
+      const acctRecord = await BruteForceShield.recordFailure(cleanId);
+      await recordSecurityEvent({
+        eventType: 'auth.login_failed',
+        severity: 'warning',
+        subject: cleanId,
+        ip: clientIp,
+        userAgent: req.get('user-agent'),
+        details: { accountExists: Boolean(user) }
+      });
       logActivity('alert', `Failed Login Attempt`, `Target: ${cleanId} from IP ${clientIp}`);
 
       const remaining = Math.max(0, BruteForceShield.MAX_ATTEMPTS - (acctRecord?.count || 1));
@@ -550,6 +560,14 @@ router.post('/auth/login', async (req, res) => {
     }
 
     if (user.isBanned) {
+      await recordSecurityEvent({
+        eventType: 'auth.disabled_account_login_blocked',
+        severity: 'warning',
+        userId: user.id,
+        subject: cleanId,
+        ip: clientIp,
+        userAgent: req.get('user-agent')
+      });
       logActivity('alert', `Disabled Account Sign-In Blocked`, `Target: ${cleanId} from IP ${clientIp}`);
       return res.status(403).json({
         error: 'Your Tiwlo Account has been disabled.',
@@ -564,8 +582,15 @@ router.post('/auth/login', async (req, res) => {
       });
     }
 
-    BruteForceShield.recordSuccess(clientIp);
-    BruteForceShield.recordSuccess(cleanId);
+    await BruteForceShield.recordSuccess(clientIp);
+    await BruteForceShield.recordSuccess(cleanId);
+    await recordSecurityEvent({
+      eventType: 'auth.password_verified',
+      userId: user.id,
+      subject: cleanId,
+      ip: clientIp,
+      userAgent: req.get('user-agent')
+    });
 
     if (!user.password.startsWith('scrypt$')) {
       user.password = PasswordSecurity.hash(password);
@@ -604,7 +629,7 @@ router.post('/auth/login', async (req, res) => {
 
     const isEmailVerified = user.emailVerified === true;
     if (!isEmailVerified) {
-      const otpResult = generateSecureOtp(user.email, 'email_verify', 15);
+      const otpResult = await generateSecureOtp(user.email, 'email_verify', 15);
       const masked = maskEmail(user.email);
 
       const emailResult = await sendSignupVerificationOtpEmail({
@@ -628,7 +653,7 @@ router.post('/auth/login', async (req, res) => {
     }
 
     if (!user.twoFactorEnabled) {
-      const otpResult = generateSecureOtp(user.email, 'setup_2fa', 15);
+      const otpResult = await generateSecureOtp(user.email, 'setup_2fa', 15);
       const masked = maskEmail(user.email);
 
       const emailResult = await sendTwoFactorOtpEmail({
@@ -651,7 +676,7 @@ router.post('/auth/login', async (req, res) => {
       });
     }
 
-    const otpResult = generateSecureOtp(user.email, 'login_2fa', 10);
+    const otpResult = await generateSecureOtp(user.email, 'login_2fa', 10);
     const masked = maskEmail(user.email);
 
     const emailResult = await sendTwoFactorOtpEmail({
@@ -686,7 +711,7 @@ router.post('/auth/verify-2fa', async (req, res) => {
       return res.status(400).json({ error: 'Verification token and 6-digit code are required.' });
     }
 
-    const verification = verifySecureOtp(tempToken, otpCode, 'login_2fa');
+    const verification = await verifySecureOtp(tempToken, otpCode, 'login_2fa');
     if (!verification.valid) {
       return res.status(400).json({ error: verification.error });
     }
@@ -753,7 +778,7 @@ router.post('/auth/resend-2fa', async (req, res) => {
       return res.status(400).json({ error: 'Temporary verification token is required.' });
     }
 
-    const session = getOtpSession(tempToken);
+    const session = await getOtpSession(tempToken);
     if (!session) {
       return res.status(404).json({ error: 'Verification session expired. Please sign in again.' });
     }
@@ -763,8 +788,8 @@ router.post('/auth/resend-2fa', async (req, res) => {
       return res.status(404).json({ error: 'User not found.' });
     }
 
-    deleteOtpSession(tempToken);
-    const newOtp = generateSecureOtp(user.email, 'login_2fa', 10);
+    await deleteOtpSession(tempToken);
+    const newOtp = await generateSecureOtp(user.email, 'login_2fa', 10);
     const [u, d] = user.email.split('@');
     const masked = `${u[0]}***@${d}`;
 
@@ -798,7 +823,7 @@ router.post('/auth/resend-setup-2fa', async (req, res) => {
       return res.status(400).json({ error: 'Temporary verification token is required.' });
     }
 
-    const session = getOtpSession(tempToken);
+    const session = await getOtpSession(tempToken);
     if (!session) {
       return res.status(404).json({ error: 'Verification session expired. Please sign in again.' });
     }
@@ -808,8 +833,8 @@ router.post('/auth/resend-setup-2fa', async (req, res) => {
       return res.status(404).json({ error: 'User not found.' });
     }
 
-    deleteOtpSession(tempToken);
-    const newOtp = generateSecureOtp(user.email, 'setup_2fa', 15);
+    await deleteOtpSession(tempToken);
+    const newOtp = await generateSecureOtp(user.email, 'setup_2fa', 15);
     const [u, d] = user.email.split('@');
     const masked = `${u[0]}***@${d}`;
 
@@ -843,7 +868,7 @@ router.post('/auth/setup-2fa', async (req, res) => {
       return res.status(400).json({ error: 'Verification token and 6-digit code are required.' });
     }
 
-    const verification = verifySecureOtp(tempToken, otpCode, 'setup_2fa');
+    const verification = await verifySecureOtp(tempToken, otpCode, 'setup_2fa');
     if (!verification.valid) {
       return res.status(400).json({ error: verification.error });
     }
@@ -912,7 +937,7 @@ router.post('/auth/resend-setup-2fa', async (req, res) => {
       return res.status(400).json({ error: 'Temporary verification token is required.' });
     }
 
-    const session = getOtpSession(tempToken);
+    const session = await getOtpSession(tempToken);
     if (!session) {
       return res.status(404).json({ error: 'Verification session expired. Please sign in again.' });
     }
@@ -922,8 +947,8 @@ router.post('/auth/resend-setup-2fa', async (req, res) => {
       return res.status(404).json({ error: 'User not found.' });
     }
 
-    deleteOtpSession(tempToken);
-    const newOtp = generateSecureOtp(user.email, 'setup_2fa', 15);
+    await deleteOtpSession(tempToken);
+    const newOtp = await generateSecureOtp(user.email, 'setup_2fa', 15);
     const masked = maskEmail(user.email);
 
     const emailResult = await sendTwoFactorOtpEmail({
@@ -954,7 +979,7 @@ router.post('/auth/verify-email', async (req, res) => {
       return res.status(400).json({ error: 'Verification token and 6-digit code are required.' });
     }
 
-    const verification = verifySecureOtp(tempToken, otpCode, 'email_verify');
+    const verification = await verifySecureOtp(tempToken, otpCode, 'email_verify');
     if (!verification.valid) {
       return res.status(400).json({ error: verification.error });
     }
@@ -970,7 +995,7 @@ router.post('/auth/verify-email', async (req, res) => {
     const masked = maskEmail(user.email);
 
     if (user.twoFactorEnabled === true) {
-      const twoFaOtp = generateSecureOtp(user.email, 'login_2fa', 10);
+      const twoFaOtp = await generateSecureOtp(user.email, 'login_2fa', 10);
       const emailResult = await sendTwoFactorOtpEmail({
         to: user.email,
         name: user.name || user.storeName,
@@ -989,7 +1014,7 @@ router.post('/auth/verify-email', async (req, res) => {
         message: 'Email verified successfully! Please enter your Two-Step verification code.'
       });
     } else {
-      const setupOtp = generateSecureOtp(user.email, 'setup_2fa', 15);
+      const setupOtp = await generateSecureOtp(user.email, 'setup_2fa', 15);
       const emailResult = await sendTwoFactorOtpEmail({
         to: user.email,
         name: user.name || user.storeName,
@@ -1023,7 +1048,7 @@ router.post('/auth/change-email', async (req, res) => {
     }
 
     const cleanNewEmail = newEmail.trim().toLowerCase();
-    const session = getOtpSession(tempToken);
+    const session = await getOtpSession(tempToken);
     if (!session) {
       return res.status(404).json({ error: 'Verification session expired. Please sign in again.' });
     }
@@ -1043,8 +1068,8 @@ router.post('/auth/change-email', async (req, res) => {
       emailVerified: false
     });
 
-    deleteOtpSession(tempToken);
-    const newOtp = generateSecureOtp(cleanNewEmail, 'email_verify', 15);
+    await deleteOtpSession(tempToken);
+    const newOtp = await generateSecureOtp(cleanNewEmail, 'email_verify', 15);
     const [u, d] = cleanNewEmail.split('@');
     const masked = `${u[0]}***@${d}`;
 
@@ -1079,7 +1104,7 @@ router.post('/auth/resend-email-verification', async (req, res) => {
       return res.status(400).json({ error: 'Verification session token is required.' });
     }
 
-    const session = getOtpSession(tempToken);
+    const session = await getOtpSession(tempToken);
     if (!session) {
       return res.status(404).json({ error: 'Verification session expired. Please sign in again.' });
     }
@@ -1089,8 +1114,8 @@ router.post('/auth/resend-email-verification', async (req, res) => {
       return res.status(404).json({ error: 'User not found.' });
     }
 
-    deleteOtpSession(tempToken);
-    const newOtp = generateSecureOtp(user.email, 'email_verify', 15);
+    await deleteOtpSession(tempToken);
+    const newOtp = await generateSecureOtp(user.email, 'email_verify', 15);
     const [u, d] = user.email.split('@');
     const masked = `${u[0]}***@${d}`;
 
@@ -1131,7 +1156,7 @@ router.post('/auth/forgot-password/request', async (req, res) => {
       });
     }
 
-    const otp = generateSecureOtp(user.email, 'forgot_password', 15);
+    const otp = await generateSecureOtp(user.email, 'forgot_password', 15);
     const [u, d] = user.email.split('@');
     const masked = `${u[0]}***@${d}`;
 
@@ -1162,19 +1187,12 @@ router.post('/auth/forgot-password/verify-code', async (req, res) => {
   if (!resetToken || !otpCode) {
     return res.status(400).json({ error: 'Reset token and 6-digit code are required.' });
   }
-  const verification = verifySecureOtp(resetToken, otpCode, 'forgot_password');
+  const verification = await verifySecureOtp(resetToken, otpCode, 'forgot_password');
   if (!verification.valid) {
     return res.status(400).json({ error: verification.error });
   }
 
-  for (const [token, grant] of passwordResetGrants) {
-    if (grant.expiresAt <= Date.now()) passwordResetGrants.delete(token);
-  }
-  const passwordResetToken = `reset_${crypto.randomBytes(32).toString('hex')}`;
-  passwordResetGrants.set(passwordResetToken, {
-    email: verification.email,
-    expiresAt: Date.now() + 15 * 60 * 1000
-  });
+  const passwordResetToken = await createSecureGrant(verification.email, 'password_reset_grant', 15);
   res.json({ success: true, valid: true, resetToken: passwordResetToken });
 });
 
@@ -1186,20 +1204,16 @@ router.post('/auth/forgot-password/reset', async (req, res) => {
   if (newPassword.length < 6) {
     return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
   }
-  const grant = passwordResetGrants.get(resetToken);
-  if (!grant || grant.expiresAt <= Date.now()) {
-    passwordResetGrants.delete(resetToken);
-    return res.status(400).json({ error: 'Password reset session expired. Please request a new code.' });
-  }
-
   try {
-    const user = await MasterDB.findUserByIdentifier(grant.email);
+    const email = await consumeSecureGrant(resetToken, 'password_reset_grant');
+    if (!email) {
+      return res.status(400).json({ error: 'Password reset session expired. Please request a new code.' });
+    }
+    const user = await MasterDB.findUserByIdentifier(email);
     if (!user) {
-      passwordResetGrants.delete(resetToken);
       return res.status(404).json({ error: 'Account not found.' });
     }
     await MasterDB.updatePasswordAndRevokeSessions(user.id, PasswordSecurity.hash(newPassword));
-    passwordResetGrants.delete(resetToken);
     logActivity('security', 'Password reset completed', `User: ${user.email} (${user.tiwiId})`, user.tiwiId);
     res.json({
       success: true,
@@ -1223,7 +1237,7 @@ router.post('/auth/forgot-password/verify', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
     }
 
-    const verification = verifySecureOtp(resetToken, otpCode, 'forgot_password');
+    const verification = await verifySecureOtp(resetToken, otpCode, 'forgot_password');
     if (!verification.valid) {
       return res.status(400).json({ error: verification.error });
     }
@@ -1262,7 +1276,7 @@ router.get('/admin/email-outbox', requireAdmin, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit || '100', 10);
     const type = req.query.type || null;
-    const outbox = getOutboxList(limit, type);
+    const outbox = await listEmailDeliveries({ limit, type });
     res.json({ success: true, count: outbox.length, outbox });
   } catch (e) {
     res.status(500).json({ error: 'Failed to fetch outbox' });
@@ -1513,7 +1527,7 @@ router.post('/auth/sso/generate-handshake', async (req, res) => {
       networkType: req.body.networkType || 'cellular/wifi'
     };
 
-    const handshake = SsoSecurity.generateHandshakeTicket({
+    const handshake = await SsoSecurity.generateHandshakeTicket({
       userId: targetUser.id,
       tiwiId,
       email: targetUser.email,
@@ -1548,7 +1562,7 @@ router.post('/auth/sso/consume-handshake', async (req, res) => {
       return res.status(400).json({ error: 'Missing SSO token or nonce in handshake request' });
     }
 
-    const verification = SsoSecurity.verifyAndConsumeTicket({ ssoToken, nonce, req });
+    const verification = await SsoSecurity.verifyAndConsumeTicket({ ssoToken, nonce, req });
 
     if (!verification.valid) {
       return res.status(401).json({

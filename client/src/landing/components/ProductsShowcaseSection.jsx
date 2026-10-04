@@ -155,7 +155,7 @@ export default function ProductsShowcaseSection({ onNavigate, currentUser }) {
                   </div>
                   <div className="flex items-start gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-[#137333] shrink-0 mt-0.5" />
-                    <span>Global checkout accepting cards, digital wallets, bKash, and local gateways</span>
+                    <span>Checkout can record customer payment preferences; gateway processing is not enabled yet</span>
                   </div>
                   <div className="flex items-start gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-[#137333] shrink-0 mt-0.5" />

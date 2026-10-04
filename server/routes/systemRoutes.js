@@ -19,6 +19,7 @@ import { getFfmpegStatus } from '../security/videoProcessor.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { MasterDB } from '../db/multiTenant.js';
 import { findActiveCustomDomain } from '../domains/domainService.js';
+import { listSecurityEvents } from '../db/securityPersistence.js';
 
 const router = express.Router();
 
@@ -61,6 +62,19 @@ router.use((req, res, next) => {
   }
   if (!req.activeUser) return res.status(401).json({ error: 'Authentication required' });
   next();
+});
+
+router.get('/admin/security-events', requireAdmin, async (req, res) => {
+  try {
+    const events = await listSecurityEvents({
+      limit: req.query.limit,
+      beforeId: req.query.beforeId
+    });
+    res.json({ success: true, count: events.length, events });
+  } catch (error) {
+    console.error('[SystemRoutes] Could not list security events:', error);
+    res.status(500).json({ error: 'Failed to fetch security events.' });
+  }
 });
 
 // Stats / Dashboard Overview

@@ -1,9 +1,9 @@
 import express from 'express';
 import multer from 'multer';
-import path from 'path';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
 import { MasterDB, TenantDB } from '../db/multiTenant.js';
+import { createTemporaryFileStorage } from '../db/temporaryFileStorage.js';
+import { getPublicMediaUrl, inferMediaType, storeMedia } from '../db/mediaStorage.js';
 import {
   readData,
   writeData,
@@ -21,29 +21,14 @@ import {
 } from '../db/storeDataAdapter.js';
 import {
   contentSafetyMiddleware,
-  checkAssetScope
+  checkAssetScope,
+  recordViolation,
+  scanAndSanitizeImage
 } from '../security/index.js';
 import { PaymentSecurity } from '../security/cryptoSecurity.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const UPLOADS_DIR = path.resolve(__dirname, '../uploads');
-
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, UPLOADS_DIR);
-  },
-  filename: function (req, file, cb) {
-    const ext = path.extname(file.originalname) || '.jpg';
-    const cleanName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30);
-    cb(null, `store_${Date.now()}_${cleanName}${ext}`);
-  }
-});
+const storage = createTemporaryFileStorage('store-upload');
 
 const upload = multer({
   storage,
@@ -67,6 +52,48 @@ const getReqUserId = (req) => {
   // verified session, never from a spoofable request field.
   return req.activeUser?.id || req.activeUser?.tiwiId || null;
 };
+
+async function persistStoreImageUpload(req, purpose) {
+  const file = req.file;
+  if (!file) throw new Error('No image file uploaded.');
+  const contentType = inferMediaType(file.filename);
+  if (!contentType.startsWith('image/')) {
+    await fs.promises.unlink(file.path);
+    const error = new Error('Only image files are accepted.');
+    error.statusCode = 415;
+    throw error;
+  }
+
+  const buffer = await fs.promises.readFile(file.path);
+  const scanResult = await scanAndSanitizeImage(buffer, purpose, file.originalname);
+  if (scanResult.isVideo || !scanResult.safe) {
+    await fs.promises.unlink(file.path);
+    if (!scanResult.isVideo) {
+      await recordViolation({
+        user: req.activeUser,
+        category: 'ADULT_CONTENT',
+        policyName: 'Adult & Sexually Explicit Content Policy',
+        reason: scanResult.reason,
+        contentType: purpose
+      });
+    }
+    const error = new Error(scanResult.isVideo ? 'Only image files are accepted.' : scanResult.reason);
+    error.statusCode = scanResult.isVideo ? 415 : 400;
+    throw error;
+  }
+
+  const url = `/uploads/${file.filename}`;
+  await storeMedia({
+    aliases: [url],
+    buffer: scanResult.sanitizedBuffer || buffer,
+    contentType,
+    originalFilename: file.originalname,
+    ownerId: req.activeUser?.id,
+    purpose
+  });
+  await fs.promises.unlink(file.path);
+  return getPublicMediaUrl(url);
+}
 
 // ==========================================
 // MULTI-STORE DIRECTORY ("YOUR STORE")
@@ -155,7 +182,7 @@ router.get('/products/:id', (req, res) => {
   res.json(product);
 });
 
-router.post('/products', contentSafetyMiddleware('public_product'), (req, res) => {
+router.post('/products', contentSafetyMiddleware('public_product'), async (req, res) => {
   const products = readData(PRODUCTS_FILE, []);
   const {
     name,
@@ -180,7 +207,7 @@ router.post('/products', contentSafetyMiddleware('public_product'), (req, res) =
 
   const candidateImages = [image, ...(Array.isArray(images) ? images : [])].filter(Boolean);
   for (const imgUrl of candidateImages) {
-    const scopeCheck = checkAssetScope(imgUrl, 'public_catalog');
+    const scopeCheck = await checkAssetScope(imgUrl, 'public_catalog');
     if (!scopeCheck.allowed) {
       return res.status(403).json({
         error: 'SECURITY_SCOPE_VIOLATION',
@@ -235,7 +262,7 @@ router.post('/products', contentSafetyMiddleware('public_product'), (req, res) =
   res.status(201).json(newProduct);
 });
 
-router.put('/products/:id', contentSafetyMiddleware('public_product'), (req, res) => {
+router.put('/products/:id', contentSafetyMiddleware('public_product'), async (req, res) => {
   const products = readData(PRODUCTS_FILE, []);
   const { id } = req.params;
   const index = products.findIndex(p => p.id === id);
@@ -265,6 +292,20 @@ router.put('/products/:id', contentSafetyMiddleware('public_product'), (req, res
     brand,
     unit
   } = req.body;
+
+  const candidateImages = [
+    image !== undefined ? image : existing.image,
+    ...(Array.isArray(images) ? images : Array.isArray(existing.images) ? existing.images : [])
+  ].filter(Boolean);
+  for (const imageUrl of candidateImages) {
+    const scopeCheck = await checkAssetScope(imageUrl, 'public_catalog');
+    if (!scopeCheck.allowed) {
+      return res.status(403).json({
+        error: 'SECURITY_SCOPE_VIOLATION',
+        message: scopeCheck.reason
+      });
+    }
+  }
 
   if (sku && sku.toLowerCase() !== existing.sku.toLowerCase()) {
     const existingSku = products.find(p => p.sku.toLowerCase() === sku.toLowerCase() && p.id !== id);
@@ -1099,12 +1140,12 @@ router.put('/store/settings', (req, res) => {
   res.json(updated);
 });
 
-router.post('/store/upload-logo', upload.single('logo'), (req, res) => {
+router.post('/store/upload-logo', upload.single('logo'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No logo image file uploaded' });
     }
-    const logoUrl = `/uploads/${req.file.filename}`;
+    const logoUrl = await persistStoreImageUpload(req, 'store_logo');
     const current = readData(STORE_SETTINGS_FILE, {});
     current.storeLogo = logoUrl;
     current.updatedAt = new Date().toISOString();
@@ -1113,16 +1154,19 @@ router.post('/store/upload-logo', upload.single('logo'), (req, res) => {
     res.json({ success: true, logoUrl, message: 'Store logo uploaded successfully' });
   } catch (err) {
     console.error('Logo upload error:', err);
-    res.status(500).json({ error: 'Failed to upload logo image' });
+    if (req.file?.path) await fs.promises.unlink(req.file.path).catch((cleanupError) => {
+      console.error('[StoreUpload] Could not remove temporary logo:', cleanupError.message);
+    });
+    res.status(err.statusCode || 500).json({ error: err.statusCode ? err.message : 'Failed to upload logo image' });
   }
 });
 
-router.post('/store/upload-favicon', upload.single('favicon'), (req, res) => {
+router.post('/store/upload-favicon', upload.single('favicon'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No favicon image file uploaded' });
     }
-    const faviconUrl = `/uploads/${req.file.filename}`;
+    const faviconUrl = await persistStoreImageUpload(req, 'store_favicon');
     const current = readData(STORE_SETTINGS_FILE, {});
     current.storeFavicon = faviconUrl;
     current.updatedAt = new Date().toISOString();
@@ -1131,20 +1175,26 @@ router.post('/store/upload-favicon', upload.single('favicon'), (req, res) => {
     res.json({ success: true, faviconUrl, message: 'Store favicon uploaded successfully' });
   } catch (err) {
     console.error('Favicon upload error:', err);
-    res.status(500).json({ error: 'Failed to upload favicon image' });
+    if (req.file?.path) await fs.promises.unlink(req.file.path).catch((cleanupError) => {
+      console.error('[StoreUpload] Could not remove temporary favicon:', cleanupError.message);
+    });
+    res.status(err.statusCode || 500).json({ error: err.statusCode ? err.message : 'Failed to upload favicon image' });
   }
 });
 
-router.post('/store/upload-banner', upload.single('banner'), (req, res) => {
+router.post('/store/upload-banner', upload.single('banner'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No banner image file uploaded' });
     }
-    const bannerUrl = `/uploads/${req.file.filename}`;
+    const bannerUrl = await persistStoreImageUpload(req, 'store_banner');
     res.json({ success: true, bannerUrl, message: 'Banner image uploaded successfully' });
   } catch (err) {
     console.error('Banner upload error:', err);
-    res.status(500).json({ error: 'Failed to upload banner image' });
+    if (req.file?.path) await fs.promises.unlink(req.file.path).catch((cleanupError) => {
+      console.error('[StoreUpload] Could not remove temporary banner:', cleanupError.message);
+    });
+    res.status(err.statusCode || 500).json({ error: err.statusCode ? err.message : 'Failed to upload banner image' });
   }
 });
 

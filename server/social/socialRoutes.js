@@ -9,7 +9,6 @@ import { executeSocialGraphQL } from './socialSchema.js';
 import {
   contentSafetyMiddleware,
   scanAndSanitizeImage,
-  registerAsset,
   checkAssetScope,
   recordViolation,
   isUserRestricted,
@@ -19,6 +18,17 @@ import {
   getVideoDimensions
 } from '../security/index.js';
 import { MasterDB } from '../db/multiTenant.js';
+import { createTemporaryFileStorage } from '../db/temporaryFileStorage.js';
+import {
+  deleteMedia,
+  getMediaMetadata,
+  getPublicMediaUrl,
+  inferMediaType,
+  listPendingVideoMedia,
+  normalizeMediaPath,
+  readMediaBuffer,
+  storeMedia
+} from '../db/mediaStorage.js';
 import {
   generateSecureOtp,
   verifySecureOtp,
@@ -42,28 +52,7 @@ const ROOT_UPLOAD_DIR = path.resolve(__dirname, '../../upload');
 // Initialize database
 SocialDB.init();
 
-// Configure Multer storage to route into profile_pic, cover_pic, posts, or reels
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    let subfolder = req.query.type || req.body.type || 'posts';
-    // Validate folder
-    const allowed = ['profile_pic', 'cover_pic', 'posts', 'reels'];
-    if (!allowed.includes(subfolder)) {
-      subfolder = 'posts';
-    }
-    const destDir = path.join(ROOT_UPLOAD_DIR, subfolder);
-    if (!fs.existsSync(destDir)) {
-      fs.mkdirSync(destDir, { recursive: true });
-    }
-    cb(null, destDir);
-  },
-  filename: function (req, file, cb) {
-    const ext = path.extname(file.originalname) || '.jpg';
-    const timestamp = Date.now();
-    const safeName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 25);
-    cb(null, `${timestamp}_${safeName}${ext}`);
-  },
-});
+const storage = createTemporaryFileStorage('social-upload');
 
 const upload = multer({
   storage,
@@ -93,19 +82,44 @@ router.all('/check-availability', async (req, res) => {
 
 function resolveUploadLocalPath(url) {
   if (!url || typeof url !== 'string') return null;
-  if (url.includes('/api/upload/')) {
-    return path.join(ROOT_UPLOAD_DIR, url.split('/api/upload/')[1]);
+  const storagePath = normalizeMediaPath(url);
+  if (!storagePath) return null;
+
+  const legacyRoot = storagePath.startsWith('/upload/')
+    ? ROOT_UPLOAD_DIR
+    : path.resolve(__dirname, '../uploads');
+  const relativePath = storagePath.replace(/^\/uploads?\//, '');
+  const localPath = path.resolve(legacyRoot, ...relativePath.split('/'));
+  return localPath.startsWith(`${legacyRoot}${path.sep}`) ? localPath : null;
+}
+
+async function readUploadMedia(url) {
+  const stored = await readMediaBuffer(url);
+  if (stored) {
+    return {
+      buffer: stored.data,
+      filename: stored.original_filename,
+      contentType: stored.content_type,
+      stored: true
+    };
   }
-  if (url.includes('/upload/')) {
-    return path.join(ROOT_UPLOAD_DIR, url.split('/upload/')[1]);
-  }
-  if (url.includes('/api/uploads/')) {
-    return path.join(__dirname, '../uploads', url.split('/api/uploads/')[1]);
-  }
-  if (url.includes('/uploads/')) {
-    return path.join(__dirname, '../uploads', url.split('/uploads/')[1]);
-  }
-  return null;
+
+  const localPath = resolveUploadLocalPath(url);
+  if (!localPath || !fs.existsSync(localPath)) return null;
+  return {
+    buffer: await fs.promises.readFile(localPath),
+    filename: path.basename(localPath),
+    contentType: inferMediaType(localPath),
+    localPath,
+    stored: false
+  };
+}
+
+async function removeUploadMedia(url) {
+  const deletedFromDatabase = await deleteMedia(url);
+  if (deletedFromDatabase) return;
+  const localPath = resolveUploadLocalPath(url);
+  if (localPath && fs.existsSync(localPath)) await fs.promises.unlink(localPath);
 }
 
 // ====================================================================
@@ -146,26 +160,20 @@ async function executePostModeration({ postId, author, images = [], caption = ''
     if (!imgUrl || typeof imgUrl !== 'string') continue;
 
     // Resolve local path on disk from URL
-    const localPath = resolveUploadLocalPath(imgUrl);
-
-    if (!localPath || !fs.existsSync(localPath)) {
-      continue;
-    }
-
     try {
-      const buffer = fs.readFileSync(localPath);
-      const filename = path.basename(localPath);
-      const scanResult = await scanAndSanitizeImage(buffer, 'public_feed', filename);
+      const media = await readUploadMedia(imgUrl);
+      if (!media) continue;
+      if (media.contentType.startsWith('video/')) continue;
+      const scanResult = await scanAndSanitizeImage(media.buffer, 'public_feed', media.filename);
 
       if (!scanResult.safe) {
         console.warn(`[Moderation] VIOLATION DETECTED in post ${postId} by user ${author?.id || author?.email}: ${scanResult.reason}`);
 
         // 1. Delete offending physical image from disk
         try {
-          fs.unlinkSync(localPath);
-          console.log(`[Moderation] Purged violating file: ${localPath}`);
+          await removeUploadMedia(imgUrl);
         } catch (unlinkErr) {
-          console.error(`[Moderation] Failed to delete file: ${localPath}`, unlinkErr.message);
+          console.error(`[Moderation] Failed to remove violating media ${imgUrl}:`, unlinkErr.message);
         }
 
         // 2. Mark post as violated in SocialDB (replaces media with Community Standards notice)
@@ -189,7 +197,7 @@ async function executePostModeration({ postId, author, images = [], caption = ''
         break;
       }
     } catch (scanErr) {
-      console.error(`[Moderation] Scan error for ${localPath}:`, scanErr);
+      console.error(`[Moderation] Scan error for ${imgUrl}:`, scanErr);
     }
   }
 }
@@ -210,20 +218,15 @@ export async function runRetroactiveContentAudit() {
       const images = Array.isArray(post.images) && post.images.length > 0 ? post.images : (post.image ? [post.image] : []);
       for (const imgUrl of images) {
         if (!imgUrl || typeof imgUrl !== 'string') continue;
-        let localPath = null;
-        if (imgUrl.includes('/upload/')) {
-          localPath = path.join(ROOT_UPLOAD_DIR, imgUrl.split('/upload/')[1]);
-        } else if (imgUrl.includes('/uploads/')) {
-          localPath = path.join(__dirname, '../uploads', imgUrl.split('/uploads/')[1]);
-        }
-        if (!localPath || !fs.existsSync(localPath)) continue;
-
         try {
-          const buffer = fs.readFileSync(localPath);
-          const scan = await scanAndSanitizeImage(buffer, 'public_feed', path.basename(localPath));
+          const media = await readUploadMedia(imgUrl);
+          if (!media) continue;
+          if (media.contentType.startsWith('video/')) continue;
+          const scan = await scanAndSanitizeImage(media.buffer, 'public_feed', media.filename);
           if (!scan.safe) {
             console.warn(`[RetroactiveAudit] Offending image found in post ${post.id} (${scan.reason}). Purging.`);
-            try { fs.unlinkSync(localPath); filesPurged++; } catch (e) {}
+            await removeUploadMedia(imgUrl);
+            filesPurged++;
             await SocialDB.markPostViolated(post.id, {
               reason: scan.reason,
               policyName: 'Adult & Sexually Explicit Content Policy',
@@ -232,7 +235,9 @@ export async function runRetroactiveContentAudit() {
             postsCleaned++;
             break;
           }
-        } catch (e) {}
+        } catch (error) {
+          console.error(`[RetroactiveAudit] Could not scan post media ${imgUrl}:`, error.message);
+        }
       }
     }
 
@@ -241,20 +246,14 @@ export async function runRetroactiveContentAudit() {
     let avatarsCleaned = 0;
     for (const u of (master.users || [])) {
       if (!u.avatar || u.avatar.includes('ui-avatars.com')) continue;
-      let localPath = null;
-      if (u.avatar.includes('/upload/')) {
-        localPath = path.join(ROOT_UPLOAD_DIR, u.avatar.split('/upload/')[1]);
-      } else if (u.avatar.includes('/uploads/')) {
-        localPath = path.join(__dirname, '../uploads', u.avatar.split('/uploads/')[1]);
-      }
-      if (!localPath || !fs.existsSync(localPath)) continue;
-
       try {
-        const buffer = fs.readFileSync(localPath);
-        const scan = await scanAndSanitizeImage(buffer, 'user_avatar', path.basename(localPath));
+        const media = await readUploadMedia(u.avatar);
+        if (!media) continue;
+        const scan = await scanAndSanitizeImage(media.buffer, 'user_avatar', media.filename);
         if (!scan.safe) {
           console.warn(`[RetroactiveAudit] Offending avatar found for user ${u.id || u.email}. Purging.`);
-          try { fs.unlinkSync(localPath); filesPurged++; } catch (e) {}
+          await removeUploadMedia(u.avatar);
+          filesPurged++;
           const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'User')}&background=0B57D0&color=fff&size=256&bold=true`;
           u.avatar = fallbackAvatar;
           if (sData.profiles && sData.profiles[u.id]) {
@@ -271,7 +270,9 @@ export async function runRetroactiveContentAudit() {
             contentType: 'Profile Picture'
           });
         }
-      } catch (e) {}
+      } catch (error) {
+        console.error(`[RetroactiveAudit] Could not scan avatar for ${u.id || u.email}:`, error.message);
+      }
     }
     if (avatarsCleaned > 0) {
       MasterDB.saveMasterData(master);
@@ -282,6 +283,42 @@ export async function runRetroactiveContentAudit() {
   } catch (err) {
     console.error('[RetroactiveAudit] Error during audit:', err);
   }
+}
+
+export async function resumePendingVideoProcessing() {
+  let resumed = 0;
+  let afterId = '';
+  const socialData = SocialDB.getData();
+  while (true) {
+    const pendingMedia = await listPendingVideoMedia(500, afterId);
+    if (pendingMedia.length === 0) break;
+    for (const media of pendingMedia) {
+      const subfolder = media.storage_path.split('/')[2];
+      if (!['posts', 'reels'].includes(subfolder)) {
+        console.error(`[VideoProcessor] Pending video has an unsupported storage path: ${media.storage_path}`);
+        continue;
+      }
+      const mediaUrl = `/api${media.storage_path}`;
+      const post = (socialData.posts || []).find((candidate) => {
+        const urls = Array.isArray(candidate.images) ? candidate.images : [candidate.image];
+        return urls.some((url) => normalizeMediaPath(url) === media.storage_path);
+      });
+      const reel = (socialData.reels || []).find((candidate) =>
+        [candidate.videoUrl, candidate.image].some((url) => normalizeMediaPath(url) === media.storage_path)
+      );
+      enqueueVideoProcessing({
+        mediaUrl,
+        relativeUrl: mediaUrl,
+        userId: media.owner_id || 'anonymous',
+        postId: post?.id,
+        reelId: reel?.id,
+        subfolder
+      });
+      resumed++;
+    }
+    afterId = pendingMedia[pendingMedia.length - 1].id;
+  }
+  return resumed;
 }
 
 // Automatically trigger retroactive safety audit on boot
@@ -313,20 +350,26 @@ router.get('/video-status', async (req, res) => {
 
   const optimizedFilename = `${path.basename(match[2], path.extname(match[2]))}_optimized.mp4`;
   const optimizedPath = path.join(ROOT_UPLOAD_DIR, match[1], optimizedFilename);
-  const playbackPath = fs.existsSync(optimizedPath) ? optimizedPath : filePath;
+  const originalUrl = `/upload/${match[1]}/${match[2]}`;
+  const optimizedUrl = `/upload/${match[1]}/${optimizedFilename}`;
+  const [sourceMetadata, optimizedMetadata] = await Promise.all([
+    getMediaMetadata(originalUrl),
+    getMediaMetadata(optimizedUrl)
+  ]);
+  const hasOptimizedFile = fs.existsSync(optimizedPath);
+  const playbackPath = hasOptimizedFile ? optimizedPath : filePath;
   const playbackStats = fs.existsSync(playbackPath) ? fs.statSync(playbackPath) : null;
-  const videoSize = await getVideoDimensions(playbackPath);
-  const status = playbackPath === optimizedPath
-    ? 'ready'
-    : getVideoProcessingStatus(filePath);
+  const videoSize = playbackStats ? await getVideoDimensions(playbackPath) : null;
+  const optimizedExists = hasOptimizedFile || Boolean(optimizedMetadata);
+  const status = optimizedExists ? 'ready' : getVideoProcessingStatus(originalUrl);
 
   return res.json({
     status,
-    playbackUrl: playbackPath === optimizedPath
+    playbackUrl: optimizedExists
       ? `/api/upload/${match[1]}/${optimizedFilename}`
       : null,
     videoSize,
-    version: playbackStats ? `${playbackStats.mtimeMs}-${playbackStats.size}` : null,
+    version: optimizedMetadata?.sha256 || sourceMetadata?.sha256 || (playbackStats ? `${playbackStats.mtimeMs}-${playbackStats.size}` : null),
   });
 });
 
@@ -336,10 +379,6 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     const allowed = ['profile_pic', 'cover_pic', 'posts', 'reels'];
     if (!allowed.includes(subfolder)) {
       subfolder = 'posts';
-    }
-    const destDir = path.join(ROOT_UPLOAD_DIR, subfolder);
-    if (!fs.existsSync(destDir)) {
-      fs.mkdirSync(destDir, { recursive: true });
     }
 
     const user = await getUserContext(req);
@@ -355,7 +394,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
     // Account restriction check: permanently disabled users cannot upload
     if (currentUserId && currentUserId !== 'anonymous') {
-      const restriction = isUserRestricted(currentUserId);
+      const restriction = await isUserRestricted(currentUserId);
       if (restriction.restricted && restriction.action === 'PERMANENTLY_DISABLED') {
         if (req.file) {
           try { fs.unlinkSync(req.file.path); } catch (e) {}
@@ -372,11 +411,23 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     if (req.file) {
       const filePath = req.file.path;
       const filename = req.file.filename;
+      let mediaBuffer = fs.readFileSync(filePath);
+      const isVideo = /\.(mp4|mov|webm|mkv|m4v|avi)(\?|$)/i.test(filename) ||
+        req.file?.mimetype?.startsWith('video/') ||
+        mediaBuffer.toString('utf8', 4, 8) === 'ftyp';
+      const isProfileImage = subfolder === 'profile_pic' || subfolder === 'cover_pic';
 
-      // Strict Synchronous Audit for Profile & Cover Photos
-      if (subfolder === 'profile_pic' || subfolder === 'cover_pic') {
-        const buffer = fs.readFileSync(filePath);
-        const scanResult = await scanAndSanitizeImage(buffer, 'user_avatar', filename);
+      if (isVideo && isProfileImage) {
+        await fs.promises.unlink(filePath);
+        return res.status(415).json({ error: 'Profile and cover images must be image files.' });
+      }
+
+      if (!isVideo) {
+        const scanResult = await scanAndSanitizeImage(
+          mediaBuffer,
+          isProfileImage ? 'user_avatar' : 'public_feed',
+          filename
+        );
         if (!scanResult.safe) {
           try { fs.unlinkSync(filePath); } catch (e) {}
           const enforcement = await recordViolation({
@@ -384,7 +435,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             category: 'ADULT_CONTENT',
             policyName: 'Adult & Sexually Explicit Content Policy',
             reason: scanResult.reason,
-            contentType: subfolder === 'profile_pic' ? 'Profile Picture' : 'Cover Photo'
+            contentType: subfolder === 'profile_pic'
+              ? 'Profile Picture'
+              : subfolder === 'cover_pic' ? 'Cover Photo' : 'Public Feed Image'
           });
           return res.status(400).json({
             error: 'CONTENT_POLICY_VIOLATION',
@@ -394,34 +447,42 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             enforcement
           });
         }
+        mediaBuffer = scanResult.sanitizedBuffer || mediaBuffer;
       }
 
       const relativeUrl = `/api/upload/${subfolder}/${filename}`;
       const legacyUrl = `/upload/${subfolder}/${filename}`;
-      registerAsset(relativeUrl, { userId: currentUserId, purpose, isSafe: true });
-      registerAsset(legacyUrl, { userId: currentUserId, purpose, isSafe: true });
-
+      await storeMedia({
+        aliases: [relativeUrl, legacyUrl],
+        buffer: mediaBuffer,
+        contentType: inferMediaType(filename),
+        originalFilename: req.file.originalname,
+        ownerId: currentUserId,
+        purpose,
+        reviewStatus: isVideo ? 'pending' : 'approved'
+      });
       // Video Pipeline: Immediate zero-wait HTTP response + background FFmpeg optimization
       //  - Extracts 1-second poster thumbnail (.jpg)
       //  - 18+ adult content moderation on sampled frames
       //  - Transcodes to universal 8-bit YUV420P + FastStart (fixes Android ExoPlayer black screen)
-      const isVideo = /\.(mp4|mov|webm|mkv|m4v|avi)(\?|$)/i.test(filename) || req.file?.mimetype?.startsWith('video/');
       if (isVideo) {
         enqueueVideoProcessing({
-          filePath,
+          mediaUrl: relativeUrl,
           relativeUrl,
           userId: currentUserId,
           subfolder,
         });
       }
+      await fs.promises.unlink(filePath);
 
       return res.json({
         success: true,
-        url: relativeUrl,
+        url: await getPublicMediaUrl(relativeUrl),
         filename,
         type: subfolder,
         size: req.file.size,
-        verifiedSafe: true,
+        verifiedSafe: !isVideo,
+        inspectionStatus: isVideo ? 'processing' : 'approved',
         isVideo,
       });
     }
@@ -429,42 +490,64 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     // 2. Base64 JSON Payload Fallback (100% immune to React Native FormData issues)
     const rawBase64 = req.body?.base64 || req.body?.data;
     if (rawBase64) {
-      const cleanBase64 = rawBase64.replace(/^data:image\/\w+;base64,/, '');
+      const dataUrl = rawBase64.match(/^data:(image\/(?:jpeg|png|webp|gif|avif));base64,(.+)$/i);
+      if (/^data:/i.test(rawBase64) && !dataUrl) {
+        return res.status(415).json({ error: 'Only JPEG, PNG, WebP, GIF, and AVIF images are supported.' });
+      }
+      const cleanBase64 = dataUrl ? dataUrl[2] : rawBase64;
       const buffer = Buffer.from(cleanBase64, 'base64');
-      const filename = `${Date.now()}_img_${Math.random().toString(36).substring(2, 8)}.jpg`;
-      const filePath = path.join(destDir, filename);
-
-      // Strict Synchronous Audit for Profile & Cover Photos
-      if (subfolder === 'profile_pic' || subfolder === 'cover_pic') {
-        const scanResult = await scanAndSanitizeImage(buffer, 'user_avatar', filename);
-        if (!scanResult.safe) {
-          const enforcement = await recordViolation({
-            user,
-            category: 'ADULT_CONTENT',
-            policyName: 'Adult & Sexually Explicit Content Policy',
-            reason: scanResult.reason,
-            contentType: subfolder === 'profile_pic' ? 'Profile Picture' : 'Cover Photo'
-          });
-          return res.status(400).json({
-            error: 'CONTENT_POLICY_VIOLATION',
-            reason: scanResult.reason,
-            policyName: 'Adult & Sexually Explicit Content Policy',
-            message: 'This photo violates Tiwlo Community Standards on adult content and cannot be used.',
-            enforcement
-          });
-        }
+      const extensionByType = {
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/webp': 'webp',
+        'image/gif': 'gif',
+        'image/avif': 'avif'
+      };
+      const extension = dataUrl ? extensionByType[dataUrl[1].toLowerCase()] : 'jpg';
+      const filename = `${Date.now()}_img_${Math.random().toString(36).substring(2, 8)}.${extension}`;
+      if (!buffer.length || buffer.length > 30 * 1024 * 1024) {
+        return res.status(413).json({ error: 'Image payload must be between 1 byte and 30 MB.' });
       }
 
-      fs.writeFileSync(filePath, buffer);
+      const isProfileImage = subfolder === 'profile_pic' || subfolder === 'cover_pic';
+      const scanResult = await scanAndSanitizeImage(
+        buffer,
+        isProfileImage ? 'user_avatar' : 'public_feed',
+        filename
+      );
+      if (scanResult.isVideo) {
+        return res.status(415).json({ error: 'Base64 uploads support images only; upload videos as multipart files.' });
+      }
+      if (!scanResult.safe) {
+        const enforcement = await recordViolation({
+          user,
+          category: 'ADULT_CONTENT',
+          policyName: 'Adult & Sexually Explicit Content Policy',
+          reason: scanResult.reason,
+          contentType: subfolder === 'profile_pic' ? 'Profile Picture' : subfolder === 'cover_pic' ? 'Cover Photo' : 'Public Feed Image'
+        });
+        return res.status(400).json({
+          error: 'CONTENT_POLICY_VIOLATION',
+          reason: scanResult.reason,
+          policyName: 'Adult & Sexually Explicit Content Policy',
+          message: 'This photo violates Tiwlo Community Standards on adult content and cannot be used.',
+          enforcement
+        });
+      }
 
       const relativeUrl = `/api/upload/${subfolder}/${filename}`;
       const legacyUrl = `/upload/${subfolder}/${filename}`;
-      registerAsset(relativeUrl, { userId: currentUserId, purpose, isSafe: true });
-      registerAsset(legacyUrl, { userId: currentUserId, purpose, isSafe: true });
-
+      await storeMedia({
+        aliases: [relativeUrl, legacyUrl],
+        buffer: scanResult.sanitizedBuffer || buffer,
+        contentType: inferMediaType(filename),
+        originalFilename: filename,
+        ownerId: currentUserId,
+        purpose
+      });
       return res.json({
         success: true,
-        url: relativeUrl,
+        url: await getPublicMediaUrl(relativeUrl),
         filename,
         type: subfolder,
         size: buffer.length,
@@ -475,6 +558,11 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     return res.status(400).json({ error: 'No file or base64 image received.' });
   } catch (err) {
     console.error('File upload error:', err);
+    if (req.file?.path) {
+      await fs.promises.unlink(req.file.path).catch((cleanupError) => {
+        console.error('[SocialUpload] Could not remove temporary upload:', cleanupError.message);
+      });
+    }
     res.status(500).json({ error: 'Upload failed: ' + err.message });
   }
 });
@@ -511,7 +599,7 @@ router.post('/register', async (req, res) => {
   try {
     const result = await SocialDB.registerUser({ name, email, handle, password, accountType, birthday, gender, phone, billingAddress });
     const user = result.user;
-    const verifyOtp = generateSecureOtp(user.email, 'email_verify', 15);
+    const verifyOtp = await generateSecureOtp(user.email, 'email_verify', 15);
     const masked = maskEmail(user.email);
 
     await sendSignupVerificationOtpEmail({
@@ -540,7 +628,7 @@ router.post('/verify-email', async (req, res) => {
       return res.status(400).json({ error: 'Verification token and 6-digit code are required.' });
     }
 
-    const verification = verifySecureOtp(tempToken, otpCode, 'email_verify');
+    const verification = await verifySecureOtp(tempToken, otpCode, 'email_verify');
     if (!verification.valid) {
       return res.status(400).json({ error: verification.error });
     }
@@ -553,7 +641,7 @@ router.post('/verify-email', async (req, res) => {
     await MasterDB.updateUser(user.id, { emailVerified: true });
     const masked = maskEmail(user.email);
 
-    const setupOtp = generateSecureOtp(user.email, 'setup_2fa', 15);
+    const setupOtp = await generateSecureOtp(user.email, 'setup_2fa', 15);
     await sendTwoFactorOtpEmail({
       to: user.email,
       name: user.name || user.storeName,
@@ -582,7 +670,7 @@ router.post('/resend-email-verification', async (req, res) => {
       return res.status(400).json({ error: 'Verification session token is required.' });
     }
 
-    const session = getOtpSession(tempToken);
+    const session = await getOtpSession(tempToken);
     if (!session) {
       return res.status(404).json({ error: 'Verification session expired. Please sign in again.' });
     }
@@ -592,8 +680,8 @@ router.post('/resend-email-verification', async (req, res) => {
       return res.status(404).json({ error: 'User not found.' });
     }
 
-    deleteOtpSession(tempToken);
-    const newOtp = generateSecureOtp(user.email, 'email_verify', 15);
+    await deleteOtpSession(tempToken);
+    const newOtp = await generateSecureOtp(user.email, 'email_verify', 15);
     const masked = maskEmail(user.email);
 
     await sendSignupVerificationOtpEmail({
@@ -622,7 +710,7 @@ router.post('/setup-2fa', async (req, res) => {
       return res.status(400).json({ error: 'Verification token and 6-digit code are required.' });
     }
 
-    const verification = verifySecureOtp(tempToken, otpCode, 'setup_2fa');
+    const verification = await verifySecureOtp(tempToken, otpCode, 'setup_2fa');
     if (!verification.valid) {
       return res.status(400).json({ error: verification.error });
     }
@@ -667,7 +755,7 @@ router.post('/resend-setup-2fa', async (req, res) => {
       return res.status(400).json({ error: 'Verification session token is required.' });
     }
 
-    const session = getOtpSession(tempToken);
+    const session = await getOtpSession(tempToken);
     if (!session) {
       return res.status(404).json({ error: 'Verification session expired. Please sign in again.' });
     }
@@ -677,8 +765,8 @@ router.post('/resend-setup-2fa', async (req, res) => {
       return res.status(404).json({ error: 'User not found.' });
     }
 
-    deleteOtpSession(tempToken);
-    const newOtp = generateSecureOtp(user.email, 'setup_2fa', 15);
+    await deleteOtpSession(tempToken);
+    const newOtp = await generateSecureOtp(user.email, 'setup_2fa', 15);
     const masked = maskEmail(user.email);
 
     await sendTwoFactorOtpEmail({
@@ -851,7 +939,7 @@ router.post('/posts', contentSafetyMiddleware('public_feed'), async (req, res) =
   if (!authorId || authorId === 'anonymous') return res.status(401).json({ error: 'Authentication required' });
 
   // Account restriction check: permanently disabled users cannot create posts
-  const restriction = isUserRestricted(authorId);
+  const restriction = await isUserRestricted(authorId);
   if (restriction.restricted && restriction.action === 'PERMANENTLY_DISABLED') {
     return res.status(403).json({
       error: 'ACCOUNT_DISABLED',
@@ -865,7 +953,7 @@ router.post('/posts', contentSafetyMiddleware('public_feed'), async (req, res) =
   // Anti-Bypass: Verify attached images were not uploaded under private messaging scope
   if (Array.isArray(images)) {
     for (const img of images) {
-      const scopeCheck = checkAssetScope(img, 'public_feed');
+      const scopeCheck = await checkAssetScope(img, 'public_feed');
       if (!scopeCheck.allowed) {
         return res.status(403).json({ error: 'SECURITY_SCOPE_VIOLATION', message: scopeCheck.reason });
       }
@@ -889,16 +977,13 @@ router.post('/posts', contentSafetyMiddleware('public_feed'), async (req, res) =
     if (typeof mUrl === 'string' && (/\.(mp4|mov|webm|mkv|m4v|avi)(\?|$)/i.test(mUrl) || mUrl.includes('/reels/'))) {
       if (mUrl.includes('/upload/')) {
         const sub = mUrl.split('/upload/')[1];
-        const localPath = path.join(ROOT_UPLOAD_DIR, sub);
-        if (fs.existsSync(localPath)) {
-          enqueueVideoProcessing({
-            filePath: localPath,
-            relativeUrl: mUrl,
-            userId: authorId,
-            postId: post.id,
-            subfolder: sub.startsWith('reels/') ? 'reels' : 'posts'
-          });
-        }
+        enqueueVideoProcessing({
+          mediaUrl: mUrl,
+          relativeUrl: mUrl,
+          userId: authorId,
+          postId: post.id,
+          subfolder: sub.startsWith('reels/') ? 'reels' : 'posts'
+        });
       }
     }
   }
@@ -1002,16 +1087,13 @@ router.post('/reels', async (req, res) => {
   const targetVideo = videoUrl || (typeof image === 'string' && /\.(mp4|mov|webm|mkv|m4v)(\?|$)/i.test(image) ? image : null);
   if (targetVideo && targetVideo.includes('/upload/')) {
     const sub = targetVideo.split('/upload/')[1];
-    const localPath = path.join(ROOT_UPLOAD_DIR, sub);
-    if (fs.existsSync(localPath)) {
-      enqueueVideoProcessing({
-        filePath: localPath,
-        relativeUrl: targetVideo,
-        userId: authorId,
-        reelId: reel.id,
-        subfolder: 'reels'
-      });
-    }
+    enqueueVideoProcessing({
+      mediaUrl: targetVideo,
+      relativeUrl: targetVideo,
+      userId: authorId,
+      reelId: reel.id,
+      subfolder: 'reels'
+    });
   }
 });
 
@@ -1090,7 +1172,7 @@ router.put('/profile', async (req, res) => {
     if (!userId || userId === 'anonymous') return res.status(401).json({ error: 'Authentication required' });
 
     // 1. Check if user is restricted
-    const restriction = isUserRestricted(userId);
+    const restriction = await isUserRestricted(userId);
     if (restriction.restricted && restriction.action === 'PERMANENTLY_DISABLED') {
       return res.status(403).json({ error: 'ACCOUNT_DISABLED', code: restriction.action, message: restriction.reason });
     }
@@ -1117,18 +1199,12 @@ router.put('/profile', async (req, res) => {
 
     // 3. Scan avatar image if changed
     if (req.body?.avatar && typeof req.body.avatar === 'string' && !req.body.avatar.includes('ui-avatars.com')) {
-      let localPath = null;
-      if (req.body.avatar.includes('/upload/')) {
-        localPath = path.join(ROOT_UPLOAD_DIR, req.body.avatar.split('/upload/')[1]);
-      } else if (req.body.avatar.includes('/uploads/')) {
-        localPath = path.join(__dirname, '../uploads', req.body.avatar.split('/uploads/')[1]);
-      }
-      if (localPath && fs.existsSync(localPath)) {
-        try {
-          const buffer = fs.readFileSync(localPath);
-          const scan = await scanAndSanitizeImage(buffer, 'user_avatar', path.basename(localPath));
+      if (resolveUploadLocalPath(req.body.avatar)) {
+        const media = await readUploadMedia(req.body.avatar);
+        if (media) {
+          const scan = await scanAndSanitizeImage(media.buffer, 'user_avatar', media.filename);
           if (!scan.safe) {
-            try { fs.unlinkSync(localPath); } catch (e) {}
+            await removeUploadMedia(req.body.avatar);
             const enforcement = await recordViolation({
               user,
               category: 'ADULT_CONTENT',
@@ -1144,7 +1220,7 @@ router.put('/profile', async (req, res) => {
               enforcement
             });
           }
-        } catch (e) {}
+        }
       }
     }
 
@@ -1362,7 +1438,10 @@ router.get('/stream/:folder/:filename', async (req, res) => {
     const filePath = path.join(ROOT_UPLOAD_DIR, sanitizedFolder, sanitizedFilename);
 
     if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'Media not found' });
+      const media = await getMediaMetadata(`/upload/${sanitizedFolder}/${sanitizedFilename}`);
+      if (!media) return res.status(404).json({ error: 'Media not found' });
+      const query = new URLSearchParams(req.query).toString();
+      return res.redirect(307, `/api/upload/${sanitizedFolder}/${sanitizedFilename}${query ? `?${query}` : ''}`);
     }
 
     const stat = fs.statSync(filePath);

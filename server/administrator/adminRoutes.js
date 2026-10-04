@@ -6,12 +6,81 @@ import { MasterDB } from '../db/multiTenant.js';
 import { sendAccountDisabledEmail, sendAccountRestoredEmail } from '../db/emailService.js';
 import { RestoreSessions } from '../db/restoreSessions.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
+import {
+  addGoogleDriveServiceAccount,
+  getPlatformStorageSettings,
+  listGoogleDriveAccounts,
+  setDriveStorageActive
+} from './googleDriveStorage.js';
+import { getStorageSyncStatus, startStorageSync } from '../db/mediaMigration.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const STORES_DIR = path.resolve(__dirname, '../data/stores');
 
 const router = express.Router();
+
+router.get('/storage/google-drive', requireAdmin, async (req, res) => {
+  try {
+    const [accounts, storage, sync] = await Promise.all([
+      listGoogleDriveAccounts(),
+      getPlatformStorageSettings(),
+      getStorageSyncStatus()
+    ]);
+    res.json({ success: true, accounts, storage, sync });
+  } catch (error) {
+    console.error('[Admin Google Drive] Could not list account metadata:', error.message);
+    res.status(503).json({ error: 'Could not load Google Drive accounts.' });
+  }
+});
+
+router.post('/storage/google-drive', requireAdmin, async (req, res) => {
+  try {
+    const account = await addGoogleDriveServiceAccount(
+      req.body?.credentials,
+      req.body?.name,
+      req.body?.rootFolderId
+    );
+    res.status(201).json({ success: true, account });
+  } catch (error) {
+    if (error instanceof TypeError || error instanceof RangeError) {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error('[Admin Google Drive] Could not store encrypted credentials:', error.message);
+    res.status(503).json({ error: 'Could not save the Google Drive credentials.' });
+  }
+});
+
+router.post('/storage/google-drive/:id/activate', requireAdmin, async (req, res) => {
+  try {
+    const sync = await getStorageSyncStatus();
+    if (sync.status === 'running') return res.status(409).json({ error: 'Storage transfer is running; wait for it to finish.' });
+    const storage = await setDriveStorageActive(req.params.id);
+    res.json({ success: true, storage });
+  } catch (error) {
+    if (error instanceof TypeError) {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error('[Admin Google Drive] Could not verify/activate account:', error.message);
+    res.status(503).json({ error: error.message || 'Could not activate Google Drive storage.' });
+  }
+});
+
+router.post('/storage/sync/:direction', requireAdmin, async (req, res) => {
+  try {
+    const { direction } = req.params;
+    const state = await getStorageSyncStatus();
+    if (state.status === 'running') return res.status(409).json({ error: 'Storage transfer is already running.' });
+    if (direction !== 'to_drive' && direction !== 'to_server') {
+      return res.status(400).json({ error: 'Unknown storage transfer direction.' });
+    }
+    const sync = await startStorageSync(direction);
+    res.status(202).json({ success: true, sync });
+  } catch (error) {
+    console.error('[Admin Storage] Could not start media sync:', error.message);
+    res.status(503).json({ error: error.message || 'Could not start the media sync.' });
+  }
+});
 
 // Middleware to verify Admin / Super Admin access
 export function requireAdmin(req, res, next) {

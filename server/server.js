@@ -13,6 +13,7 @@ import { PLATFORM_CONFIG, getSubdomain } from './config/platformConfig.js';
 
 import { ensureCertificates } from './scripts/generate-cert.js';
 import { testPgConnection } from './db/postgres.js';
+import { streamStoredMedia } from './db/mediaStorage.js';
 import { MasterDB } from './db/multiTenant.js';
 import { tenantContext } from './db/storeDataAdapter.js';
 import { createGraphQLMiddleware } from './graphql/index.js';
@@ -27,7 +28,7 @@ import authRoutes from './routes/authRoutes.js';
 import domainRoutes from './routes/domainRoutes.js';
 import { findActiveCustomDomain } from './domains/domainService.js';
 
-import socialRoutes from './social/socialRoutes.js';
+import socialRoutes, { resumePendingVideoProcessing } from './social/socialRoutes.js';
 import { SocialDB } from './social/socialDb.js';
 import ecosystemRoutes from './social/ecosystemRoutes.js';
 import chatRoutes from './social/chatRoutes.js';
@@ -96,6 +97,7 @@ const allowedOrigins = [
   `https://${getSubdomain(PLATFORM_CONFIG.wwwSubdomain)}`,
   `https://${getSubdomain(PLATFORM_CONFIG.authSubdomain)}`,
   `https://${getSubdomain(PLATFORM_CONFIG.tpanelSubdomain)}`,
+  `https://${getSubdomain(PLATFORM_CONFIG.driveSubdomain)}`,
   'http://localhost:5173',
   'http://localhost:3000',
   'http://localhost:5000',
@@ -221,6 +223,7 @@ const staticMediaOptions = {
     }
   },
 };
+app.use(['/uploads', '/api/uploads', '/upload', '/api/upload'], streamStoredMedia);
 app.use('/uploads', express.static(UPLOADS_DIR, staticMediaOptions));
 app.use('/api/uploads', express.static(UPLOADS_DIR, staticMediaOptions));
 
@@ -236,8 +239,7 @@ app.get(['/api/landing/hero-video', '/landing/hero-bg.mp4'], (req, res) => {
   const possiblePaths = [
     path.join(__dirname, 'public/landing/hero-bg.mp4'),
     path.join(__dirname, '../client/dist/landing/hero-bg.mp4'),
-    path.join(__dirname, '../client/public/landing/hero-bg.mp4'),
-    'C:/Users/imran/Downloads/large.mp4'
+    path.join(__dirname, '../client/public/landing/hero-bg.mp4')
   ];
   const videoPath = possiblePaths.find(p => fs.existsSync(p));
 
@@ -364,9 +366,24 @@ app.use((err, req, res, next) => {
 // 6. SERVER BOOTSTRAP
 // ==========================================
 async function startServer() {
+  const postgresReady = await testPgConnection();
+  if (!postgresReady && process.env.NODE_ENV === 'production') {
+    throw new Error('PostgreSQL is required in production; refusing to start with volatile data fallbacks.');
+  }
+  if (postgresReady) {
+    const { bootstrapGoogleDriveServiceAccountFromEnv } = await import('./administrator/googleDriveStorage.js');
+    await bootstrapGoogleDriveServiceAccountFromEnv();
+    const { resumeStorageSyncOnStartup } = await import('./db/mediaMigration.js');
+    await resumeStorageSyncOnStartup();
+  }
   WhatsAppManager.init().catch(err => console.warn('⚠️ WhatsApp Manager init notice:', err.message));
-  await testPgConnection();
   await SocialDB.hydrateFromPg().catch(err => console.warn('⚠️ SocialDB PostgreSQL hydration notice:', err.message));
+  if (postgresReady) {
+    const pendingVideos = await resumePendingVideoProcessing();
+    if (pendingVideos > 0) {
+      console.log(`[VideoProcessor] Resumed ${pendingVideos} pending media review job(s).`);
+    }
+  }
 
   let httpsOptions = null;
   try {

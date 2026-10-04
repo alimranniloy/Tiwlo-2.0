@@ -46,6 +46,7 @@ export default function AdminSubView({ viewId, onBackToDashboard, showToast }) {
     'backups': { title: 'Automated Backups', subtitle: 'Hourly database snapshots and disaster recovery restoration', endpoint: null },
     'monitoring': { title: 'System Monitoring & APM', subtitle: 'Real-time CPU load, memory utilization, and latency metrics', endpoint: null },
     'cloud-settings': { title: 'Cloud Engine Settings', subtitle: 'Cluster topology, hypervisor quotas, and autoscaling thresholds', endpoint: null },
+    'google-drive': { title: 'Google Drive', subtitle: 'Google Drive storage integration', endpoint: null },
     'users': { title: 'System Users & Administrators', subtitle: 'Manage platform accounts, super admins, and staff members', endpoint: '/admin/users', dataKey: 'users' },
     'roles': { title: 'Roles & Permissions', subtitle: 'Role-based access control (RBAC) and security capability matrix', endpoint: null },
     'logs': { title: 'System Audit Logs', subtitle: 'Cryptographic activity records, sign-in attempts, and firewall events', endpoint: null },

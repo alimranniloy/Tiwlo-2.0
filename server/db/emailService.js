@@ -13,6 +13,8 @@
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import { PLATFORM_CONFIG, getPlatformUrl, getSubdomain } from '../config/platformConfig.js';
+import { getPgPool, queryPg } from './postgres.js';
+import { listEmailDeliveries, recordEmailDelivery } from './securityPersistence.js';
 
 import {
   renderBaseEmail,
@@ -33,7 +35,7 @@ export function getEmailConfig() {
     senderName: PLATFORM_CONFIG.emailSenderName,
     replyTo: PLATFORM_CONFIG.noreplyEmail,
     accountType: 'system_noreply',
-    storage: 'unlimited',
+    storage: 'postgresql_with_90_day_retention',
     inboundPolicy: 'reject_all_incoming',
     smtp: {
       provider: process.env.SMTP_PROVIDER || 'local_postfix',
@@ -65,112 +67,123 @@ export function getEmailConfig() {
 }
 
 // ==========================================
-// UNLIMITED EMAIL OUTBOX AUDIT STORE
-// ==========================================
-const memoryOutboxStore = [];
-
-function readOutbox() {
-  return memoryOutboxStore;
-}
-
-function recordToOutbox(record) {
-  memoryOutboxStore.unshift({
-    id: `mail_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
-    createdAt: new Date().toISOString(),
-    ...record
-  });
-}
-
-export function getOutboxList(limit = 100, filterType = null) {
-  const all = readOutbox();
-  if (filterType) {
-    return all.filter(m => m.type === filterType).slice(0, limit);
-  }
-  return all.slice(0, limit);
-}
-
-// ==========================================
 // CRYPTOGRAPHIC OTP STORE
 // ==========================================
-const memoryOtpMap = new Map();
+function hashOtpValue(value) {
+  const secret = process.env.SECURITY_SECRET;
+  if (!secret) throw new Error('SECURITY_SECRET must be configured for OTP challenges.');
+  return crypto.createHmac('sha256', secret).update(String(value)).digest('hex');
+}
 
-export function generateSecureOtp(email, type = 'login_2fa', expiryMinutes = 10) {
+export async function generateSecureOtp(email, type = 'login_2fa', expiryMinutes = 10) {
   const cleanEmail = email.trim().toLowerCase();
-  // 6-digit numeric cryptographically random code
   const code = crypto.randomInt(100000, 999999).toString();
   const token = `tok_${crypto.randomBytes(24).toString('hex')}`;
-  const now = Date.now();
-  const expiresAt = now + expiryMinutes * 60 * 1000;
-
-  const otpPayload = {
-    email: cleanEmail,
-    code,
-    token,
-    type,
-    attempts: 0,
-    maxAttempts: 5,
-    createdAt: now,
-    expiresAt,
-    verified: false
-  };
-
-  memoryOtpMap.set(token, otpPayload);
-  return { code, token, expiresAt };
+  const expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
+  await queryPg(
+    `INSERT INTO system_otp_challenges (token_hash, email, challenge_type, code_hash, expires_at)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [hashOtpValue(token), cleanEmail, type, hashOtpValue(`${token}:${code}`), expiresAt]
+  );
+  await queryPg('DELETE FROM system_otp_challenges WHERE expires_at < CURRENT_TIMESTAMP');
+  return { code, token, expiresAt: expiresAt.getTime() };
 }
 
-export function verifySecureOtp(token, inputCode, expectedType = 'login_2fa') {
+export async function verifySecureOtp(token, inputCode, expectedType = 'login_2fa') {
   if (!token) return { valid: false, error: 'Verification token is required' };
-
-  let record = memoryOtpMap.get(token);
-  if (!record) {
-    return { valid: false, error: 'Invalid or expired verification session' };
-  }
-
-  if (Date.now() > record.expiresAt) {
-    deleteOtpSession(token);
-    return { valid: false, error: 'Verification code has expired. Please request a new one.' };
-  }
-
-  if (record.attempts >= record.maxAttempts) {
-    deleteOtpSession(token);
-    return { valid: false, error: 'Maximum verification attempts exceeded. Please request a new code.' };
-  }
-
-  if (record.type !== expectedType) {
-    return { valid: false, error: 'Mismatched verification context' };
-  }
-
+  const pool = getPgPool();
+  if (!pool) throw new Error('PostgreSQL pool is unavailable for OTP verification.');
+  const client = await pool.connect();
   const cleanInput = (inputCode || '').toString().trim().replace(/\s+/g, '');
-  if (cleanInput !== record.code) {
-    record.attempts += 1;
-    const remaining = record.maxAttempts - record.attempts;
-    return { valid: false, error: `Invalid 6-digit code. ${remaining} attempt(s) remaining.` };
-  }
-
-  // Code is valid! Mark verified and remove token
-  record.verified = true;
-  deleteOtpSession(token);
-
-  return { valid: true, email: record.email };
-}
-
-export function getOtpSession(token) {
-  return memoryOtpMap.get(token) || null;
-}
-
-export function deleteOtpSession(token) {
-  memoryOtpMap.delete(token);
-}
-
-// Clean up expired OTPs periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [token, data] of memoryOtpMap.entries()) {
-    if (now > data.expiresAt) {
-      memoryOtpMap.delete(token);
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `SELECT email, challenge_type, code_hash, attempts, max_attempts, expires_at
+       FROM system_otp_challenges WHERE token_hash = $1 FOR UPDATE`,
+      [hashOtpValue(token)]
+    );
+    const record = rows[0];
+    if (!record) {
+      await client.query('COMMIT');
+      return { valid: false, error: 'Invalid or expired verification session' };
     }
+    if (new Date(record.expires_at).getTime() <= Date.now()) {
+      await client.query('DELETE FROM system_otp_challenges WHERE token_hash = $1', [hashOtpValue(token)]);
+      await client.query('COMMIT');
+      return { valid: false, error: 'Verification code has expired. Please request a new one.' };
+    }
+    if (record.challenge_type !== expectedType) {
+      await client.query('COMMIT');
+      return { valid: false, error: 'Mismatched verification context' };
+    }
+    if (record.attempts >= record.max_attempts) {
+      await client.query('DELETE FROM system_otp_challenges WHERE token_hash = $1', [hashOtpValue(token)]);
+      await client.query('COMMIT');
+      return { valid: false, error: 'Maximum verification attempts exceeded. Please request a new code.' };
+    }
+    const expectedHash = Buffer.from(record.code_hash, 'hex');
+    const actualHash = Buffer.from(hashOtpValue(`${token}:${cleanInput}`), 'hex');
+    if (expectedHash.length !== actualHash.length || !crypto.timingSafeEqual(expectedHash, actualHash)) {
+      const update = await client.query(
+        `UPDATE system_otp_challenges SET attempts = attempts + 1
+         WHERE token_hash = $1 RETURNING attempts, max_attempts`,
+        [hashOtpValue(token)]
+      );
+      const remaining = Math.max(0, update.rows[0].max_attempts - update.rows[0].attempts);
+      if (remaining === 0) {
+        await client.query('DELETE FROM system_otp_challenges WHERE token_hash = $1', [hashOtpValue(token)]);
+      }
+      await client.query('COMMIT');
+      return { valid: false, error: `Invalid 6-digit code. ${remaining} attempt(s) remaining.` };
+    }
+    await client.query('DELETE FROM system_otp_challenges WHERE token_hash = $1', [hashOtpValue(token)]);
+    await client.query('COMMIT');
+    return { valid: true, email: record.email };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
   }
-}, 60000);
+}
+
+export async function getOtpSession(token) {
+  if (!token) return null;
+  const { rows } = await queryPg(
+    `SELECT email, challenge_type AS type, attempts, max_attempts, expires_at
+     FROM system_otp_challenges
+     WHERE token_hash = $1 AND expires_at > CURRENT_TIMESTAMP`,
+    [hashOtpValue(token)]
+  );
+  return rows[0] || null;
+}
+
+export async function deleteOtpSession(token) {
+  if (!token) return;
+  await queryPg('DELETE FROM system_otp_challenges WHERE token_hash = $1', [hashOtpValue(token)]);
+}
+
+export async function createSecureGrant(email, type, expiryMinutes = 15) {
+  const token = `grant_${crypto.randomBytes(32).toString('hex')}`;
+  await queryPg(
+    `INSERT INTO system_otp_challenges
+       (token_hash, email, challenge_type, code_hash, max_attempts, expires_at)
+     VALUES ($1, $2, $3, $4, 1, CURRENT_TIMESTAMP + ($5 * INTERVAL '1 minute'))`,
+    [hashOtpValue(token), String(email).trim().toLowerCase(), type, hashOtpValue(token), expiryMinutes]
+  );
+  return token;
+}
+
+export async function consumeSecureGrant(token, type) {
+  if (!token) return null;
+  const { rows } = await queryPg(
+    `DELETE FROM system_otp_challenges
+     WHERE token_hash = $1 AND challenge_type = $2 AND expires_at > CURRENT_TIMESTAMP
+     RETURNING email`,
+    [hashOtpValue(token), type]
+  );
+  return rows[0]?.email || null;
+}
 
 // ==========================================
 // EMAIL TEMPLATES & DISPATCH ENGINE
@@ -355,7 +368,7 @@ export async function sendTiwloEmail({ to, subject, html, text, type = 'general'
     messageId = info?.messageId || `msg_${Date.now()}`;
     console.log(`✉️ [EmailService] Successfully sent ${type} to ${cleanTo} (${messageId})`);
   } catch (err) {
-    console.warn(`⚠️ [EmailService] Primary transport failed for ${cleanTo}: ${err.message}. Retrying via direct local Postfix (127.0.0.1:25)...`);
+    console.warn(`⚠️ [EmailService] Primary transport failed (${err.code || err.name || 'unknown'}); trying configured fallback.`);
     try {
       const fallbackTransporter = nodemailer.createTransport({
         host: '127.0.0.1',
@@ -374,23 +387,20 @@ export async function sendTiwloEmail({ to, subject, html, text, type = 'general'
       console.log(`✉️ [EmailService] Successfully sent ${type} to ${cleanTo} via fallback Postfix loopback (${messageId})`);
     } catch (fallbackErr) {
       deliveryStatus = 'failed';
-      errorMsg = `Primary: ${err.message}; Fallback: ${fallbackErr.message}`;
-      console.error(`❌ [EmailService] All delivery transports failed for ${cleanTo}:`, errorMsg);
+      errorMsg = `primary:${err.code || err.name || 'unknown'};fallback:${fallbackErr.code || fallbackErr.name || 'unknown'}`;
+      console.error('❌ [EmailService] All configured email transports failed:', errorMsg);
     }
   }
 
-  // Record to unlimited outbox for auditing
-  recordToOutbox({
-    to: cleanTo,
-    from: config.senderEmail,
+  await recordEmailDelivery({
+    recipient: cleanTo,
+    sender: config.senderEmail,
     subject,
     type,
     status: deliveryStatus,
     messageId,
     error: errorMsg,
-    metadata,
-    otpCode: metadata.otpCode || null,
-    html
+    metadata
   });
 
   return {
@@ -400,7 +410,7 @@ export async function sendTiwloEmail({ to, subject, html, text, type = 'general'
     messageId,
     email: cleanTo,
     error: errorMsg,
-    otpCode: metadata.otpCode || null
+    otpCode: null
   };
 }
 

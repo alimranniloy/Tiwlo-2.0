@@ -1,5 +1,7 @@
 import crypto from 'crypto';
 import '../config/loadRootEnv.js';
+import { queryPg } from '../db/postgres.js';
+import { hashSecuritySubject, recordSecurityEvent } from '../db/securityPersistence.js';
 
 // Secret key for HMAC signing.
 // In production, this is loaded from process.env.SECURITY_SECRET or a securely generated 256-bit key
@@ -174,12 +176,11 @@ export const PaymentSecurity = {
 // ====================================================================
 // 4. BRUTE-FORCE SHIELD & ACCOUNT LOCKOUT ENGINE
 // ====================================================================
-const failedAttempts = new Map(); // Key: IP or identifier -> { count, lockedUntil, firstAttempt }
-
 export const BruteForceShield = {
   MAX_ATTEMPTS: 5,
   WINDOW_MS: 15 * 60 * 1000,   // 15 minutes window
   LOCKOUT_MS: 15 * 60 * 1000,  // 15 minutes lockout
+  checksSinceCleanup: 0,
 
   normalizeKey(key) {
     if (!key || typeof key !== 'string') return 'unknown';
@@ -189,65 +190,97 @@ export const BruteForceShield = {
     return clean;
   },
 
-  isLocked(key) {
+  async isLocked(key) {
     if (!key) return false;
     const normalized = this.normalizeKey(key);
-    const record = failedAttempts.get(normalized);
+    const { rows } = await queryPg(
+      'SELECT locked_until FROM system_auth_rate_limits WHERE key_hash = $1',
+      [hashSecuritySubject(normalized)]
+    );
+    const record = rows[0];
     if (!record) return false;
 
-    // Check if lockout has expired
-    if (record.lockedUntil && Date.now() < record.lockedUntil) {
-      const remainingSeconds = Math.ceil((record.lockedUntil - Date.now()) / 1000);
+    if (record.locked_until && new Date(record.locked_until).getTime() > Date.now()) {
+      const remainingSeconds = Math.ceil((new Date(record.locked_until).getTime() - Date.now()) / 1000);
       return { isLocked: true, remainingSeconds };
     }
 
-    // Clean up expired lockout
-    if (record.lockedUntil && Date.now() >= record.lockedUntil) {
-      failedAttempts.delete(normalized);
-    }
+    await queryPg('DELETE FROM system_auth_rate_limits WHERE key_hash = $1', [hashSecuritySubject(normalized)]);
     return false;
   },
 
-  recordFailure(key) {
+  async recordFailure(key) {
     if (!key) return;
     const normalized = this.normalizeKey(key);
-    const now = Date.now();
-    const record = failedAttempts.get(normalized) || { count: 0, firstAttempt: now };
-
-    // Reset if outside tracking window
-    if (now - record.firstAttempt > this.WINDOW_MS) {
-      record.count = 1;
-      record.firstAttempt = now;
-      record.lockedUntil = null;
-    } else {
-      record.count += 1;
+    const keyHash = hashSecuritySubject(normalized);
+    const { rows } = await queryPg(
+      `INSERT INTO system_auth_rate_limits
+         (key_hash, failure_count, first_failure_at, locked_until, updated_at)
+       VALUES ($1, 1, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP)
+       ON CONFLICT (key_hash) DO UPDATE SET
+         failure_count = CASE
+           WHEN system_auth_rate_limits.first_failure_at <
+             CURRENT_TIMESTAMP - ($2 * INTERVAL '1 millisecond') THEN 1
+           ELSE system_auth_rate_limits.failure_count + 1
+         END,
+         first_failure_at = CASE
+           WHEN system_auth_rate_limits.first_failure_at <
+             CURRENT_TIMESTAMP - ($2 * INTERVAL '1 millisecond') THEN CURRENT_TIMESTAMP
+           ELSE system_auth_rate_limits.first_failure_at
+         END,
+         locked_until = CASE
+           WHEN CASE
+             WHEN system_auth_rate_limits.first_failure_at <
+               CURRENT_TIMESTAMP - ($2 * INTERVAL '1 millisecond') THEN 1
+             ELSE system_auth_rate_limits.failure_count + 1
+           END >= $3
+           THEN CURRENT_TIMESTAMP + ($4 * INTERVAL '1 millisecond')
+           ELSE NULL
+         END,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING failure_count, first_failure_at, locked_until`,
+      [keyHash, this.WINDOW_MS, this.MAX_ATTEMPTS, this.LOCKOUT_MS]
+    );
+    const record = rows[0];
+    this.checksSinceCleanup += 1;
+    if (this.checksSinceCleanup >= 500) {
+      this.checksSinceCleanup = 0;
+      await queryPg(
+        `DELETE FROM system_auth_rate_limits
+         WHERE updated_at < CURRENT_TIMESTAMP - INTERVAL '30 minutes'`
+      );
     }
-
-    if (record.count >= this.MAX_ATTEMPTS) {
-      record.lockedUntil = now + this.LOCKOUT_MS;
-      console.warn(`🚨 [SECURITY ALERT] Brute-force threshold exceeded for '${normalized}'. Account/IP locked for 15 minutes.`);
+    if (record.failure_count >= this.MAX_ATTEMPTS) {
+      await recordSecurityEvent({
+        eventType: 'auth.brute_force_lockout',
+        severity: 'warning',
+        subject: normalized,
+        details: { failureCount: record.failure_count }
+      });
     }
-
-    failedAttempts.set(normalized, record);
-    return record;
+    return {
+      count: record.failure_count,
+      firstAttempt: new Date(record.first_failure_at).getTime(),
+      lockedUntil: record.locked_until ? new Date(record.locked_until).getTime() : null
+    };
   },
 
-  recordSuccess(key) {
+  async recordSuccess(key) {
     if (key) {
       const normalized = this.normalizeKey(key);
-      failedAttempts.delete(normalized);
+      await queryPg('DELETE FROM system_auth_rate_limits WHERE key_hash = $1', [hashSecuritySubject(normalized)]);
     }
   },
 
-  reset(key) {
+  async reset(key) {
     if (key) {
       const normalized = this.normalizeKey(key);
-      failedAttempts.delete(normalized);
+      await queryPg('DELETE FROM system_auth_rate_limits WHERE key_hash = $1', [hashSecuritySubject(normalized)]);
     }
   },
 
-  clearAll() {
-    failedAttempts.clear();
+  async clearAll() {
+    await queryPg('DELETE FROM system_auth_rate_limits');
   }
 };
 
@@ -311,29 +344,12 @@ export const InputSanitizer = {
 // ====================================================================
 export const TIWI_APP_TRUST_KEY = process.env.TIWI_APP_TRUST_KEY || '';
 
-// In-memory cache for one-time nonce burning and replay defense
-const activeSsoTickets = new Map();
-const consumedNonces = new Set();
-
-// Clean up stale nonces every 2 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [nonce, data] of activeSsoTickets.entries()) {
-    if (data.expiresAt < now) {
-      activeSsoTickets.delete(nonce);
-    }
-  }
-  if (consumedNonces.size > 10000) {
-    consumedNonces.clear();
-  }
-}, 2 * 60 * 1000);
-
 export const SsoSecurity = {
   /**
    * Extracts client network IP cleanly
    */
   getClientIp(req) {
-    let rawIp = req?.headers?.['x-forwarded-for'] || req?.socket?.remoteAddress || '127.0.0.1';
+    let rawIp = req?.ip || req?.socket?.remoteAddress || '127.0.0.1';
     if (typeof rawIp === 'string') {
       rawIp = rawIp.split(',')[0].trim();
       if (rawIp.startsWith('::ffff:')) rawIp = rawIp.substring(7);
@@ -372,7 +388,7 @@ export const SsoSecurity = {
    * Generates a single-use, 60-second cryptographic SSO handshake ticket.
    * Signed with HMAC-SHA256 using server master secret.
    */
-  generateHandshakeTicket({
+  async generateHandshakeTicket({
     userId,
     tiwiId,
     email,
@@ -414,14 +430,12 @@ export const SsoSecurity = {
     const ssoToken = `${encodedPayload}.${signature}`;
 
     // 4. Save ticket state for replay defense
-    activeSsoTickets.set(nonce, {
-      userId,
-      tiwiId,
-      email,
-      expiresAt,
-      signature,
-      deviceFingerprint
-    });
+    await queryPg(
+      `INSERT INTO system_sso_nonces (nonce_hash, user_id, expires_at)
+       VALUES ($1, $2, $3)`,
+      [hashSecuritySubject(nonce), userId, new Date(expiresAt)]
+    );
+    await queryPg('DELETE FROM system_sso_nonces WHERE expires_at < CURRENT_TIMESTAMP');
 
     return {
       ssoToken,
@@ -436,17 +450,12 @@ export const SsoSecurity = {
    * Validates and immediately consumes an SSO handshake ticket.
    * If any tampering, expiration, or replay is detected, it fails securely.
    */
-  verifyAndConsumeTicket({ ssoToken, nonce, req = null }) {
+  async verifyAndConsumeTicket({ ssoToken, nonce, req = null }) {
     if (!ssoToken || !nonce) {
       return { valid: false, error: 'Missing SSO token or nonce' };
     }
 
-    // 1. Check replay attack
-    if (consumedNonces.has(nonce)) {
-      return { valid: false, error: 'Replay attack prevented: SSO token has already been consumed' };
-    }
-
-    // 2. Parse token
+    // Parse token.
     const parts = ssoToken.split('.');
     if (parts.length !== 2) {
       return { valid: false, error: 'Malformed SSO token structure' };
@@ -460,17 +469,17 @@ export const SsoSecurity = {
       return { valid: false, error: 'Invalid SSO token payload encoding' };
     }
 
-    // 3. Verify nonce match
+    // Verify nonce match.
     if (payload.nonce !== nonce) {
       return { valid: false, error: 'Nonce mismatch in token payload' };
     }
 
-    // 4. Verify expiration (strictly 60 seconds TTL)
+    // Verify expiration (strictly 60 seconds TTL).
     if (Date.now() > payload.expiresAt) {
       return { valid: false, error: 'SSO handshake token has expired' };
     }
 
-    // 5. Verify Cryptographic HMAC-SHA256 Signature
+    // Verify Cryptographic HMAC-SHA256 Signature.
     const expectedSignaturePayload = `${payload.userId}|${payload.tiwiId}|${payload.nonce}|${payload.expiresAt}|${payload.origin}|${payload.deviceFingerprint?.hash || ''}`;
     const expectedSignature = crypto
       .createHmac('sha256', SECURITY_SECRET)
@@ -483,9 +492,15 @@ export const SsoSecurity = {
       return { valid: false, error: 'Cryptographic signature verification failed: invalid or forged SSO token' };
     }
 
-    // 6. BURN THE NONCE IMMEDIATELY (prevents re-use)
-    consumedNonces.add(nonce);
-    activeSsoTickets.delete(nonce);
+    const consumed = await queryPg(
+      `DELETE FROM system_sso_nonces
+       WHERE nonce_hash = $1 AND user_id = $2 AND expires_at > CURRENT_TIMESTAMP
+       RETURNING nonce_hash`,
+      [hashSecuritySubject(nonce), payload.userId]
+    );
+    if (!consumed.rowCount) {
+      return { valid: false, error: 'SSO handshake is expired or has already been consumed' };
+    }
 
     return {
       valid: true,

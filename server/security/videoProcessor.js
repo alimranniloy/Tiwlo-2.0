@@ -2,17 +2,21 @@ import fs from 'fs';
 import path from 'path';
 import { exec, execFile } from 'child_process';
 import { promisify } from 'util';
-import { fileURLToPath } from 'url';
-import { scanAndSanitizeImage, registerAsset } from './mediaSecurity.js';
+import { scanAndSanitizeImage } from './mediaSecurity.js';
 import { recordViolation } from './accountSecurityManager.js';
 import { SocialDB } from '../social/socialDb.js';
+import {
+  deleteMedia,
+  inferMediaType,
+  normalizeMediaPath,
+  readMediaBuffer,
+  setMediaReviewStatus,
+  storeMedia
+} from '../db/mediaStorage.js';
+import os from 'os';
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const ROOT_UPLOAD_DIR = path.resolve(__dirname, '../../upload');
 
 // Background processing queue for videos
 const videoQueue = [];
@@ -22,7 +26,6 @@ const MAX_COMPLETED_VIDEO_TASKS = 1000;
 let isWorkerRunning = false;
 let ffmpegPathCache = null;
 let ffprobePathCache = null;
-const videoDimensionsCache = new Map();
 
 async function runFfmpeg(ffmpeg, args) {
   const command = process.platform === 'win32' ? ffmpeg : 'nice';
@@ -134,9 +137,6 @@ async function detectFfprobe() {
 
 export async function getVideoDimensions(filePath) {
   if (!fs.existsSync(filePath)) return null;
-  const stats = fs.statSync(filePath);
-  const cacheKey = `${filePath}:${stats.mtimeMs}:${stats.size}`;
-  if (videoDimensionsCache.has(cacheKey)) return videoDimensionsCache.get(cacheKey);
 
   const ffprobe = await detectFfprobe();
   if (!ffprobe) return null;
@@ -154,12 +154,7 @@ export async function getVideoDimensions(filePath) {
     let height = Number(stream?.height) || 0;
     const rotation = Math.abs(Number(stream?.tags?.rotate) || 0) % 180 === 90;
     if (rotation) [width, height] = [height, width];
-    const dimensions = width > 0 && height > 0 ? { width, height } : null;
-    videoDimensionsCache.set(cacheKey, dimensions);
-    if (videoDimensionsCache.size > 500) {
-      videoDimensionsCache.delete(videoDimensionsCache.keys().next().value);
-    }
-    return dimensions;
+    return width > 0 && height > 0 ? { width, height } : null;
   } catch (error) {
     console.warn('[VideoProcessor] Could not probe video dimensions:', error.message);
     return null;
@@ -206,31 +201,39 @@ export async function getFfmpegStatus() {
  *  1. Extracts a 1-second poster thumbnail (.jpg)
  *  2. Runs NSFWJS classification on sampled video frames
  *  3. Transcodes to standard 8-bit YUV420P H.264 + FastStart MOOV atom (fixes Android black screen)
- *  4. Writes a compatible sidecar file without changing the uploaded source
+ *  4. Stores a compatible sidecar in PostgreSQL while preserving the original
  */
 export function enqueueVideoProcessing(task) {
-  if (!task || !task.filePath) return;
-  const filePath = path.resolve(task.filePath);
-  const activeTask = activeVideoTasks.get(filePath);
+  if (!task || (!task.filePath && !task.mediaUrl)) return;
+  const taskKey = task.mediaUrl
+    ? normalizeMediaPath(task.mediaUrl)
+    : path.resolve(task.filePath);
+  if (!taskKey) {
+    console.error('[VideoProcessor] Refusing video task with an invalid media URL.');
+    return;
+  }
+  const activeTask = activeVideoTasks.get(taskKey);
   if (activeTask) {
     if (task.postId) activeTask.postId = task.postId;
     if (task.reelId) activeTask.reelId = task.reelId;
-    console.log(`[VideoProcessor] Reused active job for ${path.basename(filePath)}.`);
+    console.log(`[VideoProcessor] Reused active job for ${path.basename(task.mediaUrl || task.filePath)}.`);
     return;
   }
-  if (completedVideoTasks.has(filePath)) {
-    console.log(`[VideoProcessor] Skipped duplicate job for ${path.basename(filePath)}.`);
+  if (completedVideoTasks.get(taskKey) && completedVideoTasks.get(taskKey) !== 'failed') {
+    console.log(`[VideoProcessor] Skipped duplicate job for ${path.basename(task.mediaUrl || task.filePath)}.`);
     return;
   }
+  completedVideoTasks.delete(taskKey);
 
   const queuedTask = {
     id: `vid_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     ...task,
-    filePath,
+    taskKey,
+    filePath: task.filePath ? path.resolve(task.filePath) : null,
     enqueuedAt: Date.now(),
     status: 'queued',
   };
-  activeVideoTasks.set(filePath, queuedTask);
+  activeVideoTasks.set(taskKey, queuedTask);
   videoQueue.push(queuedTask);
 
   if (!isWorkerRunning) {
@@ -239,9 +242,10 @@ export function enqueueVideoProcessing(task) {
 }
 
 export function getVideoProcessingStatus(filePath) {
-  const normalizedPath = path.resolve(filePath);
-  return activeVideoTasks.get(normalizedPath)?.status ||
-    completedVideoTasks.get(normalizedPath) ||
+  const taskKey = normalizeMediaPath(filePath) || (typeof filePath === 'string' ? path.resolve(filePath) : null);
+  if (!taskKey) return 'unknown';
+  return activeVideoTasks.get(taskKey)?.status ||
+    completedVideoTasks.get(taskKey) ||
     'unknown';
 }
 
@@ -255,12 +259,25 @@ async function runVideoWorker() {
       try {
         task.status = 'processing';
         const result = await processSingleVideo(task);
-        rememberCompletedVideoTask(task.filePath, result);
+        rememberCompletedVideoTask(task.taskKey, result);
       } catch (err) {
-        console.error(`[VideoProcessor] Error processing video ${task.filePath}:`, err.message);
-        rememberCompletedVideoTask(task.filePath, 'failed');
+        console.error(`[VideoProcessor] Error processing video ${task.mediaUrl || task.filePath}:`, err.message);
+        rememberCompletedVideoTask(task.taskKey, 'failed');
       } finally {
-        activeVideoTasks.delete(task.filePath);
+        if (task.scratchDirectory) {
+          try {
+            fs.rmSync(task.scratchDirectory, { recursive: true, force: true });
+          } catch (error) {
+            console.error('[VideoProcessor] Could not remove temporary processing directory:', error.message);
+          }
+        } else if (task.filePath && fs.existsSync(task.filePath)) {
+          try {
+            fs.unlinkSync(task.filePath);
+          } catch (error) {
+            console.error('[VideoProcessor] Could not remove temporary video:', error.message);
+          }
+        }
+        activeVideoTasks.delete(task.taskKey);
       }
     }
   } finally {
@@ -269,7 +286,17 @@ async function runVideoWorker() {
 }
 
 async function processSingleVideo(task) {
-  const { filePath, relativeUrl, userId, subfolder = 'posts' } = task;
+  const { relativeUrl, userId, subfolder = 'posts' } = task;
+  let { filePath } = task;
+
+  if (task.mediaUrl) {
+    const media = await readMediaBuffer(task.mediaUrl);
+    if (!media) throw new Error(`Stored video is missing: ${task.mediaUrl}`);
+    task.scratchDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'tiwlo-video-'));
+    filePath = path.join(task.scratchDirectory, path.basename(task.mediaUrl));
+    await fs.promises.writeFile(filePath, media.data, { flag: 'wx' });
+    task.filePath = filePath;
+  }
 
   if (!fs.existsSync(filePath)) {
     console.warn(`[VideoProcessor] File not found: ${filePath}`);
@@ -278,8 +305,8 @@ async function processSingleVideo(task) {
 
   const ffmpeg = await detectFfmpeg();
   if (!ffmpeg) {
-    console.log(`[VideoProcessor] FFmpeg not installed on host. Video served as raw stream: ${filePath}`);
-    return 'ready';
+    console.error(`[VideoProcessor] FFmpeg unavailable; refusing to publish unmoderated video: ${task.mediaUrl || filePath}`);
+    return 'failed';
   }
 
   const fileDir = path.dirname(filePath);
@@ -303,30 +330,7 @@ async function processSingleVideo(task) {
     });
 
     if (fs.existsSync(posterPath)) {
-      registerAsset(posterRelativeUrl, {
-        userId: userId || 'system',
-        purpose: 'public_feed',
-        isSafe: true,
-      });
-      registerAsset(legacyPosterUrl, {
-        userId: userId || 'system',
-        purpose: 'public_feed',
-        isSafe: true,
-      });
-
-      // Update post/reel record in SocialDB if ID was provided
-      if (task.reelId) {
-        try {
-          const sData = SocialDB.getData();
-          const targetReel = (sData.reels || []).find((r) => r.id === task.reelId);
-          if (targetReel && (!targetReel.image || targetReel.image === targetReel.videoUrl)) {
-            targetReel.image = posterRelativeUrl;
-            SocialDB.saveData(sData);
-          }
-        } catch (e) {}
-      }
-
-      console.log(`[VideoProcessor] Poster generated: ${posterRelativeUrl}`);
+      console.log(`[VideoProcessor] Poster prepared for moderation: ${posterRelativeUrl}`);
     }
   } catch (posterErr) {
     console.warn(`[VideoProcessor] Poster generation failed:`, posterErr.message);
@@ -403,7 +407,12 @@ async function processSingleVideo(task) {
       console.warn(`[VideoProcessor] 🚨 VIOLATION DETECTED in video ${baseName}${ext}: ${violationReason}`);
 
       // Delete raw video & poster
-      try { fs.unlinkSync(filePath); } catch (e) {}
+      try { await setMediaReviewStatus(relativeUrl, 'rejected'); } catch (error) {
+        console.error(`[VideoProcessor] Could not block violating video ${relativeUrl}:`, error.message);
+      }
+      try { await deleteMedia(posterRelativeUrl); } catch (error) {
+        console.error(`[VideoProcessor] Could not remove violating poster ${posterRelativeUrl}:`, error.message);
+      }
       try { fs.unlinkSync(posterPath); } catch (e) {}
 
       // Mark post or reel violated
@@ -446,6 +455,33 @@ async function processSingleVideo(task) {
     } catch (cleanupErr) {
       console.error(`[VideoProcessor] Failed to clean moderation frames for ${baseName}${ext}:`, cleanupErr);
     }
+    try {
+      await setMediaReviewStatus(relativeUrl, 'rejected');
+    } catch (cleanupErr) {
+      console.error(`[VideoProcessor] Could not block unverified video ${relativeUrl}:`, cleanupErr.message);
+    }
+    return 'failed';
+  }
+
+  await setMediaReviewStatus(relativeUrl, 'approved');
+  if (fs.existsSync(posterPath)) {
+    await storeMedia({
+      aliases: [posterRelativeUrl, legacyPosterUrl],
+      buffer: await fs.promises.readFile(posterPath),
+      contentType: inferMediaType(posterFilename),
+      originalFilename: posterFilename,
+      ownerId: userId,
+      purpose: 'public_feed'
+    });
+    if (task.reelId) {
+      const sData = SocialDB.getData();
+      const targetReel = (sData.reels || []).find((reel) => reel.id === task.reelId);
+      if (targetReel && (!targetReel.image || targetReel.image === targetReel.videoUrl)) {
+        targetReel.image = posterRelativeUrl;
+        SocialDB.saveData(sData);
+      }
+    }
+    console.log(`[VideoProcessor] Poster approved and stored: ${posterRelativeUrl}`);
   }
 
   // -------------------------------------------------------------
@@ -491,6 +527,21 @@ async function processSingleVideo(task) {
     }
   } else {
     console.log(`[VideoProcessor] Skipped transcode for compatible H.264 video: ${baseName}${ext}`);
+  }
+  const optimizedPath = path.join(fileDir, `${baseName}_optimized.mp4`);
+  if (fs.existsSync(optimizedPath)) {
+    const optimizedFilename = path.basename(optimizedPath);
+    await storeMedia({
+      aliases: [
+        `/api/upload/${subfolder}/${optimizedFilename}`,
+        `/upload/${subfolder}/${optimizedFilename}`
+      ],
+      buffer: await fs.promises.readFile(optimizedPath),
+      contentType: inferMediaType(optimizedFilename),
+      originalFilename: optimizedFilename,
+      ownerId: userId,
+      purpose: 'public_feed'
+    });
   }
   return 'ready';
 }

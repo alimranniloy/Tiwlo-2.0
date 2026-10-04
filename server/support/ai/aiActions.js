@@ -189,7 +189,7 @@ export const AiActionsEngine = {
 
     // Generate real 6-digit OTP code in system OTP store
     const cleanEmail = recipientEmail.trim().toLowerCase();
-    const otpData = generateSecureOtp(cleanEmail, 'login_2fa', 15);
+    const otpData = await generateSecureOtp(cleanEmail, 'login_2fa', 15);
     const otpCode = otpData.code;
 
     // Actually send the email via Tiwlo SMTP
@@ -202,7 +202,6 @@ export const AiActionsEngine = {
 
       return {
         success: true,
-        otpCode,
         email: cleanEmail,
         purpose,
         expiresIn: '15 minutes',
@@ -232,7 +231,7 @@ export const AiActionsEngine = {
     }
 
     const cleanEmail = targetEmail.trim().toLowerCase();
-    const otpData = generateSecureOtp(cleanEmail, 'forgot_password', 15);
+    const otpData = await generateSecureOtp(cleanEmail, 'forgot_password', 15);
     const otpCode = otpData.code;
 
     try {
@@ -244,10 +243,9 @@ export const AiActionsEngine = {
 
       return {
         success: true,
-        otpCode,
         email: cleanEmail,
         deliveryStatus: sendResult.status,
-        message: `A password reset code (${otpCode}) and security link have been sent to ${cleanEmail}. You can reset your password securely on ${getPlatformUrl('login')}?reset=true.`
+        message: `A password reset code and security link have been sent to ${cleanEmail}. You can reset your password securely on ${getPlatformUrl('login')}?reset=true.`
       };
     } catch (err) {
       console.error('[AiActionsEngine] Error sending password reset email:', err);

@@ -23,6 +23,7 @@ export const PLATFORM_CONFIG = Object.freeze({
   dns1Subdomain: subdomain('VITE_DNS1_SUBDOMAIN', 'dns1'),
   dns2Subdomain: subdomain('VITE_DNS2_SUBDOMAIN', 'dns2'),
   mailSubdomain: subdomain('VITE_MAIL_SUBDOMAIN', 'mail'),
+  driveSubdomain: subdomain('VITE_DRIVE_SUBDOMAIN', 'drive'),
   supportEmail: email('VITE_SUPPORT_EMAIL_LOCAL_PART', 'support'),
   sslEmail: email('VITE_SSL_EMAIL_LOCAL_PART', 'support'),
   adminEmail: email('VITE_ADMIN_EMAIL_LOCAL_PART', 'admin'),

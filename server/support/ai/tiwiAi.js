@@ -207,7 +207,6 @@ export const TiwiAI = {
             executedAction = {
               type: 'PASSWORD_RESET_DISPATCHED',
               email: resetResult.email,
-              otpCode: resetResult.otpCode,
               message: resetResult.message
             };
             responseText = `Hello ${accountInfo.found ? accountInfo.name : 'Customer'}! I have checked our system and dispatched an official password recovery email to ${resetResult.email}. It contains your 6-digit security code and instructions to reset your password. Please check your inbox (and spam folder), or visit ${getPlatformUrl('login')} to complete recovery.`;
@@ -224,7 +223,6 @@ export const TiwiAI = {
             executedAction = {
               type: 'OTP_DISPATCHED',
               email: otpResult.email,
-              otpCode: otpResult.otpCode,
               message: otpResult.message
             };
             responseText = `Hello ${accountInfo.found ? accountInfo.name : 'Customer'}! I have dispatched a 6-digit verification code to ${otpResult.email} via our secure mail delivery system. Please check your inbox (and spam folder).`;

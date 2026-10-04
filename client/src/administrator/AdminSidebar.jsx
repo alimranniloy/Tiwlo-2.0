@@ -61,6 +61,12 @@ export default function AdminSidebar({
       ]
     },
     {
+      title: 'STORAGE',
+      items: [
+        { id: 'google-drive', label: 'Google Drive', icon: HardDrive }
+      ]
+    },
+    {
       title: 'SYSTEM',
       items: [
         { id: 'users', label: 'Users', icon: UserCheck },

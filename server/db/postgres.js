@@ -92,11 +92,156 @@ export async function initPgSchema() {
       );
 
       CREATE INDEX IF NOT EXISTS idx_sessions_token ON system_sessions(token);
+      CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON system_sessions(expires_at);
 
       ALTER TABLE system_sessions ADD COLUMN IF NOT EXISTS session_token VARCHAR(128);
       ALTER TABLE system_sessions ADD COLUMN IF NOT EXISTS device_fingerprint VARCHAR(128);
       ALTER TABLE system_sessions ADD COLUMN IF NOT EXISTS user_agent TEXT;
       CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_session_token_unique ON system_sessions(session_token);
+
+      CREATE TABLE IF NOT EXISTS system_otp_challenges (
+        token_hash CHAR(64) PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        challenge_type VARCHAR(32) NOT NULL,
+        code_hash CHAR(64) NOT NULL,
+        attempts SMALLINT NOT NULL DEFAULT 0,
+        max_attempts SMALLINT NOT NULL DEFAULT 5,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_otp_challenges_expiry ON system_otp_challenges(expires_at);
+
+      CREATE TABLE IF NOT EXISTS system_auth_rate_limits (
+        key_hash CHAR(64) PRIMARY KEY,
+        failure_count INTEGER NOT NULL DEFAULT 0,
+        first_failure_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        locked_until TIMESTAMP WITH TIME ZONE,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_auth_rate_limits_updated ON system_auth_rate_limits(updated_at);
+
+      CREATE TABLE IF NOT EXISTS system_sso_nonces (
+        nonce_hash CHAR(64) PRIMARY KEY,
+        user_id VARCHAR(64) NOT NULL,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_sso_nonces_expiry ON system_sso_nonces(expires_at);
+
+      CREATE TABLE IF NOT EXISTS system_email_outbox (
+        id BIGSERIAL PRIMARY KEY,
+        recipient VARCHAR(255) NOT NULL,
+        sender VARCHAR(255) NOT NULL,
+        subject TEXT NOT NULL,
+        email_type VARCHAR(64) NOT NULL,
+        delivery_status VARCHAR(32) NOT NULL,
+        message_id VARCHAR(255),
+        error_message TEXT,
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_email_outbox_created ON system_email_outbox(created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS system_security_events (
+        id BIGSERIAL PRIMARY KEY,
+        event_type VARCHAR(64) NOT NULL,
+        severity VARCHAR(16) NOT NULL DEFAULT 'info',
+        user_id VARCHAR(64),
+        subject_hash CHAR(64),
+        remote_ip INET,
+        user_agent VARCHAR(512),
+        details JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_security_events_created ON system_security_events(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_security_events_user ON system_security_events(user_id, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS system_account_security (
+        user_id VARCHAR(64) PRIMARY KEY,
+        strikes INTEGER NOT NULL DEFAULT 0,
+        cooldown_until TIMESTAMP WITH TIME ZONE,
+        permanently_disabled BOOLEAN NOT NULL DEFAULT FALSE,
+        last_reason TEXT,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS system_media (
+        id VARCHAR(64) PRIMARY KEY,
+        content_type VARCHAR(128) NOT NULL,
+        original_filename VARCHAR(255) NOT NULL,
+        size_bytes BIGINT NOT NULL CHECK (size_bytes > 0),
+        sha256 CHAR(64) NOT NULL,
+        owner_id VARCHAR(64),
+        purpose VARCHAR(64) NOT NULL DEFAULT 'general',
+        review_status VARCHAR(16) NOT NULL DEFAULT 'approved',
+        storage_backend VARCHAR(16) NOT NULL DEFAULT 'postgres',
+        drive_file_id VARCHAR(255),
+        drive_account_id VARCHAR(64),
+        data BYTEA,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      ALTER TABLE system_media ADD COLUMN IF NOT EXISTS review_status VARCHAR(16) NOT NULL DEFAULT 'approved';
+      ALTER TABLE system_media ADD COLUMN IF NOT EXISTS storage_backend VARCHAR(16) NOT NULL DEFAULT 'postgres';
+      ALTER TABLE system_media ADD COLUMN IF NOT EXISTS drive_file_id VARCHAR(255);
+      ALTER TABLE system_media ADD COLUMN IF NOT EXISTS drive_account_id VARCHAR(64);
+      ALTER TABLE system_media ALTER COLUMN data DROP NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_system_media_created ON system_media(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_system_media_sha256 ON system_media(sha256);
+      CREATE INDEX IF NOT EXISTS idx_system_media_review_status ON system_media(review_status, content_type);
+
+      CREATE TABLE IF NOT EXISTS system_media_aliases (
+        storage_path TEXT PRIMARY KEY,
+        media_id VARCHAR(64) NOT NULL REFERENCES system_media(id) ON DELETE CASCADE,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_system_media_aliases_media ON system_media_aliases(media_id);
+
+      CREATE TABLE IF NOT EXISTS system_google_drive_accounts (
+        id VARCHAR(64) PRIMARY KEY,
+        display_name VARCHAR(120) NOT NULL,
+        project_id VARCHAR(128) NOT NULL,
+        client_email VARCHAR(255) NOT NULL UNIQUE,
+        root_folder_id VARCHAR(255) NOT NULL,
+        credentials_ciphertext BYTEA NOT NULL,
+        encryption_iv BYTEA NOT NULL,
+        encryption_auth_tag BYTEA NOT NULL,
+        status VARCHAR(24) NOT NULL DEFAULT 'configured',
+        last_error TEXT,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_google_drive_accounts_created
+        ON system_google_drive_accounts(created_at DESC);
+      ALTER TABLE system_google_drive_accounts ADD COLUMN IF NOT EXISTS root_folder_id VARCHAR(255);
+
+      CREATE TABLE IF NOT EXISTS system_platform_storage (
+        id VARCHAR(32) PRIMARY KEY,
+        backend VARCHAR(16) NOT NULL DEFAULT 'postgres',
+        google_drive_account_id VARCHAR(64)
+          REFERENCES system_google_drive_accounts(id) ON DELETE SET NULL,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CHECK (backend IN ('postgres', 'local', 'google_drive'))
+      );
+      ALTER TABLE system_platform_storage DROP CONSTRAINT IF EXISTS system_platform_storage_backend_check;
+      ALTER TABLE system_platform_storage
+        ADD CONSTRAINT system_platform_storage_backend_check CHECK (backend IN ('postgres', 'local', 'google_drive'));
+
+      CREATE TABLE IF NOT EXISTS system_storage_sync_state (
+        id VARCHAR(32) PRIMARY KEY DEFAULT 'primary',
+        direction VARCHAR(24) NOT NULL DEFAULT 'idle',
+        status VARCHAR(24) NOT NULL DEFAULT 'idle',
+        processed_files BIGINT NOT NULL DEFAULT 0,
+        failed_files BIGINT NOT NULL DEFAULT 0,
+        last_error TEXT,
+        started_at TIMESTAMP WITH TIME ZONE,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        completed_at TIMESTAMP WITH TIME ZONE,
+        CHECK (direction IN ('idle', 'to_drive', 'to_server')),
+        CHECK (status IN ('idle', 'running', 'failed', 'complete'))
+      );
+      INSERT INTO system_storage_sync_state (id, direction, status)
+      VALUES ('primary', 'idle', 'idle')
+      ON CONFLICT (id) DO NOTHING;
 
       CREATE TABLE IF NOT EXISTS system_stores (
         id VARCHAR(64) PRIMARY KEY,
@@ -726,24 +871,28 @@ export async function initPgSchema() {
     `);
     console.log('✅ Enterprise PostgreSQL Multi-Domain Schema Verified & Provisioned.');
   } catch (err) {
-    console.warn('⚠️ PostgreSQL Schema Provision notice:', err.message);
+    console.error('PostgreSQL schema initialization failed:', err);
+    throw err;
   }
 }
 
 export async function testPgConnection() {
+  let client;
   try {
     const p = getPgPool();
     if (!p) return false;
-    const client = await p.connect();
+    client = await p.connect();
     const res = await client.query('SELECT NOW() as now, current_database() as db');
-    client.release();
     isConnected = true;
     console.log(`🐘 Connected to PostgreSQL Database: ${res.rows[0].db} (${res.rows[0].now})`);
     await initPgSchema();
     return true;
   } catch (err) {
     isConnected = false;
+    console.error('PostgreSQL connection or schema initialization failed:', err.message);
     return false;
+  } finally {
+    client?.release();
   }
 }
 

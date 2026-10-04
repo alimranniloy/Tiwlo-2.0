@@ -3,6 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import multer from 'multer';
 import { fileURLToPath } from 'url';
+import { createTemporaryFileStorage } from '../db/temporaryFileStorage.js';
+import { deleteMedia, getPublicMediaUrl, inferMediaType, storeMedia } from '../db/mediaStorage.js';
 import {
   createMediaSessionTicket,
   validateMediaSessionTicket,
@@ -13,7 +15,6 @@ import {
   checkUrlSafety,
   generateUploadToken,
   verifyUploadToken,
-  registerAsset,
   checkAssetScope,
   scanAndSanitizeImage,
   isUserRestricted,
@@ -23,23 +24,7 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const UPLOADS_DIR = path.resolve(__dirname, '../uploads');
-
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
-
-// Multer storage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, UPLOADS_DIR);
-  },
-  filename: function (req, file, cb) {
-    const ext = path.extname(file.originalname) || '.jpg';
-    const cleanName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30);
-    cb(null, `prod_${Date.now()}_${cleanName}${ext}`);
-  }
-});
+const storage = createTemporaryFileStorage('secure-upload');
 
 const upload = multer({
   storage,
@@ -74,13 +59,11 @@ router.get('/media/stream/:ticket', (req, res) => {
   const isApp = req.query.app === '1' || req.query.type === 'app';
   const candidatePaths = isApp ? [
     path.join(__dirname, '../data/media/tiwi2.mp4'),
-    path.join(__dirname, '../../Tiwi/assets/tiwi2.mp4'),
-    'C:/Users/imran/Downloads/tiwi2.mp4'
+    path.join(__dirname, '../../Tiwi/assets/tiwi2.mp4')
   ] : [
     path.join(__dirname, '../data/media/tiwlo.mp4'),
     path.join(__dirname, '../../client/dist/tiwlo.mp4'),
-    path.join(__dirname, '../../client/public/tiwlo.mp4'),
-    'C:/Users/imran/Downloads/tiwi.mp4'
+    path.join(__dirname, '../../client/public/tiwlo.mp4')
   ];
   const videoFile = candidatePaths.find(p => fs.existsSync(p));
 
@@ -98,13 +81,21 @@ router.post('/upload', upload.array('images', 10), async (req, res) => {
   if (!req.files || req.files.length === 0) {
     return res.status(400).json({ error: 'No files uploaded' });
   }
+  if (req.files.some((file) => file.mimetype && !file.mimetype.startsWith('image/'))) {
+    req.files.forEach((file) => {
+      try { fs.unlinkSync(file.path); } catch (error) {
+        console.error('[UploadSecurity] Could not remove non-image upload:', error.message);
+      }
+    });
+    return res.status(415).json({ error: 'Only image files are accepted by this endpoint.' });
+  }
 
   const purpose = req.body?.purpose || req.query?.purpose || 'public_catalog';
   const activeUser = req.activeUser || {};
   const userId = activeUser.id || activeUser.tiwiId || activeUser.email || req.ip;
 
   if (userId) {
-    const restriction = isUserRestricted(userId);
+    const restriction = await isUserRestricted(userId);
     if (restriction.restricted) {
       req.files.forEach(f => {
         try { fs.unlinkSync(f.path); } catch (e) {}
@@ -124,6 +115,18 @@ router.post('/upload', upload.array('images', 10), async (req, res) => {
       const buffer = fs.readFileSync(file.path);
       const scanResult = await scanAndSanitizeImage(buffer, purpose, file.originalname);
 
+      if (scanResult.isVideo) {
+        req.files.forEach((uploadedFile) => {
+          try { fs.unlinkSync(uploadedFile.path); } catch (error) {
+            console.error('[UploadSecurity] Could not remove video from image upload:', error.message);
+          }
+        });
+        await Promise.all(verifiedUrls.map((url) => deleteMedia(url).catch((cleanupError) => {
+          console.error('[UploadSecurity] Could not remove earlier media after video rejection:', cleanupError.message);
+        })));
+        return res.status(415).json({ error: 'Video files are not accepted by this image endpoint.' });
+      }
+
       if (!scanResult.safe) {
         try { fs.unlinkSync(file.path); } catch (e) {}
 
@@ -134,6 +137,9 @@ router.post('/upload', upload.array('images', 10), async (req, res) => {
           reason: scanResult.reason,
           contentType: 'Image'
         });
+        await Promise.all(verifiedUrls.map((url) => deleteMedia(url).catch((cleanupError) => {
+          console.error('[UploadSecurity] Could not remove earlier media after policy rejection:', cleanupError.message);
+        })));
 
         req.files.forEach(f => {
           try { fs.unlinkSync(f.path); } catch (e) {}
@@ -148,22 +154,37 @@ router.post('/upload', upload.array('images', 10), async (req, res) => {
         });
       }
 
-      if (scanResult.sanitizedBuffer) {
-        fs.writeFileSync(file.path, scanResult.sanitizedBuffer);
-      }
-
       const fileUrl = `/uploads/${file.filename}`;
-      registerAsset(fileUrl, { userId, purpose, isSafe: true });
+      await storeMedia({
+        aliases: [fileUrl],
+        buffer: scanResult.sanitizedBuffer || buffer,
+        contentType: inferMediaType(file.filename),
+        originalFilename: file.originalname,
+        ownerId: userId,
+        purpose
+      });
+      await fs.promises.unlink(file.path);
       verifiedUrls.push(fileUrl);
     } catch (err) {
       console.error('[UploadSecurity] Error processing image:', err);
-      verifiedUrls.push(`/uploads/${file.filename}`);
+      await Promise.all(verifiedUrls.map((url) => deleteMedia(url).catch((cleanupError) => {
+        console.error('[UploadSecurity] Could not remove incomplete database upload:', cleanupError.message);
+      })));
+      req.files.forEach(uploadedFile => {
+        try { fs.unlinkSync(uploadedFile.path); } catch (cleanupError) {
+          console.error('[UploadSecurity] Could not remove unverified upload:', cleanupError);
+        }
+      });
+      return res.status(503).json({
+        error: 'CONTENT_SAFETY_UNAVAILABLE',
+        message: 'Content inspection is temporarily unavailable. Please retry later.'
+      });
     }
   }
 
   res.json({
-    urls: verifiedUrls,
-    url: verifiedUrls[0],
+    urls: await Promise.all(verifiedUrls.map(getPublicMediaUrl)),
+    url: await getPublicMediaUrl(verifiedUrls[0]),
     count: verifiedUrls.length,
     purpose,
     verifiedSafe: true
@@ -174,13 +195,20 @@ router.post('/upload-single', upload.single('image'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
+  if (req.file.mimetype && !req.file.mimetype.startsWith('image/')) {
+    try { fs.unlinkSync(req.file.path); } catch (error) {
+      console.error('[UploadSingleSecurity] Could not remove non-image upload:', error.message);
+    }
+    return res.status(415).json({ error: 'Only image files are accepted by this endpoint.' });
+  }
 
   const purpose = req.body?.purpose || req.query?.purpose || 'public_catalog';
   const activeUser = req.activeUser || {};
   const userId = activeUser.id || activeUser.tiwiId || activeUser.email || req.ip;
+  let storedUrl = null;
 
   if (userId) {
-    const restriction = isUserRestricted(userId);
+    const restriction = await isUserRestricted(userId);
     if (restriction.restricted) {
       try { fs.unlinkSync(req.file.path); } catch (e) {}
       return res.status(403).json({
@@ -194,6 +222,11 @@ router.post('/upload-single', upload.single('image'), async (req, res) => {
   try {
     const buffer = fs.readFileSync(req.file.path);
     const scanResult = await scanAndSanitizeImage(buffer, purpose, req.file.originalname);
+
+    if (scanResult.isVideo) {
+      await fs.promises.unlink(req.file.path);
+      return res.status(415).json({ error: 'Video files are not accepted by this image endpoint.' });
+    }
 
     if (!scanResult.safe) {
       try { fs.unlinkSync(req.file.path); } catch (e) {}
@@ -213,22 +246,37 @@ router.post('/upload-single', upload.single('image'), async (req, res) => {
       });
     }
 
-    if (scanResult.sanitizedBuffer) {
-      fs.writeFileSync(req.file.path, scanResult.sanitizedBuffer);
-    }
-
     const fileUrl = `/uploads/${req.file.filename}`;
-    registerAsset(fileUrl, { userId, purpose, isSafe: true });
-
+    await storeMedia({
+      aliases: [fileUrl],
+      buffer: scanResult.sanitizedBuffer || buffer,
+      contentType: inferMediaType(req.file.filename),
+      originalFilename: req.file.originalname,
+      ownerId: userId,
+      purpose
+    });
+    storedUrl = fileUrl;
+    await fs.promises.unlink(req.file.path);
     res.json({
-      url: fileUrl,
+      url: await getPublicMediaUrl(fileUrl),
       filename: req.file.filename,
       purpose,
       verifiedSafe: true
     });
   } catch (err) {
     console.error('[UploadSingleSecurity] Error:', err);
-    res.json({ url: `/uploads/${req.file.filename}`, filename: req.file.filename });
+    if (storedUrl) {
+      await deleteMedia(storedUrl).catch((cleanupError) => {
+        console.error('[UploadSingleSecurity] Could not remove incomplete database upload:', cleanupError.message);
+      });
+    }
+    try { fs.unlinkSync(req.file.path); } catch (cleanupError) {
+      console.error('[UploadSingleSecurity] Could not remove unverified upload:', cleanupError);
+    }
+    return res.status(503).json({
+      error: 'CONTENT_SAFETY_UNAVAILABLE',
+      message: 'Content inspection is temporarily unavailable. Please retry later.'
+    });
   }
 });
 
@@ -240,10 +288,19 @@ router.post('/upload-base64', async (req, res) => {
   const userId = activeUser.id || activeUser.tiwiId || activeUser.email || req.ip;
 
   try {
-    const matches = imageBase64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    const matches = imageBase64.match(/^data:(image\/(?:jpeg|png|webp|gif|avif));base64,(.+)$/i);
+    if (/^data:/i.test(imageBase64) && !matches) {
+      return res.status(415).json({ error: 'Only JPEG, PNG, WebP, GIF, and AVIF images are supported.' });
+    }
     const buffer = matches ? Buffer.from(matches[2], 'base64') : Buffer.from(imageBase64, 'base64');
+    if (!buffer.length || buffer.length > 15 * 1024 * 1024) {
+      return res.status(413).json({ error: 'Image payload must be between 1 byte and 15 MB.' });
+    }
 
     const scanResult = await scanAndSanitizeImage(buffer, purpose);
+    if (scanResult.isVideo) {
+      return res.status(415).json({ error: 'Video files are not accepted by this image endpoint.' });
+    }
     if (!scanResult.safe) {
       await recordViolation({
         user: activeUser,
@@ -264,13 +321,16 @@ router.post('/upload-base64', async (req, res) => {
     const finalBuffer = scanResult.sanitizedBuffer || buffer;
     const ext = matches ? (matches[1].split('/')[1] || 'jpg') : 'jpg';
     const finalName = `prod_${Date.now()}_${(filename || 'image').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20)}.${ext}`;
-    const filePath = path.join(UPLOADS_DIR, finalName);
-    fs.writeFileSync(filePath, finalBuffer);
-
     const fileUrl = `/uploads/${finalName}`;
-    registerAsset(fileUrl, { userId, purpose, isSafe: true });
-
-    res.json({ url: fileUrl, filename: finalName, verifiedSafe: true });
+    await storeMedia({
+      aliases: [fileUrl],
+      buffer: finalBuffer,
+      contentType: inferMediaType(finalName),
+      originalFilename: filename || finalName,
+      ownerId: userId,
+      purpose
+    });
+    res.json({ url: await getPublicMediaUrl(fileUrl), filename: finalName, verifiedSafe: true });
   } catch (err) {
     console.error('Base64 upload error:', err);
     res.status(500).json({ error: 'Failed to process base64 image' });
@@ -300,7 +360,7 @@ router.post('/upload-async', upload.array('images', 10), async (req, res) => {
   const userId = activeUser.id || activeUser.tiwiId || activeUser.email || req.ip;
 
   if (userId) {
-    const restriction = isUserRestricted(userId);
+    const restriction = await isUserRestricted(userId);
     if (restriction.restricted) {
       req.files.forEach(f => {
         try { fs.unlinkSync(f.path); } catch (e) {}

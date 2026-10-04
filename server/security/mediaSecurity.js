@@ -4,7 +4,7 @@
  * - Cryptographic context signing (Prevents SMS/DM uploads from bypassing to Public Marketplace)
  * - Metadata stripping (EXIF, GPS, camera serials, malicious payload tags)
  * - NSFWJS content classification for public images
- * - Upload-scope enforcement
+ * - Database-backed upload-scope enforcement
  */
 
 import crypto from 'crypto';
@@ -12,12 +12,10 @@ import sharp from 'sharp';
 import * as tf from '@tensorflow/tfjs';
 import * as nsfwjs from 'nsfwjs';
 import '../config/loadRootEnv.js';
+import { getMediaMetadata, normalizeMediaPath } from '../db/mediaStorage.js';
 
 const HMAC_SECRET = process.env.SECURITY_HMAC_SECRET || process.env.SECURITY_SECRET || crypto.randomBytes(32).toString('hex');
 
-// Registry of verified uploaded assets and their immutable purpose
-// Key: file path or relative URL, Value: { purpose, userId, uploadedAt, verifiedSafe }
-const ASSET_REGISTRY = new Map();
 const NSFW_CLASS_THRESHOLDS = new Map([
   ['Porn', 0.85],
   ['Hentai', 0.85],
@@ -135,22 +133,6 @@ export function verifyUploadToken(token, expectedPurpose = null) {
 }
 
 /**
- * 3. Asset Registration & Tracking
- * 
- * Records the verified scope of a media asset on disk.
- */
-export function registerAsset(assetUrl, { userId, purpose, isSafe = true }) {
-  if (!assetUrl) return;
-  const normalizedKey = assetUrl.replace(/\\/g, '/');
-  ASSET_REGISTRY.set(normalizedKey, {
-    userId,
-    purpose, // 'public_catalog' | 'public_feed' | 'direct_message' | 'user_avatar'
-    isSafe,
-    registeredAt: Date.now()
-  });
-}
-
-/**
  * 4. Anti-Bypass Enforcer (Prevents DM uploads from appearing in public marketplace)
  * 
  * Called when a product or public post is created or updated.
@@ -159,18 +141,19 @@ export function registerAsset(assetUrl, { userId, purpose, isSafe = true }) {
  * @param {'public_catalog' | 'public_feed'} requiredScope
  * @returns {{ allowed: boolean, reason?: string }}
  */
-export function checkAssetScope(assetUrl, requiredScope = 'public_catalog') {
+export async function checkAssetScope(assetUrl, requiredScope = 'public_catalog') {
   if (!assetUrl || typeof assetUrl !== 'string') return { allowed: true };
-  const normalizedKey = assetUrl.replace(/\\/g, '/');
-
-  const record = ASSET_REGISTRY.get(normalizedKey);
-  if (!record) {
-    // Legacy or untracked asset: default to allowing if from trusted upload folder
+  const storagePath = normalizeMediaPath(assetUrl);
+  if (!storagePath) {
+    if (/\/(?:api\/)?uploads?\//i.test(assetUrl)) {
+      return { allowed: false, reason: 'Media URL is not a valid stored upload path.' };
+    }
     return { allowed: true };
   }
+  const record = await getMediaMetadata(storagePath);
+  if (!record) return { allowed: true };
 
-  // CRITICAL SECURITY RULE:
-  // If the asset was uploaded under 'direct_message', it CANNOT be used in 'public_catalog' or 'public_feed'!
+  // Private-message uploads cannot be republished to public surfaces.
   if (record.purpose === 'direct_message' && requiredScope.startsWith('public_')) {
     return {
       allowed: false,
@@ -252,7 +235,6 @@ export async function scanAndSanitizeImage(fileBuffer, purpose = 'public_catalog
 export default {
   generateUploadToken,
   verifyUploadToken,
-  registerAsset,
   checkAssetScope,
   scanAndSanitizeImage
 };
