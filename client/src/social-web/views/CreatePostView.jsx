@@ -87,7 +87,7 @@ export default function CreatePostView() {
           <button
             onClick={handleSubmit}
             disabled={(!caption.trim() && mediaUrls.length === 0) || submitting || uploading}
-            className="bg-[#1D9BF0] hover:bg-[#1A8CD8] disabled:opacity-50 text-white font-bold text-[15px] px-5 py-1.5 rounded-full shadow-xs transition active:scale-95 cursor-pointer"
+            className="bg-[#1D9BF0] hover:bg-[#1A8CD8] disabled:opacity-50 text-white font-bold text-[15px] min-w-[68px] h-[36px] flex items-center justify-center rounded-full shadow-xs transition active:scale-95 cursor-pointer"
           >
             {submitting ? 'Posting...' : 'Post'}
           </button>

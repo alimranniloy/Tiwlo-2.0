@@ -1,195 +1,398 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
-  Briefcase,
-  TrendingUp,
-  DollarSign,
-  Award,
-  Users,
-  Eye,
+  ArrowLeft,
+  CheckCircle2,
+  Check,
   Sparkles,
-  ShoppingBag,
-  ArrowRight
+  Zap,
+  DollarSign,
+  TrendingUp,
+  Award,
+  Lock,
+  Edit3,
+  Video,
+  FileText,
+  BarChart2,
+  FolderPlus
 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
-import { TiwiSocialAPI } from '../api/tiwiSocialApi';
 
 export default function CreatorHubView() {
   const { currentUser, navigateTo, showToast } = useSocial();
-  const [activeTab, setActiveTab] = useState('analytics'); // 'analytics' | 'tiers' | 'gigs' | 'mediakit'
-  const [gigs, setGigs] = useState([]);
+  const [billingCycle, setBillingCycle] = useState('annual'); // 'annual' | 'monthly'
+  const [activeTab, setActiveTab] = useState('tiers'); // 'tiers' | 'monetization'
+  const [subscribedTier, setSubscribedTier] = useState(currentUser?.isVerified ? 'premium' : null);
 
-  useEffect(() => {
-    TiwiSocialAPI.getGigs().then((data) => {
-      setGigs(Array.isArray(data) ? data : []);
-    });
-  }, []);
+  const handleSubscribe = (tierKey) => {
+    setSubscribedTier(tierKey);
+    showToast(`Subscribed to Tiwi ${tierKey.toUpperCase()}! Verification badge active.`, 'info');
+  };
+
+  const tiers = [
+    {
+      id: 'basic',
+      name: 'Basic',
+      badge: null,
+      priceMonthly: 3,
+      priceAnnual: 32,
+      desc: 'Essential creator features and personal branding.',
+      features: [
+        'Small reply boost',
+        'Encrypted Direct Messages',
+        'Bookmark Folders',
+        'Highlights tab on profile',
+        'Edit post within 1 hour',
+        'Post longer videos (up to 1080p / 3 hours)',
+        'Background video playback',
+        'Download public videos',
+      ],
+    },
+    {
+      id: 'premium',
+      name: 'Premium',
+      popular: true,
+      badge: 'Blue Checkmark',
+      priceMonthly: 8,
+      priceAnnual: 84,
+      desc: 'The complete creator experience with verified badge and monetization.',
+      features: [
+        'Everything in Basic, plus:',
+        'Blue Verification Checkmark',
+        'Half Ads in For You & Following feeds',
+        'Larger reply boost in conversations',
+        'Get paid to post: Ads Revenue Sharing',
+        'Creator Subscriptions monetization',
+        'Full Grok 2 AI Assistant access',
+        'Tiwi Analytics & Audience Studio',
+        'Access to Media Studio',
+      ],
+    },
+    {
+      id: 'premium_plus',
+      name: 'Premium+',
+      badge: 'Gold Checkmark Available',
+      priceMonthly: 16,
+      priceAnnual: 168,
+      desc: 'Zero interruptions, maximum visibility, and long-form publishing.',
+      features: [
+        'Everything in Premium, plus:',
+        'Fully Ad-Free in For You and Following',
+        'Largest reply boost (top ranking in all replies)',
+        'Write long-form Articles & formatting',
+        'Tiwi Radar real-time trend analytics',
+        'Priority 24/7 VIP support',
+      ],
+    },
+  ];
 
   return (
-    <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full pb-20 md:pb-10">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-[#0B57D0] to-[#4285F4] p-6 sm:p-8 rounded-3xl text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <span className="text-xs font-bold px-3 py-1 rounded-full bg-white/20 text-white uppercase tracking-wider">
-            Creator Studio
+    <div className="w-full flex flex-col min-h-screen">
+      {/* 1. Sticky Header: 53px height */}
+      <div className="sticky top-0 z-20 bg-white/85 dark:bg-black/85 backdrop-blur-md px-4 h-[53px] flex items-center gap-7 border-b border-[#EFF3F4] dark:border-[#2F3336]">
+        <button
+          onClick={() => navigateTo('feed')}
+          className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition cursor-pointer"
+          title="Back"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+
+        <div className="flex flex-col min-w-0">
+          <h1 className="text-[20px] font-extrabold text-[#0F1419] dark:text-[#E7E9EA] leading-tight">
+            Premium
+          </h1>
+          <span className="text-[13px] text-[#536471] dark:text-[#71767B]">
+            Choose the right tier for you
           </span>
-          <h1 className="text-xl sm:text-2xl font-bold mt-2">Welcome to your Creator Hub</h1>
-          <p className="text-xs text-blue-100 mt-1 max-w-md leading-relaxed">
-            Manage your analytics, monetization tiers, freelance gigs, and brand partnerships on Tiwi.
-          </p>
         </div>
+      </div>
+
+      {/* Top View Selector Tabs (Tiers vs Monetization) */}
+      <div className="h-[53px] flex border-b border-[#EFF3F4] dark:border-[#2F3336]">
+        <button
+          onClick={() => setActiveTab('tiers')}
+          className="flex-1 h-full flex items-center justify-center hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative cursor-pointer"
+        >
+          <span
+            className={`text-[15px] ${
+              activeTab === 'tiers'
+                ? 'font-bold text-[#0F1419] dark:text-[#E7E9EA]'
+                : 'font-medium text-[#536471] dark:text-[#71767B]'
+            }`}
+          >
+            Subscription Tiers
+          </span>
+          {activeTab === 'tiers' && (
+            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-1 bg-[#1D9BF0] rounded-full" />
+          )}
+        </button>
 
         <button
-          onClick={() => navigateTo('wallet')}
-          className="bg-white text-[#0B57D0] px-5 py-2.5 rounded-full text-xs font-bold hover:bg-blue-50 transition-colors shadow-xs self-start sm:self-auto"
+          onClick={() => setActiveTab('monetization')}
+          className="flex-1 h-full flex items-center justify-center hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative cursor-pointer"
         >
-          View Tiwi Wallet
+          <span
+            className={`text-[15px] ${
+              activeTab === 'monetization'
+                ? 'font-bold text-[#0F1419] dark:text-[#E7E9EA]'
+                : 'font-medium text-[#536471] dark:text-[#71767B]'
+            }`}
+          >
+            Monetization Dashboard
+          </span>
+          {activeTab === 'monetization' && (
+            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-1 bg-[#1D9BF0] rounded-full" />
+          )}
         </button>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-        {[
-          { id: 'analytics', label: 'Creator Analytics' },
-          { id: 'tiers', label: 'Membership Tiers' },
-          { id: 'gigs', label: 'Freelance Gigs' },
-          { id: 'mediakit', label: 'Media Kit' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-5 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
-              activeTab === tab.id
-                ? 'bg-[#0B57D0] text-white shadow-xs'
-                : 'bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300 border border-gray-200/70 dark:border-gray-800'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Analytics Tab */}
-      {activeTab === 'analytics' && (
-        <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            <div className="bg-white dark:bg-[#1E293B] p-5 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs">
-              <div className="text-xs text-gray-500 font-medium">Post Impressions</div>
-              <div className="text-xl sm:text-2xl font-extrabold text-[#1F1F1F] dark:text-white mt-1">48.6K</div>
-              <div className="text-[11px] text-emerald-600 font-semibold mt-1">↑ +24% this week</div>
-            </div>
-
-            <div className="bg-white dark:bg-[#1E293B] p-5 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs">
-              <div className="text-xs text-gray-500 font-medium">Engagement Rate</div>
-              <div className="text-xl sm:text-2xl font-extrabold text-[#1F1F1F] dark:text-white mt-1">8.4%</div>
-              <div className="text-[11px] text-emerald-600 font-semibold mt-1">↑ +3.2% vs avg</div>
-            </div>
-
-            <div className="bg-white dark:bg-[#1E293B] p-5 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs">
-              <div className="text-xs text-gray-500 font-medium">Audience Growth</div>
-              <div className="text-xl sm:text-2xl font-extrabold text-[#1F1F1F] dark:text-white mt-1">+340</div>
-              <div className="text-[11px] text-emerald-600 font-semibold mt-1">New followers</div>
-            </div>
-
-            <div className="bg-white dark:bg-[#1E293B] p-5 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs">
-              <div className="text-xs text-gray-500 font-medium">Creator Earnings</div>
-              <div className="text-xl sm:text-2xl font-extrabold text-[#0B57D0] dark:text-[#8AB4F8] mt-1">$420.50</div>
-              <div className="text-[11px] text-gray-400 font-medium mt-1">Available to payout</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tiers Tab */}
+      {/* 2. Tiers View */}
       {activeTab === 'tiers' && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[
-            { name: 'Community Supporter', price: '$4.99/mo', perks: ['Supporter badge', 'Exclusive posts', 'Direct DM priority'] },
-            { name: 'VIP Circle', price: '$14.99/mo', perks: ['All Supporter perks', 'Monthly Live Audio backstage pass', 'Early access to drops'] },
-            { name: 'Patron Producer', price: '$49.99/mo', perks: ['All VIP perks', '1-on-1 consultation', 'Credits in all posts'] },
-          ].map((tier, i) => (
-            <div key={i} className="bg-white dark:bg-[#1E293B] p-6 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs flex flex-col justify-between gap-4">
-              <div>
-                <h3 className="font-bold text-sm text-[#1F1F1F] dark:text-white">{tier.name}</h3>
-                <div className="text-xl font-extrabold text-[#0B57D0] mt-1">{tier.price}</div>
-                <div className="flex flex-col gap-2 mt-4">
-                  {tier.perks.map((p, idx) => (
-                    <div key={idx} className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#0B57D0]" />
-                      <span>{p}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+        <div className="p-4 sm:p-6 flex flex-col gap-6 max-w-4xl mx-auto w-full pb-24 md:pb-12">
+          {/* Hero Banner */}
+          <div className="text-center flex flex-col items-center">
+            <h2 className="text-[26px] sm:text-[32px] font-black text-[#0F1419] dark:text-[#E7E9EA] tracking-tight leading-tight">
+              Upgrade your voice on Tiwi
+            </h2>
+            <p className="text-[15px] text-[#536471] dark:text-[#71767B] max-w-md mt-1.5 leading-relaxed">
+              Enjoy an enhanced experience, exclusive creator tools, verification, and monetization opportunities.
+            </p>
+
+            {/* Annual / Monthly Switcher with Discount Pill */}
+            <div className="flex items-center gap-1 bg-[#EFF3F4] dark:bg-[#202327] p-1 rounded-full mt-5">
               <button
-                onClick={() => showToast('Tier configured for your profile', 'info')}
-                className="w-full py-2 rounded-full border border-[#0B57D0] text-[#0B57D0] hover:bg-[#0B57D0] hover:text-white transition-colors text-xs font-bold"
+                onClick={() => setBillingCycle('annual')}
+                className={`px-4 py-1.5 rounded-full text-[14px] font-bold transition flex items-center gap-1.5 ${
+                  billingCycle === 'annual'
+                    ? 'bg-white dark:bg-black text-[#0F1419] dark:text-[#E7E9EA] shadow-xs'
+                    : 'text-[#536471] dark:text-[#71767B]'
+                }`}
               >
-                Configure Tier
+                <span>Annual</span>
+                <span className="text-[11px] bg-[#00BA7C]/15 text-[#00BA7C] px-1.5 py-0.5 rounded-full font-bold">
+                  SAVE 12%
+                </span>
+              </button>
+              <button
+                onClick={() => setBillingCycle('monthly')}
+                className={`px-4 py-1.5 rounded-full text-[14px] font-bold transition ${
+                  billingCycle === 'monthly'
+                    ? 'bg-white dark:bg-black text-[#0F1419] dark:text-[#E7E9EA] shadow-xs'
+                    : 'text-[#536471] dark:text-[#71767B]'
+                }`}
+              >
+                Monthly
               </button>
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* Gigs Tab */}
-      {activeTab === 'gigs' && (
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-sm text-[#1F1F1F] dark:text-white">Active Freelance Opportunities</h3>
-            <button
-              onClick={() => showToast('Create gig listing', 'info')}
-              className="bg-[#0B57D0] text-white px-4 py-1.5 rounded-full text-xs font-semibold"
-            >
-              Post a Gig
-            </button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {(gigs.length > 0 ? gigs : [
-              { title: 'Custom UI/UX Mobile Design for App', price: '$250', username: 'alex_designer', deliveryDays: 3 },
-              { title: 'Node.js & PostgreSQL Backend Optimization', price: '$400', username: 'dev_pro', deliveryDays: 5 },
-            ]).map((gig, idx) => (
-              <div key={idx} className="bg-white dark:bg-[#1E293B] p-5 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs flex flex-col justify-between gap-3">
-                <div>
-                  <h4 className="font-bold text-sm text-[#1F1F1F] dark:text-white">{gig.title}</h4>
-                  <p className="text-xs text-gray-500 mt-1">Offered by @{gig.username} • {gig.deliveryDays} days delivery</p>
+
+          {/* Pricing Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+            {tiers.map((tier) => {
+              const isCurrent = subscribedTier === tier.id;
+              const price =
+                billingCycle === 'annual'
+                  ? `$${(tier.priceAnnual / 12).toFixed(2)}/mo`
+                  : `$${tier.priceMonthly}/mo`;
+              const billedNote =
+                billingCycle === 'annual'
+                  ? `Billed annually at $${tier.priceAnnual}/year`
+                  : 'Billed monthly';
+
+              return (
+                <div
+                  key={tier.id}
+                  className={`rounded-3xl p-5 border flex flex-col justify-between transition relative ${
+                    tier.popular
+                      ? 'border-[#1D9BF0] shadow-[0_0_20px_rgba(29,155,240,0.15)] bg-white dark:bg-black'
+                      : 'border-[#EFF3F4] dark:border-[#2F3336] bg-[#F7F9F9] dark:bg-[#16181C]'
+                  }`}
+                >
+                  {tier.popular && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#1D9BF0] text-white text-[11px] font-extrabold px-3 py-0.5 rounded-full uppercase tracking-wider">
+                      Most Popular
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-[20px] font-extrabold text-[#0F1419] dark:text-[#E7E9EA]">
+                        {tier.name}
+                      </h3>
+                      {tier.badge && (
+                        <CheckCircle2 className="w-5 h-5 text-[#1D9BF0] fill-current" />
+                      )}
+                    </div>
+
+                    <div className="mt-3">
+                      <span className="text-[28px] font-black text-[#0F1419] dark:text-[#E7E9EA]">
+                        {price}
+                      </span>
+                      <p className="text-[12px] text-[#536471] dark:text-[#71767B] mt-0.5">
+                        {billedNote}
+                      </p>
+                    </div>
+
+                    <p className="text-[13px] text-[#536471] dark:text-[#71767B] mt-3 leading-relaxed">
+                      {tier.desc}
+                    </p>
+
+                    <div className="flex flex-col gap-2.5 mt-5 pt-4 border-t border-[#EFF3F4] dark:border-[#2F3336]">
+                      {tier.features.map((feat, i) => (
+                        <div key={i} className="flex items-start gap-2.5 text-[13px]">
+                          <Check className="w-4 h-4 text-[#1D9BF0] flex-shrink-0 mt-0.5" />
+                          <span
+                            className={
+                              feat.includes('Checkmark') || feat.includes('Ad-Free')
+                                ? 'font-bold text-[#0F1419] dark:text-[#E7E9EA]'
+                                : 'text-[#536471] dark:text-[#71767B]'
+                            }
+                          >
+                            {feat}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-6">
+                    <button
+                      onClick={() => handleSubscribe(tier.id)}
+                      disabled={isCurrent}
+                      className={`w-full py-2.5 rounded-full font-bold text-[15px] transition active:scale-95 cursor-pointer ${
+                        isCurrent
+                          ? 'bg-[#00BA7C] text-white cursor-default'
+                          : tier.popular
+                          ? 'bg-[#1D9BF0] hover:bg-[#1A8CD8] text-white shadow-xs'
+                          : 'bg-[#0F1419] dark:bg-[#EFF3F4] text-white dark:text-[#0F1419] hover:opacity-90'
+                      }`}
+                    >
+                      {isCurrent ? 'Current Plan' : `Subscribe to ${tier.name}`}
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
-                  <span className="text-sm font-extrabold text-[#0B57D0]">{gig.price}</span>
-                  <button
-                    onClick={() => showToast('Contacting freelancer...', 'info')}
-                    className="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-xs font-semibold hover:bg-[#0B57D0] hover:text-white transition-colors"
-                  >
-                    Inquire
-                  </button>
-                </div>
+              );
+            })}
+          </div>
+
+          {/* Feature Matrix Highlights */}
+          <div className="border border-[#EFF3F4] dark:border-[#2F3336] rounded-3xl p-5 bg-[#F7F9F9] dark:bg-[#16181C] mt-2">
+            <h3 className="font-extrabold text-[17px] text-[#0F1419] dark:text-[#E7E9EA] mb-4">
+              Premium Creator Benefits
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="flex flex-col gap-1">
+                <Edit3 className="w-5 h-5 text-[#1D9BF0]" />
+                <span className="font-bold text-[14px] text-[#0F1419] dark:text-[#E7E9EA]">Edit Post</span>
+                <span className="text-[12px] text-[#536471] dark:text-[#71767B]">
+                  Update text, tags, and media up to 1 hour after posting.
+                </span>
               </div>
-            ))}
+
+              <div className="flex flex-col gap-1">
+                <Video className="w-5 h-5 text-[#1D9BF0]" />
+                <span className="font-bold text-[14px] text-[#0F1419] dark:text-[#E7E9EA]">1080p Video</span>
+                <span className="text-[12px] text-[#536471] dark:text-[#71767B]">
+                  Upload crisp 1080p video files up to 3 hours long.
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <Sparkles className="w-5 h-5 text-[#1D9BF0]" />
+                <span className="font-bold text-[14px] text-[#0F1419] dark:text-[#E7E9EA]">Grok 2 Access</span>
+                <span className="text-[12px] text-[#536471] dark:text-[#71767B]">
+                  Unrestricted conversations with Tiwi’s intelligent AI model.
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <DollarSign className="w-5 h-5 text-[#00BA7C]" />
+                <span className="font-bold text-[14px] text-[#0F1419] dark:text-[#E7E9EA]">Revenue Sharing</span>
+                <span className="text-[12px] text-[#536471] dark:text-[#71767B]">
+                  Earn monthly payouts directly from ads in your reply threads.
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Media Kit Tab */}
-      {activeTab === 'mediakit' && (
-        <div className="bg-white dark:bg-[#1E293B] p-6 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs flex flex-col gap-5">
-          <div className="flex items-center justify-between">
+      {/* 3. Monetization Dashboard View */}
+      {activeTab === 'monetization' && (
+        <div className="p-4 sm:p-6 flex flex-col gap-6 max-w-4xl mx-auto w-full pb-24 md:pb-12">
+          {/* Monetization Summary Header */}
+          <div className="bg-[#0F1419] dark:bg-[#16181C] text-white p-6 rounded-3xl border border-[#EFF3F4]/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="font-bold text-base text-[#1F1F1F] dark:text-white">Official Creator Media Kit</h3>
-              <p className="text-xs text-gray-500">Shareable verified stats for brand sponsorships</p>
+              <span className="text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-[#1D9BF0] text-white tracking-wider">
+                Payout Hub
+              </span>
+              <h2 className="text-[24px] font-black mt-2">Creator Earnings: $684.20</h2>
+              <p className="text-[13px] text-[#71767B] mt-0.5">
+                Next automatic payout on October 15, 2026 to connected Stripe account.
+              </p>
             </div>
             <button
-              onClick={() => {
-                navigator.clipboard?.writeText(window.location.origin + '/tiwi/creator/mediakit');
-                showToast('Media Kit link copied!', 'info');
-              }}
-              className="bg-[#0B57D0] text-white px-4 py-2 rounded-full text-xs font-semibold"
+              onClick={() => showToast('Opening Stripe Express Payout portal...', 'info')}
+              className="bg-white text-black font-bold text-[14px] px-5 py-2.5 rounded-full hover:bg-gray-100 transition self-start sm:self-auto"
             >
-              Export & Share
+              Payout Settings
             </button>
           </div>
-          <div className="p-4 bg-[#F8F9FA] dark:bg-[#111827] rounded-2xl flex flex-col gap-2 text-xs text-gray-600 dark:text-gray-300">
-            <div><b>Primary Audience:</b> Tech Enthusiasts, Developers, Creative Designers (Ages 18-34)</div>
-            <div><b>Top Regions:</b> North America (45%), Europe (30%), Asia (20%)</div>
-            <div><b>Avg Post Reach:</b> 12.5K impressions per publication</div>
+
+          {/* Stats Counters */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="border border-[#EFF3F4] dark:border-[#2F3336] rounded-2xl p-4 bg-[#F7F9F9] dark:bg-[#16181C]">
+              <div className="text-[13px] text-[#536471] dark:text-[#71767B]">Monthly Impressions</div>
+              <div className="text-[22px] font-black text-[#0F1419] dark:text-[#E7E9EA] mt-1">2.41M</div>
+              <div className="text-[11px] text-[#00BA7C] font-bold mt-0.5">↑ +38% this month</div>
+            </div>
+
+            <div className="border border-[#EFF3F4] dark:border-[#2F3336] rounded-2xl p-4 bg-[#F7F9F9] dark:bg-[#16181C]">
+              <div className="text-[13px] text-[#536471] dark:text-[#71767B]">Active Subscribers</div>
+              <div className="text-[22px] font-black text-[#0F1419] dark:text-[#E7E9EA] mt-1">42</div>
+              <div className="text-[11px] text-[#1D9BF0] font-bold mt-0.5">$4.99 / subscriber</div>
+            </div>
+
+            <div className="border border-[#EFF3F4] dark:border-[#2F3336] rounded-2xl p-4 bg-[#F7F9F9] dark:bg-[#16181C]">
+              <div className="text-[13px] text-[#536471] dark:text-[#71767B]">Ads Revenue Share</div>
+              <div className="text-[22px] font-black text-[#0F1419] dark:text-[#E7E9EA] mt-1">$474.62</div>
+              <div className="text-[11px] text-[#00BA7C] font-bold mt-0.5">Verified replies pool</div>
+            </div>
+
+            <div className="border border-[#EFF3F4] dark:border-[#2F3336] rounded-2xl p-4 bg-[#F7F9F9] dark:bg-[#16181C]">
+              <div className="text-[13px] text-[#536471] dark:text-[#71767B]">Tips Received</div>
+              <div className="text-[22px] font-black text-[#0F1419] dark:text-[#E7E9EA] mt-1">$209.58</div>
+              <div className="text-[11px] text-[#536471] dark:text-[#71767B] font-bold mt-0.5">18 tippers</div>
+            </div>
+          </div>
+
+          {/* Eligibility Progress */}
+          <div className="border border-[#EFF3F4] dark:border-[#2F3336] rounded-3xl p-5 bg-[#F7F9F9] dark:bg-[#16181C] flex flex-col gap-4">
+            <h3 className="font-extrabold text-[17px] text-[#0F1419] dark:text-[#E7E9EA]">
+              Ads Revenue Sharing Program Status
+            </h3>
+
+            <div className="flex flex-col gap-3">
+              <div>
+                <div className="flex justify-between text-[13px] font-bold mb-1">
+                  <span className="text-[#0F1419] dark:text-[#E7E9EA]">5 Million Impressions (Past 3 Months)</span>
+                  <span className="text-[#1D9BF0]">2,410,000 / 5,000,000 (48%)</span>
+                </div>
+                <div className="w-full bg-[#EFF3F4] dark:bg-[#202327] h-2.5 rounded-full overflow-hidden">
+                  <div className="bg-[#1D9BF0] h-full w-[48%] rounded-full" />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between text-[13px] font-bold mb-1">
+                  <span className="text-[#0F1419] dark:text-[#E7E9EA]">Minimum 500 Verified Followers</span>
+                  <span className="text-[#00BA7C]">1,840 / 500 (Completed)</span>
+                </div>
+                <div className="w-full bg-[#EFF3F4] dark:bg-[#202327] h-2.5 rounded-full overflow-hidden">
+                  <div className="bg-[#00BA7C] h-full w-full rounded-full" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

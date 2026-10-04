@@ -16,7 +16,9 @@ import {
   Vote,
   Film,
   LogOut,
-  CheckCircle2
+  CheckCircle2,
+  Sliders,
+  DollarSign
 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 
@@ -38,8 +40,9 @@ export default function SocialSidebar({ onNavigateHome }) {
   ];
 
   const moreItems = [
+    { id: 'creator', label: 'Monetization', icon: DollarSign },
     { id: 'audio-spaces', label: 'Audio Spaces', icon: Radio },
-    { id: 'reels', label: 'Reels', icon: Film },
+    { id: 'reels', label: 'Video Reels', icon: Film },
     { id: 'polls', label: 'Live Polls', icon: Vote },
     { id: 'settings', label: 'Settings and privacy', icon: Settings },
   ];
@@ -144,9 +147,9 @@ export default function SocialSidebar({ onNavigateHome }) {
           </div>
         </nav>
 
-        {/* Twitter Iconic Post Button */}
-        <div className="w-full mt-4 flex justify-center xl:justify-start">
-          {/* Compact Button */}
+        {/* Twitter Iconic Post Button: Sleek, Perfected Sizing */}
+        <div className="w-full mt-3 flex justify-center xl:justify-start">
+          {/* Compact Feather Button */}
           <button
             onClick={() => navigateTo('create-post')}
             className="xl:hidden w-12 h-12 rounded-full bg-[#1D9BF0] hover:bg-[#1A8CD8] active:scale-95 text-white flex items-center justify-center shadow-sm transition cursor-pointer"
@@ -155,10 +158,10 @@ export default function SocialSidebar({ onNavigateHome }) {
             <Feather className="w-6 h-6 stroke-[2.2]" />
           </button>
 
-          {/* Desktop Full Button */}
+          {/* Desktop Sized Button: sleek, perfectly proportioned */}
           <button
             onClick={() => navigateTo('create-post')}
-            className="hidden xl:block w-full bg-[#1D9BF0] hover:bg-[#1A8CD8] active:scale-[0.99] text-white font-bold rounded-full py-3.5 text-[17px] shadow-sm transition cursor-pointer text-center"
+            className="hidden xl:flex w-[90%] max-w-[215px] h-[48px] bg-[#1D9BF0] hover:bg-[#1A8CD8] active:scale-[0.98] text-white font-bold rounded-full text-[17px] items-center justify-center transition-colors cursor-pointer shadow-xs"
           >
             Post
           </button>
@@ -169,7 +172,7 @@ export default function SocialSidebar({ onNavigateHome }) {
       <div className="relative w-full mb-3 flex justify-center xl:justify-start">
         <button
           onClick={() => setShowAccountMenu((prev) => !prev)}
-          className="flex items-center justify-between p-2 xl:p-3 rounded-full hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer w-fit xl:w-full transition-colors group"
+          className="flex items-center justify-between p-2 xl:p-2.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer w-fit xl:w-full transition-colors group"
         >
           <div className="flex items-center gap-3 min-w-0">
             <img
