@@ -179,7 +179,9 @@ CREATE TABLE IF NOT EXISTS system_storage_sync_state (
     direction VARCHAR(24) NOT NULL DEFAULT 'idle',
     status VARCHAR(24) NOT NULL DEFAULT 'idle',
     processed_files BIGINT NOT NULL DEFAULT 0,
+    total_files BIGINT NOT NULL DEFAULT 0,
     failed_files BIGINT NOT NULL DEFAULT 0,
+    current_file TEXT,
     last_error TEXT,
     started_at TIMESTAMP WITH TIME ZONE,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -187,6 +189,10 @@ CREATE TABLE IF NOT EXISTS system_storage_sync_state (
     CHECK (direction IN ('idle', 'to_drive', 'to_server')),
     CHECK (status IN ('idle', 'running', 'failed', 'complete'))
 );
+ALTER TABLE system_storage_sync_state
+    ADD COLUMN IF NOT EXISTS total_files BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE system_storage_sync_state
+    ADD COLUMN IF NOT EXISTS current_file TEXT;
 INSERT INTO system_storage_sync_state (id, direction, status)
 VALUES ('primary', 'idle', 'idle')
 ON CONFLICT (id) DO NOTHING;

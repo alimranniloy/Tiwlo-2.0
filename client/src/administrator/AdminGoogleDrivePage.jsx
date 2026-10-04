@@ -35,6 +35,11 @@ export default function AdminGoogleDrivePage({ showToast }) {
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
+  const processedFiles = Number(sync.processed_files) || 0;
+  const totalFiles = Number(sync.total_files) || 0;
+  const progressPercent = totalFiles
+    ? Math.min(100, Math.round((processedFiles / totalFiles) * 100))
+    : 0;
 
   const fetchAccounts = async () => {
     const response = await fetch(`${API_BASE}/admin/storage/google-drive`, {
@@ -246,8 +251,28 @@ export default function AdminGoogleDrivePage({ showToast }) {
             {sync.status === 'running' ? ' · resumes automatically after reboot' : ''}
           </p>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Processed: {sync.processed_files || 0} · Failed: {sync.failed_files || 0}
+            Processed: {processedFiles} / {totalFiles} · Failed: {sync.failed_files || 0}
           </p>
+          {sync.status === 'running' && (
+            <div
+              className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
+              role="progressbar"
+              aria-label="Media transfer progress"
+              aria-valuemin={0}
+              aria-valuemax={totalFiles || 1}
+              aria-valuenow={processedFiles}
+            >
+              <div
+                className={`h-full rounded-full bg-blue-600 transition-[width] duration-300 ${totalFiles ? '' : 'w-1/3 animate-pulse'}`}
+                style={totalFiles ? { width: `${progressPercent}%` } : undefined}
+              />
+            </div>
+          )}
+          {sync.status === 'running' && (
+            <p className="mt-2 break-words text-xs text-slate-500 dark:text-slate-400">
+              {sync.current_file || (totalFiles ? 'Preparing transfer' : 'Scanning files…')}
+            </p>
+          )}
           {sync.last_error && (
             <p className="mt-2 text-xs text-red-700 dark:text-red-300" role="alert">{sync.last_error}</p>
           )}

@@ -42,6 +42,12 @@ async function* walkFiles(directory) {
   }
 }
 
+async function countFiles(directory) {
+  let count = 0;
+  for await (const _filename of walkFiles(directory)) count += 1;
+  return count;
+}
+
 async function removeInterruptedStagingFiles() {
   for (const root of roots) {
     for await (const filename of walkFiles(root.directory)) {
@@ -66,29 +72,34 @@ async function setSyncState(status, values = {}) {
   const pool = getPgPool();
   await pool.query(
     `INSERT INTO system_storage_sync_state
-       (id, direction, status, processed_files, failed_files, last_error, started_at, updated_at, completed_at)
-     VALUES ('primary', $1, $2, $3, $4, $5,
-             CASE WHEN $2 = 'running' THEN CURRENT_TIMESTAMP ELSE NULL END,
+       (id, direction, status, processed_files, total_files, failed_files, current_file,
+        last_error, started_at, updated_at, completed_at)
+     VALUES ('primary', $1::varchar, $2::varchar, $3, $6, $4, $7, $5,
+             CASE WHEN $2::varchar = 'running' THEN CURRENT_TIMESTAMP ELSE NULL END,
              CURRENT_TIMESTAMP,
-             CASE WHEN $2 = 'complete' THEN CURRENT_TIMESTAMP ELSE NULL END)
+             CASE WHEN $2::varchar = 'complete' THEN CURRENT_TIMESTAMP ELSE NULL END)
      ON CONFLICT (id) DO UPDATE SET
-       direction = COALESCE($1, system_storage_sync_state.direction),
-       status = $2,
+       direction = COALESCE($1::varchar, system_storage_sync_state.direction),
+       status = $2::varchar,
        processed_files = COALESCE($3, system_storage_sync_state.processed_files),
        failed_files = COALESCE($4, system_storage_sync_state.failed_files),
        last_error = $5,
-       started_at = CASE WHEN $2 = 'running' AND system_storage_sync_state.status <> 'running'
+       total_files = COALESCE($6, system_storage_sync_state.total_files),
+       current_file = CASE WHEN $2::varchar = 'running' THEN $7 ELSE NULL END,
+       started_at = CASE WHEN $2::varchar = 'running' AND system_storage_sync_state.status <> 'running'
                          THEN CURRENT_TIMESTAMP ELSE system_storage_sync_state.started_at END,
        updated_at = CURRENT_TIMESTAMP,
-       completed_at = CASE WHEN $2 = 'complete' THEN CURRENT_TIMESTAMP
-                           WHEN $2 = 'running' THEN NULL
+       completed_at = CASE WHEN $2::varchar = 'complete' THEN CURRENT_TIMESTAMP
+                           WHEN $2::varchar = 'running' THEN NULL
                            ELSE system_storage_sync_state.completed_at END`,
     [
       values.direction || null,
       status,
       values.processedFiles ?? null,
       values.failedFiles ?? null,
-      values.error || null
+      values.error || null,
+      values.totalFiles ?? null,
+      values.currentFile ?? null
     ]
   );
 }
@@ -97,12 +108,20 @@ export async function getStorageSyncState() {
   const pool = getPgPool();
   if (!pool) throw new Error('PostgreSQL storage state is unavailable.');
   const { rows } = await pool.query(
-    `SELECT direction, status, processed_files, failed_files, last_error,
+    `SELECT direction, status, processed_files, total_files, failed_files, current_file, last_error,
             started_at, updated_at, completed_at
      FROM system_storage_sync_state
      WHERE id = 'primary'`
   );
-  return rows[0] || { direction: 'idle', status: 'idle', processed_files: 0, failed_files: 0 };
+  return rows[0] || {
+    direction: 'idle',
+    status: 'idle',
+    processed_files: 0,
+    total_files: 0,
+    failed_files: 0,
+    current_file: null,
+    last_error: null
+  };
 }
 
 async function verifyDriveEntry(storagePath, expectedSize, expectedSha256) {
@@ -120,6 +139,11 @@ async function syncLocalFilesToDrive(processed) {
   if (!accounts.length) throw new Error('No configured Google Drive account is available.');
   for (const account of accounts) {
     for (const root of roots) {
+      await setSyncState('running', {
+        processedFiles: processed.count,
+        failedFiles: 0,
+        currentFile: `Preparing folders under ${root.urlPrefix}`
+      });
       const folderPaths = new Set();
       async function collectDirectories(directory, relative = []) {
         let entries;
@@ -166,6 +190,11 @@ async function syncLocalFilesToDrive(processed) {
       if (!storagePath) throw new Error(`Invalid managed media path: ${relativePath}`);
       const buffer = await fs.promises.readFile(filename);
       const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
+      await setSyncState('running', {
+        processedFiles: processed.count,
+        failedFiles: 0,
+        currentFile: storagePath
+      });
       if (!(await verifyDriveEntry(storagePath, buffer.length, sha256))) {
         await storeMedia({
           aliases: [storagePath],
@@ -178,9 +207,11 @@ async function syncLocalFilesToDrive(processed) {
         });
       }
       processed.count += 1;
-      if (processed.count % 10 === 0) {
-        await setSyncState('running', { processedFiles: processed.count, failedFiles: 0 });
-      }
+      await setSyncState('running', {
+        processedFiles: processed.count,
+        failedFiles: 0,
+        currentFile: storagePath
+      });
     }
   }
 }
@@ -200,7 +231,11 @@ async function migratePostgresRowsToDrive(processed) {
       throw new Error(result.failures[0]?.error || `${result.failed} PostgreSQL media item(s) failed verification.`);
     }
     if (!result.migrated) throw new Error('PostgreSQL media migration made no progress.');
-    await setSyncState('running', { processedFiles: processed.count, failedFiles: 0 });
+    await setSyncState('running', {
+      processedFiles: processed.count,
+      failedFiles: 0,
+      currentFile: 'Migrating PostgreSQL media records'
+    });
   }
 }
 
@@ -280,6 +315,11 @@ async function syncDriveToServer(processed) {
         .map(({ storage_path: storagePath }) => storagePath)
         .filter((storagePath) => !storagePath.startsWith('/api/'));
       if (!aliases.length) throw new Error(`Media ${media.id} has no URL aliases.`);
+      await setSyncState('running', {
+        processedFiles: processed.count,
+        failedFiles: 0,
+        currentFile: aliases[0]
+      });
       let bytes;
       if (media.storage_backend === 'google_drive') {
         const remote = await readMediaBuffer(aliases[0]);
@@ -302,8 +342,12 @@ async function syncDriveToServer(processed) {
       }
       processed.count += 1;
       changed = true;
+      await setSyncState('running', {
+        processedFiles: processed.count,
+        failedFiles: 0,
+        currentFile: aliases[0]
+      });
     }
-    await setSyncState('running', { processedFiles: processed.count, failedFiles: 0 });
     if (!changed) break;
   }
 
@@ -352,21 +396,62 @@ async function writeLocalAlias(storagePath, bytes, sha256) {
 }
 
 async function runSync(direction) {
-  const pool = getPgPool();
-  const lock = await pool.connect();
+  let lock;
+  const processed = { count: 0 };
+  let totalFiles = null;
   try {
+    const pool = getPgPool();
+    lock = await pool.connect();
     const { rows } = await lock.query('SELECT pg_try_advisory_lock(7277102401) AS locked');
     if (!rows[0].locked) return;
-    const previousState = await getStorageSyncState();
-    const processed = { count: Number(previousState.processed_files) || 0 };
-    await setSyncState('running', { direction, failedFiles: 0 });
+    await setSyncState('running', {
+      direction,
+      processedFiles: 0,
+      failedFiles: 0,
+      totalFiles: 0,
+      currentFile: 'Scanning managed media files'
+    });
+    const localFiles = direction === 'to_drive'
+      ? await Promise.all(roots.map((root) => countFiles(root.directory)))
+      : [];
+    const mediaQuery = direction === 'to_drive'
+      ? `SELECT COUNT(*)::integer AS count
+         FROM system_media
+         WHERE storage_backend = 'postgres' AND data IS NOT NULL`
+      : `SELECT COUNT(*)::integer AS count
+         FROM system_media
+         WHERE storage_backend = 'google_drive'
+            OR (storage_backend = 'postgres' AND data IS NOT NULL)`;
+    const { rows: mediaCount } = await pool.query(mediaQuery);
+    totalFiles = direction === 'to_drive'
+      ? localFiles.reduce((total, count) => total + count, 0) + mediaCount[0].count
+      : mediaCount[0].count;
+    await setSyncState('running', {
+      direction,
+      processedFiles: 0,
+      totalFiles,
+      failedFiles: 0,
+      currentFile: totalFiles ? 'Preparing transfer' : 'No media files found'
+    });
     await removeInterruptedStagingFiles();
     if (direction === 'to_drive') {
       const storage = await getPlatformStorageSettings();
       if (storage.backend !== 'google_drive') throw new Error('Activate a verified Google Drive account before starting sync.');
       await syncLocalFilesToDrive(processed);
       await migratePostgresRowsToDrive(processed);
+      await setSyncState('running', {
+        processedFiles: processed.count,
+        totalFiles,
+        failedFiles: 0,
+        currentFile: 'Verifying Google Drive copies'
+      });
       await verifyAllDriveRows();
+      await setSyncState('running', {
+        processedFiles: processed.count,
+        totalFiles,
+        failedFiles: 0,
+        currentFile: 'Removing verified server copies'
+      });
       await removeVerifiedLocalCopies();
     } else if (direction === 'to_server') {
       const storage = await getPlatformStorageSettings();
@@ -377,13 +462,30 @@ async function runSync(direction) {
     } else {
       throw new Error('Unknown storage sync direction.');
     }
-    await setSyncState('complete', { direction, processedFiles: processed.count, failedFiles: 0 });
+    await setSyncState('complete', {
+      direction,
+      processedFiles: processed.count,
+      totalFiles,
+      failedFiles: 0
+    });
   } catch (error) {
-    await setSyncState('failed', { direction, error: error.message, failedFiles: 1 });
     console.error(`[StorageSync] ${direction} failed; source copies were retained where not yet verified:`, error.message);
+    try {
+      await setSyncState('failed', {
+        direction,
+        processedFiles: processed.count,
+        totalFiles,
+        error: error.message,
+        failedFiles: 1
+      });
+    } catch (stateError) {
+      console.error('[StorageSync] Could not persist failure status:', stateError.message);
+    }
   } finally {
-    await lock.query('SELECT pg_advisory_unlock(7277102401)').catch(() => {});
-    lock.release();
+    if (lock) {
+      await lock.query('SELECT pg_advisory_unlock(7277102401)').catch(() => {});
+      lock.release();
+    }
   }
 }
 
@@ -394,13 +496,18 @@ export async function startStorageSync(direction) {
   try {
     await client.query('BEGIN');
     const { rows } = await client.query(
-      `INSERT INTO system_storage_sync_state (id, direction, status, updated_at)
-       VALUES ('primary', $1, 'running', CURRENT_TIMESTAMP)
+      `INSERT INTO system_storage_sync_state
+         (id, direction, status, processed_files, total_files, failed_files, current_file, last_error,
+          started_at, updated_at, completed_at)
+       VALUES ('primary', $1, 'running', 0, 0, 0, 'Scanning managed media files', NULL,
+               CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL)
        ON CONFLICT (id) DO UPDATE SET
          direction = EXCLUDED.direction,
          status = 'running',
          processed_files = 0,
+         total_files = 0,
          failed_files = 0,
+         current_file = EXCLUDED.current_file,
          last_error = NULL,
          started_at = CURRENT_TIMESTAMP,
          updated_at = CURRENT_TIMESTAMP,
