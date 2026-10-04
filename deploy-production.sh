@@ -99,6 +99,10 @@ mkdir -p "$ROOT_DIR/server/data/db/stores"
 mkdir -p "$ROOT_DIR/server/uploads"
 mkdir -p "$ROOT_DIR/upload"
 chmod -R u+rwX "$ROOT_DIR/upload" "$ROOT_DIR/server/uploads" "$ROOT_DIR/server/data" 2>/dev/null || true
+if [[ -d "$ROOT_DIR/client/dist" ]]; then
+  find "$ROOT_DIR/client/dist" -type d -exec chmod 755 {} +
+  find "$ROOT_DIR/client/dist" -type f -exec chmod 644 {} +
+fi
 
 # 3. Backend Dependencies
 echo "--- Step 3: Installing Backend Production Dependencies ---"
