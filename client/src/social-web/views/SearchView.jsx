@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Settings, MoreHorizontal, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Search, Settings, CheckCircle2, ArrowLeft, TrendingUp, Users, Check } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
 import PostCard from '../components/PostCard';
@@ -41,13 +41,12 @@ export default function SearchView() {
         setTrendingTopics(tags);
       } else {
         setTrendingTopics([
-          { category: 'Technology · Trending', tag: '#ArtificialIntelligence', count: '94.2K posts' },
-          { category: 'Sports · Trending', tag: '#WorldCup2026', count: '142.8K posts' },
-          { category: 'Entertainment · Trending', tag: 'New Music Friday', count: '52.1K posts' },
-          { category: 'Business · Trending', tag: '#StockMarket', count: '38.4K posts' },
-          { category: 'Development · Trending', tag: '#React19', count: '29.7K posts' },
-          { category: 'Politics · Trending', tag: 'Global Summit 2026', count: '64.9K posts' },
-          { category: 'Science · Trending', tag: 'James Webb Telescope', count: '18.1K posts' },
+          { category: 'Technology', tag: '#ArtificialIntelligence', count: '94.2K posts' },
+          { category: 'Architecture', tag: '#CleanCode', count: '48.6K posts' },
+          { category: 'Design', tag: '#MaterialYou', count: '32.1K posts' },
+          { category: 'Cloud', tag: '#PostgreSQL', count: '28.4K posts' },
+          { category: 'Frameworks', tag: '#React19', count: '21.7K posts' },
+          { category: 'Science', tag: '#SpaceExploration', count: '18.1K posts' },
         ]);
       }
     });
@@ -60,12 +59,12 @@ export default function SearchView() {
   };
 
   const handleToggleFollow = async (userId) => {
-    const isNowFollowing = !followedMap[userId];
-    setFollowedMap((prev) => ({ ...prev, [userId]: isNowFollowing }));
+    const isNow = !followedMap[userId];
+    setFollowedMap((prev) => ({ ...prev, [userId]: isNow }));
     try {
       await TiwiSocialAPI.followUser(userId);
     } catch {
-      setFollowedMap((prev) => ({ ...prev, [userId]: !isNowFollowing }));
+      setFollowedMap((prev) => ({ ...prev, [userId]: !isNow }));
     }
   };
 
@@ -73,9 +72,9 @@ export default function SearchView() {
 
   return (
     <div className="w-full flex flex-col min-h-screen">
-      {/* 1. Sticky Header with Search Input Bar: 53px height */}
-      <div className="sticky top-0 z-20 bg-white/85 dark:bg-black/85 backdrop-blur-md border-b border-[#EFF3F4] dark:border-[#2F3336]">
-        <div className="h-[53px] flex items-center gap-3 px-4">
+      {/* 1. Header App Bar with Google Search Pill */}
+      <div className="sticky top-0 z-20 bg-[#F8FAFD]/90 dark:bg-[#131314]/90 backdrop-blur-md pb-3 mb-2 border-b border-[#E0E2EC] dark:border-[#313335]">
+        <div className="h-[56px] flex items-center gap-3 px-2 sm:px-0">
           {isSearchMode && (
             <button
               onClick={() => {
@@ -83,7 +82,7 @@ export default function SearchView() {
                 setActiveTab('for_you');
                 navigateTo('search');
               }}
-              className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+              className="w-10 h-10 rounded-full hover:bg-[#E9EEF6] dark:hover:bg-[#282A2C] flex items-center justify-center text-[#444746] dark:text-[#C4C7C5] transition cursor-pointer"
               title="Back"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -91,126 +90,103 @@ export default function SearchView() {
           )}
 
           <form onSubmit={handleSearchSubmit} className="flex-1">
-            <div className="flex items-center h-[42px] bg-[#EFF3F4] dark:bg-[#202327] rounded-full px-4 text-[#0F1419] dark:text-[#E7E9EA] focus-within:bg-transparent focus-within:ring-1 focus-within:ring-[#1D9BF0] focus-within:border-[#1D9BF0] border border-transparent transition">
-              <Search className="w-4 h-4 text-[#536471] dark:text-[#71767B] mr-3 flex-shrink-0" />
+            <div className="flex items-center h-[46px] bg-white dark:bg-[#1E1F20] rounded-full px-4 text-[#1F1F1F] dark:text-[#E3E3E3] border border-[#E0E2EC] dark:border-[#313335] focus-within:border-[#0B57D0] focus-within:ring-2 focus-within:ring-[#0B57D0]/20 shadow-xs transition">
+              <Search className="w-4 h-4 text-[#747775] dark:text-[#8E918F] mr-3 flex-shrink-0" />
               <input
                 type="text"
-                placeholder="Search"
+                placeholder="Search topics, creators, or keywords"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="bg-transparent text-[15px] outline-none w-full placeholder-[#536471] dark:placeholder-[#71767B]"
+                className="bg-transparent text-[14px] outline-none w-full placeholder-[#747775] dark:placeholder-[#8E918F]"
               />
             </div>
           </form>
 
           <button
             onClick={() => navigateTo('settings')}
-            className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+            className="w-10 h-10 rounded-full hover:bg-[#E9EEF6] dark:hover:bg-[#282A2C] flex items-center justify-center text-[#444746] dark:text-[#C4C7C5] transition cursor-pointer"
             title="Settings"
           >
             <Settings className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Explore Tabs: 53px height */}
-        <div className="h-[53px] flex border-t border-[#EFF3F4] dark:border-[#2F3336] overflow-x-auto no-scrollbar">
+        {/* Material 3 Segmented Tabs */}
+        <div className="flex bg-[#EEF2F6] dark:bg-[#1E1F20] p-1 rounded-full w-full max-w-md mt-1">
           {(isSearchMode
             ? [
                 { id: 'top', label: 'Top' },
-                { id: 'latest', label: 'Latest' },
-                { id: 'people', label: 'People' },
+                { id: 'people', label: 'Creators' },
                 { id: 'media', label: 'Media' },
               ]
             : [
-                { id: 'for_you', label: 'For you' },
+                { id: 'for_you', label: 'Discover' },
                 { id: 'trending', label: 'Trending' },
-                { id: 'news', label: 'News' },
-                { id: 'sports', label: 'Sports' },
-                { id: 'entertainment', label: 'Entertainment' },
+                { id: 'tech', label: 'Technology' },
               ]
           ).map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className="flex-1 h-full min-w-[80px] flex items-center justify-center hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative cursor-pointer"
+              className={`flex-1 py-1.5 rounded-full text-[13px] font-semibold transition cursor-pointer text-center ${
+                activeTab === tab.id
+                  ? 'bg-white dark:bg-[#282A2C] text-[#0B57D0] dark:text-[#A8C7FA] shadow-xs'
+                  : 'text-[#444746] dark:text-[#C4C7C5] hover:text-[#1F1F1F]'
+              }`}
             >
-              <span
-                className={`text-[15px] whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'font-bold text-[#0F1419] dark:text-[#E7E9EA]'
-                    : 'font-medium text-[#536471] dark:text-[#71767B]'
-                }`}
-              >
-                {tab.label}
-              </span>
-              {activeTab === tab.id && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-1 bg-[#1D9BF0] rounded-full" />
-              )}
+              {tab.label}
             </button>
           ))}
         </div>
       </div>
 
       {/* 2. Main Content Stream */}
-      <div className="flex flex-col pb-24 md:pb-12">
+      <div className="flex flex-col pb-20">
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="w-7 h-7 rounded-full border-2 border-[#1D9BF0] border-t-transparent animate-spin" />
+            <div className="w-8 h-8 rounded-full border-3 border-[#0B57D0] border-t-transparent animate-spin" />
           </div>
         ) : isSearchMode ? (
-          /* Search Results */
-          <div>
-            {/* If people tab or top tab, show matched users */}
-            {(activeTab === 'people' || activeTab === 'top') && results.users?.length > 0 && (
-              <div className="border-b border-[#EFF3F4] dark:border-[#2F3336]">
-                <div className="px-4 py-3 font-extrabold text-[20px] text-[#0F1419] dark:text-[#E7E9EA]">
-                  People
-                </div>
-                {results.users.map((user) => {
-                  const isFollowing = followedMap[user.id];
+          <div className="flex flex-col gap-3">
+            {activeTab === 'people' && results.users?.length > 0 && (
+              <div className="bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] divide-y divide-[#E0E2EC]/70 dark:divide-[#313335] p-2 shadow-xs">
+                {results.users.map((u) => {
+                  const isFollowing = followedMap[u.id];
                   return (
                     <div
-                      key={user.id}
-                      onClick={() => navigateTo('profile', user.handle || user.id)}
-                      className="px-4 py-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] cursor-pointer transition flex items-center justify-between gap-3 border-b border-[#EFF3F4] dark:border-[#2F3336]"
+                      key={u.id}
+                      onClick={() => navigateTo('profile', u.handle || u.id)}
+                      className="p-3.5 hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] rounded-2xl cursor-pointer transition flex items-center justify-between gap-3"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <img
-                          src={
-                            user.avatar ||
-                            'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'
-                          }
-                          alt={user.name}
-                          className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                          src={u.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'}
+                          alt={u.name}
+                          className="w-10 h-10 rounded-full object-cover ring-1 ring-[#E0E2EC] dark:ring-[#444746]"
                         />
-                        <div className="flex flex-col min-w-0">
-                          <div className="flex items-center gap-1 font-bold text-[15px] text-[#0F1419] dark:text-[#E7E9EA] truncate">
-                            <span className="truncate">{user.name}</span>
-                            {user.isVerified && (
-                              <CheckCircle2 className="w-4 h-4 text-[#1D9BF0] fill-current inline flex-shrink-0" />
+                        <div className="flex flex-col min-w-0 leading-tight">
+                          <div className="flex items-center gap-1 font-semibold text-[15px] text-[#1F1F1F] dark:text-[#E3E3E3] truncate">
+                            <span className="truncate">{u.name}</span>
+                            {u.isVerified && (
+                              <CheckCircle2 className="w-4 h-4 text-[#0B57D0] fill-current inline flex-shrink-0" />
                             )}
                           </div>
-                          <span className="text-[14px] text-[#536471] dark:text-[#71767B] truncate">
-                            @{user.handle}
+                          <span className="text-[13px] text-[#747775] dark:text-[#8E918F] truncate">
+                            @{u.handle}
                           </span>
-                          {user.bio && (
-                            <p className="text-[14px] text-[#0F1419] dark:text-[#E7E9EA] mt-1 line-clamp-1">
-                              {user.bio}
-                            </p>
-                          )}
                         </div>
                       </div>
 
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleToggleFollow(user.id);
+                          handleToggleFollow(u.id);
                         }}
-                        className={`font-bold text-[14px] px-4 py-1.5 rounded-full transition active:scale-95 flex-shrink-0 ${
+                        className={`text-[12px] font-semibold px-4 py-1.5 rounded-full transition active:scale-95 flex-shrink-0 cursor-pointer shadow-xs ${
                           isFollowing
-                            ? 'border border-[#CFD9DE] dark:border-[#536471] text-[#0F1419] dark:text-[#E7E9EA]'
-                            : 'bg-[#0F1419] dark:bg-[#EFF3F4] text-white dark:text-[#0F1419]'
+                            ? 'border border-[#747775] text-[#1F1F1F] dark:text-[#E3E3E3]'
+                            : 'bg-[#0B57D0] hover:bg-[#0842A0] text-white'
                         }`}
                       >
                         {isFollowing ? 'Following' : 'Follow'}
@@ -221,65 +197,55 @@ export default function SearchView() {
               </div>
             )}
 
-            {/* Matched Tweets */}
             {results.posts?.length > 0 ? (
               results.posts.map((post) => <PostCard key={post.id} post={post} />)
             ) : (
-              <div className="py-24 px-6 text-center">
-                <h3 className="font-extrabold text-[28px] text-[#0F1419] dark:text-[#E7E9EA] mb-2 leading-tight">
-                  No results for "{query}"
+              <div className="py-20 text-center bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] p-6 shadow-xs">
+                <h3 className="font-bold text-[18px] text-[#1F1F1F] dark:text-[#E3E3E3] mb-1">
+                  No matching results for "{query}"
                 </h3>
-                <p className="text-[15px] text-[#536471] dark:text-[#71767B]">
-                  Try searching for something else, or check your spelling.
+                <p className="text-[13px] text-[#747775] dark:text-[#8E918F]">
+                  Try searching for different keywords, topics, or handles.
                 </p>
               </div>
             )}
           </div>
         ) : (
-          /* Default Explore: Trends for you */
-          <div>
-            <div className="px-4 py-3 font-extrabold text-[20px] text-[#0F1419] dark:text-[#E7E9EA] border-b border-[#EFF3F4] dark:border-[#2F3336]">
-              Trends for you
-            </div>
+          <div className="flex flex-col gap-4">
+            {/* Google Discover Style Trending Card */}
+            <div className="bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] p-5 shadow-xs flex flex-col">
+              <div className="flex items-center gap-2 mb-3">
+                <TrendingUp className="w-5 h-5 text-[#0B57D0]" />
+                <h3 className="font-bold text-[17px] text-[#1F1F1F] dark:text-[#E3E3E3]">
+                  What’s happening across Tiwi
+                </h3>
+              </div>
 
-            <div className="flex flex-col divide-y divide-[#EFF3F4] dark:divide-[#2F3336]">
-              {trendingTopics.map((topic, idx) => {
-                const categoryText = topic.category || 'Trending worldwide';
-                const topicText = topic.tag ? (topic.tag.startsWith('#') ? topic.tag : `#${topic.tag}`) : topic.title || 'Breaking';
-                const postCount = topic.count || topic.postsCount || '22.3K posts';
-
-                return (
+              <div className="divide-y divide-[#E0E2EC]/70 dark:divide-[#313335]">
+                {trendingTopics.map((topic, idx) => (
                   <div
                     key={idx}
                     onClick={() => {
-                      setQuery(topicText);
-                      setActiveTab('top');
-                      executeSearch(topicText);
+                      const tag = topic.tag || topic.title;
+                      setQuery(tag);
+                      executeSearch(tag);
                     }}
-                    className="px-4 py-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] cursor-pointer transition flex items-start justify-between"
+                    className="py-3 hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] -mx-2 px-2 rounded-2xl cursor-pointer transition flex items-center justify-between"
                   >
-                    <div className="flex flex-col">
-                      <span className="text-[13px] text-[#536471] dark:text-[#71767B]">
-                        {categoryText}
+                    <div>
+                      <span className="text-[12px] font-medium text-[#747775] dark:text-[#8E918F]">
+                        {topic.category || 'Topic'}
                       </span>
-                      <span className="font-bold text-[15px] text-[#0F1419] dark:text-[#E7E9EA] mt-0.5">
-                        {topicText}
-                      </span>
-                      <span className="text-[13px] text-[#536471] dark:text-[#71767B] mt-0.5">
-                        {postCount}
+                      <h4 className="font-bold text-[15px] text-[#1F1F1F] dark:text-[#E3E3E3]">
+                        {topic.tag || topic.title}
+                      </h4>
+                      <span className="text-[12px] text-[#747775] dark:text-[#8E918F]">
+                        {topic.count || '25K discussions'}
                       </span>
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-8 h-8 rounded-full hover:bg-[#1D9BF0]/10 flex items-center justify-center text-[#536471] dark:text-[#71767B] hover:text-[#1D9BF0] transition"
-                    >
-                      <MoreHorizontal className="w-4 h-4" />
-                    </button>
                   </div>
-                );
-              })}
+                ))}
+              </div>
             </div>
           </div>
         )}

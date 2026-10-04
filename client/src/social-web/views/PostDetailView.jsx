@@ -2,14 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   ArrowLeft,
   Heart,
-  MessageCircle,
   Repeat2,
   Bookmark,
-  Share,
-  MoreHorizontal,
+  Share2,
+  MoreVertical,
   CheckCircle2,
   Image,
   Smile,
+  Send,
   Link
 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
@@ -17,10 +17,12 @@ import { TiwiSocialAPI } from '../api/tiwiSocialApi';
 
 export default function PostDetailView() {
   const { tabParams, currentUser, navigateTo, showToast } = useSocial();
+  const postId = tabParams?.id || tabParams?.postId;
+
   const [post, setPost] = useState(null);
+  const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [replyText, setReplyText] = useState('');
-  const [comments, setComments] = useState([]);
   const [submittingReply, setSubmittingReply] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
@@ -28,8 +30,6 @@ export default function PostDetailView() {
   const [isReposted, setIsReposted] = useState(false);
   const [repostsCount, setRepostsCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
-
-  const postId = tabParams?.id;
 
   const fetchPost = useCallback(async () => {
     if (!postId) return;
@@ -61,9 +61,10 @@ export default function PostDetailView() {
     setIsLiked(next);
     setLikesCount((prev) => (next ? prev + 1 : Math.max(0, prev - 1)));
     try {
-      await TiwiSocialAPI.toggleLikePost(postId, currentUser?.id);
+      await TiwiSocialAPI.toggleLikePost(post.id, currentUser?.id);
     } catch {
       setIsLiked(!next);
+      setLikesCount((prev) => (!next ? prev + 1 : Math.max(0, prev - 1)));
     }
   };
 
@@ -71,8 +72,9 @@ export default function PostDetailView() {
     const next = !isReposted;
     setIsReposted(next);
     setRepostsCount((prev) => (next ? prev + 1 : Math.max(0, prev - 1)));
+    showToast(next ? 'Shared with your followers' : 'Share removed', 'info');
     try {
-      await TiwiSocialAPI.toggleRepost(postId, currentUser?.id);
+      await TiwiSocialAPI.toggleRepost(post.id, currentUser?.id);
     } catch {
       setIsReposted(!next);
     }
@@ -81,9 +83,9 @@ export default function PostDetailView() {
   const handleToggleBookmark = async () => {
     const next = !isSaved;
     setIsSaved(next);
-    showToast(next ? 'Added to your Bookmarks' : 'Removed from Bookmarks', 'info');
+    showToast(next ? 'Saved to collection' : 'Removed from collection', 'info');
     try {
-      await TiwiSocialAPI.toggleBookmarkPost(postId, currentUser?.id);
+      await TiwiSocialAPI.toggleBookmarkPost(post.id, currentUser?.id);
     } catch {
       setIsSaved(!next);
     }
@@ -93,81 +95,80 @@ export default function PostDetailView() {
     e.preventDefault();
     if (!replyText.trim() || submittingReply) return;
     setSubmittingReply(true);
+
+    const tempComment = {
+      id: `c_${Date.now()}`,
+      author: currentUser?.name || 'You',
+      handle: currentUser?.handle || 'user',
+      avatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop',
+      text: replyText.trim(),
+      timeAgo: 'Just now',
+    };
+
+    setComments((prev) => [...prev, tempComment]);
+    setReplyText('');
+
     try {
-      const newComment = await TiwiSocialAPI.addComment(postId, replyText.trim(), currentUser?.id);
-      setComments((prev) => [
-        ...prev,
-        newComment || {
-          id: `c_${Date.now()}`,
-          author: currentUser?.name || 'You',
-          handle: currentUser?.handle || 'user',
-          text: replyText.trim(),
-          avatar: currentUser?.avatar,
-          timeAgo: 'Just now'
-        }
-      ]);
-      setReplyText('');
-      showToast('Your reply was sent', 'info');
-    } catch {
-      showToast('Could not post reply', 'error');
+      await TiwiSocialAPI.addComment(post.id, {
+        text: tempComment.text,
+        userId: currentUser?.id,
+      });
+      showToast('Reply added to discussion', 'info');
+    } catch (err) {
+      showToast(err.message || 'Failed to reply', 'error');
     } finally {
       setSubmittingReply(false);
     }
   };
 
-  const images = Array.isArray(post?.images) && post?.images.length > 0
-    ? post.images
-    : post?.image
-    ? [post.image]
-    : [];
-
-  const viewsCount = post?.viewsCount || Math.floor(likesCount * 14 + 260);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="w-7 h-7 rounded-full border-2 border-[#1D9BF0] border-t-transparent animate-spin" />
+        <div className="w-8 h-8 rounded-full border-3 border-[#0B57D0] border-t-transparent animate-spin" />
       </div>
     );
   }
 
   if (!post) {
     return (
-      <div className="py-24 px-6 text-center">
-        <h3 className="font-extrabold text-[28px] text-[#0F1419] dark:text-[#E7E9EA] mb-2 leading-tight">
+      <div className="p-8 text-center bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] max-w-lg mx-auto mt-8">
+        <h3 className="font-bold text-[18px] text-[#1F1F1F] dark:text-[#E3E3E3] mb-2">
           Post not found
         </h3>
-        <p className="text-[15px] text-[#536471] dark:text-[#71767B] mb-5">
-          This post may have been deleted or is unavailable.
-        </p>
         <button
           onClick={() => navigateTo('feed')}
-          className="bg-[#1D9BF0] text-white font-bold text-[15px] px-5 py-2.5 rounded-full hover:bg-[#1A8CD8] transition"
+          className="text-[#0B57D0] font-semibold text-[14px] hover:underline cursor-pointer"
         >
-          Return to Home
+          Return to stream
         </button>
       </div>
     );
   }
 
+  const images = Array.isArray(post.images) && post.images.length > 0
+    ? post.images
+    : post.image
+    ? [post.image]
+    : [];
+
   return (
-    <div className="w-full flex flex-col min-h-screen">
-      {/* 1. Sticky Header: 53px height */}
-      <div className="sticky top-0 z-20 bg-white/85 dark:bg-black/85 backdrop-blur-md px-4 h-[53px] flex items-center gap-7 border-b border-[#EFF3F4] dark:border-[#2F3336]">
+    <div className="w-full flex flex-col min-h-screen max-w-3xl mx-auto">
+      {/* 1. Header App Bar */}
+      <div className="sticky top-0 z-20 bg-[#F8FAFD]/90 dark:bg-[#131314]/90 backdrop-blur-md px-2 py-3 flex items-center gap-4 border-b border-[#E0E2EC] dark:border-[#313335] mb-4">
         <button
           onClick={() => navigateTo('feed')}
-          className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+          className="w-10 h-10 rounded-full hover:bg-[#E9EEF6] dark:hover:bg-[#282A2C] flex items-center justify-center text-[#444746] dark:text-[#C4C7C5] transition cursor-pointer"
           title="Back"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-[20px] font-extrabold text-[#0F1419] dark:text-[#E7E9EA]">
-          Post
+        <h1 className="text-[18px] font-bold text-[#1F1F1F] dark:text-[#E3E3E3]">
+          Post Discussion
         </h1>
       </div>
 
-      {/* 2. Main Tweet Content */}
-      <div className="px-4 pt-3 pb-2 border-b border-[#EFF3F4] dark:border-[#2F3336]">
+      {/* 2. Main Post Card Container */}
+      <div className="bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] p-5 shadow-xs mb-4">
         {/* Author Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -181,21 +182,21 @@ export default function PostDetailView() {
                   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop'
                 }
                 alt={post.author?.name}
-                className="w-10 h-10 rounded-full object-cover"
+                className="w-11 h-11 rounded-full object-cover ring-2 ring-[#E0E2EC]"
               />
             </button>
 
-            <div className="flex flex-col">
+            <div className="flex flex-col leading-tight">
               <button
                 onClick={() => navigateTo('profile', post.author?.handle || post.author?.id)}
-                className="font-bold text-[15px] hover:underline text-left text-[#0F1419] dark:text-[#E7E9EA] flex items-center gap-1 leading-tight"
+                className="font-bold text-[16px] hover:underline text-left text-[#1F1F1F] dark:text-[#E3E3E3] flex items-center gap-1"
               >
                 <span>{post.author?.name || 'Creator'}</span>
                 {post.author?.isVerified && (
-                  <CheckCircle2 className="w-4 h-4 text-[#1D9BF0] fill-current inline flex-shrink-0" />
+                  <CheckCircle2 className="w-4 h-4 text-[#0B57D0] fill-current inline flex-shrink-0" />
                 )}
               </button>
-              <span className="text-[14px] text-[#536471] dark:text-[#71767B]">
+              <span className="text-[13px] text-[#747775] dark:text-[#8E918F]">
                 @{post.author?.handle || 'creator'}
               </span>
             </div>
@@ -204,200 +205,160 @@ export default function PostDetailView() {
           <div className="relative">
             <button
               onClick={() => setMenuOpen((prev) => !prev)}
-              className="w-9 h-9 rounded-full hover:bg-[#1D9BF0]/10 flex items-center justify-center text-[#536471] dark:text-[#71767B] hover:text-[#1D9BF0] transition"
+              className="w-9 h-9 rounded-full hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] flex items-center justify-center text-[#747775] dark:text-[#8E918F] transition"
             >
-              <MoreHorizontal className="w-5 h-5" />
+              <MoreVertical className="w-5 h-5" />
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 top-10 w-56 bg-white dark:bg-black rounded-2xl shadow-[0_0_15px_rgba(0,0,0,0.15)] dark:shadow-[0_0_15px_rgba(255,255,255,0.15)] border border-[#EFF3F4] dark:border-[#2F3336] py-2 z-40">
+              <div className="absolute right-0 top-10 w-48 bg-white dark:bg-[#1E1F20] rounded-2xl shadow-lg border border-[#E0E2EC] dark:border-[#313335] py-2 z-40">
                 <button
                   onClick={() => {
                     setMenuOpen(false);
                     navigator.clipboard?.writeText(window.location.href);
                     showToast('Link copied to clipboard', 'info');
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-black/5 dark:hover:bg-white/10 text-left text-[15px] font-bold text-[#0F1419] dark:text-[#E7E9EA]"
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] text-left text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3]"
                 >
-                  <Link className="w-5 h-5 text-[#536471] dark:text-[#71767B]" />
-                  Copy link
+                  <Link className="w-4 h-4 text-[#747775]" />
+                  <span>Copy link</span>
                 </button>
               </div>
             )}
           </div>
         </div>
 
-        {/* Large Tweet Text */}
+        {/* Text */}
         {post.caption && (
-          <div className="text-[17px] sm:text-[19px] leading-relaxed text-[#0F1419] dark:text-[#E7E9EA] mt-4 whitespace-pre-wrap break-words">
+          <div className="text-[18px] leading-relaxed text-[#1F1F1F] dark:text-[#E3E3E3] mt-4 whitespace-pre-wrap break-words">
             {post.caption}
           </div>
         )}
 
         {/* Media Attachments */}
         {images.length > 0 && (
-          <div className="mt-3 rounded-2xl overflow-hidden border border-[#EFF3F4] dark:border-[#2F3336]">
+          <div className="mt-4 rounded-2xl overflow-hidden border border-[#E0E2EC] dark:border-[#313335]">
             {images.map((img, i) => (
-              <img key={i} src={img} alt="attachment" className="w-full max-h-[550px] object-cover" />
+              <img key={i} src={img} alt="attachment" className="w-full max-h-[500px] object-cover" />
             ))}
           </div>
         )}
 
-        {/* Timestamp & Views Row */}
-        <div className="py-3 mt-3 text-[15px] text-[#536471] dark:text-[#71767B] border-y border-[#EFF3F4] dark:border-[#2F3336] flex items-center gap-2">
-          <span>{post.timeAgo || '10:24 PM · Oct 5, 2026'}</span>
-          <span>·</span>
-          <span className="font-bold text-[#0F1419] dark:text-[#E7E9EA]">
-            {viewsCount.toLocaleString()}
-          </span>
-          <span>Views</span>
+        {/* Timestamp */}
+        <div className="py-3 mt-4 text-[13px] text-[#747775] dark:text-[#8E918F] border-t border-[#E0E2EC]/70 dark:border-[#313335]">
+          <span>{post.timeAgo || 'Shared recently'}</span>
         </div>
 
-        {/* Retweets, Quotes, Likes stats row */}
-        {(repostsCount > 0 || likesCount > 0) && (
-          <div className="py-3 border-b border-[#EFF3F4] dark:border-[#2F3336] flex items-center gap-6 text-[14px]">
-            {repostsCount > 0 && (
-              <div className="flex items-center gap-1">
-                <span className="font-bold text-[#0F1419] dark:text-[#E7E9EA]">{repostsCount}</span>
-                <span className="text-[#536471] dark:text-[#71767B]">Reposts</span>
-              </div>
-            )}
-            {likesCount > 0 && (
-              <div className="flex items-center gap-1">
-                <span className="font-bold text-[#0F1419] dark:text-[#E7E9EA]">{likesCount}</span>
-                <span className="text-[#536471] dark:text-[#71767B]">Likes</span>
-              </div>
-            )}
+        {/* Action Chips Bar */}
+        <div className="flex items-center justify-between pt-3 border-t border-[#E0E2EC]/70 dark:border-[#313335] text-[#444746] dark:text-[#C4C7C5]">
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handleToggleLike}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-medium transition cursor-pointer ${
+                isLiked ? 'text-[#B3261E] bg-red-50 dark:bg-red-950/20' : 'hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C]'
+              }`}
+            >
+              <Heart className={`w-4 h-4 ${isLiked ? 'fill-current text-[#B3261E]' : ''}`} />
+              <span>{likesCount > 0 ? likesCount : 'Like'}</span>
+            </button>
+
+            <button
+              onClick={handleToggleRepost}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-medium transition cursor-pointer ${
+                isReposted ? 'text-[#0F5223] bg-green-50 dark:bg-green-950/20' : 'hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C]'
+              }`}
+            >
+              <Repeat2 className="w-4 h-4" />
+              <span>{repostsCount > 0 ? repostsCount : 'Repost'}</span>
+            </button>
           </div>
-        )}
 
-        {/* Twitter Action Bar: Reply, Repost, Like, Bookmark, Share */}
-        <div className="flex items-center justify-around py-2 text-[#536471] dark:text-[#71767B]">
-          <button
-            onClick={() => document.getElementById('reply-input')?.focus()}
-            className="p-2 rounded-full hover:bg-[#1D9BF0]/10 hover:text-[#1D9BF0] transition"
-            title="Reply"
-          >
-            <MessageCircle className="w-[20px] h-[20px]" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleToggleBookmark}
+              className={`p-2 rounded-full hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] transition cursor-pointer ${
+                isSaved ? 'text-[#0B57D0]' : ''
+              }`}
+            >
+              <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
+            </button>
 
-          <button
-            onClick={handleToggleRepost}
-            className={`p-2 rounded-full hover:bg-[#00BA7C]/10 transition ${
-              isReposted ? 'text-[#00BA7C]' : 'hover:text-[#00BA7C]'
-            }`}
-            title="Repost"
-          >
-            <Repeat2 className="w-[20px] h-[20px]" />
-          </button>
-
-          <button
-            onClick={handleToggleLike}
-            className={`p-2 rounded-full hover:bg-[#F91880]/10 transition ${
-              isLiked ? 'text-[#F91880]' : 'hover:text-[#F91880]'
-            }`}
-            title="Like"
-          >
-            <Heart className={`w-[20px] h-[20px] ${isLiked ? 'fill-current' : ''}`} />
-          </button>
-
-          <button
-            onClick={handleToggleBookmark}
-            className={`p-2 rounded-full hover:bg-[#1D9BF0]/10 transition ${
-              isSaved ? 'text-[#1D9BF0]' : 'hover:text-[#1D9BF0]'
-            }`}
-            title="Bookmark"
-          >
-            <Bookmark className={`w-[20px] h-[20px] ${isSaved ? 'fill-current' : ''}`} />
-          </button>
-
-          <button
-            onClick={() => {
-              navigator.clipboard?.writeText(window.location.href);
-              showToast('Link copied to clipboard', 'info');
-            }}
-            className="p-2 rounded-full hover:bg-[#1D9BF0]/10 hover:text-[#1D9BF0] transition"
-            title="Share"
-          >
-            <Share className="w-[20px] h-[20px]" />
-          </button>
+            <button
+              onClick={() => {
+                navigator.clipboard?.writeText(window.location.href);
+                showToast('Link copied to clipboard', 'info');
+              }}
+              className="p-2 rounded-full hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] transition cursor-pointer"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* 3. Inline "Post your reply" Form */}
-      <div className="px-4 py-3 border-b border-[#EFF3F4] dark:border-[#2F3336] flex gap-3">
-        <img
-          src={
-            currentUser?.avatar ||
-            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop'
-          }
-          alt={currentUser?.name}
-          className="w-10 h-10 rounded-full object-cover flex-shrink-0 pt-0.5"
-        />
-
-        <form onSubmit={handleAddReply} className="flex-1 min-w-0 flex flex-col">
-          <span className="text-[13px] text-[#536471] dark:text-[#71767B] mb-1">
-            Replying to <span className="text-[#1D9BF0]">@{post.author?.handle || 'creator'}</span>
-          </span>
+      {/* 3. Reply Form Container */}
+      <div className="bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] p-4.5 shadow-xs mb-4">
+        <form onSubmit={handleAddReply} className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <img
+              src={currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop'}
+              alt={currentUser?.name}
+              className="w-9 h-9 rounded-full object-cover ring-1 ring-[#E0E2EC]"
+            />
+            <span className="text-[13px] text-[#747775] dark:text-[#8E918F]">
+              Replying to <span className="text-[#0B57D0] font-medium">@{post.author?.handle || 'creator'}</span>
+            </span>
+          </div>
 
           <textarea
-            id="reply-input"
             rows={2}
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
-            placeholder="Post your reply"
-            className="w-full bg-transparent text-[18px] placeholder-[#536471] dark:placeholder-[#71767B] text-[#0F1419] dark:text-[#E7E9EA] outline-none resize-none pt-1"
+            placeholder="Add your perspective..."
+            className="w-full bg-transparent text-[16px] placeholder-[#747775] dark:placeholder-[#8E918F] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none resize-none pt-1"
           />
 
-          <div className="flex items-center justify-between pt-2">
-            <div className="flex items-center gap-1 text-[#1D9BF0] -ml-2">
-              <button
-                type="button"
-                className="w-8 h-8 rounded-full hover:bg-[#1D9BF0]/10 flex items-center justify-center transition"
-              >
-                <Image className="w-5 h-5" />
+          <div className="flex items-center justify-between pt-2 border-t border-[#E0E2EC]/70 dark:border-[#313335]">
+            <div className="flex items-center gap-1 text-[#747775]">
+              <button type="button" className="p-2 rounded-full hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] transition">
+                <Image className="w-4 h-4" />
               </button>
-              <button
-                type="button"
-                className="w-8 h-8 rounded-full hover:bg-[#1D9BF0]/10 flex items-center justify-center transition"
-              >
-                <Smile className="w-5 h-5" />
+              <button type="button" className="p-2 rounded-full hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] transition">
+                <Smile className="w-4 h-4" />
               </button>
             </div>
 
             <button
               type="submit"
               disabled={!replyText.trim() || submittingReply}
-              className="bg-[#1D9BF0] hover:bg-[#1A8CD8] disabled:opacity-50 text-white font-bold text-[14px] px-4 py-1.5 rounded-full shadow-sm transition active:scale-95"
+              className="bg-[#0B57D0] hover:bg-[#0842A0] disabled:opacity-40 text-white font-semibold text-[13px] px-5 py-2 rounded-full shadow-xs active:scale-95 transition cursor-pointer flex items-center gap-1.5"
             >
-              Reply
+              <Send className="w-3.5 h-3.5" />
+              <span>Reply</span>
             </button>
           </div>
         </form>
       </div>
 
       {/* 4. Replies Stream */}
-      <div className="flex flex-col pb-24 md:pb-12 divide-y divide-[#EFF3F4] dark:divide-[#2F3336]">
+      <div className="flex flex-col gap-3 pb-20">
         {comments.map((comment) => (
-          <div key={comment.id} className="px-4 py-3 flex gap-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition">
+          <div key={comment.id} className="bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] p-4.5 shadow-xs flex gap-3">
             <img
-              src={
-                comment.avatar ||
-                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop'
-              }
+              src={comment.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop'}
               alt={comment.author}
-              className="w-10 h-10 rounded-full object-cover flex-shrink-0 pt-0.5"
+              className="w-9 h-9 rounded-full object-cover flex-shrink-0 mt-0.5 ring-1 ring-[#E0E2EC]"
             />
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1 leading-snug">
-                <span className="font-bold text-[15px] text-[#0F1419] dark:text-[#E7E9EA]">
+              <div className="flex items-center gap-1.5 leading-tight">
+                <span className="font-semibold text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3]">
                   {comment.author || 'User'}
                 </span>
-                <span className="text-[14px] text-[#536471] dark:text-[#71767B]">
+                <span className="text-[12px] text-[#747775] dark:text-[#8E918F]">
                   @{comment.handle || 'user'} · {comment.timeAgo || 'recently'}
                 </span>
               </div>
-              <p className="text-[15px] leading-snug text-[#0F1419] dark:text-[#E7E9EA] mt-1 whitespace-pre-wrap">
+              <p className="text-[14px] text-[#444746] dark:text-[#C4C7C5] mt-1.5 leading-relaxed whitespace-pre-wrap">
                 {comment.text}
               </p>
             </div>

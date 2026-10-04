@@ -31,7 +31,7 @@ const LiveTriviaView = lazy(() => import('./views/LiveTriviaView'));
 const MemoriesView = lazy(() => import('./views/MemoriesView'));
 const SettingsView = lazy(() => import('./views/SettingsView'));
 
-function TwitterLayout({ onNavigateHome }) {
+function GoogleSocialLayout({ onNavigateHome }) {
   const { activeTab } = useSocial();
 
   const renderActiveView = () => {
@@ -94,25 +94,25 @@ function TwitterLayout({ onNavigateHome }) {
   const isWideMessages = activeTab === 'messages' || activeTab === 'call';
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black text-[#0F1419] dark:text-[#E7E9EA] font-sans antialiased flex justify-center selection:bg-[#1D9BF0]/20 selection:text-[#1D9BF0]">
-      <div className="w-full max-w-[1265px] flex justify-between min-h-screen">
-        {/* Left Column: Iconic Twitter Navigation Sidebar (Hidden on mobile, visible on sm+) */}
+    <div className="min-h-screen bg-[#F8FAFD] dark:bg-[#131314] text-[#1F1F1F] dark:text-[#E3E3E3] font-sans antialiased flex justify-center selection:bg-[#0B57D0]/15 selection:text-[#0B57D0]">
+      <div className="w-full max-w-[1320px] flex justify-between min-h-screen px-2 sm:px-4 lg:px-6">
+        {/* Left Column: Google Workspace Navigation Rail / Drawer */}
         <header className="hidden sm:flex flex-shrink-0 z-30">
           <SocialSidebar onNavigateHome={onNavigateHome} />
         </header>
 
-        {/* Center Column: Iconic 600px Twitter Feed / Page Column */}
+        {/* Center Column: Breatheable Google Material Feed Column */}
         <main
-          className={`flex-1 min-h-screen border-r-0 sm:border-x border-[#EFF3F4] dark:border-[#2F3336] pb-16 sm:pb-0 ${
+          className={`flex-1 min-h-screen px-0 sm:px-4 md:px-6 py-3 pb-20 sm:pb-6 ${
             isWideMessages
-              ? 'max-w-[990px] w-full'
-              : 'max-w-[600px] w-full min-w-0'
+              ? 'max-w-[1020px] w-full'
+              : 'max-w-[680px] w-full min-w-0'
           }`}
         >
           <Suspense
             fallback={
               <div className="flex items-center justify-center min-h-[50vh]">
-                <div className="w-7 h-7 rounded-full border-2 border-[#1D9BF0] border-t-transparent animate-spin" />
+                <div className="w-8 h-8 rounded-full border-3 border-[#0B57D0] border-t-transparent animate-spin" />
               </div>
             }
           >
@@ -120,15 +120,15 @@ function TwitterLayout({ onNavigateHome }) {
           </Suspense>
         </main>
 
-        {/* Right Column: Twitter Right Sidebar (Search, Trends, Who to follow) */}
+        {/* Right Column: Google Discover / Trends Panel */}
         {!isWideMessages && (
-          <aside className="w-[290px] xl:w-[350px] flex-shrink-0 hidden lg:block pl-6 pr-4">
+          <aside className="w-[300px] xl:w-[340px] flex-shrink-0 hidden lg:block py-3 pl-3">
             <SocialRightPanel />
           </aside>
         )}
       </div>
 
-      {/* Twitter Mobile Bottom Bar */}
+      {/* Google Material Mobile Bottom Navigation Bar */}
       <BottomNav />
     </div>
   );
@@ -137,7 +137,7 @@ function TwitterLayout({ onNavigateHome }) {
 export default function TiwiSocialWeb({ currentUser = null, onNavigateHome = null }) {
   return (
     <SocialProvider initialUser={currentUser}>
-      <TwitterLayout onNavigateHome={onNavigateHome} />
+      <GoogleSocialLayout onNavigateHome={onNavigateHome} />
     </SocialProvider>
   );
 }

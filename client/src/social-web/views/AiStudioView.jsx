@@ -7,12 +7,11 @@ import {
   Check,
   ThumbsUp,
   ThumbsDown,
-  Repeat,
   Image,
   RefreshCw,
   Share2,
-  Flame,
-  Zap
+  Trash2,
+  Cpu
 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 
@@ -21,15 +20,13 @@ export default function AiStudioView() {
   const [messages, setMessages] = useState([]);
   const [inputPrompt, setInputPrompt] = useState('');
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState('fun'); // 'fun' | 'normal'
-  const [model, setModel] = useState('Grok 2'); // 'Grok 2' | 'Grok 2 mini'
   const [copiedId, setCopiedId] = useState(null);
 
   const starterPrompts = [
-    { label: 'Roast my timeline', prompt: 'Roast my social media timeline and hot takes with savage humor!' },
-    { label: 'Explain Quantum Computing', prompt: 'Explain quantum computing and qubits using simple analogies.' },
-    { label: 'Draft a viral tech post', prompt: 'Draft a viral, high-engagement tech post about clean architecture.' },
-    { label: 'Summarize today’s AI trends', prompt: 'What are the top 3 breakthrough developments in AI agents right now?' },
+    { label: 'Draft a stream post', prompt: 'Draft a thoughtful post about clean UI architecture and user respect.' },
+    { label: 'Summarize today’s trends', prompt: 'What are the top 3 technology and AI agent breakthroughs happening now?' },
+    { label: 'Explain Quantum Computing', prompt: 'Explain quantum computing using an intuitive analogy.' },
+    { label: 'Community event ideas', prompt: 'Give me 3 creative virtual event ideas for a software developer community.' },
   ];
 
   const handleSendPrompt = (promptText) => {
@@ -45,23 +42,21 @@ export default function AiStudioView() {
       let reply = '';
       const lower = textToSend.toLowerCase();
 
-      if (lower.includes('roast')) {
-        reply = `Alright, brace yourself:\n\nYour timeline looks like an obsessive compilation of "I woke up at 5 AM to rewrite my CSS in vanilla tokens" combined with 40-tweet threads that could have been a single bullet point. You're debating tab vs space while the AI is already building entire startups. But hey, at least your dark mode borders are immaculate! 🔥`;
-      } else if (lower.includes('quantum') || lower.includes('qubit')) {
-        reply = `Imagine a normal coin on a table: it's either Heads (0) or Tails (1). Classical computers work with those.\n\nA Quantum bit (Qubit) is like spinning that coin at lightspeed—while it's spinning in the air, it's simultaneously both Heads AND Tails (Superposition). This lets quantum computers test trillions of possibilities all at the same instant instead of checking them one by one.`;
-      } else if (lower.includes('viral') || lower.includes('post') || lower.includes('draft')) {
-        reply = `Here is a high-engagement, viral post formatted for Tiwi:\n\n"Most developers spend 80% of their time fixing bugs that good architecture would have prevented in the first place.\n\nCode quality isn't about looking smart. It's about respecting the developer who has to touch your code at 2 AM.\n\nSimplicity is the ultimate sophistication. Agree or disagree?"`;
-      } else if (lower.includes('trend') || lower.includes('ai')) {
-        reply = `Top AI Developments on Tiwi radar right now:\n\n1. **Autonomous Tool-Use Agents**: Shift from passive chat bots to proactive systems that execute tests, modify files, and run database migrations.\n2. **Reasoning Models**: Near-zero hallucination on logic and architectural verification.\n3. **Local Inference**: Ultra-fast latency on consumer hardware without third-party cloud lock-in.`;
+      if (lower.includes('post') || lower.includes('draft') || lower.includes('architecture')) {
+        reply = `Here is a thoughtful post crafted for your stream:\n\n"The best software experiences are not the ones loaded with decoration; they are the ones where every interaction feels calm, predictable, and respectful of the user's attention.\n\nSimplicity isn't the lack of features—it's the clarity of purpose. What principle guides your team's design decisions?"`;
+      } else if (lower.includes('quantum')) {
+        reply = `Think of classical computing like a light switch: it is either completely OFF (0) or completely ON (1).\n\nA quantum bit (qubit) operates in quantum superposition—like a coin spinning on a table. While it is spinning, it is mathematically both heads and tails at once. This enables quantum algorithms to explore vast solution spaces simultaneously instead of sequentially checking every path.`;
+      } else if (lower.includes('trend') || lower.includes('breakthrough')) {
+        reply = `Key technology signals currently trending across Tiwi:\n\n1. **Autonomous Tool-Calling Agents**: Evolution from single-turn chatbots to agents performing multi-step verification and clean commits.\n2. **Google-Inspired Material Systems**: Interfaces shifting toward calm whitespace, semantic containers, and accessible contrast.\n3. **Real-Database Backends**: Prioritizing PostgreSQL and structured schemas over ephemeral mock layers.`;
       } else {
-        reply = `Grok (${model} · ${mode === 'fun' ? 'Spicy Mode' : 'Standard'}):\n\nHere is my perspective on "${textToSend}":\n\nIn our rapidly evolving digital cosmos, the winning strategy is relentlessly high taste and minimal bloat. Whether you're optimizing software or building a life, cutting through noise with conviction always wins. What next frontier should we explore?`;
+        reply = `Tiwi Assistant:\n\nRegarding "${textToSend}":\n\nWhen designing solutions in modern computing, the highest ROI always comes from reducing unnecessary complexity. Whether in system architecture, UX hierarchy, or team communication, clarity creates leverage. How would you like to build on this?`;
       }
 
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now() + 1,
-          sender: 'grok',
+          sender: 'assistant',
           text: reply,
         },
       ]);
@@ -76,96 +71,77 @@ export default function AiStudioView() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleShareToFeed = (text) => {
+  const handleInsertIntoPost = (text) => {
     navigateTo('create-post');
-    showToast('Quote ready to post', 'info');
+    showToast('Draft ready in Post editor', 'info');
   };
 
   return (
-    <div className="w-full flex flex-col h-screen select-none">
-      {/* 1. Sticky Header: 53px height */}
-      <div className="sticky top-0 z-20 bg-white/85 dark:bg-black/85 backdrop-blur-md px-4 h-[53px] flex items-center justify-between border-b border-[#EFF3F4] dark:border-[#2F3336]">
-        <div className="flex items-center gap-7">
+    <div className="w-full flex flex-col h-screen select-none max-w-3xl mx-auto">
+      {/* 1. Header: Google Gemini-inspired Assistant App Bar */}
+      <div className="sticky top-0 z-20 bg-[#F8FAFD]/90 dark:bg-[#131314]/90 backdrop-blur-md px-2 py-3 flex items-center justify-between border-b border-[#E0E2EC] dark:border-[#313335]">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => navigateTo('feed')}
-            className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition cursor-pointer"
-            title="Back to Home"
+            className="w-10 h-10 rounded-full hover:bg-[#E9EEF6] dark:hover:bg-[#282A2C] flex items-center justify-center text-[#444746] dark:text-[#C4C7C5] transition cursor-pointer"
+            title="Back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
 
           <div className="flex items-center gap-2">
-            <h1 className="text-[20px] font-extrabold text-[#0F1419] dark:text-[#E7E9EA] leading-tight">
-              Grok
-            </h1>
-
-            {/* Model Selector Pill */}
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="text-[12px] font-bold bg-[#EFF3F4] dark:bg-[#202327] text-[#0F1419] dark:text-[#E7E9EA] px-2.5 py-1 rounded-full border-none outline-none cursor-pointer"
-            >
-              <option value="Grok 2" className="dark:bg-black">Grok 2</option>
-              <option value="Grok 2 mini" className="dark:bg-black">Grok 2 mini (Fast)</option>
-            </select>
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#0B57D0] via-[#7856FF] to-[#FF7A00] flex items-center justify-center text-white shadow-xs">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div>
+              <h1 className="text-[17px] font-bold text-[#1F1F1F] dark:text-[#E3E3E3] leading-tight flex items-center gap-1.5">
+                <span>Tiwi Assistant</span>
+                <span className="text-[10px] font-semibold bg-[#D3E3FD] dark:bg-[#004A77] text-[#041E49] dark:text-[#C2E7FF] px-2 py-0.5 rounded-full">
+                  Flash 2.5
+                </span>
+              </h1>
+            </div>
           </div>
         </div>
 
-        {/* Fun Mode / Normal Mode Switcher */}
-        <div className="flex items-center gap-1 bg-[#EFF3F4] dark:bg-[#202327] p-1 rounded-full text-[12px] font-bold">
+        {messages.length > 0 && (
           <button
-            onClick={() => setMode('fun')}
-            className={`px-3 py-1 rounded-full transition flex items-center gap-1 cursor-pointer ${
-              mode === 'fun'
-                ? 'bg-white dark:bg-black text-[#0F1419] dark:text-[#E7E9EA] shadow-xs'
-                : 'text-[#536471] dark:text-[#71767B]'
-            }`}
+            onClick={() => setMessages([])}
+            className="text-[12px] font-semibold text-[#747775] hover:text-[#B3261E] flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] transition cursor-pointer"
+            title="Clear conversation"
           >
-            <Flame className="w-3.5 h-3.5 text-[#FF7A00]" />
-            <span>Fun</span>
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Clear</span>
           </button>
-          <button
-            onClick={() => setMode('normal')}
-            className={`px-3 py-1 rounded-full transition flex items-center gap-1 cursor-pointer ${
-              mode === 'normal'
-                ? 'bg-white dark:bg-black text-[#0F1419] dark:text-[#E7E9EA] shadow-xs'
-                : 'text-[#536471] dark:text-[#71767B]'
-            }`}
-          >
-            <Zap className="w-3.5 h-3.5 text-[#1D9BF0]" />
-            <span>Normal</span>
-          </button>
-        </div>
+        )}
       </div>
 
-      {/* 2. Messages Stream or Starter Screen */}
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-5 pb-28">
+      {/* 2. Messages Body */}
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 pb-28">
         {messages.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center max-w-lg mx-auto text-center px-4 my-auto">
-            {/* Grok Stylized Star/Sparkle Emblem */}
-            <div className="w-16 h-16 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center mb-4 shadow-sm">
+          <div className="flex-1 flex flex-col items-center justify-center text-center px-4 my-auto">
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-[#0B57D0]/10 via-[#7856FF]/10 to-[#FF7A00]/10 flex items-center justify-center text-[#0B57D0] mb-4">
               <Sparkles className="w-8 h-8" />
             </div>
 
-            <h2 className="text-[26px] font-black text-[#0F1419] dark:text-[#E7E9EA] tracking-tight">
-              Understand the universe
+            <h2 className="text-[24px] font-bold text-[#1F1F1F] dark:text-[#E3E3E3]">
+              How can I assist your stream today?
             </h2>
-            <p className="text-[14px] text-[#536471] dark:text-[#71767B] mt-1 max-w-sm leading-relaxed">
-              Ask anything, generate witty post ideas, analyze real-time trends, or solve complex logic.
+            <p className="text-[14px] text-[#747775] dark:text-[#8E918F] max-w-sm mt-1 leading-relaxed">
+              Generate posts, research engineering topics, explore ideas, or summarize discussions.
             </p>
 
-            {/* Quick Starter Chips */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full mt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg mt-8">
               {starterPrompts.map((item, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleSendPrompt(item.prompt)}
-                  className="p-3.5 rounded-2xl border border-[#EFF3F4] dark:border-[#2F3336] bg-[#F7F9F9] dark:bg-[#16181C] hover:bg-black/5 dark:hover:bg-white/5 text-left transition cursor-pointer flex flex-col"
+                  className="p-4 rounded-3xl bg-white dark:bg-[#1E1F20] border border-[#E0E2EC] dark:border-[#313335] hover:border-[#0B57D0] text-left transition shadow-xs cursor-pointer flex flex-col justify-between"
                 >
-                  <span className="font-bold text-[14px] text-[#0F1419] dark:text-[#E7E9EA]">
+                  <span className="font-semibold text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3]">
                     {item.label}
                   </span>
-                  <span className="text-[12px] text-[#536471] dark:text-[#71767B] line-clamp-1 mt-0.5">
+                  <span className="text-[12px] text-[#747775] dark:text-[#8E918F] line-clamp-1 mt-1">
                     {item.prompt}
                   </span>
                 </button>
@@ -183,52 +159,52 @@ export default function AiStudioView() {
                 }`}
               >
                 {!isUser && (
-                  <div className="w-8 h-8 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center flex-shrink-0 mt-1">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#0B57D0] to-[#7856FF] text-white flex items-center justify-center flex-shrink-0 mt-1 shadow-xs">
                     <Sparkles className="w-4 h-4" />
                   </div>
                 )}
 
                 <div className="flex flex-col gap-1.5">
                   <div
-                    className={`p-4 rounded-2xl text-[15px] leading-relaxed whitespace-pre-wrap ${
+                    className={`p-4.5 rounded-3xl text-[15px] leading-relaxed whitespace-pre-wrap shadow-xs ${
                       isUser
-                        ? 'bg-[#1D9BF0] text-white rounded-br-xs'
-                        : 'bg-[#F7F9F9] dark:bg-[#16181C] border border-[#EFF3F4] dark:border-[#2F3336] text-[#0F1419] dark:text-[#E7E9EA] rounded-bl-xs'
+                        ? 'bg-[#D3E3FD] dark:bg-[#004A77] text-[#041E49] dark:text-[#C2E7FF] rounded-tr-sm'
+                        : 'bg-white dark:bg-[#1E1F20] border border-[#E0E2EC] dark:border-[#313335] text-[#1F1F1F] dark:text-[#E3E3E3] rounded-tl-sm'
                     }`}
                   >
                     {msg.text}
                   </div>
 
-                  {/* Grok Action Toolbar */}
                   {!isUser && (
-                    <div className="flex items-center gap-1 text-[#536471] dark:text-[#71767B] text-[12px] pl-1">
+                    <div className="flex items-center gap-1 text-[#747775] dark:text-[#8E918F] text-[12px] pl-1">
                       <button
                         onClick={() => handleCopyText(msg.id, msg.text)}
-                        className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer"
-                        title="Copy text"
+                        className="p-1.5 rounded-full hover:bg-[#E9EEF6] dark:hover:bg-[#282A2C] transition cursor-pointer"
+                        title="Copy response"
                       >
-                        {copiedId === msg.id ? <Check className="w-4 h-4 text-[#00BA7C]" /> : <Copy className="w-4 h-4" />}
+                        {copiedId === msg.id ? <Check className="w-4 h-4 text-[#0F5223]" /> : <Copy className="w-4 h-4" />}
                       </button>
                       <button
-                        onClick={() => showToast('Thanks for feedback!', 'info')}
-                        className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer"
-                        title="Good response"
+                        onClick={() => showToast('Feedback recorded', 'info')}
+                        className="p-1.5 rounded-full hover:bg-[#E9EEF6] dark:hover:bg-[#282A2C] transition cursor-pointer"
+                        title="Helpful"
                       >
                         <ThumbsUp className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => showToast('Feedback recorded', 'info')}
-                        className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer"
-                        title="Poor response"
+                        className="p-1.5 rounded-full hover:bg-[#E9EEF6] dark:hover:bg-[#282A2C] transition cursor-pointer"
+                        title="Unhelpful"
                       >
                         <ThumbsDown className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleShareToFeed(msg.text)}
-                        className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer"
-                        title="Post quote to Tiwi"
+                        onClick={() => handleInsertIntoPost(msg.text)}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-full hover:bg-[#E9EEF6] dark:hover:bg-[#282A2C] transition cursor-pointer font-medium"
+                        title="Create post with this draft"
                       >
-                        <Share2 className="w-4 h-4" />
+                        <Share2 className="w-3.5 h-3.5" />
+                        <span>Post to Stream</span>
                       </button>
                     </div>
                   )}
@@ -239,43 +215,43 @@ export default function AiStudioView() {
         )}
 
         {loading && (
-          <div className="flex items-center gap-2.5 text-[#536471] dark:text-[#71767B] text-sm p-3 bg-[#F7F9F9] dark:bg-[#16181C] rounded-2xl w-fit border border-[#EFF3F4] dark:border-[#2F3336]">
-            <Sparkles className="w-4 h-4 animate-spin text-[#1D9BF0]" />
-            <span className="font-semibold">Grok is reasoning...</span>
+          <div className="flex items-center gap-2.5 text-[#444746] dark:text-[#C4C7C5] text-sm p-4 bg-white dark:bg-[#1E1F20] rounded-3xl w-fit border border-[#E0E2EC] dark:border-[#313335] shadow-xs">
+            <Sparkles className="w-4 h-4 animate-spin text-[#0B57D0]" />
+            <span className="font-medium">Tiwi Assistant is reasoning...</span>
           </div>
         )}
       </div>
 
-      {/* 3. Bottom Grok Input Bar */}
-      <div className="p-3 border-t border-[#EFF3F4] dark:border-[#2F3336] bg-white dark:bg-black sticky bottom-0">
+      {/* 3. Input Bar: Google Pill Input Container */}
+      <div className="p-3 bg-[#F8FAFD] dark:bg-[#131314] sticky bottom-0 border-t border-[#E0E2EC] dark:border-[#313335]">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             handleSendPrompt();
           }}
-          className="flex items-center h-[50px] bg-[#EFF3F4] dark:bg-[#202327] rounded-full px-4 text-[#0F1419] dark:text-[#E7E9EA] focus-within:bg-transparent focus-within:ring-1 focus-within:ring-[#1D9BF0] border border-transparent transition"
+          className="flex items-center h-[52px] bg-white dark:bg-[#1E1F20] rounded-full px-4 text-[#1F1F1F] dark:text-[#E3E3E3] border border-[#E0E2EC] dark:border-[#313335] focus-within:border-[#0B57D0] focus-within:ring-2 focus-within:ring-[#0B57D0]/20 shadow-xs transition-all"
         >
           <button
             type="button"
-            onClick={() => showToast('Image analysis mode enabled', 'info')}
-            className="p-2 text-[#536471] dark:text-[#71767B] hover:text-[#1D9BF0] transition cursor-pointer"
-            title="Attach image for Grok"
+            onClick={() => showToast('Image analysis attached', 'info')}
+            className="p-2 text-[#747775] dark:text-[#8E918F] hover:text-[#0B57D0] transition cursor-pointer"
+            title="Attach image"
           >
             <Image className="w-5 h-5" />
           </button>
 
           <input
             type="text"
-            placeholder="Ask Grok anything..."
+            placeholder="Ask Tiwi Assistant anything..."
             value={inputPrompt}
             onChange={(e) => setInputPrompt(e.target.value)}
-            className="bg-transparent text-[15px] outline-none flex-1 placeholder-[#536471] dark:placeholder-[#71767B] px-2"
+            className="bg-transparent text-[15px] outline-none flex-1 placeholder-[#747775] dark:placeholder-[#8E918F] px-2"
           />
 
           <button
             type="submit"
             disabled={!inputPrompt.trim() || loading}
-            className="w-8 h-8 rounded-full bg-[#1D9BF0] disabled:opacity-40 text-white flex items-center justify-center transition active:scale-95 cursor-pointer flex-shrink-0"
+            className="w-9 h-9 rounded-full bg-[#0B57D0] hover:bg-[#0842A0] disabled:opacity-30 text-white flex items-center justify-center transition active:scale-95 cursor-pointer flex-shrink-0 shadow-xs"
           >
             <Send className="w-4 h-4" />
           </button>

@@ -1,142 +1,130 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Users,
   Plus,
   Check,
-  Sparkles,
   ArrowLeft,
-  Search,
   Lock,
   Globe,
   MessageSquare,
-  Share2,
-  MoreHorizontal
+  Sparkles
 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
-import { TiwiSocialAPI } from '../api/tiwiSocialApi';
-import PostCard from '../components/PostCard';
 
 export default function CommunityCirclesView() {
-  const { currentUser, navigateTo, showToast } = useSocial();
+  const { navigateTo, showToast } = useSocial();
   const [activeTab, setActiveTab] = useState('explore'); // 'explore' | 'joined'
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedCommunity, setSelectedCommunity] = useState(null); // When viewing a community's feed
+  const [selectedSpace, setSelectedSpace] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
-  // Create Form State
-  const [newCommName, setNewCommName] = useState('');
-  const [newCommDesc, setNewCommDesc] = useState('');
-  const [newCommType, setNewCommType] = useState('open'); // 'open' | 'restricted'
+  const [newSpaceName, setNewSpaceName] = useState('');
+  const [newSpaceDesc, setNewSpaceDesc] = useState('');
+  const [newSpaceAccess, setNewSpaceAccess] = useState('open');
 
-  // Communities List
-  const [communities, setCommunities] = useState([
+  const [spaces, setSpaces] = useState([
     {
-      id: 'comm_tech',
-      name: 'Modern Web & React Architecture',
+      id: 'space_web',
+      name: 'Modern Web & React Architects',
       category: 'Technology',
-      description: 'The premier community for frontend engineers, UI architects, and performance obsessives.',
+      description: 'A collaborative space for frontend engineers discussing component systems, micro-interactions, and performance.',
       membersCount: 14820,
       isJoined: true,
       isOpen: true,
       coverImage: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&h=300&fit=crop',
       avatar: 'https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?w=100&h=100&fit=crop',
-      rules: ['Respect fellow builders', 'No spam or unsolicited self-promotion', 'Share code and insights'],
     },
     {
-      id: 'comm_ai',
-      name: 'Artificial Intelligence & Agents',
+      id: 'space_ai',
+      name: 'AI Engineering & Agentic Systems',
       category: 'AI',
-      description: 'Discussing LLMs, autonomous agentic reasoning, multimodal workflows, and future frontiers.',
+      description: 'Discussing multimodal agents, structured schema generation, tool-use execution, and local reasoning models.',
       membersCount: 28940,
       isJoined: true,
       isOpen: true,
       coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&h=300&fit=crop',
       avatar: 'https://images.unsplash.com/photo-1677442136019-21780efad99a?w=100&h=100&fit=crop',
-      rules: ['Focus on technical rigor', 'Cite benchmark sources', 'Constructive critique only'],
     },
     {
-      id: 'comm_design',
-      name: 'Minimalist UI / UX Designers',
+      id: 'space_design',
+      name: 'Google-Inspired Minimalist UI',
       category: 'Design',
-      description: 'Dedicated to clean Google-inspired layouts, typography hierarchy, and effortless digital products.',
+      description: 'Exploring whitespace, semantic colors, Material 3 elevation, and calm digital product craft.',
       membersCount: 9340,
       isJoined: false,
       isOpen: true,
       coverImage: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=800&h=300&fit=crop',
       avatar: 'https://images.unsplash.com/photo-1542744094-3a31f272c490?w=100&h=100&fit=crop',
-      rules: ['High fidelity design only', 'No cookie-cutter templates'],
     },
     {
-      id: 'comm_founders',
-      name: 'Bootstrapped Founders Club',
+      id: 'space_builders',
+      name: 'Bootstrapped Founders Space',
       category: 'Business',
-      description: 'Founders sharing revenue numbers, launch strategies, real metrics, and customer feedback.',
+      description: 'Transparent metrics, user onboarding strategies, and customer feedback loops.',
       membersCount: 11200,
       isJoined: false,
       isOpen: false,
       coverImage: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800&h=300&fit=crop',
       avatar: 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=100&h=100&fit=crop',
-      rules: ['Transparent metrics only', 'Founder peer support'],
     },
   ]);
 
   const categories = ['All', 'Technology', 'AI', 'Design', 'Business'];
 
   const handleToggleJoin = (id) => {
-    setCommunities((prev) =>
-      prev.map((c) => {
-        if (c.id === id) {
-          const next = !c.isJoined;
-          showToast(next ? `Joined ${c.name}` : `Left ${c.name}`, 'info');
-          return { ...c, isJoined: next, membersCount: c.membersCount + (next ? 1 : -1) };
+    setSpaces((prev) =>
+      prev.map((s) => {
+        if (s.id === id) {
+          const next = !s.isJoined;
+          showToast(next ? `Joined ${s.name}` : `Left ${s.name}`, 'info');
+          return { ...s, isJoined: next, membersCount: s.membersCount + (next ? 1 : -1) };
         }
-        return c;
+        return s;
       })
     );
   };
 
-  const handleCreateCommunity = (e) => {
+  const handleCreateSpace = (e) => {
     e.preventDefault();
-    if (!newCommName.trim()) return;
+    if (!newSpaceName.trim()) return;
 
-    const newComm = {
-      id: `comm_${Date.now()}`,
-      name: newCommName.trim(),
+    const newSpace = {
+      id: `space_${Date.now()}`,
+      name: newSpaceName.trim(),
       category: 'Technology',
-      description: newCommDesc.trim() || 'A vibrant community on Tiwi.',
+      description: newSpaceDesc.trim() || 'A community space on Tiwi.',
       membersCount: 1,
       isJoined: true,
-      isOpen: newCommType === 'open',
+      isOpen: newSpaceAccess === 'open',
       coverImage: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&h=300&fit=crop',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop',
-      rules: ['Be helpful and respectful'],
     };
 
-    setCommunities((prev) => [newComm, ...prev]);
+    setSpaces((prev) => [newSpace, ...prev]);
     setShowCreateForm(false);
-    setNewCommName('');
-    setNewCommDesc('');
-    showToast(`Community "${newComm.name}" created!`, 'info');
+    setNewSpaceName('');
+    setNewSpaceDesc('');
+    showToast(`Space "${newSpace.name}" created!`, 'info');
   };
 
-  const filteredCommunities = communities.filter((c) => {
-    if (activeTab === 'joined' && !c.isJoined) return false;
-    if (selectedCategory !== 'All' && c.category !== selectedCategory) return false;
+  const filteredSpaces = spaces.filter((s) => {
+    if (activeTab === 'joined' && !s.isJoined) return false;
+    if (selectedCategory !== 'All' && s.category !== selectedCategory) return false;
     return true;
   });
 
   return (
-    <div className="w-full flex flex-col min-h-screen">
-      {/* 1. Sticky Header: 53px height */}
-      <div className="sticky top-0 z-20 bg-white/85 dark:bg-black/85 backdrop-blur-md px-4 h-[53px] flex items-center justify-between border-b border-[#EFF3F4] dark:border-[#2F3336]">
-        <div className="flex items-center gap-7">
-          {selectedCommunity || showCreateForm ? (
+    <div className="w-full flex flex-col min-h-screen max-w-4xl mx-auto">
+      {/* 1. Header App Bar */}
+      <div className="sticky top-0 z-20 bg-[#F8FAFD]/90 dark:bg-[#131314]/90 backdrop-blur-md px-2 py-3 flex items-center justify-between border-b border-[#E0E2EC] dark:border-[#313335] mb-4">
+        <div className="flex items-center gap-3">
+          {selectedSpace || showCreateForm ? (
             <button
               onClick={() => {
-                setSelectedCommunity(null);
+                setSelectedSpace(null);
                 setShowCreateForm(false);
               }}
-              className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition cursor-pointer"
+              className="w-10 h-10 rounded-full hover:bg-[#E9EEF6] dark:hover:bg-[#282A2C] flex items-center justify-center text-[#444746] dark:text-[#C4C7C5] transition cursor-pointer"
               title="Back"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -144,259 +132,147 @@ export default function CommunityCirclesView() {
           ) : (
             <button
               onClick={() => navigateTo('feed')}
-              className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition cursor-pointer"
+              className="w-10 h-10 rounded-full hover:bg-[#E9EEF6] dark:hover:bg-[#282A2C] flex items-center justify-center text-[#444746] dark:text-[#C4C7C5] transition cursor-pointer"
               title="Back"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
           )}
 
-          <div className="flex flex-col min-w-0">
-            <h1 className="text-[20px] font-extrabold text-[#0F1419] dark:text-[#E7E9EA] leading-tight truncate">
-              {showCreateForm
-                ? 'Create a Community'
-                : selectedCommunity
-                ? selectedCommunity.name
-                : 'Communities'}
+          <div>
+            <h1 className="text-[20px] font-extrabold text-[#1F1F1F] dark:text-[#E3E3E3] leading-tight">
+              {showCreateForm ? 'Create a Space' : selectedSpace ? selectedSpace.name : 'Community Spaces'}
             </h1>
-            <span className="text-[13px] text-[#536471] dark:text-[#71767B]">
-              {selectedCommunity
-                ? `${selectedCommunity.membersCount.toLocaleString()} members`
-                : 'Find your people on Tiwi'}
-            </span>
+            <p className="text-[12px] text-[#747775] dark:text-[#8E918F]">
+              {selectedSpace ? `${selectedSpace.membersCount.toLocaleString()} members` : 'Connect around shared interests'}
+            </p>
           </div>
         </div>
 
-        {!selectedCommunity && !showCreateForm && (
+        {!selectedSpace && !showCreateForm && (
           <button
             onClick={() => setShowCreateForm(true)}
-            className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition cursor-pointer"
-            title="Create Community"
+            className="flex items-center gap-2 bg-[#0B57D0] hover:bg-[#0842A0] text-white px-4 py-2 rounded-full font-semibold text-[13px] shadow-xs active:scale-95 transition cursor-pointer"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-4 h-4" />
+            <span>New Space</span>
           </button>
         )}
       </div>
 
-      {/* ============================================================== */}
-      {/* VIEW A: CREATE COMMUNITY FORM (NO MODALS, STRICT PAGE ROUTING) */}
-      {/* ============================================================== */}
+      {/* 2. Create Space Form (No Popups!) */}
       {showCreateForm ? (
-        <form onSubmit={handleCreateCommunity} className="p-4 sm:p-6 flex flex-col gap-5 max-w-xl mx-auto w-full">
+        <form onSubmit={handleCreateSpace} className="bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] p-6 shadow-xs flex flex-col gap-5 max-w-xl mx-auto w-full">
           <div>
-            <h2 className="text-[20px] font-black text-[#0F1419] dark:text-[#E7E9EA]">
-              Set up your Community
+            <h2 className="text-[18px] font-bold text-[#1F1F1F] dark:text-[#E3E3E3]">
+              Set up your Space
             </h2>
-            <p className="text-[14px] text-[#536471] dark:text-[#71767B] mt-1">
-              Give your Community a name and description that lets members know what it’s about.
+            <p className="text-[13px] text-[#747775] dark:text-[#8E918F] mt-0.5">
+              Spaces allow your community to share ideas, post updates, and collaborate.
             </p>
           </div>
 
-          <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-sm p-3 focus-within:border-[#1D9BF0]">
-            <label className="block text-[13px] text-[#536471] dark:text-[#71767B] font-semibold">
-              Community Name
+          <div className="border border-[#747775] rounded-2xl p-3 focus-within:border-[#0B57D0] focus-within:ring-1 focus-within:ring-[#0B57D0]">
+            <label className="block text-[12px] font-semibold text-[#747775] dark:text-[#8E918F]">
+              Space Name
             </label>
             <input
               type="text"
               required
-              value={newCommName}
-              onChange={(e) => setNewCommName(e.target.value)}
+              value={newSpaceName}
+              onChange={(e) => setNewSpaceName(e.target.value)}
               placeholder="e.g. Next.js Developers"
-              className="w-full bg-transparent text-[16px] text-[#0F1419] dark:text-[#E7E9EA] outline-none mt-1"
+              className="w-full bg-transparent text-[15px] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none mt-0.5"
             />
           </div>
 
-          <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-sm p-3 focus-within:border-[#1D9BF0]">
-            <label className="block text-[13px] text-[#536471] dark:text-[#71767B] font-semibold">
+          <div className="border border-[#747775] rounded-2xl p-3 focus-within:border-[#0B57D0] focus-within:ring-1 focus-within:ring-[#0B57D0]">
+            <label className="block text-[12px] font-semibold text-[#747775] dark:text-[#8E918F]">
               Description
             </label>
             <textarea
               rows={3}
-              value={newCommDesc}
-              onChange={(e) => setNewCommDesc(e.target.value)}
-              placeholder="What happens in this community?"
-              className="w-full bg-transparent text-[15px] text-[#0F1419] dark:text-[#E7E9EA] outline-none mt-1 resize-none"
+              value={newSpaceDesc}
+              onChange={(e) => setNewSpaceDesc(e.target.value)}
+              placeholder="What topics are discussed here?"
+              className="w-full bg-transparent text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none mt-0.5 resize-none"
             />
           </div>
 
-          <div className="flex flex-col gap-2">
-            <span className="text-[13px] font-bold text-[#536471] dark:text-[#71767B]">
-              Membership Access
-            </span>
-            <div className="grid grid-cols-2 gap-3">
-              <label
-                onClick={() => setNewCommType('open')}
-                className={`p-3 rounded-2xl border cursor-pointer flex flex-col gap-1 ${
-                  newCommType === 'open'
-                    ? 'border-[#1D9BF0] bg-[#1D9BF0]/5'
-                    : 'border-[#EFF3F4] dark:border-[#2F3336]'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-bold text-[14px] text-[#0F1419] dark:text-[#E7E9EA]">
-                  <Globe className="w-4 h-4 text-[#1D9BF0]" />
-                  <span>Open</span>
-                </div>
-                <span className="text-[12px] text-[#536471] dark:text-[#71767B]">
-                  Anyone can view and join.
-                </span>
-              </label>
-
-              <label
-                onClick={() => setNewCommType('restricted')}
-                className={`p-3 rounded-2xl border cursor-pointer flex flex-col gap-1 ${
-                  newCommType === 'restricted'
-                    ? 'border-[#1D9BF0] bg-[#1D9BF0]/5'
-                    : 'border-[#EFF3F4] dark:border-[#2F3336]'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-bold text-[14px] text-[#0F1419] dark:text-[#E7E9EA]">
-                  <Lock className="w-4 h-4 text-[#FF7A00]" />
-                  <span>Restricted</span>
-                </div>
-                <span className="text-[12px] text-[#536471] dark:text-[#71767B]">
-                  Only approved members can post.
-                </span>
-              </label>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-3">
+          <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={() => setShowCreateForm(false)}
-              className="px-5 py-2.5 rounded-full font-bold text-[14px] text-[#536471] hover:bg-black/5 dark:hover:bg-white/5 transition"
+              className="px-5 py-2 rounded-full font-medium text-[13px] text-[#747775] hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C]"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={!newCommName.trim()}
-              className="bg-[#1D9BF0] hover:bg-[#1A8CD8] disabled:opacity-50 text-white font-bold text-[14px] px-6 py-2.5 rounded-full transition shadow-xs"
+              disabled={!newSpaceName.trim()}
+              className="bg-[#0B57D0] hover:bg-[#0842A0] disabled:opacity-40 text-white font-semibold text-[13px] px-6 py-2 rounded-full shadow-xs cursor-pointer"
             >
-              Create Community
+              Create Space
             </button>
           </div>
         </form>
-      ) : selectedCommunity ? (
-        /* ============================================================== */
-        /* VIEW B: SINGLE COMMUNITY FEED                                 */
-        /* ============================================================== */
-        <div className="flex flex-col pb-24 md:pb-12">
-          {/* Community Cover Banner */}
-          <div className="h-44 sm:h-52 w-full relative overflow-hidden bg-gray-200 dark:bg-gray-800">
-            <img
-              src={selectedCommunity.coverImage}
-              alt={selectedCommunity.name}
-              className="w-full h-full object-cover"
-            />
-          </div>
-
-          {/* Details Bar */}
-          <div className="px-4 pb-4 border-b border-[#EFF3F4] dark:border-[#2F3336] relative">
-            <div className="flex justify-between items-end -mt-10 mb-3">
-              <img
-                src={selectedCommunity.avatar}
-                alt={selectedCommunity.name}
-                className="w-20 h-20 rounded-2xl border-4 border-white dark:border-black object-cover bg-black"
-              />
+      ) : selectedSpace ? (
+        /* 3. Space Drilldown View */
+        <div className="flex flex-col gap-4 pb-20">
+          <div className="bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] overflow-hidden shadow-xs">
+            <div className="h-44 w-full bg-gray-200 dark:bg-gray-800">
+              <img src={selectedSpace.coverImage} alt={selectedSpace.name} className="w-full h-full object-cover" />
+            </div>
+            <div className="p-5 flex items-center justify-between">
+              <div>
+                <h2 className="text-[20px] font-bold text-[#1F1F1F] dark:text-[#E3E3E3]">
+                  {selectedSpace.name}
+                </h2>
+                <p className="text-[13px] text-[#747775] dark:text-[#8E918F] mt-1">
+                  {selectedSpace.description}
+                </p>
+              </div>
               <button
-                onClick={() => handleToggleJoin(selectedCommunity.id)}
-                className={`font-bold text-[14px] px-5 py-1.5 rounded-full transition active:scale-95 ${
-                  selectedCommunity.isJoined
-                    ? 'border border-[#CFD9DE] dark:border-[#536471] text-[#0F1419] dark:text-[#E7E9EA] hover:border-red-500 hover:text-red-500 hover:bg-red-500/10'
-                    : 'bg-[#0F1419] dark:bg-[#EFF3F4] text-white dark:text-[#0F1419] hover:opacity-90'
+                onClick={() => handleToggleJoin(selectedSpace.id)}
+                className={`font-semibold text-[13px] px-5 py-2 rounded-full transition cursor-pointer shadow-xs ${
+                  selectedSpace.isJoined
+                    ? 'border border-[#747775] text-[#1F1F1F] dark:text-[#E3E3E3]'
+                    : 'bg-[#0B57D0] text-white'
                 }`}
               >
-                {selectedCommunity.isJoined ? 'Joined' : 'Join'}
+                {selectedSpace.isJoined ? 'Joined' : 'Join Space'}
               </button>
             </div>
-
-            <h2 className="text-[20px] font-black text-[#0F1419] dark:text-[#E7E9EA] leading-tight">
-              {selectedCommunity.name}
-            </h2>
-            <div className="flex items-center gap-2 text-[13px] text-[#536471] dark:text-[#71767B] mt-1">
-              <span>{selectedCommunity.membersCount.toLocaleString()} members</span>
-              <span>·</span>
-              <span className="flex items-center gap-1">
-                {selectedCommunity.isOpen ? <Globe className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-                {selectedCommunity.isOpen ? 'Open community' : 'Restricted membership'}
-              </span>
-            </div>
-            <p className="text-[14px] text-[#0F1419] dark:text-[#E7E9EA] mt-2 leading-relaxed">
-              {selectedCommunity.description}
-            </p>
           </div>
 
-          {/* Community Timeline Empty / Active Posts */}
-          <div className="p-8 text-center flex flex-col items-center">
-            <h3 className="font-extrabold text-[20px] text-[#0F1419] dark:text-[#E7E9EA] mb-1">
-              Welcome to {selectedCommunity.name}
+          <div className="bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] p-8 text-center">
+            <h3 className="font-bold text-[18px] text-[#1F1F1F] dark:text-[#E3E3E3] mb-1">
+              Start the discussion in {selectedSpace.name}
             </h3>
-            <p className="text-[14px] text-[#536471] dark:text-[#71767B] max-w-sm mb-4">
-              Be the first to post a new thought or start a discussion in this community.
+            <p className="text-[13px] text-[#747775] dark:text-[#8E918F] mb-4">
+              Share an update or ask a question to everyone in this Space.
             </p>
             <button
               onClick={() => navigateTo('create-post')}
-              className="bg-[#1D9BF0] hover:bg-[#1A8CD8] text-white font-bold text-[14px] px-5 py-2 rounded-full transition"
+              className="bg-[#0B57D0] hover:bg-[#0842A0] text-white font-semibold text-[13px] px-5 py-2 rounded-full shadow-xs cursor-pointer"
             >
-              Post to Community
+              Post to Space
             </button>
           </div>
         </div>
       ) : (
-        /* ============================================================== */
-        /* VIEW C: COMMUNITIES DISCOVERY DIRECTORY                        */
-        /* ============================================================== */
-        <div className="flex flex-col pb-24 md:pb-12">
-          {/* Top Tabs: Explore vs Joined */}
-          <div className="h-[53px] flex border-b border-[#EFF3F4] dark:border-[#2F3336]">
-            <button
-              onClick={() => setActiveTab('explore')}
-              className="flex-1 h-full flex items-center justify-center hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative cursor-pointer"
-            >
-              <span
-                className={`text-[15px] ${
-                  activeTab === 'explore'
-                    ? 'font-bold text-[#0F1419] dark:text-[#E7E9EA]'
-                    : 'font-medium text-[#536471] dark:text-[#71767B]'
-                }`}
-              >
-                Explore
-              </span>
-              {activeTab === 'explore' && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-1 bg-[#1D9BF0] rounded-full" />
-              )}
-            </button>
-
-            <button
-              onClick={() => setActiveTab('joined')}
-              className="flex-1 h-full flex items-center justify-center hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative cursor-pointer"
-            >
-              <span
-                className={`text-[15px] ${
-                  activeTab === 'joined'
-                    ? 'font-bold text-[#0F1419] dark:text-[#E7E9EA]'
-                    : 'font-medium text-[#536471] dark:text-[#71767B]'
-                }`}
-              >
-                Joined
-              </span>
-              {activeTab === 'joined' && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-1 bg-[#1D9BF0] rounded-full" />
-              )}
-            </button>
-          </div>
-
-          {/* Category Pills Bar */}
-          <div className="flex items-center gap-2 px-4 py-2.5 overflow-x-auto no-scrollbar border-b border-[#EFF3F4] dark:border-[#2F3336]">
+        /* 4. Spaces Grid */
+        <div className="flex flex-col gap-4 pb-20">
+          {/* Category Chips Bar */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-3.5 py-1 rounded-full text-[13px] font-bold whitespace-nowrap transition cursor-pointer ${
+                className={`px-4 py-1.5 rounded-full text-[13px] font-medium whitespace-nowrap transition cursor-pointer ${
                   selectedCategory === cat
-                    ? 'bg-[#0F1419] dark:bg-[#EFF3F4] text-white dark:text-[#0F1419]'
-                    : 'bg-[#EFF3F4] dark:bg-[#202327] text-[#536471] dark:text-[#71767B] hover:bg-black/10 dark:hover:bg-white/10'
+                    ? 'bg-[#0B57D0] text-white shadow-xs'
+                    : 'bg-white dark:bg-[#1E1F20] text-[#444746] dark:text-[#C4C7C5] border border-[#E0E2EC] dark:border-[#313335] hover:bg-[#F0F4F9]'
                 }`}
               >
                 {cat}
@@ -404,51 +280,49 @@ export default function CommunityCirclesView() {
             ))}
           </div>
 
-          {/* Communities Cards Grid */}
-          <div className="flex flex-col divide-y divide-[#EFF3F4] dark:divide-[#2F3336]">
-            {filteredCommunities.map((comm) => (
+          {/* Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {filteredSpaces.map((space) => (
               <div
-                key={comm.id}
-                onClick={() => setSelectedCommunity(comm)}
-                className="p-4 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] cursor-pointer transition flex flex-col gap-3"
+                key={space.id}
+                onClick={() => setSelectedSpace(space)}
+                className="bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] overflow-hidden shadow-xs hover:shadow-sm transition-all duration-200 cursor-pointer flex flex-col justify-between"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <img
-                      src={comm.avatar}
-                      alt={comm.name}
-                      className="w-12 h-12 rounded-2xl object-cover flex-shrink-0"
-                    />
-                    <div className="flex flex-col min-w-0">
-                      <div className="flex items-center gap-1.5 font-bold text-[16px] text-[#0F1419] dark:text-[#E7E9EA] truncate">
-                        <span className="truncate">{comm.name}</span>
-                        {!comm.isOpen && <Lock className="w-3.5 h-3.5 text-[#536471]" />}
-                      </div>
-                      <span className="text-[13px] text-[#536471] dark:text-[#71767B]">
-                        {comm.membersCount.toLocaleString()} members
-                      </span>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleToggleJoin(comm.id);
-                    }}
-                    className={`font-bold text-[14px] px-5 py-1.5 rounded-full transition active:scale-95 flex-shrink-0 ${
-                      comm.isJoined
-                        ? 'border border-[#CFD9DE] dark:border-[#536471] text-[#0F1419] dark:text-[#E7E9EA] hover:border-red-500 hover:text-red-500 hover:bg-red-500/10'
-                        : 'bg-[#0F1419] dark:bg-[#EFF3F4] text-white dark:text-[#0F1419] hover:opacity-90'
-                    }`}
-                  >
-                    {comm.isJoined ? 'Joined' : 'Join'}
-                  </button>
+                <div className="h-32 w-full relative">
+                  <img src={space.coverImage} alt={space.name} className="w-full h-full object-cover" />
                 </div>
 
-                <p className="text-[14px] text-[#536471] dark:text-[#71767B] line-clamp-2 leading-relaxed">
-                  {comm.description}
-                </p>
+                <div className="p-5 flex-1 flex flex-col justify-between gap-3">
+                  <div>
+                    <h3 className="font-bold text-[16px] text-[#1F1F1F] dark:text-[#E3E3E3] line-clamp-1">
+                      {space.name}
+                    </h3>
+                    <p className="text-[13px] text-[#747775] dark:text-[#8E918F] mt-1 line-clamp-2 leading-relaxed">
+                      {space.description}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-[#E0E2EC]/70 dark:border-[#313335]">
+                    <span className="text-[12px] text-[#747775] dark:text-[#8E918F]">
+                      {space.membersCount.toLocaleString()} members
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleJoin(space.id);
+                      }}
+                      className={`text-[12px] font-semibold px-4 py-1.5 rounded-full transition active:scale-95 cursor-pointer shadow-xs ${
+                        space.isJoined
+                          ? 'border border-[#747775] text-[#1F1F1F] dark:text-[#E3E3E3]'
+                          : 'bg-[#0B57D0] text-white hover:bg-[#0842A0]'
+                      }`}
+                    >
+                      {space.isJoined ? 'Joined' : 'Join'}
+                    </button>
+                  </div>
+                </div>
               </div>
             ))}
           </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, Bookmark } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
 import PostCard from '../components/PostCard';
@@ -17,40 +17,31 @@ export default function BookmarksView() {
   }, [currentUser?.id]);
 
   return (
-    <div className="w-full flex flex-col min-h-screen">
-      {/* 1. Sticky Header: 53px height */}
-      <div className="sticky top-0 z-20 bg-white/85 dark:bg-black/85 backdrop-blur-md px-4 h-[53px] flex items-center justify-between border-b border-[#EFF3F4] dark:border-[#2F3336]">
-        <div className="flex items-center gap-7">
-          <button
-            onClick={() => navigateTo('feed')}
-            className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
-            title="Back"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div className="flex flex-col">
-            <h1 className="text-[20px] font-extrabold text-[#0F1419] dark:text-[#E7E9EA] leading-tight">
-              Bookmarks
-            </h1>
-            <span className="text-[13px] text-[#536471] dark:text-[#71767B]">
-              @{currentUser?.handle || 'user'}
-            </span>
-          </div>
-        </div>
-
+    <div className="w-full flex flex-col min-h-screen max-w-3xl mx-auto">
+      {/* 1. Header App Bar */}
+      <div className="sticky top-0 z-20 bg-[#F8FAFD]/90 dark:bg-[#131314]/90 backdrop-blur-md px-2 py-3 flex items-center gap-4 border-b border-[#E0E2EC] dark:border-[#313335] mb-4">
         <button
-          onClick={() => {}}
-          className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+          onClick={() => navigateTo('feed')}
+          className="w-10 h-10 rounded-full hover:bg-[#E9EEF6] dark:hover:bg-[#282A2C] flex items-center justify-center text-[#444746] dark:text-[#C4C7C5] transition cursor-pointer"
+          title="Back"
         >
-          <MoreHorizontal className="w-5 h-5" />
+          <ArrowLeft className="w-5 h-5" />
         </button>
+        <div className="flex flex-col">
+          <h1 className="text-[20px] font-bold text-[#1F1F1F] dark:text-[#E3E3E3] leading-tight">
+            Saved Posts
+          </h1>
+          <span className="text-[12px] text-[#747775] dark:text-[#8E918F]">
+            @{currentUser?.handle || 'user'}
+          </span>
+        </div>
       </div>
 
       {/* 2. Bookmarked Posts Stream */}
-      <div className="flex flex-col pb-24 md:pb-12">
+      <div className="flex flex-col pb-20">
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="w-7 h-7 rounded-full border-2 border-[#1D9BF0] border-t-transparent animate-spin" />
+            <div className="w-8 h-8 rounded-full border-3 border-[#0B57D0] border-t-transparent animate-spin" />
           </div>
         ) : bookmarks.length > 0 ? (
           bookmarks.map((post) => (
@@ -61,12 +52,13 @@ export default function BookmarksView() {
             />
           ))
         ) : (
-          <div className="py-24 px-8 text-center flex flex-col items-center">
-            <h3 className="font-extrabold text-[28px] text-[#0F1419] dark:text-[#E7E9EA] mb-2 leading-tight">
-              Save posts for later
+          <div className="py-20 px-6 text-center bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] shadow-xs flex flex-col items-center">
+            <Bookmark className="w-10 h-10 text-[#0B57D0] mb-2" />
+            <h3 className="font-bold text-[18px] text-[#1F1F1F] dark:text-[#E3E3E3] mb-1">
+              Your collection is empty
             </h3>
-            <p className="text-[15px] text-[#536471] dark:text-[#71767B] max-w-sm leading-relaxed">
-              Don’t let the good ones fly away! Bookmark posts to easily find them again in the future.
+            <p className="text-[13px] text-[#747775] dark:text-[#8E918F] max-w-sm leading-relaxed">
+              Bookmark useful posts and discussions across your stream to review them whenever you want.
             </p>
           </div>
         )}

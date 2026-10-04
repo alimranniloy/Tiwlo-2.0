@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import {
   Heart,
-  MessageCircle,
+  MessageSquare,
   Repeat2,
   Bookmark,
-  Share,
-  MoreHorizontal,
+  Share2,
+  MoreVertical,
   CheckCircle2,
-  BarChart2,
   Trash2,
   Link,
   Flag,
@@ -25,9 +24,6 @@ export default function PostCard({ post, onPostDeleted }) {
   const [repostsCount, setRepostsCount] = useState(parseInt(post.repostsCount || 0, 10));
   const [commentsCount] = useState(parseInt(post.commentsCount || (post.comments?.length || 0), 10));
   const [menuOpen, setMenuOpen] = useState(false);
-
-  // Approximate views format (e.g. 1.2K, 4.5M)
-  const viewsCount = post.viewsCount || Math.floor(likesCount * 12 + 137);
 
   const isOwner =
     currentUser?.id &&
@@ -51,7 +47,7 @@ export default function PostCard({ post, onPostDeleted }) {
     const nextState = !isReposted;
     setIsReposted(nextState);
     setRepostsCount((prev) => (nextState ? prev + 1 : Math.max(0, prev - 1)));
-    showToast(nextState ? 'Reposted to your profile' : 'Repost undone', 'info');
+    showToast(nextState ? 'Shared with your followers' : 'Share removed', 'info');
     try {
       await TiwiSocialAPI.toggleRepost(post.id, currentUser?.id);
     } catch {
@@ -64,7 +60,7 @@ export default function PostCard({ post, onPostDeleted }) {
     e.stopPropagation();
     const nextState = !isSaved;
     setIsSaved(nextState);
-    showToast(nextState ? 'Added to your Bookmarks' : 'Removed from Bookmarks', 'info');
+    showToast(nextState ? 'Saved to collection' : 'Removed from collection', 'info');
     try {
       await TiwiSocialAPI.toggleBookmarkPost(post.id, currentUser?.id);
     } catch {
@@ -77,7 +73,7 @@ export default function PostCard({ post, onPostDeleted }) {
     setMenuOpen(false);
     const postUrl = `${window.location.origin}/tiwi/post/${post.id}`;
     navigator.clipboard?.writeText(postUrl);
-    showToast('Copied to clipboard', 'info');
+    showToast('Link copied to clipboard', 'info');
   };
 
   const handleDeletePost = async (e) => {
@@ -86,7 +82,7 @@ export default function PostCard({ post, onPostDeleted }) {
     if (!window.confirm('Delete this post?')) return;
     try {
       await TiwiSocialAPI.deletePost(post.id, currentUser?.id);
-      showToast('Your post was deleted', 'info');
+      showToast('Post deleted', 'info');
       if (onPostDeleted) onPostDeleted(post.id);
     } catch {
       showToast('Failed to delete post', 'error');
@@ -99,312 +95,281 @@ export default function PostCard({ post, onPostDeleted }) {
     ? [post.image]
     : [];
 
-  const formatNumber = (num) => {
-    if (!num || num === 0) return '';
-    if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-    return num.toString();
-  };
-
   return (
     <article
       onClick={() => navigateTo('post-detail', post.id)}
-      className="px-4 py-3 border-b border-[#EFF3F4] dark:border-[#2F3336] hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-colors duration-200 cursor-pointer flex gap-3 text-[#0F1419] dark:text-[#E7E9EA]"
+      className="bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] p-5 shadow-xs hover:shadow-sm transition-all duration-200 cursor-pointer flex flex-col gap-3.5 mb-3.5 text-[#1F1F1F] dark:text-[#E3E3E3]"
     >
-      {/* 1. Left Avatar */}
-      <div className="flex-shrink-0 pt-0.5">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            navigateTo('profile', post.author?.handle || post.author?.id);
-          }}
-          className="rounded-full hover:opacity-90 transition block"
-        >
-          <img
-            src={
-              post.author?.avatar ||
-              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop'
-            }
-            alt={post.author?.name || 'User'}
-            className="w-10 h-10 rounded-full object-cover"
-          />
-        </button>
-      </div>
+      {/* 1. Author Header Row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigateTo('profile', post.author?.handle || post.author?.id);
+            }}
+            className="rounded-full hover:opacity-90 transition block flex-shrink-0"
+          >
+            <img
+              src={
+                post.author?.avatar ||
+                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop'
+              }
+              alt={post.author?.name || 'User'}
+              className="w-10 h-10 rounded-full object-cover ring-2 ring-[#E0E2EC] dark:ring-[#444746]"
+            />
+          </button>
 
-      {/* 2. Main Content Body */}
-      <div className="flex-1 min-w-0">
-        {/* Header Row: Name, Verified, @Handle, Dot, Timestamp, More Menu */}
-        <div className="flex items-center justify-between leading-snug">
-          <div className="flex items-center gap-1 min-w-0 flex-wrap">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigateTo('profile', post.author?.handle || post.author?.id);
-              }}
-              className="font-bold text-[15px] hover:underline truncate text-[#0F1419] dark:text-[#E7E9EA]"
-            >
-              {post.author?.name || 'Tiwi Creator'}
-            </button>
-
-            {post.author?.isVerified && (
-              <CheckCircle2 className="w-4 h-4 text-[#1D9BF0] fill-current inline flex-shrink-0" />
-            )}
-
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigateTo('profile', post.author?.handle || post.author?.id);
-              }}
-              className="text-[15px] text-[#536471] dark:text-[#71767B] truncate ml-0.5"
-            >
-              @{post.author?.handle || 'creator'}
-            </button>
-
-            <span className="text-[#536471] dark:text-[#71767B] text-[15px]">·</span>
-
-            <span className="text-[15px] text-[#536471] dark:text-[#71767B] hover:underline flex-shrink-0">
-              {post.timeAgo || 'recently'}
-            </span>
-          </div>
-
-          {/* Three dots dropdown */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setMenuOpen((prev) => !prev);
-              }}
-              className="w-8 h-8 rounded-full hover:bg-[#1D9BF0]/10 flex items-center justify-center text-[#536471] dark:text-[#71767B] hover:text-[#1D9BF0] transition -mr-1.5"
-              title="More"
-            >
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
-
-            {menuOpen && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="absolute right-0 top-8 w-60 bg-white dark:bg-black rounded-2xl shadow-[0_0_15px_rgba(0,0,0,0.15)] dark:shadow-[0_0_15px_rgba(255,255,255,0.15)] border border-[#EFF3F4] dark:border-[#2F3336] py-2 z-40"
+          <div className="flex flex-col min-w-0 leading-tight">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigateTo('profile', post.author?.handle || post.author?.id);
+                }}
+                className="font-bold text-[15px] hover:underline truncate text-[#1F1F1F] dark:text-[#E3E3E3]"
               >
-                <button
-                  type="button"
-                  onClick={handleCopyLink}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-black/5 dark:hover:bg-white/10 text-left text-[15px] font-bold text-[#0F1419] dark:text-[#E7E9EA]"
-                >
-                  <Link className="w-5 h-5 text-[#536471] dark:text-[#71767B]" />
-                  Copy link to post
-                </button>
+                {post.author?.name || 'Tiwi Creator'}
+              </button>
 
-                {isOwner ? (
-                  <button
-                    type="button"
-                    onClick={handleDeletePost}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-black/5 dark:hover:bg-white/10 text-left text-[15px] font-bold text-[#F4212E]"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                    Delete post
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        showToast(`Muted @${post.author?.handle}`, 'info');
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-black/5 dark:hover:bg-white/10 text-left text-[15px] font-bold text-[#0F1419] dark:text-[#E7E9EA]"
-                    >
-                      <UserX className="w-5 h-5 text-[#536471] dark:text-[#71767B]" />
-                      Mute @{post.author?.handle}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        showToast('Report received. Thank you.', 'info');
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-black/5 dark:hover:bg-white/10 text-left text-[15px] font-bold text-[#0F1419] dark:text-[#E7E9EA]"
-                    >
-                      <Flag className="w-5 h-5 text-[#536471] dark:text-[#71767B]" />
-                      Report post
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
+              {post.author?.isVerified && (
+                <CheckCircle2 className="w-4 h-4 text-[#0B57D0] fill-current inline flex-shrink-0" />
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5 text-[12px] text-[#747775] dark:text-[#8E918F]">
+              <span className="truncate">@{post.author?.handle || 'creator'}</span>
+              <span>·</span>
+              <span>{post.timeAgo || 'recently'}</span>
+            </div>
           </div>
         </div>
 
-        {/* Text Content */}
-        {post.caption && (
-          <div className="text-[15px] leading-snug mt-1 whitespace-pre-wrap break-words text-[#0F1419] dark:text-[#E7E9EA]">
-            {post.caption.split(/(#[a-zA-Z0-9_]+|@[a-zA-Z0-9_]+|https?:\/\/[^\s]+)/g).map((part, i) => {
-              if (part.startsWith('#')) {
-                return (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigateTo('search', { q: part });
-                    }}
-                    className="text-[#1D9BF0] hover:underline"
-                  >
-                    {part}
-                  </button>
-                );
-              }
-              if (part.startsWith('@')) {
-                return (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigateTo('profile', part.replace('@', ''));
-                    }}
-                    className="text-[#1D9BF0] hover:underline"
-                  >
-                    {part}
-                  </button>
-                );
-              }
-              if (part.startsWith('http')) {
-                return (
-                  <a
-                    key={i}
-                    href={part}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="text-[#1D9BF0] hover:underline"
-                  >
-                    {part}
-                  </a>
-                );
-              }
-              return part;
-            })}
-          </div>
-        )}
+        {/* Action Options Dropdown */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen((prev) => !prev);
+            }}
+            className="w-8 h-8 rounded-full hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] flex items-center justify-center text-[#747775] dark:text-[#8E918F] transition"
+            title="Options"
+          >
+            <MoreVertical className="w-4 h-4" />
+          </button>
 
-        {/* Media Attachments (Twitter Media Container) */}
-        {images.length > 0 && (
-          <div className="mt-3 rounded-2xl overflow-hidden border border-[#EFF3F4] dark:border-[#2F3336]">
-            {images.length === 1 ? (
-              <img
-                src={images[0]}
-                alt="Post attachment"
-                className="w-full max-h-[510px] object-cover bg-black/5 dark:bg-white/5"
-                loading="lazy"
-              />
-            ) : images.length === 2 ? (
-              <div className="grid grid-cols-2 gap-0.5">
-                <img src={images[0]} alt="attachment 1" className="w-full h-72 object-cover" />
-                <img src={images[1]} alt="attachment 2" className="w-full h-72 object-cover" />
-              </div>
-            ) : images.length === 3 ? (
-              <div className="grid grid-cols-2 gap-0.5">
-                <img src={images[0]} alt="attachment 1" className="w-full h-72 object-cover row-span-2" />
-                <div className="grid grid-rows-2 gap-0.5">
-                  <img src={images[1]} alt="attachment 2" className="w-full h-36 object-cover" />
-                  <img src={images[2]} alt="attachment 3" className="w-full h-36 object-cover" />
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-0.5">
-                {images.slice(0, 4).map((img, idx) => (
-                  <img key={idx} src={img} alt={`attachment ${idx}`} className="w-full h-44 object-cover" />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+          {menuOpen && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="absolute right-0 top-8 w-56 bg-white dark:bg-[#1E1F20] rounded-3xl shadow-lg border border-[#E0E2EC] dark:border-[#313335] py-2 z-40 animate-fadeIn"
+            >
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] text-left text-[14px] font-medium text-[#1F1F1F] dark:text-[#E3E3E3]"
+              >
+                <Link className="w-4 h-4 text-[#747775]" />
+                Copy link to post
+              </button>
 
-        {/* Twitter Action Bar: Reply, Repost, Like, Views, Bookmark/Share */}
-        <div className="flex items-center justify-between mt-3 text-[#536471] dark:text-[#71767B] max-w-[425px] -ml-2">
-          {/* Reply Button */}
+              {isOwner ? (
+                <button
+                  type="button"
+                  onClick={handleDeletePost}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-500/10 text-left text-[14px] font-medium text-red-500"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete post
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      showToast(`Muted @${post.author?.handle}`, 'info');
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] text-left text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3]"
+                  >
+                    <UserX className="w-4 h-4 text-[#747775]" />
+                    Mute @{post.author?.handle}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      showToast('Post reported to moderators', 'info');
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] text-left text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3]"
+                  >
+                    <Flag className="w-4 h-4 text-[#747775]" />
+                    Report post
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 2. Text Content */}
+      {post.caption && (
+        <div className="text-[15px] leading-relaxed whitespace-pre-wrap break-words text-[#1F1F1F] dark:text-[#E3E3E3]">
+          {post.caption.split(/(#[a-zA-Z0-9_]+|@[a-zA-Z0-9_]+|https?:\/\/[^\s]+)/g).map((part, i) => {
+            if (part.startsWith('#')) {
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigateTo('search', { q: part });
+                  }}
+                  className="text-[#0B57D0] dark:text-[#A8C7FA] font-medium hover:underline mr-0.5"
+                >
+                  {part}
+                </button>
+              );
+            }
+            if (part.startsWith('@')) {
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigateTo('profile', part.replace('@', ''));
+                  }}
+                  className="text-[#0B57D0] dark:text-[#A8C7FA] font-medium hover:underline mr-0.5"
+                >
+                  {part}
+                </button>
+              );
+            }
+            if (part.startsWith('http')) {
+              return (
+                <a
+                  key={i}
+                  href={part}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-[#0B57D0] dark:text-[#A8C7FA] hover:underline"
+                >
+                  {part}
+                </a>
+              );
+            }
+            return part;
+          })}
+        </div>
+      )}
+
+      {/* 3. Media Attachments */}
+      {images.length > 0 && (
+        <div className="rounded-2xl overflow-hidden border border-[#E0E2EC] dark:border-[#313335]">
+          {images.length === 1 ? (
+            <img
+              src={images[0]}
+              alt="Post attachment"
+              className="w-full max-h-[480px] object-cover bg-black/5 dark:bg-white/5"
+              loading="lazy"
+            />
+          ) : images.length === 2 ? (
+            <div className="grid grid-cols-2 gap-1">
+              <img src={images[0]} alt="attachment 1" className="w-full h-64 object-cover" />
+              <img src={images[1]} alt="attachment 2" className="w-full h-64 object-cover" />
+            </div>
+          ) : images.length === 3 ? (
+            <div className="grid grid-cols-2 gap-1">
+              <img src={images[0]} alt="attachment 1" className="w-full h-64 object-cover row-span-2" />
+              <div className="grid grid-rows-2 gap-1">
+                <img src={images[1]} alt="attachment 2" className="w-full h-32 object-cover" />
+                <img src={images[2]} alt="attachment 3" className="w-full h-32 object-cover" />
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-1">
+              {images.slice(0, 4).map((img, idx) => (
+                <img key={idx} src={img} alt={`attachment ${idx}`} className="w-full h-40 object-cover" />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 4. Google Material Action Chips Bar */}
+      <div className="flex items-center justify-between pt-2 border-t border-[#E0E2EC]/70 dark:border-[#313335] text-[#444746] dark:text-[#C4C7C5]">
+        <div className="flex items-center gap-1">
+          {/* Like Chip */}
+          <button
+            type="button"
+            onClick={handleToggleLike}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium transition active:scale-95 cursor-pointer ${
+              isLiked
+                ? 'text-[#B3261E] bg-red-50 dark:bg-red-950/20'
+                : 'hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C]'
+            }`}
+            title="Applaud / Like"
+          >
+            <Heart className={`w-4 h-4 ${isLiked ? 'fill-current text-[#B3261E]' : ''}`} />
+            <span>{likesCount > 0 ? likesCount : 'Like'}</span>
+          </button>
+
+          {/* Comment Chip */}
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               navigateTo('post-detail', post.id);
             }}
-            className="flex items-center gap-1.5 group text-[13px] hover:text-[#1D9BF0] transition"
-            title="Reply"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] transition cursor-pointer"
+            title="Comment"
           >
-            <div className="p-2 rounded-full group-hover:bg-[#1D9BF0]/10 transition">
-              <MessageCircle className="w-[18px] h-[18px]" />
-            </div>
-            <span>{formatNumber(commentsCount)}</span>
+            <MessageSquare className="w-4 h-4" />
+            <span>{commentsCount > 0 ? commentsCount : 'Reply'}</span>
           </button>
 
-          {/* Repost Button */}
+          {/* Reshare Chip */}
           <button
             type="button"
             onClick={handleToggleRepost}
-            className={`flex items-center gap-1.5 group text-[13px] transition ${
-              isReposted ? 'text-[#00BA7C]' : 'hover:text-[#00BA7C]'
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium transition cursor-pointer ${
+              isReposted
+                ? 'text-[#0F5223] dark:text-[#6DD58C] bg-green-50 dark:bg-green-950/20'
+                : 'hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C]'
             }`}
-            title="Repost"
+            title="Share"
           >
-            <div className="p-2 rounded-full group-hover:bg-[#00BA7C]/10 transition">
-              <Repeat2 className="w-[18px] h-[18px]" />
-            </div>
-            <span>{formatNumber(repostsCount)}</span>
+            <Repeat2 className="w-4 h-4" />
+            <span>{repostsCount > 0 ? repostsCount : 'Repost'}</span>
           </button>
+        </div>
 
-          {/* Like Button */}
+        {/* Right Actions: Bookmark & Share */}
+        <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={handleToggleLike}
-            className={`flex items-center gap-1.5 group text-[13px] transition ${
-              isLiked ? 'text-[#F91880]' : 'hover:text-[#F91880]'
+            onClick={handleToggleBookmark}
+            className={`p-2 rounded-full hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] transition cursor-pointer ${
+              isSaved ? 'text-[#0B57D0]' : ''
             }`}
-            title="Like"
+            title="Save"
           >
-            <div className="p-2 rounded-full group-hover:bg-[#F91880]/10 transition">
-              <Heart className={`w-[18px] h-[18px] ${isLiked ? 'fill-current' : ''}`} />
-            </div>
-            <span>{formatNumber(likesCount)}</span>
+            <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
           </button>
 
-          {/* Views Button */}
-          <div
-            className="flex items-center gap-1.5 group text-[13px] hover:text-[#1D9BF0] transition"
-            title="Views"
+          <button
+            type="button"
+            onClick={handleCopyLink}
+            className="p-2 rounded-full hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] transition cursor-pointer"
+            title="Share"
           >
-            <div className="p-2 rounded-full group-hover:bg-[#1D9BF0]/10 transition">
-              <BarChart2 className="w-[18px] h-[18px]" />
-            </div>
-            <span>{formatNumber(viewsCount)}</span>
-          </div>
-
-          {/* Bookmark & Share Buttons */}
-          <div className="flex items-center">
-            <button
-              type="button"
-              onClick={handleToggleBookmark}
-              className={`p-2 rounded-full hover:bg-[#1D9BF0]/10 transition ${
-                isSaved ? 'text-[#1D9BF0]' : 'hover:text-[#1D9BF0]'
-              }`}
-              title="Bookmark"
-            >
-              <Bookmark className={`w-[18px] h-[18px] ${isSaved ? 'fill-current' : ''}`} />
-            </button>
-
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              className="p-2 rounded-full hover:bg-[#1D9BF0]/10 hover:text-[#1D9BF0] transition"
-              title="Share"
-            >
-              <Share className="w-[18px] h-[18px]" />
-            </button>
-          </div>
+            <Share2 className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </article>
