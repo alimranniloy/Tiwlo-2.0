@@ -12,14 +12,11 @@ import {
   MoreHorizontal,
   Feather,
   Settings,
-  Flame,
   Radio,
   Vote,
-  Compass,
   Film,
   LogOut,
-  CheckCircle2,
-  ExternalLink
+  CheckCircle2
 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 
@@ -33,7 +30,7 @@ export default function SocialSidebar({ onNavigateHome }) {
     { id: 'search', label: 'Explore', icon: Search },
     { id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadNotifications },
     { id: 'messages', label: 'Messages', icon: Mail, badge: unreadMessages },
-    { id: 'ai-studio', label: 'Grok / AI', icon: Sparkles },
+    { id: 'ai-studio', label: 'Grok', icon: Sparkles },
     { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark },
     { id: 'communities', label: 'Communities', icon: Users },
     { id: 'creator', label: 'Premium', icon: Award },
@@ -42,25 +39,24 @@ export default function SocialSidebar({ onNavigateHome }) {
 
   const moreItems = [
     { id: 'audio-spaces', label: 'Audio Spaces', icon: Radio },
-    { id: 'reels', label: 'Video Reels', icon: Film },
+    { id: 'reels', label: 'Reels', icon: Film },
     { id: 'polls', label: 'Live Polls', icon: Vote },
     { id: 'settings', label: 'Settings and privacy', icon: Settings },
   ];
 
   return (
-    <aside className="w-[68px] xl:w-[275px] h-screen sticky top-0 flex flex-col justify-between px-2 xl:px-4 py-2 border-r border-[#EFF3F4] dark:border-[#2F3336] select-none">
-      <div className="flex flex-col gap-1 items-center xl:items-start">
+    <aside className="w-[68px] sm:w-[88px] xl:w-[275px] h-screen sticky top-0 flex flex-col justify-between px-2 xl:px-4 py-2 border-r border-[#EFF3F4] dark:border-[#2F3336] select-none">
+      <div className="flex flex-col gap-1 items-center xl:items-start w-full">
         {/* Tiwi / Twitter Iconic Logo Button */}
-        <div className="flex items-center gap-2 mb-1 w-full justify-center xl:justify-start">
+        <div className="flex items-center mb-1 w-full justify-center xl:justify-start">
           <button
             onClick={() => {
               if (onNavigateHome) onNavigateHome();
               else navigateTo('feed');
             }}
-            className="w-12 h-12 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-colors group cursor-pointer"
+            className="w-12 h-12 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center transition-colors group cursor-pointer"
             title="Tiwi Home"
           >
-            {/* Iconic Tiwi Bird / X mark */}
             <svg
               viewBox="0 0 24 24"
               aria-hidden="true"
@@ -86,7 +82,7 @@ export default function SocialSidebar({ onNavigateHome }) {
                     navigateTo(item.id);
                   }
                 }}
-                className={`flex items-center gap-5 p-3 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors w-fit xl:w-full group cursor-pointer ${
+                className={`flex items-center justify-center xl:justify-start gap-5 p-3 xl:px-4 xl:py-3 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors w-12 h-12 xl:w-auto xl:h-auto group cursor-pointer ${
                   isActive ? 'font-bold text-[#0F1419] dark:text-[#E7E9EA]' : 'font-normal text-[#0F1419] dark:text-[#E7E9EA]'
                 }`}
               >
@@ -113,7 +109,7 @@ export default function SocialSidebar({ onNavigateHome }) {
           <div className="relative w-fit xl:w-full">
             <button
               onClick={() => setShowMoreMenu((prev) => !prev)}
-              className={`flex items-center gap-5 p-3 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors w-fit xl:w-full group cursor-pointer ${
+              className={`flex items-center justify-center xl:justify-start gap-5 p-3 xl:px-4 xl:py-3 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors w-12 h-12 xl:w-auto xl:h-auto group cursor-pointer ${
                 showMoreMenu ? 'font-bold' : 'font-normal'
               } text-[#0F1419] dark:text-[#E7E9EA]`}
             >
@@ -150,7 +146,7 @@ export default function SocialSidebar({ onNavigateHome }) {
 
         {/* Twitter Iconic Post Button */}
         <div className="w-full mt-4 flex justify-center xl:justify-start">
-          {/* Mobile / Compact Post Icon Button */}
+          {/* Compact Button */}
           <button
             onClick={() => navigateTo('create-post')}
             className="xl:hidden w-12 h-12 rounded-full bg-[#1D9BF0] hover:bg-[#1A8CD8] active:scale-95 text-white flex items-center justify-center shadow-sm transition cursor-pointer"
@@ -159,7 +155,7 @@ export default function SocialSidebar({ onNavigateHome }) {
             <Feather className="w-6 h-6 stroke-[2.2]" />
           </button>
 
-          {/* Full Desktop "Post" Button */}
+          {/* Desktop Full Button */}
           <button
             onClick={() => navigateTo('create-post')}
             className="hidden xl:block w-full bg-[#1D9BF0] hover:bg-[#1A8CD8] active:scale-[0.99] text-white font-bold rounded-full py-3.5 text-[17px] shadow-sm transition cursor-pointer text-center"
@@ -170,10 +166,10 @@ export default function SocialSidebar({ onNavigateHome }) {
       </div>
 
       {/* Bottom Profile / Account Switcher Pill */}
-      <div className="relative w-full mb-3">
+      <div className="relative w-full mb-3 flex justify-center xl:justify-start">
         <button
           onClick={() => setShowAccountMenu((prev) => !prev)}
-          className="flex items-center justify-between p-2 xl:p-3 rounded-full hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer w-full transition-colors group"
+          className="flex items-center justify-between p-2 xl:p-3 rounded-full hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer w-fit xl:w-full transition-colors group"
         >
           <div className="flex items-center gap-3 min-w-0">
             <img

@@ -5,8 +5,6 @@ import {
   Film,
   Smile,
   Globe,
-  MapPin,
-  Calendar,
   Vote,
   X,
   Radio
@@ -68,11 +66,11 @@ export default function CreatePostView() {
 
   return (
     <div className="w-full flex flex-col min-h-screen">
-      {/* 1. Sticky Header: Back Button + Drafts + Post Button */}
-      <div className="sticky top-0 z-20 bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 py-2.5 flex items-center justify-between border-b border-[#EFF3F4] dark:border-[#2F3336]">
+      {/* 1. Sticky Header: 53px height */}
+      <div className="sticky top-0 z-20 bg-white/85 dark:bg-black/85 backdrop-blur-md px-4 h-[53px] flex items-center justify-between border-b border-[#EFF3F4] dark:border-[#2F3336]">
         <button
           onClick={() => navigateTo('feed')}
-          className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+          className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
           title="Back"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -89,7 +87,7 @@ export default function CreatePostView() {
           <button
             onClick={handleSubmit}
             disabled={(!caption.trim() && mediaUrls.length === 0) || submitting || uploading}
-            className="bg-[#1D9BF0] hover:bg-[#1A8CD8] disabled:opacity-50 text-white font-bold text-[15px] px-5 py-1.5 rounded-full shadow-sm transition active:scale-95"
+            className="bg-[#1D9BF0] hover:bg-[#1A8CD8] disabled:opacity-50 text-white font-bold text-[15px] px-5 py-1.5 rounded-full shadow-xs transition active:scale-95 cursor-pointer"
           >
             {submitting ? 'Posting...' : 'Post'}
           </button>
@@ -105,12 +103,12 @@ export default function CreatePostView() {
               'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop'
             }
             alt={currentUser?.name}
-            className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+            className="w-10 h-10 rounded-full object-cover flex-shrink-0 pt-0.5"
           />
 
           <div className="flex-1 flex flex-col">
             {/* Audience Pill */}
-            <div className="flex items-center gap-1.5 text-[#1D9BF0] border border-[#1D9BF0]/40 rounded-full px-3 py-0.5 text-[13px] font-bold w-fit mb-2">
+            <div className="flex items-center gap-1.5 text-[#1D9BF0] border border-[#1D9BF0]/40 rounded-full px-3 py-0.5 text-[13px] font-bold w-fit mb-2 cursor-pointer hover:bg-[#1D9BF0]/10 transition">
               <Globe className="w-3.5 h-3.5" />
               <span>Everyone</span>
             </div>
@@ -121,7 +119,7 @@ export default function CreatePostView() {
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               placeholder="What is happening?!"
-              className="w-full bg-transparent text-[20px] placeholder-[#536471] dark:placeholder-[#71767B] text-[#0F1419] dark:text-[#E7E9EA] outline-none resize-none pt-1"
+              className="w-full bg-transparent text-[20px] placeholder-[#536471] dark:placeholder-[#71767B] text-[#0F1419] dark:text-[#E7E9EA] outline-none resize-none pt-1 leading-relaxed"
             />
           </div>
         </div>

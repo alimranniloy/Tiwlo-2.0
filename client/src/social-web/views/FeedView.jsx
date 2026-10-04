@@ -3,10 +3,6 @@ import {
   Image,
   Film,
   Smile,
-  Calendar,
-  MapPin,
-  ListFilter,
-  Sparkles,
   Globe,
   Radio,
   Vote,
@@ -72,27 +68,28 @@ export default function FeedView() {
 
   return (
     <div className="w-full flex flex-col min-h-screen">
-      {/* 1. Twitter Sticky Header: Tabs 'For you' & 'Following' */}
-      <div className="sticky top-0 z-20 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-[#EFF3F4] dark:border-[#2F3336]">
-        <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
-          <h1 className="text-[20px] font-extrabold text-[#0F1419] dark:text-[#E7E9EA]">
+      {/* 1. Twitter Sticky Header: Home Title + For you / Following Tabs */}
+      <div className="sticky top-0 z-20 bg-white/85 dark:bg-black/85 backdrop-blur-md border-b border-[#EFF3F4] dark:border-[#2F3336]">
+        <div className="h-[53px] flex items-center justify-between px-4">
+          <h1 className="text-[20px] font-extrabold text-[#0F1419] dark:text-[#E7E9EA] tracking-tight">
             Home
           </h1>
           <button
             onClick={handleRefresh}
-            className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+            className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
             title="Refresh"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-[#1D9BF0]' : ''}`} />
           </button>
         </div>
 
-        <div className="flex border-t border-[#EFF3F4] dark:border-[#2F3336]">
+        {/* Tab row: exactly 53px height */}
+        <div className="h-[53px] flex border-t border-[#EFF3F4] dark:border-[#2F3336]">
           {/* 'For you' Tab */}
           <button
             type="button"
             onClick={() => setFeedFilter('for_you')}
-            className="flex-1 py-3.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative text-center cursor-pointer"
+            className="flex-1 h-full flex items-center justify-center hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative cursor-pointer"
           >
             <span
               className={`text-[15px] ${
@@ -112,7 +109,7 @@ export default function FeedView() {
           <button
             type="button"
             onClick={() => setFeedFilter('following')}
-            className="flex-1 py-3.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative text-center cursor-pointer"
+            className="flex-1 h-full flex items-center justify-center hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative cursor-pointer"
           >
             <span
               className={`text-[15px] ${
@@ -131,11 +128,11 @@ export default function FeedView() {
       </div>
 
       {/* 2. Twitter Inline Composer ("What is happening?!") */}
-      <div className="px-4 py-3 border-b border-[#EFF3F4] dark:border-[#2F3336] flex gap-3">
+      <div className="px-4 pt-3 pb-2 border-b border-[#EFF3F4] dark:border-[#2F3336] flex gap-3">
         <button
           type="button"
           onClick={() => navigateTo('profile', currentUser?.handle || currentUser?.id)}
-          className="flex-shrink-0 self-start"
+          className="flex-shrink-0 self-start pt-1"
         >
           <img
             src={
@@ -157,7 +154,7 @@ export default function FeedView() {
           />
 
           {/* Everyone can reply pill indicator */}
-          <div className="flex items-center gap-1.5 text-[#1D9BF0] font-bold text-[13px] pb-3 border-b border-[#EFF3F4] dark:border-[#2F3336] mt-2 mb-2">
+          <div className="flex items-center gap-1.5 text-[#1D9BF0] font-bold text-[13px] pb-3 border-b border-[#EFF3F4] dark:border-[#2F3336] mt-2 mb-2 w-fit cursor-pointer hover:underline">
             <Globe className="w-3.5 h-3.5" />
             <span>Everyone can reply</span>
           </div>
@@ -210,7 +207,7 @@ export default function FeedView() {
             <button
               type="submit"
               disabled={!tweetText.trim() || submittingTweet}
-              className="bg-[#1D9BF0] hover:bg-[#1A8CD8] disabled:opacity-50 text-white font-bold text-[15px] px-4 py-1.5 rounded-full shadow-sm transition active:scale-95 cursor-pointer"
+              className="bg-[#1D9BF0] hover:bg-[#1A8CD8] disabled:opacity-50 text-white font-bold text-[15px] px-4 py-1.5 rounded-full shadow-xs transition active:scale-95 cursor-pointer"
             >
               Post
             </button>
@@ -222,12 +219,12 @@ export default function FeedView() {
       <div className="flex flex-col pb-24 md:pb-12">
         {loading ? (
           <div className="flex flex-col divide-y divide-[#EFF3F4] dark:divide-[#2F3336]">
-            {[1, 2, 3, 4].map((i) => (
+            {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="p-4 flex gap-3 animate-pulse">
                 <div className="w-10 h-10 rounded-full bg-black/10 dark:bg-white/10 flex-shrink-0" />
-                <div className="flex-1 flex flex-col gap-2">
+                <div className="flex-1 flex flex-col gap-2.5 pt-1">
                   <div className="w-1/3 h-4 bg-black/10 dark:bg-white/10 rounded" />
-                  <div className="w-full h-12 bg-black/10 dark:bg-white/10 rounded" />
+                  <div className="w-full h-12 bg-black/10 dark:bg-white/10 rounded-xl" />
                 </div>
               </div>
             ))}
@@ -237,16 +234,16 @@ export default function FeedView() {
             <PostCard key={post.id} post={post} onPostDeleted={handlePostDeleted} />
           ))
         ) : (
-          <div className="py-20 px-6 text-center flex flex-col items-center">
-            <h3 className="font-extrabold text-[22px] text-[#0F1419] dark:text-[#E7E9EA] mb-2">
+          <div className="py-24 px-6 text-center flex flex-col items-center">
+            <h3 className="font-extrabold text-[28px] text-[#0F1419] dark:text-[#E7E9EA] mb-2 leading-tight">
               Welcome to your timeline!
             </h3>
-            <p className="text-[15px] text-[#536471] dark:text-[#71767B] max-w-sm mb-5 leading-relaxed">
+            <p className="text-[15px] text-[#536471] dark:text-[#71767B] max-w-sm mb-6 leading-relaxed">
               This is the best place to see what’s happening in your world. Find people and topics to follow now.
             </p>
             <button
               onClick={() => navigateTo('search')}
-              className="bg-[#0F1419] dark:bg-[#EFF3F4] text-white dark:text-[#0F1419] font-bold text-[15px] px-5 py-2.5 rounded-full hover:opacity-90 transition"
+              className="bg-[#0F1419] dark:bg-[#EFF3F4] text-white dark:text-[#0F1419] font-bold text-[15px] px-5 py-2.5 rounded-full hover:opacity-90 active:scale-95 transition"
             >
               Let’s go
             </button>

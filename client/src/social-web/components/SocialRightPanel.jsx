@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MoreHorizontal, CheckCircle2, Sparkles, TrendingUp } from 'lucide-react';
+import { Search, MoreHorizontal, CheckCircle2 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
 
@@ -35,14 +35,14 @@ export default function SocialRightPanel() {
         ]);
       }
     });
-  }, [currentUser?.id]);
+  }, [currentUser?.id, currentUser?.handle]);
 
   const handleToggleFollow = async (userId) => {
     const isNowFollowing = !followedMap[userId];
     setFollowedMap((prev) => ({ ...prev, [userId]: isNowFollowing }));
     try {
       await TiwiSocialAPI.followUser(userId, currentUser?.id);
-    } catch (e) {
+    } catch {
       setFollowedMap((prev) => ({ ...prev, [userId]: !isNowFollowing }));
     }
   };
@@ -54,11 +54,11 @@ export default function SocialRightPanel() {
   };
 
   return (
-    <div className="w-full flex flex-col gap-4 py-1 sticky top-0 min-h-screen">
+    <div className="w-full flex flex-col gap-4 py-2 sticky top-0 min-h-screen">
       {/* 1. Search Bar */}
       <div className="sticky top-0 bg-white dark:bg-black pt-1 pb-1 z-10">
         <form onSubmit={handleSearchSubmit} className="relative w-full">
-          <div className="flex items-center bg-[#EFF3F4] dark:bg-[#202327] rounded-full px-4 py-2.5 text-[#0F1419] dark:text-[#E7E9EA] focus-within:bg-transparent focus-within:ring-1 focus-within:ring-[#1D9BF0] focus-within:border-[#1D9BF0] border border-transparent transition-all">
+          <div className="flex items-center h-[42px] bg-[#EFF3F4] dark:bg-[#202327] rounded-full px-4 text-[#0F1419] dark:text-[#E7E9EA] focus-within:bg-transparent focus-within:ring-1 focus-within:ring-[#1D9BF0] focus-within:border-[#1D9BF0] border border-transparent transition-all">
             <Search className="w-4 h-4 text-[#536471] dark:text-[#71767B] mr-3 flex-shrink-0" />
             <input
               type="text"
@@ -211,7 +211,7 @@ export default function SocialRightPanel() {
         <button onClick={() => navigateTo('settings', 'privacy')} className="hover:underline">Cookie Policy</button>
         <button onClick={() => navigateTo('settings', 'accessibility')} className="hover:underline">Accessibility</button>
         <button onClick={() => navigateTo('settings', 'ads')} className="hover:underline">Ads info</button>
-        <span>© {new Date().getFullYear()} Tiwi Corp.</span>
+        <span>© 2026 Tiwi Corp.</span>
       </footer>
     </div>
   );

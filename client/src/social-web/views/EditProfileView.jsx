@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Camera, Check } from 'lucide-react';
+import { ArrowLeft, Camera } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
 
@@ -23,7 +23,7 @@ export default function EditProfileView() {
       const url = await TiwiSocialAPI.uploadMedia(file);
       setAvatar(url);
       showToast('Avatar updated', 'info');
-    } catch (err) {
+    } catch {
       showToast('Avatar upload failed', 'error');
     } finally {
       setUploadingAvatar(false);
@@ -38,7 +38,7 @@ export default function EditProfileView() {
       const url = await TiwiSocialAPI.uploadMedia(file);
       setCoverPhoto(url);
       showToast('Header banner updated', 'info');
-    } catch (err) {
+    } catch {
       showToast('Header banner upload failed', 'error');
     } finally {
       setUploadingCover(false);
@@ -86,12 +86,12 @@ export default function EditProfileView() {
 
   return (
     <div className="w-full flex flex-col min-h-screen">
-      {/* 1. Sticky Header: Back Button + Edit Profile + Save Button */}
-      <div className="sticky top-0 z-20 bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 py-2.5 flex items-center justify-between border-b border-[#EFF3F4] dark:border-[#2F3336]">
-        <div className="flex items-center gap-6">
+      {/* 1. Sticky Header: 53px height */}
+      <div className="sticky top-0 z-20 bg-white/85 dark:bg-black/85 backdrop-blur-md px-4 h-[53px] flex items-center justify-between border-b border-[#EFF3F4] dark:border-[#2F3336]">
+        <div className="flex items-center gap-7">
           <button
             onClick={() => navigateTo('profile')}
-            className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+            className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
             title="Back"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -153,7 +153,7 @@ export default function EditProfileView() {
         {/* 4. Twitter Input Fields */}
         <div className="mt-20 flex flex-col gap-5">
           {/* Name Field */}
-          <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-lg p-2.5 focus-within:border-[#1D9BF0] focus-within:ring-1 focus-within:ring-[#1D9BF0] transition">
+          <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-sm p-2 focus-within:border-[#1D9BF0] focus-within:ring-1 focus-within:ring-[#1D9BF0] transition">
             <label className="block text-[13px] text-[#536471] dark:text-[#71767B]">Name</label>
             <input
               type="text"
@@ -165,19 +165,19 @@ export default function EditProfileView() {
           </div>
 
           {/* Bio Field */}
-          <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-lg p-2.5 focus-within:border-[#1D9BF0] focus-within:ring-1 focus-within:ring-[#1D9BF0] transition">
+          <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-sm p-2 focus-within:border-[#1D9BF0] focus-within:ring-1 focus-within:ring-[#1D9BF0] transition">
             <label className="block text-[13px] text-[#536471] dark:text-[#71767B]">Bio</label>
             <textarea
               rows={3}
               value={bio}
               maxLength={160}
               onChange={(e) => setBio(e.target.value)}
-              className="w-full bg-transparent text-[16px] text-[#0F1419] dark:text-[#E7E9EA] outline-none resize-none mt-0.5"
+              className="w-full bg-transparent text-[16px] text-[#0F1419] dark:text-[#E7E9EA] outline-none resize-none mt-0.5 leading-relaxed"
             />
           </div>
 
           {/* Location Field */}
-          <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-lg p-2.5 focus-within:border-[#1D9BF0] focus-within:ring-1 focus-within:ring-[#1D9BF0] transition">
+          <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-sm p-2 focus-within:border-[#1D9BF0] focus-within:ring-1 focus-within:ring-[#1D9BF0] transition">
             <label className="block text-[13px] text-[#536471] dark:text-[#71767B]">Location</label>
             <input
               type="text"
@@ -188,7 +188,7 @@ export default function EditProfileView() {
           </div>
 
           {/* Website Field */}
-          <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-lg p-2.5 focus-within:border-[#1D9BF0] focus-within:ring-1 focus-within:ring-[#1D9BF0] transition">
+          <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-sm p-2 focus-within:border-[#1D9BF0] focus-within:ring-1 focus-within:ring-[#1D9BF0] transition">
             <label className="block text-[13px] text-[#536471] dark:text-[#71767B]">Website</label>
             <input
               type="text"

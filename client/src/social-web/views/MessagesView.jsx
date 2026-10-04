@@ -1,17 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Mail,
   Search,
   Settings,
   Send,
   Image,
   Smile,
   Info,
-  Phone,
-  Video,
   ArrowLeft,
-  CheckCircle2,
-  CheckCheck
+  CheckCircle2
 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
@@ -23,35 +19,10 @@ export default function MessagesView() {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [loadingConvs, setLoadingConvs] = useState(true);
-  const [loadingMessages, setLoadingMessages] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    fetchConversations();
-  }, [currentUser?.id]);
-
-  useEffect(() => {
-    if (tabParams?.id) {
-      setActiveConvId(tabParams.id);
-    }
-  }, [tabParams?.id]);
-
-  useEffect(() => {
-    if (activeConvId) {
-      fetchMessages(activeConvId);
-      TiwiSocialAPI.markSeen(activeConvId, currentUser?.id);
-    }
-  }, [activeConvId]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const fetchConversations = async () => {
-    setLoadingConvs(true);
-    try {
-      const data = await TiwiSocialAPI.getConversations(currentUser?.id);
+    TiwiSocialAPI.getConversations(currentUser?.id).then((data) => {
       if (Array.isArray(data) && data.length > 0) {
         setConversations(data);
         if (!activeConvId) setActiveConvId(data[0].id);
@@ -70,36 +41,39 @@ export default function MessagesView() {
         setConversations(defaultConv);
         if (!activeConvId) setActiveConvId('conv_support');
       }
-    } catch (e) {
-      console.warn('Error fetching conversations:', e);
-    } finally {
-      setLoadingConvs(false);
-    }
-  };
+    });
+  }, [currentUser?.id, activeConvId]);
 
-  const fetchMessages = async (convId) => {
-    setLoadingMessages(true);
-    try {
-      const data = await TiwiSocialAPI.getMessages(convId, currentUser?.id);
-      if (Array.isArray(data) && data.length > 0) {
-        setMessages(data);
-      } else {
-        setMessages([
-          {
-            id: 'm1',
-            senderId: 'other',
-            senderName: 'Tiwi Support',
-            text: 'Hello! You can chat directly with other creators, share thoughts, or coordinate projects.',
-            createdAt: '10:00 AM'
-          }
-        ]);
-      }
-    } catch (e) {
-      console.warn('Failed to fetch messages:', e);
-    } finally {
-      setLoadingMessages(false);
+  useEffect(() => {
+    if (tabParams?.id) {
+      setActiveConvId(tabParams.id);
     }
-  };
+  }, [tabParams?.id]);
+
+  useEffect(() => {
+    if (activeConvId) {
+      TiwiSocialAPI.getMessages(activeConvId, currentUser?.id).then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setMessages(data);
+        } else {
+          setMessages([
+            {
+              id: 'm1',
+              senderId: 'other',
+              senderName: 'Tiwi Support',
+              text: 'Hello! You can chat directly with other creators, share thoughts, or coordinate projects.',
+              createdAt: '10:00 AM'
+            }
+          ]);
+        }
+      });
+      TiwiSocialAPI.markSeen(activeConvId, currentUser?.id);
+    }
+  }, [activeConvId, currentUser?.id]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -120,7 +94,7 @@ export default function MessagesView() {
 
     try {
       await TiwiSocialAPI.sendMessage(activeConvId, currentText, currentUser?.id);
-    } catch (err) {
+    } catch {
       showToast('Failed to deliver message', 'error');
     }
   };
@@ -139,15 +113,15 @@ export default function MessagesView() {
       <div className={`w-full sm:w-[380px] flex-shrink-0 border-r border-[#EFF3F4] dark:border-[#2F3336] flex flex-col h-full ${
         activeConvId ? 'hidden sm:flex' : 'flex'
       }`}>
-        {/* Sticky Header */}
-        <div className="p-3.5 border-b border-[#EFF3F4] dark:border-[#2F3336] flex items-center justify-between">
-          <h1 className="text-[20px] font-extrabold text-[#0F1419] dark:text-[#E7E9EA]">
+        {/* Sticky Header: 53px height */}
+        <div className="h-[53px] px-4 border-b border-[#EFF3F4] dark:border-[#2F3336] flex items-center justify-between">
+          <h1 className="text-[20px] font-extrabold text-[#0F1419] dark:text-[#E7E9EA] tracking-tight">
             Messages
           </h1>
           <div className="flex items-center gap-1">
             <button
               onClick={() => navigateTo('settings')}
-              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-[#0F1419] dark:text-[#E7E9EA] transition"
+              className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-[#0F1419] dark:text-[#E7E9EA] transition"
               title="Settings"
             >
               <Settings className="w-5 h-5" />
@@ -155,9 +129,9 @@ export default function MessagesView() {
           </div>
         </div>
 
-        {/* Search Direct Messages Bar */}
+        {/* Search Direct Messages Bar: 42px */}
         <div className="p-3 border-b border-[#EFF3F4] dark:border-[#2F3336]">
-          <div className="flex items-center bg-[#EFF3F4] dark:bg-[#202327] rounded-full px-4 py-2 text-[#0F1419] dark:text-[#E7E9EA] focus-within:bg-transparent focus-within:ring-1 focus-within:ring-[#1D9BF0] border border-transparent transition">
+          <div className="flex items-center h-[42px] bg-[#EFF3F4] dark:bg-[#202327] rounded-full px-4 text-[#0F1419] dark:text-[#E7E9EA] focus-within:bg-transparent focus-within:ring-1 focus-within:ring-[#1D9BF0] border border-transparent transition">
             <Search className="w-4 h-4 text-[#536471] dark:text-[#71767B] mr-3" />
             <input
               type="text"
@@ -205,7 +179,7 @@ export default function MessagesView() {
                     @{conv.handle || 'user'}
                   </span>
                   <p className="text-[14px] text-[#536471] dark:text-[#71767B] truncate mt-0.5">
-                    {conv.lastMessage || 'Sent an attachment'}
+                    {conv.lastMessage || 'Sent a message'}
                   </p>
                 </div>
               </div>
@@ -220,12 +194,12 @@ export default function MessagesView() {
       }`}>
         {activeConv ? (
           <>
-            {/* Thread Header */}
-            <div className="p-3 border-b border-[#EFF3F4] dark:border-[#2F3336] flex items-center justify-between bg-white/80 dark:bg-black/80 backdrop-blur-md">
+            {/* Thread Header: 53px height */}
+            <div className="h-[53px] px-4 border-b border-[#EFF3F4] dark:border-[#2F3336] flex items-center justify-between bg-white/85 dark:bg-black/85 backdrop-blur-md">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setActiveConvId(null)}
-                  className="sm:hidden p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+                  className="sm:hidden p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
@@ -240,7 +214,7 @@ export default function MessagesView() {
                 />
 
                 <div className="flex flex-col">
-                  <div className="flex items-center gap-1 font-bold text-[15px] text-[#0F1419] dark:text-[#E7E9EA]">
+                  <div className="flex items-center gap-1 font-bold text-[15px] text-[#0F1419] dark:text-[#E7E9EA] leading-tight">
                     <span>{activeConv.name}</span>
                     {activeConv.isVerified && (
                       <CheckCircle2 className="w-4 h-4 text-[#1D9BF0] fill-current inline flex-shrink-0" />
@@ -254,7 +228,7 @@ export default function MessagesView() {
 
               <button
                 onClick={() => navigateTo('profile', activeConv.handle || activeConv.id)}
-                className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-[#536471] dark:text-[#71767B]"
+                className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-[#536471] dark:text-[#71767B]"
               >
                 <Info className="w-5 h-5" />
               </button>
@@ -263,7 +237,7 @@ export default function MessagesView() {
             {/* Messages Scroll View */}
             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
               {/* Profile Intro Header in Chat */}
-              <div className="py-6 flex flex-col items-center text-center border-b border-[#EFF3F4] dark:border-[#2F3336] mb-2">
+              <div className="py-8 flex flex-col items-center text-center border-b border-[#EFF3F4] dark:border-[#2F3336] mb-3">
                 <img
                   src={
                     activeConv.avatar ||
@@ -290,7 +264,7 @@ export default function MessagesView() {
                     }`}
                   >
                     <div
-                      className={`px-4 py-3 text-[15px] leading-relaxed ${
+                      className={`px-4 py-2.5 text-[15px] leading-relaxed ${
                         isMine
                           ? 'bg-[#1D9BF0] text-white rounded-2xl rounded-br-xs'
                           : 'bg-[#EFF3F4] dark:bg-[#2F3336] text-[#0F1419] dark:text-[#E7E9EA] rounded-2xl rounded-bl-xs'
@@ -317,14 +291,14 @@ export default function MessagesView() {
                   <button
                     type="button"
                     onClick={() => showToast('Attach media', 'info')}
-                    className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition"
+                    className="p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition"
                   >
                     <Image className="w-5 h-5" />
                   </button>
                   <button
                     type="button"
                     onClick={() => showToast('Emoji picker', 'info')}
-                    className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition"
+                    className="p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition"
                   >
                     <Smile className="w-5 h-5" />
                   </button>
@@ -341,7 +315,7 @@ export default function MessagesView() {
                 <button
                   type="submit"
                   disabled={!inputText.trim()}
-                  className="p-1.5 text-[#1D9BF0] disabled:opacity-40 hover:opacity-80 transition"
+                  className="p-1.5 text-[#1D9BF0] disabled:opacity-40 hover:opacity-80 transition cursor-pointer"
                 >
                   <Send className="w-5 h-5" />
                 </button>
@@ -350,7 +324,7 @@ export default function MessagesView() {
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-            <h3 className="font-extrabold text-[28px] text-[#0F1419] dark:text-[#E7E9EA] mb-2">
+            <h3 className="font-extrabold text-[28px] text-[#0F1419] dark:text-[#E7E9EA] mb-2 leading-tight">
               Select a message
             </h3>
             <p className="text-[15px] text-[#536471] dark:text-[#71767B] max-w-sm">

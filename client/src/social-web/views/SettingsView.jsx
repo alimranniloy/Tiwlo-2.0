@@ -8,10 +8,7 @@ import {
   Bell,
   Download,
   Info,
-  CheckCircle2,
-  Key,
-  Smartphone,
-  ExternalLink
+  CheckCircle2
 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
@@ -51,7 +48,7 @@ export default function SettingsView() {
       );
       showToast('Verification request received. You will receive an update in 24-48 hours.', 'info');
       setSubSection('menu');
-    } catch (e) {
+    } catch {
       showToast('Submission failed', 'error');
     } finally {
       setSubmittingVerification(false);
@@ -99,12 +96,12 @@ export default function SettingsView() {
 
   return (
     <div className="w-full flex flex-col min-h-screen">
-      {/* 1. Sticky Header */}
-      <div className="sticky top-0 z-20 bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 py-2.5 flex items-center gap-6 border-b border-[#EFF3F4] dark:border-[#2F3336]">
+      {/* 1. Sticky Header: 53px height */}
+      <div className="sticky top-0 z-20 bg-white/85 dark:bg-black/85 backdrop-blur-md px-4 h-[53px] flex items-center gap-7 border-b border-[#EFF3F4] dark:border-[#2F3336]">
         {subSection !== 'menu' ? (
           <button
             onClick={() => setSubSection('menu')}
-            className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+            className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
             title="Back"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -112,7 +109,7 @@ export default function SettingsView() {
         ) : (
           <button
             onClick={() => navigateTo('feed')}
-            className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+            className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
             title="Back"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -176,7 +173,7 @@ export default function SettingsView() {
             </div>
 
             <form onSubmit={handleVerificationSubmit} className="flex flex-col gap-4 mt-2">
-              <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-lg p-2.5 focus-within:border-[#1D9BF0]">
+              <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-sm p-2.5 focus-within:border-[#1D9BF0]">
                 <label className="block text-[13px] text-[#536471] dark:text-[#71767B]">
                   Full Legal Name
                 </label>
@@ -190,7 +187,7 @@ export default function SettingsView() {
                 />
               </div>
 
-              <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-lg p-2.5 focus-within:border-[#1D9BF0]">
+              <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-sm p-2.5 focus-within:border-[#1D9BF0]">
                 <label className="block text-[13px] text-[#536471] dark:text-[#71767B]">
                   Category
                 </label>
@@ -225,7 +222,7 @@ export default function SettingsView() {
               Password & Two-factor authentication
             </h3>
 
-            <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-lg p-2.5 focus-within:border-[#1D9BF0]">
+            <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-sm p-2.5 focus-within:border-[#1D9BF0]">
               <label className="block text-[13px] text-[#536471] dark:text-[#71767B]">
                 Current password
               </label>
@@ -237,7 +234,7 @@ export default function SettingsView() {
               />
             </div>
 
-            <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-lg p-2.5 focus-within:border-[#1D9BF0]">
+            <div className="border border-[#CFD9DE] dark:border-[#536471] rounded-sm p-2.5 focus-within:border-[#1D9BF0]">
               <label className="block text-[13px] text-[#536471] dark:text-[#71767B]">
                 New password
               </label>
@@ -343,7 +340,7 @@ export default function SettingsView() {
 
         {/* Data Subpage */}
         {subSection === 'data' && (
-          <div className="p-6 flex flex-col items-center text-center">
+          <div className="p-8 flex flex-col items-center text-center">
             <Download className="w-12 h-12 text-[#1D9BF0] mb-3" />
             <h3 className="font-extrabold text-[20px] text-[#0F1419] dark:text-[#E7E9EA] mb-1">
               Download your data archive
@@ -366,7 +363,7 @@ export default function SettingsView() {
             <p className="font-bold text-[15px] text-[#0F1419] dark:text-[#E7E9EA]">
               Tiwi Social v2.4 (Twitter Clone Edition)
             </p>
-            <p>© {new Date().getFullYear()} Tiwi Corporation. All rights reserved.</p>
+            <p>© 2026 Tiwi Corporation. All rights reserved.</p>
             <div className="flex flex-col gap-2 mt-2">
               <a href="#terms" className="text-[#1D9BF0] hover:underline">Terms of Service</a>
               <a href="#privacy" className="text-[#1D9BF0] hover:underline">Privacy Policy</a>

@@ -96,14 +96,14 @@ function TwitterLayout({ onNavigateHome }) {
   return (
     <div className="min-h-screen bg-white dark:bg-black text-[#0F1419] dark:text-[#E7E9EA] font-sans antialiased flex justify-center selection:bg-[#1D9BF0]/20 selection:text-[#1D9BF0]">
       <div className="w-full max-w-[1265px] flex justify-between min-h-screen">
-        {/* Left Column: Iconic Twitter Navigation Sidebar */}
-        <header className="flex-shrink-0 z-30">
+        {/* Left Column: Iconic Twitter Navigation Sidebar (Hidden on mobile, visible on sm+) */}
+        <header className="hidden sm:flex flex-shrink-0 z-30">
           <SocialSidebar onNavigateHome={onNavigateHome} />
         </header>
 
         {/* Center Column: Iconic 600px Twitter Feed / Page Column */}
         <main
-          className={`flex-1 min-h-screen border-x border-[#EFF3F4] dark:border-[#2F3336] ${
+          className={`flex-1 min-h-screen border-r-0 sm:border-x border-[#EFF3F4] dark:border-[#2F3336] pb-16 sm:pb-0 ${
             isWideMessages
               ? 'max-w-[990px] w-full'
               : 'max-w-[600px] w-full min-w-0'
@@ -122,7 +122,7 @@ function TwitterLayout({ onNavigateHome }) {
 
         {/* Right Column: Twitter Right Sidebar (Search, Trends, Who to follow) */}
         {!isWideMessages && (
-          <aside className="w-[350px] flex-shrink-0 hidden lg:block px-6">
+          <aside className="w-[290px] xl:w-[350px] flex-shrink-0 hidden lg:block pl-6 pr-4">
             <SocialRightPanel />
           </aside>
         )}

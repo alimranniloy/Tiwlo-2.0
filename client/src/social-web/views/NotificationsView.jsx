@@ -6,7 +6,6 @@ import {
   UserPlus,
   MessageCircle,
   Sparkles,
-  CheckCircle2,
   CheckCheck
 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
@@ -27,8 +26,8 @@ export default function NotificationsView() {
     try {
       const data = await TiwiSocialAPI.getNotifications(currentUser?.id);
       setNotifications(Array.isArray(data) ? data : []);
-    } catch (e) {
-      console.warn('Failed to load notifications:', e);
+    } catch {
+      console.warn('Failed to load notifications');
     } finally {
       setLoading(false);
     }
@@ -40,7 +39,7 @@ export default function NotificationsView() {
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true, read: true })));
       setUnreadNotifications(0);
       showToast('All notifications marked as read', 'info');
-    } catch (e) {
+    } catch {
       showToast('Failed to mark notifications', 'error');
     }
   };
@@ -53,7 +52,7 @@ export default function NotificationsView() {
           prev.map((n) => (n.id === notif.id ? { ...n, isRead: true, read: true } : n))
         );
         setUnreadNotifications((prev) => Math.max(0, prev - 1));
-      } catch (e) {}
+      } catch {}
     }
 
     if (notif.postId) {
@@ -71,23 +70,23 @@ export default function NotificationsView() {
 
   return (
     <div className="w-full flex flex-col min-h-screen">
-      {/* 1. Sticky Header: Notifications + Settings */}
-      <div className="sticky top-0 z-20 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-[#EFF3F4] dark:border-[#2F3336]">
-        <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
-          <h1 className="text-[20px] font-extrabold text-[#0F1419] dark:text-[#E7E9EA]">
+      {/* 1. Sticky Header: Notifications + Settings (53px height) */}
+      <div className="sticky top-0 z-20 bg-white/85 dark:bg-black/85 backdrop-blur-md border-b border-[#EFF3F4] dark:border-[#2F3336]">
+        <div className="h-[53px] flex items-center justify-between px-4">
+          <h1 className="text-[20px] font-extrabold text-[#0F1419] dark:text-[#E7E9EA] tracking-tight">
             Notifications
           </h1>
           <div className="flex items-center gap-1">
             <button
               onClick={handleMarkAllRead}
-              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-[#536471] dark:text-[#71767B] hover:text-[#1D9BF0] transition"
+              className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-[#536471] dark:text-[#71767B] hover:text-[#1D9BF0] transition"
               title="Mark all as read"
             >
               <CheckCheck className="w-5 h-5" />
             </button>
             <button
               onClick={() => navigateTo('settings')}
-              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-[#536471] dark:text-[#71767B] transition"
+              className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-[#536471] dark:text-[#71767B] transition"
               title="Settings"
             >
               <Settings className="w-5 h-5" />
@@ -95,8 +94,8 @@ export default function NotificationsView() {
           </div>
         </div>
 
-        {/* Twitter Tabs: All, Verified, Mentions */}
-        <div className="flex border-t border-[#EFF3F4] dark:border-[#2F3336]">
+        {/* Twitter Tabs: All, Verified, Mentions (53px height) */}
+        <div className="h-[53px] flex border-t border-[#EFF3F4] dark:border-[#2F3336]">
           {[
             { id: 'all', label: 'All' },
             { id: 'verified', label: 'Verified' },
@@ -106,7 +105,7 @@ export default function NotificationsView() {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className="flex-1 py-3.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative text-center cursor-pointer"
+              className="flex-1 h-full flex items-center justify-center hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative cursor-pointer"
             >
               <span
                 className={`text-[15px] ${
@@ -188,11 +187,11 @@ export default function NotificationsView() {
             );
           })
         ) : (
-          <div className="py-20 px-6 text-center flex flex-col items-center">
-            <h3 className="font-extrabold text-[22px] text-[#0F1419] dark:text-[#E7E9EA] mb-2">
+          <div className="py-24 px-6 text-center flex flex-col items-center">
+            <h3 className="font-extrabold text-[28px] text-[#0F1419] dark:text-[#E7E9EA] mb-2 leading-tight">
               Nothing to see here — yet
             </h3>
-            <p className="text-[15px] text-[#536471] dark:text-[#71767B] max-w-sm">
+            <p className="text-[15px] text-[#536471] dark:text-[#71767B] max-w-sm leading-relaxed">
               From likes to reposts and a whole lot more, this is where all the action about your posts and account happens.
             </p>
           </div>

@@ -2,13 +2,10 @@ import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Radio,
-  Plus,
   Mic,
   MicOff,
   Users,
-  Hand,
-  LogOut,
-  Sparkles
+  Hand
 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
@@ -21,7 +18,7 @@ export default function AudioSpacesView() {
   const [isHandRaised, setIsHandRaised] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState('');
-  const [newTopic, setNewTopic] = useState('Tech & Startups');
+  const [newTopic] = useState('Tech & Startups');
 
   useEffect(() => {
     TiwiSocialAPI.getAudioSpaces().then((data) => {
@@ -95,19 +92,19 @@ export default function AudioSpacesView() {
       setShowCreate(false);
       setNewTitle('');
       showToast('Live Audio Space started!', 'info');
-    } catch (e) {
+    } catch {
       showToast('Failed to start space', 'error');
     }
   };
 
   return (
     <div className="w-full flex flex-col min-h-screen">
-      {/* 1. Sticky Header */}
-      <div className="sticky top-0 z-20 bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 py-2.5 flex items-center justify-between border-b border-[#EFF3F4] dark:border-[#2F3336]">
-        <div className="flex items-center gap-6">
+      {/* 1. Sticky Header: 53px height */}
+      <div className="sticky top-0 z-20 bg-white/85 dark:bg-black/85 backdrop-blur-md px-4 h-[53px] flex items-center justify-between border-b border-[#EFF3F4] dark:border-[#2F3336]">
+        <div className="flex items-center gap-7">
           <button
             onClick={() => navigateTo('feed')}
-            className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+            className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
             title="Back"
           >
             <ArrowLeft className="w-5 h-5" />

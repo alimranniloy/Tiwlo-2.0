@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   ArrowLeft,
   Heart,
@@ -10,8 +10,6 @@ import {
   CheckCircle2,
   Image,
   Smile,
-  BarChart2,
-  Trash2,
   Link
 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
@@ -33,13 +31,8 @@ export default function PostDetailView() {
 
   const postId = tabParams?.id;
 
-  useEffect(() => {
-    if (postId) {
-      fetchPost();
-    }
-  }, [postId]);
-
-  const fetchPost = async () => {
+  const fetchPost = useCallback(async () => {
+    if (!postId) return;
     setLoading(true);
     try {
       const p = await TiwiSocialAPI.getPost(postId, currentUser?.id);
@@ -52,12 +45,16 @@ export default function PostDetailView() {
         setIsReposted(!!p.isReposted);
         setRepostsCount(parseInt(p.repostsCount || 0, 10));
       }
-    } catch (e) {
-      console.warn('Failed to load post detail:', e);
+    } catch {
+      console.warn('Failed to load post detail');
     } finally {
       setLoading(false);
     }
-  };
+  }, [postId, currentUser?.id]);
+
+  useEffect(() => {
+    fetchPost();
+  }, [fetchPost]);
 
   const handleToggleLike = async () => {
     const next = !isLiked;
@@ -65,7 +62,7 @@ export default function PostDetailView() {
     setLikesCount((prev) => (next ? prev + 1 : Math.max(0, prev - 1)));
     try {
       await TiwiSocialAPI.toggleLikePost(postId, currentUser?.id);
-    } catch (e) {
+    } catch {
       setIsLiked(!next);
     }
   };
@@ -76,7 +73,7 @@ export default function PostDetailView() {
     setRepostsCount((prev) => (next ? prev + 1 : Math.max(0, prev - 1)));
     try {
       await TiwiSocialAPI.toggleRepost(postId, currentUser?.id);
-    } catch (e) {
+    } catch {
       setIsReposted(!next);
     }
   };
@@ -87,7 +84,7 @@ export default function PostDetailView() {
     showToast(next ? 'Added to your Bookmarks' : 'Removed from Bookmarks', 'info');
     try {
       await TiwiSocialAPI.toggleBookmarkPost(postId, currentUser?.id);
-    } catch (e) {
+    } catch {
       setIsSaved(!next);
     }
   };
@@ -111,7 +108,7 @@ export default function PostDetailView() {
       ]);
       setReplyText('');
       showToast('Your reply was sent', 'info');
-    } catch (e) {
+    } catch {
       showToast('Could not post reply', 'error');
     } finally {
       setSubmittingReply(false);
@@ -124,7 +121,7 @@ export default function PostDetailView() {
     ? [post.image]
     : [];
 
-  const viewsCount = post?.viewsCount || Math.floor((likesCount * 14 + 260));
+  const viewsCount = post?.viewsCount || Math.floor(likesCount * 14 + 260);
 
   if (loading) {
     return (
@@ -136,16 +133,16 @@ export default function PostDetailView() {
 
   if (!post) {
     return (
-      <div className="py-20 px-6 text-center">
-        <h3 className="font-extrabold text-[22px] text-[#0F1419] dark:text-[#E7E9EA] mb-2">
+      <div className="py-24 px-6 text-center">
+        <h3 className="font-extrabold text-[28px] text-[#0F1419] dark:text-[#E7E9EA] mb-2 leading-tight">
           Post not found
         </h3>
-        <p className="text-[15px] text-[#536471] dark:text-[#71767B] mb-4">
+        <p className="text-[15px] text-[#536471] dark:text-[#71767B] mb-5">
           This post may have been deleted or is unavailable.
         </p>
         <button
           onClick={() => navigateTo('feed')}
-          className="bg-[#1D9BF0] text-white font-bold text-[15px] px-5 py-2 rounded-full"
+          className="bg-[#1D9BF0] text-white font-bold text-[15px] px-5 py-2.5 rounded-full hover:bg-[#1A8CD8] transition"
         >
           Return to Home
         </button>
@@ -155,11 +152,11 @@ export default function PostDetailView() {
 
   return (
     <div className="w-full flex flex-col min-h-screen">
-      {/* 1. Sticky Header */}
-      <div className="sticky top-0 z-20 bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 py-3 flex items-center gap-6 border-b border-[#EFF3F4] dark:border-[#2F3336]">
+      {/* 1. Sticky Header: 53px height */}
+      <div className="sticky top-0 z-20 bg-white/85 dark:bg-black/85 backdrop-blur-md px-4 h-[53px] flex items-center gap-7 border-b border-[#EFF3F4] dark:border-[#2F3336]">
         <button
           onClick={() => navigateTo('feed')}
-          className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+          className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
           title="Back"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -191,7 +188,7 @@ export default function PostDetailView() {
             <div className="flex flex-col">
               <button
                 onClick={() => navigateTo('profile', post.author?.handle || post.author?.id)}
-                className="font-bold text-[15px] hover:underline text-left text-[#0F1419] dark:text-[#E7E9EA] flex items-center gap-1"
+                className="font-bold text-[15px] hover:underline text-left text-[#0F1419] dark:text-[#E7E9EA] flex items-center gap-1 leading-tight"
               >
                 <span>{post.author?.name || 'Creator'}</span>
                 {post.author?.isVerified && (
@@ -247,7 +244,7 @@ export default function PostDetailView() {
         )}
 
         {/* Timestamp & Views Row */}
-        <div className="py-3 mt-3 text-[15px] text-[#536471] dark:text-[#71767B] border-b border-[#EFF3F4] dark:border-[#2F3336] flex items-center gap-2">
+        <div className="py-3 mt-3 text-[15px] text-[#536471] dark:text-[#71767B] border-y border-[#EFF3F4] dark:border-[#2F3336] flex items-center gap-2">
           <span>{post.timeAgo || '10:24 PM · Oct 5, 2026'}</span>
           <span>·</span>
           <span className="font-bold text-[#0F1419] dark:text-[#E7E9EA]">
@@ -275,7 +272,7 @@ export default function PostDetailView() {
         )}
 
         {/* Twitter Action Bar: Reply, Repost, Like, Bookmark, Share */}
-        <div className="flex items-center justify-around py-1 text-[#536471] dark:text-[#71767B]">
+        <div className="flex items-center justify-around py-2 text-[#536471] dark:text-[#71767B]">
           <button
             onClick={() => document.getElementById('reply-input')?.focus()}
             className="p-2 rounded-full hover:bg-[#1D9BF0]/10 hover:text-[#1D9BF0] transition"
@@ -335,7 +332,7 @@ export default function PostDetailView() {
             'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop'
           }
           alt={currentUser?.name}
-          className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+          className="w-10 h-10 rounded-full object-cover flex-shrink-0 pt-0.5"
         />
 
         <form onSubmit={handleAddReply} className="flex-1 min-w-0 flex flex-col">
@@ -389,10 +386,10 @@ export default function PostDetailView() {
                 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop'
               }
               alt={comment.author}
-              className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+              className="w-10 h-10 rounded-full object-cover flex-shrink-0 pt-0.5"
             />
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 leading-snug">
                 <span className="font-bold text-[15px] text-[#0F1419] dark:text-[#E7E9EA]">
                   {comment.author || 'User'}
                 </span>
@@ -400,7 +397,7 @@ export default function PostDetailView() {
                   @{comment.handle || 'user'} · {comment.timeAgo || 'recently'}
                 </span>
               </div>
-              <p className="text-[15px] leading-normal text-[#0F1419] dark:text-[#E7E9EA] mt-1 whitespace-pre-wrap">
+              <p className="text-[15px] leading-snug text-[#0F1419] dark:text-[#E7E9EA] mt-1 whitespace-pre-wrap">
                 {comment.text}
               </p>
             </div>

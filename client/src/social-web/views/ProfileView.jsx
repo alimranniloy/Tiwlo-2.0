@@ -5,8 +5,7 @@ import {
   Link as LinkIcon,
   MapPin,
   CheckCircle2,
-  Mail,
-  MoreHorizontal
+  Mail
 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
@@ -57,7 +56,7 @@ export default function ProfileView() {
     try {
       await TiwiSocialAPI.followUser(profile.id, currentUser?.id);
       showToast(nextState ? `Following @${profile.handle}` : `Unfollowed @${profile.handle}`, 'info');
-    } catch (e) {
+    } catch {
       setIsFollowing(!nextState);
     }
   };
@@ -75,11 +74,11 @@ export default function ProfileView() {
 
   return (
     <div className="w-full flex flex-col min-h-screen">
-      {/* 1. Twitter Sticky Header: Back Button + Name + Post Count */}
-      <div className="sticky top-0 z-20 bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 py-1.5 flex items-center gap-6 border-b border-[#EFF3F4] dark:border-[#2F3336]">
+      {/* 1. Twitter Sticky Header: 53px height, Back Button + Name + Post Count */}
+      <div className="sticky top-0 z-20 bg-white/85 dark:bg-black/85 backdrop-blur-md px-4 h-[53px] flex items-center gap-7 border-b border-[#EFF3F4] dark:border-[#2F3336]">
         <button
           onClick={() => navigateTo('feed')}
-          className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+          className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
           title="Back"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -120,7 +119,7 @@ export default function ProfileView() {
         </div>
 
         {/* Top Right Buttons */}
-        <div className="flex justify-end pt-3 gap-2 min-h-[52px]">
+        <div className="flex justify-end pt-3 gap-2 min-h-[64px]">
           {isOwnProfile ? (
             <button
               onClick={() => navigateTo('edit-profile')}
@@ -155,7 +154,7 @@ export default function ProfileView() {
         {/* 4. Profile Details: Name, Handle, Bio, Metas, Stats */}
         <div className="mt-8 flex flex-col">
           <div className="flex items-center gap-1">
-            <h2 className="font-extrabold text-[20px] text-[#0F1419] dark:text-[#E7E9EA]">
+            <h2 className="font-extrabold text-[20px] text-[#0F1419] dark:text-[#E7E9EA] leading-tight">
               {p?.name || 'Tiwi Member'}
             </h2>
             {p?.isVerified && (
@@ -223,8 +222,8 @@ export default function ProfileView() {
         </div>
       </div>
 
-      {/* 5. Twitter Profile Tabs */}
-      <div className="flex border-b border-[#EFF3F4] dark:border-[#2F3336]">
+      {/* 5. Twitter Profile Tabs: 53px height */}
+      <div className="h-[53px] flex border-b border-[#EFF3F4] dark:border-[#2F3336]">
         {[
           { id: 'posts', label: 'Posts' },
           { id: 'replies', label: 'Replies' },
@@ -236,7 +235,7 @@ export default function ProfileView() {
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className="flex-1 py-3.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative text-center cursor-pointer"
+            className="flex-1 h-full flex items-center justify-center hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative cursor-pointer"
           >
             <span
               className={`text-[15px] ${
@@ -265,8 +264,8 @@ export default function ProfileView() {
             />
           ))
         ) : (
-          <div className="py-20 px-6 text-center">
-            <h3 className="font-extrabold text-[22px] text-[#0F1419] dark:text-[#E7E9EA] mb-2">
+          <div className="py-24 px-6 text-center">
+            <h3 className="font-extrabold text-[28px] text-[#0F1419] dark:text-[#E7E9EA] mb-2 leading-tight">
               @{p?.handle || 'user'} hasn’t posted
             </h3>
             <p className="text-[15px] text-[#536471] dark:text-[#71767B]">

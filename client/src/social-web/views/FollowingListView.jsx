@@ -15,7 +15,6 @@ export default function FollowingListView() {
       if (Array.isArray(all)) {
         const filtered = all.filter((u) => u.id !== currentUser?.id);
         setUsers(filtered);
-        // By default on following list, mark them as following
         const initialMap = {};
         filtered.forEach((u) => {
           initialMap[u.id] = true;
@@ -31,19 +30,19 @@ export default function FollowingListView() {
     setFollowedMap((prev) => ({ ...prev, [userId]: isNow }));
     try {
       await TiwiSocialAPI.followUser(userId);
-    } catch (e) {
+    } catch {
       setFollowedMap((prev) => ({ ...prev, [userId]: !isNow }));
     }
   };
 
   return (
     <div className="w-full flex flex-col min-h-screen">
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-20 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-[#EFF3F4] dark:border-[#2F3336]">
-        <div className="px-4 py-1.5 flex items-center gap-6">
+      {/* Sticky Header: 53px height */}
+      <div className="sticky top-0 z-20 bg-white/85 dark:bg-black/85 backdrop-blur-md border-b border-[#EFF3F4] dark:border-[#2F3336]">
+        <div className="px-4 h-[53px] flex items-center gap-7">
           <button
             onClick={() => navigateTo('profile', currentUser?.handle || currentUser?.id)}
-            className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+            className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
             title="Back"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -58,8 +57,8 @@ export default function FollowingListView() {
           </div>
         </div>
 
-        {/* Twitter Tabs: Verified Followers / Followers / Following */}
-        <div className="flex border-t border-[#EFF3F4] dark:border-[#2F3336]">
+        {/* Twitter Tabs: 53px height */}
+        <div className="h-[53px] flex border-t border-[#EFF3F4] dark:border-[#2F3336]">
           {[
             { id: 'verified', label: 'Verified Followers', to: 'followers' },
             { id: 'followers', label: 'Followers', to: 'followers' },
@@ -71,7 +70,7 @@ export default function FollowingListView() {
                 if (tab.to) navigateTo(tab.to);
                 else setActiveTab(tab.id);
               }}
-              className="flex-1 py-3.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative text-center"
+              className="flex-1 h-full flex items-center justify-center hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative text-center"
             >
               <span
                 className={`text-[15px] ${
@@ -139,7 +138,7 @@ export default function FollowingListView() {
                   }}
                   className={`font-bold text-[14px] px-4 py-1.5 rounded-full transition active:scale-95 flex-shrink-0 ${
                     isFollowing
-                      ? 'border border-[#CFD9DE] dark:border-[#536471] text-[#0F1419] dark:text-[#E7E9EA] hover:border-red-500 hover:text-red-500 hover:bg-red-500/10'
+                      ? 'border border-[#CFD9DE] dark:border-[#536471] text-[#0F1419] dark:text-[#E7E9EA]'
                       : 'bg-[#0F1419] dark:bg-[#EFF3F4] text-white dark:text-[#0F1419]'
                   }`}
                 >
@@ -150,10 +149,10 @@ export default function FollowingListView() {
           })
         ) : (
           <div className="py-24 px-8 text-center flex flex-col items-center">
-            <h3 className="font-extrabold text-[28px] text-[#0F1419] dark:text-[#E7E9EA] mb-2">
+            <h3 className="font-extrabold text-[28px] text-[#0F1419] dark:text-[#E7E9EA] mb-2 leading-tight">
               Be in the know
             </h3>
-            <p className="text-[15px] text-[#536471] dark:text-[#71767B] max-w-sm">
+            <p className="text-[15px] text-[#536471] dark:text-[#71767B] max-w-sm leading-relaxed">
               Following accounts is an easy way to curate your timeline and know what’s happening with topics and people you're interested in.
             </p>
           </div>

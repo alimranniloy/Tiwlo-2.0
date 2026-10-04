@@ -18,8 +18,8 @@ export default function SearchView() {
     try {
       const data = await TiwiSocialAPI.search(searchTerm);
       setResults(data || { users: [], posts: [], tags: [] });
-    } catch (e) {
-      console.warn('Search failed:', e);
+    } catch {
+      console.warn('Search failed');
     } finally {
       setLoading(false);
     }
@@ -64,7 +64,7 @@ export default function SearchView() {
     setFollowedMap((prev) => ({ ...prev, [userId]: isNowFollowing }));
     try {
       await TiwiSocialAPI.followUser(userId);
-    } catch (e) {
+    } catch {
       setFollowedMap((prev) => ({ ...prev, [userId]: !isNowFollowing }));
     }
   };
@@ -73,9 +73,9 @@ export default function SearchView() {
 
   return (
     <div className="w-full flex flex-col min-h-screen">
-      {/* 1. Sticky Header with Search Input Bar */}
-      <div className="sticky top-0 z-20 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-[#EFF3F4] dark:border-[#2F3336]">
-        <div className="flex items-center gap-3 px-4 py-2">
+      {/* 1. Sticky Header with Search Input Bar: 53px height */}
+      <div className="sticky top-0 z-20 bg-white/85 dark:bg-black/85 backdrop-blur-md border-b border-[#EFF3F4] dark:border-[#2F3336]">
+        <div className="h-[53px] flex items-center gap-3 px-4">
           {isSearchMode && (
             <button
               onClick={() => {
@@ -83,7 +83,7 @@ export default function SearchView() {
                 setActiveTab('for_you');
                 navigateTo('search');
               }}
-              className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+              className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
               title="Back"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -91,7 +91,7 @@ export default function SearchView() {
           )}
 
           <form onSubmit={handleSearchSubmit} className="flex-1">
-            <div className="flex items-center bg-[#EFF3F4] dark:bg-[#202327] rounded-full px-4 py-2.5 text-[#0F1419] dark:text-[#E7E9EA] focus-within:bg-transparent focus-within:ring-1 focus-within:ring-[#1D9BF0] focus-within:border-[#1D9BF0] border border-transparent transition">
+            <div className="flex items-center h-[42px] bg-[#EFF3F4] dark:bg-[#202327] rounded-full px-4 text-[#0F1419] dark:text-[#E7E9EA] focus-within:bg-transparent focus-within:ring-1 focus-within:ring-[#1D9BF0] focus-within:border-[#1D9BF0] border border-transparent transition">
               <Search className="w-4 h-4 text-[#536471] dark:text-[#71767B] mr-3 flex-shrink-0" />
               <input
                 type="text"
@@ -105,15 +105,15 @@ export default function SearchView() {
 
           <button
             onClick={() => navigateTo('settings')}
-            className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+            className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
             title="Settings"
           >
             <Settings className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Explore Tabs */}
-        <div className="flex border-t border-[#EFF3F4] dark:border-[#2F3336] overflow-x-auto no-scrollbar">
+        {/* Explore Tabs: 53px height */}
+        <div className="h-[53px] flex border-t border-[#EFF3F4] dark:border-[#2F3336] overflow-x-auto no-scrollbar">
           {(isSearchMode
             ? [
                 { id: 'top', label: 'Top' },
@@ -133,7 +133,7 @@ export default function SearchView() {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className="flex-1 min-w-[80px] py-3.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative text-center cursor-pointer"
+              className="flex-1 h-full min-w-[80px] flex items-center justify-center hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition relative cursor-pointer"
             >
               <span
                 className={`text-[15px] whitespace-nowrap ${
@@ -225,8 +225,8 @@ export default function SearchView() {
             {results.posts?.length > 0 ? (
               results.posts.map((post) => <PostCard key={post.id} post={post} />)
             ) : (
-              <div className="py-20 px-6 text-center">
-                <h3 className="font-extrabold text-[22px] text-[#0F1419] dark:text-[#E7E9EA] mb-2">
+              <div className="py-24 px-6 text-center">
+                <h3 className="font-extrabold text-[28px] text-[#0F1419] dark:text-[#E7E9EA] mb-2 leading-tight">
                   No results for "{query}"
                 </h3>
                 <p className="text-[15px] text-[#536471] dark:text-[#71767B]">

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Sparkles, ArrowLeft, Send, Copy, RefreshCw, Check } from 'lucide-react';
+import { Sparkles, ArrowLeft, Send } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 
 export default function AiStudioView() {
-  const { navigateTo, showToast } = useSocial();
+  const { navigateTo } = useSocial();
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -41,12 +41,12 @@ export default function AiStudioView() {
 
   return (
     <div className="w-full flex flex-col h-screen">
-      {/* 1. Sticky Header */}
-      <div className="sticky top-0 z-20 bg-white/80 dark:bg-black/80 backdrop-blur-md px-4 py-2.5 flex items-center justify-between border-b border-[#EFF3F4] dark:border-[#2F3336]">
-        <div className="flex items-center gap-6">
+      {/* 1. Sticky Header: 53px height */}
+      <div className="sticky top-0 z-20 bg-white/85 dark:bg-black/85 backdrop-blur-md px-4 h-[53px] flex items-center justify-between border-b border-[#EFF3F4] dark:border-[#2F3336]">
+        <div className="flex items-center gap-7">
           <button
             onClick={() => navigateTo('feed')}
-            className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
+            className="w-9 h-9 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center text-[#0F1419] dark:text-[#E7E9EA] transition"
             title="Back"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -55,7 +55,7 @@ export default function AiStudioView() {
             <h1 className="text-[20px] font-extrabold text-[#0F1419] dark:text-[#E7E9EA] leading-tight">
               Grok
             </h1>
-            <span className="text-xs bg-[#1D9BF0]/10 text-[#1D9BF0] font-bold px-2 py-0.5 rounded-full">
+            <span className="text-[11px] bg-[#1D9BF0]/10 text-[#1D9BF0] font-bold px-2 py-0.5 rounded-full">
               BETA
             </span>
           </div>
@@ -127,7 +127,7 @@ export default function AiStudioView() {
       <div className="p-3 border-t border-[#EFF3F4] dark:border-[#2F3336] bg-white dark:bg-black sticky bottom-0">
         <form
           onSubmit={handleSend}
-          className="flex items-center bg-[#EFF3F4] dark:bg-[#202327] rounded-3xl px-4 py-2 text-[#0F1419] dark:text-[#E7E9EA] focus-within:bg-transparent focus-within:ring-1 focus-within:ring-[#1D9BF0] border border-transparent transition"
+          className="flex items-center h-[46px] bg-[#EFF3F4] dark:bg-[#202327] rounded-3xl px-4 text-[#0F1419] dark:text-[#E7E9EA] focus-within:bg-transparent focus-within:ring-1 focus-within:ring-[#1D9BF0] border border-transparent transition"
         >
           <input
             type="text"

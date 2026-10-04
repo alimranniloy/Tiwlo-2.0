@@ -27,7 +27,7 @@ export default function PostCard({ post, onPostDeleted }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Approximate views format (e.g. 1.2K, 4.5M)
-  const viewsCount = post.viewsCount || Math.floor((likesCount * 12 + 137));
+  const viewsCount = post.viewsCount || Math.floor(likesCount * 12 + 137);
 
   const isOwner =
     currentUser?.id &&
@@ -40,7 +40,7 @@ export default function PostCard({ post, onPostDeleted }) {
     setLikesCount((prev) => (nextState ? prev + 1 : Math.max(0, prev - 1)));
     try {
       await TiwiSocialAPI.toggleLikePost(post.id, currentUser?.id);
-    } catch (err) {
+    } catch {
       setIsLiked(!nextState);
       setLikesCount((prev) => (!nextState ? prev + 1 : Math.max(0, prev - 1)));
     }
@@ -54,7 +54,7 @@ export default function PostCard({ post, onPostDeleted }) {
     showToast(nextState ? 'Reposted to your profile' : 'Repost undone', 'info');
     try {
       await TiwiSocialAPI.toggleRepost(post.id, currentUser?.id);
-    } catch (err) {
+    } catch {
       setIsReposted(!nextState);
       setRepostsCount((prev) => (!nextState ? prev + 1 : Math.max(0, prev - 1)));
     }
@@ -67,7 +67,7 @@ export default function PostCard({ post, onPostDeleted }) {
     showToast(nextState ? 'Added to your Bookmarks' : 'Removed from Bookmarks', 'info');
     try {
       await TiwiSocialAPI.toggleBookmarkPost(post.id, currentUser?.id);
-    } catch (err) {
+    } catch {
       setIsSaved(!nextState);
     }
   };
@@ -88,7 +88,7 @@ export default function PostCard({ post, onPostDeleted }) {
       await TiwiSocialAPI.deletePost(post.id, currentUser?.id);
       showToast('Your post was deleted', 'info');
       if (onPostDeleted) onPostDeleted(post.id);
-    } catch (err) {
+    } catch {
       showToast('Failed to delete post', 'error');
     }
   };
@@ -112,7 +112,7 @@ export default function PostCard({ post, onPostDeleted }) {
       className="px-4 py-3 border-b border-[#EFF3F4] dark:border-[#2F3336] hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-colors duration-200 cursor-pointer flex gap-3 text-[#0F1419] dark:text-[#E7E9EA]"
     >
       {/* 1. Left Avatar */}
-      <div className="flex-shrink-0">
+      <div className="flex-shrink-0 pt-0.5">
         <button
           type="button"
           onClick={(e) => {
@@ -135,7 +135,7 @@ export default function PostCard({ post, onPostDeleted }) {
       {/* 2. Main Content Body */}
       <div className="flex-1 min-w-0">
         {/* Header Row: Name, Verified, @Handle, Dot, Timestamp, More Menu */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between leading-snug">
           <div className="flex items-center gap-1 min-w-0 flex-wrap">
             <button
               type="button"
@@ -178,7 +178,7 @@ export default function PostCard({ post, onPostDeleted }) {
                 e.stopPropagation();
                 setMenuOpen((prev) => !prev);
               }}
-              className="w-8 h-8 rounded-full hover:bg-[#1D9BF0]/10 flex items-center justify-center text-[#536471] dark:text-[#71767B] hover:text-[#1D9BF0] transition -mr-2"
+              className="w-8 h-8 rounded-full hover:bg-[#1D9BF0]/10 flex items-center justify-center text-[#536471] dark:text-[#71767B] hover:text-[#1D9BF0] transition -mr-1.5"
               title="More"
             >
               <MoreHorizontal className="w-4 h-4" />
@@ -240,7 +240,7 @@ export default function PostCard({ post, onPostDeleted }) {
 
         {/* Text Content */}
         {post.caption && (
-          <div className="text-[15px] leading-normal mt-1 whitespace-pre-wrap break-words text-[#0F1419] dark:text-[#E7E9EA]">
+          <div className="text-[15px] leading-snug mt-1 whitespace-pre-wrap break-words text-[#0F1419] dark:text-[#E7E9EA]">
             {post.caption.split(/(#[a-zA-Z0-9_]+|@[a-zA-Z0-9_]+|https?:\/\/[^\s]+)/g).map((part, i) => {
               if (part.startsWith('#')) {
                 return (
@@ -325,7 +325,7 @@ export default function PostCard({ post, onPostDeleted }) {
         )}
 
         {/* Twitter Action Bar: Reply, Repost, Like, Views, Bookmark/Share */}
-        <div className="flex items-center justify-between mt-3 text-[#536471] dark:text-[#71767B] max-w-md">
+        <div className="flex items-center justify-between mt-3 text-[#536471] dark:text-[#71767B] max-w-[425px] -ml-2">
           {/* Reply Button */}
           <button
             type="button"
