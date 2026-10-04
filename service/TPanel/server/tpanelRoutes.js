@@ -97,16 +97,11 @@ router.post('/apps/install', async (req, res) => {
   }
 });
 
-import { provisionCustomDomain } from '../../../server/dns/sslManager.js';
-
 // 4. Websites CRUD
 router.post('/websites', async (req, res) => {
   try {
     const userId = getUserId(req);
     const site = await TPanelDB.createWebsite(userId, req.body);
-    if (site?.domain) {
-      try { provisionCustomDomain(site.domain); } catch (e) {}
-    }
     res.json({ success: true, site });
   } catch (err) {
     res.status(500).json({ error: 'Failed to create website' });
@@ -130,8 +125,11 @@ router.post('/domains', async (req, res) => {
     const domain = req.body.domain || req.body.domainName;
     if (!domain) return res.status(400).json({ error: 'Domain name is required' });
     const result = await TPanelDB.addDomain(userId, domain);
-    try { provisionCustomDomain(domain); } catch (e) {}
-    res.json({ success: true, domain: result });
+    res.json({
+      success: true,
+      domain: result,
+      message: 'Domain record saved. Verify ownership and request SSL through the authenticated /api/domains workflow.'
+    });
   } catch (err) {
     res.status(500).json({ error: 'Failed to add domain' });
   }
@@ -175,9 +173,7 @@ router.post('/ssl/issue', async (req, res) => {
   try {
     const userId = getUserId(req);
     const { domain } = req.body;
-    if (domain) {
-      try { provisionCustomDomain(domain); } catch (e) {}
-    }
+    if (domain) return res.status(409).json({ error: 'Custom domain ownership must be verified through /api/domains before SSL can be issued.' });
     const cert = await TPanelDB.issueOrRenewSsl(userId, domain);
     res.json({ success: true, cert });
   } catch (err) {
@@ -189,9 +185,7 @@ router.post('/ssl/renew', async (req, res) => {
   try {
     const userId = getUserId(req);
     const { domain } = req.body;
-    if (domain) {
-      try { provisionCustomDomain(domain); } catch (e) {}
-    }
+    if (domain) return res.status(409).json({ error: 'Custom domain ownership must be verified through /api/domains before SSL can be renewed.' });
     const cert = await TPanelDB.issueOrRenewSsl(userId, domain);
     res.json({ success: true, cert });
   } catch (err) {

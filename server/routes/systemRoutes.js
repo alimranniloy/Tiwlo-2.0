@@ -18,6 +18,7 @@ import {
 import { getFfmpegStatus } from '../security/videoProcessor.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { MasterDB } from '../db/multiTenant.js';
+import { findActiveCustomDomain } from '../domains/domainService.js';
 
 const router = express.Router();
 
@@ -35,7 +36,7 @@ router.get('/ffmpeg-status', async (req, res) => {
 // Caddy calls this before requesting an on-demand TLS certificate. Only this
 // deployment's primary domain and its own subdomains are approved. The route
 // deliberately stays before the authenticated system-route middleware.
-router.get('/tls/allow', (req, res) => {
+router.get('/tls/allow', async (req, res) => {
   const requestedHost = String(req.query.domain || '').trim().toLowerCase().replace(/\.$/, '');
   const primaryDomain = PLATFORM_CONFIG.primaryDomain;
   if (!requestedHost || !primaryDomain) return res.sendStatus(403);
@@ -44,7 +45,13 @@ router.get('/tls/allow', (req, res) => {
   const isAllowedDomain = allowedDomains.some(
     domain => requestedHost === domain || requestedHost.endsWith(`.${domain}`)
   );
-  return res.sendStatus(isAllowedDomain ? 200 : 403);
+  if (isAllowedDomain) return res.sendStatus(200);
+  try {
+    return res.sendStatus(await findActiveCustomDomain(requestedHost) ? 200 : 403);
+  } catch (error) {
+    console.error('[SystemRoutes] Could not validate custom TLS domain:', error);
+    return res.sendStatus(503);
+  }
 });
 
 router.use((req, res, next) => {

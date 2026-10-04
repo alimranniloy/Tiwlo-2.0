@@ -10,8 +10,8 @@ export default function FaqSection({ onNavigate }) {
       a: 'You can launch a fully functional, mobile-optimized online store in less than 5 minutes. Select your account type, pick a modern theme, add your first products, and start accepting payments immediately.'
     },
     {
-      q: 'Can I connect my own custom domain with free automated SSL?',
-      a: 'Yes. Tiwlo features an automated DNS and certificate manager. Simply point your domain via an A record or CNAME, and our system will automatically verify and issue a trusted Let’s Encrypt wildcard TLS 1.3 certificate with auto-renewal.'
+      q: 'Can I connect my own custom domain with automated SSL?',
+      a: 'Growth, Pro, and Enterprise accounts can connect a custom domain through the authenticated domain API. Add the requested TXT ownership record and point its A record to the Tiwlo server; after verification, the system can provision SSL. DNS records must be added at your domain provider.'
     },
     {
       q: 'How does Tiwlo’s isolated multi-tenant database protect my business data?',

@@ -41,6 +41,18 @@ Obsolete TPanel Nginx, DNS, and runtime JSON snapshots were removed. Active DNS 
 
 Tiwi reads one `EXPO_PUBLIC_API_URL` base URL from `Tiwi/.env` (copy `Tiwi/.env.example`). All API and server-hosted media URLs use that base; local development can override it with the same variable.
 
+### Custom domain API
+
+Custom domains are available to Growth, Pro, and Enterprise plans (up to 10 per account). The authenticated API is under `/api/domains`:
+
+1. `POST /api/domains` with `{ "domain": "shop.example.com" }` creates a pending record and returns the ownership TXT record plus the A record target.
+2. Add the provided TXT record at `_tiwlo-verification.shop.example.com` and point the domain A record to the returned server IP at the registrar/DNS provider.
+3. Call `POST /api/domains/:id/verify` to verify TXT ownership and inspect whether the A record has propagated.
+4. Once the A record points directly to this server (DNS-only, without a proxy), call `POST /api/domains/:id/provision`. Nginx deployments issue a Let’s Encrypt certificate and add a virtual host; production Docker/Caddy deployments allow Caddy to issue the certificate on demand after the domain is active. The development Docker compose stack has no TLS proxy and does not support SSL provisioning.
+5. `GET /api/domains` lists owned domains and their statuses; `GET /api/domains/:id` refreshes DNS status. `DELETE /api/domains/:id` removes a pending/failed domain; active SSL domains cannot yet be detached through this API.
+
+The DNS provider is not changed automatically; customers must add the records themselves. The current API provisions the apex hostname only (not `www`). Active custom hostnames can obtain TLS and reach the shared Tiwlo web application, but store-specific hostname routing is not implemented yet. A dashboard workflow and active-domain detach/revocation are also not implemented yet.
+
 ### Start both Frontend & Backend:
 ```bash
 npm run dev

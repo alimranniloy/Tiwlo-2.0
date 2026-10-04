@@ -53,7 +53,7 @@ export const KnowledgeBaseBrain = {
       'All database queries in GraphQL and REST are enforced with WHERE tiwi_id = $tenant_id.',
       'Inventory ledgers, sales records, customer PII, and financial invoices are strictly partitioned.',
       'Cross-tenant data leakage is cryptographically prevented via session tokens and schema separation.',
-      `Each tenant can attach custom subdomains (*.${PLATFORM_CONFIG.storeDomain}) or apex custom domains with automated Let’s Encrypt wildcard SSL.`
+      `Each tenant receives a platform subdomain (*.${PLATFORM_CONFIG.storeDomain}). Eligible plans can register a custom domain, prove ownership with DNS TXT, point an A record to the platform server, and request an apex Let’s Encrypt certificate.`
     ]
   },
 

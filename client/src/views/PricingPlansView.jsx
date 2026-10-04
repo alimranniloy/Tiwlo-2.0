@@ -218,7 +218,7 @@ export default function PricingPlansView({
     },
     {
       q: 'Can I connect my own custom domain later?',
-      a: 'Yes! When you upgrade to Growth Retailer, Pro Business, or Enterprise VIP, you can map your custom domain (like store.yourbrand.com) with automatic HTTPS SSL certificate provisioning.'
+      a: 'Yes. Growth Retailer, Pro Business, and Enterprise VIP plans include custom domains. Add the required TXT and A records at your DNS provider, then use Tiwlo’s authenticated domain API to verify the domain and request HTTPS provisioning. The dashboard workflow is coming later.'
     },
     {
       q: 'Can I switch or cancel my plan at any time?',

@@ -24,6 +24,8 @@ import securityRoutes from './security/securityRoutes.js';
 import systemRoutes from './routes/systemRoutes.js';
 import storeRoutes from './routes/storeRoutes.js';
 import authRoutes from './routes/authRoutes.js';
+import domainRoutes from './routes/domainRoutes.js';
+import { findActiveCustomDomain } from './domains/domainService.js';
 
 import socialRoutes from './social/socialRoutes.js';
 import { SocialDB } from './social/socialDb.js';
@@ -106,7 +108,7 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-  origin: function (origin, callback) {
+  origin: async function (origin, callback) {
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
     try {
@@ -116,6 +118,7 @@ app.use(cors({
       )) {
         return callback(null, true);
       }
+      if (await findActiveCustomDomain(hostname)) return callback(null, true);
     } catch (error) {
       return callback(error);
     }
@@ -297,6 +300,7 @@ app.use('/api/support', supportRoutes);
 
 // Authentication, 2FA, Profiles & SSO Handshake (Mounted first to handle public login/register/check endpoints)
 app.use('/api', authRoutes);
+app.use('/api/domains', domainRoutes);
 
 // Cloud & Droplets
 app.use('/api/cloud', cloudRoutes);

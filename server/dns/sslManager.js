@@ -1,10 +1,9 @@
 /**
  * Tiwlo Enterprise Automated SSL Manager
  *
- * Provides automated, zero-touch SSL certificate provisioning & renewal
- * via Let's Encrypt / Certbot and ACME webroot / DNS verification for:
- * - The configured primary/store domains and their subdomains (Wildcard SSL)
- * - Custom tenant/store domains connected via Tiwlo Nameservers
+ * Provisions platform certificates and verified custom-domain certificates.
+ * Customer domains must pass the authenticated DNS verification flow before
+ * this module is called.
  */
 
 import { execSync, execFileSync } from 'child_process';
@@ -235,11 +234,10 @@ export function provisionCustomDomain(domain) {
   if (!domain || typeof domain !== 'string') return false;
   const cleanDomain = domain.toLowerCase().trim();
 
-  // Strict domain validation regex: RFC 1035 compliant hostname
+  // Keep filesystem paths and Nginx identifiers derived only from validated DNS names.
   const DOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
   if (!DOMAIN_REGEX.test(cleanDomain) || cleanDomain.length > 253) {
-    console.error(`❌ Security rejection: Invalid domain format "${cleanDomain}"`);
-    return false;
+    throw new Error('Invalid domain format for certificate provisioning.');
   }
 
   console.log(`🔒 Checking SSL provisioning for domain: ${cleanDomain}...`);
@@ -252,30 +250,18 @@ export function provisionCustomDomain(domain) {
     return true;
   }
 
-  if (process.platform === 'win32') return true;
+  if (process.env.SSL_PROVIDER === 'caddy') return true;
+  if (process.env.SSL_PROVIDER !== 'nginx') return false;
+  if (process.platform === 'win32') return false;
 
-  try {
-    // Issue certificate for custom external domain via webroot (safe argument array without shell execution)
-    const certbotArgs = [
-      'certonly',
-      '--webroot',
-      '-w', SSL_CONFIG.CERTBOT_WEBROOT,
-      '-d', cleanDomain,
-      '-d', `www.${cleanDomain}`,
-      '--non-interactive',
-      '--agree-tos',
-      '--email', SSL_CONFIG.EMAIL,
-      '--keep-until-expiring'
-    ];
-    execFileSync('certbot', certbotArgs, { stdio: 'inherit' });
-
-    // Create custom virtual host
-    const vhostPath = `/etc/nginx/sites-available/${cleanDomain}`;
-    const vhostEnabled = `/etc/nginx/sites-enabled/${cleanDomain}`;
-    const vhostContent = `
+  const sitesAvailable = '/etc/nginx/sites-available';
+  const sitesEnabled = '/etc/nginx/sites-enabled';
+  const vhostPath = path.join(sitesAvailable, `tiwlo-custom-${cleanDomain}`);
+  const vhostEnabled = path.join(sitesEnabled, `tiwlo-custom-${cleanDomain}`);
+  const httpConfig = `
 server {
     listen 80;
-    server_name ${cleanDomain} www.${cleanDomain};
+    server_name ${cleanDomain};
     location /.well-known/acme-challenge/ {
         root ${SSL_CONFIG.CERTBOT_WEBROOT};
         allow all;
@@ -284,15 +270,22 @@ server {
         return 301 https://$host$request_uri;
     }
 }
+`;
 
+  const httpsConfig = `
 server {
     listen 443 ssl http2;
-    server_name ${cleanDomain} www.${cleanDomain};
+    server_name ${cleanDomain};
     ssl_certificate /etc/letsencrypt/live/${cleanDomain}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${cleanDomain}/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers on;
     client_max_body_size 100M;
+
+    location /.well-known/acme-challenge/ {
+        root ${SSL_CONFIG.CERTBOT_WEBROOT};
+        allow all;
+    }
 
     location / {
         root /var/www/tiwlo/client/dist;
@@ -301,7 +294,7 @@ server {
     }
 
     location /api/ {
-        proxy_pass http://127.0.0.1:5001/api/;
+        proxy_pass http://127.0.0.1:${Number.parseInt(process.env.HTTP_PORT || String(Number(process.env.PORT || 5000) + 1), 10)}/api/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -312,15 +305,30 @@ server {
     }
 }
 `;
-    fs.writeFileSync(vhostPath, vhostContent, 'utf8');
-    if (!fs.existsSync(vhostEnabled)) {
-      try { fs.symlinkSync(vhostPath, vhostEnabled); } catch (e) {}
-    }
-    execSync('nginx -t && systemctl reload nginx', { stdio: 'inherit' });
-    console.log(`🎉 Custom domain SSL active for: ${cleanDomain}`);
-    return true;
-  } catch (err) {
-    console.error(`❌ Error provisioning custom domain ${cleanDomain}:`, err.message);
-    return false;
+
+  if (!fs.existsSync(sitesAvailable) || !fs.existsSync(sitesEnabled)) {
+    throw new Error('Nginx site configuration directories are unavailable.');
   }
+
+  fs.writeFileSync(vhostPath, httpConfig, { encoding: 'utf8', mode: 0o644 });
+  if (!fs.existsSync(vhostEnabled)) fs.symlinkSync(vhostPath, vhostEnabled);
+  execFileSync('nginx', ['-t'], { stdio: 'inherit' });
+  execFileSync('systemctl', ['reload', 'nginx'], { stdio: 'inherit' });
+
+  execFileSync('certbot', [
+    'certonly',
+    '--webroot',
+    '-w', SSL_CONFIG.CERTBOT_WEBROOT,
+    '-d', cleanDomain,
+    '--non-interactive',
+    '--agree-tos',
+    '--email', SSL_CONFIG.EMAIL,
+    '--keep-until-expiring'
+  ], { stdio: 'inherit' });
+
+  fs.writeFileSync(vhostPath, httpsConfig, { encoding: 'utf8', mode: 0o644 });
+  execFileSync('nginx', ['-t'], { stdio: 'inherit' });
+  execFileSync('systemctl', ['reload', 'nginx'], { stdio: 'inherit' });
+  console.log(`🎉 Custom domain SSL active for: ${cleanDomain}`);
+  return true;
 }

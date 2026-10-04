@@ -123,6 +123,22 @@ export async function initPgSchema() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
 
+      CREATE TABLE IF NOT EXISTS system_custom_domains (
+        id VARCHAR(64) PRIMARY KEY,
+        user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
+        tiwi_id VARCHAR(64) NOT NULL,
+        domain VARCHAR(253) NOT NULL UNIQUE,
+        verification_token VARCHAR(128) NOT NULL,
+        status VARCHAR(32) NOT NULL DEFAULT 'pending_verification',
+        ssl_status VARCHAR(32) NOT NULL DEFAULT 'not_requested',
+        ssl_error TEXT,
+        verified_at TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_custom_domains_user ON system_custom_domains(user_id);
+      CREATE INDEX IF NOT EXISTS idx_custom_domains_status ON system_custom_domains(status, ssl_status);
+
       -- 2. TIWI SOCIAL ECOSYSTEM TABLES
       CREATE TABLE IF NOT EXISTS social_profiles (
         id VARCHAR(64) PRIMARY KEY REFERENCES system_users(id) ON DELETE CASCADE,

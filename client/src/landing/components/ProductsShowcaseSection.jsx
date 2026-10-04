@@ -319,32 +319,32 @@ export default function ProductsShowcaseSection({ onNavigate, currentUser }) {
                 </div>
                 <div>
                   <h3 className="text-2xl sm:text-3xl font-medium text-[#1f1f1f] tracking-tight">
-                    Anycast Edge DNS & Automated SSL
+                    Custom Domain DNS Verification & SSL
                   </h3>
                   <p className="text-[15px] text-[#5f6368] leading-relaxed mt-2">
-                    Point your custom domain and our Anycast routing network handles global propagation, DDoS shielding, and automated TLS 1.3 certificates.
+                    Add a TXT record to prove ownership and point an A record to Tiwlo. After verification, request an apex-domain certificate through the authenticated domain API.
                   </p>
                 </div>
                 <div className="space-y-3 pt-2 text-[14px] text-[#444746]">
                   <div className="flex items-start gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-[#137333] shrink-0 mt-0.5" />
-                    <span>Global Anycast DNS resolving custom domains in under 25 milliseconds</span>
+                    <span>DNS ownership and server-address verification before activation</span>
                   </div>
                   <div className="flex items-start gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-[#137333] shrink-0 mt-0.5" />
-                    <span>Zero-touch automated Let’s Encrypt wildcard certificate renewals</span>
+                    <span>Let’s Encrypt certificate provisioning for verified apex domains</span>
                   </div>
                   <div className="flex items-start gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-[#137333] shrink-0 mt-0.5" />
-                    <span>Edge caching and HTTP/3 QUIC protocol support out of the box</span>
+                    <span>Certificate renewal is handled by the configured web-server deployment</span>
                   </div>
                 </div>
                 <div className="pt-4">
                   <button
-                    onClick={() => onNavigate('domains')}
+                    onClick={() => onNavigate('pricing')}
                     className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-[14px] font-medium transition-colors cursor-pointer"
                   >
-                    <span>Configure Custom Domain</span>
+                    <span>View Eligible Plans</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -356,9 +356,9 @@ export default function ProductsShowcaseSection({ onNavigate, currentUser }) {
                   Edge Network Metrics
                 </div>
                 {[
-                  { title: '< 25ms Global DNS Resolution', desc: 'Anycast nameservers globally distributed across 20+ Tier-4 data centers.' },
-                  { title: 'Automatic TLS 1.3 SSL Provisioning', desc: 'Trusted HTTPS encryption activated automatically upon domain pointer verification.' },
-                  { title: 'Integrated DDoS Mitigation', desc: 'Layer 3, 4, and 7 traffic filtering protecting your checkout from malicious bursts.' }
+                  { title: 'TXT ownership verification', desc: 'Prove control of the custom domain before it can be activated.' },
+                  { title: 'Apex-domain SSL provisioning', desc: 'Request a certificate after the apex A record points to the configured Tiwlo server.' },
+                  { title: 'Manual DNS management', desc: 'DNS records are created at your registrar or DNS provider; Tiwlo does not change them.' }
                 ].map((feat, i) => (
                   <div key={i} className="p-4 rounded-[14px] bg-white shadow-xs">
                     <div className="font-medium text-[#1f1f1f] text-[14px]">{feat.title}</div>

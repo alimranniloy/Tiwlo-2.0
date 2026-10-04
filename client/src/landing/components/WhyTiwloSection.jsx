@@ -27,7 +27,7 @@ export default function WhyTiwloSection({ onNavigate }) {
     },
     {
       title: 'Automated SSL & DNS Engine',
-      desc: 'Instant TLS 1.3 wildcard certificate provisioning and automatic DNS propagation for custom domain names.',
+      desc: 'Verify custom-domain ownership with DNS records and request SSL once the domain points to Tiwlo.',
       icon: Lock,
       badgeColor: 'bg-[#fef7e0] text-[#b06000]'
     },

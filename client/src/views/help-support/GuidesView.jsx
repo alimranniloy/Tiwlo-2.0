@@ -85,18 +85,18 @@ export default function GuidesView({ onBack }) {
       steps: [
         {
           num: 1,
-          title: 'Access Store Settings',
-          desc: 'Navigate to "Store Settings" in your store dashboard and enter your domain name in the Custom Domain field.'
+          title: 'Register a custom domain',
+          desc: 'Use the authenticated POST /api/domains endpoint with your domain name. The dashboard workflow will be added later.'
         },
         {
           num: 2,
-          title: 'Add DNS CNAME or A Record',
-          desc: 'In your domain registrar (GoDaddy, Cloudflare, Namecheap), add an A record pointing your custom domain to your VPS IP.'
+          title: 'Add the verification and address records',
+          desc: 'At your DNS provider, add the TXT record returned by the API and an A record pointing the domain to the returned Tiwlo server IP.'
         },
         {
           num: 3,
-          title: 'Automated SSL Provisioning',
-          desc: 'Tiwlo verifies DNS propagation within 60 seconds and automatically generates a Let\'s Encrypt certificate with auto-renewal.'
+          title: 'Verify and request SSL',
+          desc: 'Call POST /api/domains/:id/verify after adding the TXT record. When the A record points to Tiwlo, POST /api/domains/:id/provision requests SSL. DNS propagation time varies by provider.'
         }
       ]
     },

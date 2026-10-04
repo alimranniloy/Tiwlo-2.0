@@ -13,7 +13,7 @@ export default function LandingFooter({ onNavigate }) {
         { label: 'Cloud Infrastructure', action: () => onNavigate('dashboard') },
         { label: 'Omnichannel POS Register', action: () => onNavigate('pos') },
         { label: 'Multi-Tenant Database', action: () => onNavigate('dashboard') },
-        { label: 'Anycast DNS & SSL', action: () => onNavigate('domains') }
+        { label: 'Custom Domain DNS & SSL', action: () => onNavigate('pricing') }
       ]
     },
     {
@@ -22,7 +22,7 @@ export default function LandingFooter({ onNavigate }) {
         { label: 'Fast-Growing Startups', action: () => onNavigate('create-account') },
         { label: 'Retail & Multi-Branch POS', action: () => onNavigate('store') },
         { label: 'Wholesale & Inventory', action: () => onNavigate('pos') },
-        { label: 'Custom Domain Hosting', action: () => onNavigate('domains') },
+        { label: 'Custom Domain Hosting', action: () => onNavigate('pricing') },
         { label: 'Enterprise Security', action: () => onNavigate('help-support') }
       ]
     },

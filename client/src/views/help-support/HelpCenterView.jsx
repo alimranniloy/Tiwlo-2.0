@@ -45,7 +45,7 @@ export default function HelpCenterView({ initialQuery = '', onBack, onOpenInbox 
       snippet: 'Understand the multi-tenant architecture that ensures strict row-level isolation and zero cross-leakage.',
       content: `Every online store created in Tiwlo receives a unique tenant identifier (e.g. TIW-XXXXX):
 1. **Isolated Data Schema:** Products, inventory, transactions, customers, and orders are partitioned strictly by user ID and store ID.
-2. **Subdomain Routing:** Each store gets a distinct *.${STORE_DOMAIN} or custom domain with automated SSL.
+2. **Subdomain Routing:** Each store gets a distinct *.${STORE_DOMAIN}. Custom domains require DNS verification and SSL provisioning through the domain API.
 3. **Database Security:** Cloud operations and POS transactions run through isolated GraphQL endpoints that verify authorization on every mutation.`
     },
     {
@@ -73,12 +73,12 @@ export default function HelpCenterView({ initialQuery = '', onBack, onOpenInbox 
     {
       id: 'art_5',
       category: 'Security & SSL',
-      title: 'How automated wildcard Let’s Encrypt SSL certificates work',
-      snippet: 'Details on automated certificate generation, renewal cycles, and DDoS mitigation.',
-      content: `All Tiwlo cloud droplets and custom store domains are secured automatically:
-1. Wildcard certificates are provisioned upon domain attachment.
-2. Automated renewal scripts run 30 days prior to expiry with zero manual intervention.
-3. HTTP to HTTPS forced redirection is enabled by default to protect customer checkouts.`
+      title: 'How custom-domain Let’s Encrypt SSL certificates work',
+      snippet: 'Details on ownership verification, certificate generation, and renewal.',
+      content: `Custom domains require an explicit verification and provisioning step:
+1. Prove domain ownership by adding the TXT record returned by the authenticated domain API.
+2. Point the domain A record to the Tiwlo server and request SSL after DNS is ready.
+3. Nginx Certbot deployments use the system renewal timer; Docker deployments use Caddy on-demand TLS after the domain is activated.`
     }
   ];
 

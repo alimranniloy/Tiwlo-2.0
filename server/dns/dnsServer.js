@@ -2,8 +2,8 @@
  * Tiwlo Enterprise Authoritative DNS Server
  * 
  * High-performance, anti-DDoS, authoritative nameserver for Tiwlo Platform.
- * Serves primary records for the configured platform domain and nameservers,
- * and dynamically resolves all multi-tenant custom domains & subdomains.
+ * Serves primary records for configured Tiwlo domains and nameservers only.
+ * Customer custom domains use records at their own DNS provider.
  *
  * Security Features:
  * - Authoritative Only (Recursion Available = false) -> Prevents Open Resolver abuse
@@ -113,17 +113,7 @@ function isDomainAuthoritative(queryDomain) {
     return true;
   }
 
-  // 3. For any customer domain that delegated to our nameservers:
-  // If the query reaches our DNS server, we are authoritative for it
-  // (We check if it's not a generic third-party recursive query)
-  const isGenericTLD = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(d);
-  const isForbiddenRecursion = /^(google|facebook|apple|microsoft|amazon|cloudflare|wikipedia|netflix|yahoo|twitter|x)\.(com|org|net|io)$/i.test(d);
-
-  if (isForbiddenRecursion) {
-    return false; // Deny recursive probe / amplification target
-  }
-
-  return isGenericTLD;
+  return false;
 }
 
 // ==========================================
