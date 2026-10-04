@@ -74,7 +74,7 @@ async function setSyncState(status, values = {}) {
     `INSERT INTO system_storage_sync_state
        (id, direction, status, processed_files, total_files, failed_files, current_file,
         last_error, started_at, updated_at, completed_at)
-     VALUES ('primary', $1::varchar, $2::varchar, $3, $6, $4, $7, $5,
+     VALUES ('primary', $1::varchar, $2::varchar, $3, COALESCE($6::bigint, 0), $4, $7, $5,
              CASE WHEN $2::varchar = 'running' THEN CURRENT_TIMESTAMP ELSE NULL END,
              CURRENT_TIMESTAMP,
              CASE WHEN $2::varchar = 'complete' THEN CURRENT_TIMESTAMP ELSE NULL END)
