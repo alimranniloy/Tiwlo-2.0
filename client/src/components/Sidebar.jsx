@@ -223,7 +223,40 @@ export default function Sidebar({
         </nav>
 
         {/* Visit Site Button matching user request: System Settings এর নিচে Visit Site */}
-        <div className="pt-3 mt-3 border-t border-slate-100 dark:border-gray-800/80">
+        <div className="pt-3 mt-3 border-t border-slate-100 dark:border-gray-800/80 flex flex-col gap-2">
+          {/* Tiwi Social Web Button */}
+          <div
+            onClick={() => {
+              setMobileOpen?.(false);
+              setActiveTab('tiwi');
+            }}
+            className="group relative w-full p-2.5 rounded-xl bg-gradient-to-r from-[#0B57D0] to-[#4285F4] hover:from-[#0842A0] hover:to-[#0B57D0] text-white shadow-md shadow-[#0B57D0]/20 cursor-pointer transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 select-none"
+            title="Open Tiwi Social Media Experience"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-7 h-7 rounded-lg bg-white/20 backdrop-blur-xs flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition font-extrabold text-sm">
+                  T
+                </div>
+                <div className="text-left">
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-xs font-bold tracking-tight">Tiwi Social</span>
+                    <span className="flex h-1.5 w-1.5 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-300 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-400"></span>
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-blue-100 font-medium leading-none mt-0.5">
+                    Social Media & Ecosystem
+                  </p>
+                </div>
+              </div>
+              <div className="w-6 h-6 rounded-md bg-white/10 group-hover:bg-white/25 flex items-center justify-center transition shrink-0">
+                <ExternalLink className="w-3.5 h-3.5 text-white" />
+              </div>
+            </div>
+          </div>
+
           <div
             onClick={() => {
               setMobileOpen?.(false);

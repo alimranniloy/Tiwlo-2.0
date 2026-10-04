@@ -99,6 +99,16 @@ mkdir -p "$ROOT_DIR/server/data/db/stores"
 mkdir -p "$ROOT_DIR/server/uploads"
 mkdir -p "$ROOT_DIR/upload"
 chmod -R u+rwX "$ROOT_DIR/upload" "$ROOT_DIR/server/uploads" "$ROOT_DIR/server/data" 2>/dev/null || true
+
+# 2b. Build Frontend Client
+echo "--- Step 2b: Building Production Frontend Client ---"
+if [[ -d "$ROOT_DIR/client" ]]; then
+  cd "$ROOT_DIR/client"
+  npm install --no-audit --no-fund --silent
+  npm run build
+  cd "$ROOT_DIR"
+fi
+
 if [[ -d "$ROOT_DIR/client/dist" ]]; then
   find "$ROOT_DIR/client/dist" -type d -exec chmod 755 {} +
   find "$ROOT_DIR/client/dist" -type f -exec chmod 644 {} +

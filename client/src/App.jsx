@@ -40,6 +40,9 @@ const AdminDashboard = lazy(() => import('./administrator').then(m => ({ default
 // TiwloMart / TiwiMart eCommerce Multi-Vendor Theme
 const TiwiMart = lazy(() => import('./themes/TiwiMart/TiwiMart'));
 
+// Tiwi Social Media Web Experience (/tiwi)
+const TiwiSocialWeb = lazy(() => import('./social-web'));
+
 // Live Support AI Widget
 const LiveSupportWidget = lazy(() => import('./support/ai/LiveSupportWidget'));
 
@@ -228,6 +231,7 @@ export default function App() {
         if (pathname === 'guides') return 'help-support/guides';
         if (pathname === 'add-product') return 'add-product';
         if (pathname === 'whatsapp-automation' || pathname.startsWith('whatsapp-automation/')) return 'whatsapp-automation';
+        if (pathname === 'tiwi' || pathname.startsWith('tiwi/') || pathname === 'social' || pathname.startsWith('social/')) return 'tiwi';
 
         // Unrecognized route -> 404
         return 'not-found';
@@ -235,6 +239,9 @@ export default function App() {
 
       if (searchParams.get('mode') === 'mobile_app' || searchParams.get('source') === 'tiwi_mobile_app' || searchParams.get('sso_token')) {
         return 'mobile-help-support';
+      }
+      if (searchParams.get('tab') === 'tiwi' || searchParams.get('view') === 'tiwi' || searchParams.get('view') === 'social') {
+        return 'tiwi';
       }
       if (searchParams.get('view') === 'landing') return 'landing';
       if (searchParams.get('view') === 'login') {
@@ -310,6 +317,14 @@ export default function App() {
       }
       setActiveTab('create-account');
       window.history.pushState(null, '', '/create-account');
+      return;
+    }
+
+    if (tabId === 'tiwi' || (typeof tabId === 'string' && tabId.startsWith('tiwi'))) {
+      setActiveTab('tiwi');
+      if (!window.location.pathname.startsWith('/tiwi')) {
+        window.history.pushState(null, '', '/tiwi');
+      }
       return;
     }
 
@@ -1270,6 +1285,11 @@ export default function App() {
             } catch (e) {}
           }}
           showToast={showToast}
+        />
+      ) : (activeTab === 'tiwi' || (typeof activeTab === 'string' && activeTab.startsWith('tiwi'))) ? (
+        <TiwiSocialWeb
+          currentUser={currentUser}
+          onNavigateHome={() => handleTabChange('dashboard')}
         />
       ) : activeTab === 'pos' ? (
         <POSView
