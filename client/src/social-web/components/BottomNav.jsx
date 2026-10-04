@@ -1,32 +1,32 @@
 import React from 'react';
-import { Home, Compass, Sparkles, Bell, Mail, Plus } from 'lucide-react';
+import { LayoutGrid, Compass, Sparkles, Bell, Mail, Plus } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 
 export default function BottomNav() {
   const { activeTab, navigateTo, unreadNotifications, unreadMessages } = useSocial();
 
   const navItems = [
-    { id: 'feed', icon: Home, label: 'Stream' },
+    { id: 'feed', icon: LayoutGrid, label: 'Feed' },
     { id: 'search', icon: Compass, label: 'Explore' },
-    { id: 'ai-studio', icon: Sparkles, label: 'Assistant' },
+    { id: 'ai-studio', icon: Sparkles, label: 'AI' },
     { id: 'notifications', icon: Bell, label: 'Alerts', badge: unreadNotifications },
     { id: 'messages', icon: Mail, label: 'Chat', badge: unreadMessages },
   ];
 
   return (
     <>
-      {/* Google Floating Action Button (FAB) on Mobile */}
+      {/* Floating Create Button */}
       <button
         type="button"
         onClick={() => navigateTo('create-post')}
-        className="fixed right-4 bottom-20 w-14 h-14 rounded-full bg-white dark:bg-[#303134] text-[#1a73e8] dark:text-[#8ab4f8] border border-[#dadce0] dark:border-[#5f6368] flex items-center justify-center shadow-lg transition-transform active:scale-95 sm:hidden z-30 cursor-pointer"
+        className="fixed right-4 bottom-[72px] w-12 h-12 rounded-2xl bg-[#1E75FF] hover:bg-[#1864DB] text-white flex items-center justify-center shadow-lg shadow-[#1E75FF]/30 hover:scale-105 active:scale-95 transition-all sm:hidden z-30 cursor-pointer"
         title="Create Post"
       >
-        <Plus className="w-7 h-7 stroke-[2.5]" />
+        <Plus className="w-6 h-6 stroke-[2.5]" />
       </button>
 
-      {/* Google Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#202124]/95 backdrop-blur-md border-t border-[#dadce0] dark:border-[#3c4043] sm:hidden h-[56px] px-2 flex items-center justify-around">
+      {/* Bottom Navigation Bar */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#111319]/95 backdrop-blur-xl border-t border-[#EAECF0] dark:border-[#1E232F] sm:hidden h-[60px] px-2 flex items-center justify-around safe-area-pb">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -36,23 +36,23 @@ export default function BottomNav() {
               key={item.id}
               type="button"
               onClick={() => navigateTo(item.id)}
-              className="flex flex-col items-center justify-center relative cursor-pointer py-1 flex-1"
+              className="flex flex-col items-center justify-center relative cursor-pointer py-1 flex-1 group"
             >
               <div
-                className={`flex items-center justify-center px-3 py-0.5 rounded-full transition-all ${
+                className={`flex items-center justify-center px-4 py-1 rounded-xl transition-all duration-200 ${
                   isActive
-                    ? 'bg-[#e8f0fe] dark:bg-[#183153] text-[#1a73e8] dark:text-[#8ab4f8]'
-                    : 'text-[#5f6368] dark:text-[#9aa0a6]'
+                    ? 'text-[#1E75FF]'
+                    : 'text-[#6B7280] dark:text-[#9CA3AF] group-hover:text-[#111827] dark:group-hover:text-white'
                 }`}
               >
-                <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.4]' : 'stroke-[1.8]'}`} />
+                <Icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${isActive ? 'stroke-[2.3]' : 'stroke-[1.8]'}`} />
                 {item.badge > 0 && (
-                  <span className="absolute top-0 right-4 min-w-3.5 h-3.5 px-0.5 bg-[#d93025] text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {item.badge > 99 ? '99+' : item.badge}
+                  <span className="absolute top-0.5 right-1/4 min-w-4 h-4 px-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none">
+                    {item.badge > 9 ? '9+' : item.badge}
                   </span>
                 )}
               </div>
-              <span className={`text-[10px] mt-0.5 ${isActive ? 'font-semibold text-[#1a73e8] dark:text-[#8ab4f8]' : 'text-[#5f6368] dark:text-[#9aa0a6]'}`}>
+              <span className={`text-[10px] font-medium mt-0.5 transition-colors ${isActive ? 'text-[#1E75FF] font-bold' : 'text-[#9CA3AF]'}`}>
                 {item.label}
               </span>
             </button>

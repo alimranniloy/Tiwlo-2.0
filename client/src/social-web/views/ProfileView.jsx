@@ -9,7 +9,8 @@ import {
   Bell,
   Image as ImageIcon,
   Heart,
-  Edit3
+  Edit3,
+  Grid3X3
 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
@@ -21,7 +22,7 @@ export default function ProfileView() {
 
   const [profileUser, setProfileUser] = useState(null);
   const [userPosts, setUserPosts] = useState([]);
-  const [activeTab, setActiveTab] = useState('posts'); // 'posts' | 'media' | 'likes'
+  const [activeTab, setActiveTab] = useState('posts');
   const [isFollowing, setIsFollowing] = useState(false);
   const [isNotified, setIsNotified] = useState(false);
 
@@ -35,7 +36,6 @@ export default function ProfileView() {
         } else {
           setProfileUser(currentUser);
         }
-
         const posts = await TiwiSocialAPI.getUserPosts(u?.id || targetHandleOrId);
         setUserPosts(Array.isArray(posts) ? posts : []);
       } catch (err) {
@@ -52,7 +52,7 @@ export default function ProfileView() {
   const handleToggleFollow = async () => {
     const next = !isFollowing;
     setIsFollowing(next);
-    showToast(next ? `Added @${p?.handle}` : `Removed @${p?.handle}`, 'info');
+    showToast(next ? `Following @${p?.handle}` : `Unfollowed @${p?.handle}`, 'info');
     try {
       await TiwiSocialAPI.followUser(p?.id, currentUser?.id);
     } catch {
@@ -64,60 +64,58 @@ export default function ProfileView() {
   const postCount = userPosts.length;
 
   return (
-    <div className="w-full flex flex-col min-h-screen">
-      {/* 1. Header Bar */}
-      <div className="sticky top-0 z-20 bg-[#f8f9fa]/95 dark:bg-[#202124]/95 backdrop-blur-md px-2 py-2.5 flex items-center gap-4 border-b border-[#dadce0] dark:border-[#3c4043] mb-3">
+    <div className="w-full flex flex-col">
+      {/* Header */}
+      <div className="sticky top-0 z-20 bg-[#f0f2f5]/95 dark:bg-[#0a0a0f]/95 backdrop-blur-xl px-2 py-3 flex items-center gap-3 mb-3">
         <button
           onClick={() => navigateTo('feed')}
-          className="w-9 h-9 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#303134] flex items-center justify-center text-[#5f6368] dark:text-[#9aa0a6] transition cursor-pointer"
+          className="w-9 h-9 rounded-xl hover:bg-black/[0.06] dark:hover:bg-white/[0.07] flex items-center justify-center text-[#65676b] dark:text-[#8a8d91] transition cursor-pointer"
           title="Back"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex flex-col leading-tight">
           <div className="flex items-center gap-1.5">
-            <h1 className="text-[17px] font-medium text-[#202124] dark:text-[#e8eaed]">
-              {p?.name || 'Tiwi Creator'}
+            <h1 className="text-[16px] font-semibold text-[#1c1e21] dark:text-[#e4e6eb]">
+              {p?.name || 'Profile'}
             </h1>
             {p?.isVerified && (
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#1a73e8] fill-current inline flex-shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-violet-500 fill-current flex-shrink-0" />
             )}
           </div>
-          <span className="text-[12px] text-[#5f6368] dark:text-[#9aa0a6]">
-            {postCount} {postCount === 1 ? 'post' : 'posts'}
+          <span className="text-[12px] text-[#65676b] dark:text-[#8a8d91]">
+            {postCount} posts
           </span>
         </div>
       </div>
 
-      {/* 2. Google Profile Card Container (Google rounded-lg) */}
-      <div className="bg-white dark:bg-[#303134] rounded-lg border border-[#dadce0] dark:border-[#3c4043] overflow-hidden shadow-xs mb-4">
-        {/* Banner with Google clean gradient */}
-        <div className="h-40 sm:h-48 w-full bg-gradient-to-r from-[#d2e3fc] via-[#e8eaed] to-[#ceead6] dark:from-[#183153] dark:to-[#202124] relative">
+      {/* Profile Card */}
+      <div className="bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] overflow-hidden shadow-sm mb-4">
+        {/* Cover Banner */}
+        <div className="h-36 sm:h-44 w-full bg-gradient-to-r from-violet-400 via-purple-500 to-fuchsia-500 relative">
           {p?.coverPhoto && (
             <img src={p.coverPhoto} alt="Cover" className="w-full h-full object-cover" />
           )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
         </div>
 
-        {/* Profile Details Container */}
-        <div className="p-4 sm:p-5 relative">
-          {/* Avatar overlapping banner */}
-          <div className="absolute -top-14 left-5">
+        {/* Profile Info */}
+        <div className="px-4 sm:px-5 pb-4 relative">
+          {/* Avatar */}
+          <div className="absolute -top-12 left-4 sm:left-5">
             <img
-              src={
-                p?.avatar ||
-                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop'
-              }
+              src={p?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop'}
               alt={p?.name}
-              className="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover ring-4 ring-white dark:ring-[#303134] bg-white dark:bg-[#303134] border border-[#dadce0]"
+              className="w-[90px] h-[90px] rounded-2xl object-cover ring-4 ring-white dark:ring-[#16161f] shadow-md"
             />
           </div>
 
-          {/* Action Button Row */}
-          <div className="flex justify-end min-h-[40px] mb-2">
+          {/* Action Buttons */}
+          <div className="flex justify-end pt-3 mb-8 gap-2">
             {isOwnProfile ? (
               <button
                 onClick={() => navigateTo('edit-profile')}
-                className="flex items-center gap-2 border border-[#dadce0] dark:border-[#5f6368] rounded-md px-4 py-1.5 font-medium text-[13px] text-[#202124] dark:text-[#e8eaed] hover:bg-[#f1f3f4] dark:hover:bg-[#202124] transition cursor-pointer"
+                className="flex items-center gap-2 border border-black/[0.1] dark:border-white/[0.1] rounded-xl px-4 py-2 font-semibold text-[13px] text-[#1c1e21] dark:text-[#e4e6eb] hover:bg-black/[0.04] dark:hover:bg-white/[0.05] transition cursor-pointer"
               >
                 <Edit3 className="w-3.5 h-3.5" />
                 <span>Edit Profile</span>
@@ -125,33 +123,25 @@ export default function ProfileView() {
             ) : (
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => {
-                    const next = !isNotified;
-                    setIsNotified(next);
-                    showToast(next ? 'Notifications enabled' : 'Notifications disabled', 'info');
-                  }}
-                  className={`w-9 h-9 rounded-md border border-[#dadce0] dark:border-[#5f6368] hover:bg-[#f1f3f4] dark:hover:bg-[#202124] flex items-center justify-center transition cursor-pointer ${
-                    isNotified ? 'text-[#1a73e8]' : 'text-[#5f6368] dark:text-[#9aa0a6]'
-                  }`}
+                  onClick={() => { const next = !isNotified; setIsNotified(next); showToast(next ? 'Notifications on' : 'Notifications off', 'info'); }}
+                  className={`w-9 h-9 rounded-xl border border-black/[0.1] dark:border-white/[0.1] hover:bg-black/[0.04] dark:hover:bg-white/[0.05] flex items-center justify-center transition cursor-pointer ${isNotified ? 'text-violet-500' : 'text-[#65676b] dark:text-[#8a8d91]'}`}
                   title="Notify"
                 >
                   <Bell className="w-4 h-4" />
                 </button>
-
                 <button
                   onClick={() => navigateTo('messages', p?.id)}
-                  className="w-9 h-9 rounded-md border border-[#dadce0] dark:border-[#5f6368] hover:bg-[#f1f3f4] dark:hover:bg-[#202124] flex items-center justify-center transition cursor-pointer text-[#5f6368] dark:text-[#9aa0a6]"
+                  className="w-9 h-9 rounded-xl border border-black/[0.1] dark:border-white/[0.1] hover:bg-black/[0.04] dark:hover:bg-white/[0.05] flex items-center justify-center transition cursor-pointer text-[#65676b] dark:text-[#8a8d91]"
                   title="Message"
                 >
                   <Mail className="w-4 h-4" />
                 </button>
-
                 <button
                   onClick={handleToggleFollow}
-                  className={`font-medium text-[13px] px-5 py-1.5 rounded-md transition active:scale-95 cursor-pointer shadow-xs ${
+                  className={`font-semibold text-[13px] px-5 py-2 rounded-xl transition-all active:scale-95 cursor-pointer ${
                     isFollowing
-                      ? 'border border-[#dadce0] dark:border-[#5f6368] text-[#202124] dark:text-[#e8eaed] hover:bg-red-50'
-                      : 'bg-[#1a73e8] hover:bg-[#1557b0] text-white'
+                      ? 'border border-black/[0.1] dark:border-white/[0.1] text-[#1c1e21] dark:text-[#e4e6eb] hover:bg-red-50 dark:hover:bg-red-500/8 hover:border-red-200 hover:text-red-500'
+                      : 'bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-md shadow-violet-500/25 hover:shadow-lg hover:shadow-violet-500/35'
                   }`}
                 >
                   {isFollowing ? 'Following' : 'Follow'}
@@ -160,26 +150,26 @@ export default function ProfileView() {
             )}
           </div>
 
-          {/* Name & Bio */}
-          <div className="mt-4">
-            <div className="flex items-center gap-1.5">
-              <h2 className="text-[20px] font-semibold text-[#202124] dark:text-[#e8eaed]">
+          {/* Name, Handle, Bio */}
+          <div>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <h2 className="text-[19px] font-bold text-[#1c1e21] dark:text-[#e4e6eb]">
                 {p?.name || 'Creator'}
               </h2>
               {p?.isVerified && (
-                <CheckCircle2 className="w-4 h-4 text-[#1a73e8] fill-current" />
+                <CheckCircle2 className="w-4 h-4 text-violet-500 fill-current flex-shrink-0" />
               )}
             </div>
-            <p className="text-[13px] text-[#5f6368] dark:text-[#9aa0a6]">@{p?.handle || 'creator'}</p>
+            <p className="text-[13px] text-[#65676b] dark:text-[#8a8d91] mb-2.5">@{p?.handle || 'creator'}</p>
 
             {p?.bio && (
-              <p className="text-[14px] text-[#202124] dark:text-[#e8eaed] mt-2.5 leading-relaxed whitespace-pre-wrap">
+              <p className="text-[14px] text-[#1c1e21] dark:text-[#e4e6eb] leading-relaxed whitespace-pre-wrap mb-3">
                 {p.bio}
               </p>
             )}
 
-            {/* Meta Attributes */}
-            <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3 text-[12px] text-[#5f6368] dark:text-[#9aa0a6]">
+            {/* Meta */}
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[12.5px] text-[#65676b] dark:text-[#8a8d91] mb-3">
               {p?.location && (
                 <div className="flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5" />
@@ -193,7 +183,7 @@ export default function ProfileView() {
                     href={p.website.startsWith('http') ? p.website : `https://${p.website}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-[#1a73e8] dark:text-[#8ab4f8] hover:underline"
+                    className="text-violet-600 dark:text-violet-400 hover:underline"
                   >
                     {p.website.replace(/^https?:\/\//, '')}
                   </a>
@@ -205,57 +195,58 @@ export default function ProfileView() {
               </div>
             </div>
 
-            {/* Stats Row */}
-            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-[#f1f3f4] dark:border-[#3c4043] text-[13px]">
+            {/* Stats */}
+            <div className="flex items-center gap-5 pt-3 border-t border-black/[0.05] dark:border-white/[0.05]">
               <button
                 onClick={() => navigateTo('following', p?.handle || p?.id)}
-                className="hover:underline flex items-center gap-1 text-[#5f6368] dark:text-[#9aa0a6]"
+                className="flex items-center gap-1.5 group cursor-pointer"
               >
-                <strong className="text-[#202124] dark:text-[#e8eaed] font-medium">
+                <span className="font-bold text-[15px] text-[#1c1e21] dark:text-[#e4e6eb] group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
                   {p?.followingCount || 420}
-                </strong>
-                <span>Following</span>
+                </span>
+                <span className="text-[13px] text-[#65676b] dark:text-[#8a8d91]">Following</span>
               </button>
               <button
                 onClick={() => navigateTo('followers', p?.handle || p?.id)}
-                className="hover:underline flex items-center gap-1 text-[#5f6368] dark:text-[#9aa0a6]"
+                className="flex items-center gap-1.5 group cursor-pointer"
               >
-                <strong className="text-[#202124] dark:text-[#e8eaed] font-medium">
+                <span className="font-bold text-[15px] text-[#1c1e21] dark:text-[#e4e6eb] group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
                   {p?.followersCount || 1840}
-                </strong>
-                <span>Followers</span>
+                </span>
+                <span className="text-[13px] text-[#65676b] dark:text-[#8a8d91]">Followers</span>
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 3. Google Underline Tabs */}
-      <div className="flex items-center gap-6 border-b border-[#dadce0] dark:border-[#3c4043] mb-4 px-2">
+      {/* Content Tabs */}
+      <div className="flex items-center gap-1 bg-black/[0.04] dark:bg-white/[0.05] rounded-2xl p-1 mb-4">
         {[
-          { id: 'posts', label: 'Posts' },
-          { id: 'media', label: 'Media' },
-          { id: 'likes', label: 'Likes' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`pb-2.5 text-[14px] font-medium transition cursor-pointer relative ${
-              activeTab === tab.id
-                ? 'text-[#1a73e8] dark:text-[#8ab4f8] font-semibold'
-                : 'text-[#5f6368] dark:text-[#9aa0a6] hover:text-[#202124]'
-            }`}
-          >
-            <span>{tab.label}</span>
-            {activeTab === tab.id && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a73e8] dark:bg-[#8ab4f8] rounded-t-full" />
-            )}
-          </button>
-        ))}
+          { id: 'posts', label: 'Posts', icon: null },
+          { id: 'media', label: 'Media', icon: Grid3X3 },
+          { id: 'likes', label: 'Likes', icon: Heart },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[13px] font-medium transition-all cursor-pointer ${
+                activeTab === tab.id
+                  ? 'bg-white dark:bg-[#16161f] text-[#1c1e21] dark:text-[#e4e6eb] shadow-sm'
+                  : 'text-[#65676b] dark:text-[#8a8d91] hover:text-[#1c1e21] dark:hover:text-[#e4e6eb]'
+              }`}
+            >
+              {Icon && <Icon className="w-3.5 h-3.5" />}
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* 4. Stream or Gallery Content */}
+      {/* Content */}
       <div className="flex flex-col">
         {activeTab === 'posts' && (
           userPosts.length > 0 ? (
@@ -267,54 +258,42 @@ export default function ProfileView() {
               />
             ))
           ) : (
-            <div className="py-14 text-center bg-white dark:bg-[#303134] rounded-lg border border-[#dadce0] dark:border-[#3c4043] p-6">
-              <h3 className="font-medium text-[16px] text-[#202124] dark:text-[#e8eaed] mb-1">
-                No posts shared yet
-              </h3>
-              <p className="text-[13px] text-[#5f6368] dark:text-[#9aa0a6]">
-                When updates are posted, they will appear here in the stream.
-              </p>
+            <div className="py-16 text-center bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-6">
+              <h3 className="font-semibold text-[16px] text-[#1c1e21] dark:text-[#e4e6eb] mb-1.5">No posts yet</h3>
+              <p className="text-[13px] text-[#65676b] dark:text-[#8a8d91]">Posts will appear here when shared.</p>
             </div>
           )
         )}
 
         {activeTab === 'media' && (
           mediaPosts.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-1.5">
               {mediaPosts.map((post) =>
                 post.images.map((img, i) => (
                   <div
                     key={`${post.id}_${i}`}
                     onClick={() => navigateTo('post-detail', post.id)}
-                    className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden cursor-pointer group shadow-xs border border-[#dadce0] dark:border-[#3c4043]"
+                    className="aspect-square bg-black/[0.04] dark:bg-white/[0.04] rounded-xl overflow-hidden cursor-pointer group"
                   >
-                    <img src={img} alt="media" className="w-full h-full object-cover group-hover:scale-105 transition" />
+                    <img src={img} alt="media" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   </div>
                 ))
               )}
             </div>
           ) : (
-            <div className="py-14 text-center bg-white dark:bg-[#303134] rounded-lg border border-[#dadce0] dark:border-[#3c4043] p-6">
-              <ImageIcon className="w-8 h-8 text-[#5f6368] mx-auto mb-2" />
-              <h3 className="font-medium text-[16px] text-[#202124] dark:text-[#e8eaed] mb-1">
-                No media attachments
-              </h3>
-              <p className="text-[13px] text-[#5f6368] dark:text-[#9aa0a6]">
-                Photos and video uploads will be displayed here in your gallery.
-              </p>
+            <div className="py-16 text-center bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-6">
+              <ImageIcon className="w-8 h-8 text-[#8a8d91] mx-auto mb-3" />
+              <h3 className="font-semibold text-[16px] text-[#1c1e21] dark:text-[#e4e6eb] mb-1.5">No media yet</h3>
+              <p className="text-[13px] text-[#65676b] dark:text-[#8a8d91]">Photos and videos will appear here.</p>
             </div>
           )
         )}
 
         {activeTab === 'likes' && (
-          <div className="py-14 text-center bg-white dark:bg-[#303134] rounded-lg border border-[#dadce0] dark:border-[#3c4043] p-6">
-            <Heart className="w-8 h-8 text-[#d93025] mx-auto mb-2" />
-            <h3 className="font-medium text-[16px] text-[#202124] dark:text-[#e8eaed] mb-1">
-              No liked posts yet
-            </h3>
-            <p className="text-[13px] text-[#5f6368] dark:text-[#9aa0a6]">
-              Posts that you applaud or like will be collected in this section.
-            </p>
+          <div className="py-16 text-center bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-6">
+            <Heart className="w-8 h-8 text-rose-400 mx-auto mb-3" />
+            <h3 className="font-semibold text-[16px] text-[#1c1e21] dark:text-[#e4e6eb] mb-1.5">No liked posts yet</h3>
+            <p className="text-[13px] text-[#65676b] dark:text-[#8a8d91]">Posts you like will appear here.</p>
           </div>
         )}
       </div>

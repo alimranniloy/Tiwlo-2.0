@@ -3,6 +3,7 @@ import { SocialProvider, useSocial } from './context/SocialContext';
 import GoogleTopBar from './components/GoogleTopBar';
 import SocialSidebar from './components/SocialSidebar';
 import SocialRightPanel from './components/SocialRightPanel';
+import SocialFarRightRail from './components/SocialFarRightRail';
 import BottomNav from './components/BottomNav';
 
 // Dedicated Views (Modular & Code-Split)
@@ -32,99 +33,74 @@ const LiveTriviaView = lazy(() => import('./views/LiveTriviaView'));
 const MemoriesView = lazy(() => import('./views/MemoriesView'));
 const SettingsView = lazy(() => import('./views/SettingsView'));
 
-function GoogleSocialLayout({ onNavigateHome }) {
+function SquareSocialLayout({ onNavigateHome }) {
   const { activeTab } = useSocial();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const renderActiveView = () => {
     switch (activeTab) {
-      case 'reels':
-        return <ReelsView />;
+      case 'reels': return <ReelsView />;
       case 'search':
-      case 'explore':
-        return <SearchView />;
-      case 'notifications':
-        return <NotificationsView />;
-      case 'messages':
-        return <MessagesView />;
-      case 'call':
-        return <AudioVideoCallView />;
-      case 'profile':
-        return <ProfileView />;
-      case 'edit-profile':
-        return <EditProfileView />;
-      case 'create-post':
-        return <CreatePostView />;
-      case 'create-story':
-        return <CreateStoryView />;
-      case 'post-detail':
-        return <PostDetailView />;
-      case 'bookmarks':
-        return <BookmarksView />;
-      case 'liked-posts':
-        return <LikedPostsView />;
-      case 'followers':
-        return <FollowersListView />;
-      case 'following':
-        return <FollowingListView />;
-      case 'audio-spaces':
-        return <AudioSpacesView />;
-      case 'communities':
-        return <CommunityCirclesView />;
-      case 'creator':
-        return <CreatorHubView />;
-      case 'wallet':
-        return <SocialWalletView />;
-      case 'ai-studio':
-        return <AiStudioView />;
-      case 'polls':
-        return <LivePollsView />;
-      case 'events':
-        return <EventsHubView />;
-      case 'trivia':
-        return <LiveTriviaView />;
-      case 'memories':
-        return <MemoriesView />;
-      case 'settings':
-        return <SettingsView />;
+      case 'explore': return <SearchView />;
+      case 'notifications': return <NotificationsView />;
+      case 'messages': return <MessagesView />;
+      case 'call': return <AudioVideoCallView />;
+      case 'profile': return <ProfileView />;
+      case 'edit-profile': return <EditProfileView />;
+      case 'create-post': return <CreatePostView />;
+      case 'create-story': return <CreateStoryView />;
+      case 'post-detail': return <PostDetailView />;
+      case 'bookmarks': return <BookmarksView />;
+      case 'liked-posts': return <LikedPostsView />;
+      case 'followers': return <FollowersListView />;
+      case 'following': return <FollowingListView />;
+      case 'audio-spaces': return <AudioSpacesView />;
+      case 'communities': return <CommunityCirclesView />;
+      case 'creator': return <CreatorHubView />;
+      case 'wallet': return <SocialWalletView />;
+      case 'ai-studio': return <AiStudioView />;
+      case 'polls': return <LivePollsView />;
+      case 'events': return <EventsHubView />;
+      case 'trivia': return <LiveTriviaView />;
+      case 'memories': return <MemoriesView />;
+      case 'settings': return <SettingsView />;
       case 'feed':
-      default:
-        return <FeedView />;
+      default: return <FeedView />;
     }
   };
 
   const isWideMessages = activeTab === 'messages' || activeTab === 'call';
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] dark:bg-[#202124] text-[#202124] dark:text-[#e8eaed] font-sans antialiased flex flex-col selection:bg-[#1a73e8]/20 selection:text-[#1a73e8]">
-      {/* 1. Authentic Google Top App Header */}
+    <div className="min-h-screen bg-[#F5F7FB] dark:bg-[#0E1017] text-[#111827] dark:text-[#E2E8F0] font-sans antialiased flex flex-col selection:bg-[#1E75FF]/20 selection:text-[#1E75FF]">
+      {/* 1. Top Navigation Bar matching screenshot */}
       <GoogleTopBar
         onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
         onNavigateHome={onNavigateHome}
       />
 
-      {/* 2. Main Google Layout with Left Drawer & Centered Stream */}
+      {/* 2. Main 4-Column Layout */}
       <div className="flex-1 flex justify-center w-full">
-        <div className="w-full max-w-[1360px] flex justify-between min-h-[calc(100vh-64px)] px-2 sm:px-4">
-          {/* Left Column: Google Workspace Navigation Drawer */}
+        <div className="w-full max-w-[1440px] flex justify-between min-h-[calc(100vh-64px)] px-3 sm:px-5">
+          {/* Column 1: Left Navigation Sidebar */}
           {sidebarOpen && (
-            <div className="hidden sm:flex flex-shrink-0 z-30">
+            <div className="hidden md:flex flex-shrink-0 z-30">
               <SocialSidebar />
             </div>
           )}
 
-          {/* Center Column: Google Stream Feed */}
+          {/* Column 2: Center Main Feed */}
           <main
-            className={`flex-1 min-h-[calc(100vh-64px)] px-1 sm:px-4 md:px-6 py-4 pb-20 sm:pb-8 ${
+            className={`flex-1 min-h-[calc(100vh-64px)] px-1 sm:px-4 md:px-5 py-5 pb-24 sm:pb-8 ${
               isWideMessages
-                ? 'max-w-[1020px] w-full'
-                : 'max-w-[700px] w-full min-w-0'
+                ? 'max-w-[1040px] w-full'
+                : 'max-w-[590px] xl:max-w-[620px] w-full min-w-0'
             }`}
           >
             <Suspense
               fallback={
                 <div className="flex items-center justify-center min-h-[50vh]">
-                  <div className="w-8 h-8 rounded-full border-3 border-[#1a73e8] border-t-transparent animate-spin" />
+                  <div className="w-8 h-8 rounded-full border-2 border-[#1E75FF] border-t-transparent animate-spin" />
                 </div>
               }
             >
@@ -132,16 +108,23 @@ function GoogleSocialLayout({ onNavigateHome }) {
             </Suspense>
           </main>
 
-          {/* Right Column: Google Discover / Widgets Panel */}
+          {/* Column 3: Sosmed Stories, Events & Suggested Pages */}
           {!isWideMessages && (
-            <aside className="w-[300px] xl:w-[320px] flex-shrink-0 hidden lg:block py-4 pl-3">
+            <aside className="w-[280px] xl:w-[290px] flex-shrink-0 hidden lg:block py-5 pl-2">
               <SocialRightPanel />
             </aside>
+          )}
+
+          {/* Column 4: Far Right Contacts / Friends Rail */}
+          {!isWideMessages && (
+            <div className="hidden xl:block flex-shrink-0 py-5 pl-3 border-l border-[#EAECF0] dark:border-[#1E232F]">
+              <SocialFarRightRail />
+            </div>
           )}
         </div>
       </div>
 
-      {/* Google Mobile Bottom Navigation Bar */}
+      {/* Mobile Bottom Navigation */}
       <BottomNav />
     </div>
   );
@@ -150,7 +133,7 @@ function GoogleSocialLayout({ onNavigateHome }) {
 export default function TiwiSocialWeb({ currentUser = null, onNavigateHome = null }) {
   return (
     <SocialProvider initialUser={currentUser}>
-      <GoogleSocialLayout onNavigateHome={onNavigateHome} />
+      <SquareSocialLayout onNavigateHome={onNavigateHome} />
     </SocialProvider>
   );
 }

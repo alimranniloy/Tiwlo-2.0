@@ -5,7 +5,12 @@ import {
   Send,
   Info,
   CheckCircle2,
-  ArrowLeft
+  ArrowLeft,
+  Phone,
+  Video,
+  Image as ImageIcon,
+  Smile,
+  MoreVertical
 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
@@ -33,19 +38,31 @@ export default function MessagesView() {
             name: 'Sarah Jenkins',
             handle: 'sarah_j',
             avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',
-            lastMessage: 'Let’s sync on the new Google tokens!',
+            lastMessage: 'Let’s sync on the new UI design tokens!',
             lastMessageTime: '12m',
             isVerified: true,
+            online: true,
           },
           {
             id: 'c2',
             name: 'Alex Rivera',
             handle: 'arivera',
             avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop',
-            lastMessage: 'The PostgreSQL migrations look clean.',
+            lastMessage: 'The PostgreSQL migrations look super clean.',
             lastMessageTime: '2h',
             isVerified: false,
+            online: false,
           },
+          {
+            id: 'c3',
+            name: 'Elena Rostova',
+            handle: 'elena_dev',
+            avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&h=100&fit=crop',
+            lastMessage: 'Check out the new audio spaces feature!',
+            lastMessageTime: '1d',
+            isVerified: true,
+            online: true,
+          }
         ];
         setConversations(sampleConvs);
         if (!activeConvId) setActiveConvId('c1');
@@ -63,19 +80,19 @@ export default function MessagesView() {
           {
             id: 'm1',
             senderId: 'other',
-            text: 'Hello! I checked out your latest stream post.',
+            text: 'Hello! I checked out your latest stream post on the new modern redesign.',
             createdAt: '10:45 AM',
           },
           {
             id: 'm2',
             senderId: currentUser?.id,
-            text: 'Thanks! We just updated to full Google Material styling.',
+            text: 'Thanks! We just upgraded everything to ultra-modern aesthetics with violet accents.',
             createdAt: '10:47 AM',
           },
           {
             id: 'm3',
             senderId: 'other',
-            text: 'The crisp cards and hairline borders feel genuinely Google-like!',
+            text: 'It looks exceptionally polished and clean! The cards and typography are spot on.',
             createdAt: '10:48 AM',
           },
         ]);
@@ -120,73 +137,81 @@ export default function MessagesView() {
   const activeConv = conversations.find((c) => c.id === activeConvId);
 
   return (
-    <div className="w-full flex h-[calc(100vh-6rem)] rounded-lg bg-white dark:bg-[#303134] border border-[#dadce0] dark:border-[#3c4043] overflow-hidden shadow-xs">
+    <div className="w-full flex h-[calc(100vh-6.5rem)] rounded-2xl bg-white dark:bg-[#16161f] border border-black/[0.05] dark:border-white/[0.06] overflow-hidden shadow-sm dark:shadow-black/20">
       {/* 1. Left Panel: Conversations List */}
-      <div className={`w-full sm:w-[320px] flex-shrink-0 border-r border-[#dadce0] dark:border-[#3c4043] flex flex-col h-full ${
-        activeConvId ? 'hidden sm:flex' : 'flex'
-      }`}>
+      <div
+        className={`w-full sm:w-[320px] md:w-[340px] flex-shrink-0 border-r border-black/[0.05] dark:border-white/[0.06] flex flex-col h-full ${
+          activeConvId ? 'hidden sm:flex' : 'flex'
+        }`}
+      >
         {/* Header */}
-        <div className="h-[52px] px-4 border-b border-[#dadce0] dark:border-[#3c4043] flex items-center justify-between">
-          <h1 className="text-[17px] font-medium text-[#202124] dark:text-[#e8eaed]">
+        <div className="h-14 px-4 border-b border-black/[0.05] dark:border-white/[0.06] flex items-center justify-between">
+          <h1 className="text-[18px] font-bold text-[#1c1e21] dark:text-[#e4e6eb] tracking-tight">
             Messages
           </h1>
           <button
             onClick={() => navigateTo('settings')}
-            className="p-1.5 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#202124] text-[#5f6368] dark:text-[#9aa0a6] transition"
+            className="w-8 h-8 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] transition-all cursor-pointer"
             title="Settings"
           >
             <Settings className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Search Direct Messages Bar */}
-        <div className="p-2.5 border-b border-[#dadce0] dark:border-[#3c4043]">
-          <div className="flex items-center h-9 bg-[#f1f3f4] dark:bg-[#202124] rounded-full px-3 text-[#202124] dark:text-[#e8eaed] border border-transparent focus-within:border-[#1a73e8] transition">
-            <Search className="w-4 h-4 text-[#5f6368] dark:text-[#9aa0a6] mr-2" />
+        {/* Search Bar */}
+        <div className="p-3 border-b border-black/[0.05] dark:border-white/[0.06]">
+          <div className="flex items-center h-9 bg-black/[0.04] dark:bg-white/[0.05] rounded-xl px-3 text-[#1c1e21] dark:text-[#e4e6eb] focus-within:ring-2 focus-within:ring-violet-500/30 transition-all">
+            <Search className="w-3.5 h-3.5 text-[#65676b] dark:text-[#8a8d91] mr-2 flex-shrink-0" />
             <input
               type="text"
-              placeholder="Search chats"
+              placeholder="Search conversations"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent text-[13px] outline-none w-full placeholder-[#5f6368] dark:placeholder-[#9aa0a6]"
+              className="bg-transparent text-[13px] outline-none w-full placeholder-[#65676b] dark:placeholder-[#8a8d91]"
             />
           </div>
         </div>
 
         {/* Conversations Scroll */}
-        <div className="flex-1 overflow-y-auto divide-y divide-[#f1f3f4] dark:divide-[#3c4043]">
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
           {filteredConversations.map((c) => {
             const isSelected = c.id === activeConvId;
             return (
               <div
                 key={c.id}
                 onClick={() => setActiveConvId(c.id)}
-                className={`p-3.5 flex items-center gap-3 cursor-pointer transition ${
+                className={`p-3 rounded-xl flex items-center gap-3 cursor-pointer transition-all duration-150 ${
                   isSelected
-                    ? 'bg-[#e8f0fe] dark:bg-[#183153]'
-                    : 'hover:bg-[#f8f9fa] dark:hover:bg-[#202124]'
+                    ? 'bg-violet-500/10 dark:bg-violet-500/15 text-violet-900 dark:text-violet-100'
+                    : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.04] text-[#1c1e21] dark:text-[#e4e6eb]'
                 }`}
               >
-                <img
-                  src={c.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop'}
-                  alt={c.name}
-                  className="w-10 h-10 rounded-full object-cover flex-shrink-0 border border-[#dadce0]"
-                />
+                <div className="relative flex-shrink-0">
+                  <img
+                    src={c.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop'}
+                    alt={c.name}
+                    className="w-11 h-11 rounded-xl object-cover ring-1 ring-black/10 dark:ring-white/10"
+                  />
+                  {c.online && (
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-[#16161f]" />
+                  )}
+                </div>
+
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1 min-w-0">
-                      <span className={`text-[13px] truncate ${isSelected ? 'font-semibold text-[#1967d2] dark:text-[#8ab4f8]' : 'font-medium text-[#202124] dark:text-[#e8eaed]'}`}>
+                      <span className={`text-[13.5px] truncate font-semibold ${isSelected ? 'text-violet-600 dark:text-violet-400' : ''}`}>
                         {c.name}
                       </span>
                       {c.isVerified && (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-[#1a73e8] fill-current inline flex-shrink-0" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-violet-500 fill-current inline flex-shrink-0" />
                       )}
                     </div>
-                    <span className="text-[11px] text-[#5f6368] dark:text-[#9aa0a6] flex-shrink-0">
+                    <span className="text-[11px] text-[#65676b] dark:text-[#8a8d91] flex-shrink-0">
                       {c.lastMessageTime}
                     </span>
                   </div>
-                  <p className="text-[12px] text-[#5f6368] dark:text-[#9aa0a6] truncate mt-0.5">
+                  <p className="text-[12px] text-[#65676b] dark:text-[#8a8d91] truncate mt-0.5">
                     {c.lastMessage}
                   </p>
                 </div>
@@ -197,45 +222,71 @@ export default function MessagesView() {
       </div>
 
       {/* 2. Right Panel: Active Chat Thread */}
-      <div className={`flex-1 flex flex-col h-full bg-[#f8f9fa] dark:bg-[#202124] ${
-        !activeConvId ? 'hidden sm:flex' : 'flex'
-      }`}>
+      <div
+        className={`flex-1 flex flex-col h-full bg-[#f8f9fa] dark:bg-[#111118] ${
+          !activeConvId ? 'hidden sm:flex' : 'flex'
+        }`}
+      >
         {activeConv ? (
           <>
             {/* Chat Top Bar */}
-            <div className="h-[52px] px-4 bg-white dark:bg-[#303134] border-b border-[#dadce0] dark:border-[#3c4043] flex items-center justify-between">
+            <div className="h-14 px-4 bg-white dark:bg-[#16161f] border-b border-black/[0.05] dark:border-white/[0.06] flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setActiveConvId(null)}
-                  className="sm:hidden p-1.5 rounded-full hover:bg-[#f1f3f4] text-[#5f6368]"
+                  className="sm:hidden p-1.5 rounded-xl hover:bg-black/[0.04] text-[#65676b]"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <img
-                  src={activeConv.avatar}
-                  alt={activeConv.name}
-                  className="w-8 h-8 rounded-full object-cover border border-[#dadce0]"
-                />
+                <div className="relative">
+                  <img
+                    src={activeConv.avatar}
+                    alt={activeConv.name}
+                    className="w-9 h-9 rounded-xl object-cover ring-1 ring-black/10 dark:ring-white/10"
+                  />
+                  {activeConv.online && (
+                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-[#16161f]" />
+                  )}
+                </div>
                 <div className="flex flex-col leading-tight">
-                  <span className="font-medium text-[14px] text-[#202124] dark:text-[#e8eaed]">
+                  <span className="font-semibold text-[14px] text-[#1c1e21] dark:text-[#e4e6eb] flex items-center gap-1">
                     {activeConv.name}
+                    {activeConv.isVerified && <CheckCircle2 className="w-3.5 h-3.5 text-violet-500 fill-current inline" />}
                   </span>
-                  <span className="text-[11px] text-[#5f6368] dark:text-[#9aa0a6]">
-                    @{activeConv.handle}
+                  <span className="text-[11px] text-[#65676b] dark:text-[#8a8d91]">
+                    @{activeConv.handle} · {activeConv.online ? 'Online' : 'Offline'}
                   </span>
                 </div>
               </div>
 
-              <button
-                onClick={() => navigateTo('profile', activeConv.handle)}
-                className="p-1.5 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#202124] text-[#5f6368] transition"
-              >
-                <Info className="w-4 h-4" />
-              </button>
+              {/* Action Buttons: Audio Call, Video Call, Profile Info */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => navigateTo('call')}
+                  className="w-8 h-8 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] hover:text-violet-600 transition-all cursor-pointer"
+                  title="Voice Call"
+                >
+                  <Phone className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => navigateTo('call')}
+                  className="w-8 h-8 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] hover:text-violet-600 transition-all cursor-pointer"
+                  title="Video Call"
+                >
+                  <Video className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => navigateTo('profile', activeConv.handle)}
+                  className="w-8 h-8 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] transition-all cursor-pointer"
+                  title="Profile Info"
+                >
+                  <Info className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             {/* Messages Scroll View */}
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2.5">
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
               {messages.map((msg) => {
                 const isMine = msg.senderId === currentUser?.id;
                 return (
@@ -246,15 +297,15 @@ export default function MessagesView() {
                     }`}
                   >
                     <div
-                      className={`px-3.5 py-2 text-[13px] leading-relaxed rounded-2xl shadow-xs ${
+                      className={`px-4 py-2.5 text-[13.5px] leading-relaxed shadow-xs ${
                         isMine
-                          ? 'bg-[#d2e3fc] dark:bg-[#183153] text-[#0d652d] dark:text-[#8ab4f8] text-[#174ea6] rounded-br-xs'
-                          : 'bg-white dark:bg-[#303134] border border-[#dadce0] dark:border-[#3c4043] text-[#202124] dark:text-[#e8eaed] rounded-bl-xs'
+                          ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-2xl rounded-br-xs'
+                          : 'bg-white dark:bg-[#1a1a26] text-[#1c1e21] dark:text-[#e4e6eb] rounded-2xl rounded-bl-xs border border-black/[0.05] dark:border-white/[0.06]'
                       }`}
                     >
                       {msg.text}
                     </div>
-                    <span className="text-[10px] text-[#5f6368] dark:text-[#9aa0a6] mt-0.5 px-1">
+                    <span className="text-[10px] text-[#65676b] dark:text-[#8a8d91] mt-1 px-1">
                       {msg.createdAt || 'Just now'}
                     </span>
                   </div>
@@ -263,38 +314,35 @@ export default function MessagesView() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Bottom Input */}
-            <div className="p-3 border-t border-[#dadce0] dark:border-[#3c4043] bg-white dark:bg-[#303134]">
-              <form
-                onSubmit={handleSendMessage}
-                className="flex items-center gap-2 bg-[#f1f3f4] dark:bg-[#202124] rounded-full px-3 py-1.5 focus-within:bg-white dark:focus-within:bg-[#202124] border border-transparent focus-within:border-[#1a73e8] transition"
-              >
+            {/* Message Composer Bar */}
+            <form
+              onSubmit={handleSendMessage}
+              className="p-3 bg-white dark:bg-[#16161f] border-t border-black/[0.05] dark:border-white/[0.06] flex items-center gap-2"
+            >
+              <div className="flex-1 flex items-center bg-black/[0.04] dark:bg-white/[0.05] rounded-xl px-3.5 py-1.5 focus-within:ring-2 focus-within:ring-violet-500/30 transition-all">
                 <input
                   type="text"
-                  placeholder="Send a message"
+                  placeholder="Type a message..."
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  className="bg-transparent text-[13px] outline-none flex-1 text-[#202124] dark:text-[#e8eaed] placeholder-[#5f6368] dark:placeholder-[#9aa0a6] px-2"
+                  className="bg-transparent text-[13.5px] text-[#1c1e21] dark:text-[#e4e6eb] outline-none w-full placeholder-[#65676b] dark:placeholder-[#8a8d91]"
                 />
+              </div>
 
-                <button
-                  type="submit"
-                  disabled={!inputText.trim()}
-                  className="w-7 h-7 rounded-full bg-[#1a73e8] hover:bg-[#1557b0] disabled:opacity-40 text-white flex items-center justify-center transition active:scale-95 cursor-pointer shadow-xs"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                </button>
-              </form>
-            </div>
+              <button
+                type="submit"
+                disabled={!inputText.trim()}
+                className="w-10 h-10 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 disabled:opacity-40 text-white flex items-center justify-center transition-all shadow-md shadow-violet-500/20 active:scale-95 cursor-pointer flex-shrink-0"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </form>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-            <h3 className="font-medium text-[16px] text-[#202124] dark:text-[#e8eaed] mb-1">
-              Select a conversation
-            </h3>
-            <p className="text-[12px] text-[#5f6368] dark:text-[#9aa0a6]">
-              Choose from your existing chats or start a new direct message.
-            </p>
+          <div className="flex-1 flex items-center justify-center text-center p-8">
+            <div>
+              <p className="text-sm text-[#65676b] dark:text-[#8a8d91]">Select a conversation to start chatting</p>
+            </div>
           </div>
         )}
       </div>

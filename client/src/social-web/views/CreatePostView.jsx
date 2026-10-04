@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import {
   ArrowLeft,
-  Image,
+  Image as ImageIcon,
   Film,
   Smile,
   Globe,
   Vote,
   X,
-  Send
+  Send,
+  Sparkles,
+  Lock
 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
@@ -18,6 +20,7 @@ export default function CreatePostView() {
   const [mediaUrls, setMediaUrls] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [audience, setAudience] = useState('public'); // 'public' | 'followers'
 
   const handleFileSelect = async (e) => {
     const files = Array.from(e.target.files || []);
@@ -55,7 +58,7 @@ export default function CreatePostView() {
         userId: currentUser?.id,
       });
 
-      showToast('Announced to network', 'info');
+      showToast('Published to your stream!', 'info');
       navigateTo('feed');
     } catch (err) {
       showToast(err.message || 'Failed to post', 'error');
@@ -66,26 +69,26 @@ export default function CreatePostView() {
 
   return (
     <div className="w-full flex flex-col min-h-screen max-w-2xl mx-auto">
-      {/* 1. Header App Bar */}
-      <div className="sticky top-0 z-20 bg-[#f8f9fa]/95 dark:bg-[#202124]/95 backdrop-blur-md px-2 py-3 flex items-center justify-between border-b border-[#dadce0] dark:border-[#3c4043] mb-4">
+      {/* 1. Modern Header */}
+      <div className="sticky top-0 z-20 bg-[#f0f2f5]/90 dark:bg-[#0a0a0f]/90 backdrop-blur-xl px-2 py-3 flex items-center justify-between border-b border-black/[0.05] dark:border-white/[0.06] mb-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigateTo('feed')}
-            className="w-9 h-9 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#303134] flex items-center justify-center text-[#5f6368] dark:text-[#9aa0a6] transition cursor-pointer"
+            className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] transition cursor-pointer active:scale-95"
             title="Back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-[17px] font-medium text-[#202124] dark:text-[#e8eaed]">
-            Announce something
+          <h1 className="text-[18px] font-bold text-[#1c1e21] dark:text-[#e4e6eb] tracking-tight">
+            Create Post
           </h1>
         </div>
 
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => showToast('Draft saved', 'info')}
-            className="text-[13px] font-medium text-[#1a73e8] dark:text-[#8ab4f8] hover:underline cursor-pointer"
+            onClick={() => showToast('Draft saved locally', 'info')}
+            className="text-[13px] font-semibold text-violet-600 dark:text-violet-400 hover:underline cursor-pointer"
           >
             Save Draft
           </button>
@@ -93,114 +96,106 @@ export default function CreatePostView() {
           <button
             onClick={handleSubmit}
             disabled={(!caption.trim() && mediaUrls.length === 0) || submitting || uploading}
-            className="bg-[#1a73e8] hover:bg-[#1557b0] disabled:opacity-40 text-white font-medium text-[13px] px-5 py-1.5 rounded-md shadow-xs active:scale-95 transition cursor-pointer flex items-center gap-1.5"
+            className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 disabled:opacity-40 text-white font-semibold text-[13px] px-5 py-2 rounded-xl shadow-md shadow-violet-500/20 active:scale-95 transition cursor-pointer flex items-center gap-2"
           >
             <Send className="w-3.5 h-3.5" />
-            <span>{submitting ? 'Publishing...' : 'Post'}</span>
+            <span>{submitting ? 'Publishing...' : 'Publish'}</span>
           </button>
         </div>
       </div>
 
-      {/* 2. Composer Card (Google rounded-lg) */}
-      <div className="bg-white dark:bg-[#303134] rounded-lg border border-[#dadce0] dark:border-[#3c4043] p-5 shadow-xs flex-1 flex flex-col justify-between">
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <img
-              src={
-                currentUser?.avatar ||
-                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop'
-              }
-              alt={currentUser?.name}
-              className="w-10 h-10 rounded-full object-cover border border-[#dadce0] dark:border-[#5f6368]"
-            />
-
-            <div>
-              <div className="text-[14px] font-medium text-[#202124] dark:text-[#e8eaed]">
-                {currentUser?.name || 'You'}
-              </div>
-              <div className="flex items-center gap-1 text-[12px] text-[#1a73e8] dark:text-[#8ab4f8] font-medium">
-                <Globe className="w-3.5 h-3.5" />
-                <span>Public stream</span>
-              </div>
-            </div>
-          </div>
-
-          <textarea
-            autoFocus
-            rows={6}
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            placeholder="What would you like to announce to your community?"
-            className="w-full bg-transparent text-[15px] placeholder-[#5f6368] dark:placeholder-[#9aa0a6] text-[#202124] dark:text-[#e8eaed] outline-none resize-none pt-2 leading-relaxed"
+      {/* 2. Composer Card */}
+      <div className="bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-5 shadow-sm">
+        {/* Creator Info */}
+        <div className="flex items-center gap-3 mb-4">
+          <img
+            src={currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop'}
+            alt={currentUser?.name || 'Account'}
+            className="w-11 h-11 rounded-xl object-cover ring-2 ring-violet-500/40"
           />
-
-          {/* Media Attachments Preview */}
-          {mediaUrls.length > 0 && (
-            <div className="grid grid-cols-2 gap-2 rounded-md overflow-hidden border border-[#dadce0] dark:border-[#3c4043] mt-2">
-              {mediaUrls.map((url, i) => (
-                <div key={i} className="relative group aspect-video bg-black/5">
-                  <img src={url} alt="upload" className="w-full h-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveMedia(i)}
-                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center transition cursor-pointer"
-                    title="Remove"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="flex flex-col">
+            <span className="font-semibold text-[14px] text-[#1c1e21] dark:text-[#e4e6eb]">
+              {currentUser?.name || 'Tiwi Creator'}
+            </span>
+            {/* Audience Selector Pill */}
+            <button
+              type="button"
+              onClick={() => setAudience(audience === 'public' ? 'followers' : 'public')}
+              className="flex items-center gap-1 text-[11px] font-medium text-violet-600 dark:text-violet-400 bg-violet-500/10 px-2.5 py-0.5 rounded-full w-fit mt-0.5 hover:bg-violet-500/20 transition cursor-pointer"
+            >
+              {audience === 'public' ? <Globe className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+              <span>{audience === 'public' ? 'Public' : 'Followers Only'}</span>
+            </button>
+          </div>
         </div>
 
-        {/* Bottom Toolbar */}
-        <div className="flex items-center justify-between pt-4 border-t border-[#f1f3f4] dark:border-[#3c4043] text-[#5f6368] dark:text-[#9aa0a6] mt-6">
+        {/* Text Area */}
+        <textarea
+          rows={5}
+          placeholder="What's on your mind? Share updates, technical insights, or creative work..."
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          className="w-full bg-transparent text-[15px] text-[#1c1e21] dark:text-[#e4e6eb] placeholder-[#65676b] dark:placeholder-[#8a8d91] outline-none resize-none leading-relaxed"
+        />
+
+        {/* Media Preview Grid */}
+        {mediaUrls.length > 0 && (
+          <div className="grid grid-cols-2 gap-3 my-4">
+            {mediaUrls.map((url, idx) => (
+              <div key={idx} className="relative rounded-xl overflow-hidden group aspect-video bg-black/5 dark:bg-white/5">
+                <img src={url} alt={`Upload ${idx}`} className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveMedia(idx)}
+                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 hover:bg-black/80 text-white transition active:scale-95 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Toolbar / Actions */}
+        <div className="flex items-center justify-between pt-4 border-t border-black/[0.05] dark:border-white/[0.06] mt-4">
           <div className="flex items-center gap-1">
-            <label className="w-9 h-9 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#202124] flex items-center justify-center cursor-pointer transition text-[#1e8e3e]" title="Upload photo">
-              <Image className="w-5 h-5" />
+            <label className="p-2 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] text-violet-600 dark:text-violet-400 cursor-pointer transition flex items-center gap-1.5 text-xs font-semibold">
+              <ImageIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Photo</span>
               <input
                 type="file"
+                accept="image/*,video/*"
                 multiple
-                accept="image/*"
                 onChange={handleFileSelect}
                 className="hidden"
-                disabled={uploading}
               />
             </label>
 
-            <label className="w-9 h-9 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#202124] flex items-center justify-center cursor-pointer transition text-[#d93025]" title="Upload video">
-              <Film className="w-5 h-5" />
-              <input
-                type="file"
-                accept="video/*"
-                onChange={handleFileSelect}
-                className="hidden"
-                disabled={uploading}
-              />
-            </label>
+            <button
+              type="button"
+              onClick={() => navigateTo('ai-studio')}
+              className="p-2 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] text-amber-500 cursor-pointer transition flex items-center gap-1.5 text-xs font-semibold"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">AI Assist</span>
+            </button>
 
             <button
               type="button"
               onClick={() => navigateTo('polls')}
-              className="w-9 h-9 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#202124] flex items-center justify-center transition cursor-pointer text-[#f29900]"
-              title="Add Poll"
+              className="p-2 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] text-emerald-500 cursor-pointer transition flex items-center gap-1.5 text-xs font-semibold"
             >
-              <Vote className="w-5 h-5" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setCaption((prev) => prev + ' 🚀')}
-              className="w-9 h-9 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#202124] flex items-center justify-center transition cursor-pointer text-[#1a73e8]"
-              title="Emoji"
-            >
-              <Smile className="w-5 h-5" />
+              <Vote className="w-4 h-4" />
+              <span className="hidden sm:inline">Poll</span>
             </button>
           </div>
 
-          <div className="text-[12px] text-[#5f6368] dark:text-[#9aa0a6]">
-            {uploading ? 'Attaching media...' : `${caption.length} / 500`}
+          <div className="text-[12px] text-[#65676b] dark:text-[#8a8d91]">
+            {uploading ? (
+              <span className="text-violet-500 animate-pulse">Uploading media...</span>
+            ) : (
+              <span>{caption.length}/1000</span>
+            )}
           </div>
         </div>
       </div>

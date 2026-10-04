@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, MapPin, Users, Check, Plus, ExternalLink } from 'lucide-react';
+import { Calendar, MapPin, Users, Check, Plus, ExternalLink, ArrowLeft } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
 
 export default function EventsHubView() {
-  const { showToast } = useSocial();
+  const { navigateTo, showToast } = useSocial();
   const [events, setEvents] = useState([]);
   const [rsvpMap, setRsvpMap] = useState({});
 
@@ -38,50 +38,74 @@ export default function EventsHubView() {
   const handleToggleRsvp = (id) => {
     const next = !rsvpMap[id];
     setRsvpMap((prev) => ({ ...prev, [id]: next }));
-    showToast(next ? 'RSVP confirmed! Added to your calendar.' : 'RSVP cancelled', 'info');
+    showToast(next ? 'RSVP confirmed! Added to your schedule.' : 'RSVP cancelled', 'info');
   };
 
   return (
-    <div className="flex flex-col gap-4 max-w-4xl mx-auto w-full pb-20 md:pb-10">
-      <div className="bg-white dark:bg-[#202124] p-5 rounded-lg border border-[#dadce0] dark:border-[#3c4043] shadow-xs flex items-center justify-between">
-        <div>
-          <h2 className="text-[17px] font-bold text-[#202124] dark:text-[#e8eaed] flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-[#1a73e8]" />
-            Events Hub
-          </h2>
-          <p className="text-xs text-[#5f6368] dark:text-[#9aa0a6]">Discover virtual conferences, live workshops, and community stages</p>
+    <div className="flex flex-col gap-4 max-w-4xl mx-auto w-full pb-20">
+      {/* 1. Header */}
+      <div className="bg-white dark:bg-[#16161f] p-4 sm:p-5 rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigateTo('feed')}
+            className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] transition cursor-pointer active:scale-95"
+            title="Back"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-[18px] font-bold text-[#1c1e21] dark:text-[#e4e6eb] flex items-center gap-2 tracking-tight">
+              <Calendar className="w-5 h-5 text-violet-500" />
+              <span>Events Hub</span>
+            </h1>
+            <p className="text-[12px] text-[#65676b] dark:text-[#8a8d91]">
+              Discover virtual conferences, live workshops, and community stages
+            </p>
+          </div>
         </div>
       </div>
 
+      {/* 2. Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {events.map((ev) => {
           const isAttending = rsvpMap[ev.id];
           return (
-            <div key={ev.id} className="bg-white dark:bg-[#202124] rounded-lg border border-[#dadce0] dark:border-[#3c4043] shadow-xs overflow-hidden flex flex-col justify-between hover:shadow-sm transition-all">
-              <div className="h-36 w-full relative overflow-hidden bg-gray-100">
-                <img src={ev.coverImage} alt={ev.title} className="w-full h-full object-cover" />
+            <div
+              key={ev.id}
+              className="bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md dark:hover:shadow-black/30 transition-all duration-200 group"
+            >
+              <div className="h-40 w-full relative overflow-hidden bg-violet-500/10">
+                <img
+                  src={ev.coverImage}
+                  alt={ev.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
               </div>
 
               <div className="p-5 flex-1 flex flex-col justify-between gap-3">
                 <div>
-                  <span className="text-[11px] font-bold text-[#1a73e8] block mb-1">{ev.date}</span>
-                  <h3 className="font-bold text-sm sm:text-base text-[#202124] dark:text-[#e8eaed] leading-snug">{ev.title}</h3>
-                  <div className="flex items-center gap-1.5 text-xs text-[#5f6368] dark:text-[#9aa0a6] mt-2">
-                    <MapPin className="w-3.5 h-3.5 text-[#5f6368] dark:text-[#9aa0a6]" />
+                  <span className="text-[11px] font-bold text-violet-600 dark:text-violet-400 block mb-1">
+                    {ev.date}
+                  </span>
+                  <h3 className="font-bold text-[16px] text-[#1c1e21] dark:text-[#e4e6eb] leading-snug group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                    {ev.title}
+                  </h3>
+                  <div className="flex items-center gap-1.5 text-xs text-[#65676b] dark:text-[#8a8d91] mt-2">
+                    <MapPin className="w-3.5 h-3.5" />
                     <span>{ev.location}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-[#dadce0]/60 dark:border-[#3c4043]">
-                  <span className="text-xs text-[#5f6368] dark:text-[#9aa0a6]">
+                <div className="flex items-center justify-between pt-4 border-t border-black/[0.04] dark:border-white/[0.05]">
+                  <span className="text-xs font-medium text-[#65676b] dark:text-[#8a8d91]">
                     {ev.attendeesCount + (isAttending ? 1 : 0)} attending
                   </span>
                   <button
                     onClick={() => handleToggleRsvp(ev.id)}
-                    className={`px-4 py-2 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-xs ${
                       isAttending
-                        ? 'bg-[#e6f4ea] text-[#137333] dark:bg-[#137333]/30 dark:text-[#81c995]'
-                        : 'bg-[#1a73e8] text-white hover:bg-[#1557b0]'
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-violet-500/20'
                     }`}
                   >
                     {isAttending ? '✓ Attending' : 'RSVP Now'}

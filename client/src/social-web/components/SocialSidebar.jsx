@@ -1,179 +1,157 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Home,
-  Compass,
-  Bell,
-  Mail,
-  Sparkles,
-  Bookmark,
+  LayoutGrid,
   Users,
-  Award,
-  User,
-  Plus,
-  Settings,
-  Radio,
-  Vote,
-  Cloud,
-  ChevronDown
+  Calendar,
+  PlaySquare,
+  Image as ImageIcon,
+  FileText,
+  ShoppingBag
 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 
 export default function SocialSidebar() {
-  const { activeTab, navigateTo, currentUser, unreadNotifications, unreadMessages } = useSocial();
-  const [showMore, setShowMore] = useState(false);
+  const { activeTab, navigateTo, currentUser } = useSocial();
 
-  const primaryItems = [
-    { id: 'feed', label: 'Stream', icon: Home },
-    { id: 'search', label: 'Explore', icon: Compass },
-    { id: 'communities', label: 'Spaces & Circles', icon: Users },
-    { id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadNotifications },
-    { id: 'messages', label: 'Chat & Direct', icon: Mail, badge: unreadMessages },
-    { id: 'ai-studio', label: 'Tiwi AI Assistant', icon: Sparkles },
-    { id: 'bookmarks', label: 'Saved collections', icon: Bookmark },
-    { id: 'creator', label: 'Creator Studio', icon: Award },
-    { id: 'profile', label: 'Your Profile', icon: User },
+  const navItems = [
+    { id: 'feed', label: 'Feed', icon: LayoutGrid },
+    { id: 'friends', label: 'Friends', icon: Users, route: 'followers' },
+    { id: 'event', label: 'Event', icon: Calendar, route: 'events' },
+    { id: 'videos', label: 'Watch Videos', icon: PlaySquare, route: 'reels' },
+    { id: 'photos', label: 'Photos', icon: ImageIcon, route: 'feed' },
+    { id: 'files', label: 'Files', icon: FileText, route: 'bookmarks' },
+    { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag, route: 'wallet' },
   ];
 
-  const secondaryItems = [
-    { id: 'audio-spaces', label: 'Live Broadcasts', icon: Radio },
-    { id: 'polls', label: 'Live Polls', icon: Vote },
-    { id: 'settings', label: 'Settings', icon: Settings },
+  const pagesYouLike = [
+    {
+      id: 'p1',
+      name: 'Football FC',
+      abbr: 'FF',
+      bgColor: 'bg-[#40C057]',
+      badge: '120',
+      badgeColor: 'bg-[#FF3B30]'
+    },
+    {
+      id: 'p2',
+      name: 'Badminton Club',
+      abbr: 'BC',
+      bgColor: 'bg-[#9333EA]',
+    },
+    {
+      id: 'p3',
+      name: 'UI/UX Community',
+      abbr: 'UI',
+      bgColor: 'bg-[#00B4D8]',
+    },
+    {
+      id: 'p4',
+      name: 'Web Designer',
+      abbr: 'WD',
+      bgColor: 'bg-[#F43F5E]',
+    },
   ];
 
   return (
-    <aside className="w-[68px] xl:w-[256px] h-full flex flex-col justify-between py-3 select-none flex-shrink-0">
-      <div className="flex flex-col gap-3 w-full">
-        {/* 1. Google "+ Create" Floating Action Button */}
-        <div className="px-2 xl:px-4 mb-2">
-          {/* Tablet/Mobile Icon Only */}
-          <button
-            type="button"
-            onClick={() => navigateTo('create-post')}
-            className="xl:hidden w-12 h-12 rounded-full bg-white dark:bg-[#303134] hover:bg-[#f8f9fa] dark:hover:bg-[#3c4043] border border-[#dadce0] dark:border-[#5f6368] text-[#3c4043] dark:text-[#e8eaed] flex items-center justify-center shadow-sm hover:shadow-md transition-all active:scale-95 cursor-pointer mx-auto"
-            title="Create Post"
-          >
-            <Plus className="w-6 h-6 text-[#1a73e8]" />
-          </button>
-
-          {/* Desktop Google Workspace Compose Pill Button */}
-          <button
-            type="button"
-            onClick={() => navigateTo('create-post')}
-            className="hidden xl:flex items-center gap-3 bg-white dark:bg-[#303134] hover:bg-[#f8f9fa] dark:hover:bg-[#3c4043] border border-[#dadce0] dark:border-[#5f6368] text-[#3c4043] dark:text-[#e8eaed] font-medium text-[14px] px-5 py-3 rounded-full shadow-xs hover:shadow-md transition-all active:scale-[0.98] cursor-pointer"
-          >
-            {/* Google 4-Color Styled Plus */}
-            <div className="w-5 h-5 flex items-center justify-center font-bold text-lg leading-none text-[#1a73e8]">
-              <Plus className="w-5 h-5 stroke-[2.5]" />
-            </div>
-            <span>New post</span>
-          </button>
+    <aside className="w-[230px] xl:w-[240px] flex flex-col py-5 select-none flex-shrink-0">
+      {/* 1. User Profile Widget matching screenshot */}
+      <div
+        onClick={() => navigateTo('profile', currentUser?.handle || currentUser?.id)}
+        className="bg-white dark:bg-[#161822] rounded-2xl p-3 border border-[#EAECF0] dark:border-[#1E232F] flex items-center gap-3 shadow-[0_2px_8px_rgba(0,0,0,0.02)] mb-5 cursor-pointer hover:border-gray-300 dark:hover:border-gray-700 transition"
+      >
+        <img
+          src={
+            currentUser?.avatar ||
+            'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'
+          }
+          alt={currentUser?.name || 'Ahmad Nur Fawaid'}
+          className="w-10 h-10 rounded-full object-cover ring-1 ring-black/5"
+        />
+        <div className="flex flex-col min-w-0">
+          <span className="font-bold text-[13.5px] text-[#111827] dark:text-white truncate">
+            {currentUser?.name || 'Ahmad Nur Fawaid'}
+          </span>
+          <span className="text-[11.5px] text-[#9CA3AF] truncate">
+            @{currentUser?.handle || 'fawait'}
+          </span>
         </div>
-
-        {/* 2. Google Workspace Drawer Navigation Items */}
-        <nav className="flex flex-col gap-0.5 w-full">
-          {primaryItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  if (item.id === 'profile') {
-                    navigateTo('profile', currentUser?.handle || currentUser?.id);
-                  } else {
-                    navigateTo(item.id);
-                  }
-                }}
-                className={`flex items-center justify-center xl:justify-start gap-4 py-2.5 px-3 xl:pl-6 xl:pr-4 xl:rounded-r-full rounded-lg transition-colors cursor-pointer text-left relative ${
-                  isActive
-                    ? 'bg-[#e8f0fe] dark:bg-[#183153] text-[#1967d2] dark:text-[#8ab4f8] font-semibold'
-                    : 'text-[#3c4043] dark:text-[#bdc1c6] hover:bg-[#f1f3f4] dark:hover:bg-[#303134] font-normal'
-                }`}
-              >
-                <div className="relative flex items-center justify-center flex-shrink-0">
-                  <Icon
-                    className={`w-5 h-5 ${
-                      isActive ? 'text-[#1a73e8] dark:text-[#8ab4f8] stroke-[2.2]' : 'stroke-[1.8]'
-                    }`}
-                  />
-                  {item.badge > 0 && (
-                    <span className="xl:hidden absolute -top-1.5 -right-2 min-w-4 h-4 px-1 bg-[#d93025] text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                      {item.badge > 99 ? '99+' : item.badge}
-                    </span>
-                  )}
-                </div>
-
-                <span className="hidden xl:inline text-[14px] truncate flex-1">
-                  {item.label}
-                </span>
-
-                {item.badge > 0 && (
-                  <span className="hidden xl:flex min-w-5 h-5 px-1.5 bg-[#d93025] text-white text-[11px] font-bold rounded-full items-center justify-center">
-                    {item.badge > 99 ? '99+' : item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-
-          {/* More expandable section */}
-          <button
-            type="button"
-            onClick={() => setShowMore((prev) => !prev)}
-            className="hidden xl:flex items-center gap-4 py-2.5 pl-6 pr-4 rounded-r-full text-[#5f6368] dark:text-[#9aa0a6] hover:bg-[#f1f3f4] dark:hover:bg-[#303134] text-[14px] transition cursor-pointer"
-          >
-            <ChevronDown className={`w-4 h-4 transition-transform ${showMore ? 'rotate-180' : ''}`} />
-            <span>{showMore ? 'Less' : 'More'}</span>
-          </button>
-
-          {showMore && (
-            <div className="hidden xl:flex flex-col gap-0.5 pt-1">
-              {secondaryItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => navigateTo(item.id)}
-                    className={`flex items-center gap-4 py-2.5 pl-6 pr-4 rounded-r-full transition-colors cursor-pointer text-left ${
-                      isActive
-                        ? 'bg-[#e8f0fe] dark:bg-[#183153] text-[#1967d2] dark:text-[#8ab4f8] font-semibold'
-                        : 'text-[#3c4043] dark:text-[#bdc1c6] hover:bg-[#f1f3f4] dark:hover:bg-[#303134] font-normal'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5 stroke-[1.8]" />
-                    <span className="text-[14px]">{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </nav>
       </div>
 
-      {/* 3. Google Workspace / Google One Storage Meter */}
-      <div className="hidden xl:flex flex-col gap-2 px-4 py-3 border-t border-[#dadce0] dark:border-[#3c4043]">
-        <div className="flex items-center justify-between text-[12px] text-[#5f6368] dark:text-[#9aa0a6]">
-          <div className="flex items-center gap-1.5">
-            <Cloud className="w-4 h-4 text-[#1a73e8]" />
-            <span>Tiwi Cloud</span>
-          </div>
-          <span className="font-medium text-[#202124] dark:text-[#e8eaed]">15% used</span>
-        </div>
-        <div className="w-full h-1 bg-[#e8eaed] dark:bg-[#3c4043] rounded-full overflow-hidden">
-          <div className="w-[15%] h-full bg-[#1a73e8] rounded-full" />
-        </div>
-        <div className="text-[11px] text-[#5f6368] dark:text-[#9aa0a6] flex justify-between">
-          <span>2.3 GB of 15 GB</span>
-          <button
-            type="button"
-            onClick={() => navigateTo('creator')}
-            className="text-[#1a73e8] dark:text-[#8ab4f8] font-medium hover:underline cursor-pointer"
-          >
-            Upgrade
-          </button>
+      {/* 2. Main Navigation Items */}
+      <nav className="flex flex-col gap-1 w-full mb-7">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive =
+            activeTab === item.id ||
+            (item.id === 'feed' && activeTab === 'feed') ||
+            (item.route && activeTab === item.route);
+
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => {
+                if (item.route) navigateTo(item.route);
+                else navigateTo(item.id);
+              }}
+              className={`relative flex items-center gap-3.5 py-2.5 px-3 rounded-xl font-medium text-[13.5px] transition-all cursor-pointer text-left ${
+                isActive
+                  ? 'text-[#1E75FF] font-bold'
+                  : 'text-[#4B5563] dark:text-[#9CA3AF] hover:text-[#111827] dark:hover:text-white hover:bg-black/[0.02] dark:hover:bg-white/[0.03]'
+              }`}
+            >
+              {/* Left blue active vertical pill indicator bar */}
+              {isActive && (
+                <span className="absolute -left-2 w-1.5 h-6 bg-[#1E75FF] rounded-r-full shadow-sm" />
+              )}
+
+              <Icon
+                className={`w-[19px] h-[19px] transition-colors ${
+                  isActive
+                    ? 'text-[#1E75FF] stroke-[2.2]'
+                    : 'text-[#6B7280] dark:text-[#9CA3AF] stroke-[1.8]'
+                }`}
+              />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* 3. PAGES YOU LIKE Section matching screenshot */}
+      <div className="flex flex-col">
+        <span className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider px-3 mb-3">
+          Pages You Like
+        </span>
+
+        <div className="flex flex-col gap-2">
+          {pagesYouLike.map((page) => (
+            <button
+              key={page.id}
+              type="button"
+              onClick={() => navigateTo('communities')}
+              className="flex items-center justify-between px-3 py-1.5 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-all cursor-pointer text-left group"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  className={`w-7 h-7 rounded-lg ${page.bgColor} text-white font-bold text-[11px] flex items-center justify-center flex-shrink-0 shadow-xs`}
+                >
+                  {page.abbr}
+                </div>
+                <span className="text-[13px] font-medium text-[#374151] dark:text-[#D1D5DB] group-hover:text-[#111827] dark:group-hover:text-white truncate">
+                  {page.name}
+                </span>
+              </div>
+
+              {page.badge && (
+                <span
+                  className={`${page.badgeColor} text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 shadow-xs`}
+                >
+                  {page.badge}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
       </div>
     </aside>

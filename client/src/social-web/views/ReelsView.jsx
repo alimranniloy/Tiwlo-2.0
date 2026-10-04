@@ -10,7 +10,8 @@ import {
   Play,
   Pause,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Sparkles
 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
@@ -30,12 +31,11 @@ export default function ReelsView() {
       if (Array.isArray(data) && data.length > 0) {
         setReels(data);
       } else {
-        // Fallback reel placeholders if none uploaded yet
         setReels([
           {
             id: 'reel_demo_1',
             videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-            caption: 'Exploring modern web architecture on Tiwi! 🚀 #Tech #Innovation',
+            caption: 'Exploring modern web architecture on Tiwi! 🚀 Built with real database integration and sleek aesthetics.',
             audioTitle: 'Tiwi Beats • Original Audio',
             likesCount: '4.2K',
             commentsCount: '182',
@@ -49,7 +49,7 @@ export default function ReelsView() {
           {
             id: 'reel_demo_2',
             videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyBlazes.mp4',
-            caption: 'Clean Google-inspired design systems in action. Minimalist & polished.',
+            caption: 'Ultra-modern, premium quality design systems in action. Minimalist, spacious, and polished.',
             audioTitle: 'Studio Soundscape • Chill Lo-Fi',
             likesCount: '2.8K',
             commentsCount: '94',
@@ -104,15 +104,15 @@ export default function ReelsView() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[70vh]">
-        <div className="w-8 h-8 rounded-full border-3 border-[#0B57D0] border-t-transparent animate-spin" />
+        <div className="w-8 h-8 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />
       </div>
     );
   }
 
   if (!currentReel) {
     return (
-      <div className="text-center py-20">
-        <p className="text-gray-500">No reels found.</p>
+      <div className="text-center py-20 bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-8 max-w-md mx-auto">
+        <p className="text-sm text-[#65676b] dark:text-[#8a8d91]">No reels found.</p>
       </div>
     );
   }
@@ -121,7 +121,7 @@ export default function ReelsView() {
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-6rem)] pb-16 md:pb-6">
-      <div className="relative w-full max-w-[400px] h-[720px] max-h-[85vh] bg-black rounded-lg border border-[#dadce0] dark:border-[#3c4043] overflow-hidden shadow-xl flex items-center justify-center select-none">
+      <div className="relative w-full max-w-[420px] h-[740px] max-h-[85vh] bg-black rounded-3xl overflow-hidden shadow-2xl shadow-black/40 border border-white/10 flex items-center justify-center select-none">
         {/* Video Player */}
         <video
           ref={videoRef}
@@ -138,26 +138,31 @@ export default function ReelsView() {
         {!isPlaying && (
           <div
             onClick={handleVideoClick}
-            className="absolute inset-0 bg-black/30 flex items-center justify-center cursor-pointer"
+            className="absolute inset-0 bg-black/40 flex items-center justify-center cursor-pointer backdrop-blur-[2px] transition-all"
           >
-            <div className="w-16 h-16 rounded-full bg-black/60 text-white flex items-center justify-center shadow-lg">
+            <div className="w-16 h-16 rounded-2xl bg-black/60 backdrop-blur-md text-white flex items-center justify-center shadow-xl ring-1 ring-white/20">
               <Play className="w-8 h-8 ml-1" />
             </div>
           </div>
         )}
 
-        {/* Top Controls: Mute & Progress */}
-        <div className="absolute top-4 right-4 z-20">
+        {/* Top Controls: Sound & Brand */}
+        <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/40 backdrop-blur-md text-white text-[12px] font-semibold ring-1 ring-white/10 pointer-events-auto">
+            <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+            <span>Tiwi Shorts</span>
+          </div>
+
           <button
             onClick={() => setIsMuted((prev) => !prev)}
-            className="p-2.5 rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md transition-colors"
+            className="p-2.5 rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md transition-all ring-1 ring-white/10 pointer-events-auto active:scale-95"
           >
             {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </button>
         </div>
 
         {/* Bottom Details Overlay */}
-        <div className="absolute bottom-0 left-0 right-16 p-5 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10 text-white flex flex-col gap-2.5">
+        <div className="absolute bottom-0 left-0 right-16 p-5 bg-gradient-to-t from-black/95 via-black/60 to-transparent z-10 text-white flex flex-col gap-2.5 pointer-events-auto">
           {/* Author */}
           <button
             onClick={() => navigateTo('profile', currentReel.author?.handle || currentReel.author?.id)}
@@ -166,50 +171,50 @@ export default function ReelsView() {
             <img
               src={currentReel.author?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'}
               alt={currentReel.author?.name}
-              className="w-9 h-9 rounded-full object-cover border-2 border-white"
+              className="w-10 h-10 rounded-xl object-cover ring-2 ring-violet-500/80 shadow-md"
             />
-            <div>
-              <div className="text-sm font-bold flex items-center gap-1 group-hover:underline">
-                {currentReel.author?.name}
-                {currentReel.author?.isVerified && <CheckCircle2 className="w-3.5 h-3.5 text-[#4285F4] inline" />}
+            <div className="min-w-0">
+              <div className="text-[14px] font-bold flex items-center gap-1 group-hover:text-violet-400 transition-colors">
+                <span className="truncate">{currentReel.author?.name}</span>
+                {currentReel.author?.isVerified && <CheckCircle2 className="w-3.5 h-3.5 text-violet-400 fill-current inline flex-shrink-0" />}
               </div>
-              <div className="text-xs text-gray-300">@{currentReel.author?.handle}</div>
+              <div className="text-[11px] text-white/70">@{currentReel.author?.handle}</div>
             </div>
           </button>
 
           {/* Caption */}
-          <p className="text-xs leading-relaxed text-gray-100 line-clamp-2">
+          <p className="text-[13px] leading-relaxed text-white/90 line-clamp-2">
             {currentReel.caption}
           </p>
 
           {/* Audio */}
-          <div className="flex items-center gap-2 text-[11px] text-gray-300">
-            <Music className="w-3 h-3 text-[#4285F4]" />
+          <div className="flex items-center gap-2 text-[11px] text-white/70 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full w-fit max-w-[90%]">
+            <Music className="w-3 h-3 text-violet-400 flex-shrink-0 animate-spin" style={{ animationDuration: '4s' }} />
             <span className="truncate">{currentReel.audioTitle || 'Original Audio'}</span>
           </div>
         </div>
 
-        {/* Right Action Icons Bar */}
+        {/* Right Floating Action Dock */}
         <div className="absolute bottom-6 right-3 flex flex-col items-center gap-4 z-20 text-white">
           {/* Like */}
-          <button onClick={handleToggleLike} className="flex flex-col items-center gap-1 group">
-            <div className={`p-3 rounded-full backdrop-blur-md transition-all ${
-              isLiked ? 'bg-red-500/80 text-white' : 'bg-black/40 hover:bg-black/60 text-white'
+          <button onClick={handleToggleLike} className="flex flex-col items-center gap-1 group cursor-pointer active:scale-90 transition-transform">
+            <div className={`p-3 rounded-2xl backdrop-blur-md transition-all shadow-lg ${
+              isLiked ? 'bg-rose-500 text-white shadow-rose-500/30' : 'bg-black/40 hover:bg-black/60 text-white ring-1 ring-white/15'
             }`}>
               <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
             </div>
-            <span className="text-[10px] font-bold">{currentReel.likesCount || '0'}</span>
+            <span className="text-[11px] font-bold">{currentReel.likesCount || '0'}</span>
           </button>
 
           {/* Comment */}
           <button
             onClick={() => showToast('Open comments on post details', 'info')}
-            className="flex flex-col items-center gap-1 group"
+            className="flex flex-col items-center gap-1 group cursor-pointer active:scale-90 transition-transform"
           >
-            <div className="p-3 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white transition-all">
+            <div className="p-3 rounded-2xl bg-black/40 hover:bg-black/60 backdrop-blur-md text-white transition-all ring-1 ring-white/15 shadow-lg">
               <MessageCircle className="w-5 h-5" />
             </div>
-            <span className="text-[10px] font-bold">{currentReel.commentsCount || '0'}</span>
+            <span className="text-[11px] font-bold">{currentReel.commentsCount || '0'}</span>
           </button>
 
           {/* Share */}
@@ -218,28 +223,28 @@ export default function ReelsView() {
               navigator.clipboard?.writeText(window.location.href);
               showToast('Reel link copied!', 'info');
             }}
-            className="flex flex-col items-center gap-1 group"
+            className="flex flex-col items-center gap-1 group cursor-pointer active:scale-90 transition-transform"
           >
-            <div className="p-3 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white transition-all">
+            <div className="p-3 rounded-2xl bg-black/40 hover:bg-black/60 backdrop-blur-md text-white transition-all ring-1 ring-white/15 shadow-lg">
               <Share2 className="w-5 h-5" />
             </div>
-            <span className="text-[10px] font-bold">Share</span>
+            <span className="text-[11px] font-bold">Share</span>
           </button>
         </div>
 
         {/* Next / Previous Reel buttons */}
-        <div className="absolute right-[-60px] top-1/2 -translate-y-1/2 hidden lg:flex flex-col gap-3">
+        <div className="absolute -right-16 top-1/2 -translate-y-1/2 hidden xl:flex flex-col gap-3">
           <button
             onClick={handlePrev}
             disabled={activeIndex === 0}
-            className="p-3 rounded-full bg-white dark:bg-[#1E293B] shadow-lg border border-gray-200 dark:border-gray-700 disabled:opacity-30 hover:scale-105 transition-all text-gray-700 dark:text-gray-200"
+            className="p-3 rounded-2xl bg-white dark:bg-[#16161f] shadow-lg border border-black/[0.05] dark:border-white/[0.08] disabled:opacity-30 hover:scale-105 active:scale-95 transition-all text-[#1c1e21] dark:text-[#e4e6eb] cursor-pointer"
           >
             <ChevronUp className="w-5 h-5" />
           </button>
           <button
             onClick={handleNext}
             disabled={activeIndex === reels.length - 1}
-            className="p-3 rounded-full bg-white dark:bg-[#1E293B] shadow-lg border border-gray-200 dark:border-gray-700 disabled:opacity-30 hover:scale-105 transition-all text-gray-700 dark:text-gray-200"
+            className="p-3 rounded-2xl bg-white dark:bg-[#16161f] shadow-lg border border-black/[0.05] dark:border-white/[0.08] disabled:opacity-30 hover:scale-105 active:scale-95 transition-all text-[#1c1e21] dark:text-[#e4e6eb] cursor-pointer"
           >
             <ChevronDown className="w-5 h-5" />
           </button>
