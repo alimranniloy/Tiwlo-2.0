@@ -9,6 +9,11 @@ import BottomNav from './components/BottomNav';
 // Dedicated Views (Modular & Code-Split)
 const FeedView = lazy(() => import('./views/FeedView'));
 const ReelsView = lazy(() => import('./views/ReelsView'));
+const FriendsView = lazy(() => import('./views/FriendsView'));
+const WatchVideosView = lazy(() => import('./views/WatchVideosView'));
+const PhotosView = lazy(() => import('./views/PhotosView'));
+const FilesView = lazy(() => import('./views/FilesView'));
+const MarketplaceView = lazy(() => import('./views/MarketplaceView'));
 const SearchView = lazy(() => import('./views/SearchView'));
 const NotificationsView = lazy(() => import('./views/NotificationsView'));
 const MessagesView = lazy(() => import('./views/MessagesView'));
@@ -40,13 +45,21 @@ function SquareSocialLayout({ onNavigateHome }) {
   const renderActiveView = () => {
     switch (activeTab) {
       case 'reels': return <ReelsView />;
+      case 'friends': return <FriendsView />;
+      case 'videos':
+      case 'watch': return <WatchVideosView />;
+      case 'photos': return <PhotosView />;
+      case 'files': return <FilesView />;
+      case 'marketplace': return <MarketplaceView />;
+      case 'events':
+      case 'event': return <EventsHubView />;
+      case 'profile': return <ProfileView />;
+      case 'edit-profile': return <EditProfileView />;
       case 'search':
       case 'explore': return <SearchView />;
       case 'notifications': return <NotificationsView />;
       case 'messages': return <MessagesView />;
       case 'call': return <AudioVideoCallView />;
-      case 'profile': return <ProfileView />;
-      case 'edit-profile': return <EditProfileView />;
       case 'create-post': return <CreatePostView />;
       case 'create-story': return <CreateStoryView />;
       case 'post-detail': return <PostDetailView />;
@@ -60,7 +73,6 @@ function SquareSocialLayout({ onNavigateHome }) {
       case 'wallet': return <SocialWalletView />;
       case 'ai-studio': return <AiStudioView />;
       case 'polls': return <LivePollsView />;
-      case 'events': return <EventsHubView />;
       case 'trivia': return <LiveTriviaView />;
       case 'memories': return <MemoriesView />;
       case 'settings': return <SettingsView />;
@@ -69,7 +81,11 @@ function SquareSocialLayout({ onNavigateHome }) {
     }
   };
 
-  const isWideMessages = activeTab === 'messages' || activeTab === 'call';
+  // Only the main feed shows the 4-column widgets layout from the screenshot.
+  // Dedicated pages (Profile, Reels, Friends, Videos, Photos, Marketplace, Files, Events, Messages)
+  // are given their own dedicated wide canvas!
+  const isFeed = activeTab === 'feed' || !activeTab;
+  const isReels = activeTab === 'reels';
 
   return (
     <div className="min-h-screen bg-[#F5F7FB] dark:bg-[#0E1017] text-[#111827] dark:text-[#E2E8F0] font-sans antialiased flex flex-col selection:bg-[#1E75FF]/20 selection:text-[#1E75FF]">
@@ -79,7 +95,7 @@ function SquareSocialLayout({ onNavigateHome }) {
         onNavigateHome={onNavigateHome}
       />
 
-      {/* 2. Main 4-Column Layout */}
+      {/* 2. Main Layout */}
       <div className="flex-1 flex justify-center w-full">
         <div className="w-full max-w-[1440px] flex justify-between min-h-[calc(100vh-64px)] px-3 sm:px-5">
           {/* Column 1: Left Navigation Sidebar */}
@@ -89,12 +105,18 @@ function SquareSocialLayout({ onNavigateHome }) {
             </div>
           )}
 
-          {/* Column 2: Center Main Feed */}
+          {/* Center Main View: 
+              - For Feed: 590px - 620px matching screenshot column 2
+              - For Reels: Focused theater view
+              - For Dedicated Pages (Profile, Friends, Videos, Photos, Files, Marketplace): Wide spacious canvas (up to 1060px)
+          */}
           <main
-            className={`flex-1 min-h-[calc(100vh-64px)] px-1 sm:px-4 md:px-5 py-5 pb-24 sm:pb-8 ${
-              isWideMessages
-                ? 'max-w-[1040px] w-full'
-                : 'max-w-[590px] xl:max-w-[620px] w-full min-w-0'
+            className={`flex-1 min-h-[calc(100vh-64px)] py-5 pb-24 sm:pb-8 min-w-0 ${
+              isFeed
+                ? 'max-w-[590px] xl:max-w-[620px] px-1 sm:px-4 md:px-5'
+                : isReels
+                ? 'w-full flex items-center justify-center px-2'
+                : 'max-w-[1080px] w-full px-2 sm:px-6 md:px-8'
             }`}
           >
             <Suspense
@@ -108,15 +130,15 @@ function SquareSocialLayout({ onNavigateHome }) {
             </Suspense>
           </main>
 
-          {/* Column 3: Sosmed Stories, Events & Suggested Pages */}
-          {!isWideMessages && (
+          {/* Column 3: Sosmed Stories, Events & Suggested Pages (Shown exclusively on Feed) */}
+          {isFeed && (
             <aside className="w-[280px] xl:w-[290px] flex-shrink-0 hidden lg:block py-5 pl-2">
               <SocialRightPanel />
             </aside>
           )}
 
-          {/* Column 4: Far Right Contacts / Friends Rail */}
-          {!isWideMessages && (
+          {/* Column 4: Far Right Contacts / Friends Rail (Shown exclusively on Feed) */}
+          {isFeed && (
             <div className="hidden xl:block flex-shrink-0 py-5 pl-3 border-l border-[#EAECF0] dark:border-[#1E232F]">
               <SocialFarRightRail />
             </div>

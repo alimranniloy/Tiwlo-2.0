@@ -21,7 +21,9 @@ export function SocialProvider({ children, initialUser = null }) {
       const parts = pathname.split('/');
       // Expected: /tiwi or /tiwi/subpath or /tiwi/subpath/:id
       if (parts[0] === 'tiwi') {
-        const sub = parts[1] || 'feed';
+        let sub = parts[1] || 'feed';
+        if (sub === 'watch') sub = 'videos';
+        if (sub === 'event') sub = 'events';
         const param = parts[2] || null;
         return { tab: sub, params: param ? { id: param, handle: param } : null };
       }
@@ -137,6 +139,7 @@ export function SocialProvider({ children, initialUser = null }) {
         userLoading,
         activeTab,
         tabParams,
+        currentProfileHandle: tabParams?.handle || tabParams?.id || null,
         navigateTo,
         isDarkMode,
         toggleDarkMode,

@@ -1,114 +1,168 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, MapPin, Users, Check, Plus, ExternalLink, ArrowLeft } from 'lucide-react';
+import {
+  Calendar,
+  MapPin,
+  Users,
+  Check,
+  Plus,
+  ExternalLink,
+  ArrowLeft,
+  Sparkles,
+  Gift,
+  Clock,
+  Share2
+} from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
 
 export default function EventsHubView() {
   const { navigateTo, showToast } = useSocial();
-  const [events, setEvents] = useState([]);
+  const [events, setEvents] = useState([
+    {
+      id: 'ev_prada',
+      title: "Prada's Invitation Birthday",
+      category: 'Celebration',
+      date: 'This Saturday, 7:00 PM',
+      location: 'The Grand Lounge & Rooftop Garden',
+      attendeesCount: 48,
+      coverImage: 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=600&h=300&fit=crop',
+      isInvite: true
+    },
+    {
+      id: 'ev_1',
+      title: 'Tiwi Global Developer Summit 2026',
+      category: 'Tech & Keynote',
+      date: 'Tomorrow, 6:00 PM UTC',
+      location: 'Virtual Live Stream & Audio Space',
+      attendeesCount: 342,
+      coverImage: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&h=300&fit=crop',
+      isInvite: false
+    },
+    {
+      id: 'ev_2',
+      title: 'Design Systems & Modern Typography Meetup',
+      category: 'Design Workshop',
+      date: 'Friday, 8:00 PM UTC',
+      location: 'Live Audio Stage #2',
+      attendeesCount: 188,
+      coverImage: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=600&h=300&fit=crop',
+      isInvite: false
+    },
+    {
+      id: 'ev_3',
+      title: 'PostgreSQL High-Concurrency Scaling Webinar',
+      category: 'Architecture',
+      date: 'Next Tuesday, 5:00 PM UTC',
+      location: 'Tiwi Developer Stage',
+      attendeesCount: 520,
+      coverImage: 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=600&h=300&fit=crop',
+      isInvite: false
+    }
+  ]);
   const [rsvpMap, setRsvpMap] = useState({});
 
-  useEffect(() => {
-    TiwiSocialAPI.getEvents().then((data) => {
-      if (Array.isArray(data) && data.length > 0) {
-        setEvents(data);
-      } else {
-        setEvents([
-          {
-            id: 'ev_1',
-            title: 'Tiwi Global Developer Summit 2026',
-            date: 'Tomorrow, 6:00 PM UTC',
-            location: 'Virtual Live Stream & Audio Space',
-            attendeesCount: 342,
-            coverImage: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=500&h=250&fit=crop'
-          },
-          {
-            id: 'ev_2',
-            title: 'Design Systems & Modern Typography Meetup',
-            date: 'Friday, 8:00 PM UTC',
-            location: 'Live Audio Stage #2',
-            attendeesCount: 188,
-            coverImage: 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=500&h=250&fit=crop'
-          }
-        ]);
-      }
-    });
-  }, []);
-
-  const handleToggleRsvp = (id) => {
+  const handleToggleRsvp = (id, title) => {
     const next = !rsvpMap[id];
     setRsvpMap((prev) => ({ ...prev, [id]: next }));
-    showToast(next ? 'RSVP confirmed! Added to your schedule.' : 'RSVP cancelled', 'info');
+    showToast(next ? `RSVP confirmed for "${title}"!` : `RSVP cancelled`, 'info');
   };
 
   return (
-    <div className="flex flex-col gap-4 max-w-4xl mx-auto w-full pb-20">
-      {/* 1. Header */}
-      <div className="bg-white dark:bg-[#16161f] p-4 sm:p-5 rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm flex items-center justify-between">
+    <div className="w-full flex flex-col gap-5 pb-20">
+      {/* 1. Header Card */}
+      <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigateTo('feed')}
-            className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] transition cursor-pointer active:scale-95"
-            title="Back"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
+          <div className="w-11 h-11 rounded-xl bg-[#1E75FF]/10 text-[#1E75FF] flex items-center justify-center flex-shrink-0">
+            <Calendar className="w-6 h-6 stroke-[2]" />
+          </div>
           <div>
-            <h1 className="text-[18px] font-bold text-[#1c1e21] dark:text-[#e4e6eb] flex items-center gap-2 tracking-tight">
-              <Calendar className="w-5 h-5 text-violet-500" />
-              <span>Events Hub</span>
+            <h1 className="text-[20px] font-extrabold text-[#111827] dark:text-white tracking-tight flex items-center gap-2">
+              Events Hub
+              <span className="text-[12px] font-semibold bg-[#1E75FF]/10 text-[#1E75FF] px-2.5 py-0.5 rounded-full">
+                10 Events Invites
+              </span>
             </h1>
-            <p className="text-[12px] text-[#65676b] dark:text-[#8a8d91]">
-              Discover virtual conferences, live workshops, and community stages
+            <p className="text-[13px] text-[#6B7280] dark:text-[#9CA3AF]">
+              Discover meetups, private invitations, live keynotes, and community celebrations
             </p>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => showToast('Create Event dialog opened', 'info')}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1E75FF] hover:bg-[#1A66E5] text-white text-[12.5px] font-bold shadow-xs transition cursor-pointer"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Create Event</span>
+        </button>
       </div>
 
-      {/* 2. Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* 2. Events Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         {events.map((ev) => {
           const isAttending = rsvpMap[ev.id];
           return (
             <div
               key={ev.id}
-              className="bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md dark:hover:shadow-black/30 transition-all duration-200 group"
+              className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between hover:shadow-md transition group"
             >
-              <div className="h-40 w-full relative overflow-hidden bg-violet-500/10">
+              <div className="relative aspect-[16/9] bg-gray-100 dark:bg-gray-800 overflow-hidden">
                 <img
                   src={ev.coverImage}
                   alt={ev.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-300"
                 />
+                <span className="absolute top-3 left-3 bg-black/70 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                  {ev.category}
+                </span>
+                {ev.isInvite && (
+                  <span className="absolute top-3 right-3 bg-[#1E75FF] text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                    <Gift className="w-3 h-3" />
+                    <span>Personal Invite</span>
+                  </span>
+                )}
               </div>
 
               <div className="p-5 flex-1 flex flex-col justify-between gap-3">
                 <div>
-                  <span className="text-[11px] font-bold text-violet-600 dark:text-violet-400 block mb-1">
-                    {ev.date}
-                  </span>
-                  <h3 className="font-bold text-[16px] text-[#1c1e21] dark:text-[#e4e6eb] leading-snug group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                  <div className="flex items-center gap-1.5 text-[12px] font-bold text-[#1E75FF] mb-1">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>{ev.date}</span>
+                  </div>
+
+                  <h3 className="font-bold text-[16px] text-[#111827] dark:text-white leading-snug group-hover:text-[#1E75FF] transition-colors">
                     {ev.title}
                   </h3>
-                  <div className="flex items-center gap-1.5 text-xs text-[#65676b] dark:text-[#8a8d91] mt-2">
-                    <MapPin className="w-3.5 h-3.5" />
-                    <span>{ev.location}</span>
-                  </div>
+
+                  <p className="text-[12.5px] text-[#6B7280] dark:text-[#9CA3AF] flex items-center gap-1.5 mt-2">
+                    <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                    <span className="truncate">{ev.location}</span>
+                  </p>
                 </div>
 
-                <div className="flex items-center justify-between pt-4 border-t border-black/[0.04] dark:border-white/[0.05]">
-                  <span className="text-xs font-medium text-[#65676b] dark:text-[#8a8d91]">
-                    {ev.attendeesCount + (isAttending ? 1 : 0)} attending
+                <div className="pt-4 border-t border-[#F2F4F7] dark:border-[#1E232F] flex items-center justify-between">
+                  <span className="text-[12px] font-medium text-[#6B7280] dark:text-[#9CA3AF]">
+                    {ev.attendeesCount} people going
                   </span>
+
                   <button
-                    onClick={() => handleToggleRsvp(ev.id)}
-                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-xs ${
+                    type="button"
+                    onClick={() => handleToggleRsvp(ev.id, ev.title)}
+                    className={`px-4 py-1.5 rounded-xl text-[12.5px] font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
                       isAttending
-                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                        : 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-violet-500/20'
+                        ? 'bg-[#10B981] text-white'
+                        : 'bg-[#1E75FF] hover:bg-[#1A66E5] text-white'
                     }`}
                   >
-                    {isAttending ? '✓ Attending' : 'RSVP Now'}
+                    {isAttending ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Going</span>
+                      </>
+                    ) : (
+                      <span>Join / RSVP</span>
+                    )}
                   </button>
                 </div>
               </div>

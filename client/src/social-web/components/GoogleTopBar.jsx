@@ -110,7 +110,7 @@ export default function GoogleTopBar({ onToggleSidebar, onNavigateHome }) {
           {/* Add Friend / UserPlus icon matching screenshot */}
           <button
             type="button"
-            onClick={() => navigateTo('followers')}
+            onClick={() => navigateTo('friends')}
             className="w-9 h-9 rounded-full flex items-center justify-center text-[#6B7280] dark:text-[#9CA3AF] hover:bg-[#F3F4F6] dark:hover:bg-[#1F2430] hover:text-[#111827] transition-all cursor-pointer"
             title="Find Friends"
           >

@@ -14,13 +14,13 @@ export default function SocialSidebar() {
   const { activeTab, navigateTo, currentUser } = useSocial();
 
   const navItems = [
-    { id: 'feed', label: 'Feed', icon: LayoutGrid },
-    { id: 'friends', label: 'Friends', icon: Users, route: 'followers' },
-    { id: 'event', label: 'Event', icon: Calendar, route: 'events' },
-    { id: 'videos', label: 'Watch Videos', icon: PlaySquare, route: 'reels' },
-    { id: 'photos', label: 'Photos', icon: ImageIcon, route: 'feed' },
-    { id: 'files', label: 'Files', icon: FileText, route: 'bookmarks' },
-    { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag, route: 'wallet' },
+    { id: 'feed', label: 'Feed', icon: LayoutGrid, route: 'feed' },
+    { id: 'friends', label: 'Friends', icon: Users, route: 'friends' },
+    { id: 'events', label: 'Event', icon: Calendar, route: 'events' },
+    { id: 'videos', label: 'Watch Videos', icon: PlaySquare, route: 'videos' },
+    { id: 'photos', label: 'Photos', icon: ImageIcon, route: 'photos' },
+    { id: 'files', label: 'Files', icon: FileText, route: 'files' },
+    { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag, route: 'marketplace' },
   ];
 
   const pagesYouLike = [
