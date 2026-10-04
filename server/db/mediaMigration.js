@@ -548,9 +548,7 @@ export async function startStorageSync(direction) {
 
 export async function resumeStorageSyncOnStartup() {
   const state = await getStorageSyncState();
-  if (state.status === 'running' || state.status === 'failed') {
-    void runSync(state.direction);
-  }
+  if (state.status === 'running') void runSync(state.direction);
 }
 
 export async function getStorageSyncStatus() {

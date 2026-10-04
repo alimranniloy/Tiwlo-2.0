@@ -40,6 +40,7 @@ export default function AdminGoogleDrivePage({ showToast }) {
   const progressPercent = totalFiles
     ? Math.min(100, Math.round((processedFiles / totalFiles) * 100))
     : 0;
+  const driveQuotaFull = sync.last_error?.toLowerCase().includes('quota');
 
   const fetchAccounts = async () => {
     const response = await fetch(`${API_BASE}/admin/storage/google-drive`, {
@@ -253,7 +254,7 @@ export default function AdminGoogleDrivePage({ showToast }) {
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Processed: {processedFiles} / {totalFiles} · Failed: {sync.failed_files || 0}
           </p>
-          {sync.status === 'running' && (
+          {(sync.status === 'running' || totalFiles > 0) && (
             <div
               className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
               role="progressbar"
@@ -275,6 +276,11 @@ export default function AdminGoogleDrivePage({ showToast }) {
           )}
           {sync.last_error && (
             <p className="mt-2 text-xs text-red-700 dark:text-red-300" role="alert">{sync.last_error}</p>
+          )}
+          {sync.status === 'failed' && driveQuotaFull && (
+            <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
+              Free up Google Drive storage or add an account with available quota, then retry. Server media files were kept.
+            </p>
           )}
         </div>
       </section>
