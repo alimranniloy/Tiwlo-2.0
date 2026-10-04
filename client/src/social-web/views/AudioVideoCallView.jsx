@@ -27,11 +27,11 @@ export default function AudioVideoCallView() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto w-full h-[calc(100vh-8rem)] bg-gradient-to-b from-[#111827] to-[#030712] rounded-3xl p-6 flex flex-col justify-between items-center text-white shadow-2xl relative overflow-hidden">
+    <div className="max-w-2xl mx-auto w-full h-[calc(100vh-8rem)] bg-[#202124] rounded-lg border border-[#3c4043] p-6 flex flex-col justify-between items-center text-white shadow-lg relative overflow-hidden">
       {/* Top Header */}
-      <div className="w-full flex items-center justify-between text-xs text-gray-400">
-        <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full">
-          <Shield className="w-3.5 h-3.5 text-emerald-400" />
+      <div className="w-full flex items-center justify-between text-xs text-[#9aa0a6]">
+        <div className="flex items-center gap-1.5 bg-[#303134] px-3 py-1 rounded-full border border-[#3c4043]">
+          <Shield className="w-3.5 h-3.5 text-[#81c995]" />
           <span>End-to-End Encrypted</span>
         </div>
         <span className="font-mono text-white text-sm font-semibold">{formatTime(callDuration)}</span>
@@ -40,24 +40,24 @@ export default function AudioVideoCallView() {
       {/* Center Avatar & Status */}
       <div className="flex flex-col items-center gap-4 text-center my-auto">
         <div className="relative">
-          <div className="w-28 h-28 rounded-full ring-4 ring-[#0B57D0]/40 overflow-hidden shadow-2xl animate-pulse">
+          <div className="w-28 h-28 rounded-full ring-4 ring-[#1a73e8]/40 overflow-hidden shadow-xl animate-pulse">
             <img
               src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=300&h=300&fit=crop"
               alt="Caller"
               className="w-full h-full object-cover"
             />
           </div>
-          <span className="absolute bottom-1 right-2 w-4 h-4 bg-emerald-500 rounded-full border-2 border-black" />
+          <span className="absolute bottom-1 right-2 w-4 h-4 bg-[#188038] rounded-full border-2 border-[#202124]" />
         </div>
 
         <div>
-          <h2 className="text-xl font-bold">Tiwi Community Member</h2>
-          <p className="text-xs text-gray-400 mt-1">Direct Secure WebRTC Connection</p>
+          <h2 className="text-xl font-bold text-[#e8eaed]">Tiwi Community Member</h2>
+          <p className="text-xs text-[#9aa0a6] mt-1">Direct Secure WebRTC Connection</p>
         </div>
       </div>
 
-      {/* Call Control Actions */}
-      <div className="w-full max-w-sm flex items-center justify-around bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10">
+      {/* Call Control Actions: Google Meet Pill Dock */}
+      <div className="w-full max-w-sm flex items-center justify-around bg-[#303134] p-3 rounded-full border border-[#3c4043] shadow-md">
         <button
           onClick={() => setIsMuted((prev) => !prev)}
           className={`p-4 rounded-full transition-colors ${

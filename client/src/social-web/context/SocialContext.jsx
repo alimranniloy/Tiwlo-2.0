@@ -149,8 +149,8 @@ export function SocialProvider({ children, initialUser = null }) {
     >
       {children}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 animate-bounce flex items-center gap-3 bg-[#1F1F1F] text-white px-5 py-3 rounded-2xl shadow-xl text-sm font-medium border border-white/10">
-          <span className="w-2 h-2 rounded-full bg-[#0B57D0]" />
+        <div className="fixed bottom-6 left-6 z-50 flex items-center gap-3 bg-[#202124] text-white px-4 py-3 rounded-md shadow-lg text-sm font-medium border border-[#3c4043]">
+          <span className="w-2 h-2 rounded-full bg-[#1a73e8]" />
           {toastMessage.message}
         </div>
       )}

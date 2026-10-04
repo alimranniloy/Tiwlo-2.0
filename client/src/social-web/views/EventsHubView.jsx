@@ -42,14 +42,14 @@ export default function EventsHubView() {
   };
 
   return (
-    <div className="flex flex-col gap-5 max-w-4xl mx-auto w-full pb-20 md:pb-10">
-      <div className="bg-white dark:bg-[#1E293B] p-6 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs flex items-center justify-between">
+    <div className="flex flex-col gap-4 max-w-4xl mx-auto w-full pb-20 md:pb-10">
+      <div className="bg-white dark:bg-[#202124] p-5 rounded-lg border border-[#dadce0] dark:border-[#3c4043] shadow-xs flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-[#1F1F1F] dark:text-white flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-[#0B57D0]" />
+          <h2 className="text-[17px] font-bold text-[#202124] dark:text-[#e8eaed] flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-[#1a73e8]" />
             Events Hub
           </h2>
-          <p className="text-xs text-gray-500">Discover virtual conferences, live workshops, and community stages</p>
+          <p className="text-xs text-[#5f6368] dark:text-[#9aa0a6]">Discover virtual conferences, live workshops, and community stages</p>
         </div>
       </div>
 
@@ -57,31 +57,31 @@ export default function EventsHubView() {
         {events.map((ev) => {
           const isAttending = rsvpMap[ev.id];
           return (
-            <div key={ev.id} className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs overflow-hidden flex flex-col justify-between hover:shadow-sm transition-all">
+            <div key={ev.id} className="bg-white dark:bg-[#202124] rounded-lg border border-[#dadce0] dark:border-[#3c4043] shadow-xs overflow-hidden flex flex-col justify-between hover:shadow-sm transition-all">
               <div className="h-36 w-full relative overflow-hidden bg-gray-100">
                 <img src={ev.coverImage} alt={ev.title} className="w-full h-full object-cover" />
               </div>
 
               <div className="p-5 flex-1 flex flex-col justify-between gap-3">
                 <div>
-                  <span className="text-[11px] font-bold text-[#0B57D0] block mb-1">{ev.date}</span>
-                  <h3 className="font-bold text-sm sm:text-base text-[#1F1F1F] dark:text-white leading-snug">{ev.title}</h3>
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-2">
-                    <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                  <span className="text-[11px] font-bold text-[#1a73e8] block mb-1">{ev.date}</span>
+                  <h3 className="font-bold text-sm sm:text-base text-[#202124] dark:text-[#e8eaed] leading-snug">{ev.title}</h3>
+                  <div className="flex items-center gap-1.5 text-xs text-[#5f6368] dark:text-[#9aa0a6] mt-2">
+                    <MapPin className="w-3.5 h-3.5 text-[#5f6368] dark:text-[#9aa0a6]" />
                     <span>{ev.location}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
-                  <span className="text-xs text-gray-400">
+                <div className="flex items-center justify-between pt-3 border-t border-[#dadce0]/60 dark:border-[#3c4043]">
+                  <span className="text-xs text-[#5f6368] dark:text-[#9aa0a6]">
                     {ev.attendeesCount + (isAttending ? 1 : 0)} attending
                   </span>
                   <button
                     onClick={() => handleToggleRsvp(ev.id)}
-                    className={`px-5 py-2 rounded-full text-xs font-semibold transition-all ${
+                    className={`px-4 py-2 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                       isAttending
-                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                        : 'bg-[#0B57D0] text-white hover:bg-[#0842A0]'
+                        ? 'bg-[#e6f4ea] text-[#137333] dark:bg-[#137333]/30 dark:text-[#81c995]'
+                        : 'bg-[#1a73e8] text-white hover:bg-[#1557b0]'
                     }`}
                   >
                     {isAttending ? '✓ Attending' : 'RSVP Now'}

@@ -4,10 +4,10 @@ import {
   Film,
   Smile,
   Globe,
-  Radio,
   Vote,
   RefreshCw,
-  Send
+  Send,
+  MessageSquare
 } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
@@ -55,7 +55,7 @@ export default function FeedView() {
       });
       setPosts((prev) => [newPost, ...prev]);
       setPostText('');
-      showToast('Post published to stream', 'info');
+      showToast('Announced to network', 'info');
     } catch (err) {
       showToast(err.message || 'Failed to post', 'error');
     } finally {
@@ -69,51 +69,53 @@ export default function FeedView() {
 
   return (
     <div className="w-full flex flex-col min-h-screen">
-      {/* 1. Google Material 3 App Header with Stream Tabs */}
-      <div className="sticky top-0 z-20 bg-[#F8FAFD]/90 dark:bg-[#131314]/90 backdrop-blur-md pb-2 mb-2">
-        <div className="h-[56px] flex items-center justify-between px-2 sm:px-0">
-          <h1 className="text-[22px] font-extrabold text-[#1F1F1F] dark:text-[#E3E3E3] tracking-tight">
-            Stream
-          </h1>
+      {/* 1. Google Classroom / Google+ Style Header Tabs */}
+      <div className="sticky top-0 z-20 bg-[#f8f9fa]/95 dark:bg-[#202124]/95 backdrop-blur-md pb-1 mb-3 pt-1 border-b border-[#dadce0] dark:border-[#3c4043]">
+        <div className="flex items-center justify-between px-1 mb-2">
+          <div className="flex items-center gap-6">
+            <button
+              type="button"
+              onClick={() => setFeedFilter('for_you')}
+              className={`pb-2 text-[14px] font-medium transition cursor-pointer relative ${
+                feedFilter === 'for_you'
+                  ? 'text-[#1a73e8] dark:text-[#8ab4f8] font-semibold'
+                  : 'text-[#5f6368] dark:text-[#9aa0a6] hover:text-[#202124]'
+              }`}
+            >
+              <span>Stream</span>
+              {feedFilter === 'for_you' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a73e8] dark:bg-[#8ab4f8] rounded-t-full" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFeedFilter('following')}
+              className={`pb-2 text-[14px] font-medium transition cursor-pointer relative ${
+                feedFilter === 'following'
+                  ? 'text-[#1a73e8] dark:text-[#8ab4f8] font-semibold'
+                  : 'text-[#5f6368] dark:text-[#9aa0a6] hover:text-[#202124]'
+              }`}
+            >
+              <span>Following</span>
+              {feedFilter === 'following' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a73e8] dark:bg-[#8ab4f8] rounded-t-full" />
+              )}
+            </button>
+          </div>
+
           <button
             onClick={handleRefresh}
-            className="w-10 h-10 rounded-full hover:bg-[#E9EEF6] dark:hover:bg-[#282A2C] flex items-center justify-center text-[#444746] dark:text-[#C4C7C5] transition cursor-pointer"
+            className="w-9 h-9 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#303134] flex items-center justify-center text-[#5f6368] dark:text-[#9aa0a6] transition cursor-pointer"
             title="Refresh stream"
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-[#0B57D0]' : ''}`} />
-          </button>
-        </div>
-
-        {/* Material 3 Segmented Pill Tabs */}
-        <div className="flex bg-[#EEF2F6] dark:bg-[#1E1F20] p-1 rounded-full w-full max-w-sm">
-          <button
-            type="button"
-            onClick={() => setFeedFilter('for_you')}
-            className={`flex-1 py-1.5 rounded-full text-[13px] font-semibold transition cursor-pointer text-center ${
-              feedFilter === 'for_you'
-                ? 'bg-white dark:bg-[#282A2C] text-[#0B57D0] dark:text-[#A8C7FA] shadow-xs'
-                : 'text-[#444746] dark:text-[#C4C7C5] hover:text-[#1F1F1F]'
-            }`}
-          >
-            For you
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setFeedFilter('following')}
-            className={`flex-1 py-1.5 rounded-full text-[13px] font-semibold transition cursor-pointer text-center ${
-              feedFilter === 'following'
-                ? 'bg-white dark:bg-[#282A2C] text-[#0B57D0] dark:text-[#A8C7FA] shadow-xs'
-                : 'text-[#444746] dark:text-[#C4C7C5] hover:text-[#1F1F1F]'
-            }`}
-          >
-            Following
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-[#1a73e8]' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* 2. Google-Style Compose Card (Material Surface) */}
-      <div className="bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] p-4.5 shadow-xs mb-4 transition-all focus-within:shadow-sm">
+      {/* 2. Google Classroom Style "Announce something to your network" Card */}
+      <div className="bg-white dark:bg-[#303134] rounded-lg border border-[#dadce0] dark:border-[#3c4043] p-4 shadow-xs mb-4 transition focus-within:shadow-md">
         <form onSubmit={handlePostSubmit} className="flex flex-col gap-3">
           <div className="flex gap-3">
             <button
@@ -127,7 +129,7 @@ export default function FeedView() {
                   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop'
                 }
                 alt={currentUser?.name || 'User'}
-                className="w-10 h-10 rounded-full object-cover ring-2 ring-[#E0E2EC] dark:ring-[#444746]"
+                className="w-10 h-10 rounded-full object-cover border border-[#dadce0] dark:border-[#5f6368]"
               />
             </button>
 
@@ -136,53 +138,53 @@ export default function FeedView() {
                 rows={postText.length > 60 ? 3 : 2}
                 value={postText}
                 onChange={(e) => setPostText(e.target.value)}
-                placeholder="Share an update, link, or idea with your network..."
-                className="w-full bg-transparent text-[16px] placeholder-[#747775] dark:placeholder-[#8E918F] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none resize-none pt-1 leading-relaxed font-normal"
+                placeholder="Announce something to your community or share a link..."
+                className="w-full bg-transparent text-[14px] placeholder-[#5f6368] dark:placeholder-[#9aa0a6] text-[#202124] dark:text-[#e8eaed] outline-none resize-none pt-1 leading-relaxed"
               />
             </div>
           </div>
 
           {/* Action Toolbar */}
-          <div className="flex items-center justify-between pt-2 border-t border-[#E0E2EC]/70 dark:border-[#313335]">
-            <div className="flex items-center gap-1 text-[#444746] dark:text-[#C4C7C5]">
+          <div className="flex items-center justify-between pt-2 border-t border-[#f1f3f4] dark:border-[#3c4043]">
+            <div className="flex items-center gap-1 text-[#5f6368] dark:text-[#9aa0a6]">
               <button
                 type="button"
                 onClick={() => navigateTo('create-post')}
-                className="w-9 h-9 rounded-full hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] flex items-center justify-center transition cursor-pointer text-[#0B57D0]"
-                title="Attach Image"
+                className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#202124] flex items-center justify-center transition cursor-pointer text-[#1e8e3e]"
+                title="Add Photo"
               >
-                <Image className="w-5 h-5" />
+                <Image className="w-4 h-4" />
               </button>
               <button
                 type="button"
                 onClick={() => navigateTo('create-post')}
-                className="w-9 h-9 rounded-full hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] flex items-center justify-center transition cursor-pointer text-[#0F5223]"
+                className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#202124] flex items-center justify-center transition cursor-pointer text-[#d93025]"
                 title="Add Video"
               >
-                <Film className="w-5 h-5" />
+                <Film className="w-4 h-4" />
               </button>
               <button
                 type="button"
                 onClick={() => navigateTo('polls')}
-                className="w-9 h-9 rounded-full hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] flex items-center justify-center transition cursor-pointer text-[#7D5700]"
+                className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#202124] flex items-center justify-center transition cursor-pointer text-[#f29900]"
                 title="Create Poll"
               >
-                <Vote className="w-5 h-5" />
+                <Vote className="w-4 h-4" />
               </button>
               <button
                 type="button"
                 onClick={() => navigateTo('create-post')}
-                className="w-9 h-9 rounded-full hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] flex items-center justify-center transition cursor-pointer text-[#444746]"
-                title="Emoji"
+                className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#202124] flex items-center justify-center transition cursor-pointer text-[#1a73e8]"
+                title="Insert Link or Emoji"
               >
-                <Smile className="w-5 h-5" />
+                <Smile className="w-4 h-4" />
               </button>
             </div>
 
             <button
               type="submit"
               disabled={!postText.trim() || submittingPost}
-              className="bg-[#0B57D0] hover:bg-[#0842A0] disabled:opacity-40 text-white font-semibold text-[14px] px-5 py-2 rounded-full shadow-xs active:scale-95 transition cursor-pointer flex items-center gap-1.5"
+              className="bg-[#1a73e8] hover:bg-[#1557b0] disabled:opacity-40 text-white font-medium text-[14px] px-5 py-2 rounded-md shadow-xs active:scale-95 transition cursor-pointer flex items-center gap-1.5"
             >
               <Send className="w-3.5 h-3.5" />
               <span>Post</span>
@@ -191,20 +193,20 @@ export default function FeedView() {
         </form>
       </div>
 
-      {/* 3. Stream of Material 3 Cards */}
+      {/* 3. Stream of Google Cards */}
       <div className="flex flex-col">
         {loading ? (
           <div className="flex flex-col gap-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="p-5 rounded-3xl bg-white dark:bg-[#1E1F20] border border-[#E0E2EC] dark:border-[#313335] animate-pulse flex flex-col gap-3">
+              <div key={i} className="p-4 rounded-lg bg-white dark:bg-[#303134] border border-[#dadce0] dark:border-[#3c4043] animate-pulse flex flex-col gap-3">
                 <div className="flex gap-3 items-center">
-                  <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-800" />
+                  <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700" />
                   <div className="flex-1 flex flex-col gap-1.5">
-                    <div className="w-1/3 h-4 bg-gray-200 dark:bg-gray-800 rounded" />
-                    <div className="w-1/5 h-3 bg-gray-200 dark:bg-gray-800 rounded" />
+                    <div className="w-1/3 h-4 bg-gray-200 dark:bg-gray-700 rounded" />
+                    <div className="w-1/5 h-3 bg-gray-200 dark:bg-gray-700 rounded" />
                   </div>
                 </div>
-                <div className="w-full h-12 bg-gray-200 dark:bg-gray-800 rounded-xl" />
+                <div className="w-full h-12 bg-gray-200 dark:bg-gray-700 rounded" />
               </div>
             ))}
           </div>
@@ -213,16 +215,16 @@ export default function FeedView() {
             <PostCard key={post.id} post={post} onPostDeleted={handlePostDeleted} />
           ))
         ) : (
-          <div className="py-20 px-6 text-center flex flex-col items-center bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335]">
-            <h3 className="font-extrabold text-[22px] text-[#1F1F1F] dark:text-[#E3E3E3] mb-2">
-              Your Stream is ready
+          <div className="py-16 px-6 text-center flex flex-col items-center bg-white dark:bg-[#303134] rounded-lg border border-[#dadce0] dark:border-[#3c4043]">
+            <h3 className="font-medium text-[18px] text-[#202124] dark:text-[#e8eaed] mb-1.5">
+              Stream is up to date
             </h3>
-            <p className="text-[14px] text-[#747775] dark:text-[#8E918F] max-w-sm mb-6 leading-relaxed">
-              Explore trending discussions or follow creators to start seeing real-time updates.
+            <p className="text-[13px] text-[#5f6368] dark:text-[#9aa0a6] max-w-sm mb-5 leading-relaxed">
+              No new announcements right now. Connect with more circles or explore communities.
             </p>
             <button
               onClick={() => navigateTo('search')}
-              className="bg-[#0B57D0] hover:bg-[#0842A0] text-white font-semibold text-[14px] px-6 py-2.5 rounded-full shadow-xs active:scale-95 transition cursor-pointer"
+              className="bg-[#1a73e8] hover:bg-[#1557b0] text-white font-medium text-[13px] px-5 py-2 rounded-md shadow-xs active:scale-95 transition cursor-pointer"
             >
               Explore Communities
             </button>

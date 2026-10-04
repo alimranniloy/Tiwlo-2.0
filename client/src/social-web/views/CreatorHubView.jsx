@@ -128,7 +128,7 @@ export default function CreatorHubView() {
         <div className="flex flex-col gap-6 pb-20">
           {/* Header Banner */}
           <div className="text-center flex flex-col items-center px-4">
-            <div className="w-12 h-12 rounded-3xl bg-[#0B57D0]/10 text-[#0B57D0] flex items-center justify-center mb-3">
+            <div className="w-12 h-12 rounded-xl bg-[#1a73e8]/10 text-[#1a73e8] flex items-center justify-center mb-3">
               <Sparkles className="w-6 h-6" />
             </div>
             <h2 className="text-[26px] sm:text-[30px] font-extrabold text-[#1F1F1F] dark:text-[#E3E3E3] tracking-tight">
@@ -139,17 +139,17 @@ export default function CreatorHubView() {
             </p>
 
             {/* Annual / Monthly Switch */}
-            <div className="flex items-center gap-1 bg-[#EEF2F6] dark:bg-[#1E1F20] p-1 rounded-full mt-6 shadow-xs">
+            <div className="flex items-center gap-1 bg-[#f1f3f4] dark:bg-[#303134] p-1 rounded-full mt-6 shadow-xs">
               <button
                 onClick={() => setBillingCycle('annual')}
                 className={`px-4 py-1.5 rounded-full text-[13px] font-semibold transition flex items-center gap-1.5 cursor-pointer ${
                   billingCycle === 'annual'
-                    ? 'bg-white dark:bg-[#282A2C] text-[#0B57D0] dark:text-[#A8C7FA] shadow-xs'
-                    : 'text-[#747775] dark:text-[#8E918F]'
+                    ? 'bg-white dark:bg-[#202124] text-[#1a73e8] dark:text-[#8ab4f8] shadow-xs'
+                    : 'text-[#5f6368] dark:text-[#9aa0a6]'
                 }`}
               >
                 <span>Annual billing</span>
-                <span className="text-[11px] bg-[#0F5223]/10 text-[#0F5223] dark:text-[#6DD58C] px-2 py-0.2 rounded-full font-bold">
+                <span className="text-[11px] bg-[#188038]/10 text-[#188038] dark:text-[#81c995] px-2 py-0.2 rounded-full font-bold">
                   Save 16%
                 </span>
               </button>
@@ -157,8 +157,8 @@ export default function CreatorHubView() {
                 onClick={() => setBillingCycle('monthly')}
                 className={`px-4 py-1.5 rounded-full text-[13px] font-semibold transition cursor-pointer ${
                   billingCycle === 'monthly'
-                    ? 'bg-white dark:bg-[#282A2C] text-[#0B57D0] dark:text-[#A8C7FA] shadow-xs'
-                    : 'text-[#747775] dark:text-[#8E918F]'
+                    ? 'bg-white dark:bg-[#202124] text-[#1a73e8] dark:text-[#8ab4f8] shadow-xs'
+                    : 'text-[#5f6368] dark:text-[#9aa0a6]'
                 }`}
               >
                 Monthly
@@ -180,42 +180,42 @@ export default function CreatorHubView() {
               return (
                 <div
                   key={tier.id}
-                  className={`bg-white dark:bg-[#1E1F20] rounded-3xl p-6 border flex flex-col justify-between transition-all duration-200 shadow-xs relative ${
+                  className={`bg-white dark:bg-[#202124] rounded-lg p-6 border flex flex-col justify-between transition-all duration-200 shadow-xs relative ${
                     tier.popular
-                      ? 'border-[#0B57D0] ring-2 ring-[#0B57D0]/20'
-                      : 'border-[#E0E2EC] dark:border-[#313335]'
+                      ? 'border-[#1a73e8] ring-2 ring-[#1a73e8]/20'
+                      : 'border-[#dadce0] dark:border-[#3c4043]'
                   }`}
                 >
                   {tier.popular && (
-                    <div className="absolute -top-3 left-6 bg-[#0B57D0] text-white text-[11px] font-bold px-3 py-0.5 rounded-full uppercase tracking-wider">
+                    <div className="absolute -top-3 left-6 bg-[#1a73e8] text-white text-[11px] font-bold px-3 py-0.5 rounded-full uppercase tracking-wider">
                       Recommended
                     </div>
                   )}
 
                   <div>
-                    <h3 className="text-[18px] font-bold text-[#1F1F1F] dark:text-[#E3E3E3]">
+                    <h3 className="text-[18px] font-bold text-[#202124] dark:text-[#e8eaed]">
                       {tier.name}
                     </h3>
                     <div className="mt-3">
-                      <span className="text-[28px] font-black text-[#1F1F1F] dark:text-[#E3E3E3]">
+                      <span className="text-[28px] font-black text-[#202124] dark:text-[#e8eaed]">
                         {priceText}
                       </span>
                       {tier.priceMonthly > 0 && (
-                        <p className="text-[12px] text-[#747775] dark:text-[#8E918F] mt-0.5">
+                        <p className="text-[12px] text-[#5f6368] dark:text-[#9aa0a6] mt-0.5">
                           {billingCycle === 'annual' ? `Billed $${tier.priceAnnual} annually` : 'Billed monthly'}
                         </p>
                       )}
                     </div>
 
-                    <p className="text-[13px] text-[#747775] dark:text-[#8E918F] mt-3 leading-relaxed">
+                    <p className="text-[13px] text-[#5f6368] dark:text-[#9aa0a6] mt-3 leading-relaxed">
                       {tier.desc}
                     </p>
 
-                    <div className="flex flex-col gap-2.5 mt-6 pt-5 border-t border-[#E0E2EC]/70 dark:border-[#313335]">
+                    <div className="flex flex-col gap-2.5 mt-6 pt-5 border-t border-[#dadce0] dark:border-[#3c4043]">
                       {tier.features.map((feat, i) => (
                         <div key={i} className="flex items-start gap-2.5 text-[13px]">
-                          <Check className="w-4 h-4 text-[#0B57D0] flex-shrink-0 mt-0.5" />
-                          <span className={feat.includes('Badge') ? 'font-bold text-[#1F1F1F] dark:text-[#E3E3E3]' : 'text-[#444746] dark:text-[#C4C7C5]'}>
+                          <Check className="w-4 h-4 text-[#1a73e8] flex-shrink-0 mt-0.5" />
+                          <span className={feat.includes('Badge') ? 'font-bold text-[#202124] dark:text-[#e8eaed]' : 'text-[#3c4043] dark:text-[#dadce0]'}>
                             {feat}
                           </span>
                         </div>
@@ -227,12 +227,12 @@ export default function CreatorHubView() {
                     <button
                       onClick={() => handleSubscribe(tier.id)}
                       disabled={isCurrent}
-                      className={`w-full py-2.5 rounded-full font-semibold text-[14px] transition active:scale-95 cursor-pointer ${
+                      className={`w-full py-2.5 rounded-md font-semibold text-[14px] transition active:scale-95 cursor-pointer ${
                         isCurrent
-                          ? 'bg-[#E9EEF6] dark:bg-[#282A2C] text-[#747775] dark:text-[#8E918F] cursor-default'
+                          ? 'bg-[#e8eaed] dark:bg-[#303134] text-[#5f6368] dark:text-[#9aa0a6] cursor-default'
                           : tier.popular
-                          ? 'bg-[#0B57D0] hover:bg-[#0842A0] text-white shadow-xs'
-                          : 'border border-[#747775] text-[#1F1F1F] dark:text-[#E3E3E3] hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C]'
+                          ? 'bg-[#1a73e8] hover:bg-[#1557b0] text-white shadow-xs'
+                          : 'border border-[#dadce0] dark:border-[#5f6368] text-[#202124] dark:text-[#e8eaed] hover:bg-[#f8f9fa] dark:hover:bg-[#303134]'
                       }`}
                     >
                       {isCurrent ? 'Current Plan' : tier.priceMonthly === 0 ? 'Default Plan' : `Get ${tier.name}`}
@@ -249,7 +249,7 @@ export default function CreatorHubView() {
       {activeTab === 'monetization' && (
         <div className="flex flex-col gap-5 pb-20 px-2">
           {/* Earnings Card */}
-          <div className="bg-gradient-to-r from-[#0B57D0] to-[#4285F4] text-white p-6 sm:p-8 rounded-3xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="bg-[#1a73e8] text-white p-6 sm:p-8 rounded-lg shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <span className="text-[11px] font-bold uppercase tracking-wider bg-white/20 px-3 py-1 rounded-full">
                 Payout Hub
@@ -264,7 +264,7 @@ export default function CreatorHubView() {
 
             <button
               onClick={() => showToast('Opening Stripe Express dashboard...', 'info')}
-              className="bg-white text-[#0B57D0] font-bold text-[13px] px-5 py-2.5 rounded-full hover:bg-blue-50 transition shadow-xs self-start sm:self-auto cursor-pointer"
+              className="bg-white text-[#1a73e8] font-bold text-[13px] px-5 py-2.5 rounded-md hover:bg-blue-50 transition shadow-xs self-start sm:self-auto cursor-pointer"
             >
               Payout Settings
             </button>
@@ -272,28 +272,28 @@ export default function CreatorHubView() {
 
           {/* Metric Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] p-5 shadow-xs">
-              <span className="text-[12px] font-medium text-[#747775] dark:text-[#8E918F]">Monthly Reach</span>
-              <div className="text-[22px] font-bold text-[#1F1F1F] dark:text-[#E3E3E3] mt-1">2.41M</div>
-              <span className="text-[11px] text-[#0F5223] dark:text-[#6DD58C] font-semibold">↑ +38% this month</span>
+            <div className="bg-white dark:bg-[#202124] rounded-lg border border-[#dadce0] dark:border-[#3c4043] p-5 shadow-xs">
+              <span className="text-[12px] font-medium text-[#5f6368] dark:text-[#9aa0a6]">Monthly Reach</span>
+              <div className="text-[22px] font-bold text-[#202124] dark:text-[#e8eaed] mt-1">2.41M</div>
+              <span className="text-[11px] text-[#188038] dark:text-[#81c995] font-semibold">↑ +38% this month</span>
             </div>
 
-            <div className="bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] p-5 shadow-xs">
-              <span className="text-[12px] font-medium text-[#747775] dark:text-[#8E918F]">Subscribers</span>
-              <div className="text-[22px] font-bold text-[#1F1F1F] dark:text-[#E3E3E3] mt-1">42</div>
-              <span className="text-[11px] text-[#0B57D0] font-semibold">$4.99 / subscriber</span>
+            <div className="bg-white dark:bg-[#202124] rounded-lg border border-[#dadce0] dark:border-[#3c4043] p-5 shadow-xs">
+              <span className="text-[12px] font-medium text-[#5f6368] dark:text-[#9aa0a6]">Subscribers</span>
+              <div className="text-[22px] font-bold text-[#202124] dark:text-[#e8eaed] mt-1">42</div>
+              <span className="text-[11px] text-[#1a73e8] font-semibold">$4.99 / subscriber</span>
             </div>
 
-            <div className="bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] p-5 shadow-xs">
-              <span className="text-[12px] font-medium text-[#747775] dark:text-[#8E918F]">Ad Revenue Pool</span>
-              <div className="text-[22px] font-bold text-[#1F1F1F] dark:text-[#E3E3E3] mt-1">$474.62</div>
-              <span className="text-[11px] text-[#0F5223] dark:text-[#6DD58C] font-semibold">Verified replies</span>
+            <div className="bg-white dark:bg-[#202124] rounded-lg border border-[#dadce0] dark:border-[#3c4043] p-5 shadow-xs">
+              <span className="text-[12px] font-medium text-[#5f6368] dark:text-[#9aa0a6]">Ad Revenue Pool</span>
+              <div className="text-[22px] font-bold text-[#202124] dark:text-[#e8eaed] mt-1">$474.62</div>
+              <span className="text-[11px] text-[#188038] dark:text-[#81c995] font-semibold">Verified replies</span>
             </div>
 
-            <div className="bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] p-5 shadow-xs">
-              <span className="text-[12px] font-medium text-[#747775] dark:text-[#8E918F]">Tips & Support</span>
-              <div className="text-[22px] font-bold text-[#1F1F1F] dark:text-[#E3E3E3] mt-1">$209.58</div>
-              <span className="text-[11px] text-[#747775] dark:text-[#8E918F]">18 supporters</span>
+            <div className="bg-white dark:bg-[#202124] rounded-lg border border-[#dadce0] dark:border-[#3c4043] p-5 shadow-xs">
+              <span className="text-[12px] font-medium text-[#5f6368] dark:text-[#9aa0a6]">Tips & Support</span>
+              <div className="text-[22px] font-bold text-[#202124] dark:text-[#e8eaed] mt-1">$209.58</div>
+              <span className="text-[11px] text-[#5f6368] dark:text-[#9aa0a6]">18 supporters</span>
             </div>
           </div>
         </div>

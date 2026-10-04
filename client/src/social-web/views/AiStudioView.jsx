@@ -120,14 +120,14 @@ export default function AiStudioView() {
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 pb-28">
         {messages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-4 my-auto">
-            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-[#0B57D0]/10 via-[#7856FF]/10 to-[#FF7A00]/10 flex items-center justify-center text-[#0B57D0] mb-4">
-              <Sparkles className="w-8 h-8" />
+            <div className="w-14 h-14 rounded-xl bg-[#1a73e8]/10 text-[#1a73e8] flex items-center justify-center mb-4">
+              <Sparkles className="w-7 h-7" />
             </div>
 
-            <h2 className="text-[24px] font-bold text-[#1F1F1F] dark:text-[#E3E3E3]">
+            <h2 className="text-[24px] font-bold text-[#202124] dark:text-[#e8eaed]">
               How can I assist your stream today?
             </h2>
-            <p className="text-[14px] text-[#747775] dark:text-[#8E918F] max-w-sm mt-1 leading-relaxed">
+            <p className="text-[14px] text-[#5f6368] dark:text-[#9aa0a6] max-w-sm mt-1 leading-relaxed">
               Generate posts, research engineering topics, explore ideas, or summarize discussions.
             </p>
 
@@ -136,12 +136,12 @@ export default function AiStudioView() {
                 <button
                   key={idx}
                   onClick={() => handleSendPrompt(item.prompt)}
-                  className="p-4 rounded-3xl bg-white dark:bg-[#1E1F20] border border-[#E0E2EC] dark:border-[#313335] hover:border-[#0B57D0] text-left transition shadow-xs cursor-pointer flex flex-col justify-between"
+                  className="p-4 rounded-lg bg-white dark:bg-[#202124] border border-[#dadce0] dark:border-[#3c4043] hover:border-[#1a73e8] text-left transition shadow-xs cursor-pointer flex flex-col justify-between"
                 >
-                  <span className="font-semibold text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3]">
+                  <span className="font-semibold text-[14px] text-[#202124] dark:text-[#e8eaed]">
                     {item.label}
                   </span>
-                  <span className="text-[12px] text-[#747775] dark:text-[#8E918F] line-clamp-1 mt-1">
+                  <span className="text-[12px] text-[#5f6368] dark:text-[#9aa0a6] line-clamp-1 mt-1">
                     {item.prompt}
                   </span>
                 </button>
@@ -159,48 +159,48 @@ export default function AiStudioView() {
                 }`}
               >
                 {!isUser && (
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#0B57D0] to-[#7856FF] text-white flex items-center justify-center flex-shrink-0 mt-1 shadow-xs">
+                  <div className="w-8 h-8 rounded-full bg-[#1a73e8] text-white flex items-center justify-center flex-shrink-0 mt-1 shadow-xs">
                     <Sparkles className="w-4 h-4" />
                   </div>
                 )}
 
                 <div className="flex flex-col gap-1.5">
                   <div
-                    className={`p-4.5 rounded-3xl text-[15px] leading-relaxed whitespace-pre-wrap shadow-xs ${
+                    className={`p-4 rounded-lg text-[15px] leading-relaxed whitespace-pre-wrap shadow-xs ${
                       isUser
-                        ? 'bg-[#D3E3FD] dark:bg-[#004A77] text-[#041E49] dark:text-[#C2E7FF] rounded-tr-sm'
-                        : 'bg-white dark:bg-[#1E1F20] border border-[#E0E2EC] dark:border-[#313335] text-[#1F1F1F] dark:text-[#E3E3E3] rounded-tl-sm'
+                        ? 'bg-[#e8f0fe] dark:bg-[#174ea6] text-[#1967d2] dark:text-[#e8eaed]'
+                        : 'bg-white dark:bg-[#202124] border border-[#dadce0] dark:border-[#3c4043] text-[#202124] dark:text-[#e8eaed]'
                     }`}
                   >
                     {msg.text}
                   </div>
 
                   {!isUser && (
-                    <div className="flex items-center gap-1 text-[#747775] dark:text-[#8E918F] text-[12px] pl-1">
+                    <div className="flex items-center gap-1 text-[#5f6368] dark:text-[#9aa0a6] text-[12px] pl-1">
                       <button
                         onClick={() => handleCopyText(msg.id, msg.text)}
-                        className="p-1.5 rounded-full hover:bg-[#E9EEF6] dark:hover:bg-[#282A2C] transition cursor-pointer"
+                        className="p-1.5 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#303134] transition cursor-pointer"
                         title="Copy response"
                       >
-                        {copiedId === msg.id ? <Check className="w-4 h-4 text-[#0F5223]" /> : <Copy className="w-4 h-4" />}
+                        {copiedId === msg.id ? <Check className="w-4 h-4 text-[#188038]" /> : <Copy className="w-4 h-4" />}
                       </button>
                       <button
                         onClick={() => showToast('Feedback recorded', 'info')}
-                        className="p-1.5 rounded-full hover:bg-[#E9EEF6] dark:hover:bg-[#282A2C] transition cursor-pointer"
+                        className="p-1.5 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#303134] transition cursor-pointer"
                         title="Helpful"
                       >
                         <ThumbsUp className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => showToast('Feedback recorded', 'info')}
-                        className="p-1.5 rounded-full hover:bg-[#E9EEF6] dark:hover:bg-[#282A2C] transition cursor-pointer"
+                        className="p-1.5 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#303134] transition cursor-pointer"
                         title="Unhelpful"
                       >
                         <ThumbsDown className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleInsertIntoPost(msg.text)}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-full hover:bg-[#E9EEF6] dark:hover:bg-[#282A2C] transition cursor-pointer font-medium"
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#303134] transition cursor-pointer font-medium"
                         title="Create post with this draft"
                       >
                         <Share2 className="w-3.5 h-3.5" />
@@ -215,8 +215,8 @@ export default function AiStudioView() {
         )}
 
         {loading && (
-          <div className="flex items-center gap-2.5 text-[#444746] dark:text-[#C4C7C5] text-sm p-4 bg-white dark:bg-[#1E1F20] rounded-3xl w-fit border border-[#E0E2EC] dark:border-[#313335] shadow-xs">
-            <Sparkles className="w-4 h-4 animate-spin text-[#0B57D0]" />
+          <div className="flex items-center gap-2.5 text-[#5f6368] dark:text-[#9aa0a6] text-sm p-3.5 bg-white dark:bg-[#202124] rounded-lg w-fit border border-[#dadce0] dark:border-[#3c4043] shadow-xs">
+            <Sparkles className="w-4 h-4 animate-spin text-[#1a73e8]" />
             <span className="font-medium">Tiwi Assistant is reasoning...</span>
           </div>
         )}

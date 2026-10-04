@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Search, TrendingUp, CheckCircle2, Sparkles, UserPlus, Check } from 'lucide-react';
+import { TrendingUp, CheckCircle2, Sparkles, UserPlus, Check } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
 
 export default function SocialRightPanel() {
   const { currentUser, navigateTo } = useSocial();
-  const [searchQuery, setSearchQuery] = useState('');
   const [suggestedUsers, setSuggestedUsers] = useState([]);
   const [trendingTopics, setTrendingTopics] = useState([]);
   const [followedMap, setFollowedMap] = useState({});
@@ -27,11 +26,11 @@ export default function SocialRightPanel() {
         setTrendingTopics(trending.slice(0, 5));
       } else {
         setTrendingTopics([
-          { category: 'Technology', tag: '#ArtificialIntelligence', count: '94.2K discussions' },
-          { category: 'Architecture', tag: '#CleanCode', count: '48.6K discussions' },
-          { category: 'Design', tag: '#MaterialYou', count: '32.1K discussions' },
-          { category: 'Cloud', tag: '#PostgreSQL', count: '28.4K discussions' },
-          { category: 'Frameworks', tag: '#React19', count: '21.7K discussions' },
+          { category: 'Technology', tag: '#ArtificialIntelligence', count: '94.2K posts' },
+          { category: 'Architecture', tag: '#CleanCode', count: '48.6K posts' },
+          { category: 'Design', tag: '#GoogleDesign', count: '32.1K posts' },
+          { category: 'Cloud', tag: '#PostgreSQL', count: '28.4K posts' },
+          { category: 'Frameworks', tag: '#React19', count: '21.7K posts' },
         ]);
       }
     });
@@ -47,79 +46,61 @@ export default function SocialRightPanel() {
     }
   };
 
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
-    navigateTo('search', { q: searchQuery.trim() });
-  };
-
   return (
-    <div className="w-full flex flex-col gap-4 sticky top-0 min-h-screen">
-      {/* 1. Google Pill Search Bar */}
-      <div className="sticky top-0 bg-[#F8FAFD] dark:bg-[#131314] pt-1 pb-1 z-10">
-        <form onSubmit={handleSearchSubmit} className="relative w-full">
-          <div className="flex items-center h-[46px] bg-[#EEF2F6] dark:bg-[#1E1F20] rounded-full px-4 text-[#1F1F1F] dark:text-[#E3E3E3] focus-within:bg-white dark:focus-within:bg-[#282A2C] focus-within:ring-2 focus-within:ring-[#0B57D0]/30 focus-within:border-[#0B57D0] border border-transparent shadow-xs transition-all">
-            <Search className="w-4 h-4 text-[#747775] dark:text-[#8E918F] mr-3 flex-shrink-0" />
-            <input
-              type="text"
-              placeholder="Search posts, topics, or people"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent text-[14px] outline-none w-full placeholder-[#747775] dark:placeholder-[#8E918F]"
-            />
-          </div>
-        </form>
-      </div>
-
-      {/* 2. Tiwi Creator Pass / One Card (Google One Inspired) */}
-      <div className="bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] p-5 shadow-xs flex flex-col gap-2.5">
+    <div className="w-full flex flex-col gap-3.5 sticky top-20">
+      {/* 1. Tiwi Creator Pass / Storage Card (Google One Style) */}
+      <div className="bg-white dark:bg-[#303134] rounded-lg border border-[#dadce0] dark:border-[#3c4043] p-4 shadow-xs flex flex-col gap-2">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-[#0B57D0]/10 text-[#0B57D0] flex items-center justify-center">
+          <div className="w-7 h-7 rounded-full bg-[#e8f0fe] dark:bg-[#183153] text-[#1a73e8] dark:text-[#8ab4f8] flex items-center justify-center">
             <Sparkles className="w-4 h-4" />
           </div>
-          <span className="font-bold text-[16px] text-[#1F1F1F] dark:text-[#E3E3E3]">
+          <span className="font-medium text-[14px] text-[#202124] dark:text-[#e8eaed]">
             Tiwi Creator Pass
           </span>
         </div>
-        <p className="text-[13px] text-[#444746] dark:text-[#C4C7C5] leading-relaxed">
-          Access high-fidelity 1080p media uploads, verified creator badge, and ads revenue sharing.
+        <p className="text-[12px] text-[#5f6368] dark:text-[#9aa0a6] leading-relaxed">
+          High-fidelity media, verified badge, and creator revenue opportunities.
         </p>
         <button
           onClick={() => navigateTo('creator')}
-          className="bg-[#0B57D0] hover:bg-[#0842A0] text-white font-semibold text-[13px] rounded-full px-4 py-2 shadow-xs active:scale-95 transition w-fit mt-1 cursor-pointer"
+          className="bg-[#1a73e8] hover:bg-[#1557b0] text-white font-medium text-[12px] rounded-md px-4 py-1.5 shadow-xs active:scale-95 transition w-fit mt-1 cursor-pointer"
         >
           View Plans
         </button>
       </div>
 
-      {/* 3. Trending Topics Card (Google Discover Inspired) */}
-      <div className="bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] p-5 shadow-xs flex flex-col">
-        <div className="flex items-center gap-2 mb-3">
-          <TrendingUp className="w-4 h-4 text-[#0B57D0]" />
-          <h3 className="font-bold text-[16px] text-[#1F1F1F] dark:text-[#E3E3E3]">
-            Trending on Tiwi
+      {/* 2. Trending Topics Card (Google Discover Inspired) */}
+      <div className="bg-white dark:bg-[#303134] rounded-lg border border-[#dadce0] dark:border-[#3c4043] p-4 shadow-xs flex flex-col">
+        <div className="flex items-center gap-2 mb-2.5 pb-2 border-b border-[#f1f3f4] dark:border-[#3c4043]">
+          <TrendingUp className="w-4 h-4 text-[#1a73e8]" />
+          <h3 className="font-medium text-[14px] text-[#202124] dark:text-[#e8eaed]">
+            Trending topics
           </h3>
         </div>
 
-        <div className="flex flex-col divide-y divide-[#E0E2EC]/60 dark:divide-[#313335]">
+        <div className="flex flex-col divide-y divide-[#f1f3f4] dark:divide-[#3c4043]">
           {trendingTopics.map((topic, idx) => {
-            const topicText = topic.tag ? (topic.tag.startsWith('#') ? topic.tag : `#${topic.tag}`) : topic.title || 'Topic';
+            const topicText = topic.tag
+              ? topic.tag.startsWith('#')
+                ? topic.tag
+                : `#${topic.tag}`
+              : topic.title || 'Topic';
             const countText = topic.count || topic.postsCount || '15K posts';
 
             return (
               <div
                 key={idx}
                 onClick={() => navigateTo('search', { q: topicText })}
-                className="py-2.5 hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] -mx-2 px-2 rounded-2xl cursor-pointer transition flex items-center justify-between"
+                className="py-2 hover:bg-[#f8f9fa] dark:hover:bg-[#202124] -mx-2 px-2 rounded cursor-pointer transition flex items-center justify-between"
               >
                 <div className="flex flex-col">
-                  <span className="text-[11px] font-medium text-[#747775] dark:text-[#8E918F]">
+                  <span className="text-[11px] text-[#5f6368] dark:text-[#9aa0a6]">
                     {topic.category || 'Trending'}
                   </span>
-                  <span className="font-bold text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3]">
+                  <span className="font-medium text-[13px] text-[#1a73e8] dark:text-[#8ab4f8]">
                     {topicText}
                   </span>
-                  <span className="text-[11px] text-[#747775] dark:text-[#8E918F]">
+                  <span className="text-[11px] text-[#5f6368] dark:text-[#9aa0a6]">
                     {countText}
                   </span>
                 </div>
@@ -130,82 +111,92 @@ export default function SocialRightPanel() {
 
         <button
           onClick={() => navigateTo('search')}
-          className="mt-3 text-left text-[13px] font-semibold text-[#0B57D0] hover:underline cursor-pointer"
+          className="mt-2.5 text-left text-[12px] font-medium text-[#1a73e8] dark:text-[#8ab4f8] hover:underline cursor-pointer"
         >
-          Explore all topics
+          View all trending
         </button>
       </div>
 
-      {/* 4. Suggested Creators Card */}
-      <div className="bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] p-5 shadow-xs flex flex-col">
-        <h3 className="font-bold text-[16px] text-[#1F1F1F] dark:text-[#E3E3E3] mb-3">
-          Suggested for you
+      {/* 3. Suggested People / Circles Card */}
+      <div className="bg-white dark:bg-[#303134] rounded-lg border border-[#dadce0] dark:border-[#3c4043] p-4 shadow-xs flex flex-col">
+        <h3 className="font-medium text-[14px] text-[#202124] dark:text-[#e8eaed] mb-2.5 pb-2 border-b border-[#f1f3f4] dark:border-[#3c4043]">
+          People you may know
         </h3>
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2.5">
           {suggestedUsers.length > 0 ? (
             suggestedUsers.map((user) => {
               const isFollowing = followedMap[user.id];
               return (
                 <div
                   key={user.id}
-                  onClick={() => navigateTo('profile', user.handle || user.id)}
-                  className="flex items-center justify-between gap-3 cursor-pointer group"
+                  className="flex items-center justify-between gap-2"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    onClick={() => navigateTo('profile', user.handle || user.id)}
+                    className="flex items-center gap-2.5 min-w-0 cursor-pointer flex-1"
+                  >
                     <img
-                      src={user.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'}
+                      src={
+                        user.avatar ||
+                        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop'
+                      }
                       alt={user.name}
-                      className="w-9 h-9 rounded-full object-cover flex-shrink-0 ring-1 ring-[#E0E2EC] dark:ring-[#444746]"
+                      className="w-8 h-8 rounded-full object-cover border border-[#dadce0] dark:border-[#5f6368]"
                     />
                     <div className="flex flex-col min-w-0 leading-tight">
-                      <div className="flex items-center gap-1 font-semibold text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3] truncate group-hover:underline">
-                        <span className="truncate">{user.name}</span>
+                      <div className="flex items-center gap-1">
+                        <span className="font-medium text-[13px] text-[#202124] dark:text-[#e8eaed] truncate">
+                          {user.name}
+                        </span>
                         {user.isVerified && (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[#0B57D0] fill-current inline flex-shrink-0" />
+                          <CheckCircle2 className="w-3 h-3 text-[#1a73e8] fill-current flex-shrink-0" />
                         )}
                       </div>
-                      <span className="text-[12px] text-[#747775] dark:text-[#8E918F] truncate">
+                      <span className="text-[11px] text-[#5f6368] dark:text-[#9aa0a6] truncate">
                         @{user.handle}
                       </span>
                     </div>
                   </div>
 
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleToggleFollow(user.id);
-                    }}
-                    className={`text-[12px] font-semibold px-3.5 py-1 rounded-full transition active:scale-95 flex-shrink-0 cursor-pointer ${
+                    onClick={() => handleToggleFollow(user.id)}
+                    className={`px-3 py-1 rounded-md text-[12px] font-medium transition cursor-pointer flex items-center gap-1 ${
                       isFollowing
-                        ? 'border border-[#747775] text-[#1F1F1F] dark:text-[#E3E3E3] bg-transparent'
-                        : 'bg-[#0B57D0] hover:bg-[#0842A0] text-white shadow-xs'
+                        ? 'border border-[#dadce0] dark:border-[#5f6368] text-[#5f6368] dark:text-[#9aa0a6] hover:bg-[#f1f3f4]'
+                        : 'bg-[#1a73e8] hover:bg-[#1557b0] text-white'
                     }`}
                   >
                     {isFollowing ? (
-                      <span className="flex items-center gap-1"><Check className="w-3 h-3" /> Following</span>
+                      <>
+                        <Check className="w-3 h-3" />
+                        <span>Added</span>
+                      </>
                     ) : (
-                      'Follow'
+                      <>
+                        <UserPlus className="w-3 h-3" />
+                        <span>Add</span>
+                      </>
                     )}
                   </button>
                 </div>
               );
             })
           ) : (
-            <div className="py-4 text-center text-[13px] text-[#747775] dark:text-[#8E918F]">
-              Discovering profiles...
-            </div>
+            <p className="text-[12px] text-[#5f6368] dark:text-[#9aa0a6]">
+              No recommendations right now.
+            </p>
           )}
         </div>
       </div>
 
-      {/* 5. Google-Style Footer */}
-      <footer className="px-2 text-[12px] text-[#747775] dark:text-[#8E918F] flex flex-wrap gap-x-3 gap-y-1.5 pb-8">
-        <button onClick={() => navigateTo('settings', 'about')} className="hover:underline">Privacy</button>
-        <button onClick={() => navigateTo('settings', 'about')} className="hover:underline">Terms</button>
-        <button onClick={() => navigateTo('settings', 'privacy')} className="hover:underline">Community Guidelines</button>
-        <span>© 2026 Tiwi Social</span>
-      </footer>
+      {/* 4. Google Style Footer */}
+      <div className="px-2 text-[11px] text-[#5f6368] dark:text-[#9aa0a6] flex flex-wrap gap-x-3 gap-y-1">
+        <button onClick={() => navigateTo('settings')} className="hover:underline">Privacy</button>
+        <button onClick={() => navigateTo('settings')} className="hover:underline">Terms</button>
+        <button onClick={() => navigateTo('creator')} className="hover:underline">About Tiwi</button>
+        <span>© 2026 Tiwi</span>
+      </div>
     </div>
   );
 }

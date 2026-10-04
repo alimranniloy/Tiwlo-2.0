@@ -49,44 +49,44 @@ export default function CreateStoryView() {
   };
 
   return (
-    <div className="max-w-xl mx-auto w-full pb-20 md:pb-10 flex flex-col gap-5">
+    <div className="max-w-xl mx-auto w-full pb-20 md:pb-10 flex flex-col gap-4">
       {/* Header */}
-      <div className="flex items-center justify-between bg-white dark:bg-[#1E293B] p-4 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs">
+      <div className="flex items-center justify-between bg-white dark:bg-[#202124] p-4 rounded-lg border border-[#dadce0] dark:border-[#3c4043] shadow-xs">
         <button
           onClick={() => navigateTo('feed')}
-          className="flex items-center gap-2 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:text-[#0B57D0]"
+          className="flex items-center gap-2 text-xs font-semibold text-[#5f6368] dark:text-[#9aa0a6] hover:text-[#1a73e8] cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back</span>
         </button>
-        <h2 className="text-sm font-bold text-[#1F1F1F] dark:text-white">Add to Story</h2>
+        <h2 className="text-sm font-bold text-[#202124] dark:text-[#e8eaed]">Add to Story</h2>
         <div className="w-12" />
       </div>
 
       {/* Main Card */}
-      <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-6 border border-gray-200/70 dark:border-gray-800/80 shadow-xs flex flex-col gap-5">
-        <div className="text-center py-2">
-          <p className="text-xs text-gray-500">Stories disappear automatically after 24 hours.</p>
+      <div className="bg-white dark:bg-[#202124] rounded-lg p-6 border border-[#dadce0] dark:border-[#3c4043] shadow-xs flex flex-col gap-5">
+        <div className="text-center py-1">
+          <p className="text-xs text-[#5f6368] dark:text-[#9aa0a6]">Stories disappear automatically after 24 hours.</p>
         </div>
 
         {/* Media Preview Box */}
         {mediaUrl ? (
-          <div className="relative aspect-[9/16] max-h-[460px] rounded-3xl overflow-hidden bg-black mx-auto w-full max-w-[320px] shadow-lg">
+          <div className="relative aspect-[9/16] max-h-[460px] rounded-lg overflow-hidden bg-black mx-auto w-full max-w-[320px] shadow-sm">
             <img src={mediaUrl} alt="Story preview" className="w-full h-full object-cover" />
             <button
               onClick={() => setMediaUrl('')}
-              className="absolute top-3 right-3 p-2 rounded-full bg-black/60 text-white hover:bg-black transition-colors"
+              className="absolute top-3 right-3 p-2 rounded-full bg-black/60 text-white hover:bg-black transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
         ) : (
-          <label className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-3xl p-12 flex flex-col items-center justify-center cursor-pointer hover:border-[#0B57D0] transition-colors">
-            <UploadCloud className="w-10 h-10 text-[#0B57D0] mb-3" />
-            <span className="text-sm font-semibold text-[#1F1F1F] dark:text-white">
+          <label className="border-2 border-dashed border-[#dadce0] dark:border-[#5f6368] rounded-lg p-10 flex flex-col items-center justify-center cursor-pointer hover:border-[#1a73e8] transition-colors">
+            <UploadCloud className="w-10 h-10 text-[#1a73e8] mb-3" />
+            <span className="text-sm font-semibold text-[#202124] dark:text-[#e8eaed]">
               {uploading ? 'Uploading media...' : 'Upload photo or video'}
             </span>
-            <span className="text-xs text-gray-400 mt-1">High quality 9:16 portrait recommended</span>
+            <span className="text-xs text-[#5f6368] dark:text-[#9aa0a6] mt-1">High quality 9:16 portrait recommended</span>
             <input
               type="file"
               accept="image/*,video/*"
@@ -103,13 +103,13 @@ export default function CreateStoryView() {
           placeholder="Add a caption to your story..."
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
-          className="w-full bg-[#F8F9FA] dark:bg-[#111827] text-xs text-[#1F1F1F] dark:text-white rounded-2xl px-4 py-3 border border-transparent focus:border-[#0B57D0] focus:outline-none"
+          className="w-full bg-[#f8f9fa] dark:bg-[#303134] text-xs text-[#202124] dark:text-[#e8eaed] rounded-md px-3.5 py-2.5 border border-[#dadce0] dark:border-[#5f6368] focus:border-[#1a73e8] focus:outline-none"
         />
 
         <button
           onClick={handleSubmit}
           disabled={!mediaUrl || uploading}
-          className="bg-[#0B57D0] hover:bg-[#0842A0] disabled:opacity-40 text-white py-3 rounded-full text-xs font-bold shadow-xs transition-all w-full"
+          className="bg-[#1a73e8] hover:bg-[#1557b0] disabled:opacity-40 text-white py-2.5 rounded-md text-xs font-bold shadow-xs transition-all w-full cursor-pointer"
         >
           {uploading ? 'Sharing...' : 'Share to Story'}
         </button>

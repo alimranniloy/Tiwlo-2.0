@@ -68,40 +68,40 @@ export default function LiveTriviaView() {
   const q = questions[currentIdx];
 
   return (
-    <div className="flex flex-col gap-5 max-w-xl mx-auto w-full pb-20 md:pb-10">
-      <div className="bg-white dark:bg-[#1E293B] p-6 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs flex items-center justify-between">
+    <div className="flex flex-col gap-4 max-w-xl mx-auto w-full pb-20 md:pb-10">
+      <div className="bg-white dark:bg-[#202124] p-5 rounded-lg border border-[#dadce0] dark:border-[#3c4043] shadow-xs flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-[#1F1F1F] dark:text-white flex items-center gap-2">
-            <Award className="w-5 h-5 text-[#0B57D0]" />
+          <h2 className="text-[17px] font-bold text-[#202124] dark:text-[#e8eaed] flex items-center gap-2">
+            <Award className="w-5 h-5 text-[#1a73e8]" />
             Live Community Trivia
           </h2>
-          <p className="text-xs text-gray-500">Test your tech knowledge and earn Tiwi badges</p>
+          <p className="text-xs text-[#5f6368] dark:text-[#9aa0a6]">Test your tech knowledge and earn Tiwi badges</p>
         </div>
-        <div className="bg-[#E8F0FE] text-[#0B57D0] px-3.5 py-1.5 rounded-full text-xs font-bold">
+        <div className="bg-[#e8f0fe] dark:bg-[#174ea6] text-[#1a73e8] dark:text-[#8ab4f8] px-3.5 py-1.5 rounded-full text-xs font-bold">
           Score: {score}
         </div>
       </div>
 
-      <div className="bg-white dark:bg-[#1E293B] p-6 sm:p-8 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs flex flex-col gap-6">
+      <div className="bg-white dark:bg-[#202124] p-6 sm:p-8 rounded-lg border border-[#dadce0] dark:border-[#3c4043] shadow-xs flex flex-col gap-5">
         {!quizFinished && q ? (
           <>
-            <div className="flex items-center justify-between text-xs text-gray-400">
+            <div className="flex items-center justify-between text-xs text-[#5f6368] dark:text-[#9aa0a6]">
               <span>Question {currentIdx + 1} of {questions.length}</span>
               <span>10 Points</span>
             </div>
 
-            <h3 className="text-base sm:text-lg font-bold text-[#1F1F1F] dark:text-white leading-relaxed">
+            <h3 className="text-base sm:text-[17px] font-bold text-[#202124] dark:text-[#e8eaed] leading-relaxed">
               {q.question}
             </h3>
 
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2.5">
               {q.options.map((opt, i) => {
                 const isSelected = selectedAnswer === i;
                 const isCorrect = i === q.correct;
-                let btnStyle = 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-[#111827]';
+                let btnStyle = 'border-[#dadce0] dark:border-[#3c4043] hover:bg-[#f8f9fa] dark:hover:bg-[#303134] text-[#202124] dark:text-[#e8eaed]';
                 if (selectedAnswer !== null) {
-                  if (isCorrect) btnStyle = 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 font-bold';
-                  else if (isSelected) btnStyle = 'border-red-500 bg-red-50/50 dark:bg-red-950/30 text-red-700 dark:text-red-300';
+                  if (isCorrect) btnStyle = 'border-[#188038] bg-[#e6f4ea] dark:bg-[#137333]/30 text-[#137333] dark:text-[#81c995] font-bold';
+                  else if (isSelected) btnStyle = 'border-[#d93025] bg-[#fce8e6] dark:bg-[#c5221f]/30 text-[#c5221f] dark:text-[#f28b82]';
                 }
 
                 return (
@@ -109,11 +109,11 @@ export default function LiveTriviaView() {
                     key={i}
                     onClick={() => handleSelect(i)}
                     disabled={selectedAnswer !== null}
-                    className={`w-full p-4 rounded-2xl text-left border text-xs sm:text-sm font-medium transition-all flex items-center justify-between ${btnStyle}`}
+                    className={`w-full p-3.5 rounded-md text-left border text-xs sm:text-sm font-medium transition-all flex items-center justify-between cursor-pointer ${btnStyle}`}
                   >
                     <span>{opt}</span>
-                    {selectedAnswer !== null && isCorrect && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
-                    {selectedAnswer !== null && isSelected && !isCorrect && <XCircle className="w-4 h-4 text-red-500" />}
+                    {selectedAnswer !== null && isCorrect && <CheckCircle2 className="w-4 h-4 text-[#188038]" />}
+                    {selectedAnswer !== null && isSelected && !isCorrect && <XCircle className="w-4 h-4 text-[#d93025]" />}
                   </button>
                 );
               })}
@@ -121,16 +121,16 @@ export default function LiveTriviaView() {
           </>
         ) : (
           <div className="text-center py-6 flex flex-col items-center gap-3">
-            <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
-              <Award className="w-8 h-8" />
+            <div className="w-14 h-14 rounded-full bg-[#e6f4ea] dark:bg-[#137333]/30 text-[#188038] flex items-center justify-center">
+              <Award className="w-7 h-7" />
             </div>
-            <h3 className="text-lg font-bold text-[#1F1F1F] dark:text-white">Trivia Challenge Completed!</h3>
-            <p className="text-xs text-gray-500">
-              You scored <b className="text-[#0B57D0]">{score} points</b> across all rounds.
+            <h3 className="text-lg font-bold text-[#202124] dark:text-[#e8eaed]">Trivia Challenge Completed!</h3>
+            <p className="text-xs text-[#5f6368] dark:text-[#9aa0a6]">
+              You scored <b className="text-[#1a73e8]">{score} points</b> across all rounds.
             </p>
             <button
               onClick={handleRestart}
-              className="mt-4 flex items-center gap-2 bg-[#0B57D0] text-white px-6 py-2.5 rounded-full text-xs font-bold hover:bg-[#0842A0] transition-colors"
+              className="mt-3 flex items-center gap-2 bg-[#1a73e8] text-white px-5 py-2.5 rounded-md text-xs font-bold hover:bg-[#1557b0] transition-colors cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
               <span>Play Again</span>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, CheckCircle2, Check } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Check, UserPlus } from 'lucide-react';
 import { useSocial } from '../context/SocialContext';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
 
@@ -36,47 +36,48 @@ export default function FollowingListView() {
 
   return (
     <div className="w-full flex flex-col min-h-screen max-w-3xl mx-auto">
-      {/* 1. Header App Bar with Google Segmented Tabs */}
-      <div className="sticky top-0 z-20 bg-[#F8FAFD]/90 dark:bg-[#131314]/90 backdrop-blur-md pb-3 mb-2 border-b border-[#E0E2EC] dark:border-[#313335]">
-        <div className="h-[56px] flex items-center gap-4 px-2 sm:px-0">
+      {/* 1. Header App Bar with Google Underline Tabs */}
+      <div className="sticky top-0 z-20 bg-[#f8f9fa]/95 dark:bg-[#202124]/95 backdrop-blur-md pb-2 mb-3 border-b border-[#dadce0] dark:border-[#3c4043]">
+        <div className="h-[48px] flex items-center gap-3 px-1">
           <button
             onClick={() => navigateTo('profile', currentUser?.handle || currentUser?.id)}
-            className="w-10 h-10 rounded-full hover:bg-[#E9EEF6] dark:hover:bg-[#282A2C] flex items-center justify-center text-[#444746] dark:text-[#C4C7C5] transition cursor-pointer"
+            className="w-9 h-9 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#303134] flex items-center justify-center text-[#5f6368] dark:text-[#9aa0a6] transition cursor-pointer"
             title="Back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex flex-col">
-            <h1 className="text-[20px] font-bold text-[#1F1F1F] dark:text-[#E3E3E3] leading-tight">
+            <h1 className="text-[17px] font-medium text-[#202124] dark:text-[#e8eaed] leading-tight">
               {currentUser?.name || 'User'}
             </h1>
-            <span className="text-[12px] text-[#747775] dark:text-[#8E918F]">
+            <span className="text-[11px] text-[#5f6368] dark:text-[#9aa0a6]">
               @{currentUser?.handle || 'user'}
             </span>
           </div>
         </div>
 
-        {/* Material 3 Segmented Tabs */}
-        <div className="flex bg-[#EEF2F6] dark:bg-[#1E1F20] p-1 rounded-full w-full max-w-xs mt-1">
+        {/* Google Underline Tabs */}
+        <div className="flex items-center gap-6 px-2 mt-1">
           <button
             onClick={() => navigateTo('followers')}
-            className="flex-1 py-1.5 rounded-full text-[13px] font-semibold transition text-[#444746] dark:text-[#C4C7C5] hover:text-[#1F1F1F] text-center"
+            className="pb-2 text-[14px] font-medium text-[#5f6368] dark:text-[#9aa0a6] hover:text-[#202124] transition cursor-pointer"
           >
             Followers
           </button>
           <button
-            className="flex-1 py-1.5 rounded-full text-[13px] font-semibold transition bg-white dark:bg-[#282A2C] text-[#0B57D0] dark:text-[#A8C7FA] shadow-xs text-center"
+            className="pb-2 text-[14px] font-semibold text-[#1a73e8] dark:text-[#8ab4f8] transition cursor-pointer relative"
           >
-            Following
+            <span>Following</span>
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1a73e8] dark:bg-[#8ab4f8] rounded-t-full" />
           </button>
         </div>
       </div>
 
-      {/* 2. Users List as Google Card Container */}
-      <div className="bg-white dark:bg-[#1E1F20] rounded-3xl border border-[#E0E2EC] dark:border-[#313335] divide-y divide-[#E0E2EC]/70 dark:divide-[#313335] p-2 shadow-xs">
+      {/* 2. Users List as Google Card Container (rounded-lg) */}
+      <div className="bg-white dark:bg-[#303134] rounded-lg border border-[#dadce0] dark:border-[#3c4043] divide-y divide-[#f1f3f4] dark:divide-[#3c4043] p-1 shadow-xs">
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="w-8 h-8 rounded-full border-3 border-[#0B57D0] border-t-transparent animate-spin" />
+            <div className="w-8 h-8 rounded-full border-3 border-[#1a73e8] border-t-transparent animate-spin" />
           </div>
         ) : users.length > 0 ? (
           users.map((user) => {
@@ -85,26 +86,26 @@ export default function FollowingListView() {
               <div
                 key={user.id}
                 onClick={() => navigateTo('profile', user.handle || user.id)}
-                className="p-4 hover:bg-[#F0F4F9] dark:hover:bg-[#282A2C] rounded-2xl cursor-pointer transition flex items-center justify-between gap-3"
+                className="p-3.5 hover:bg-[#f8f9fa] dark:hover:bg-[#202124] rounded-md cursor-pointer transition flex items-center justify-between gap-3"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <img
                     src={user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop'}
                     alt={user.name}
-                    className="w-11 h-11 rounded-full object-cover flex-shrink-0 ring-1 ring-[#E0E2EC]"
+                    className="w-10 h-10 rounded-full object-cover flex-shrink-0 border border-[#dadce0]"
                   />
                   <div className="flex flex-col min-w-0 leading-tight">
-                    <div className="flex items-center gap-1 font-semibold text-[15px] text-[#1F1F1F] dark:text-[#E3E3E3] truncate">
+                    <div className="flex items-center gap-1 font-medium text-[14px] text-[#202124] dark:text-[#e8eaed] truncate">
                       <span className="truncate">{user.name}</span>
                       {user.isVerified && (
-                        <CheckCircle2 className="w-4 h-4 text-[#0B57D0] fill-current inline flex-shrink-0" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#1a73e8] fill-current inline flex-shrink-0" />
                       )}
                     </div>
-                    <span className="text-[13px] text-[#747775] dark:text-[#8E918F] truncate">
+                    <span className="text-[12px] text-[#5f6368] dark:text-[#9aa0a6] truncate">
                       @{user.handle}
                     </span>
                     {user.bio && (
-                      <p className="text-[13px] text-[#444746] dark:text-[#C4C7C5] line-clamp-1 mt-1">
+                      <p className="text-[12px] text-[#5f6368] dark:text-[#9aa0a6] line-clamp-1 mt-0.5">
                         {user.bio}
                       </p>
                     )}
@@ -117,24 +118,35 @@ export default function FollowingListView() {
                     e.stopPropagation();
                     handleToggleFollow(user.id);
                   }}
-                  className={`text-[12px] font-semibold px-4 py-1.5 rounded-full transition active:scale-95 flex-shrink-0 cursor-pointer shadow-xs ${
+                  className={`text-[12px] font-medium px-4 py-1.5 rounded-md transition active:scale-95 flex-shrink-0 cursor-pointer shadow-xs ${
                     isFollowing
-                      ? 'border border-[#747775] text-[#1F1F1F] dark:text-[#E3E3E3] bg-transparent'
-                      : 'bg-[#0B57D0] hover:bg-[#0842A0] text-white'
+                      ? 'border border-[#dadce0] dark:border-[#5f6368] text-[#202124] dark:text-[#e8eaed]'
+                      : 'bg-[#1a73e8] hover:bg-[#1557b0] text-white'
                   }`}
                 >
                   {isFollowing ? (
-                    <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Following</span>
+                    <span className="flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Following</span>
+                    </span>
                   ) : (
-                    'Follow'
+                    <span className="flex items-center gap-1">
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Follow</span>
+                    </span>
                   )}
                 </button>
               </div>
             );
           })
         ) : (
-          <div className="py-16 text-center text-[#747775] text-[14px]">
-            You aren’t following anyone yet.
+          <div className="py-14 text-center">
+            <h3 className="font-medium text-[15px] text-[#202124] dark:text-[#e8eaed] mb-1">
+              You aren’t following anyone yet
+            </h3>
+            <p className="text-[12px] text-[#5f6368] dark:text-[#9aa0a6]">
+              Explore communities to find interesting creators.
+            </p>
           </div>
         )}
       </div>

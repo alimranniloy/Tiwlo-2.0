@@ -121,7 +121,7 @@ export default function ReelsView() {
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-6rem)] pb-16 md:pb-6">
-      <div className="relative w-full max-w-[400px] h-[720px] max-h-[85vh] bg-black rounded-3xl overflow-hidden shadow-2xl flex items-center justify-center select-none">
+      <div className="relative w-full max-w-[400px] h-[720px] max-h-[85vh] bg-black rounded-lg border border-[#dadce0] dark:border-[#3c4043] overflow-hidden shadow-xl flex items-center justify-center select-none">
         {/* Video Player */}
         <video
           ref={videoRef}

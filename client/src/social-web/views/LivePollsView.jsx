@@ -57,23 +57,23 @@ export default function LivePollsView() {
   };
 
   return (
-    <div className="flex flex-col gap-5 max-w-2xl mx-auto w-full pb-20 md:pb-10">
-      <div className="bg-white dark:bg-[#1E293B] p-6 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs flex items-center justify-between">
+    <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full pb-20 md:pb-10">
+      <div className="bg-white dark:bg-[#202124] p-5 rounded-lg border border-[#dadce0] dark:border-[#3c4043] shadow-xs flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-[#1F1F1F] dark:text-white flex items-center gap-2">
-            <Vote className="w-5 h-5 text-[#0B57D0]" />
+          <h2 className="text-[17px] font-bold text-[#202124] dark:text-[#e8eaed] flex items-center gap-2">
+            <Vote className="w-5 h-5 text-[#1a73e8]" />
             Live Community Polls
           </h2>
-          <p className="text-xs text-gray-500">Vote and see real-time community opinions</p>
+          <p className="text-xs text-[#5f6368] dark:text-[#9aa0a6]">Vote and see real-time community opinions</p>
         </div>
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         {polls.map((p) => {
           const hasVoted = votedMap[p.id] !== undefined;
           return (
-            <div key={p.id} className="bg-white dark:bg-[#1E293B] p-6 rounded-3xl border border-gray-200/70 dark:border-gray-800/80 shadow-xs flex flex-col gap-4">
-              <h3 className="font-bold text-sm text-[#1F1F1F] dark:text-white leading-snug">{p.question}</h3>
+            <div key={p.id} className="bg-white dark:bg-[#202124] p-5 sm:p-6 rounded-lg border border-[#dadce0] dark:border-[#3c4043] shadow-xs flex flex-col gap-4">
+              <h3 className="font-bold text-sm sm:text-[15px] text-[#202124] dark:text-[#e8eaed] leading-snug">{p.question}</h3>
 
               <div className="flex flex-col gap-2.5">
                 {p.options.map((opt, i) => {
@@ -84,28 +84,28 @@ export default function LivePollsView() {
                       key={i}
                       onClick={() => handleVote(p.id, i)}
                       disabled={hasVoted}
-                      className={`relative w-full p-3 rounded-2xl text-left border transition-all overflow-hidden ${
+                      className={`relative w-full p-3 rounded-md text-left border transition-all overflow-hidden cursor-pointer ${
                         isSelected
-                          ? 'border-[#0B57D0] bg-[#E8F0FE]/40 dark:bg-blue-950/30'
-                          : 'border-gray-200/70 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-[#111827]'
+                          ? 'border-[#1a73e8] bg-[#e8f0fe]/40 dark:bg-[#174ea6]/20'
+                          : 'border-[#dadce0] dark:border-[#3c4043] hover:bg-[#f8f9fa] dark:hover:bg-[#303134]'
                       }`}
                     >
                       {hasVoted && (
                         <div
-                          className="absolute top-0 bottom-0 left-0 bg-[#0B57D0]/10 dark:bg-[#0B57D0]/20 transition-all duration-500"
+                          className="absolute top-0 bottom-0 left-0 bg-[#1a73e8]/10 dark:bg-[#1a73e8]/20 transition-all duration-500"
                           style={{ width: `${pct}%` }}
                         />
                       )}
                       <div className="relative flex items-center justify-between z-10 text-xs">
-                        <span className="font-semibold text-[#1F1F1F] dark:text-gray-200">{opt.text}</span>
-                        {hasVoted && <span className="font-bold text-[#0B57D0]">{pct}%</span>}
+                        <span className="font-semibold text-[#202124] dark:text-[#e8eaed]">{opt.text}</span>
+                        {hasVoted && <span className="font-bold text-[#1a73e8] dark:text-[#8ab4f8]">{pct}%</span>}
                       </div>
                     </button>
                   );
                 })}
               </div>
 
-              <div className="text-[11px] text-gray-400">
+              <div className="text-[11px] text-[#5f6368] dark:text-[#9aa0a6]">
                 {p.totalVotes || 0} total votes {hasVoted && '• Your vote has been counted'}
               </div>
             </div>
