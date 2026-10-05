@@ -37,6 +37,7 @@ import whatsappRoutes from './whatsapp/whatsappRoutes.js';
 import { WhatsAppManager } from './whatsapp/whatsappManager.js';
 import tpanelRoutes from '../service/TPanel/server/tpanelRoutes.js';
 import supportRoutes from './support/ai/supportRoutes.js';
+import emailRoutes from './routes/emailRoutes.js';
 
 // Modular Plugins & Add-Ons Architecture (Rule 6)
 import pluginManager from './plugins/index.js';
@@ -299,6 +300,10 @@ app.use('/api/tpanel', tpanelRoutes);
 
 // Tiwi Live Support & AI Assistance
 app.use('/api/support', supportRoutes);
+
+// Tiwi Outlook Email Gateway (Web & API)
+app.use('/api/email', emailRoutes);
+app.use('/api/mail', emailRoutes);
 
 // Authentication, 2FA, Profiles & SSO Handshake (Mounted first to handle public login/register/check endpoints)
 app.use('/api', authRoutes);

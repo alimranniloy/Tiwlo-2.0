@@ -21,6 +21,7 @@ import {
   LayoutGrid,
   HelpCircle,
   ArrowLeft,
+  Mail,
   X
 } from 'lucide-react';
 
@@ -52,6 +53,7 @@ export default function Sidebar({
   const navItems = [
     { id: 'subscription', name: 'Upgrade & Plans', icon: Sparkles, hasSub: false, isUpgrade: true },
     { id: 'ecommerce-dashboard', name: 'Store Dashboard', icon: LayoutDashboard, hasSub: false },
+    { id: 'email', name: 'Tiwi Mail', icon: Mail, hasSub: false, isNew: true },
     { id: 'pos', name: 'POS System', icon: Store, hasSub: false, isNew: true },
     { id: 'products', name: 'Products', icon: Package, hasSub: false },
     { id: 'categories', name: 'Categories & Subs', icon: Layers, hasSub: true },

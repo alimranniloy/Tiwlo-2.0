@@ -43,6 +43,9 @@ const TiwiMart = lazy(() => import('./themes/TiwiMart/TiwiMart'));
 // Tiwi Social Media Web Experience (/tiwi)
 const TiwiSocialWeb = lazy(() => import('./social-web'));
 
+// Tiwi Outlook Email Experience (/email, /mail)
+const TiwiOutlookEmail = lazy(() => import('./email-web'));
+
 // Live Support AI Widget
 const LiveSupportWidget = lazy(() => import('./support/ai/LiveSupportWidget'));
 
@@ -232,6 +235,7 @@ export default function App() {
         if (pathname === 'add-product') return 'add-product';
         if (pathname === 'whatsapp-automation' || pathname.startsWith('whatsapp-automation/')) return 'whatsapp-automation';
         if (pathname === 'tiwi' || pathname.startsWith('tiwi/') || pathname === 'social' || pathname.startsWith('social/')) return 'tiwi';
+        if (pathname === 'email' || pathname.startsWith('email/') || pathname === 'mail' || pathname.startsWith('mail/')) return 'email';
 
         // Unrecognized route -> 404
         return 'not-found';
@@ -324,6 +328,14 @@ export default function App() {
       setActiveTab('tiwi');
       if (!window.location.pathname.startsWith('/tiwi')) {
         window.history.pushState(null, '', '/tiwi');
+      }
+      return;
+    }
+
+    if (tabId === 'email' || (typeof tabId === 'string' && tabId.startsWith('email')) || tabId === 'mail') {
+      setActiveTab('email');
+      if (!window.location.pathname.startsWith('/email')) {
+        window.history.pushState(null, '', '/email');
       }
       return;
     }
@@ -1288,6 +1300,11 @@ export default function App() {
         />
       ) : (activeTab === 'tiwi' || (typeof activeTab === 'string' && activeTab.startsWith('tiwi'))) ? (
         <TiwiSocialWeb
+          currentUser={currentUser}
+          onNavigateHome={() => handleTabChange('dashboard')}
+        />
+      ) : (activeTab === 'email' || (typeof activeTab === 'string' && activeTab.startsWith('email')) || activeTab === 'mail') ? (
+        <TiwiOutlookEmail
           currentUser={currentUser}
           onNavigateHome={() => handleTabChange('dashboard')}
         />
