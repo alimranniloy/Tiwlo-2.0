@@ -299,7 +299,11 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
     const res = await EmailAPI.sendEmail(payload);
     if (res.success) {
       showToast('Message sent successfully!', 'info');
-      closeCompose();
+      setIsComposeOpen(false);
+      setMobileView('list');
+      try {
+        window.history.pushState({}, '', activeFolder === 'inbox' ? '/email' : `/email/${activeFolder}`);
+      } catch (e) {}
       loadEmails();
       return true;
     }

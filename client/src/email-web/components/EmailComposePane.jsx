@@ -28,6 +28,7 @@ export default function EmailComposePane() {
     composeData,
     setComposeData,
     handleSendEmail,
+    setMobileView,
     showToast
   } = useEmail();
 
@@ -61,15 +62,15 @@ export default function EmailComposePane() {
   const handleAttachMock = () => {
     const mockFile = {
       id: `att_${Date.now()}`,
-      filename: 'Project_Specification_Summary.pdf',
-      size: '1.8 MB',
+      filename: 'Document_Attachment.pdf',
+      size: '1.4 MB',
       type: 'pdf'
     };
     setComposeData((prev) => ({
       ...prev,
       attachments: [...(prev.attachments || []), mockFile]
     }));
-    showToast('Attached Project_Specification_Summary.pdf', 'info');
+    showToast('Attached Document_Attachment.pdf', 'info');
   };
 
   const handleRemoveAttachment = (id) => {
@@ -80,15 +81,16 @@ export default function EmailComposePane() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white dark:bg-[#201F1E] select-none text-[13px] min-w-0 overflow-y-auto">
-      {/* 1. Compose Ribbon Toolbar */}
-      <div className="p-2.5 sm:p-3 border-b border-[#EDEBE9] dark:border-[#292827] flex items-center justify-between sticky top-0 bg-white dark:bg-[#201F1E] z-20">
-        <div className="flex items-center gap-1.5">
+    <div className="flex-1 flex flex-col h-full bg-white dark:bg-[#18181B] select-none text-[13px] min-w-0 overflow-y-auto">
+      {/* 1. Compose Header Toolbar (Always Sticky & Fully Visible) */}
+      <div className="p-2.5 sm:p-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between sticky top-0 bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-xs z-30 shadow-xs">
+        <div className="flex items-center gap-2">
+          {/* Mobile Back button */}
           <button
             type="button"
             onClick={closeCompose}
-            className="md:hidden p-1.5 rounded-sm hover:bg-gray-100 text-gray-700 dark:text-gray-300 mr-1 cursor-pointer"
-            title="Back"
+            className="md:hidden flex items-center gap-1 p-1.5 rounded-lg hover:bg-slate-100 text-slate-700 dark:text-slate-300 cursor-pointer"
+            title="Back to messages"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -98,7 +100,7 @@ export default function EmailComposePane() {
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="flex items-center gap-1.5 bg-[#0078D4] hover:bg-[#106EBE] active:bg-[#005A9E] disabled:opacity-40 text-white font-bold px-4 py-1.5 rounded text-[13px] transition cursor-pointer shadow-xs"
+            className="flex items-center gap-1.5 bg-[#0078D4] hover:bg-[#106EBE] active:bg-[#005A9E] disabled:opacity-40 text-white font-bold px-4 py-1.5 rounded-lg text-[13px] transition cursor-pointer shadow-xs"
           >
             <Send className="w-4 h-4" />
             <span>{isSubmitting ? 'Sending...' : 'Send'}</span>
@@ -108,7 +110,7 @@ export default function EmailComposePane() {
           <button
             type="button"
             onClick={closeCompose}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded hover:bg-[#F3F2F1] dark:hover:bg-[#252423] text-gray-700 dark:text-gray-300 font-medium transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium transition cursor-pointer"
             title="Discard draft"
           >
             <Trash2 className="w-4 h-4 text-[#D83B01]" />
@@ -119,29 +121,24 @@ export default function EmailComposePane() {
           <button
             type="button"
             onClick={handleAttachMock}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded hover:bg-[#F3F2F1] dark:hover:bg-[#252423] text-gray-700 dark:text-gray-300 font-medium transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium transition cursor-pointer"
             title="Attach file"
           >
-            <Paperclip className="w-4 h-4 text-gray-500" />
+            <Paperclip className="w-4 h-4 text-slate-500" />
             <span className="hidden sm:inline">Attach</span>
           </button>
 
           {/* Encrypt Indicator */}
-          <button
-            type="button"
-            onClick={() => showToast('Tiwlo Cryptographic End-to-End Encryption is active', 'info')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded hover:bg-[#F3F2F1] dark:hover:bg-[#252423] text-[#107C41] font-medium transition cursor-pointer hidden md:flex"
-            title="Encryption: Active"
-          >
+          <span className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-md text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 text-[11.5px] font-semibold">
             <Lock className="w-3.5 h-3.5" />
             <span>Encrypted</span>
-          </button>
+          </span>
         </div>
 
         <button
           type="button"
           onClick={closeCompose}
-          className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 cursor-pointer"
+          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 cursor-pointer"
           title="Close composer"
         >
           <X className="w-5 h-5" />
@@ -149,22 +146,22 @@ export default function EmailComposePane() {
       </div>
 
       {/* 2. Recipient Fields (To, Cc, Bcc, Subject) */}
-      <div className="p-4 sm:p-5 flex flex-col gap-2.5 border-b border-[#EDEBE9] dark:border-[#292827]">
+      <div className="p-4 sm:p-5 flex flex-col gap-2.5 border-b border-slate-200 dark:border-slate-800">
         {/* To field */}
         <div className="flex items-center gap-2">
-          <label className="w-14 text-right text-gray-500 font-semibold text-[13px]">
+          <label className="w-14 text-right text-slate-500 font-semibold text-[13px]">
             To
           </label>
-          <div className="flex-1 flex items-center border-b border-gray-200 dark:border-gray-700 focus-within:border-[#0078D4] py-1">
+          <div className="flex-1 flex items-center border-b border-slate-200 dark:border-slate-700 focus-within:border-[#0078D4] py-1">
             <input
               type="text"
               placeholder="Enter email addresses or contacts..."
               value={composeData.to}
               onChange={(e) => setComposeData((prev) => ({ ...prev, to: e.target.value }))}
-              className="w-full bg-transparent outline-none text-[#201F1E] dark:text-white placeholder-gray-400 text-[13px]"
+              className="w-full bg-transparent outline-none text-slate-900 dark:text-white placeholder-slate-400 text-[13.5px]"
             />
           </div>
-          <div className="flex items-center gap-1.5 text-[12px] font-semibold text-gray-500">
+          <div className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-500">
             {!showCc && (
               <button
                 type="button"
@@ -186,37 +183,37 @@ export default function EmailComposePane() {
           </div>
         </div>
 
-        {/* Cc field (conditional) */}
+        {/* Cc field */}
         {showCc && (
           <div className="flex items-center gap-2">
-            <label className="w-14 text-right text-gray-500 font-semibold text-[13px]">
+            <label className="w-14 text-right text-slate-500 font-semibold text-[13px]">
               Cc
             </label>
-            <div className="flex-1 flex items-center border-b border-gray-200 dark:border-gray-700 focus-within:border-[#0078D4] py-1">
+            <div className="flex-1 flex items-center border-b border-slate-200 dark:border-slate-700 focus-within:border-[#0078D4] py-1">
               <input
                 type="text"
                 placeholder="Cc recipients..."
                 value={composeData.cc}
                 onChange={(e) => setComposeData((prev) => ({ ...prev, cc: e.target.value }))}
-                className="w-full bg-transparent outline-none text-[#201F1E] dark:text-white placeholder-gray-400 text-[13px]"
+                className="w-full bg-transparent outline-none text-slate-900 dark:text-white placeholder-slate-400 text-[13.5px]"
               />
             </div>
           </div>
         )}
 
-        {/* Bcc field (conditional) */}
+        {/* Bcc field */}
         {showBcc && (
           <div className="flex items-center gap-2">
-            <label className="w-14 text-right text-gray-500 font-semibold text-[13px]">
+            <label className="w-14 text-right text-slate-500 font-semibold text-[13px]">
               Bcc
             </label>
-            <div className="flex-1 flex items-center border-b border-gray-200 dark:border-gray-700 focus-within:border-[#0078D4] py-1">
+            <div className="flex-1 flex items-center border-b border-slate-200 dark:border-slate-700 focus-within:border-[#0078D4] py-1">
               <input
                 type="text"
                 placeholder="Bcc recipients..."
                 value={composeData.bcc}
                 onChange={(e) => setComposeData((prev) => ({ ...prev, bcc: e.target.value }))}
-                className="w-full bg-transparent outline-none text-[#201F1E] dark:text-white placeholder-gray-400 text-[13px]"
+                className="w-full bg-transparent outline-none text-slate-900 dark:text-white placeholder-slate-400 text-[13.5px]"
               />
             </div>
           </div>
@@ -224,139 +221,103 @@ export default function EmailComposePane() {
 
         {/* Subject field */}
         <div className="flex items-center gap-2">
-          <label className="w-14 text-right text-gray-500 font-semibold text-[13px]">
+          <label className="w-14 text-right text-slate-500 font-semibold text-[13px]">
             Subject
           </label>
-          <div className="flex-1 flex items-center border-b border-gray-200 dark:border-gray-700 focus-within:border-[#0078D4] py-1">
+          <div className="flex-1 flex items-center border-b border-slate-200 dark:border-slate-700 focus-within:border-[#0078D4] py-1">
             <input
               type="text"
-              placeholder="Add a subject"
+              placeholder="Add a subject line"
               value={composeData.subject}
               onChange={(e) => setComposeData((prev) => ({ ...prev, subject: e.target.value }))}
-              className="w-full bg-transparent outline-none text-[#201F1E] dark:text-white font-medium placeholder-gray-400 text-[14px]"
+              className="w-full bg-transparent outline-none font-semibold text-slate-900 dark:text-white placeholder-slate-400 text-[14px]"
             />
           </div>
         </div>
 
-        {/* Attachments chips */}
+        {/* Attached files pills */}
         {composeData.attachments && composeData.attachments.length > 0 && (
-          <div className="flex flex-wrap gap-2 pl-16 pt-1">
+          <div className="flex flex-wrap gap-2 pt-1 pl-16">
             {composeData.attachments.map((att) => (
-              <div
+              <span
                 key={att.id}
-                className="flex items-center gap-2 px-2.5 py-1 rounded bg-gray-100 dark:bg-gray-800 text-[12px] border border-gray-200 dark:border-gray-700"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] dark:text-[#38BDF8] text-[12px] font-medium border border-blue-200 dark:border-blue-800"
               >
-                <Paperclip className="w-3 h-3 text-[#0078D4]" />
-                <span className="font-medium text-gray-800 dark:text-gray-200">{att.filename}</span>
-                <span className="text-gray-400">({att.size})</span>
+                <Paperclip className="w-3.5 h-3.5" />
+                <span>{att.filename}</span>
                 <button
                   type="button"
                   onClick={() => handleRemoveAttachment(att.id)}
                   className="hover:text-red-500 cursor-pointer ml-1"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
-              </div>
+              </span>
             ))}
           </div>
         )}
       </div>
 
-      {/* 3. Rich Text Formatting Ribbon */}
-      <div className="p-2 px-4 bg-[#FAF9F8] dark:bg-[#1B1A19] border-b border-[#EDEBE9] dark:border-[#292827] flex items-center gap-1 text-gray-600 dark:text-gray-300 overflow-x-auto scrollbar-none">
+      {/* 3. Text Formatting Toolbar */}
+      <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-1 bg-slate-50/60 dark:bg-slate-900/40 text-slate-600 dark:text-slate-400 overflow-x-auto scrollbar-none">
         <button
           type="button"
-          onClick={() => showToast('Bold applied', 'info')}
-          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800 cursor-pointer"
-          title="Bold (Ctrl + B)"
+          onClick={() => showToast('Format: Bold', 'info')}
+          className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer font-bold"
+          title="Bold"
         >
           <Bold className="w-4 h-4" />
         </button>
         <button
           type="button"
-          onClick={() => showToast('Italic applied', 'info')}
-          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800 cursor-pointer"
-          title="Italic (Ctrl + I)"
+          onClick={() => showToast('Format: Italic', 'info')}
+          className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer italic"
+          title="Italic"
         >
           <Italic className="w-4 h-4" />
         </button>
         <button
           type="button"
-          onClick={() => showToast('Underline applied', 'info')}
-          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800 cursor-pointer"
-          title="Underline (Ctrl + U)"
+          onClick={() => showToast('Format: Underline', 'info')}
+          className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer underline"
+          title="Underline"
         >
           <Underline className="w-4 h-4" />
         </button>
-        <button
-          type="button"
-          onClick={() => showToast('Strikethrough applied', 'info')}
-          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800 cursor-pointer"
-          title="Strikethrough"
-        >
-          <Strikethrough className="w-4 h-4" />
-        </button>
 
-        <span className="w-px h-4 bg-gray-300 dark:bg-gray-700 mx-1" />
+        <span className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1" />
 
         <button
           type="button"
-          onClick={() => showToast('Bullet list toggled', 'info')}
-          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800 cursor-pointer"
-          title="Bullet list"
+          onClick={() => showToast('List: Bullets', 'info')}
+          className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer"
+          title="Bulleted list"
         >
           <List className="w-4 h-4" />
         </button>
         <button
           type="button"
-          onClick={() => showToast('Numbered list toggled', 'info')}
-          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800 cursor-pointer"
+          onClick={() => showToast('List: Numbered', 'info')}
+          className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer"
           title="Numbered list"
         >
           <ListOrdered className="w-4 h-4" />
         </button>
 
-        <span className="w-px h-4 bg-gray-300 dark:bg-gray-700 mx-1" />
+        <span className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1" />
 
         <button
           type="button"
-          onClick={() => showToast('Align left', 'info')}
-          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800 cursor-pointer"
-          title="Align left"
-        >
-          <AlignLeft className="w-4 h-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => showToast('Align center', 'info')}
-          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800 cursor-pointer"
-          title="Align center"
-        >
-          <AlignCenter className="w-4 h-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => showToast('Align right', 'info')}
-          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800 cursor-pointer"
-          title="Align right"
-        >
-          <AlignRight className="w-4 h-4" />
-        </button>
-
-        <span className="w-px h-4 bg-gray-300 dark:bg-gray-700 mx-1" />
-
-        <button
-          type="button"
-          onClick={() => showToast('Insert link dialog', 'info')}
-          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800 cursor-pointer"
+          onClick={() => showToast('Insert link', 'info')}
+          className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer"
           title="Insert hyperlink"
         >
           <Link className="w-4 h-4" />
         </button>
         <button
           type="button"
-          onClick={() => showToast('Emoji picker', 'info')}
-          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-800 cursor-pointer"
+          onClick={() => showToast('Insert emoji', 'info')}
+          className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer"
           title="Insert emoji"
         >
           <Smile className="w-4 h-4" />
@@ -364,24 +325,24 @@ export default function EmailComposePane() {
       </div>
 
       {/* 4. Message Content Body Textarea */}
-      <div className="flex-1 p-5">
+      <div className="flex-1 p-5 min-h-[220px]">
         <textarea
-          rows={14}
+          rows={12}
           placeholder="Write your email here..."
           value={composeData.body}
           onChange={(e) => setComposeData((prev) => ({ ...prev, body: e.target.value }))}
-          className="w-full h-full bg-transparent outline-none text-[#201F1E] dark:text-white placeholder-gray-400 text-[14px] leading-relaxed resize-none"
+          className="w-full h-full bg-transparent outline-none text-slate-900 dark:text-white placeholder-slate-400 text-[14px] leading-relaxed resize-none"
         />
       </div>
 
-      {/* 5. Bottom Send Bar */}
-      <div className="p-3 border-t border-[#EDEBE9] dark:border-[#292827] flex items-center justify-between bg-[#FAF9F8] dark:bg-[#1B1A19]">
+      {/* 5. Bottom Send Bar (Always Sticky at Bottom) */}
+      <div className="sticky bottom-0 p-3 sm:p-3.5 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-[#18181B] z-30 shadow-lg">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="flex items-center gap-1.5 bg-[#0078D4] hover:bg-[#106EBE] active:bg-[#005A9E] disabled:opacity-40 text-white font-bold px-5 py-2 rounded text-[13px] transition cursor-pointer shadow-xs"
+            className="flex items-center gap-1.5 bg-[#0078D4] hover:bg-[#106EBE] active:bg-[#005A9E] disabled:opacity-40 text-white font-bold px-5 py-2 rounded-lg text-[13px] transition cursor-pointer shadow-xs"
           >
             <Send className="w-4 h-4" />
             <span>{isSubmitting ? 'Sending...' : 'Send'}</span>
@@ -389,13 +350,13 @@ export default function EmailComposePane() {
           <button
             type="button"
             onClick={closeCompose}
-            className="px-3 py-2 rounded hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 text-[13px] font-medium transition cursor-pointer"
+            className="px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-medium transition cursor-pointer"
           >
             Discard
           </button>
         </div>
 
-        <span className="text-[12px] text-gray-400">
+        <span className="text-[12px] text-slate-400">
           Saved as draft
         </span>
       </div>

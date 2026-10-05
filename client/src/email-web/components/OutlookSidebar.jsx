@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Mail,
   Calendar,
@@ -11,15 +11,12 @@ import {
   Trash2,
   Archive,
   ShieldAlert,
-  Bookmark,
   Flag,
   ChevronDown,
   ChevronRight,
   Plus,
   Tag,
-  Folder,
-  HardDriveDownload,
-  Sparkles
+  Folder
 } from 'lucide-react';
 import { useEmail } from '../context/EmailContext';
 
@@ -38,18 +35,6 @@ export default function OutlookSidebar() {
   const [foldersOpen, setFoldersOpen] = useState(true);
   const [favoritesOpen, setFavoritesOpen] = useState(true);
   const [categoriesOpen, setCategoriesOpen] = useState(true);
-  const [sidebarNewMailMenu, setSidebarNewMailMenu] = useState(false);
-  const sidebarNewMailRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (sidebarNewMailRef.current && !sidebarNewMailRef.current.contains(e.target)) {
-        setSidebarNewMailMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   const railItems = [
     { id: 'mail', label: 'Mail', icon: Mail },
@@ -83,9 +68,9 @@ export default function OutlookSidebar() {
   ];
 
   return (
-    <div className="flex h-full select-none text-[12.5px] border-r border-[#EDEBE9] dark:border-[#292827] bg-[#F5F5F5] dark:bg-[#1E1E1E]">
+    <div className="flex h-full select-none text-[12.5px] border-r border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-[#18181B]">
       {/* 1. Outer Left Rail (Icon Column) */}
-      <div className="w-[48px] bg-[#EAEAEA] dark:bg-[#181818] border-r border-[#E0E0E0] dark:border-[#262626] flex flex-col items-center py-2 gap-1 flex-shrink-0">
+      <div className="w-[48px] bg-slate-100/80 dark:bg-[#121214] border-r border-slate-200/80 dark:border-slate-800 flex flex-col items-center py-2.5 gap-1.5 flex-shrink-0">
         {railItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeRail === item.id;
@@ -96,18 +81,18 @@ export default function OutlookSidebar() {
               onClick={() => {
                 setActiveRail(item.id);
                 if (item.id !== 'mail') {
-                  showToast(`${item.label} app module is ready`, 'info');
+                  showToast(`${item.label} view ready`, 'info');
                 }
               }}
-              className={`relative w-[40px] h-[40px] rounded-md flex items-center justify-center transition cursor-pointer ${
+              className={`relative w-[38px] h-[38px] rounded-lg flex items-center justify-center transition cursor-pointer ${
                 isActive
-                  ? 'bg-white dark:bg-[#252526] text-[#0078D4] shadow-xs'
-                  : 'text-[#605E5C] dark:text-[#A19F9D] hover:bg-black/5 dark:hover:bg-white/5'
+                  ? 'bg-white dark:bg-slate-800 text-[#0078D4] dark:text-[#38BDF8] shadow-xs font-semibold'
+                  : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
               }`}
               title={item.label}
             >
               {isActive && (
-                <span className="absolute left-0 top-2 bottom-2 w-1 bg-[#0078D4] rounded-r-md" />
+                <span className="absolute left-0 top-2 bottom-2 w-1 bg-[#0078D4] dark:bg-[#38BDF8] rounded-r-md" />
               )}
               <Icon className="w-5 h-5 stroke-[1.8]" />
             </button>
@@ -116,58 +101,19 @@ export default function OutlookSidebar() {
       </div>
 
       {/* 2. Inner Folders Tree */}
-      <div className="w-[210px] xl:w-[230px] flex flex-col justify-between overflow-y-auto scrollbar-none py-2 px-2 text-[#323130] dark:text-[#E1DFDD]">
-        <div className="flex flex-col gap-2.5">
-          {/* Outlook Signature Prominent Sidebar New Mail Button */}
-          <div className="relative" ref={sidebarNewMailRef}>
-            <div className="flex items-center w-full rounded-lg bg-gradient-to-r from-[#0078D4] to-[#0F6CBD] hover:from-[#106EBE] hover:to-[#005A9E] shadow-[0_2px_6px_rgba(0,120,212,0.35)] transition-all">
-              <button
-                type="button"
-                onClick={() => openCompose()}
-                className="flex-1 flex items-center gap-2 px-3 py-2 text-white font-bold text-[13px] tracking-tight cursor-pointer"
-              >
-                <Plus className="w-4 h-4 stroke-[2.8]" />
-                <span>New mail</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setSidebarNewMailMenu((prev) => !prev)}
-                className="px-2.5 py-2 text-white/80 hover:text-white border-l border-white/20 cursor-pointer"
-                title="More creation options"
-              >
-                <ChevronDown className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {/* Sidebar New Mail Dropdown */}
-            {sidebarNewMailMenu && (
-              <div className="absolute top-[42px] left-0 right-0 bg-white dark:bg-[#201F1E] rounded-xl shadow-2xl border border-black/10 dark:border-white/10 py-1.5 z-50 animate-fadeIn text-[12.5px]">
-                <button
-                  type="button"
-                  onClick={() => { setSidebarNewMailMenu(false); openCompose(); }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 text-left cursor-pointer"
-                >
-                  <Mail className="w-4 h-4 text-[#0078D4]" />
-                  <span>Mail message</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setSidebarNewMailMenu(false); showToast('Calendar event created', 'info'); }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 text-left cursor-pointer"
-                >
-                  <Calendar className="w-4 h-4 text-[#107C41]" />
-                  <span>Calendar event</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setSidebarNewMailMenu(false); showToast('To Do task created', 'info'); }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 text-left cursor-pointer"
-                >
-                  <CheckSquare className="w-4 h-4 text-[#0078D4]" />
-                  <span>To Do task</span>
-                </button>
-              </div>
-            )}
+      <div className="w-[210px] xl:w-[230px] flex flex-col justify-between overflow-y-auto scrollbar-none py-3 px-2.5 text-slate-700 dark:text-slate-200">
+        <div className="flex flex-col gap-3">
+          {/* Top Primary "New mail" Action in Sidebar (NO side arrow!) */}
+          <div>
+            <button
+              type="button"
+              onClick={() => openCompose()}
+              className="w-full flex items-center justify-center gap-2 bg-[#0078D4] hover:bg-[#106EBE] active:bg-[#005A9E] text-white font-bold py-2 px-3 rounded-lg shadow-xs hover:shadow transition cursor-pointer"
+              title="Compose New Mail (Ctrl + N)"
+            >
+              <Plus className="w-4 h-4 stroke-[2.8]" />
+              <span className="text-[13px] tracking-tight">New mail</span>
+            </button>
           </div>
 
           {/* Favorites Header & List */}
@@ -175,7 +121,7 @@ export default function OutlookSidebar() {
             <button
               type="button"
               onClick={() => setFavoritesOpen((prev) => !prev)}
-              className="w-full flex items-center gap-1 px-1.5 py-1 text-[11px] font-bold text-gray-500 hover:text-gray-900 dark:hover:text-white uppercase tracking-wider cursor-pointer"
+              className="w-full flex items-center gap-1.5 px-1.5 py-1 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider cursor-pointer hover:text-slate-700"
             >
               {favoritesOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
               <span>Favorites</span>
@@ -196,12 +142,12 @@ export default function OutlookSidebar() {
                       }}
                       className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg transition cursor-pointer text-left ${
                         isActive
-                          ? 'bg-[#E1DFDD]/75 dark:bg-[#333333] text-[#0078D4] font-semibold'
-                          : 'hover:bg-black/5 dark:hover:bg-white/5 text-[#323130] dark:text-[#D2D0CE]'
+                          ? 'bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] dark:text-[#38BDF8] font-bold'
+                          : 'hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-600 dark:text-slate-300'
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-[#0078D4]' : 'text-gray-500'}`} />
+                        <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-[#0078D4] dark:text-[#38BDF8]' : 'text-slate-400'}`} />
                         <span className="truncate">{f.label}</span>
                       </div>
                       {f.count > 0 && (
@@ -209,7 +155,7 @@ export default function OutlookSidebar() {
                           className={`text-[11px] font-bold px-1.5 py-0.2 rounded-full ${
                             f.countHighlight
                               ? 'bg-[#0078D4] text-white'
-                              : 'text-gray-500 dark:text-gray-400'
+                              : 'text-slate-400'
                           }`}
                         >
                           {f.count}
@@ -227,7 +173,7 @@ export default function OutlookSidebar() {
             <button
               type="button"
               onClick={() => setFoldersOpen((prev) => !prev)}
-              className="w-full flex items-center gap-1 px-1.5 py-1 text-[11px] font-bold text-gray-500 hover:text-gray-900 dark:hover:text-white uppercase tracking-wider cursor-pointer"
+              className="w-full flex items-center gap-1.5 px-1.5 py-1 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider cursor-pointer hover:text-slate-700"
             >
               {foldersOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
               <span>Folders</span>
@@ -248,12 +194,12 @@ export default function OutlookSidebar() {
                       }}
                       className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg transition cursor-pointer text-left ${
                         isActive
-                          ? 'bg-[#E1DFDD]/75 dark:bg-[#333333] text-[#0078D4] font-semibold'
-                          : 'hover:bg-black/5 dark:hover:bg-white/5 text-[#323130] dark:text-[#D2D0CE]'
+                          ? 'bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] dark:text-[#38BDF8] font-bold'
+                          : 'hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-600 dark:text-slate-300'
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-[#0078D4]' : 'text-gray-500'}`} />
+                        <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-[#0078D4] dark:text-[#38BDF8]' : 'text-slate-400'}`} />
                         <span className="truncate">{f.label}</span>
                       </div>
                       {f.count > 0 && (
@@ -261,7 +207,7 @@ export default function OutlookSidebar() {
                           className={`text-[11px] font-bold px-1.5 py-0.2 rounded-full ${
                             f.countHighlight
                               ? 'bg-[#0078D4] text-white'
-                              : 'text-gray-500 dark:text-gray-400'
+                              : 'text-slate-400'
                           }`}
                         >
                           {f.count}
@@ -275,7 +221,7 @@ export default function OutlookSidebar() {
                 <button
                   type="button"
                   onClick={() => showToast('New folder dialog opened', 'info')}
-                  className="flex items-center gap-2 px-2.5 py-1.5 text-gray-500 hover:text-[#0078D4] hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition cursor-pointer text-left mt-1"
+                  className="flex items-center gap-2 px-2.5 py-1.5 text-slate-400 hover:text-[#0078D4] hover:bg-slate-200/40 dark:hover:bg-slate-800/40 rounded-lg transition cursor-pointer text-left mt-0.5"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>New folder</span>
@@ -289,7 +235,7 @@ export default function OutlookSidebar() {
             <button
               type="button"
               onClick={() => setCategoriesOpen((prev) => !prev)}
-              className="w-full flex items-center gap-1 px-1.5 py-1 text-[11px] font-bold text-gray-500 hover:text-gray-900 dark:hover:text-white uppercase tracking-wider cursor-pointer"
+              className="w-full flex items-center gap-1.5 px-1.5 py-1 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider cursor-pointer hover:text-slate-700"
             >
               {categoriesOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
               <span>Categories</span>
@@ -309,12 +255,12 @@ export default function OutlookSidebar() {
                       }}
                       className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg transition cursor-pointer text-left ${
                         isSelected
-                          ? 'bg-[#E1DFDD]/75 dark:bg-[#333333] text-[#0078D4] font-semibold'
-                          : 'hover:bg-black/5 dark:hover:bg-white/5 text-[#323130] dark:text-[#D2D0CE]'
+                          ? 'bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] dark:text-[#38BDF8] font-semibold'
+                          : 'hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-600 dark:text-slate-300'
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
                         <span className="truncate">{cat.name}</span>
                       </div>
                     </button>
@@ -326,18 +272,18 @@ export default function OutlookSidebar() {
         </div>
 
         {/* Bottom Storage Quota Card */}
-        <div className="p-2.5 mt-4 rounded-xl bg-white dark:bg-[#252526] border border-[#EDEBE9] dark:border-[#2D2D2D] shadow-xs">
-          <div className="flex items-center justify-between text-[11px] text-gray-500 mb-1.5">
-            <span className="font-semibold text-gray-700 dark:text-gray-300">Mailbox Storage</span>
+        <div className="p-3 mt-4 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 shadow-xs">
+          <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">
+            <span className="font-semibold text-slate-700 dark:text-slate-300">Mailbox Storage</span>
             <span>1.2 GB / 15 GB</span>
           </div>
-          <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-[#0078D4] to-[#107C41] rounded-full w-[8%]" />
+          <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+            <div className="h-full bg-[#0078D4] rounded-full w-[8%]" />
           </div>
-          <div className="flex items-center justify-between text-[10px] text-gray-400 mt-1.5">
+          <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1.5">
             <span>8% used</span>
             <span
-              onClick={() => showToast('Connecting to Tiwlo Cloud Storage...', 'info')}
+              onClick={() => showToast('Tiwlo Cloud Storage', 'info')}
               className="text-[#0078D4] hover:underline cursor-pointer"
             >
               Manage

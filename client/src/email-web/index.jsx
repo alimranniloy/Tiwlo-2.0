@@ -18,7 +18,7 @@ function OutlookEmailLayout() {
   } = useEmail();
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#F5F5F5] dark:bg-[#11100F] text-[#323130] dark:text-[#E1DFDD] font-sans antialiased overflow-hidden select-none">
+    <div className="h-screen w-screen flex flex-col bg-[#F8FAFC] dark:bg-[#0F172A] text-slate-800 dark:text-slate-100 font-sans antialiased overflow-hidden select-none">
       {/* 1. Top App Header */}
       <OutlookHeader />
 
@@ -38,16 +38,16 @@ function OutlookEmailLayout() {
             {/* Backdrop */}
             <div
               onClick={() => setMobileDrawerOpen(false)}
-              className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
+              className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
             />
             {/* Drawer */}
-            <div className="relative w-[280px] max-w-[85vw] h-full bg-white dark:bg-[#1E1E1E] shadow-2xl flex flex-col z-10 animate-slideRight">
-              <div className="p-3 bg-[#0078D4] text-white flex items-center justify-between">
+            <div className="relative w-[280px] max-w-[85vw] h-full bg-white dark:bg-[#18181B] shadow-2xl flex flex-col z-10 animate-slideRight">
+              <div className="p-3.5 bg-[#0078D4] text-white flex items-center justify-between">
                 <span className="font-bold text-[14px]">Mail Folders</span>
                 <button
                   type="button"
                   onClick={() => setMobileDrawerOpen(false)}
-                  className="p-1 rounded hover:bg-white/20 transition cursor-pointer"
+                  className="p-1 rounded-md hover:bg-white/20 transition cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -87,8 +87,8 @@ function OutlookEmailLayout() {
         </div>
       </div>
 
-      {/* 4. Mobile Bottom Navigation */}
-      <OutlookBottomNav />
+      {/* 4. Mobile Bottom Navigation (Hidden during compose so composer buttons are never obstructed) */}
+      {!isComposeOpen && mobileView !== 'compose' && <OutlookBottomNav />}
     </div>
   );
 }
