@@ -11,7 +11,9 @@ import {
   Square,
   AlertCircle,
   Inbox,
-  Sparkles
+  Sparkles,
+  Search,
+  Filter
 } from 'lucide-react';
 import { useEmail } from '../context/EmailContext';
 
@@ -26,6 +28,7 @@ export default function EmailListPane() {
     selectedIds,
     setSelectedIds,
     activeFolder,
+    activeCategoryFilter,
     handleToggleFlag,
     handleToggleRead,
     handleTogglePin,
@@ -34,6 +37,7 @@ export default function EmailListPane() {
   } = useEmail();
 
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const [quickFilter, setQuickFilter] = useState('all'); // 'all', 'unread', 'flagged', 'attachments'
 
   const toggleSelectOne = (id, e) => {
     e.stopPropagation();
@@ -53,6 +57,14 @@ export default function EmailListPane() {
     }
   };
 
+  // Filter messages based on activeFolder, activeTab, and quickFilter
+  const displayedEmails = emails.filter((mail) => {
+    if (quickFilter === 'unread' && !mail.isUnread) return false;
+    if (quickFilter === 'flagged' && !mail.isFlagged) return false;
+    if (quickFilter === 'attachments' && !mail.hasAttachments) return false;
+    return true;
+  });
+
   const folderTitle =
     activeFolder === 'inbox' ? 'Inbox' :
     activeFolder === 'sent' ? 'Sent Items' :
@@ -65,11 +77,18 @@ export default function EmailListPane() {
   return (
     <div className="flex-1 flex flex-col h-full bg-white dark:bg-[#201F1E] border-r border-[#EDEBE9] dark:border-[#292827] select-none text-[12.5px] min-w-0">
       {/* 1. Header: Folder Title & Focused / Other Switcher */}
-      <div className="p-3 border-b border-[#EDEBE9] dark:border-[#292827] flex flex-col gap-2">
+      <div className="p-3 border-b border-[#EDEBE9] dark:border-[#292827] flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
-          <h2 className="text-[17px] font-bold text-[#201F1E] dark:text-[#F3F2F1] tracking-tight">
-            {folderTitle}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-[17px] font-bold text-[#201F1E] dark:text-[#F3F2F1] tracking-tight">
+              {folderTitle}
+            </h2>
+            {activeCategoryFilter && (
+              <span className="text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
+                {activeCategoryFilter}
+              </span>
+            )}
+          </div>
 
           {/* Filter Dropdown */}
           <div className="relative">
@@ -83,32 +102,32 @@ export default function EmailListPane() {
             </button>
 
             {filterMenuOpen && (
-              <div className="absolute right-0 top-[28px] w-48 bg-white dark:bg-[#252423] rounded-md shadow-xl border border-black/10 dark:border-white/10 py-1.5 z-50 animate-fadeIn text-[12px]">
+              <div className="absolute right-0 top-[28px] w-48 bg-white dark:bg-[#252423] rounded-xl shadow-2xl border border-black/10 dark:border-white/10 py-1.5 z-50 animate-fadeIn text-[12px]">
                 <button
                   type="button"
-                  onClick={() => { setActiveTab('all'); setFilterMenuOpen(false); }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  onClick={() => { setQuickFilter('all'); setFilterMenuOpen(false); }}
+                  className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
                 >
                   All messages
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setActiveTab('unread'); setFilterMenuOpen(false); }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  onClick={() => { setQuickFilter('unread'); setFilterMenuOpen(false); }}
+                  className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
                 >
                   Unread mail
                 </button>
                 <button
                   type="button"
-                  onClick={() => { showToast('Filtering flagged mail', 'info'); setFilterMenuOpen(false); }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  onClick={() => { setQuickFilter('flagged'); setFilterMenuOpen(false); }}
+                  className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
                 >
                   Flagged
                 </button>
                 <button
                   type="button"
-                  onClick={() => { showToast('Filtering attachments only', 'info'); setFilterMenuOpen(false); }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  onClick={() => { setQuickFilter('attachments'); setFilterMenuOpen(false); }}
+                  className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
                 >
                   Has attachments
                 </button>
@@ -119,36 +138,60 @@ export default function EmailListPane() {
 
         {/* Outlook Signature "Focused" vs "Other" Tabs */}
         {activeFolder === 'inbox' && (
-          <div className="flex items-center gap-4 border-b border-gray-100 dark:border-gray-800 pb-1">
-            <button
-              type="button"
-              onClick={() => setActiveTab('focused')}
-              className={`font-semibold text-[13px] pb-1 relative transition cursor-pointer ${
-                activeTab === 'focused'
-                  ? 'text-[#0078D4]'
-                  : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'
-              }`}
-            >
-              Focused
-              {activeTab === 'focused' && (
-                <span className="absolute bottom-[-5px] left-0 right-0 h-[2px] bg-[#0078D4] rounded-full" />
-              )}
-            </button>
+          <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-1">
+            <div className="flex items-center gap-5">
+              <button
+                type="button"
+                onClick={() => setActiveTab('focused')}
+                className={`font-bold text-[13px] pb-1.5 relative transition cursor-pointer ${
+                  activeTab === 'focused'
+                    ? 'text-[#0078D4] dark:text-[#2899F5]'
+                    : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                Focused
+                {activeTab === 'focused' && (
+                  <span className="absolute bottom-[-1px] left-0 right-0 h-[2.5px] bg-[#0078D4] dark:bg-[#2899F5] rounded-full" />
+                )}
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('other')}
-              className={`font-semibold text-[13px] pb-1 relative transition cursor-pointer ${
-                activeTab === 'other'
-                  ? 'text-[#0078D4]'
-                  : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'
-              }`}
-            >
-              Other
-              {activeTab === 'other' && (
-                <span className="absolute bottom-[-5px] left-0 right-0 h-[2px] bg-[#0078D4] rounded-full" />
-              )}
-            </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('other')}
+                className={`font-bold text-[13px] pb-1.5 relative transition cursor-pointer ${
+                  activeTab === 'other'
+                    ? 'text-[#0078D4] dark:text-[#2899F5]'
+                    : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                Other
+                {activeTab === 'other' && (
+                  <span className="absolute bottom-[-1px] left-0 right-0 h-[2.5px] bg-[#0078D4] dark:bg-[#2899F5] rounded-full" />
+                )}
+              </button>
+            </div>
+
+            {/* Quick Filter Badges */}
+            <div className="flex items-center gap-1">
+              {[
+                { id: 'all', label: 'All' },
+                { id: 'unread', label: 'Unread' },
+                { id: 'flagged', label: 'Flagged' }
+              ].map((chip) => (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={() => setQuickFilter(chip.id)}
+                  className={`text-[11px] font-semibold px-2 py-0.5 rounded-full transition cursor-pointer ${
+                    quickFilter === chip.id
+                      ? 'bg-[#0078D4] text-white shadow-xs'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-gray-800'
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -158,9 +201,9 @@ export default function EmailListPane() {
         <button
           type="button"
           onClick={toggleSelectAll}
-          className="flex items-center gap-2 hover:text-gray-900 dark:hover:text-white cursor-pointer"
+          className="flex items-center gap-2 hover:text-gray-900 dark:hover:text-white cursor-pointer font-medium"
         >
-          {selectedIds.size > 0 && selectedIds.size === emails.length ? (
+          {selectedIds.size > 0 && selectedIds.size === displayedEmails.length ? (
             <CheckSquare className="w-3.5 h-3.5 text-[#0078D4]" />
           ) : (
             <Square className="w-3.5 h-3.5" />
@@ -168,7 +211,7 @@ export default function EmailListPane() {
           <span>{selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select all'}</span>
         </button>
 
-        <span>{emails.length} items</span>
+        <span>{displayedEmails.length} items</span>
       </div>
 
       {/* 3. Scrollable List of Messages */}
@@ -177,13 +220,18 @@ export default function EmailListPane() {
           <div className="flex items-center justify-center p-12">
             <div className="w-6 h-6 border-2 border-[#0078D4] border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : emails.length === 0 ? (
-          <div className="p-8 text-center flex flex-col items-center justify-center text-gray-400 gap-2">
-            <Inbox className="w-8 h-8 stroke-[1.5]" />
-            <p className="text-[13px] font-medium">No messages found in this folder</p>
+        ) : displayedEmails.length === 0 ? (
+          <div className="p-10 text-center flex flex-col items-center justify-center text-gray-400 gap-2.5">
+            <div className="w-14 h-14 rounded-full bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center text-[#0078D4]">
+              <Inbox className="w-7 h-7 stroke-[1.8]" />
+            </div>
+            <h4 className="font-bold text-[14px] text-gray-800 dark:text-gray-200">All caught up!</h4>
+            <p className="text-[12px] text-gray-500 max-w-[220px]">
+              No messages found matching your active filter criteria
+            </p>
           </div>
         ) : (
-          emails.map((mail) => {
+          displayedEmails.map((mail) => {
             const isSelected = selectedEmail?.id === mail.id;
             const isChecked = selectedIds.has(mail.id);
 
@@ -198,7 +246,7 @@ export default function EmailListPane() {
                     ? 'bg-[#F3F2F1] dark:bg-[#252423]'
                     : mail.isUnread
                     ? 'bg-white dark:bg-[#201F1E] font-medium'
-                    : 'bg-white dark:bg-[#201F1E] hover:bg-[#F3F2F1] dark:hover:bg-[#252423]'
+                    : 'bg-white dark:bg-[#201F1E] hover:bg-[#F8F7F6] dark:hover:bg-[#252423]'
                 }`}
               >
                 {/* Unread Accent Pill */}
