@@ -46,6 +46,7 @@ import pluginManager from './plugins/index.js';
 import tpanelPlugin from './plugins/tpanel/index.js';
 import whatsappPlugin from './plugins/whatsapp/index.js';
 import supportAiPlugin from './plugins/support-ai/index.js';
+import securityPlugin from './plugins/security/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -161,6 +162,9 @@ app.post('/internal/email/inbound', express.raw({
     return res.status(202).json({ success: true, duplicate: result.duplicate });
   } catch (error) {
     console.error('[Tiwi Mail Inbound] Delivery failed:', error.message);
+    if (error.code === 'MAILBOX_QUOTA_EXCEEDED') {
+      return res.status(452).send('Mailbox storage quota exceeded.');
+    }
     return res.status(error instanceof TypeError ? 422 : 503).send('Inbound mail could not be stored.');
   }
 });
@@ -354,6 +358,7 @@ app.use('/api', storeRoutes);
 await pluginManager.registerPlugin(tpanelPlugin);
 await pluginManager.registerPlugin(whatsappPlugin);
 await pluginManager.registerPlugin(supportAiPlugin);
+await pluginManager.registerPlugin(securityPlugin);
 app.use('/api/plugins', pluginManager.getRouter());
 app.get('/api/plugins-list', (req, res) => {
   res.json({ success: true, plugins: pluginManager.getRegisteredPlugins() });

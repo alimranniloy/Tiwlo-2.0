@@ -1,10 +1,10 @@
 import crypto from 'crypto';
 import express from 'express';
 import multer from 'multer';
-import rateLimit from 'express-rate-limit';
 import { getPgPool } from '../db/postgres.js';
 import { sendTiwloEmail } from '../db/emailService.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
+import { securityLimiters } from '../plugins/security/index.js';
 
 const router = express.Router();
 const upload = multer({
@@ -20,16 +20,8 @@ const RESERVED_MAILBOX_NAMES = new Set([
   'security', 'support', 'webmaster'
 ]);
 const MAX_TOTAL_ATTACHMENT_BYTES = 20 * 1024 * 1024;
-const sendLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  limit: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler: (_req, res) => res.status(429).json({
-    success: false,
-    error: 'Email send limit reached. Try again later.'
-  })
-});
+const MAX_DAILY_ATTACHMENT_BYTES = 100 * 1024 * 1024;
+const MAX_RECIPIENTS_PER_MESSAGE = 10;
 
 router.use((req, res, next) => {
   if (!req.activeUser?.id) {
@@ -58,7 +50,7 @@ router.get('/mailbox', async (req, res, next) => {
   }
 });
 
-router.get('/mailbox/availability', async (req, res, next) => {
+router.get('/mailbox/availability', securityLimiters.mailboxAvailability, async (req, res, next) => {
   try {
     const localPart = normalizeMailboxLocalPart(req.query.localPart);
     if (!localPart) {
@@ -79,7 +71,7 @@ router.get('/mailbox/availability', async (req, res, next) => {
   }
 });
 
-router.post('/mailbox', async (req, res, next) => {
+router.post('/mailbox', securityLimiters.mailboxCreationIp, securityLimiters.mailboxCreationAccount, async (req, res, next) => {
   try {
     const localPart = normalizeMailboxLocalPart(req.body?.localPart);
     if (!localPart) {
@@ -376,7 +368,7 @@ router.delete('/drafts/:id', async (req, res, next) => {
   }
 });
 
-router.post('/send', sendLimiter, handleUploadError, async (req, res, next) => {
+router.post('/send', securityLimiters.mailSendAccount, securityLimiters.mailSendDailyAccount, handleUploadError, async (req, res, next) => {
   try {
     const userId = req.activeUser.id;
     const senderEmail = req.mailbox.address;
@@ -384,6 +376,12 @@ router.post('/send', sendLimiter, handleUploadError, async (req, res, next) => {
     const to = parseRecipients(req.body.to, 'To');
     const cc = parseRecipients(req.body.cc, 'Cc', true);
     const bcc = parseRecipients(req.body.bcc, 'Bcc', true);
+    if (new Set([...to, ...cc, ...bcc]).size > MAX_RECIPIENTS_PER_MESSAGE) {
+      return res.status(400).json({
+        success: false,
+        error: `A message can have at most ${MAX_RECIPIENTS_PER_MESSAGE} unique recipients.`
+      });
+    }
     const { subject = '', body = '', draftId = null } = req.body;
     const cleanSubject = String(subject).replace(/[\r\n]/g, ' ').trim().slice(0, 998);
     if (!cleanSubject) return res.status(400).json({ success: false, error: 'A subject is required.' });
@@ -403,6 +401,20 @@ router.post('/send', sendLimiter, handleUploadError, async (req, res, next) => {
       size: file.size
     }));
     const pool = getPgPool();
+    const { rows: attachmentUsageRows } = await pool.query(
+      `SELECT COALESCE(SUM(a.size_bytes), 0)::bigint AS attachment_bytes
+       FROM system_user_mail_attachments a
+       JOIN system_user_mail_messages m ON m.id = a.message_id
+       WHERE m.user_id = $1 AND m.folder = 'sent'
+         AND m.created_at >= CURRENT_TIMESTAMP - INTERVAL '24 hours'`,
+      [userId]
+    );
+    if (Number(attachmentUsageRows[0].attachment_bytes) + totalBytes > MAX_DAILY_ATTACHMENT_BYTES) {
+      return res.status(429).json({
+        success: false,
+        error: 'This account has reached its daily attachment sending limit.'
+      });
+    }
     await pool.query(
       `INSERT INTO system_user_mail_messages
          (id, user_id, folder, sender_name, sender_email, to_recipients, cc_recipients,

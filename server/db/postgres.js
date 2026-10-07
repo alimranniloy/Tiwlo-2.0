@@ -124,6 +124,18 @@ export async function initPgSchema() {
       );
       CREATE INDEX IF NOT EXISTS idx_auth_rate_limits_updated ON system_auth_rate_limits(updated_at);
 
+      CREATE TABLE IF NOT EXISTS system_security_rate_limits (
+        policy_id VARCHAR(64) NOT NULL,
+        key_hash CHAR(64) NOT NULL,
+        hit_count INTEGER NOT NULL DEFAULT 0,
+        window_started_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (policy_id, key_hash)
+      );
+      CREATE INDEX IF NOT EXISTS idx_security_rate_limits_expiry
+        ON system_security_rate_limits(expires_at);
+
       CREATE TABLE IF NOT EXISTS system_sso_nonces (
         nonce_hash CHAR(64) PRIMARY KEY,
         user_id VARCHAR(64) NOT NULL,
@@ -932,6 +944,7 @@ export async function initPgSchema() {
         device_info VARCHAR(128)
       );
     `);
+    await p.query('DELETE FROM system_security_rate_limits WHERE expires_at <= CURRENT_TIMESTAMP');
     console.log('✅ Enterprise PostgreSQL Multi-Domain Schema Verified & Provisioned.');
   } catch (err) {
     console.error('PostgreSQL schema initialization failed:', err);

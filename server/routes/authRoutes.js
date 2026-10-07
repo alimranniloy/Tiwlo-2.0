@@ -29,6 +29,7 @@ import { requireAdmin } from '../administrator/adminRoutes.js';
 import { SocialDB } from '../social/socialDb.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
+import { securityLimiters } from '../plugins/security/index.js';
 
 const router = express.Router();
 
@@ -217,7 +218,7 @@ router.all('/auth/check-availability', async (req, res) => {
 });
 
 // Register
-router.post('/auth/register', async (req, res) => {
+router.post('/auth/register', securityLimiters.registration, securityLimiters.registrationDaily, securityLimiters.registrationMonthly, async (req, res) => {
   try {
     if (hasUnverifiedSsoIdentity(req.body)) {
       return res.status(400).json({
@@ -240,7 +241,6 @@ router.post('/auth/register', async (req, res) => {
       birthday,
       gender,
       billingDetails,
-      planId = 'free'
     } = req.body;
 
     if (!email || !email.includes('@')) {
@@ -302,7 +302,8 @@ router.post('/auth/register', async (req, res) => {
 
     const cleanSlug = candidateHandle.toLowerCase().replace(/[^a-z0-9]/g, '') || 'store';
     const subdomain = `${cleanSlug}.${PLATFORM_CONFIG.storeDomain}`;
-    const selectedPlan = PLAN_CATALOG[planId] || PLAN_CATALOG.free;
+    // Public signup must never grant a paid plan; upgrades require a verified payment flow.
+    const selectedPlan = PLAN_CATALOG.free;
     const finalBillingDetails = {
       address: billingAddress,
       city: billingDetails?.city || '',
@@ -417,7 +418,7 @@ router.post('/auth/register', async (req, res) => {
 });
 
 // Login
-router.post('/auth/login', async (req, res) => {
+router.post('/auth/login', securityLimiters.login, async (req, res) => {
   try {
     const { identifier, password } = req.body;
     if (!identifier || !password) {

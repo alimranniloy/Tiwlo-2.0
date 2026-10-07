@@ -115,7 +115,7 @@ function getDatabaseMapConfig(connectionString) {
 
 function installPackages() {
   const missing = [];
-  for (const packageName of ['postfix-pgsql', 'curl', 'opendkim', 'opendkim-tools', 'certbot']) {
+  for (const packageName of ['postfix-pgsql', 'curl', 'opendkim', 'opendkim-tools', 'certbot', 'spamassassin', 'spamc']) {
     try {
       const status = execFileSync(
         'dpkg-query',
@@ -151,6 +151,22 @@ function ensureDeliveryCredentials() {
     'root:www-data'
   );
   return token;
+}
+
+function configureSpamAssassin() {
+  const defaultsPath = '/etc/default/spamassassin';
+  backupConfigOnce(defaultsPath);
+  let contents = fs.existsSync(defaultsPath) ? fs.readFileSync(defaultsPath, 'utf8') : '';
+  if (/^\s*ENABLED\s*=/m.test(contents)) {
+    contents = contents.replace(/^\s*ENABLED\s*=.*$/m, 'ENABLED=1');
+  } else {
+    contents = `${contents.replace(/\s*$/, '')}\nENABLED=1\n`;
+  }
+  writeFileSecurely(defaultsPath, contents, 0o644);
+  run('spamassassin', ['--lint']);
+  run('systemctl', ['enable', '--now', 'spamassassin']);
+  run('systemctl', ['is-active', '--quiet', 'spamassassin']);
+  run('spamc', ['-V']);
 }
 
 function provisionDkim() {
@@ -231,6 +247,12 @@ function configurePostfix(mailboxProbe) {
     ['virtual_mailbox_maps', `pgsql:${mapPath}`],
     ['virtual_transport', 'tiwlo-inbound'],
     ['message_size_limit', '26214400'],
+    ['smtpd_client_connection_rate_limit', '30'],
+    ['smtpd_client_message_rate_limit', '50'],
+    ['smtpd_client_recipient_rate_limit', '100'],
+    ['smtpd_client_connection_count_limit', '20'],
+    ['smtpd_recipient_limit', '50'],
+    ['smtpd_reject_unlisted_recipient', 'yes'],
     ['smtpd_tls_security_level', 'may'],
     ['smtp_tls_security_level', 'may'],
     ['smtpd_milters', ensureMilter('smtpd_milters')],
@@ -343,6 +365,7 @@ if (process.platform !== 'linux' || process.getuid?.() !== 0) {
     ensureDeliveryCredentials();
     provisionDkim();
     provisionSmtpTls();
+    configureSpamAssassin();
     configurePostfix(mailboxProbe);
     installCertificateReloadHook();
     console.log(`Tiwlo inbound/outbound mail transport is configured for ${domain} via ${mailHost}.`);
