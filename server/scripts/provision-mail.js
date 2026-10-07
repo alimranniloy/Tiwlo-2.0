@@ -97,8 +97,7 @@ function getDatabaseMapConfig(connectionString) {
     throw new Error('DATABASE_URL contains line breaks and cannot be used for the Postfix map.');
   }
   const lines = [
-    `hosts = ${values.host}`,
-    `port = ${url.port || '5432'}`,
+    `hosts = ${values.host}${url.port ? `:${url.port}` : ''}`,
     `dbname = ${values.database}`,
     `user = ${values.username}`,
     `password = ${values.password}`,
