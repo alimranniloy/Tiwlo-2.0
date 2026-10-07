@@ -6,7 +6,7 @@ import LoginView from './views/LoginView';
 import CreateAccountView from './views/CreateAccountView';
 import { CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import TiwloPageLoader, { TiwloTopSyncBar } from './components/TiwloUniqueLoader';
-import { isAuthSubdomain, getAuthUrl, getMainAppUrl } from './utils/navigation';
+import { isAuthSubdomain, isMailSubdomain, getAuthUrl, getMainAppUrl, getMailUrl } from './utils/navigation';
 import { getPlatformUrl, getSubdomain, PLATFORM_DOMAIN, TPANEL_SUBDOMAIN } from './config/platformConfig';
 
 // Dedicated Dashboards (Code-Split via React.lazy)
@@ -122,6 +122,15 @@ export default function App() {
         }
         return 'login';
       }
+
+      const isLegacyMailPath = pathname === 'email' || pathname.startsWith('email/') ||
+        pathname === 'mail' || pathname.startsWith('mail/');
+      if (isLegacyMailPath) {
+        const mailPath = pathname.replace(/^(email|mail)(?=\/|$)/, '');
+        window.location.replace(`${getMailUrl(mailPath)}${window.location.search}${window.location.hash}`);
+        return 'email';
+      }
+      if (isMailSubdomain()) return 'email';
 
       // Store Route Detection on the main platform.
       const isStoreRoute = pathname === 'store' || pathname.startsWith('store/');
@@ -311,7 +320,11 @@ export default function App() {
         return;
       }
       setActiveTab('login');
-      window.history.pushState(null, '', '/login');
+      const mailReturn = isAuthSubdomain() &&
+        new URLSearchParams(window.location.search).get('mail_return') === '1'
+        ? '?mail_return=1'
+        : '';
+      window.history.pushState(null, '', `/login${mailReturn}`);
       return;
     }
     if (tabId === 'create-account' || tabId === 'register' || tabId === 'signup' || tabId === 'create-store' || (typeof tabId === 'string' && tabId.startsWith('create-store/'))) {
@@ -320,7 +333,11 @@ export default function App() {
         return;
       }
       setActiveTab('create-account');
-      window.history.pushState(null, '', '/create-account');
+      const mailReturn = isAuthSubdomain() &&
+        new URLSearchParams(window.location.search).get('mail_return') === '1'
+        ? '?mail_return=1'
+        : '';
+      window.history.pushState(null, '', `/create-account${mailReturn}`);
       return;
     }
 
@@ -333,10 +350,11 @@ export default function App() {
     }
 
     if (tabId === 'email' || (typeof tabId === 'string' && tabId.startsWith('email')) || tabId === 'mail') {
-      setActiveTab('email');
-      if (!window.location.pathname.startsWith('/email')) {
-        window.history.pushState(null, '', '/email');
+      if (!isMailSubdomain()) {
+        window.location.assign(getMailUrl());
+        return;
       }
+      setActiveTab('email');
       return;
     }
 
@@ -475,6 +493,10 @@ export default function App() {
               setAuthChecking(false);
 
               if (isAuthHost) {
+                if (searchParams.get('mail_return') === '1') {
+                  window.location.replace(getMailUrl());
+                  return;
+                }
                 const safeRedirect = getSafeRedirectPath(searchParams.get('redirect'));
                 const isSuper = data.user.role === 'super_admin' || data.user.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
                 const target = safeRedirect || (isSuper ? '/administrator' : '/dashboard');
@@ -491,6 +513,10 @@ export default function App() {
                 currentParams.get('view') === 'tpanel';
               if (isTpanelRoute) {
                 setActiveTab('tpanel');
+                return;
+              }
+              if (isMailSubdomain()) {
+                setActiveTab('email');
                 return;
               }
               const isSuper = data.user.role === 'super_admin' || data.user.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
@@ -545,16 +571,20 @@ export default function App() {
           currentParams.get('panel') === 'tpanel' ||
           currentParams.get('tab') === 'tpanel' ||
           currentParams.get('view') === 'tpanel';
-        const isPublicPath = path === '' || path === 'landing' || path === 'home' ||
+        const isPublicPath = (!isMailSubdomain() && path === '') || path === 'landing' || path === 'home' ||
           path === 'store' || path.startsWith('store/') ||
           path === 'create-account' || path === 'register' || path === 'signup' ||
           path === 'create-store' || path.startsWith('create-store/');
 
         if (!isPublicPath || isTpanelRoute) {
-          const requestedPath = isTpanelRoute && !path
-            ? `/tpanel${window.location.search}`
-            : window.location.pathname + window.location.search;
-          window.location.replace(getAuthUrl(`/login?redirect=${encodeURIComponent(requestedPath)}`));
+          if (isMailSubdomain()) {
+            window.location.replace(getAuthUrl('/login?mail_return=1'));
+          } else {
+            const requestedPath = isTpanelRoute && !path
+              ? `/tpanel${window.location.search}`
+              : window.location.pathname + window.location.search;
+            window.location.replace(getAuthUrl(`/login?redirect=${encodeURIComponent(requestedPath)}`));
+          }
         }
       }
     };
@@ -658,6 +688,11 @@ export default function App() {
       const searchParams = new URLSearchParams(window.location.search);
       const redirectUrl = searchParams.get('redirect');
 
+      if (searchParams.get('mail_return') === '1') {
+        window.location.replace(getMailUrl());
+        return;
+      }
+
       let targetPath = '/dashboard';
       if (redirectUrl) {
         targetPath = redirectUrl;
@@ -681,6 +716,10 @@ export default function App() {
     setCurrentUser(user);
     if (isAuthSubdomain()) {
       sessionStorage.removeItem('tiwlo_explicit_logout');
+      if (new URLSearchParams(window.location.search).get('mail_return') === '1') {
+        window.location.replace(getMailUrl());
+        return;
+      }
       const isSuper = user?.role === 'super_admin' || user?.email === 'tiwloltd@gmail.com';
       const target = isSuper ? '/administrator' : '/dashboard';
       window.location.replace(getMainAppUrl(target));
@@ -1306,7 +1345,13 @@ export default function App() {
       ) : (activeTab === 'email' || (typeof activeTab === 'string' && activeTab.startsWith('email')) || activeTab === 'mail') ? (
         <TiwiOutlookEmail
           currentUser={currentUser}
-          onNavigateHome={() => handleTabChange('dashboard')}
+          onNavigateHome={() => {
+            if (isMailSubdomain()) {
+              window.location.assign(getMainAppUrl('/'));
+            } else {
+              handleTabChange('dashboard');
+            }
+          }}
         />
       ) : activeTab === 'pos' ? (
         <POSView

@@ -3,7 +3,13 @@
  * Seamlessly manages routing between the main app and configured subdomains
  * Both on production and local development (auth.localhost:port / localhost:port).
  */
-import { AUTH_SUBDOMAIN, PLATFORM_DOMAIN, TPANEL_SUBDOMAIN } from '../config/platformConfig';
+import {
+  AUTH_SUBDOMAIN,
+  MAIL_HOSTNAME,
+  MAIL_SUBDOMAIN,
+  PLATFORM_DOMAIN,
+  TPANEL_SUBDOMAIN
+} from '../config/platformConfig';
 
 export function isAuthSubdomain() {
   if (typeof window === 'undefined') return false;
@@ -15,6 +21,12 @@ export function isTPanelSubdomain() {
   if (typeof window === 'undefined') return false;
   const h = window.location.hostname.toLowerCase();
   return h === `${TPANEL_SUBDOMAIN}.${PLATFORM_DOMAIN}` || h === `${TPANEL_SUBDOMAIN}.localhost`;
+}
+
+export function isMailSubdomain() {
+  if (typeof window === 'undefined') return false;
+  const hostname = window.location.hostname.toLowerCase();
+  return hostname === MAIL_HOSTNAME || hostname === `${MAIL_SUBDOMAIN}.localhost`;
 }
 
 export function getAuthUrl(path = '') {
@@ -43,4 +55,15 @@ export function getMainAppUrl(path = '') {
     return `${protocol}//localhost${port}${cleanPath}`;
   }
   return `https://${PLATFORM_DOMAIN}${cleanPath}`;
+}
+
+export function getMailUrl(path = '') {
+  if (typeof window === 'undefined') return '/';
+  const hostname = window.location.hostname.toLowerCase();
+  const protocol = window.location.protocol;
+  const port = window.location.port ? `:${window.location.port}` : '';
+  const cleanPath = path ? '/' + path.replace(/^\/+/, '') : '';
+  const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.localhost');
+  const mailHost = isLocal ? `${MAIL_SUBDOMAIN}.localhost` : MAIL_HOSTNAME;
+  return `${protocol}//${mailHost}${port}${cleanPath}`;
 }

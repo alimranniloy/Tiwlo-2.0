@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { EmailAPI } from '../api/emailApi';
+import { isMailSubdomain } from '../../utils/navigation';
 
 const EmailContext = createContext(null);
 
@@ -8,18 +9,8 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
     if (initialUser) return initialUser;
     try {
       const u = localStorage.getItem('stockpro_user');
-      return u ? JSON.parse(u) : {
-        name: 'Ahmad Nur Fawaid',
-        email: 'fawait@tiwlo.com',
-        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'
-      };
-    } catch {
-      return {
-        name: 'Ahmad Nur Fawaid',
-        email: 'fawait@tiwlo.com',
-        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'
-      };
-    }
+      return u ? JSON.parse(u) : null;
+    } catch { return null; }
   });
 
   // Parse initial route
@@ -27,6 +18,12 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
     try {
       const pathname = window.location.pathname.replace(/^\/+|\/+$/g, '');
       const parts = pathname.split('/');
+      if (isMailSubdomain()) {
+        if (!pathname) return { folder: 'inbox', isCompose: false, mailId: null };
+        if (parts[0] === 'compose') return { folder: 'inbox', isCompose: true, mailId: null };
+        if (parts[0] === 'view' && parts[1]) return { folder: 'inbox', isCompose: false, mailId: parts[1] };
+        return { folder: parts[0], isCompose: false, mailId: null };
+      }
       // Expected: /email or /email/:folder or /email/view/:id or /email/compose
       if (parts[0] === 'email' || parts[0] === 'mail') {
         if (parts[1] === 'compose') {
@@ -38,11 +35,17 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
         const folder = parts[1] || 'inbox';
         return { folder, isCompose: false, mailId: null };
       }
-    } catch (e) {}
+    } catch {}
     return { folder: 'inbox', isCompose: false, mailId: null };
   };
 
   const initialRoute = parseCurrentRoute();
+  const [initialMailId] = useState(() => initialRoute.mailId);
+  const emailPath = useCallback((path = '') => {
+    const cleanPath = path.replace(/^\/+/, '');
+    if (isMailSubdomain()) return cleanPath ? `/${cleanPath}` : '/';
+    return cleanPath ? `/email/${cleanPath}` : '/email';
+  }, []);
 
   const [activeFolder, setActiveFolderState] = useState(initialRoute.folder);
   const [activeTab, setActiveTab] = useState('focused'); // 'focused', 'other', 'all', 'unread'
@@ -50,16 +53,18 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
   const [searchQuery, setSearchQuery] = useState('');
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [mailbox, setMailbox] = useState(null);
+  const [mailboxLoading, setMailboxLoading] = useState(true);
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [counts, setCounts] = useState({
-    inboxUnread: 2,
+    inboxUnread: 0,
     junkCount: 0,
-    draftsCount: 1,
-    sentCount: 1,
+    draftsCount: 0,
+    sentCount: 0,
     trashCount: 0,
     archiveCount: 0,
-    flaggedCount: 1
+    flaggedCount: 0
   });
 
   const [isComposeOpen, setIsComposeOpen] = useState(initialRoute.isCompose);
@@ -71,6 +76,8 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
     body: '',
     attachments: []
   });
+  const [draftStatus, setDraftStatus] = useState('will save as you type');
+  const lastSavedDraftRef = useRef('');
 
   // Mobile navigation state
   const [mobileView, setMobileView] = useState(
@@ -79,10 +86,27 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
-  const showToast = (message, type = 'info') => {
+  const showToast = useCallback((message, type = 'info') => {
     setToastMessage({ message, type, id: Date.now() });
     setTimeout(() => setToastMessage(null), 3500);
-  };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    EmailAPI.getMailbox()
+      .then((result) => {
+        if (active) setMailbox(result.mailbox);
+      })
+      .catch((error) => {
+        if (active) showToast(error.message, 'error');
+      })
+      .finally(() => {
+        if (active) setMailboxLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [showToast]);
 
   // Synchronize route with browser history
   const navigateFolder = useCallback((folder, replace = false) => {
@@ -92,17 +116,33 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
     setMobileView('list');
     setMobileDrawerOpen(false);
 
-    const targetUrl = folder === 'inbox' ? '/email' : `/email/${folder}`;
+    const targetUrl = folder === 'inbox' ? emailPath() : emailPath(folder);
     try {
       if (replace) {
         window.history.replaceState({ folder }, '', targetUrl);
       } else {
         window.history.pushState({ folder }, '', targetUrl);
       }
-    } catch (e) {}
-  }, []);
+    } catch {}
+  }, [emailPath]);
 
   const openEmail = useCallback((email) => {
+    if (email.folder === 'drafts') {
+      lastSavedDraftRef.current = '';
+      setComposeData({
+        draftId: email.id,
+        to: (email.to || []).map((recipient) => recipient.email).join(', '),
+        cc: (email.cc || []).map((recipient) => recipient.email).join(', '),
+        bcc: (email.bcc || []).map((recipient) => recipient.email).join(', '),
+        subject: email.subject || '',
+        body: email.bodyText || '',
+        attachments: []
+      });
+      setIsComposeOpen(true);
+      setMobileView('compose');
+      window.history.pushState({ compose: true }, '', emailPath('compose'));
+      return;
+    }
     setSelectedEmail(email);
     setIsComposeOpen(false);
     setMobileView('reading');
@@ -110,7 +150,7 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
     // Mark as read in local state
     if (email?.isUnread) {
       email.isUnread = false;
-      EmailAPI.toggleRead(email.id, false);
+      EmailAPI.toggleRead(email.id, false).catch((error) => showToast(error.message, 'error'));
       setCounts((prev) => ({
         ...prev,
         inboxUnread: Math.max(0, prev.inboxUnread - 1)
@@ -118,13 +158,15 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
     }
 
     try {
-      window.history.pushState({ mailId: email.id }, '', `/email/view/${email.id}`);
-    } catch (e) {}
-  }, []);
+      window.history.pushState({ mailId: email.id }, '', emailPath(`view/${email.id}`));
+    } catch {}
+  }, [emailPath, showToast]);
 
   const openCompose = useCallback((preset = null) => {
+    lastSavedDraftRef.current = '';
     if (preset) {
       setComposeData({
+        draftId: null,
         to: preset.to || '',
         cc: preset.cc || '',
         bcc: preset.bcc || '',
@@ -134,6 +176,7 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
       });
     } else {
       setComposeData({
+        draftId: null,
         to: '',
         cc: '',
         bcc: '',
@@ -143,22 +186,29 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
       });
     }
     setIsComposeOpen(true);
+    setDraftStatus('will save as you type');
     setMobileView('compose');
     try {
-      window.history.pushState({ compose: true }, '', '/email/compose');
-    } catch (e) {}
-  }, []);
+      window.history.pushState({ compose: true }, '', emailPath('compose'));
+    } catch {}
+  }, [emailPath]);
 
   const closeCompose = useCallback(() => {
     setIsComposeOpen(false);
     setMobileView(selectedEmail ? 'reading' : 'list');
     try {
-      window.history.pushState({}, '', activeFolder === 'inbox' ? '/email' : `/email/${activeFolder}`);
+      window.history.pushState({}, '', activeFolder === 'inbox' ? emailPath() : emailPath(activeFolder));
     } catch (e) {}
-  }, [activeFolder, selectedEmail]);
+  }, [activeFolder, emailPath, selectedEmail]);
 
   // Load emails whenever activeFolder, activeTab, or searchQuery changes
   const loadEmails = useCallback(async () => {
+    if (mailboxLoading) return;
+    if (!mailbox) {
+      setEmails([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = await EmailAPI.getMessages({
@@ -180,15 +230,69 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
         }
       }
     } catch (err) {
-      console.warn('Failed to load emails:', err);
+      showToast(err.message, 'error');
     } finally {
       setLoading(false);
     }
-  }, [activeFolder, activeTab, searchQuery, activeCategoryFilter, selectedEmail]);
+  }, [activeFolder, activeTab, searchQuery, activeCategoryFilter, mailbox, mailboxLoading, selectedEmail, showToast]);
+
+  useEffect(() => {
+    if (!isComposeOpen) return undefined;
+    const draft = {
+      draftId: composeData.draftId,
+      to: composeData.to || '',
+      cc: composeData.cc || '',
+      bcc: composeData.bcc || '',
+      subject: composeData.subject || '',
+      body: composeData.body || ''
+    };
+    if (![draft.to, draft.cc, draft.bcc, draft.subject, draft.body].some((value) => value.trim())) {
+      setDraftStatus('will save as you type');
+      return undefined;
+    }
+    const fingerprint = JSON.stringify({
+      to: draft.to,
+      cc: draft.cc,
+      bcc: draft.bcc,
+      subject: draft.subject,
+      body: draft.body
+    });
+    if (fingerprint === lastSavedDraftRef.current) {
+      setDraftStatus('saved');
+      return undefined;
+    }
+    setDraftStatus('saving…');
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await EmailAPI.saveDraft(draft);
+        lastSavedDraftRef.current = fingerprint;
+        setComposeData((previous) => previous.draftId
+          ? previous
+          : { ...previous, draftId: result.email.id });
+        setDraftStatus('saved');
+        if (!draft.draftId) loadEmails();
+      } catch (saveError) {
+        setDraftStatus('save failed');
+        showToast(saveError.message, 'error');
+      }
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [
+    isComposeOpen, composeData.draftId, composeData.to, composeData.cc,
+    composeData.bcc, composeData.subject, composeData.body,
+    activeFolder, loadEmails, showToast
+  ]);
 
   useEffect(() => {
     loadEmails();
   }, [loadEmails]);
+
+  useEffect(() => {
+    if (!initialMailId) return;
+    EmailAPI.getMessageById(initialMailId)
+      .then(setSelectedEmail)
+      .catch((error) => showToast(error.message, 'error'));
+  }, [initialMailId, showToast]);
 
   // Listen to browser popstate (Back/Forward)
   useEffect(() => {
@@ -198,8 +302,8 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
       setIsComposeOpen(route.isCompose);
       if (route.mailId) {
         EmailAPI.getMessageById(route.mailId).then((m) => {
-          if (m) setSelectedEmail(m);
-        });
+          if (m) openEmail(m);
+        }).catch((error) => showToast(error.message, 'error'));
         setMobileView('reading');
       } else if (route.isCompose) {
         setMobileView('compose');
@@ -209,83 +313,108 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [openEmail, showToast]);
 
   // Actions
   const handleToggleFlag = async (id, e) => {
     if (e) e.stopPropagation();
-    const res = await EmailAPI.toggleFlag(id);
-    if (res.success) {
-      setEmails((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, isFlagged: res.isFlagged } : m))
-      );
-      if (selectedEmail?.id === id) {
-        setSelectedEmail((prev) => ({ ...prev, isFlagged: res.isFlagged }));
+    try {
+      const res = await EmailAPI.toggleFlag(id);
+      if (res.success) {
+        setEmails((prev) =>
+          prev.map((m) => (m.id === id ? { ...m, isFlagged: res.isFlagged } : m))
+        );
+        if (selectedEmail?.id === id) {
+          setSelectedEmail((prev) => ({ ...prev, isFlagged: res.isFlagged }));
+        }
+        showToast(res.isFlagged ? 'Message flagged' : 'Flag removed', 'info');
       }
-      showToast(res.isFlagged ? 'Message flagged' : 'Flag removed', 'info');
+    } catch (error) {
+      showToast(error.message, 'error');
     }
   };
 
   const handleToggleRead = async (id, isUnread, e) => {
     if (e) e.stopPropagation();
-    const res = await EmailAPI.toggleRead(id, isUnread);
-    if (res.success) {
-      setEmails((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, isUnread: res.isUnread } : m))
-      );
-      if (selectedEmail?.id === id) {
-        setSelectedEmail((prev) => ({ ...prev, isUnread: res.isUnread }));
+    try {
+      const res = await EmailAPI.toggleRead(id, isUnread);
+      if (res.success) {
+        setEmails((prev) =>
+          prev.map((m) => (m.id === id ? { ...m, isUnread: res.isUnread } : m))
+        );
+        if (selectedEmail?.id === id) {
+          setSelectedEmail((prev) => ({ ...prev, isUnread: res.isUnread }));
+        }
+        setCounts((prev) => ({
+          ...prev,
+          inboxUnread: res.isUnread
+            ? prev.inboxUnread + 1
+            : Math.max(0, prev.inboxUnread - 1)
+        }));
+        showToast(res.isUnread ? 'Marked as unread' : 'Marked as read', 'info');
       }
-      setCounts((prev) => ({
-        ...prev,
-        inboxUnread: res.isUnread
-          ? prev.inboxUnread + 1
-          : Math.max(0, prev.inboxUnread - 1)
-      }));
-      showToast(res.isUnread ? 'Marked as unread' : 'Marked as read', 'info');
+    } catch (error) {
+      showToast(error.message, 'error');
     }
   };
 
   const handleTogglePin = async (id, e) => {
     if (e) e.stopPropagation();
-    const res = await EmailAPI.togglePin(id);
-    if (res.success) {
-      setEmails((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, isPinned: res.isPinned } : m))
-      );
-      if (selectedEmail?.id === id) {
-        setSelectedEmail((prev) => ({ ...prev, isPinned: res.isPinned }));
+    try {
+      const res = await EmailAPI.togglePin(id);
+      if (res.success) {
+        setEmails((prev) =>
+          prev.map((m) => (m.id === id ? { ...m, isPinned: res.isPinned } : m))
+        );
+        if (selectedEmail?.id === id) {
+          setSelectedEmail((prev) => ({ ...prev, isPinned: res.isPinned }));
+        }
+        showToast(res.isPinned ? 'Pinned to top' : 'Unpinned', 'info');
       }
-      showToast(res.isPinned ? 'Pinned to top' : 'Unpinned', 'info');
+    } catch (error) {
+      showToast(error.message, 'error');
     }
   };
 
   const handleDeleteEmail = async (id, e) => {
     if (e) e.stopPropagation();
-    await EmailAPI.deleteEmail(id);
-    setEmails((prev) => prev.filter((m) => m.id !== id));
-    if (selectedEmail?.id === id) {
-      setSelectedEmail(null);
-      setMobileView('list');
+    try {
+      await EmailAPI.deleteEmail(id);
+      setEmails((prev) => prev.filter((m) => m.id !== id));
+      if (selectedEmail?.id === id) {
+        setSelectedEmail(null);
+        setMobileView('list');
+      }
+      showToast(activeFolder === 'trash' ? 'Message permanently deleted' : 'Conversation moved to Deleted Items', 'info');
+    } catch (error) {
+      showToast(error.message, 'error');
     }
-    showToast('Conversation moved to Deleted Items', 'info');
   };
 
   const handleArchiveEmail = async (id, e) => {
     if (e) e.stopPropagation();
-    await EmailAPI.archiveEmail(id);
-    setEmails((prev) => prev.filter((m) => m.id !== id));
-    if (selectedEmail?.id === id) {
-      setSelectedEmail(null);
-      setMobileView('list');
+    try {
+      await EmailAPI.archiveEmail(id);
+      setEmails((prev) => prev.filter((m) => m.id !== id));
+      if (selectedEmail?.id === id) {
+        setSelectedEmail(null);
+        setMobileView('list');
+      }
+      showToast('Conversation moved to Archive', 'info');
+    } catch (error) {
+      showToast(error.message, 'error');
     }
-    showToast('Conversation moved to Archive', 'info');
   };
 
   const handleSweepSender = async (senderEmail) => {
     const matching = emails.filter((m) => m.sender?.email === senderEmail);
-    for (const m of matching) {
-      await EmailAPI.archiveEmail(m.id);
+    try {
+      for (const m of matching) {
+        await EmailAPI.archiveEmail(m.id);
+      }
+    } catch (error) {
+      showToast(error.message, 'error');
+      return;
     }
     setEmails((prev) => prev.filter((m) => m.sender?.email !== senderEmail));
     if (selectedEmail?.sender?.email === senderEmail) {
@@ -296,26 +425,53 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
   };
 
   const handleSendEmail = async (payload) => {
-    const res = await EmailAPI.sendEmail(payload);
-    if (res.success) {
+    try {
+      const res = await EmailAPI.sendEmail(payload);
+      if (!res.success) throw new Error(res.error || 'Email could not be delivered.');
       showToast('Message sent successfully!', 'info');
       setIsComposeOpen(false);
+      setComposeData({ to: '', cc: '', bcc: '', subject: '', body: '', attachments: [] });
+      setDraftStatus('will save as you type');
+      lastSavedDraftRef.current = '';
       setMobileView('list');
-      try {
-        window.history.pushState({}, '', activeFolder === 'inbox' ? '/email' : `/email/${activeFolder}`);
-      } catch (e) {}
-      loadEmails();
+      window.history.pushState({}, '', activeFolder === 'inbox' ? emailPath() : emailPath(activeFolder));
+      await loadEmails();
       return true;
+    } catch (error) {
+      showToast(error.message, 'error');
+      return false;
     }
-    showToast('Failed to send message', 'error');
-    return false;
+  };
+
+  const handleCreateMailbox = async (localPart) => {
+    const result = await EmailAPI.createMailbox(localPart);
+    setMailbox(result.mailbox);
+    showToast('Your Tiwlo Mail address is ready.', 'info');
+  };
+
+  const handleDiscardDraft = async () => {
+    try {
+      if (composeData.draftId) await EmailAPI.discardDraft(composeData.draftId);
+      lastSavedDraftRef.current = '';
+      setComposeData({ to: '', cc: '', bcc: '', subject: '', body: '', attachments: [] });
+      setDraftStatus('will save as you type');
+      closeCompose();
+      await loadEmails();
+    } catch (error) {
+      showToast(error.message, 'error');
+    }
   };
 
   const handleMarkAllAsRead = async () => {
-    for (const m of emails) {
-      if (m.isUnread) {
-        await EmailAPI.toggleRead(m.id, false);
+    try {
+      for (const m of emails) {
+        if (m.isUnread) {
+          await EmailAPI.toggleRead(m.id, false);
+        }
       }
+    } catch (error) {
+      showToast(error.message, 'error');
+      return;
     }
     setEmails((prev) => prev.map((m) => ({ ...m, isUnread: false })));
     setCounts((prev) => ({ ...prev, inboxUnread: 0 }));
@@ -326,6 +482,9 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
     <EmailContext.Provider
       value={{
         currentUser,
+        mailbox,
+        mailboxLoading,
+        handleCreateMailbox,
         activeFolder,
         navigateFolder,
         activeTab,
@@ -345,8 +504,10 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
         isComposeOpen,
         composeData,
         setComposeData,
+        draftStatus,
         openCompose,
         closeCompose,
+        handleDiscardDraft,
         mobileView,
         setMobileView,
         mobileDrawerOpen,

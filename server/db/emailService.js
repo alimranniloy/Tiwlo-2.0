@@ -339,7 +339,17 @@ export async function verifySmtpConnection() {
 /**
  * Universal Mail Dispatcher
  */
-export async function sendTiwloEmail({ to, subject, html, text, type = 'general', metadata = {} }) {
+export async function sendTiwloEmail({
+  to,
+  cc,
+  bcc,
+  attachments,
+  subject,
+  html,
+  text,
+  type = 'general',
+  metadata = {}
+}) {
   const config = getEmailConfig();
   const cleanTo = (to || '').trim();
 
@@ -347,6 +357,9 @@ export async function sendTiwloEmail({ to, subject, html, text, type = 'general'
     from: `"${config.senderName}" <${config.senderEmail}>`,
     to: cleanTo,
     replyTo: `"${config.senderName} (Do Not Reply)" <${config.replyTo}>`,
+    ...(cc?.length ? { cc } : {}),
+    ...(bcc?.length ? { bcc } : {}),
+    ...(attachments?.length ? { attachments } : {}),
     subject,
     html,
     text: text || subject,

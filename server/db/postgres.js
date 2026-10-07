@@ -142,6 +142,54 @@ export async function initPgSchema() {
       );
       CREATE INDEX IF NOT EXISTS idx_email_outbox_created ON system_email_outbox(created_at DESC);
 
+      CREATE TABLE IF NOT EXISTS system_user_mail_messages (
+        id VARCHAR(64) PRIMARY KEY,
+        user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
+        folder VARCHAR(16) NOT NULL CHECK (folder IN ('inbox', 'drafts', 'sent', 'trash', 'archive', 'junk')),
+        sender_name VARCHAR(255) NOT NULL,
+        sender_email VARCHAR(255) NOT NULL,
+        to_recipients JSONB NOT NULL DEFAULT '[]'::jsonb,
+        cc_recipients JSONB NOT NULL DEFAULT '[]'::jsonb,
+        bcc_recipients JSONB NOT NULL DEFAULT '[]'::jsonb,
+        subject TEXT NOT NULL DEFAULT '',
+        body_html TEXT NOT NULL DEFAULT '',
+        body_text TEXT NOT NULL DEFAULT '',
+        preview TEXT NOT NULL DEFAULT '',
+        category VARCHAR(64) NOT NULL DEFAULT 'Work',
+        is_unread BOOLEAN NOT NULL DEFAULT FALSE,
+        is_flagged BOOLEAN NOT NULL DEFAULT FALSE,
+        is_pinned BOOLEAN NOT NULL DEFAULT FALSE,
+        delivery_status VARCHAR(32),
+        message_id VARCHAR(255),
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_mail_folder
+        ON system_user_mail_messages(user_id, folder, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_user_mail_flagged
+        ON system_user_mail_messages(user_id, is_flagged, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS system_user_mail_attachments (
+        id VARCHAR(64) PRIMARY KEY,
+        message_id VARCHAR(64) NOT NULL REFERENCES system_user_mail_messages(id) ON DELETE CASCADE,
+        filename VARCHAR(255) NOT NULL,
+        content_type VARCHAR(255) NOT NULL,
+        size_bytes BIGINT NOT NULL,
+        content BYTEA NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_mail_attachments_message
+        ON system_user_mail_attachments(message_id);
+
+      CREATE TABLE IF NOT EXISTS system_user_mailboxes (
+        user_id VARCHAR(64) PRIMARY KEY REFERENCES system_users(id) ON DELETE CASCADE,
+        address VARCHAR(254) NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_user_mailboxes_address
+        ON system_user_mailboxes(LOWER(address));
+
       CREATE TABLE IF NOT EXISTS system_security_events (
         id BIGSERIAL PRIMARY KEY,
         event_type VARCHAR(64) NOT NULL,

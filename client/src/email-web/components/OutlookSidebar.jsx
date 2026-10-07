@@ -14,9 +14,7 @@ import {
   Flag,
   ChevronDown,
   ChevronRight,
-  Plus,
-  Tag,
-  Folder
+  Plus
 } from 'lucide-react';
 import { useEmail } from '../context/EmailContext';
 
@@ -81,7 +79,7 @@ export default function OutlookSidebar() {
               onClick={() => {
                 setActiveRail(item.id);
                 if (item.id !== 'mail') {
-                  showToast(`${item.label} view ready`, 'info');
+                  showToast(`${item.label} is not connected to Tiwi Mail yet.`, 'info');
                 }
               }}
               className={`relative w-[38px] h-[38px] rounded-lg flex items-center justify-center transition cursor-pointer ${

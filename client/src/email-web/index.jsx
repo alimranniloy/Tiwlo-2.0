@@ -7,15 +7,28 @@ import EmailListPane from './components/EmailListPane';
 import EmailReadingPane from './components/EmailReadingPane';
 import EmailComposePane from './components/EmailComposePane';
 import OutlookBottomNav from './components/OutlookBottomNav';
+import MailboxSetup from './components/MailboxSetup';
 import { X } from 'lucide-react';
 
 function OutlookEmailLayout() {
   const {
     isComposeOpen,
+    mailbox,
+    mailboxLoading,
     mobileView,
     mobileDrawerOpen,
     setMobileDrawerOpen
   } = useEmail();
+
+  if (mailboxLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0F172A] text-sm text-slate-500">
+        Checking your Tiwlo Mail account…
+      </div>
+    );
+  }
+
+  if (!mailbox) return <MailboxSetup />;
 
   return (
     <div className="h-screen w-screen flex flex-col bg-[#F8FAFC] dark:bg-[#0F172A] text-slate-800 dark:text-slate-100 font-sans antialiased overflow-hidden select-none">

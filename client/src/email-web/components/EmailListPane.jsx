@@ -8,7 +8,6 @@ import {
   Mail,
   MailOpen,
   Inbox,
-  Sparkles,
   Archive
 } from 'lucide-react';
 import { useEmail } from '../context/EmailContext';
@@ -198,9 +197,13 @@ export default function EmailListPane() {
             <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center text-[#0078D4]">
               <Inbox className="w-7 h-7 stroke-[1.8]" />
             </div>
-            <h4 className="font-bold text-[14px] text-slate-800 dark:text-slate-200">All caught up</h4>
+            <h4 className="font-bold text-[14px] text-slate-800 dark:text-slate-200">
+              {activeFolder === 'inbox' ? 'No received mail yet' : 'No messages'}
+            </h4>
             <p className="text-[12px] text-slate-500 max-w-[220px]">
-              No messages found matching your filter
+              {activeFolder === 'inbox'
+                ? 'Incoming email is not connected. Sent messages and drafts will appear in their folders.'
+                : 'No messages found matching your filter'}
             </p>
           </div>
         ) : (

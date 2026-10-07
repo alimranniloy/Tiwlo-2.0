@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Send,
   Trash2,
@@ -6,19 +6,13 @@ import {
   Bold,
   Italic,
   Underline,
-  Strikethrough,
   List,
   ListOrdered,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
   Link,
   Smile,
   X,
   ArrowLeft,
-  Lock,
-  Tag,
-  AlertCircle
+  Lock
 } from 'lucide-react';
 import { useEmail } from '../context/EmailContext';
 
@@ -28,14 +22,16 @@ export default function EmailComposePane() {
     composeData,
     setComposeData,
     handleSendEmail,
-    setMobileView,
+    handleDiscardDraft,
+    draftStatus,
     showToast
   } = useEmail();
 
   const [showCc, setShowCc] = useState(!!composeData.cc);
   const [showBcc, setShowBcc] = useState(!!composeData.bcc);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [importance, setImportance] = useState('normal'); // 'normal', 'high', 'low'
+  const attachmentInputRef = useRef(null);
+  const bodyInputRef = useRef(null);
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
@@ -49,35 +45,60 @@ export default function EmailComposePane() {
     }
 
     setIsSubmitting(true);
-    const success = await handleSendEmail({
+    await handleSendEmail({
       to: composeData.to.trim(),
+      cc: composeData.cc.trim(),
+      bcc: composeData.bcc.trim(),
       subject: composeData.subject.trim(),
-      bodyHtml: `<p>${(composeData.body || '').replace(/\n/g, '<br/>')}</p>`,
+      body: composeData.body || '',
       attachments: composeData.attachments || [],
-      category: importance === 'high' ? 'Urgent' : 'Work'
+      draftId: composeData.draftId
     });
     setIsSubmitting(false);
   };
 
-  const handleAttachMock = () => {
-    const mockFile = {
-      id: `att_${Date.now()}`,
-      filename: 'Document_Attachment.pdf',
-      size: '1.4 MB',
-      type: 'pdf'
-    };
+  const handleAttach = (event) => {
+    const files = Array.from(event.target.files || []);
+    if (files.some((file) => file.size > 5 * 1024 * 1024)) {
+      showToast('Each attachment must be 5 MB or smaller.', 'error');
+      event.target.value = '';
+      return;
+    }
+    const existing = composeData.attachments || [];
+    if (existing.length + files.length > 5 ||
+        [...existing, ...files].reduce((total, file) => total + file.size, 0) > 20 * 1024 * 1024) {
+      showToast('Attach up to 5 files and keep the total size under 20 MB.', 'error');
+      event.target.value = '';
+      return;
+    }
     setComposeData((prev) => ({
       ...prev,
-      attachments: [...(prev.attachments || []), mockFile]
+      attachments: [...(prev.attachments || []), ...files]
     }));
-    showToast('Attached Document_Attachment.pdf', 'info');
+    event.target.value = '';
   };
 
-  const handleRemoveAttachment = (id) => {
+  const handleRemoveAttachment = (fileToRemove) => {
     setComposeData((prev) => ({
       ...prev,
-      attachments: (prev.attachments || []).filter((a) => a.id !== id)
+      attachments: (prev.attachments || []).filter((file) => file !== fileToRemove)
     }));
+  };
+
+  const insertText = (before, after = '') => {
+    const input = bodyInputRef.current;
+    if (!input) return;
+    const start = input.selectionStart;
+    const end = input.selectionEnd;
+    const selected = composeData.body.slice(start, end);
+    const replacement = `${before}${selected || (after ? 'text' : '')}${after}`;
+    const nextBody = `${composeData.body.slice(0, start)}${replacement}${composeData.body.slice(end)}`;
+    setComposeData((prev) => ({ ...prev, body: nextBody }));
+    requestAnimationFrame(() => {
+      input.focus();
+      const cursor = start + before.length + (selected || (after ? 'text' : '')).length;
+      input.setSelectionRange(cursor, cursor);
+    });
   };
 
   return (
@@ -88,7 +109,7 @@ export default function EmailComposePane() {
           {/* Mobile Back button */}
           <button
             type="button"
-            onClick={closeCompose}
+            onClick={handleDiscardDraft}
             className="md:hidden flex items-center gap-1 p-1.5 rounded-lg hover:bg-slate-100 text-slate-700 dark:text-slate-300 cursor-pointer"
             title="Back to messages"
           >
@@ -109,7 +130,7 @@ export default function EmailComposePane() {
           {/* Discard */}
           <button
             type="button"
-            onClick={closeCompose}
+            onClick={handleDiscardDraft}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium transition cursor-pointer"
             title="Discard draft"
           >
@@ -120,18 +141,26 @@ export default function EmailComposePane() {
           {/* Attach */}
           <button
             type="button"
-            onClick={handleAttachMock}
+            onClick={() => attachmentInputRef.current?.click()}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium transition cursor-pointer"
             title="Attach file"
           >
             <Paperclip className="w-4 h-4 text-slate-500" />
             <span className="hidden sm:inline">Attach</span>
           </button>
+          <input
+            ref={attachmentInputRef}
+            type="file"
+            multiple
+            onChange={handleAttach}
+            className="hidden"
+            aria-label="Choose email attachments"
+          />
 
           {/* Encrypt Indicator */}
           <span className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-md text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 text-[11.5px] font-semibold">
             <Lock className="w-3.5 h-3.5" />
-            <span>Encrypted</span>
+            <span>SMTP delivery</span>
           </span>
         </div>
 
@@ -238,22 +267,25 @@ export default function EmailComposePane() {
         {/* Attached files pills */}
         {composeData.attachments && composeData.attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 pt-1 pl-16">
-            {composeData.attachments.map((att) => (
+            {composeData.attachments.map((att, index) => (
               <span
-                key={att.id}
+              key={`${att.name}-${att.lastModified}-${index}`}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] dark:text-[#38BDF8] text-[12px] font-medium border border-blue-200 dark:border-blue-800"
               >
                 <Paperclip className="w-3.5 h-3.5" />
-                <span>{att.filename}</span>
+                <span>{att.name}</span>
                 <button
                   type="button"
-                  onClick={() => handleRemoveAttachment(att.id)}
+                  onClick={() => handleRemoveAttachment(att)}
                   className="hover:text-red-500 cursor-pointer ml-1"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               </span>
             ))}
+            <p className="w-full text-[11px] text-slate-500">
+              Attachments are uploaded when sent and are not saved with drafts.
+            </p>
           </div>
         )}
       </div>
@@ -262,7 +294,7 @@ export default function EmailComposePane() {
       <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-1 bg-slate-50/60 dark:bg-slate-900/40 text-slate-600 dark:text-slate-400 overflow-x-auto scrollbar-none">
         <button
           type="button"
-          onClick={() => showToast('Format: Bold', 'info')}
+          onClick={() => insertText('**', '**')}
           className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer font-bold"
           title="Bold"
         >
@@ -270,7 +302,7 @@ export default function EmailComposePane() {
         </button>
         <button
           type="button"
-          onClick={() => showToast('Format: Italic', 'info')}
+          onClick={() => insertText('*', '*')}
           className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer italic"
           title="Italic"
         >
@@ -278,7 +310,7 @@ export default function EmailComposePane() {
         </button>
         <button
           type="button"
-          onClick={() => showToast('Format: Underline', 'info')}
+          onClick={() => insertText('__', '__')}
           className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer underline"
           title="Underline"
         >
@@ -289,7 +321,7 @@ export default function EmailComposePane() {
 
         <button
           type="button"
-          onClick={() => showToast('List: Bullets', 'info')}
+          onClick={() => insertText('\n• ')}
           className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer"
           title="Bulleted list"
         >
@@ -297,7 +329,7 @@ export default function EmailComposePane() {
         </button>
         <button
           type="button"
-          onClick={() => showToast('List: Numbered', 'info')}
+          onClick={() => insertText('\n1. ')}
           className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer"
           title="Numbered list"
         >
@@ -308,7 +340,7 @@ export default function EmailComposePane() {
 
         <button
           type="button"
-          onClick={() => showToast('Insert link', 'info')}
+          onClick={() => insertText('[', '](https://example.com)')}
           className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer"
           title="Insert hyperlink"
         >
@@ -316,7 +348,7 @@ export default function EmailComposePane() {
         </button>
         <button
           type="button"
-          onClick={() => showToast('Insert emoji', 'info')}
+          onClick={() => insertText('🙂')}
           className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer"
           title="Insert emoji"
         >
@@ -327,6 +359,7 @@ export default function EmailComposePane() {
       {/* 4. Message Content Body Textarea */}
       <div className="flex-1 p-5 min-h-[220px]">
         <textarea
+          ref={bodyInputRef}
           rows={12}
           placeholder="Write your email here..."
           value={composeData.body}
@@ -349,7 +382,7 @@ export default function EmailComposePane() {
           </button>
           <button
             type="button"
-            onClick={closeCompose}
+            onClick={handleDiscardDraft}
             className="px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-medium transition cursor-pointer"
           >
             Discard
@@ -357,7 +390,7 @@ export default function EmailComposePane() {
         </div>
 
         <span className="text-[12px] text-slate-400">
-          Saved as draft
+          Draft {draftStatus}
         </span>
       </div>
     </div>

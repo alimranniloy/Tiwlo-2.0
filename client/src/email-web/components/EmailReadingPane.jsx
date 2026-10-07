@@ -12,11 +12,11 @@ import {
   Send,
   ArrowLeft,
   Star,
-  HardDrive,
   CheckCircle2,
   Sparkles
 } from 'lucide-react';
 import { useEmail } from '../context/EmailContext';
+import { EmailAPI } from '../api/emailApi';
 
 export default function EmailReadingPane() {
   const {
@@ -32,8 +32,11 @@ export default function EmailReadingPane() {
 
   const [replyText, setReplyText] = useState('');
   const [isReplying, setIsReplying] = useState(false);
+  const replyRecipients = selectedEmail?.folder === 'sent'
+    ? (selectedEmail.to || []).map((recipient) => recipient.email).join(', ')
+    : selectedEmail?.sender?.email || '';
 
-  // Smart Suggested Quick Replies
+  // Static quick-reply templates; sending still uses the authenticated mail API.
   const smartReplies = [
     'Thank you for the update!',
     'Received with thanks, looking into this now.',
@@ -46,10 +49,9 @@ export default function EmailReadingPane() {
 
     setIsReplying(true);
     const success = await handleSendEmail({
-      to: selectedEmail.sender.email,
+      to: replyRecipients,
       subject: `Re: ${selectedEmail.subject}`,
-      bodyHtml: `<p>${replyText.replace(/\n/g, '<br/>')}</p><br/><hr/><p style="color:#888; font-size:12px;">On ${selectedEmail.fullDate}, ${selectedEmail.sender.name} wrote:</p>${selectedEmail.bodyHtml}`,
-      category: selectedEmail.category || 'Work'
+      body: `${replyText}\n\nOn ${selectedEmail.fullDate}, ${selectedEmail.sender.name} wrote:\n${selectedEmail.bodyText || ''}`
     });
 
     if (success) {
@@ -97,9 +99,9 @@ export default function EmailReadingPane() {
           <button
             type="button"
             onClick={() => openCompose({
-              to: selectedEmail.sender?.email,
+              to: replyRecipients,
               subject: `Re: ${selectedEmail.subject}`,
-              body: `<br/><br/><hr/><p style="color:#888;">On ${selectedEmail.fullDate}, ${selectedEmail.sender?.name} wrote:</p>${selectedEmail.bodyHtml}`
+              body: `\n\nOn ${selectedEmail.fullDate}, ${selectedEmail.sender?.name} wrote:\n${selectedEmail.bodyText || ''}`
             })}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0078D4] hover:bg-[#106EBE] active:bg-[#005A9E] text-white font-bold transition cursor-pointer shadow-xs"
           >
@@ -111,9 +113,12 @@ export default function EmailReadingPane() {
           <button
             type="button"
             onClick={() => openCompose({
-              to: selectedEmail.sender?.email,
+              to: replyRecipients,
+              cc: selectedEmail.folder === 'sent'
+                ? (selectedEmail.cc || []).map((recipient) => recipient.email).join(', ')
+                : '',
               subject: `Re: ${selectedEmail.subject}`,
-              body: `<br/><br/><hr/><p style="color:#888;">On ${selectedEmail.fullDate}, ${selectedEmail.sender?.name} wrote:</p>${selectedEmail.bodyHtml}`
+              body: `\n\nOn ${selectedEmail.fullDate}, ${selectedEmail.sender?.name} wrote:\n${selectedEmail.bodyText || ''}`
             })}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium transition cursor-pointer hidden sm:flex"
           >
@@ -127,7 +132,7 @@ export default function EmailReadingPane() {
             onClick={() => openCompose({
               to: '',
               subject: `Fwd: ${selectedEmail.subject}`,
-              body: `<br/><br/><hr/><p style="color:#888;">---------- Forwarded message ---------<br/>From: ${selectedEmail.sender?.name} &lt;${selectedEmail.sender?.email}&gt;<br/>Date: ${selectedEmail.fullDate}<br/>Subject: ${selectedEmail.subject}</p>${selectedEmail.bodyHtml}`
+              body: `\n\n---------- Forwarded message ---------\nFrom: ${selectedEmail.sender?.name} <${selectedEmail.sender?.email}>\nDate: ${selectedEmail.fullDate}\nSubject: ${selectedEmail.subject}\n\n${selectedEmail.bodyText || ''}`
             })}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium transition cursor-pointer hidden sm:flex"
           >
@@ -202,11 +207,15 @@ export default function EmailReadingPane() {
             )}
           </div>
 
-          {/* Verified Security Banner */}
-          <div className="flex items-center gap-2 p-2 px-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-[11.5px] text-emerald-800 dark:text-emerald-300">
+          {/* Delivery information */}
+          <div className={`flex items-center gap-2 p-2 px-3 rounded-lg border text-[11.5px] ${
+            selectedEmail.deliveryStatus === 'failed'
+              ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
+              : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+          }`}>
             <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-            <span className="font-semibold">Security Verified:</span>
-            <span>Sender DKIM & SPF authenticated • TLS 1.3 encrypted</span>
+            <span className="font-semibold">Delivery status:</span>
+            <span>{selectedEmail.deliveryStatus || 'Message stored in your mailbox'}</span>
           </div>
         </div>
 
@@ -284,19 +293,12 @@ export default function EmailReadingPane() {
                   <div className="flex items-center gap-1 ml-2">
                     <button
                       type="button"
-                      onClick={() => showToast(`Downloading ${att.filename}`, 'info')}
+                      onClick={() => EmailAPI.downloadAttachment(att.id, att.filename)
+                        .catch((error) => showToast(error.message, 'error'))}
                       className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 transition cursor-pointer"
                       title="Download"
                     >
                       <Download className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => showToast(`Saved to Cloud`, 'info')}
-                      className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 transition cursor-pointer"
-                      title="Save to Cloud"
-                    >
-                      <HardDrive className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -311,7 +313,7 @@ export default function EmailReadingPane() {
           dangerouslySetInnerHTML={{ __html: selectedEmail.bodyHtml }}
         />
 
-        {/* 3. Smart Suggested Quick Replies */}
+        {/* 3. Quick Reply Templates */}
         <div className="flex flex-wrap gap-2 mt-4">
           {smartReplies.map((reply, idx) => (
             <button

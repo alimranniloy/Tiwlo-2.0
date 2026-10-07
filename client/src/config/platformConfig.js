@@ -17,6 +17,7 @@ export const TPANEL_SUBDOMAIN = import.meta.env.VITE_TPANEL_SUBDOMAIN || 'tpanel
 export const DNS1_SUBDOMAIN = import.meta.env.VITE_DNS1_SUBDOMAIN || 'dns1';
 export const DNS2_SUBDOMAIN = import.meta.env.VITE_DNS2_SUBDOMAIN || 'dns2';
 export const MAIL_SUBDOMAIN = import.meta.env.VITE_MAIL_SUBDOMAIN || 'mail';
+export const MAIL_HOSTNAME = `${MAIL_SUBDOMAIN}.${PLATFORM_DOMAIN}`;
 export const DRIVE_SUBDOMAIN = import.meta.env.VITE_DRIVE_SUBDOMAIN || 'drive';
 export const SUPPORT_EMAIL = `${import.meta.env.VITE_SUPPORT_EMAIL_LOCAL_PART || 'support'}@${PLATFORM_DOMAIN}`;
 export const ADMIN_EMAIL = `${import.meta.env.VITE_ADMIN_EMAIL_LOCAL_PART || 'admin'}@${PLATFORM_DOMAIN}`;
