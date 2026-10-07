@@ -52,7 +52,12 @@ async function waitForMailboxSchema() {
         const { rows } = await pool.query(
           "SELECT to_regclass('public.system_user_mailboxes') AS mailbox_table"
         );
-        if (rows[0]?.mailbox_table) return;
+        if (rows[0]?.mailbox_table) {
+          const { rows: mailboxRows } = await pool.query(
+            'SELECT address FROM system_user_mailboxes ORDER BY created_at LIMIT 1'
+          );
+          return mailboxRows[0]?.address || null;
+        }
       } catch (error) {
         if (attempt === 29) throw error;
       }
@@ -186,11 +191,25 @@ function provisionDkim() {
   fs.chmodSync(path.join(recordDirectory, `${selector}.txt`), 0o640);
 }
 
-function configurePostfix() {
+function configurePostfix(mailboxProbe) {
   const mapPath = '/etc/postfix/tiwlo-mailboxes.cf';
   const mapContents = getDatabaseMapConfig(databaseUrl);
   writeFileSecurely(mapPath, mapContents, 0o640, 'root:postfix');
-  run('postmap', ['-q', `tiwlo-mailbox-probe@${domain}`, `pgsql:${mapPath}`], { stdio: 'ignore' });
+  if (mailboxProbe) {
+    let mappedPath;
+    try {
+      mappedPath = execFileSync(
+        'postmap',
+        ['-q', mailboxProbe, `pgsql:${mapPath}`],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+      ).trim();
+    } catch {
+      throw new Error('Postfix could not query the PostgreSQL mailbox map.');
+    }
+    if (mappedPath !== 'tiwlo/') {
+      throw new Error('Postfix could not resolve a registered mailbox through PostgreSQL.');
+    }
+  }
 
   backupConfigOnce('/etc/postfix/main.cf');
   const currentPostconfValue = (key) => {
@@ -306,12 +325,12 @@ if (process.platform !== 'linux' || process.getuid?.() !== 0) {
 } else {
   try {
     validateMailConfig();
-    await waitForMailboxSchema();
+    const mailboxProbe = await waitForMailboxSchema();
     installPackages();
     ensureDeliveryCredentials();
     provisionDkim();
     provisionSmtpTls();
-    configurePostfix();
+    configurePostfix(mailboxProbe);
     installCertificateReloadHook();
     console.log(`Tiwlo inbound/outbound mail transport is configured for ${domain} via ${mailHost}.`);
   } catch (error) {
