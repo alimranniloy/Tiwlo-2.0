@@ -164,8 +164,8 @@ function configureSpamAssassin() {
   }
   writeFileSecurely(defaultsPath, contents, 0o644);
   run('spamassassin', ['--lint']);
-  run('systemctl', ['enable', '--now', 'spamassassin']);
-  run('systemctl', ['is-active', '--quiet', 'spamassassin']);
+  run('systemctl', ['enable', '--now', 'spamd']);
+  run('systemctl', ['is-active', '--quiet', 'spamd']);
   run('spamc', ['-V']);
 }
 

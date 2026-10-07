@@ -437,8 +437,8 @@ async function startServer() {
 
   if (httpsOptions) {
     const httpsServer = https.createServer(httpsOptions, app);
-    httpsServer.listen(PORT, () => {
-      console.log(`🔒 Tiwlo StockPro Secure HTTPS Server running on https://localhost:${PORT}`);
+    httpsServer.listen(PORT, '127.0.0.1', () => {
+      console.log(`🔒 Tiwlo StockPro Secure HTTPS Server (loopback only) running on https://127.0.0.1:${PORT}`);
     });
 
     const httpServer = http.createServer(app);
@@ -446,8 +446,8 @@ async function startServer() {
       console.log(`🌐 Tiwlo local HTTP Server (loopback only) running on http://127.0.0.1:${HTTP_PORT}`);
     });
   } else {
-    app.listen(PORT, () => {
-      console.log(`StockPro Backend Server running on http://localhost:${PORT}`);
+    app.listen(PORT, '127.0.0.1', () => {
+      console.log(`StockPro Backend Server (loopback only) running on http://127.0.0.1:${PORT}`);
     });
     const inboundHttpServer = http.createServer(app);
     inboundHttpServer.listen(HTTP_PORT, '127.0.0.1', () => {

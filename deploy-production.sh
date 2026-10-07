@@ -148,7 +148,7 @@ if command -v nginx >/dev/null 2>&1; then
       echo "Configuring Nginx /upload/ and /uploads/ proxy in $CONF..."
       sed -i '/location \/api\/ {/i \
     location /upload/ {\
-        proxy_pass http://127.0.0.1:5000/upload/;\
+        proxy_pass http://127.0.0.1:5001/upload/;\
         proxy_http_version 1.1;\
         proxy_set_header Upgrade $http_upgrade;\
         proxy_set_header Connection "upgrade";\
@@ -157,7 +157,7 @@ if command -v nginx >/dev/null 2>&1; then
         client_max_body_size 100M;\
     }\
     location /uploads/ {\
-        proxy_pass http://127.0.0.1:5000/uploads/;\
+        proxy_pass http://127.0.0.1:5001/uploads/;\
         proxy_http_version 1.1;\
         proxy_set_header Upgrade $http_upgrade;\
         proxy_set_header Connection "upgrade";\
