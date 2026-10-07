@@ -269,7 +269,7 @@ function configurePostfix(mailboxProbe) {
   const inboundTransport = [
     '',
     '# Tiwlo virtual mailbox delivery into the authenticated application store.',
-    `tiwlo-inbound unix - n n - - pipe flags=Rq user=www-data argv=/usr/bin/curl -fsS --max-time 120 -H "X-Tiwlo-Recipient: \${recipient}" -H "Content-Type: message/rfc822" -H @/etc/postfix/tiwlo-inbound-headers --data-binary @- http://127.0.0.1:${internalHttpPort}/internal/email/inbound`,
+    `tiwlo-inbound unix - n n - - pipe flags=Rq user=www-data argv=/usr/bin/curl -fsS --max-time 120 -H X-Tiwlo-Recipient:\${recipient} -H Content-Type:message/rfc822 -H @/etc/postfix/tiwlo-inbound-headers --data-binary @- http://127.0.0.1:${internalHttpPort}/internal/email/inbound`,
     ''
   ].join('\n');
   const existing = fs.readFileSync(masterConfig, 'utf8');
