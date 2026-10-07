@@ -27,6 +27,10 @@ export function getPgPool() {
   return pool;
 }
 
+export function getPgConnectionString() {
+  return connectionConfig.connectionString;
+}
+
 export async function initPgSchema() {
   try {
     const p = getPgPool();

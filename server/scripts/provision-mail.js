@@ -5,6 +5,7 @@ import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import pg from 'pg';
 import '../config/loadRootEnv.js';
+import { getPgConnectionString } from '../db/postgres.js';
 import { PLATFORM_CONFIG, getSubdomain } from '../config/platformConfig.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -17,6 +18,7 @@ const internalHttpPort = Number.parseInt(
   10
 );
 const { Pool } = pg;
+const databaseUrl = process.env.DATABASE_URL || getPgConnectionString();
 
 function validateMailConfig() {
   const validDomain = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*$/;
@@ -43,7 +45,7 @@ function backupConfigOnce(filePath) {
 }
 
 async function waitForMailboxSchema() {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 5000 });
+  const pool = new Pool({ connectionString: databaseUrl, connectionTimeoutMillis: 5000 });
   try {
     for (let attempt = 0; attempt < 30; attempt += 1) {
       try {
@@ -181,7 +183,7 @@ function provisionDkim() {
 
 function configurePostfix() {
   const mapPath = '/etc/postfix/tiwlo-mailboxes.cf';
-  const mapContents = getDatabaseMapConfig(process.env.DATABASE_URL || '');
+  const mapContents = getDatabaseMapConfig(databaseUrl);
   writeFileSecurely(mapPath, mapContents, 0o640, 'root:postfix');
   run('postmap', ['-q', `tiwlo-mailbox-probe@${domain}`, `pgsql:${mapPath}`], { stdio: 'ignore' });
 
@@ -295,9 +297,6 @@ function installCertificateReloadHook() {
 
 if (process.platform !== 'linux' || process.getuid?.() !== 0) {
   console.error('Mail server provisioning requires the native Linux deployment to run as root.');
-  process.exitCode = 1;
-} else if (!process.env.DATABASE_URL) {
-  console.error('Mail server provisioning requires DATABASE_URL; no mail services were changed.');
   process.exitCode = 1;
 } else {
   try {
