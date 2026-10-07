@@ -357,6 +357,7 @@ export async function sendTiwloEmail({
   const cleanTo = (to || '').trim();
   const cleanFromEmail = String(fromEmail || config.senderEmail).trim().toLowerCase();
   const cleanReplyTo = String(replyTo || config.replyTo).trim().toLowerCase();
+  const isUserMail = type === 'user_mail';
   const domainSuffix = `@${PLATFORM_CONFIG.primaryDomain}`;
   if (!cleanFromEmail.endsWith(domainSuffix) || !cleanReplyTo.endsWith(domainSuffix) ||
       !/^[^\s@]+@[^\s@]+$/.test(cleanFromEmail) || !/^[^\s@]+@[^\s@]+$/.test(cleanReplyTo)) {
@@ -375,10 +376,9 @@ export async function sendTiwloEmail({
     html,
     text: text || subject,
     headers: {
-      ...config.antiSpam.headerHeaders,
+      ...(!isUserMail ? config.antiSpam.headerHeaders : {}),
       'X-Tiwlo-Mail-Type': type,
-      'X-Mailer': 'Tiwlo Core Security v2.5',
-      'List-Unsubscribe': `<mailto:${config.senderEmail}?subject=unsubscribe>`
+      'X-Mailer': isUserMail ? 'Tiwlo Mail' : 'Tiwlo Core Security v2.5'
     }
   };
 
