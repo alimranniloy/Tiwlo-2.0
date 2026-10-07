@@ -273,9 +273,23 @@ function configurePostfix(mailboxProbe) {
     ''
   ].join('\n');
   const existing = fs.readFileSync(masterConfig, 'utf8');
-  if (!existing.includes('tiwlo-inbound unix')) {
+  const serviceLine = inboundTransport.trim();
+  const masterLines = existing.split(/\r?\n/);
+  const serviceIndexes = masterLines.reduce((indexes, line, index) => {
+    if (/^tiwlo-inbound\s+unix\b/.test(line)) indexes.push(index);
+    return indexes;
+  }, []);
+  let updatedLines;
+  if (serviceIndexes.length) {
+    updatedLines = masterLines.filter((_line, index) => index === serviceIndexes[0] || !serviceIndexes.includes(index));
+    updatedLines[serviceIndexes[0]] = serviceLine;
+  } else {
+    updatedLines = [...masterLines, ...inboundTransport.split('\n')];
+  }
+  const updatedConfig = `${updatedLines.join('\n').replace(/\n*$/, '')}\n`;
+  if (updatedConfig !== existing) {
     backupConfigOnce(masterConfig);
-    fs.appendFileSync(masterConfig, inboundTransport, { encoding: 'utf8', mode: 0o640 });
+    fs.writeFileSync(masterConfig, updatedConfig, { encoding: 'utf8', mode: 0o640 });
     fs.chmodSync(masterConfig, 0o640);
   }
 
