@@ -36,7 +36,7 @@ export default function AdminSidebar({
     {
       title: 'ECOMMERCE',
       items: [
-        { id: 'orders', label: 'Orders', icon: ShoppingBag, badge: '12' },
+        { id: 'orders', label: 'Orders', icon: ShoppingBag },
         { id: 'products', label: 'Products', icon: Package },
         { id: 'customers', label: 'Customers', icon: Users },
         { id: 'vendors', label: 'Vendors', icon: Store },

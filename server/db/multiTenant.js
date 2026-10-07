@@ -1,12 +1,94 @@
+import fsSync from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { getPgPool, isPgActive, queryPg } from './postgres.js';
 import { PasswordSecurity, SessionSecurity } from '../security/cryptoSecurity.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { recordSecurityEvent } from './securityPersistence.js';
 
+const DATA_DIR = process.env.TIWLO_DATA_DIR ||
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../data');
+const STORES_STORAGE_DIR = path.join(DATA_DIR, 'db', 'stores');
+const STORE_REGISTRY_PATH = path.join(STORES_STORAGE_DIR, 'registry.json');
+const TENANT_ARRAY_FIELDS = [
+  'products',
+  'categories',
+  'subcategories',
+  'customers',
+  'suppliers',
+  'purchases',
+  'sales',
+  'inventory_adjustments',
+  'activities'
+];
+
+function readJsonFile(filePath) {
+  try {
+    return JSON.parse(fsSync.readFileSync(filePath, 'utf8'));
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    if (error instanceof SyntaxError) {
+      throw new Error('Persisted tenant data contains invalid JSON.', { cause: error });
+    }
+    throw error;
+  }
+}
+
+function writeJsonFile(filePath, data) {
+  fsSync.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
+  const temporaryPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  fsSync.writeFileSync(temporaryPath, JSON.stringify(data), { encoding: 'utf8', mode: 0o600 });
+  fsSync.renameSync(temporaryPath, filePath);
+}
+
+function validateTenantStore(store, storeId) {
+  if (!store || typeof store !== 'object' || Array.isArray(store) ||
+      (store.tiwiId && String(store.tiwiId) !== storeId)) {
+    throw new Error('Persisted tenant store has an invalid format or tenant identifier.');
+  }
+  for (const field of TENANT_ARRAY_FIELDS) {
+    if (store[field] !== undefined && !Array.isArray(store[field])) {
+      throw new Error('Persisted tenant store contains an invalid collection.');
+    }
+  }
+  if (store.store_settings !== undefined &&
+      (!store.store_settings || typeof store.store_settings !== 'object' || Array.isArray(store.store_settings))) {
+    throw new Error('Persisted tenant store settings have an invalid format.');
+  }
+}
+
+function readStoreRegistry() {
+  const stores = readJsonFile(STORE_REGISTRY_PATH);
+  if (stores === null) return [];
+  if (!Array.isArray(stores) || stores.some(store => !store || typeof store !== 'object' || !store.tiwiId)) {
+    throw new Error('Persisted store registry has an invalid format.');
+  }
+  return stores;
+}
+
+function persistStoreRegistry(stores) {
+  if (!Array.isArray(stores) || stores.some(store => !store || typeof store !== 'object' || !store.tiwiId)) {
+    throw new Error('Store registry cannot be persisted because an entry has no tenant identifier.');
+  }
+  const registry = stores.map(store => ({
+    id: store.id,
+    tiwiId: store.tiwiId,
+    ownerId: store.ownerId || null,
+    storeName: store.storeName || 'Store',
+    subdomain: store.subdomain || null,
+    planId: store.planId || null,
+    category: store.category || null,
+    currency: store.currency || 'USD ($)',
+    status: store.status || 'active',
+    createdAt: store.createdAt || null
+  }));
+  writeJsonFile(STORE_REGISTRY_PATH, registry);
+}
+
 let masterRuntimeData = {
   users: [],
   sessions: [],
-  stores: [],
+  stores: readStoreRegistry(),
   subscriptions: []
 };
 
@@ -17,12 +99,87 @@ const makeStoreSubdomain = (name) => {
   return `${slug}.${PLATFORM_CONFIG.storeDomain}`;
 };
 
-function readDbFile(filePath, defaultData) {
-  return defaultData;
+function createEmptyTenantStore(tiwiId) {
+  return {
+    tiwiId,
+    storeName: 'Tiwlo Store',
+    products: [],
+    categories: [],
+    subcategories: [],
+    customers: [],
+    suppliers: [],
+    purchases: [],
+    sales: [],
+    inventory_adjustments: [],
+    activities: [],
+    store_settings: {
+      storeName: 'Tiwlo Store',
+      tiwiId,
+      currency: 'USD ($)',
+      timezone: 'UTC+6 (Asia/Dhaka)'
+    }
+  };
 }
 
-function writeDbFile(filePath, data) {
-  // Persistence via PostgreSQL / in-memory runtime
+function readLegacyPrimaryStore() {
+  const fields = {
+    products: 'products.json',
+    categories: 'categories.json',
+    subcategories: 'subcategories.json',
+    customers: 'customers.json',
+    suppliers: 'suppliers.json',
+    purchases: 'purchases.json',
+    sales: 'sales.json',
+    inventory_adjustments: 'inventory_adjustments.json',
+    activities: 'activities.json',
+    store_settings: 'store_settings.json'
+  };
+  const legacyDirectories = [DATA_DIR, path.join(DATA_DIR, 'migration_backup')];
+  let store = createEmptyTenantStore('TIW-PRIMARY');
+  let foundLegacyData = false;
+
+  for (const [field, filename] of Object.entries(fields)) {
+    const filePath = legacyDirectories
+      .map(directory => path.join(directory, filename))
+      .find(candidate => fsSync.existsSync(candidate));
+    if (!filePath) continue;
+
+    const value = readJsonFile(filePath);
+    const isSettings = field === 'store_settings';
+    if (isSettings
+      ? !value || typeof value !== 'object' || Array.isArray(value)
+      : !Array.isArray(value)) {
+      throw new Error(`Legacy tenant data file "${filename}" has an invalid format.`);
+    }
+    store[field] = value;
+    foundLegacyData = true;
+  }
+
+  if (!foundLegacyData) return null;
+  store.store_settings = {
+    ...createEmptyTenantStore('TIW-PRIMARY').store_settings,
+    ...store.store_settings,
+    tiwiId: 'TIW-PRIMARY'
+  };
+  store.storeName = store.store_settings.storeName || store.storeName;
+  return store;
+}
+
+function hasLegacyPrimaryStoreData() {
+  const legacyFiles = [
+    'products.json',
+    'categories.json',
+    'subcategories.json',
+    'customers.json',
+    'suppliers.json',
+    'purchases.json',
+    'sales.json',
+    'inventory_adjustments.json',
+    'activities.json',
+    'store_settings.json'
+  ];
+  return [DATA_DIR, path.join(DATA_DIR, 'migration_backup')]
+    .some(directory => legacyFiles.some(filename => fsSync.existsSync(path.join(directory, filename))));
 }
 
 // ====================================================================
@@ -35,6 +192,7 @@ export const MasterDB = {
   },
 
   saveMasterData(data) {
+    persistStoreRegistry(data.stores || []);
     masterRuntimeData = data;
   },
 
@@ -127,6 +285,9 @@ export const MasterDB = {
         (u.storeId && String(u.storeId).toLowerCase() === clean) ||
         (u.email && u.email.toLowerCase() === clean)
     );
+    const cachedUserBefore = idx !== -1 ? { ...master.users[idx] } : null;
+    let updatedStoreIndex = -1;
+    let cachedStoreBefore = null;
     if (idx !== -1) {
       master.users[idx] = {
         ...master.users[idx],
@@ -135,17 +296,19 @@ export const MasterDB = {
       };
 
       if (updates.storeName) {
-        const storeIdx = (master.stores || []).findIndex(
+        updatedStoreIndex = (master.stores || []).findIndex(
           (s) => s.ownerId === master.users[idx].id || s.tiwiId === master.users[idx].tiwiId
         );
-        if (storeIdx !== -1) {
-          master.stores[storeIdx].storeName = updates.storeName;
+        if (updatedStoreIndex !== -1) {
+          cachedStoreBefore = { ...master.stores[updatedStoreIndex] };
+          master.stores[updatedStoreIndex].storeName = updates.storeName;
         }
       }
 
       this.saveMasterData(master);
     }
 
+    let persistedToPg = false;
     if (isPgActive()) {
       try {
         const fields = [];
@@ -176,6 +339,30 @@ export const MasterDB = {
           fields.push(`email_verified = $${valIndex++}`);
           values.push(Boolean(updates.emailVerified));
         }
+        if (updates.email !== undefined) {
+          fields.push(`email = $${valIndex++}`);
+          values.push(String(updates.email).trim().toLowerCase());
+        }
+        if (updates.role !== undefined) {
+          fields.push(`role = $${valIndex++}`);
+          values.push(updates.role);
+        }
+        if (updates.planId !== undefined) {
+          fields.push(`plan_id = $${valIndex++}`);
+          values.push(updates.planId);
+        }
+        if (updates.planName !== undefined) {
+          fields.push(`plan_name = $${valIndex++}`);
+          values.push(updates.planName);
+        }
+        if (updates.phone !== undefined) {
+          fields.push(`phone = $${valIndex++}`);
+          values.push(String(updates.phone));
+        }
+        if (updates.address !== undefined) {
+          fields.push(`address = $${valIndex++}`);
+          values.push(String(updates.address));
+        }
         if (updates.twoFactorEnabled !== undefined) {
           fields.push(`two_factor_enabled = $${valIndex++}`);
           values.push(Boolean(updates.twoFactorEnabled));
@@ -195,10 +382,14 @@ export const MasterDB = {
             `UPDATE system_users SET ${fields.join(', ')} WHERE id::text = $${valIndex} OR tiwi_id = $${valIndex} OR LOWER(email) = LOWER($${valIndex})`,
             values
           );
+          persistedToPg = true;
         }
       } catch (e) {
-        console.warn('PostgreSQL update error:', e.message);
-        if (updates.isBanned !== undefined) throw e;
+        console.error('[PostgreSQL User Update Error]', e.message);
+        if (cachedUserBefore) master.users[idx] = cachedUserBefore;
+        if (cachedStoreBefore) master.stores[updatedStoreIndex] = cachedStoreBefore;
+        if (cachedUserBefore) this.saveMasterData(master);
+        throw e;
       }
     }
 
@@ -221,7 +412,10 @@ export const MasterDB = {
       });
     }
 
-    return idx !== -1 ? master.users[idx] : await this.findUserByIdentifier(userId);
+    if (persistedToPg) {
+      return await this.findUserByIdentifier(updates.email || userId);
+    }
+    return idx !== -1 ? master.users[idx] : null;
   },
 
   async createUser(userData) {
@@ -615,47 +809,108 @@ export const MasterDB = {
 // Each store receives its own dedicated database/schema: store_<tiwiId>
 // ====================================================================
 export const TenantDB = {
+  getAllStoreData() {
+    const registeredStores = MasterDB.getMasterData().stores || [];
+    const storesById = new Map();
+    for (const store of registeredStores) {
+      const id = String(store.tiwiId || store.id || '');
+      if (!id) continue;
+      if (!tenantStoresRuntimeData[id]) this.getStoreDb(id);
+      storesById.set(id, {
+        tiwiId: id,
+        storeId: id,
+        ownerId: store.ownerId || null,
+        storeName: store.storeName || 'Store',
+        planId: store.planId || null,
+        createdAt: store.createdAt || null,
+        store_settings: { storeName: store.storeName, subdomain: store.subdomain, currency: store.currency }
+      });
+    }
+    const primaryStorePath = this.getStoreFilePath('TIW-PRIMARY');
+    if (!storesById.has('TIW-PRIMARY') &&
+        (fsSync.existsSync(primaryStorePath) || hasLegacyPrimaryStoreData())) {
+      const primaryStore = this.getStoreDb('TIW-PRIMARY');
+      storesById.set('TIW-PRIMARY', {
+        tiwiId: 'TIW-PRIMARY',
+        storeId: 'TIW-PRIMARY',
+        ownerId: null,
+        storeName: primaryStore.storeName || 'Tiwlo Main Store',
+        store_settings: primaryStore.store_settings,
+        createdAt: primaryStore.createdAt || null
+      });
+    }
+    for (const [id, store] of Object.entries(tenantStoresRuntimeData)) {
+      storesById.set(String(store.tiwiId || id), {
+        ...(storesById.get(String(store.tiwiId || id)) || {}),
+        ...store,
+        ownerId: store.ownerId || storesById.get(String(store.tiwiId || id))?.ownerId || null
+      });
+    }
+    return [...storesById.values()];
+  },
+
   getStoreFilePath(tiwiId) {
-    if (!tiwiId) throw new Error('Store tiwiId is required');
-    const cleanId = String(tiwiId).trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const storeId = String(tiwiId || '').trim();
+    if (!storeId) throw new Error('Store tiwiId is required');
+    const cleanId = storeId.toLowerCase().replace(/[^a-z0-9]/g, '_');
     return path.join(STORES_STORAGE_DIR, `store_${cleanId}.json`);
   },
 
   getStoreDb(tiwiId) {
     if (!tiwiId) return null;
-    if (!tenantStoresRuntimeData[tiwiId]) {
-      tenantStoresRuntimeData[tiwiId] = {
-        tiwiId,
-        storeName: 'Tiwlo Store',
-        products: [],
-        categories: [],
-        subcategories: [],
-        customers: [],
-        suppliers: [],
-        purchases: [],
-        sales: [],
-        inventory_adjustments: [],
-        activities: [],
-        store_settings: {
-          storeName: 'Tiwlo Store',
-          tiwiId,
-          currency: 'USD ($)',
-          timezone: 'UTC+6 (Asia/Dhaka)'
-        }
-      };
+    const storeId = String(tiwiId).trim();
+    if (!storeId) throw new Error('Store tiwiId is required');
+    if (!tenantStoresRuntimeData[storeId]) {
+      const storePath = this.getStoreFilePath(storeId);
+      const hasPersistedStore = fsSync.existsSync(storePath);
+      const persistedStore = hasPersistedStore ? readJsonFile(storePath) : null;
+      if (hasPersistedStore) validateTenantStore(persistedStore, storeId);
+      const initialStore = hasPersistedStore
+        ? persistedStore
+        : storeId === 'TIW-PRIMARY' ? readLegacyPrimaryStore() : null;
+      if (initialStore !== null) {
+        validateTenantStore(initialStore, storeId);
+        const emptyStore = createEmptyTenantStore(storeId);
+        tenantStoresRuntimeData[storeId] = {
+          ...emptyStore,
+          ...initialStore,
+          tiwiId: storeId,
+          store_settings: {
+            ...emptyStore.store_settings,
+            ...(initialStore.store_settings || {}),
+            tiwiId: storeId
+          }
+        };
+        if (!persistedStore) this.saveStoreDb(storeId, tenantStoresRuntimeData[storeId]);
+      } else {
+        tenantStoresRuntimeData[storeId] = createEmptyTenantStore(storeId);
+      }
     }
-    return tenantStoresRuntimeData[tiwiId];
+    return tenantStoresRuntimeData[storeId];
   },
 
   saveStoreDb(tiwiId, data) {
-    tenantStoresRuntimeData[tiwiId] = data;
+    const storeId = String(tiwiId || '').trim();
+    if (!storeId) {
+      throw new TypeError('A valid tenant identifier and store data object are required.');
+    }
+    validateTenantStore(data, storeId);
+    if (!data.tiwiId) data.tiwiId = storeId;
+    const store = data;
+    writeJsonFile(this.getStoreFilePath(storeId), store);
+    tenantStoresRuntimeData[storeId] = store;
   },
 
   // Dynamic Store Provisioning
   async provisionStore(tiwiId, storeName, planId = 'free') {
-    if (!tenantStoresRuntimeData[tiwiId]) {
+    const storeId = String(tiwiId || '').trim();
+    if (!storeId) throw new TypeError('Store tiwiId is required');
+    if (!tenantStoresRuntimeData[storeId] && fsSync.existsSync(this.getStoreFilePath(storeId))) {
+      this.getStoreDb(storeId);
+    }
+    if (!tenantStoresRuntimeData[storeId]) {
       const initialStoreData = {
-        tiwiId,
+        tiwiId: storeId,
         storeName,
         planId,
         createdAt: new Date().toISOString(),
@@ -672,27 +927,27 @@ export const TenantDB = {
             id: `act_${Date.now()}`,
             type: 'auth',
             action: `Store "${storeName}" Created`,
-            details: `Isolated database provisioned with Tiwi ID: ${tiwiId}`,
+            details: `Isolated database provisioned with Tiwi ID: ${storeId}`,
             timestamp: new Date().toISOString()
           }
         ],
         store_settings: {
           storeName,
-          tiwiId,
+          tiwiId: storeId,
           subdomain: makeStoreSubdomain(storeName),
           currency: 'USD ($)',
           timezone: 'Asia/Dhaka',
           taxRate: 5
         }
       };
-      tenantStoresRuntimeData[tiwiId] = initialStoreData;
-      console.log(`📦 Provisioned isolated store in memory: ${tiwiId}`);
+      this.saveStoreDb(storeId, initialStoreData);
+      console.log(`📦 Provisioned tenant store: ${tiwiId}`);
     }
 
     // Provision PostgreSQL Schema if connected
     if (isPgActive()) {
       try {
-        const schemaName = `store_${tiwiId.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+        const schemaName = `store_${storeId.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
         await queryPg(`SELECT provision_store_schema($1)`, [schemaName]);
         console.log(`🐘 Provisioned PostgreSQL schema: ${schemaName}`);
       } catch (e) {

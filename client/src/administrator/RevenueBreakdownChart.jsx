@@ -1,22 +1,16 @@
 import React from 'react';
 
 export default function RevenueBreakdownChart({ breakdown }) {
-  const categories = breakdown?.categories || [
-    { name: 'Products', percentage: 58.4, color: '#3b82f6', amount: '14,355.88' },
-    { name: 'Cloud Services', percentage: 24.1, color: '#8b5cf6', amount: '5,924.26' },
-    { name: 'Shipping', percentage: 9.8, color: '#10b981', amount: '2,409.04' },
-    { name: 'Other', percentage: 7.7, color: '#f59e0b', amount: '1,892.82' }
-  ];
+  const categories = breakdown?.categories || [];
 
-  const totalDisplay = breakdown?.total
-    ? `$${Math.round(breakdown.total).toLocaleString('en-US')}`
-    : '$24,582';
+  const totalDisplay = breakdown?.total == null
+    ? (breakdown?.currency === 'Mixed currencies' ? 'Mixed' : '—')
+    : `${breakdown.currency || ''} ${Number(breakdown.total).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 
   // SVG Donut calculation
   const radius = 64;
   const strokeWidth = 24;
   const circumference = 2 * Math.PI * radius; // ~402.12
-  let accumulatedPercent = 0;
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/70 dark:border-slate-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between">
@@ -42,8 +36,10 @@ export default function RevenueBreakdownChart({ breakdown }) {
             {/* Slices */}
             {categories.map((cat, idx) => {
               const dashLength = (cat.percentage / 100) * circumference;
+              const accumulatedPercent = categories
+                .slice(0, idx)
+                .reduce((total, category) => total + category.percentage, 0);
               const dashOffset = -(accumulatedPercent / 100) * circumference;
-              accumulatedPercent += cat.percentage;
 
               return (
                 <circle
@@ -75,8 +71,9 @@ export default function RevenueBreakdownChart({ breakdown }) {
         </div>
 
         {/* Legend List */}
-        <div className="w-full grid grid-cols-2 gap-x-4 gap-y-2 mt-4 px-2">
-          {categories.map((cat, idx) => (
+        {categories.length ? (
+          <div className="w-full grid grid-cols-2 gap-x-4 gap-y-2 mt-4 px-2">
+            {categories.map((cat, idx) => (
             <div key={idx} className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
                 <span
@@ -91,8 +88,15 @@ export default function RevenueBreakdownChart({ breakdown }) {
                 {cat.percentage}%
               </span>
             </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-center text-slate-400 dark:text-slate-500 mt-3">
+            {breakdown?.currency === 'Mixed currencies'
+              ? 'Category totals are not combined across different currencies.'
+              : breakdown ? 'No paid sales in this period.' : 'Revenue data is unavailable.'}
+          </p>
+        )}
       </div>
     </div>
   );

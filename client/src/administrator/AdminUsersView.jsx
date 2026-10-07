@@ -1,27 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   Search,
-  Filter,
   RefreshCw,
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
-  ShieldAlert,
-  ShieldCheck,
   Edit2,
   Trash2,
   AlertTriangle,
-  X,
-  CheckCircle2,
-  User,
-  Shield
+  X
 } from 'lucide-react';
 
 const API_BASE = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
   ? 'http://localhost:5000/api'
   : '/api';
 
-export default function AdminUsersView({ onBackToDashboard, showToast }) {
+export default function AdminUsersView({ onBackToDashboard, showToast, currentUser }) {
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -30,6 +24,9 @@ export default function AdminUsersView({ onBackToDashboard, showToast }) {
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
+  const isSuperAdminActor = currentUser?.role === 'super_admin' ||
+    currentUser?.email?.toLowerCase() === 'tiwloltd@gmail.com';
 
   // Modals state
   const [editUserTarget, setEditUserTarget] = useState(null);
@@ -39,9 +36,8 @@ export default function AdminUsersView({ onBackToDashboard, showToast }) {
   const [deleteUserTarget, setDeleteUserTarget] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const fetchUsers = async (targetPage = page) => {
+  const fetchUsers = useCallback(async (targetPage = 1) => {
     try {
-      setLoading(true);
       const token = localStorage.getItem('stockpro_session');
       const params = new URLSearchParams({
         page: targetPage.toString(),
@@ -56,29 +52,29 @@ export default function AdminUsersView({ onBackToDashboard, showToast }) {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          setUsers(data.users || []);
-          setTotal(data.total || 0);
-          setPage(data.page || 1);
-          setTotalPages(data.totalPages || 1);
-        }
-      }
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || `Request failed (${res.status}).`);
+      setUsers(data.users || []);
+      setTotal(data.total || 0);
+      setPage(data.page || 1);
+      setTotalPages(data.totalPages || 1);
+      setFetchError('');
     } catch (err) {
       console.error('[Admin Users] Fetch error:', err);
+      setUsers([]);
+      setFetchError('Live user data could not be loaded.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, roleFilter, statusFilter]);
 
   useEffect(() => {
-    setPage(1);
     fetchUsers(1);
-  }, [search, roleFilter, statusFilter]);
+  }, [fetchUsers]);
 
   const handlePageChange = (newPage) => {
     if (newPage < 1 || newPage > totalPages) return;
+    setLoading(true);
     setPage(newPage);
     fetchUsers(newPage);
   };
@@ -104,12 +100,12 @@ export default function AdminUsersView({ onBackToDashboard, showToast }) {
         setBanUserTarget(null);
         setBanReason('');
         // Instant sync in state
-        setUsers(prev => prev.map(u => u.id === user.id ? { ...u, isBanned: isBanning, banReason: reason } : u));
+        setUsers(prev => prev.map(u => u.id === user.id ? { ...u, ...data.user } : u));
       } else {
         showToast?.(data.error || 'Failed to update user ban status', 'error');
       }
     } catch (err) {
-      showToast?.('Error updating ban status', 'error');
+      showToast?.(err.message || 'Error updating ban status', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -130,19 +126,22 @@ export default function AdminUsersView({ onBackToDashboard, showToast }) {
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
         credentials: 'include',
-        body: JSON.stringify(editFormData)
+        body: JSON.stringify(isSuperAdminActor
+          ? editFormData
+          : Object.fromEntries(Object.entries(editFormData).filter(([key]) => key !== 'role')))
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
         showToast?.('User updated successfully');
         setEditUserTarget(null);
+        setLoading(true);
         fetchUsers(page);
       } else {
         showToast?.(data.error || 'Failed to update user', 'error');
       }
     } catch (err) {
-      showToast?.('Error updating user', 'error');
+      showToast?.(err.message || 'Error updating user', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -165,12 +164,13 @@ export default function AdminUsersView({ onBackToDashboard, showToast }) {
       if (res.ok && data.success) {
         showToast?.(data.message || 'User deleted');
         setDeleteUserTarget(null);
+        setLoading(true);
         fetchUsers(page);
       } else {
         showToast?.(data.error || 'Failed to delete user', 'error');
       }
     } catch (err) {
-      showToast?.('Error deleting user', 'error');
+      showToast?.(err.message || 'Error deleting user', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -202,7 +202,10 @@ export default function AdminUsersView({ onBackToDashboard, showToast }) {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => fetchUsers(page)}
+            onClick={() => {
+              setLoading(true);
+              fetchUsers(page);
+            }}
             className="p-1.5 px-3 text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -220,7 +223,10 @@ export default function AdminUsersView({ onBackToDashboard, showToast }) {
             <input
               type="text"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setLoading(true);
+                setSearch(e.target.value);
+              }}
               placeholder="Search by Tiwi ID (TIW-xxxx), email, or name..."
               className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-blue-500"
             />
@@ -230,7 +236,10 @@ export default function AdminUsersView({ onBackToDashboard, showToast }) {
             {/* Status Filter */}
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setLoading(true);
+                setStatusFilter(e.target.value);
+              }}
               className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 focus:outline-none"
             >
               <option value="all">All Status</option>
@@ -241,7 +250,10 @@ export default function AdminUsersView({ onBackToDashboard, showToast }) {
             {/* Role Filter */}
             <select
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
+              onChange={(e) => {
+                setLoading(true);
+                setRoleFilter(e.target.value);
+              }}
               className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 focus:outline-none"
             >
               <option value="all">All Roles</option>
@@ -249,6 +261,7 @@ export default function AdminUsersView({ onBackToDashboard, showToast }) {
               <option value="super_admin">Super Admins</option>
               <option value="staff">Staff Members</option>
               <option value="customer">Customers</option>
+              <option value="admin">Administrators</option>
             </select>
           </div>
         </div>
@@ -275,6 +288,10 @@ export default function AdminUsersView({ onBackToDashboard, showToast }) {
                     <span>Loading users (20 per page)...</span>
                   </td>
                 </tr>
+              ) : fetchError ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-rose-500">{fetchError}</td>
+                </tr>
               ) : users.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-slate-400">
@@ -283,7 +300,8 @@ export default function AdminUsersView({ onBackToDashboard, showToast }) {
                 </tr>
               ) : (
                 users.map((u) => {
-                  const isSuperAdmin = u.role === 'super_admin' || u.email === 'tiwloltd@gmail.com';
+                  const isSuperAdmin = u.role === 'super_admin' || u.email?.toLowerCase() === 'tiwloltd@gmail.com';
+                  const canManageUser = !isSuperAdmin && (u.role !== 'admin' || isSuperAdminActor);
                   return (
                     <tr key={u.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
                       {/* User Info */}
@@ -351,6 +369,7 @@ export default function AdminUsersView({ onBackToDashboard, showToast }) {
                         <div className="flex items-center justify-end gap-1.5">
                           {/* Edit button */}
                           <button
+                            disabled={!canManageUser}
                             onClick={() => {
                               setEditUserTarget(u);
                               setEditFormData({
@@ -360,14 +379,14 @@ export default function AdminUsersView({ onBackToDashboard, showToast }) {
                                 planId: u.planId
                               });
                             }}
-                            className="p-1 text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                            className="p-1 text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             title="Edit User"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
 
                           {/* Ban / Suspend button */}
-                          {!isSuperAdmin && (
+                          {canManageUser && (
                             <button
                               onClick={() => {
                                 if (u.isBanned) {
@@ -389,7 +408,7 @@ export default function AdminUsersView({ onBackToDashboard, showToast }) {
                           )}
 
                           {/* Delete button */}
-                          {!isSuperAdmin && (
+                          {canManageUser && (
                             <button
                               onClick={() => setDeleteUserTarget(u)}
                               className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
@@ -493,8 +512,9 @@ export default function AdminUsersView({ onBackToDashboard, showToast }) {
                   <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Role</label>
                   <select
                     value={editFormData.role}
+                    disabled={!isSuperAdminActor}
                     onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value })}
-                    className="w-full p-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                    className="w-full p-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 disabled:opacity-60"
                   >
                     <option value="owner">Store Owner</option>
                     <option value="staff">Staff</option>
@@ -507,12 +527,22 @@ export default function AdminUsersView({ onBackToDashboard, showToast }) {
                   <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">Plan</label>
                   <select
                     value={editFormData.planId}
-                    onChange={(e) => setEditFormData({ ...editFormData, planId: e.target.value, planName: e.target.value === 'pro' ? 'Pro Merchant' : 'Free Starter' })}
+                    onChange={(e) => setEditFormData({
+                      ...editFormData,
+                      planId: e.target.value,
+                      planName: ({
+                        free: 'Free Starter',
+                        growth: 'Growth Retailer',
+                        pro: 'Pro Business',
+                        enterprise: 'Enterprise VIP'
+                      })[e.target.value]
+                    })}
                     className="w-full p-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
                   >
                     <option value="free">Free Starter</option>
-                    <option value="pro">Pro Merchant</option>
-                    <option value="enterprise">Enterprise</option>
+                    <option value="growth">Growth Retailer</option>
+                    <option value="pro">Pro Business</option>
+                    <option value="enterprise">Enterprise VIP</option>
                   </select>
                 </div>
               </div>

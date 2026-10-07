@@ -1,19 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Search,
   Store,
   ExternalLink,
-  ShieldAlert,
-  ShieldCheck,
   RefreshCw,
   ArrowLeft,
-  ChevronRight,
-  Filter,
-  CheckCircle2,
   X,
   AlertTriangle,
-  Users,
-  ShoppingBag
 } from 'lucide-react';
 
 const API_BASE = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
@@ -23,36 +16,37 @@ const API_BASE = window.location.origin.includes('localhost') || window.location
 export default function AdminCustomersView({ onBackToDashboard, showToast }) {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
   const [search, setSearch] = useState('');
   const [selectedCustomerStores, setSelectedCustomerStores] = useState(null);
   const [banModalTarget, setBanModalTarget] = useState(null);
   const [banReason, setBanReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = useCallback(async () => {
     try {
       setLoading(true);
+      setFetchError('');
       const token = localStorage.getItem('stockpro_session');
       const res = await fetch(`${API_BASE}/admin/customers?q=${encodeURIComponent(search.trim())}`, {
         credentials: 'include',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          setCustomers(data.customers || []);
-        }
-      }
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to retrieve customers.');
+      if (!Array.isArray(data.customers)) throw new Error('Customer response has an invalid data format.');
+      setCustomers(data.customers);
     } catch (err) {
       console.error('[Admin Customers] Fetch error:', err);
+      setFetchError(err.message || 'Could not load customer records.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [search]);
 
   useEffect(() => {
     fetchCustomers();
-  }, [search]);
+  }, [fetchCustomers]);
 
   // Handle Ban / Unban
   const handleToggleBan = async (customer, isBanning, reasonText) => {
@@ -79,7 +73,7 @@ export default function AdminCustomersView({ onBackToDashboard, showToast }) {
       } else {
         showToast?.(data.error || 'Failed to update user status', 'error');
       }
-    } catch (err) {
+    } catch {
       showToast?.('Network error updating user', 'error');
     } finally {
       setActionLoading(false);
@@ -187,6 +181,12 @@ export default function AdminCustomersView({ onBackToDashboard, showToast }) {
                     <span>Loading store customers...</span>
                   </td>
                 </tr>
+              ) : fetchError ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-rose-500">
+                    {fetchError}
+                  </td>
+                </tr>
               ) : customers.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-slate-400">
@@ -244,14 +244,18 @@ export default function AdminCustomersView({ onBackToDashboard, showToast }) {
                         <span className="font-semibold text-slate-800 dark:text-slate-200 block truncate max-w-[140px]">
                           {c.primaryStoreName}
                         </span>
-                        <a
-                          href={`https://${c.subdomain}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5 truncate max-w-[140px]"
-                        >
-                          {c.subdomain} <ExternalLink className="w-2.5 h-2.5 shrink-0" />
-                        </a>
+                        {c.subdomain ? (
+                          <a
+                            href={`https://${c.subdomain}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5 truncate max-w-[140px]"
+                          >
+                            {c.subdomain} <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                          </a>
+                        ) : (
+                          <span className="text-[10px] text-slate-400">Store URL unavailable</span>
+                        )}
                       </div>
                     </td>
 
@@ -356,14 +360,16 @@ export default function AdminCustomersView({ onBackToDashboard, showToast }) {
                       <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">{s.subdomain}</span>
                     </div>
 
-                    <a
-                      href={`https://${s.subdomain}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-2.5 py-1 text-[11px] font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg flex items-center gap-1"
-                    >
-                      Visit <ExternalLink className="w-3 h-3" />
-                    </a>
+                    {s.subdomain && (
+                      <a
+                        href={`https://${s.subdomain}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1 text-[11px] font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg flex items-center gap-1"
+                      >
+                        Visit <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
                   </div>
                 ))
               ) : (
@@ -376,14 +382,16 @@ export default function AdminCustomersView({ onBackToDashboard, showToast }) {
                     <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">{selectedCustomerStores.subdomain}</span>
                   </div>
 
-                  <a
-                    href={`https://${selectedCustomerStores.subdomain}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-2.5 py-1 text-[11px] font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg flex items-center gap-1"
-                  >
-                    Visit <ExternalLink className="w-3 h-3" />
-                  </a>
+                  {selectedCustomerStores.subdomain && (
+                    <a
+                      href={`https://${selectedCustomerStores.subdomain}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1 text-[11px] font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg flex items-center gap-1"
+                    >
+                      Visit <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
                 </div>
               )}
             </div>

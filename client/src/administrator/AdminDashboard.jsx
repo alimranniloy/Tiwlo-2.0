@@ -13,7 +13,7 @@ import AdminSubView from './AdminSubView';
 import AdminCustomersView from './AdminCustomersView';
 import AdminUsersView from './AdminUsersView';
 import AdminGoogleDrivePage from './AdminGoogleDrivePage';
-import { Calendar, ShieldCheck, Sparkles } from 'lucide-react';
+import { Calendar, Sparkles } from 'lucide-react';
 import { useTheme } from '../config/themeConfig';
 
 const API_BASE = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
@@ -21,7 +21,11 @@ const API_BASE = window.location.origin.includes('localhost') || window.location
   : '/api';
 
 export default function AdminDashboard({ currentUser, onLogout, showToast }) {
-  const isAuthorizedAdmin = currentUser && (currentUser.role === 'super_admin' || currentUser.email?.toLowerCase().trim() === 'tiwloltd@gmail.com');
+  const isAuthorizedAdmin = currentUser && (
+    currentUser.role === 'admin' ||
+    currentUser.role === 'super_admin' ||
+    currentUser.email?.toLowerCase().trim() === 'tiwloltd@gmail.com'
+  );
 
   useEffect(() => {
     if (!isAuthorizedAdmin) {
@@ -30,32 +34,28 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
   }, [isAuthorizedAdmin]);
 
   const [activeView, setActiveView] = useState(() => {
-    try {
-      const pathname = window.location.pathname.replace(/^\/+|\/+$/g, '');
-      if (pathname === 'administrator/customers' || pathname === 'admin/customers') return 'customers';
-      if (pathname === 'administrator/users' || pathname === 'admin/users') return 'users';
-      if (pathname === 'administrator/orders' || pathname === 'admin/orders') return 'orders';
-      if (pathname === 'administrator/servers' || pathname === 'admin/servers') return 'servers';
-      if (pathname.startsWith('administrator/')) return pathname.replace('administrator/', '');
-      if (pathname.startsWith('admin/')) return pathname.replace('admin/', '');
-    } catch (e) {}
+    const pathname = window.location.pathname.replace(/^\/+|\/+$/g, '');
+    if (pathname === 'administrator/customers' || pathname === 'admin/customers') return 'customers';
+    if (pathname === 'administrator/users' || pathname === 'admin/users') return 'users';
+    if (pathname === 'administrator/orders' || pathname === 'admin/orders') return 'orders';
+    if (pathname === 'administrator/servers' || pathname === 'admin/servers') return 'servers';
+    if (pathname.startsWith('administrator/')) return pathname.replace('administrator/', '');
+    if (pathname.startsWith('admin/')) return pathname.replace('admin/', '');
     return 'dashboard';
   });
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [adminData, setAdminData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [overviewError, setOverviewError] = useState('');
+  const [selectedRange, setSelectedRange] = useState('7days');
   const { isDark: isDarkMode, toggleTheme: toggleDarkMode } = useTheme();
 
   const handleNavigate = (view) => {
     setActiveView(view);
-    try {
-      const targetUrl = view === 'dashboard' ? '/administrator' : `/administrator/${view}`;
-      if (window.location.pathname !== targetUrl) {
-        window.history.pushState(null, '', targetUrl);
-      }
-    } catch (e) {}
+    const targetUrl = view === 'dashboard' ? '/administrator' : `/administrator/${view}`;
+    if (window.location.pathname !== targetUrl) {
+      window.history.pushState(null, '', targetUrl);
+    }
   };
 
   // Sync state on browser back/forward buttons
@@ -71,35 +71,32 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
   }, []);
 
   // Fetch live overview from backend
-  const fetchOverview = async (range = '7days') => {
+  const fetchOverview = async (range = selectedRange) => {
     try {
       const token = localStorage.getItem('stockpro_session');
       const res = await fetch(`${API_BASE}/admin/overview?range=${range}`, {
         credentials: 'include',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success) {
-          setAdminData(json.data);
-        }
-      }
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || `Overview request failed (${res.status}).`);
+      setAdminData(json.data);
+      setOverviewError('');
     } catch (err) {
       console.error('[Admin] Error fetching overview:', err);
-    } finally {
-      setLoading(false);
+      setAdminData(null);
+      setOverviewError('Live dashboard data could not be loaded.');
     }
   };
 
   useEffect(() => {
     if (!isAuthorizedAdmin) {
-      setLoading(false);
       return undefined;
     }
-    fetchOverview('7days');
-    const timer = setInterval(() => fetchOverview('7days'), 10000);
+    fetchOverview(selectedRange);
+    const timer = setInterval(() => fetchOverview(selectedRange), 10000);
     return () => clearInterval(timer);
-  }, [isAuthorizedAdmin]);
+  }, [isAuthorizedAdmin, selectedRange]);
 
   // Hooks must always run in the same order.  Render the redirect fallback
   // only after all hooks have been declared.
@@ -130,8 +127,6 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
         onToggleMobileMenu={() => setMobileMenuOpen(prev => !prev)}
         isDarkMode={isDarkMode}
         onToggleDarkMode={toggleDarkMode}
-        searchQuery={searchQuery}
-        onSearchChange={(q) => setSearchQuery(q)}
       />
 
       <div className="flex">
@@ -154,11 +149,13 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
             <AdminUsersView
               onBackToDashboard={() => handleNavigate('dashboard')}
               showToast={showToast}
+              currentUser={currentUser}
             />
           ) : activeView === 'google-drive' ? (
             <AdminGoogleDrivePage showToast={showToast} />
           ) : activeView !== 'dashboard' ? (
             <AdminSubView
+              key={activeView}
               viewId={activeView}
               onBackToDashboard={() => handleNavigate('dashboard')}
               showToast={showToast}
@@ -170,7 +167,7 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
                 <div>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 text-xs font-semibold mb-2">
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span>Welcome back, {currentUser?.name?.split(' ')[0] || 'Alimran'}!</span>
+                    <span>Welcome back, {currentUser?.name?.split(' ')[0] || 'Administrator'}!</span>
                   </div>
 
                   <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
@@ -196,10 +193,20 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
 
                   {/* System Status Card */}
                   <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
-                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-500/20 animate-pulse ml-1" />
+                    <div className={`w-2.5 h-2.5 rounded-full ml-1 ${
+                      !adminData && !overviewError ? 'bg-amber-500 ring-4 ring-amber-500/20' :
+                      overviewError || !adminData?.systemInfo?.operational ? 'bg-rose-500 ring-4 ring-rose-500/20' :
+                      'bg-emerald-500 ring-4 ring-emerald-500/20'
+                    }`} />
                     <div>
                       <p className="text-xs font-bold text-slate-800 dark:text-slate-200">System Status</p>
-                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">All systems operational</p>
+                      <p className={`text-[10px] font-medium ${
+                        !adminData && !overviewError ? 'text-amber-600 dark:text-amber-400' :
+                        overviewError || !adminData?.systemInfo?.operational ? 'text-rose-600 dark:text-rose-400' :
+                        'text-emerald-600 dark:text-emerald-400'
+                      }`}>
+                        {!adminData && !overviewError ? 'Checking services…' : overviewError || adminData?.systemInfo?.status || 'Status unavailable'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -213,7 +220,9 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
                 <div className="lg:col-span-6 xl:col-span-6">
                   <SalesOverviewChart
                     salesData={adminData?.salesOverview}
-                    onRangeChange={(range) => fetchOverview(range)}
+                    currency={adminData?.revenueBreakdown?.currency}
+                    currentRange={selectedRange}
+                    onRangeChange={(range) => setSelectedRange(range)}
                   />
                 </div>
 
@@ -224,7 +233,6 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
                 <div className="lg:col-span-3 xl:col-span-3">
                   <RecentActivities
                     activities={adminData?.recentActivities}
-                    onViewAll={() => setActiveView('orders')}
                   />
                 </div>
               </div>

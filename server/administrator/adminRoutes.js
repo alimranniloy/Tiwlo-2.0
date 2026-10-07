@@ -1,11 +1,17 @@
 import express from 'express';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { MasterDB } from '../db/multiTenant.js';
+import { MasterDB, TenantDB } from '../db/multiTenant.js';
 import { sendAccountDisabledEmail, sendAccountRestoredEmail } from '../db/emailService.js';
 import { RestoreSessions } from '../db/restoreSessions.js';
-import { PLATFORM_CONFIG } from '../config/platformConfig.js';
+import { queryPg } from '../db/postgres.js';
+import { recordSecurityEvent } from '../db/securityPersistence.js';
+import {
+  formatPeriodLabel,
+  formatTrend,
+  getSaleAmount,
+  getSaleTimestamp,
+  getSalesPeriod,
+  isPaidSale
+} from './adminAnalytics.js';
 import {
   addGoogleDriveServiceAccount,
   getPlatformStorageSettings,
@@ -13,10 +19,6 @@ import {
   setDriveStorageActive
 } from './googleDriveStorage.js';
 import { getStorageSyncStatus, startStorageSync } from '../db/mediaMigration.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const STORES_DIR = path.resolve(__dirname, '../data/stores');
 
 const router = express.Router();
 
@@ -99,8 +101,7 @@ export function requireAdmin(req, res, next) {
       return res.status(401).json({ error: 'Session expired or invalid.' });
     }
     const user = sessionData.user;
-    const isSuperAdmin = user.role === 'super_admin' || user.email === 'tiwloltd@gmail.com';
-    if (!isSuperAdmin && user.role !== 'admin') {
+    if (!isSuperAdminUser(user) && user.role !== 'admin') {
       return res.status(403).json({ error: 'Forbidden. Admin privileges required.' });
     }
     req.adminUser = user;
@@ -111,9 +112,8 @@ export function requireAdmin(req, res, next) {
   });
 }
 
-// Helper to read Cloud DB
-function getCloudData() {
-  return { droplets: [] };
+function isSuperAdminUser(user) {
+  return user?.role === 'super_admin' || user?.email?.toLowerCase() === 'tiwloltd@gmail.com';
 }
 
 // Helper to read Master DB safely
@@ -129,29 +129,71 @@ function saveMasterDataRaw(data) {
 
 // Helper to aggregate store metrics
 function getAggregatedStoreData() {
-  let allProducts = [];
-  let allSales = [];
-  let allCustomers = [];
-  let allActivities = [];
+  const allStores = [];
+  const allProducts = [];
+  const allSales = [];
+  const allCustomers = [];
+  const allActivities = [];
 
-  try {
-    if (fs.existsSync(STORES_DIR)) {
-      const storeFiles = fs.readdirSync(STORES_DIR).filter(f => f.endsWith('.json'));
-      for (const file of storeFiles) {
-        try {
-          const store = JSON.parse(fs.readFileSync(path.join(STORES_DIR, file), 'utf8'));
-          if (Array.isArray(store.products)) allProducts.push(...store.products);
-          if (Array.isArray(store.sales)) allSales.push(...store.sales);
-          if (Array.isArray(store.customers)) allCustomers.push(...store.customers);
-          if (Array.isArray(store.activities)) allActivities.push(...store.activities);
-        } catch (e) {}
-      }
+  for (const store of TenantDB.getAllStoreData()) {
+    const storeId = String(store.tiwiId || store.storeId || 'unknown-store');
+    const storeName = String(store.storeName || store.store_settings?.storeName || 'Store');
+    const currency = String(store.store_settings?.currency || 'USD ($)');
+    allStores.push({
+      id: store.id || storeId,
+      tiwiId: storeId,
+      ownerId: store.ownerId || null,
+      storeName,
+      subdomain: store.subdomain || store.store_settings?.subdomain || null,
+      planId: store.planId || null,
+      status: store.status || null,
+      createdAt: store.createdAt || store.created_at || null
+    });
+    if (Array.isArray(store.products)) {
+      allProducts.push(...store.products.map(product => ({ ...product, storeId, storeName, currency })));
     }
-  } catch (e) {
-    console.error('[Admin] Error reading store dir:', e);
+    if (Array.isArray(store.sales)) {
+      allSales.push(...store.sales.map(sale => ({ ...sale, storeId, storeName, currency })));
+    }
+    if (Array.isArray(store.customers)) {
+      allCustomers.push(...store.customers.map(customer => ({ ...customer, storeId })));
+    }
+    if (Array.isArray(store.activities)) {
+      allActivities.push(...store.activities.map(activity => ({ ...activity, storeId, storeName })));
+    }
   }
+  return { allStores, allProducts, allSales, allCustomers, allActivities };
+}
 
-  return { allProducts, allSales, allCustomers, allActivities };
+function getPeriodSales(sales, start, end) {
+  return sales.filter(sale => {
+    const timestamp = getSaleTimestamp(sale);
+    return timestamp && timestamp >= start && timestamp < end;
+  });
+}
+
+function getRevenue(sales) {
+  return sales.filter(isPaidSale).reduce((total, sale) => total + getSaleAmount(sale), 0);
+}
+
+function metricTrend(current, previous) {
+  return {
+    trend: formatTrend(current, previous),
+    period: 'vs. previous period',
+    positive: current >= previous
+  };
+}
+
+function formatRelativeTime(value, now = Date.now()) {
+  const date = value ? new Date(value).getTime() : NaN;
+  if (!Number.isFinite(date)) return 'Time unavailable';
+  const minutes = Math.max(0, Math.floor((now - date) / 60000));
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }
 
 // Calculate human-friendly uptime
@@ -168,115 +210,170 @@ function getFormattedUptime() {
 // GET /api/admin/overview
 router.get('/overview', requireAdmin, async (req, res) => {
   try {
-    const range = req.query.range || '7days';
-    const cloud = getCloudData();
+    const period = getSalesPeriod(String(req.query.range || '7days'));
     const { allProducts, allSales, allCustomers, allActivities } = getAggregatedStoreData();
-    const masterUsers = await MasterDB.getUsers();
+    const periodSales = getPeriodSales(allSales, period.start, period.end);
+    const previousSales = getPeriodSales(allSales, period.previousStart, period.previousEnd);
+    const totalRevenue = getRevenue(periodSales);
+    const previousRevenue = getRevenue(previousSales);
+    const orderCount = periodSales.length;
+    const previousOrderCount = previousSales.length;
+    const totalCustomers = allCustomers.length;
+    const periodCustomers = allCustomers.filter(customer => {
+      const createdAt = new Date(customer.createdAt || customer.created_at || NaN);
+      return Number.isFinite(createdAt.getTime()) && createdAt >= period.start && createdAt < period.end;
+    }).length;
+    const previousCustomers = allCustomers.filter(customer => {
+      const createdAt = new Date(customer.createdAt || customer.created_at || NaN);
+      return Number.isFinite(createdAt.getTime()) && createdAt >= period.previousStart && createdAt < period.previousEnd;
+    }).length;
+    const successfulOrders = periodSales.filter(isPaidSale);
+    const currencySet = new Set(successfulOrders.map(sale => sale.currency).filter(Boolean));
+    const hasMixedCurrencies = currencySet.size > 1;
+    const currency = currencySet.size === 1 ? [...currencySet][0] : hasMixedCurrencies ? 'Mixed currencies' : 'USD ($)';
 
-    const liveRevenueTotal = allSales.reduce((acc, s) => acc + (Number(s.totalAmount || s.grandTotal || s.total || 0)), 0);
-    const totalRevenue = liveRevenueTotal;
-    const totalOrders = allSales.length;
-    const totalCustomers = allCustomers.length + masterUsers.length;
-    const activeServers = (cloud.droplets && cloud.droplets.length > 0) ? cloud.droplets.length : 0;
+    const salesChart = period.bucketStarts.map((bucketStart, index) => {
+      const bucketEnd = period.bucketStarts[index + 1] || period.end;
+      const bucketSales = getPeriodSales(periodSales, bucketStart, bucketEnd);
+      return {
+        label: formatPeriodLabel(bucketStart, period.bucketUnit, bucketEnd),
+        sales: hasMixedCurrencies ? null : getRevenue(bucketSales),
+        orders: bucketSales.length
+      };
+    });
 
-    let salesChart = [];
-    if (range === '7days') {
-      salesChart = [
-        { label: 'Sep 23', sales: 2100, orders: 84 },
-        { label: 'Sep 24', sales: 3850, orders: 142 },
-        { label: 'Sep 25', sales: 4200, orders: 165 },
-        { label: 'Sep 26', sales: 4050, orders: 152 },
-        { label: 'Sep 27', sales: 4950, orders: 188 },
-        { label: 'Sep 28', sales: 5120, orders: 196 },
-        { label: 'Sep 29', sales: 6842, orders: 234 }
-      ];
-    } else if (range === '30days') {
-      salesChart = [
-        { label: 'W1', sales: 18200, orders: 740 },
-        { label: 'W2', sales: 22400, orders: 890 },
-        { label: 'W3', sales: 26100, orders: 980 },
-        { label: 'W4', sales: 29500, orders: 1140 }
-      ];
-    } else {
-      salesChart = [
-        { label: 'Jul', sales: 64200, orders: 2600 },
-        { label: 'Aug', sales: 78900, orders: 3100 },
-        { label: 'Sep', sales: 94500, orders: 3800 }
-      ];
+    const productCatalog = new Map(allProducts.map(product => [
+      `${product.storeId}:${product.id}`,
+      product
+    ]));
+    const productPerformance = new Map();
+    successfulOrders.forEach((sale, saleIndex) => {
+      const saleId = `${sale.storeId || 'store'}:${sale.id || sale.invoiceNumber || sale.invoiceNo || `sale-${saleIndex}`}`;
+      for (const item of Array.isArray(sale.items) ? sale.items : []) {
+        const productId = String(item.productId || item.id || item.productName || 'unknown');
+        const productKey = `${sale.storeId}:${productId}`;
+        const quantity = Number(item.quantity) > 0 ? Number(item.quantity) : 1;
+        const amount = Number(item.total ?? item.lineTotal ?? Number(item.unitPrice || item.price || 0) * quantity);
+        const product = productCatalog.get(`${sale.storeId}:${productId}`);
+        const existing = productPerformance.get(productKey) || {
+          name: item.productName || product?.name || 'Unnamed product',
+          image: product?.image && !product.image.includes('unsplash.com') ? product.image : '/default-product.svg',
+          orderIds: new Set(),
+          revenue: 0
+        };
+        existing.orderIds.add(saleId);
+        existing.revenue += Number.isFinite(amount) && amount >= 0 ? amount : 0;
+        productPerformance.set(productKey, existing);
+      }
+    });
+    const topProducts = [...productPerformance.values()]
+      .sort((a, b) => hasMixedCurrencies
+        ? b.orderIds.size - a.orderIds.size
+        : b.revenue - a.revenue)
+      .slice(0, 5)
+      .map((product, index) => ({
+        rank: index + 1,
+        name: product.name,
+        image: product.image,
+        orders: product.orderIds.size,
+        revenue: hasMixedCurrencies ? null : product.revenue
+      }));
+
+    const categoryRevenue = new Map();
+    for (const sale of successfulOrders) {
+      const items = Array.isArray(sale.items) ? sale.items : [];
+      if (!items.length) {
+        categoryRevenue.set('Uncategorized', (categoryRevenue.get('Uncategorized') || 0) + getSaleAmount(sale));
+        continue;
+      }
+      for (const item of items) {
+        const product = productCatalog.get(`${sale.storeId}:${String(item.productId || item.id)}`);
+        const name = String(item.categoryName || item.category || product?.categoryName || product?.category || 'Uncategorized');
+        const quantity = Number(item.quantity) > 0 ? Number(item.quantity) : 1;
+        const amount = Number(item.total ?? item.lineTotal ?? Number(item.unitPrice || item.price || 0) * quantity);
+        categoryRevenue.set(name, (categoryRevenue.get(name) || 0) + (Number.isFinite(amount) && amount >= 0 ? amount : 0));
+      }
     }
-
+    const categoryColors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4'];
+    const categoryTotal = [...categoryRevenue.values()].reduce((sum, value) => sum + value, 0);
+    const sortedCategories = [...categoryRevenue.entries()].sort((a, b) => b[1] - a[1]);
+    const visibleCategories = sortedCategories.slice(0, 5);
+    if (sortedCategories.length > 5) {
+      visibleCategories.push([
+        'Other',
+        sortedCategories.slice(5).reduce((sum, [, amount]) => sum + amount, 0)
+      ]);
+    }
     const revenueBreakdown = {
-      total: totalRevenue,
-      categories: [
-        { name: 'Products', percentage: 58.4, color: '#3b82f6', amount: (totalRevenue * 0.584).toFixed(2) },
-        { name: 'Cloud Services', percentage: 24.1, color: '#8b5cf6', amount: (totalRevenue * 0.241).toFixed(2) },
-        { name: 'Shipping', percentage: 9.8, color: '#10b981', amount: (totalRevenue * 0.098).toFixed(2) },
-        { name: 'Other', percentage: 7.7, color: '#f59e0b', amount: (totalRevenue * 0.077).toFixed(2) }
-      ]
+      total: hasMixedCurrencies ? null : totalRevenue,
+      currency,
+      categories: hasMixedCurrencies ? [] : visibleCategories
+        .map(([name, amount], index) => ({
+          name,
+          amount,
+          percentage: categoryTotal > 0 ? (amount / categoryTotal) * 100 : 0,
+          color: categoryColors[index]
+        }))
     };
 
-    const recentActivities = [
-      { id: 'act-1', type: 'order', title: 'New order received', target: 'Order #TWL-1042', timeAgo: '2m ago', icon: 'shopping-bag', color: 'blue' },
-      { id: 'act-2', type: 'user', title: 'New customer registered', target: 'user@example.com', timeAgo: '12m ago', icon: 'user-plus', color: 'indigo' },
-      { id: 'act-3', type: 'server', title: 'Server deployed', target: 'web-2 (Ubuntu 22.04)', timeAgo: '18m ago', icon: 'server', color: 'emerald' },
-      { id: 'act-4', type: 'coupon', title: 'Coupon created', target: 'SAVE20 - 20% off', timeAgo: '32m ago', icon: 'tag', color: 'amber' },
-      { id: 'act-5', type: 'domain', title: 'Domain registered', target: PLATFORM_CONFIG.primaryDomain, timeAgo: '1h ago', icon: 'globe', color: 'sky' },
-      { id: 'act-6', type: 'refund', title: 'Refund processed', target: 'Order #TWL-1037', timeAgo: '2h ago', icon: 'refresh-cw', color: 'orange' }
-    ];
-
-    const completedOrdersCount = allSales.filter(s => (s.paymentStatus || s.status || '').toLowerCase() === 'completed').length;
-    const pendingOrdersCount = allSales.filter(s => (s.paymentStatus || s.status || '').toLowerCase() === 'pending').length;
-
-    // Top products derived from live store catalog
-    const topProducts = allProducts.slice(0, 5).map((p, idx) => ({
-      rank: idx + 1,
-      name: p.name || 'Store Product',
-      orders: 0,
-      revenue: Number(p.price || 0),
-      image: p.image && !p.image.includes('unsplash.com') ? p.image : '/apple-touch-icon.png'
-    }));
+    const recentActivities = allActivities
+      .map((activity, index) => {
+        const timestamp = activity.timestamp || activity.createdAt || activity.created_at;
+        const time = new Date(timestamp || NaN);
+        if (!Number.isFinite(time.getTime())) return null;
+        const action = activity.action || activity.title || activity.type || 'Store activity';
+        const type = String(activity.type || '').toLowerCase();
+        return {
+          id: `${activity.storeId || 'store'}:${activity.id || time.getTime()}:${index}`,
+          title: String(action),
+          target: String(activity.details || activity.target || activity.storeName || 'Store activity'),
+          timeAgo: formatRelativeTime(time),
+          timestamp: time.toISOString(),
+          icon: type === 'sale' ? 'shopping-bag' : type === 'auth' ? 'user-plus' : 'activity'
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .slice(0, 6);
 
     const ecommerceOverview = {
-      totalOrders: allSales.length,
-      pendingOrders: pendingOrdersCount,
-      completedOrders: completedOrdersCount,
-      totalSales: liveRevenueTotal,
+      totalOrders: orderCount,
+      pendingOrders: periodSales.filter(sale => String(sale.paymentStatus || sale.status || '').toLowerCase() === 'pending').length,
+      completedOrders: successfulOrders.length,
+      totalSales: hasMixedCurrencies ? null : totalRevenue,
+      currency,
       topProducts
     };
 
-    const serverCount = (cloud.droplets && cloud.droplets.length) || 0;
     const cloudOverview = {
-      totalServers: serverCount,
-      activeServers: serverCount,
-      totalStorage: `${serverCount * 80} GB`,
-      bandwidthUsage: '0 GB',
-      serverUsage: (cloud.droplets || []).map(d => ({
-        os: d.image || 'Linux Server',
-        active: 1,
-        total: 1,
-        percent: 100,
-        color: '#3b82f6'
-      }))
+      providerConnected: false,
+      totalServers: 0,
+      activeServers: 0,
+      totalStorage: null,
+      bandwidthUsage: null,
+      serverUsage: []
     };
 
+    const { rows: databaseRows } = await queryPg('SHOW server_version');
     const systemInfo = {
-      platformVersion: 'v2.8.0',
-      phpVersion: '8.2.12',
-      nodeVersion: process.version || 'v20.18.0',
-      database: 'PostgreSQL 15',
+      nodeVersion: process.version,
+      database: `PostgreSQL ${databaseRows[0]?.server_version || 'version unavailable'}`,
       serverUptime: getFormattedUptime(),
-      status: 'All systems operational',
+      status: 'Application and database connected',
       operational: true
     };
 
+    const revenueMetricTrend = metricTrend(totalRevenue, previousRevenue);
+    const orderMetricTrend = metricTrend(orderCount, previousOrderCount);
+    const customerMetricTrend = metricTrend(periodCustomers, previousCustomers);
     res.json({
       success: true,
       data: {
         metrics: {
-          totalRevenue: { value: `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, trend: '+12.5%', period: 'vs. last 7 days', positive: true },
-          totalOrders: { value: totalOrders.toLocaleString('en-US'), trend: '+8.2%', period: 'vs. last 7 days', positive: true },
-          totalCustomers: { value: totalCustomers.toLocaleString('en-US'), trend: '+15.6%', period: 'vs. last 7 days', positive: true },
-          activeCloudServers: { value: activeServers.toString(), trend: '+4.3%', period: 'vs. last 7 days', positive: true }
+          totalRevenue: { value: hasMixedCurrencies ? 'Mixed currencies' : `${currency === 'USD ($)' ? '$' : ''}${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, trend: hasMixedCurrencies ? '—' : revenueMetricTrend.trend, period: hasMixedCurrencies ? 'Cannot combine different currencies' : revenueMetricTrend.period, positive: hasMixedCurrencies ? false : revenueMetricTrend.positive },
+          totalOrders: { value: orderCount.toLocaleString('en-US'), ...orderMetricTrend },
+          totalCustomers: { value: totalCustomers.toLocaleString('en-US'), ...customerMetricTrend },
+          activeCloudServers: { value: 'Not connected', trend: '—', period: 'Cloud provider unavailable', positive: false }
         },
         salesOverview: salesChart,
         revenueBreakdown,
@@ -288,16 +385,15 @@ router.get('/overview', requireAdmin, async (req, res) => {
     });
   } catch (err) {
     console.error('[Admin Overview Error]', err);
-    res.status(500).json({ error: 'Failed to aggregate admin overview.' });
+    res.status(503).json({ error: 'Failed to load current administrator metrics.' });
   }
 });
 
 // GET /api/admin/customers - E-commerce Merchants & Customers with real Store Counts
 router.get('/customers', requireAdmin, async (req, res) => {
   try {
-    const master = getMasterDataRaw();
-    const users = master.users || [];
-    const stores = master.stores || [];
+    const users = await MasterDB.getUsers();
+    const { allStores: stores } = getAggregatedStoreData();
     const query = (req.query.q || req.query.search || '').trim().toLowerCase();
 
     // Map each customer/store owner
@@ -309,9 +405,8 @@ router.get('/customers', requireAdmin, async (req, res) => {
         (u.storeId && s.tiwiId === u.storeId)
       );
 
-      const storeCount = userStores.length > 0 ? userStores.length : (u.storeName ? 1 : 0);
+      const storeCount = userStores.length;
       const storeNames = userStores.map(s => s.storeName).filter(Boolean);
-      if (storeNames.length === 0 && u.storeName) storeNames.push(u.storeName);
 
       return {
         id: u.id,
@@ -330,14 +425,14 @@ router.get('/customers', requireAdmin, async (req, res) => {
           createdAt: s.createdAt
         })),
         storeNames,
-        primaryStoreName: userStores[0]?.storeName || u.storeName || 'Primary Store',
-        subdomain: userStores[0]?.subdomain || u.subdomain || `shop.${PLATFORM_CONFIG.storeDomain}`,
-        planName: u.planName || 'Free Starter',
+        primaryStoreName: userStores[0]?.storeName || '—',
+        subdomain: userStores[0]?.subdomain || u.subdomain || null,
+        planName: u.planName || u.planId || 'Unknown',
         planId: u.planId || 'free',
         isBanned: !!u.isBanned,
         banReason: u.banReason || '',
         status: u.isBanned ? 'Suspended' : 'Active',
-        createdAt: u.createdAt || '2026-09-01T00:00:00.000Z'
+        createdAt: u.createdAt || null
       };
     });
 
@@ -345,7 +440,7 @@ router.get('/customers', requireAdmin, async (req, res) => {
     if (query) {
       customers = customers.filter(c =>
         c.name.toLowerCase().includes(query) ||
-        c.email.toLowerCase().includes(query) ||
+        String(c.email || '').toLowerCase().includes(query) ||
         c.tiwiId.toLowerCase().includes(query) ||
         c.storeNames.some(sn => sn.toLowerCase().includes(query))
       );
@@ -369,9 +464,8 @@ router.get('/customers', requireAdmin, async (req, res) => {
 // GET /api/admin/users - Full System Users Management with strict 20 items/page pagination & search
 router.get('/users', requireAdmin, async (req, res) => {
   try {
-    const master = getMasterDataRaw();
-    const rawUsers = master.users || [];
-    const stores = master.stores || [];
+    const rawUsers = await MasterDB.getUsers();
+    const { allStores: stores } = getAggregatedStoreData();
 
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20)); // Strictly default 20
@@ -387,7 +481,7 @@ router.get('/users', requireAdmin, async (req, res) => {
         (u.storeId && s.tiwiId === u.storeId)
       );
 
-      const storeCount = userStores.length > 0 ? userStores.length : (u.storeName ? 1 : 0);
+        const storeCount = userStores.length;
 
       return {
         id: u.id,
@@ -396,7 +490,7 @@ router.get('/users', requireAdmin, async (req, res) => {
         email: u.email,
         role: u.role || (u.email === 'tiwloltd@gmail.com' ? 'super_admin' : 'owner'),
         planId: u.planId || 'free',
-        planName: u.planName || 'Free Starter',
+        planName: u.planName || u.planId || 'Unknown',
         storeCount,
         stores: userStores.map(s => ({ id: s.id, name: s.storeName, subdomain: s.subdomain })),
         avatar: u.avatar && !u.avatar.includes('unsplash.com') ? u.avatar : '/tiwlo-icon.png',
@@ -405,7 +499,7 @@ router.get('/users', requireAdmin, async (req, res) => {
         bannedAt: u.bannedAt || null,
         emailVerified: u.emailVerified === true,
         twoFactorEnabled: u.twoFactorEnabled === true,
-        createdAt: u.createdAt || '2026-09-01T00:00:00.000Z'
+        createdAt: u.createdAt || null
       };
     });
 
@@ -413,7 +507,7 @@ router.get('/users', requireAdmin, async (req, res) => {
     if (query) {
       sanitizedUsers = sanitizedUsers.filter(u =>
         u.tiwiId.toLowerCase().includes(query) ||
-        u.email.toLowerCase().includes(query) ||
+        String(u.email || '').toLowerCase().includes(query) ||
         u.name.toLowerCase().includes(query) ||
         (u.id && u.id.toLowerCase().includes(query))
       );
@@ -432,15 +526,16 @@ router.get('/users', requireAdmin, async (req, res) => {
     }
 
     const total = sanitizedUsers.length;
-    const totalPages = Math.ceil(total / limit) || 1;
-    const startIndex = (page - 1) * limit;
+    const totalPages = Math.ceil(total / limit);
+    const safePage = totalPages ? Math.min(page, totalPages) : 1;
+    const startIndex = (safePage - 1) * limit;
     const paginatedUsers = sanitizedUsers.slice(startIndex, startIndex + limit);
 
     res.json({
       success: true,
       users: paginatedUsers,
       total,
-      page,
+      page: safePage,
       limit,
       totalPages
     });
@@ -455,53 +550,54 @@ router.post('/users/:id/ban', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { isBanned, reason } = req.body;
-    const master = getMasterDataRaw();
-
-    const uIndex = (master.users || []).findIndex(u =>
-      u.id === id || u.tiwiId === id || u.email?.toLowerCase() === id.toLowerCase()
-    );
-
-    if (uIndex === -1) {
+    if (isBanned !== undefined && typeof isBanned !== 'boolean') {
+      return res.status(400).json({ error: 'isBanned must be a boolean value.' });
+    }
+    const existingUser = await MasterDB.findUserByIdentifier(id);
+    if (!existingUser) {
       return res.status(404).json({ error: 'User not found in system.' });
     }
-
-    const targetUser = master.users[uIndex];
-
-    // Protect Super Admin from being banned
-    if (targetUser.role === 'super_admin' || targetUser.email === 'tiwloltd@gmail.com') {
+    if (existingUser.role === 'super_admin' || existingUser.email?.toLowerCase() === 'tiwloltd@gmail.com') {
       return res.status(403).json({ error: 'Super Administrator accounts cannot be disabled.' });
     }
-
-    const newBanStatus = isBanned !== undefined ? !!isBanned : !targetUser.isBanned;
-    targetUser.isBanned = newBanStatus;
-    targetUser.banReason = newBanStatus
-      ? (reason?.trim() || 'Your account was disabled due to a violation of platform policies.')
-      : null;
-    targetUser.bannedAt = newBanStatus ? new Date().toISOString() : null;
-    targetUser.updatedAt = new Date().toISOString();
-
-    // If banned, kill all active sessions for this user immediately
-    if (newBanStatus && Array.isArray(master.sessions)) {
-      master.sessions = master.sessions.filter(s =>
-        s.userId !== targetUser.id &&
-        s.email?.toLowerCase() !== targetUser.email?.toLowerCase()
-      );
+    if (existingUser.role === 'admin' && !isSuperAdminUser(req.adminUser)) {
+      return res.status(403).json({ error: 'Only a super administrator can change another administrator account.' });
     }
 
-    saveMasterDataRaw(master);
+    const newBanStatus = isBanned !== undefined ? isBanned === true : !existingUser.isBanned;
+    const banReason = newBanStatus
+      ? (typeof reason === 'string' && reason.trim()
+        ? reason.trim().slice(0, 1000)
+        : 'Your account was disabled due to a violation of platform policies.')
+      : null;
+    const targetUser = await MasterDB.updateUser(existingUser.id, {
+      isBanned: newBanStatus,
+      banReason
+    });
+    if (!targetUser) return res.status(404).json({ error: 'User not found in system.' });
+    if (newBanStatus) {
+      await queryPg('DELETE FROM system_sessions WHERE user_id = $1', [targetUser.id]);
+      await recordSecurityEvent({
+        eventType: 'admin.account_disabled',
+        severity: 'warning',
+        userId: targetUser.id,
+        subject: targetUser.email,
+        details: { administrator: req.adminUser.email }
+      });
+    }
 
     // Dispatch Security Email (clean security notice with cryptographic session tokens)
     if (newBanStatus) {
       const restoreSession = RestoreSessions.createRestoreSession({
         email: targetUser.email,
         userId: targetUser.id,
-        reason: targetUser.banReason
+        reason: banReason
       });
 
       sendAccountDisabledEmail({
         to: targetUser.email,
         name: targetUser.name || targetUser.storeName || 'Merchant',
-        reason: targetUser.banReason,
+        reason: banReason,
         restoreUrl: restoreSession.url
       }).catch(err => console.error('[Ban Email Dispatch Error]', err.message));
     } else {
@@ -528,8 +624,8 @@ router.post('/users/:id/ban', requireAdmin, async (req, res) => {
         tiwiId: targetUser.tiwiId,
         email: targetUser.email,
         isBanned: targetUser.isBanned,
-        banReason: targetUser.banReason,
-        bannedAt: targetUser.bannedAt
+        banReason,
+        bannedAt: newBanStatus ? new Date().toISOString() : null
       }
     });
   } catch (err) {
@@ -542,38 +638,51 @@ router.post('/users/:id/ban', requireAdmin, async (req, res) => {
 router.put('/users/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, role, planId, planName, phone, address } = req.body;
-    const master = getMasterDataRaw();
-
-    const uIndex = (master.users || []).findIndex(u =>
-      u.id === id || u.tiwiId === id || u.email?.toLowerCase() === id.toLowerCase()
-    );
-
-    if (uIndex === -1) {
+    const { name, email, role, planId, phone, address } = req.body;
+    const currentUser = await MasterDB.findUserByIdentifier(id);
+    if (!currentUser) {
       return res.status(404).json({ error: 'User not found in system.' });
     }
-
-    const user = master.users[uIndex];
-
-    if (name) user.name = name.trim();
-    if (email && email.includes('@')) user.email = email.trim().toLowerCase();
-    if (role && (role === 'owner' || role === 'staff' || role === 'customer' || role === 'admin' || role === 'super_admin')) {
-      user.role = role;
+    if (currentUser.role === 'super_admin' || currentUser.email?.toLowerCase() === 'tiwloltd@gmail.com') {
+      return res.status(403).json({ error: 'Super Administrator accounts cannot be edited here.' });
     }
-    if (planId) user.planId = planId;
-    if (planName) user.planName = planName;
-    if (phone) {
-      if (!user.billingDetails) user.billingDetails = {};
-      user.billingDetails.phone = phone;
+    if (currentUser.role === 'admin' && !isSuperAdminUser(req.adminUser)) {
+      return res.status(403).json({ error: 'Only a super administrator can edit another administrator account.' });
     }
-    if (address) {
-      if (!user.billingDetails) user.billingDetails = {};
-      user.billingDetails.address = address;
+    if (role !== undefined && !isSuperAdminUser(req.adminUser)) {
+      return res.status(403).json({ error: 'Only a super administrator can change account roles.' });
     }
-
-    user.updatedAt = new Date().toISOString();
-    saveMasterDataRaw(master);
-
+    if (role !== undefined && !['owner', 'staff', 'customer', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'The requested account role is not supported.' });
+    }
+    if (planId !== undefined && !['free', 'growth', 'pro', 'enterprise'].includes(planId)) {
+      return res.status(400).json({ error: 'The requested subscription plan is not supported.' });
+    }
+    const updates = {};
+    if (name !== undefined) {
+      if (typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'A non-empty display name is required.' });
+      updates.name = name.trim().slice(0, 255);
+    }
+    if (email !== undefined) {
+      if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        return res.status(400).json({ error: 'A valid email address is required.' });
+      }
+      const normalizedEmail = email.trim().toLowerCase();
+      const duplicate = await MasterDB.findUserByIdentifier(normalizedEmail);
+      if (duplicate && duplicate.id !== currentUser.id) {
+        return res.status(409).json({ error: 'That email address is already assigned to another account.' });
+      }
+      updates.email = normalizedEmail;
+    }
+    if (role !== undefined) updates.role = role;
+    if (planId !== undefined) {
+      updates.planId = planId;
+      updates.planName = ({ free: 'Free Starter', growth: 'Growth Retailer', pro: 'Pro Business', enterprise: 'Enterprise VIP' })[planId];
+    }
+    if (phone !== undefined) updates.phone = String(phone).slice(0, 64);
+    if (address !== undefined) updates.address = String(address).slice(0, 2000);
+    const user = await MasterDB.updateUser(currentUser.id, updates);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
     const { password, ...safeUser } = user;
     res.json({ success: true, message: 'User updated successfully.', user: safeUser });
   } catch (err) {
@@ -586,32 +695,30 @@ router.put('/users/:id', requireAdmin, async (req, res) => {
 router.delete('/users/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const master = getMasterDataRaw();
-
-    const uIndex = (master.users || []).findIndex(u =>
-      u.id === id || u.tiwiId === id || u.email?.toLowerCase() === id.toLowerCase()
-    );
-
-    if (uIndex === -1) {
+    const targetUser = await MasterDB.findUserByIdentifier(id);
+    if (!targetUser) {
       return res.status(404).json({ error: 'User not found.' });
     }
-
-    const targetUser = master.users[uIndex];
-
-    // Protect Super Admin
-    if (targetUser.role === 'super_admin' || targetUser.email === 'tiwloltd@gmail.com') {
+    if (targetUser.role === 'super_admin' || targetUser.email?.toLowerCase() === 'tiwloltd@gmail.com') {
       return res.status(403).json({ error: 'Super Administrator accounts cannot be deleted.' });
     }
-
-    master.users.splice(uIndex, 1);
-    if (Array.isArray(master.sessions)) {
-      master.sessions = master.sessions.filter(s =>
-        s.userId !== targetUser.id && s.email?.toLowerCase() !== targetUser.email?.toLowerCase()
-      );
+    if (targetUser.role === 'admin' && !isSuperAdminUser(req.adminUser)) {
+      return res.status(403).json({ error: 'Only a super administrator can delete another administrator.' });
     }
-
+    await queryPg('DELETE FROM system_sessions WHERE user_id = $1', [targetUser.id]);
+    const deletion = await queryPg('DELETE FROM system_users WHERE id = $1', [targetUser.id]);
+    if (!deletion.rowCount) return res.status(404).json({ error: 'User not found.' });
+    await recordSecurityEvent({
+      eventType: 'admin.account_deleted',
+      severity: 'warning',
+      userId: targetUser.id,
+      subject: targetUser.email,
+      details: { administrator: req.adminUser.email }
+    });
+    const master = getMasterDataRaw();
+    master.users = (master.users || []).filter(user => user.id !== targetUser.id);
+    master.sessions = (master.sessions || []).filter(session => session.userId !== targetUser.id);
     saveMasterDataRaw(master);
-
     res.json({ success: true, message: `User ${targetUser.email} deleted successfully.` });
   } catch (err) {
     console.error('[Admin Delete User Error]', err);
@@ -624,13 +731,18 @@ router.get('/orders', requireAdmin, async (req, res) => {
   try {
     const { allSales } = getAggregatedStoreData();
     const orders = allSales.map((s, idx) => ({
-      id: s.id || s.invoiceNo || `TWL-${1000 + idx}`,
-      customer: s.customerName || s.customer || 'Store Customer',
-      items: Array.isArray(s.items) ? s.items.length : 1,
-      total: Number(s.totalAmount || s.grandTotal || s.total || 0),
-      status: s.paymentStatus || s.status || 'Completed',
-      date: s.date || s.createdAt || new Date().toISOString()
-    }));
+      id: s.id || s.invoiceNumber || s.invoiceNo || null,
+      rowKey: `${s.storeId || 'store'}:${s.id || s.invoiceNumber || s.invoiceNo || idx}`,
+      store: s.storeName,
+      currency: s.currency,
+      customer: s.customerName || s.customer || 'Customer unavailable',
+      items: Array.isArray(s.items) ? s.items.length : 0,
+      total: s.totalAmount === undefined && s.grandTotal === undefined && s.total === undefined
+        ? null
+        : getSaleAmount(s),
+      status: s.paymentStatus || s.status || 'Unknown',
+      date: getSaleTimestamp(s)?.toISOString() || null
+    })).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
     res.json({ success: true, orders, liveCount: allSales.length });
   } catch (err) {
@@ -638,14 +750,46 @@ router.get('/orders', requireAdmin, async (req, res) => {
   }
 });
 
+router.get('/products', requireAdmin, async (req, res) => {
+  try {
+    const { allProducts } = getAggregatedStoreData();
+    const query = String(req.query.q || '').trim().toLowerCase();
+    const products = allProducts
+      .filter(product => !query || [
+        product.name,
+        product.sku,
+        product.categoryName,
+        product.category,
+        product.storeName
+      ].some(value => String(value || '').toLowerCase().includes(query)))
+      .map(product => ({
+        id: product.id,
+        storeId: product.storeId,
+        storeName: product.storeName,
+        name: product.name || 'Unnamed product',
+        sku: product.sku || '',
+        category: product.categoryName || product.category || 'Uncategorized',
+        price: product.price !== null && product.price !== undefined && Number.isFinite(Number(product.price)) ? Number(product.price) : null,
+        stock: product.stock !== null && product.stock !== undefined && Number.isFinite(Number(product.stock)) ? Number(product.stock) : null,
+        status: product.status || 'Unknown',
+        image: product.image || null,
+        currency: product.currency
+      }));
+    res.json({ success: true, products, total: products.length });
+  } catch (error) {
+    console.error('[Admin Products Error]', error.message);
+    res.status(503).json({ error: 'Could not read live store product catalogs.' });
+  }
+});
+
 // GET /api/admin/servers - Cloud servers list
 router.get('/servers', requireAdmin, async (req, res) => {
-  try {
-    const cloud = getCloudData();
-    res.json({ success: true, droplets: cloud.droplets || [] });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to retrieve servers.' });
-  }
+  res.json({
+    success: true,
+    providerConnected: false,
+    droplets: [],
+    message: 'Cloud provisioning is not connected to a provider.'
+  });
 });
 
 export default router;

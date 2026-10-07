@@ -6,9 +6,9 @@ export default function MetricCards({ metrics }) {
     {
       id: 'revenue',
       title: 'Total Revenue',
-      value: metrics?.totalRevenue?.value || '$24,582.00',
-      trend: metrics?.totalRevenue?.trend || '12.5%',
-      period: metrics?.totalRevenue?.period || 'vs. last 7 days',
+      value: metrics?.totalRevenue?.value ?? '—',
+      trend: metrics?.totalRevenue?.trend ?? '—',
+      period: metrics?.totalRevenue?.period ?? '',
       positive: metrics?.totalRevenue?.positive !== false,
       icon: DollarSign,
       iconBg: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
@@ -16,19 +16,19 @@ export default function MetricCards({ metrics }) {
     {
       id: 'orders',
       title: 'Total Orders',
-      value: metrics?.totalOrders?.value || '1,248',
-      trend: metrics?.totalOrders?.trend || '8.2%',
-      period: metrics?.totalOrders?.period || 'vs. last 7 days',
+      value: metrics?.totalOrders?.value ?? '—',
+      trend: metrics?.totalOrders?.trend ?? '—',
+      period: metrics?.totalOrders?.period ?? '',
       positive: metrics?.totalOrders?.positive !== false,
       icon: ShoppingCart,
       iconBg: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
     },
     {
       id: 'customers',
-      title: 'Total Customers',
-      value: metrics?.totalCustomers?.value || '892',
-      trend: metrics?.totalCustomers?.trend || '15.6%',
-      period: metrics?.totalCustomers?.period || 'vs. last 7 days',
+      title: 'Customer Records',
+      value: metrics?.totalCustomers?.value ?? '—',
+      trend: metrics?.totalCustomers?.trend ?? '—',
+      period: metrics?.totalCustomers?.period ?? '',
       positive: metrics?.totalCustomers?.positive !== false,
       icon: Users,
       iconBg: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
@@ -36,9 +36,9 @@ export default function MetricCards({ metrics }) {
     {
       id: 'servers',
       title: 'Active Cloud Servers',
-      value: metrics?.activeCloudServers?.value || '24',
-      trend: metrics?.activeCloudServers?.trend || '4.3%',
-      period: metrics?.activeCloudServers?.period || 'vs. last 7 days',
+      value: metrics?.activeCloudServers?.value ?? 'Not connected',
+      trend: metrics?.activeCloudServers?.trend ?? '—',
+      period: metrics?.activeCloudServers?.period ?? '',
       positive: metrics?.activeCloudServers?.positive !== false,
       icon: Cloud,
       iconBg: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
@@ -67,7 +67,8 @@ export default function MetricCards({ metrics }) {
               {c.value}
             </div>
 
-            <div className="flex items-center gap-1.5 text-xs">
+            {c.trend !== '—' && (
+              <div className="flex items-center gap-1.5 text-xs">
               <span
                 className={`flex items-center font-semibold ${
                   c.positive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
@@ -80,8 +81,9 @@ export default function MetricCards({ metrics }) {
                 )}
                 {c.trend}
               </span>
-              <span className="text-slate-400 dark:text-slate-500">{c.period}</span>
-            </div>
+                <span className="text-slate-400 dark:text-slate-500">{c.period}</span>
+              </div>
+            )}
           </div>
         );
       })}

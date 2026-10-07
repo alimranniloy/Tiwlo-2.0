@@ -27,9 +27,11 @@ An exact replica of the modern SaaS Inventory Management Dashboard built with **
 
 - **Frontend**: React 19, Vite, Tailwind CSS v4, Lucide Icons, Plus Jakarta Sans font
 - **Backend**: Node.js, Express, CORS
-- **Storage**: PostgreSQL for production authentication, audit, and new uploaded media; legacy store-data adapters still require migration
+- **Storage**: PostgreSQL for production authentication, audit, and new uploaded media; tenant commerce records are atomically persisted per store under `server/data/db/stores`
 
 ## 🚀 Running the App
+
+Tenant store records and the store registry persist under `server/data/db/stores`; Docker Compose mounts `server/data` as a persistent volume. Legacy flat tenant JSON files are copied into the primary tenant store on first access and are left in place as a recovery source. Store data held only in memory by an older running server cannot be recovered after that server restarts, so export any such live-only records before upgrading.
 
 ### Shared domain and DNS configuration
 

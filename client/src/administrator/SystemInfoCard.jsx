@@ -2,10 +2,9 @@ import React from 'react';
 
 export default function SystemInfoCard({ info }) {
   const specs = [
-    { label: 'Platform Version', value: info?.platformVersion || 'v2.8.0' },
-    { label: 'PHP Version', value: info?.phpVersion || '8.2.12' },
-    { label: 'Database', value: info?.database || 'PostgreSQL 15' },
-    { label: 'Server Uptime', value: info?.serverUptime || '12 days, 4 hours' }
+    { label: 'Node.js', value: info?.nodeVersion || '—' },
+    { label: 'Database', value: info?.database || '—' },
+    { label: 'Server Uptime', value: info?.serverUptime || '—' }
   ];
 
   return (
