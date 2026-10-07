@@ -161,13 +161,18 @@ export async function initPgSchema() {
         is_pinned BOOLEAN NOT NULL DEFAULT FALSE,
         delivery_status VARCHAR(32),
         message_id VARCHAR(255),
+        delivery_key CHAR(64),
         created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE system_user_mail_messages ADD COLUMN IF NOT EXISTS delivery_key CHAR(64);
       CREATE INDEX IF NOT EXISTS idx_user_mail_folder
         ON system_user_mail_messages(user_id, folder, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_user_mail_flagged
         ON system_user_mail_messages(user_id, is_flagged, created_at DESC);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_user_mail_delivery_key
+        ON system_user_mail_messages(user_id, delivery_key)
+        WHERE delivery_key IS NOT NULL;
 
       CREATE TABLE IF NOT EXISTS system_user_mail_attachments (
         id VARCHAR(64) PRIMARY KEY,

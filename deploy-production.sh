@@ -130,6 +130,9 @@ if command -v pm2 >/dev/null 2>&1; then
   if [[ -f "$ROOT_DIR/server/dns/dnsServer.js" ]]; then
     pm2 reload tiwlo-dns || pm2 restart tiwlo-dns || pm2 start dns/dnsServer.js --name tiwlo-dns || true
   fi
+  sleep 2
+  echo "--- Step 4b: Provisioning Native Tiwlo Mail Transport ---"
+  node "$ROOT_DIR/server/scripts/provision-mail.js"
   pm2 save
   pm2 startup systemd -u root --hp /root 2>/dev/null || true
   echo "PM2 services active."

@@ -36,7 +36,7 @@ export function getEmailConfig() {
     replyTo: PLATFORM_CONFIG.noreplyEmail,
     accountType: 'system_noreply',
     storage: 'postgresql_with_90_day_retention',
-    inboundPolicy: 'reject_all_incoming',
+    inboundPolicy: 'registered_mailboxes_only',
     smtp: {
       provider: process.env.SMTP_PROVIDER || 'local_postfix',
       host: process.env.SMTP_HOST || '127.0.0.1',
@@ -48,7 +48,7 @@ export function getEmailConfig() {
       }
     },
     dnsRecords: {
-      mx: { host: getSubdomain(PLATFORM_CONFIG.mailSubdomain), priority: 10 },
+      mx: { host: getSubdomain(PLATFORM_CONFIG.mtaSubdomain), priority: 10 },
       spf: `v=spf1 mx ip4:${PLATFORM_CONFIG.serverIpv4} ${PLATFORM_CONFIG.dnsSpfPolicy}`,
       dmarc: `v=DMARC1; p=${PLATFORM_CONFIG.dnsDmarcPolicy}; rua=mailto:${PLATFORM_CONFIG.securityEmail}; pct=100; sp=${PLATFORM_CONFIG.dnsDmarcPolicy}`,
       dkimSelector: `${PLATFORM_CONFIG.dkimSelector}._domainkey.${PLATFORM_CONFIG.primaryDomain}`
@@ -344,6 +344,9 @@ export async function sendTiwloEmail({
   cc,
   bcc,
   attachments,
+  fromEmail,
+  fromName,
+  replyTo,
   subject,
   html,
   text,
@@ -352,11 +355,19 @@ export async function sendTiwloEmail({
 }) {
   const config = getEmailConfig();
   const cleanTo = (to || '').trim();
+  const cleanFromEmail = String(fromEmail || config.senderEmail).trim().toLowerCase();
+  const cleanReplyTo = String(replyTo || config.replyTo).trim().toLowerCase();
+  const domainSuffix = `@${PLATFORM_CONFIG.primaryDomain}`;
+  if (!cleanFromEmail.endsWith(domainSuffix) || !cleanReplyTo.endsWith(domainSuffix) ||
+      !/^[^\s@]+@[^\s@]+$/.test(cleanFromEmail) || !/^[^\s@]+@[^\s@]+$/.test(cleanReplyTo)) {
+    throw new TypeError('Email sender must be a valid address on the configured Tiwlo domain.');
+  }
+  const cleanFromName = String(fromName || config.senderName).replace(/[\r\n"]/g, ' ').slice(0, 120);
 
   const mailOptions = {
-    from: `"${config.senderName}" <${config.senderEmail}>`,
+    from: { name: cleanFromName, address: cleanFromEmail },
     to: cleanTo,
-    replyTo: `"${config.senderName} (Do Not Reply)" <${config.replyTo}>`,
+    replyTo: cleanReplyTo,
     ...(cc?.length ? { cc } : {}),
     ...(bcc?.length ? { bcc } : {}),
     ...(attachments?.length ? { attachments } : {}),
@@ -371,13 +382,16 @@ export async function sendTiwloEmail({
     }
   };
 
-  let deliveryStatus = 'delivered';
+  let deliveryStatus = type === 'user_mail' ? 'queued' : 'delivered';
   let errorMsg = null;
   let messageId = null;
 
   try {
     const transporter = createTransporter(config);
     const info = await transporter.sendMail(mailOptions);
+    if (Array.isArray(info?.accepted) && info.accepted.length === 0) {
+      throw new Error('SMTP server rejected all message recipients.');
+    }
     messageId = info?.messageId || `msg_${Date.now()}`;
     console.log(`✉️ [EmailService] Successfully sent ${type} to ${cleanTo} (${messageId})`);
   } catch (err) {
@@ -394,8 +408,11 @@ export async function sendTiwloEmail({
         socketTimeout: 12000
       });
       const info = await fallbackTransporter.sendMail(mailOptions);
+      if (Array.isArray(info?.accepted) && info.accepted.length === 0) {
+        throw new Error('Fallback SMTP server rejected all message recipients.');
+      }
       messageId = info?.messageId || `msg_${Date.now()}`;
-      deliveryStatus = 'delivered';
+      deliveryStatus = type === 'user_mail' ? 'queued' : 'delivered';
       errorMsg = null;
       console.log(`✉️ [EmailService] Successfully sent ${type} to ${cleanTo} via fallback Postfix loopback (${messageId})`);
     } catch (fallbackErr) {
@@ -407,7 +424,7 @@ export async function sendTiwloEmail({
 
   await recordEmailDelivery({
     recipient: cleanTo,
-    sender: config.senderEmail,
+    sender: cleanFromEmail,
     subject,
     type,
     status: deliveryStatus,
@@ -417,7 +434,7 @@ export async function sendTiwloEmail({
   });
 
   return {
-    success: deliveryStatus === 'delivered',
+    success: deliveryStatus !== 'failed',
     delivered: deliveryStatus === 'delivered',
     status: deliveryStatus,
     messageId,

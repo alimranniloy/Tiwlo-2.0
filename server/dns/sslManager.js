@@ -27,6 +27,7 @@ export const SSL_CONFIG = {
     getSubdomain(PLATFORM_CONFIG.dns1Subdomain),
     getSubdomain(PLATFORM_CONFIG.dns2Subdomain),
     getSubdomain(PLATFORM_CONFIG.mailSubdomain),
+    getSubdomain(PLATFORM_CONFIG.mtaSubdomain),
     getSubdomain(PLATFORM_CONFIG.driveSubdomain)
   ],
   CERTBOT_WEBROOT: '/var/www/certbot',

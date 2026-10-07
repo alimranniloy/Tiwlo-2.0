@@ -33,7 +33,7 @@ export const DNS_CONFIG = {
   NS1: getSubdomain(PLATFORM_CONFIG.dns1Subdomain),
   NS2: getSubdomain(PLATFORM_CONFIG.dns2Subdomain),
   ADMIN_EMAIL: PLATFORM_CONFIG.adminEmail,
-  MAIL_HOST: getSubdomain(PLATFORM_CONFIG.mailSubdomain),
+  MAIL_HOST: getSubdomain(PLATFORM_CONFIG.mtaSubdomain),
   SECURITY_EMAIL: PLATFORM_CONFIG.securityEmail,
   PORT: parseInt(process.env.DNS_PORT || '53', 10),
   HOST: process.env.DNS_HOST || '0.0.0.0',
@@ -255,6 +255,26 @@ function handleDnsRequest(request, send, rinfo) {
       // TYPE TXT (Text / SPF / DMARC / ACME Verification)
       // -------------------------------------------------------------
       case Packet.TYPE.TXT: {
+        const dkimName = `${PLATFORM_CONFIG.dkimSelector}._domainkey.${DNS_CONFIG.PRIMARY_DOMAIN}`;
+        if (queryDomain === dkimName) {
+          const keyRecordPath = path.join(__dirname, '../data/email', `${PLATFORM_CONFIG.dkimSelector}.txt`);
+          if (fs.existsSync(keyRecordPath)) {
+            const text = fs.readFileSync(keyRecordPath, 'utf8');
+            const value = [...text.matchAll(/"([^"]*)"/g)].map((match) => match[1]).join('');
+            if (value) {
+              const chunks = value.match(/.{1,240}/g) || [];
+              response.answers.push({
+                name: question.name,
+                type: Packet.TYPE.TXT,
+                class: Packet.CLASS.IN,
+                ttl: DNS_CONFIG.DEFAULT_TTL,
+                data: chunks
+              });
+            }
+          }
+          break;
+        }
+
         // 1. Dynamic ACME Challenge for Wildcard SSL
         if (queryDomain.startsWith('_acme-challenge')) {
           try {

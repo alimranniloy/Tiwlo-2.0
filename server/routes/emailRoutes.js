@@ -3,7 +3,7 @@ import express from 'express';
 import multer from 'multer';
 import rateLimit from 'express-rate-limit';
 import { getPgPool } from '../db/postgres.js';
-import { getEmailConfig, sendTiwloEmail } from '../db/emailService.js';
+import { sendTiwloEmail } from '../db/emailService.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 
 const router = express.Router();
@@ -316,7 +316,7 @@ router.get('/messages/:id', async (req, res, next) => {
 router.post('/drafts', async (req, res, next) => {
   try {
     const userId = req.activeUser.id;
-    const senderEmail = req.activeUser.email;
+    const senderEmail = req.mailbox.address;
     if (!senderEmail) return res.status(400).json({ success: false, error: 'Your account has no email address.' });
     const { to = '', cc = '', bcc = '', subject = '', body = '', draftId = null } = req.body || {};
     const senderName = req.activeUser.name || senderEmail;
@@ -379,7 +379,7 @@ router.delete('/drafts/:id', async (req, res, next) => {
 router.post('/send', sendLimiter, handleUploadError, async (req, res, next) => {
   try {
     const userId = req.activeUser.id;
-    const senderEmail = req.activeUser.email;
+    const senderEmail = req.mailbox.address;
     if (!senderEmail) return res.status(400).json({ success: false, error: 'Your account has no email address.' });
     const to = parseRecipients(req.body.to, 'To');
     const cc = parseRecipients(req.body.cc, 'Cc', true);
@@ -393,7 +393,6 @@ router.post('/send', sendLimiter, handleUploadError, async (req, res, next) => {
     if (totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) {
       return res.status(400).json({ success: false, error: 'Total attachment size must be 20 MB or smaller.' });
     }
-    const emailConfig = getEmailConfig();
     const messageId = crypto.randomUUID();
     const attachmentMetadata = files.map((file) => ({
       id: crypto.randomUUID(),
@@ -412,8 +411,8 @@ router.post('/send', sendLimiter, handleUploadError, async (req, res, next) => {
       [
         messageId,
         userId,
-        emailConfig.senderName,
-        emailConfig.senderEmail,
+        req.activeUser.name || senderEmail,
+        senderEmail,
         JSON.stringify(to.map((email) => ({ name: email, email }))),
         JSON.stringify(cc.map((email) => ({ name: email, email }))),
         JSON.stringify(bcc.map((email) => ({ name: email, email }))),
@@ -435,6 +434,9 @@ router.post('/send', sendLimiter, handleUploadError, async (req, res, next) => {
         );
       }
       const delivery = await sendTiwloEmail({
+        fromEmail: senderEmail,
+        fromName: req.activeUser.name || senderEmail,
+        replyTo: senderEmail,
         to: to.join(', '),
         cc: cc.join(', '),
         bcc: bcc.join(', '),

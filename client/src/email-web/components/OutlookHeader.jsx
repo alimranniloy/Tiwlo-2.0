@@ -33,6 +33,7 @@ import { useEmail } from '../context/EmailContext';
 export default function OutlookHeader() {
   const {
     currentUser,
+    mailbox,
     searchQuery,
     setSearchQuery,
     setMobileDrawerOpen,
@@ -433,7 +434,7 @@ export default function OutlookHeader() {
                     {currentUser?.name || 'Ahmad Imran'}
                   </span>
                   <span className="text-[12px] text-gray-500 truncate">
-                    {currentUser?.email || 'ahmad@tiwlo.com'}
+                    {mailbox?.address || currentUser?.email || ''}
                   </span>
                   <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#107C41] font-semibold">
                     <CheckCircle2 className="w-3.5 h-3.5" />

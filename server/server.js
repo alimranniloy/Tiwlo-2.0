@@ -2,6 +2,7 @@ import './config/loadRootEnv.js';
 import express from 'express';
 import cors from 'cors';
 import fs from 'fs';
+import crypto from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import https from 'https';
@@ -38,6 +39,7 @@ import { WhatsAppManager } from './whatsapp/whatsappManager.js';
 import tpanelRoutes from '../service/TPanel/server/tpanelRoutes.js';
 import supportRoutes from './support/ai/supportRoutes.js';
 import emailRoutes from './routes/emailRoutes.js';
+import { readInboundDeliveryToken, storeInboundMail } from './email/inboundMail.js';
 
 // Modular Plugins & Add-Ons Architecture (Rule 6)
 import pluginManager from './plugins/index.js';
@@ -51,6 +53,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5000;
+const HTTP_PORT = Number.parseInt(process.env.HTTP_PORT || String(Number(PORT) + 1), 10);
 
 // ==========================================
 // 1. ENTERPRISE SECURITY HEADERS (HELMET)
@@ -135,6 +138,32 @@ app.use(cors({
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+app.post('/internal/email/inbound', express.raw({
+  type: 'message/rfc822',
+  limit: '26mb'
+}), async (req, res) => {
+  const remoteAddress = req.socket.remoteAddress;
+  if (remoteAddress !== '127.0.0.1' && remoteAddress !== '::1' && remoteAddress !== '::ffff:127.0.0.1') {
+    return res.sendStatus(403);
+  }
+  const expectedToken = readInboundDeliveryToken();
+  const suppliedToken = String(req.headers['x-tiwlo-internal'] || '');
+  const expectedBuffer = Buffer.from(expectedToken);
+  const suppliedBuffer = Buffer.from(suppliedToken);
+  if (!expectedBuffer.length || expectedBuffer.length !== suppliedBuffer.length ||
+      !crypto.timingSafeEqual(expectedBuffer, suppliedBuffer)) {
+    return res.sendStatus(expectedBuffer.length ? 403 : 503);
+  }
+  if (!Buffer.isBuffer(req.body)) return res.status(400).send('Expected RFC822 message body.');
+  try {
+    const result = await storeInboundMail(req.body, req.headers['x-tiwlo-recipient']);
+    return res.status(202).json({ success: true, duplicate: result.duplicate });
+  } catch (error) {
+    console.error('[Tiwi Mail Inbound] Delivery failed:', error.message);
+    return res.status(error instanceof TypeError ? 422 : 503).send('Inbound mail could not be stored.');
+  }
+});
 
 // Global Input Sanitization & Anti-Injection Middleware
 app.use((req, res, next) => {
@@ -407,7 +436,6 @@ async function startServer() {
       console.log(`🔒 Tiwlo StockPro Secure HTTPS Server running on https://localhost:${PORT}`);
     });
 
-    const HTTP_PORT = process.env.HTTP_PORT || (Number(PORT) + 1);
     const httpServer = http.createServer(app);
     httpServer.listen(HTTP_PORT, () => {
       console.log(`🌐 Tiwlo Direct HTTP Server (Mobile/Expo) running on http://localhost:${HTTP_PORT}`);
@@ -415,6 +443,10 @@ async function startServer() {
   } else {
     app.listen(PORT, () => {
       console.log(`StockPro Backend Server running on http://localhost:${PORT}`);
+    });
+    const inboundHttpServer = http.createServer(app);
+    inboundHttpServer.listen(HTTP_PORT, '127.0.0.1', () => {
+      console.log(`Tiwlo local mail-delivery endpoint listening on 127.0.0.1:${HTTP_PORT}`);
     });
   }
 }
