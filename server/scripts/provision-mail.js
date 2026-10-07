@@ -113,7 +113,12 @@ function installPackages() {
   const missing = [];
   for (const packageName of ['postfix-pgsql', 'curl', 'opendkim', 'opendkim-tools', 'certbot']) {
     try {
-      execFileSync('dpkg-query', ['-W', '-f=${Status}', packageName], { stdio: 'pipe' });
+      const status = execFileSync(
+        'dpkg-query',
+        ['-W', '-f=${Status}', packageName],
+        { encoding: 'utf8', stdio: 'pipe' }
+      ).trim();
+      if (status !== 'install ok installed') missing.push(packageName);
     } catch {
       missing.push(packageName);
     }
