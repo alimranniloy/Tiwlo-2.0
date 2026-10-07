@@ -437,8 +437,8 @@ async function startServer() {
     });
 
     const httpServer = http.createServer(app);
-    httpServer.listen(HTTP_PORT, () => {
-      console.log(`🌐 Tiwlo Direct HTTP Server (Mobile/Expo) running on http://localhost:${HTTP_PORT}`);
+    httpServer.listen(HTTP_PORT, '127.0.0.1', () => {
+      console.log(`🌐 Tiwlo local HTTP Server (loopback only) running on http://127.0.0.1:${HTTP_PORT}`);
     });
   } else {
     app.listen(PORT, () => {

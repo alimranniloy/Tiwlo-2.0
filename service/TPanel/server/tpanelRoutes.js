@@ -1,14 +1,10 @@
 import express from 'express';
 import { TPanelDB } from './tpanelDb.js';
 import { verifyAndSetupTPanelRuntimes } from '../runtimes/installer.js';
+import { getAuthenticatedUserId as getUserId } from '../../../server/security/authGuards.js';
 
 const router = express.Router();
 TPanelDB.init();
-
-// Middleware to extract user ID
-const getUserId = (req) => {
-  return req.user?.id || req.session?.userId || req.query.userId || req.headers['x-user-id'] || req.body?.userId || null;
-};
 
 // Enforce authentication for all TPanel API routes
 router.use((req, res, next) => {

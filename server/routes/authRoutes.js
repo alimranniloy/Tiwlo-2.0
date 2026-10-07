@@ -1,6 +1,6 @@
 import express from 'express';
-import crypto from 'crypto';
-import { MasterDB, TenantDB } from '../db/multiTenant.js';
+import { MasterDB } from '../db/multiTenant.js';
+import { hasUnverifiedSsoIdentity } from '../security/authGuards.js';
 import {
   PasswordSecurity,
   SessionSecurity,
@@ -219,6 +219,12 @@ router.all('/auth/check-availability', async (req, res) => {
 // Register
 router.post('/auth/register', async (req, res) => {
   try {
+    if (hasUnverifiedSsoIdentity(req.body)) {
+      return res.status(400).json({
+        error: 'Social sign-up is unavailable until the identity provider can be verified securely. Register with email and password instead.'
+      });
+    }
+
     const {
       email,
       password,
@@ -234,16 +240,14 @@ router.post('/auth/register', async (req, res) => {
       birthday,
       gender,
       billingDetails,
-      planId = 'free',
-      isSso = false,
-      authMethod = 'credentials'
+      planId = 'free'
     } = req.body;
 
     if (!email || !email.includes('@')) {
       return res.status(400).json({ error: 'A valid email address is required' });
     }
 
-    if (!isSso && (!password || password.length < 6)) {
+    if (!password || password.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters long' });
     }
 
@@ -266,61 +270,6 @@ router.post('/auth/register', async (req, res) => {
     const existing = await MasterDB.findUserByIdentifier(normalizedEmail);
 
     if (existing || emailTaken) {
-      if (isSso && existing) {
-        const tiwiId = existing.tiwiId || existing.storeId;
-        const finalBilling = {
-          address: billingAddress,
-          city: billingDetails?.city || 'Dhaka',
-          country: billingDetails?.country || 'Bangladesh',
-          phone: billingDetails?.phone || phone || existing.phone || '',
-          postalCode: billingDetails?.postalCode || ''
-        };
-
-        const updatedUser = await MasterDB.updateUser(existing.id, {
-          storeName: effectiveDisplayName,
-          name: (accountType === 'business' ? (name || effectiveDisplayName) : effectiveDisplayName)?.trim(),
-          businessName: businessName?.trim() || (accountType === 'business' ? effectiveDisplayName : ''),
-          accountType,
-          address: address?.trim() || existing.address || '',
-          phone: phone?.trim() || existing.phone || '',
-          billingDetails: finalBilling,
-          authMethod: authMethod || 'social'
-        });
-
-        try {
-          await TenantDB.provisionStore(tiwiId, effectiveDisplayName, existing.planId || 'free');
-        } catch (e) {}
-
-        const { sessionToken } = await MasterDB.createSession(existing.id, tiwiId, normalizedEmail, req);
-        setSessionCookie(res, req, sessionToken);
-
-        logActivity('auth', `Account updated via ${authMethod}`, `Tiwi ID: ${tiwiId} • Email: ${normalizedEmail}`, tiwiId);
-
-        return res.status(200).json({
-          success: true,
-          sessionToken,
-          tiwiId,
-          storeId: tiwiId,
-          subdomain: existing.subdomain,
-          user: {
-            id: existing.id,
-            tiwiId,
-            storeId: tiwiId,
-            storeName: effectiveDisplayName,
-            name: updatedUser.name,
-            email: existing.email,
-            accountType: updatedUser.accountType,
-            address: updatedUser.address,
-            phone: updatedUser.phone,
-            billingDetails: updatedUser.billingDetails,
-            planId: existing.planId,
-            planName: existing.planName,
-            subdomain: existing.subdomain
-          },
-          message: `Account setup completed successfully! Your Tiwi ID is ${tiwiId}.`
-        });
-      }
-
       return res.status(409).json({ error: 'That email is already in use. Please sign in or use another email.' });
     }
 
@@ -354,8 +303,6 @@ router.post('/auth/register', async (req, res) => {
     const cleanSlug = candidateHandle.toLowerCase().replace(/[^a-z0-9]/g, '') || 'store';
     const subdomain = `${cleanSlug}.${PLATFORM_CONFIG.storeDomain}`;
     const selectedPlan = PLAN_CATALOG[planId] || PLAN_CATALOG.free;
-    const securePassword = password || `sso_${authMethod}_${crypto.randomBytes(16).toString('hex')}`;
-
     const finalBillingDetails = {
       address: billingAddress,
       city: billingDetails?.city || '',
@@ -373,7 +320,7 @@ router.post('/auth/register', async (req, res) => {
       address: address?.trim() || '',
       phone: phone?.trim() || '',
       email: normalizedEmail,
-      password: securePassword,
+      password,
       dateOfBirth: dateOfBirth || birthday || '',
       birthday: birthday || dateOfBirth || '',
       gender: gender || '',
@@ -381,8 +328,8 @@ router.post('/auth/register', async (req, res) => {
       planId: selectedPlan.planId,
       planName: selectedPlan.planName,
       subdomain,
-      authMethod: authMethod || (isSso ? 'social' : 'credentials'),
-      emailVerified: isSso ? true : false,
+      authMethod: 'credentials',
+      emailVerified: false,
       twoFactorEnabled: false
     });
 
@@ -429,35 +376,6 @@ router.post('/auth/register', async (req, res) => {
     }
 
     logActivity('auth', `Store "${newUser.storeName}" Created`, `Tiwi ID: ${tiwiId} • Email: ${normalizedEmail}`, tiwiId);
-
-    if (isSso) {
-      const { sessionToken } = await MasterDB.createSession(newUser.id, tiwiId, normalizedEmail, req);
-      setSessionCookie(res, req, sessionToken);
-
-      return res.status(201).json({
-        success: true,
-        sessionToken,
-        tiwiId,
-        storeId: tiwiId,
-        subdomain: newUser.subdomain,
-        user: {
-          id: newUser.id,
-          tiwiId,
-          storeId: tiwiId,
-          storeName: newUser.storeName,
-          name: newUser.name,
-          email: newUser.email,
-          accountType: newUser.accountType,
-          address: newUser.address,
-          phone: newUser.phone,
-          billingDetails: newUser.billingDetails,
-          planId: newUser.planId,
-          planName: newUser.planName,
-          subdomain: newUser.subdomain
-        },
-        message: `Store "${newUser.storeName}" created successfully! Your Tiwi ID is ${tiwiId}.`
-      });
-    }
 
     const verifyOtp = await generateSecureOtp(newUser.email, 'email_verify', 15);
     const masked = maskEmail(newUser.email);
