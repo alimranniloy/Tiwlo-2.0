@@ -1,30 +1,27 @@
 import {
   AmbientLight,
+  ACESFilmicToneMapping,
   Color,
   DirectionalLight,
-  Group,
-  IcosahedronGeometry,
-  Mesh,
-  MeshPhysicalMaterial,
-  MeshStandardMaterial,
   PerspectiveCamera,
   Scene,
-  SphereGeometry,
-  TorusGeometry,
-  TorusKnotGeometry,
   WebGLRenderer,
 } from "three";
+import { buildHeroWorld } from "./heroModels";
 
 export function createHeroScene(host, onContextLost) {
   const scene = new Scene();
   const camera = new PerspectiveCamera(35, 1, 0.1, 40);
-  camera.position.set(0, 0.1, 8.8);
+  camera.position.set(0, 2.65, 11.9);
+  camera.lookAt(0, 0.25, 0);
   const renderer = new WebGLRenderer({
     alpha: true,
     antialias: true,
     powerPreference: "low-power",
   });
   renderer.setClearColor(new Color("#edf3ff"), 0);
+  renderer.toneMapping = ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
   renderer.setPixelRatio(
     Math.min(
       window.devicePixelRatio || 1,
@@ -33,59 +30,33 @@ export function createHeroScene(host, onContextLost) {
   );
   renderer.domElement.setAttribute("aria-hidden", "true");
   host.appendChild(renderer.domElement);
-  scene.add(new AmbientLight(0xffffff, 2.4));
-  const key = new DirectionalLight(0xffffff, 4.5);
+  scene.add(new AmbientLight(0xffffff, 1.8));
+  const key = new DirectionalLight(0xffffff, 3.5);
   key.position.set(-3, 4, 5);
   scene.add(key);
-  const rim = new DirectionalLight(0x6d92ff, 4);
+  const rim = new DirectionalLight(0xa9cfff, 2.5);
   rim.position.set(4, -1, 2);
   scene.add(rim);
-  const sculpture = new Group();
-  sculpture.rotation.set(0.35, -0.3, -0.3);
-  scene.add(sculpture);
-  const blue = new MeshPhysicalMaterial({
-    color: 0x3266ed,
-    metalness: 0.28,
-    roughness: 0.24,
-    clearcoat: 1,
-    clearcoatRoughness: 0.22,
-  });
-  const pearl = new MeshPhysicalMaterial({
-    color: 0xe4ecff,
-    metalness: 0.25,
-    roughness: 0.24,
-    clearcoat: 0.8,
-  });
-  const mint = new MeshStandardMaterial({
-    color: 0xbce7bf,
-    metalness: 0.15,
-    roughness: 0.32,
-  });
-  const core = new Mesh(new TorusKnotGeometry(0.87, 0.31, 120, 20, 2, 3), blue);
-  sculpture.add(core);
-  sculpture.add(new Mesh(new IcosahedronGeometry(0.48, 2), pearl));
-  const orbits = new Group();
-  sculpture.add(orbits);
-  for (let i = 0; i < 3; i++) {
-    const orbit = new Mesh(
-      new TorusGeometry(1.78 + i * 0.19, i === 0 ? 0.026 : 0.012, 6, 100),
-      pearl,
-    );
-    orbit.rotation.set(0.6 + i * 0.7, i * 0.55, i * 0.25);
-    orbits.add(orbit);
+  const { world, models, halo, accents, liquid } = buildHeroWorld();
+  scene.add(world);
+  let focus = -1;
+  let scrollTarget = 0;
+  let scrollProgress = 0;
+  const stage = host.closest(".tl-hero-stage");
+  const stageLayout = { top: 0, distance: 1 };
+  function measureStage() {
+    const bounds = (stage || host).getBoundingClientRect();
+    stageLayout.top = bounds.top + window.scrollY;
+    stageLayout.distance = Math.max(bounds.height - window.innerHeight, 380);
+    updateScroll();
   }
-  const satelliteGeometry = new SphereGeometry(0.15, 20, 12);
-  for (let i = 0; i < 5; i++) {
-    const satellite = new Mesh(satelliteGeometry, i % 2 ? mint : blue);
-    const angle = (i * Math.PI * 2) / 5;
-    satellite.position.set(
-      Math.cos(angle) * 2,
-      Math.sin(angle) * 1.4,
-      Math.sin(angle * 2) * 0.7,
+  function updateScroll() {
+    scrollTarget = Math.min(
+      1,
+      Math.max(0, (window.scrollY - stageLayout.top) / stageLayout.distance),
     );
-    if (i === 0) satellite.scale.setScalar(1.65);
-    sculpture.add(satellite);
   }
+  measureStage();
   let frame = 0;
   let disposed = false;
   let paused = false;
@@ -106,14 +77,47 @@ export function createHeroScene(host, onContextLost) {
     if (now - previous < 1000 / 30) return;
     time += previous ? Math.min((now - previous) / 1000, 0.1) : 0;
     previous = now;
-    core.rotation.y = time * 0.12;
-    core.rotation.z = time * 0.06;
-    sculpture.rotation.y +=
-      (-0.3 + pointer.x * 0.18 - sculpture.rotation.y) * 0.045;
-    sculpture.rotation.x +=
-      (0.35 + pointer.y * 0.12 - sculpture.rotation.x) * 0.045;
-    sculpture.position.y = Math.sin(time * 0.7) * 0.08;
-    orbits.rotation.y = time * 0.06;
+    scrollProgress += (scrollTarget - scrollProgress) * 0.075;
+    world.rotation.y +=
+      (-0.08 + pointer.x * 0.1 + scrollProgress * 0.3 - world.rotation.y) *
+      0.05;
+    world.rotation.x += (pointer.y * 0.045 - world.rotation.x) * 0.05;
+    models.forEach((model, index) => {
+      const selected = focus < 0 || index === focus;
+      const targetScale = selected ? (focus < 0 ? 1 : 1.1) : 0.88;
+      model.scale.lerp(
+        { x: targetScale, y: targetScale, z: targetScale },
+        0.055,
+      );
+      const home = model.userData.home;
+      model.position.y +=
+        (home.y +
+          Math.sin(time * 0.8 + index * 1.7) * 0.055 +
+          scrollProgress * [0.25, 0.6, -0.12][index] +
+          (focus === index ? 0.2 : 0) -
+          model.position.y) *
+        0.06;
+      model.position.x +=
+        (home.x * (1 + scrollProgress * 0.18) - model.position.x) * 0.06;
+      model.position.z +=
+        (home.z +
+          (index === 1 ? scrollProgress * 0.35 : 0) -
+          model.position.z) *
+        0.06;
+      model.rotation.y +=
+        (model.userData.turn +
+          scrollProgress * [0.55, -0.45, 0.45][index] +
+          Math.sin(time * 0.4 + index) * 0.025 -
+          model.rotation.y) *
+        0.06;
+    });
+    halo.rotation.y = time * 0.025 + scrollProgress * 0.4;
+    accents.position.y = Math.sin(time * 0.7) * 0.12;
+    liquid.rotation.y = Math.sin(time * 0.22) * 0.13 + scrollProgress * 0.4;
+    liquid.rotation.z = -0.3 + Math.sin(time * 0.25) * 0.07;
+    liquid.scale.x = 2.6 + Math.sin(time * 0.45) * 0.08;
+    liquid.morphTargetInfluences[0] = (Math.sin(time * 0.7) + 1) * 0.5;
+    host.style.setProperty("--scene-scroll", scrollProgress.toFixed(3));
     render();
   }
   function resume() {
@@ -134,6 +138,8 @@ export function createHeroScene(host, onContextLost) {
     if (!width || !height) return;
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
+    camera.position.z = camera.aspect < 1 ? 13.5 : 11.9;
+    measureStage();
     camera.updateProjectionMatrix();
     render();
   });
@@ -157,8 +163,13 @@ export function createHeroScene(host, onContextLost) {
   host.addEventListener("pointerleave", reset);
   renderer.domElement.addEventListener("webglcontextlost", lost);
   document.addEventListener("visibilitychange", resume);
+  window.addEventListener("scroll", updateScroll, { passive: true });
+  window.addEventListener("resize", measureStage, { passive: true });
   resume();
   return {
+    setFocus(index) {
+      focus = index;
+    },
     setPaused(value) {
       paused = value;
       resume();
@@ -172,6 +183,8 @@ export function createHeroScene(host, onContextLost) {
       host.removeEventListener("pointermove", move);
       host.removeEventListener("pointerleave", reset);
       document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("scroll", updateScroll);
+      window.removeEventListener("resize", measureStage);
       renderer.domElement.removeEventListener("webglcontextlost", lost);
       const geometries = new Set();
       const materials = new Set();
@@ -180,7 +193,12 @@ export function createHeroScene(host, onContextLost) {
         if (object.material) materials.add(object.material);
       });
       geometries.forEach((geometry) => geometry.dispose());
-      materials.forEach((material) => material.dispose());
+      const textures = new Set();
+      materials.forEach((material) => {
+        if (material.map) textures.add(material.map);
+        material.dispose();
+      });
+      textures.forEach((texture) => texture.dispose());
       renderer.dispose();
       renderer.forceContextLoss();
       renderer.domElement.remove();

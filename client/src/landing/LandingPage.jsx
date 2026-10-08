@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import HeroScene from "./components/HeroScene";
 import "./landing.css";
+import "./blueTheme.css";
 
 const products = [
   {
@@ -235,8 +236,45 @@ export default function LandingPage({ onNavigate, currentUser }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeProduct, setActiveProduct] = useState(0);
   const menuButton = useRef(null);
+  const pageRoot = useRef(null);
   const product = products[activeProduct];
   const start = () => onNavigate(currentUser ? "dashboard" : "create-account");
+  useEffect(() => {
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const elements = pageRoot.current.querySelectorAll(
+      ".tl-section-heading, .tl-product-panel, .tl-benefits article, .tl-start-section, .tl-faq-section, .tl-cta",
+    );
+    const animations = new Set();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          observer.unobserve(entry.target);
+          if (motion.matches) continue;
+          const animation = entry.target.animate(
+            [
+              { opacity: 0.25, transform: "translateY(32px)" },
+              { opacity: 1, transform: "translateY(0)" },
+            ],
+            { duration: 750, easing: "cubic-bezier(.2,.7,.2,1)", fill: "none" },
+          );
+          animations.add(animation);
+          animation.onfinish = () => animations.delete(animation);
+        }
+      },
+      { threshold: 0.12 },
+    );
+    elements.forEach((element) => observer.observe(element));
+    const stopMotion = () => {
+      if (motion.matches) animations.forEach((animation) => animation.cancel());
+    };
+    motion.addEventListener("change", stopMotion);
+    return () => {
+      observer.disconnect();
+      animations.forEach((animation) => animation.cancel());
+      motion.removeEventListener("change", stopMotion);
+    };
+  }, []);
   useEffect(() => {
     const previousTitle = document.title;
     document.title = "Tiwlo — A little idea. Unlimited possibility.";
@@ -275,7 +313,7 @@ export default function LandingPage({ onNavigate, currentUser }) {
     document.getElementById(`tl-tab-${next}`)?.focus();
   }
   return (
-    <div className="tl-landing">
+    <div className="tl-landing tl-blue-theme" ref={pageRoot}>
       <a className="tl-skip" href="#tl-main">
         Skip to content
       </a>
@@ -283,7 +321,6 @@ export default function LandingPage({ onNavigate, currentUser }) {
         <div className="tl-container tl-nav">
           <a className="tl-brand" href="#tl-main" aria-label="Tiwlo home">
             <img src="/tiwlologo.png" alt="Tiwlo" width="100" height="34" />
-            <span>make room for more.</span>
           </a>
           <nav className="tl-desktop-nav" aria-label="Main navigation">
             <a href="#tl-products">
@@ -352,84 +389,65 @@ export default function LandingPage({ onNavigate, currentUser }) {
         )}
       </header>
       <main id="tl-main">
-        <section
-          className="tl-hero tl-container"
-          aria-labelledby="tl-hero-title"
-        >
-          <div className="tl-hero-copy">
-            <a className="tl-announcement" href="#tl-products">
-              <span>
-                <Sparkles size={13} /> Meet your next workspace
-              </span>
-              <ArrowUpRight size={15} />
-            </a>
-            <h1 id="tl-hero-title">
-              A little idea.
-              <br />
-              Unlimited
-              <br />
-              <span>possibility.</span>
-              <span className="tl-title-spark" aria-hidden="true">
-                ✳
-              </span>
-            </h1>
-            <p>
-              Your store. Your business. Your next big thing.
-              <br className="tl-desktop-break" /> Bring it all together with
-              Tiwlo’s connected commerce and cloud tools.
-            </p>
-            <div className="tl-hero-actions">
-              <button className="tl-button" onClick={start}>
-                {currentUser
-                  ? "Go to your workspace"
-                  : "Start building with Tiwlo"}{" "}
-                <ArrowRight size={18} />
-              </button>
-              <a className="tl-text-link" href="#tl-products">
-                Take a look around{" "}
-                <ArrowRight size={16} className="tl-arrow-down" />
+        <div className="tl-hero-stage">
+          <div className="tl-hero-backdrop" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+            <div />
+          </div>
+          <section
+            className="tl-hero tl-container"
+            aria-labelledby="tl-hero-title"
+          >
+            <div className="tl-hero-copy">
+              <a className="tl-announcement" href="#tl-products">
+                <span>
+                  <Sparkles size={13} /> Commerce. Cloud. Connected.
+                </span>
+                <ArrowUpRight size={15} />
               </a>
-            </div>
-            <div className="tl-hero-note">
-              <span>
-                <Check size={14} /> Start with a free account
-              </span>
-              <span className="tl-note-divider" />
-              <span>Build at your own pace</span>
-            </div>
-          </div>
-          <div className="tl-hero-art">
-            <div className="tl-orbit-label">
-              ONE WORKSPACE. MORE POSSIBILITIES.
-            </div>
-            <HeroScene />
-            <div className="tl-float-card tl-float-store">
-              <span className="tl-tile-icon">
-                <ShoppingBag size={21} />
-              </span>
-              <div>
-                <strong>Your storefront</strong>
-                <span>Made for your next chapter</span>
+              <h1 id="tl-hero-title">
+                Your business.
+                <br />
+                Beautifully
+                <br />
+                <span>connected.</span>
+              </h1>
+              <p>
+                Your store. Your business. Your next big thing.
+                <br className="tl-desktop-break" /> Bring it all together with
+                Tiwlo’s connected commerce and cloud tools.
+              </p>
+              <div className="tl-hero-actions">
+                <button className="tl-button" onClick={start}>
+                  {currentUser
+                    ? "Go to your workspace"
+                    : "Start building with Tiwlo"}{" "}
+                  <ArrowRight size={18} />
+                </button>
+                <a className="tl-text-link" href="#tl-products">
+                  Take a look around{" "}
+                  <ArrowRight size={16} className="tl-arrow-down" />
+                </a>
               </div>
-              <ArrowUpRight size={16} />
-            </div>
-            <div className="tl-float-card tl-float-cloud">
-              <span className="tl-status-dot" />
-              <span>Ideas, meet infrastructure.</span>
-              <Cloud size={17} />
-            </div>
-            <div className="tl-float-card tl-float-pos">
-              <span className="tl-tile-icon tl-tile-mint">
-                <Monitor size={20} />
-              </span>
-              <div>
-                <strong>Retail, connected.</strong>
-                <span>From counter to cloud</span>
+              <div className="tl-hero-note">
+                <span>
+                  <Check size={14} /> Start with a free account
+                </span>
+                <span className="tl-note-divider" />
+                <span>Build at your own pace</span>
               </div>
             </div>
-            <span className="tl-art-coordinate">COMMERCE × CLOUD × YOU</span>
-          </div>
-        </section>
+            <div className="tl-hero-art">
+              <HeroScene />
+            </div>
+            <a className="tl-scroll-cue" href="#tl-products">
+              <span /> Scroll to connect the possibilities{" "}
+              <ArrowRight size={14} className="tl-arrow-down" />
+            </a>
+          </section>
+        </div>
         <div className="tl-tool-strip">
           <div className="tl-container">
             <span>

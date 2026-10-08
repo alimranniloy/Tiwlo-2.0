@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Pause, Play } from "lucide-react";
+import { Pause, Play, Server, Monitor, ShoppingBag } from "lucide-react";
 
 export default function HeroScene() {
   const host = useRef(null);
   const controller = useRef(null);
   const [ready, setReady] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [focusedModel, setFocusedModel] = useState(-1);
   useEffect(() => {
     const element = host.current;
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -73,6 +74,9 @@ export default function HeroScene() {
   useEffect(() => {
     controller.current?.setPaused(paused);
   }, [paused, ready]);
+  useEffect(() => {
+    controller.current?.setFocus(focusedModel);
+  }, [focusedModel, ready]);
   return (
     <>
       <div
@@ -86,7 +90,56 @@ export default function HeroScene() {
           <div className="tl-fallback-core" />
           <span />
           <span />
+          <div className="tl-static-model tl-static-server">
+            <Server />
+            <strong>Cloud server</strong>
+            <i />
+            <i />
+            <i />
+          </div>
+          <div className="tl-static-model tl-static-pos">
+            <Monitor />
+            <strong>Point of sale</strong>
+          </div>
+          <div className="tl-static-model tl-static-shop">
+            <ShoppingBag />
+            <strong>Your store</strong>
+          </div>
         </div>
+      </div>
+      <div className="tl-scene-heading">
+        <span className="tl-status-dot" /> YOUR CONNECTED WORLD{" "}
+        <span>01 — 03</span>
+      </div>
+      <span className="tl-model-tag tl-model-server">
+        01 <span>Cloud server</span>
+      </span>
+      <span className="tl-model-tag tl-model-pos">
+        02 <span>Point of sale</span>
+      </span>
+      <span className="tl-model-tag tl-model-shop">
+        03 <span>E-commerce</span>
+      </span>
+      <div
+        className="tl-model-selector"
+        role="group"
+        aria-label="Explore the 3D models"
+      >
+        {[
+          [Server, "Server"],
+          [Monitor, "POS"],
+          [ShoppingBag, "E-commerce"],
+        ].map(([Icon, label], index) => (
+          <button
+            key={label}
+            disabled={!ready}
+            aria-pressed={focusedModel === index}
+            onClick={() => setFocusedModel(focusedModel === index ? -1 : index)}
+          >
+            <Icon size={15} />
+            {label}
+          </button>
+        ))}
       </div>
       {ready && (
         <button
