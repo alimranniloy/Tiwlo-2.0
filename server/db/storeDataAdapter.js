@@ -27,9 +27,6 @@ export function getActiveTiwiId(req) {
   if (req.activeUser && (req.activeUser.tiwiId || req.activeUser.storeId)) {
     return req.activeUser.tiwiId || req.activeUser.storeId;
   }
-  if (req.headers && req.headers['x-tiwi-id']) return req.headers['x-tiwi-id'];
-  if (req.query && req.query.tiwiId) return req.query.tiwiId;
-  if (req.body && req.body.tiwiId) return req.body.tiwiId;
   return null;
 }
 

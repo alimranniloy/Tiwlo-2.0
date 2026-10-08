@@ -516,36 +516,6 @@ router.post('/auth/login', securityLimiters.login, async (req, res) => {
       await MasterDB.updateUser(user.id, { password: user.password });
     }
 
-    const isSuperAdmin = user.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
-    if (isSuperAdmin) {
-      const tiwiId = user.tiwiId || user.storeId || 'TIW-00001';
-      const { sessionToken } = await MasterDB.createSession(user.id, tiwiId, user.email, req);
-      setSessionCookie(res, req, sessionToken);
-
-      logActivity('auth', `Super Admin Authenticated`, `Administrator: ${user.name || 'Alimran Niloy'} (${user.email})`, tiwiId);
-
-      return res.json({
-        success: true,
-        sessionToken,
-        user: {
-          id: user.id,
-          tiwiId,
-          storeId: tiwiId,
-          storeName: user.storeName || 'Tiwlo Administration',
-          name: user.name || 'Alimran Niloy',
-          role: 'super_admin',
-          avatar: user.avatar || '/tiwlo-icon.png',
-          coverPhoto: user.coverPhoto || '/cloud-hero-full-bg.jpg',
-          email: user.email,
-          planId: user.planId || 'enterprise',
-          planName: user.planName || 'Enterprise Super Admin',
-          subdomain: user.subdomain || `admin.${PLATFORM_CONFIG.storeDomain}`,
-          billingDetails: user.billingDetails
-        },
-        message: `Welcome back, Super Admin ${user.name || 'Alimran Niloy'}!`
-      });
-    }
-
     const isEmailVerified = user.emailVerified === true;
     if (!isEmailVerified) {
       const otpResult = await generateSecureOtp(user.email, 'email_verify', 15);
@@ -672,7 +642,7 @@ router.post('/auth/verify-2fa', async (req, res) => {
         avatar: user.avatar || '/tiwlo-icon.png',
         coverPhoto: user.coverPhoto || '/cloud-hero-full-bg.jpg',
         email: user.email,
-        role: (user.email?.toLowerCase().trim() === 'tiwloltd@gmail.com' ? 'super_admin' : (user.role && user.role !== 'super_admin' ? user.role : 'owner')),
+        role: user.role || 'owner',
         planId: user.planId,
         planName: user.planName,
         subdomain: user.subdomain,
@@ -831,7 +801,7 @@ router.post('/auth/setup-2fa', async (req, res) => {
         avatar: user.avatar || '/tiwlo-icon.png',
         coverPhoto: user.coverPhoto || '/cloud-hero-full-bg.jpg',
         email: user.email,
-        role: (user.email?.toLowerCase().trim() === 'tiwloltd@gmail.com' ? 'super_admin' : (user.role && user.role !== 'super_admin' ? user.role : 'owner')),
+        role: user.role || 'owner',
         planId: user.planId,
         planName: user.planName,
         subdomain: user.subdomain,
@@ -959,7 +929,38 @@ router.post('/auth/verify-email', async (req, res) => {
 });
 
 // Change Email
-router.post('/auth/change-email', async (req, res) => {
+export async function authorizeEmailCorrection(req, res, next) {
+  const { tempToken, password } = req.body || {};
+  if (typeof password !== 'string' || !password || typeof tempToken !== 'string' || !tempToken) {
+    return res.status(401).json({ error: 'Confirm your account password to correct your email address.' });
+  }
+  try {
+    const challenge = await getOtpSession(tempToken);
+    if (!challenge || challenge.type !== 'email_verify') {
+      return res.status(403).json({ error: 'A pending email verification is required.' });
+    }
+    const user = await MasterDB.findUserByIdentifier(challenge.email);
+    // This is only a signup typo-correction flow. Verified accounts and accounts
+    // with 2FA must not be downgraded to password-only account recovery.
+    if (!user || user.emailVerified || user.twoFactorEnabled || user.isBanned ||
+        (req.activeUser && req.activeUser.id !== user.id)) {
+      return res.status(403).json({ error: 'This account is not eligible for email correction.' });
+    }
+    const lockKey = `email-correction:${user.id}`;
+    const locked = await BruteForceShield.isLocked(lockKey);
+    if (locked) return res.status(429).json({ error: 'Too many attempts. Please try again later.' });
+    if (!PasswordSecurity.verify(password, user.password)) {
+      await BruteForceShield.recordFailure(lockKey);
+      return res.status(401).json({ error: 'Incorrect account password.' });
+    }
+    req.emailCorrection = { user, challenge };
+    return next();
+  } catch (error) {
+    return next(error);
+  }
+}
+
+router.post('/auth/change-email', authorizeEmailCorrection, async (req, res) => {
   try {
     const { tempToken, newEmail } = req.body;
     if (!tempToken || !newEmail || !newEmail.includes('@')) {
@@ -967,19 +968,11 @@ router.post('/auth/change-email', async (req, res) => {
     }
 
     const cleanNewEmail = newEmail.trim().toLowerCase();
-    const session = await getOtpSession(tempToken);
-    if (!session) {
-      return res.status(404).json({ error: 'Verification session expired. Please sign in again.' });
-    }
+    const { user, challenge: session } = req.emailCorrection;
 
     const existing = await MasterDB.findUserByIdentifier(cleanNewEmail);
     if (existing && existing.email !== session.email) {
       return res.status(400).json({ error: 'This email address is already associated with another account.' });
-    }
-
-    const user = await MasterDB.findUserByIdentifier(session.email);
-    if (!user) {
-      return res.status(404).json({ error: 'Account not found.' });
     }
 
     await MasterDB.updateUser(user.id, {
@@ -1341,7 +1334,7 @@ router.get('/auth/me', async (req, res) => {
         avatar: freshUser.avatar || '/tiwlo-icon.png',
         coverPhoto: freshUser.coverPhoto || '/cloud-hero-full-bg.jpg',
         email: freshUser.email,
-        role: (freshUser.email?.toLowerCase().trim() === 'tiwloltd@gmail.com' ? 'super_admin' : (freshUser.role && freshUser.role !== 'super_admin' ? freshUser.role : 'owner')),
+        role: freshUser.role || 'owner',
         planId: freshUser.planId,
         planName: freshUser.planName,
         subdomain: freshUser.subdomain,
@@ -1404,7 +1397,7 @@ router.get('/auth/sync-session', async (req, res) => {
         avatar: freshUser.avatar || '/tiwlo-icon.png',
         coverPhoto: freshUser.coverPhoto || '/cloud-hero-full-bg.jpg',
         email: freshUser.email,
-        role: (freshUser.email?.toLowerCase().trim() === 'tiwloltd@gmail.com' ? 'super_admin' : (freshUser.role && freshUser.role !== 'super_admin' ? freshUser.role : 'owner')),
+        role: freshUser.role || 'owner',
         planId: freshUser.planId,
         planName: freshUser.planName,
         subdomain: freshUser.subdomain,
@@ -1491,17 +1484,11 @@ router.post('/auth/sso/consume-handshake', async (req, res) => {
       });
     }
 
-    let user = await MasterDB.findUserByIdentifier(verification.user.id);
-    if (!user && verification.user.email) {
-      user = await MasterDB.findUserByIdentifier(verification.user.email);
-    }
-    if (!user) {
-      const allUsers = await MasterDB.getUsers();
-      user = allUsers.find(u => u.id === verification.user.id || u.tiwiId === verification.user.tiwiId);
-    }
-    if (!user) {
+    const user = await MasterDB.findUserByIdentifier(verification.user.id);
+    if (!user || user.id !== verification.user.id) {
       return res.status(404).json({ error: 'SSO user not found in database' });
     }
+    if (user.isBanned) return res.status(403).json({ error: 'Account disabled' });
 
     const tiwiId = user.tiwiId || user.storeId || null;
     const { sessionToken } = await MasterDB.createSession(user.id, tiwiId, user.email, req);

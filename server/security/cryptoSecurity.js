@@ -205,7 +205,14 @@ export const BruteForceShield = {
       return { isLocked: true, remainingSeconds };
     }
 
-    await queryPg('DELETE FROM system_auth_rate_limits WHERE key_hash = $1', [hashSecuritySubject(normalized)]);
+    // A lock check must not erase failures that are still accumulating. The
+    // conditional delete also preserves a concurrent request's new lockout.
+    await queryPg(
+      `DELETE FROM system_auth_rate_limits WHERE key_hash = $1
+       AND first_failure_at <= CURRENT_TIMESTAMP - ($2 * INTERVAL '1 millisecond')
+       AND (locked_until IS NULL OR locked_until <= CURRENT_TIMESTAMP)`,
+      [hashSecuritySubject(normalized), this.WINDOW_MS]
+    );
     return false;
   },
 
@@ -419,14 +426,13 @@ export const SsoSecurity = {
       deviceFingerprint
     };
 
-    // 3. Create HMAC-SHA256 signature
-    const signaturePayload = `${userId}|${tiwiId}|${nonce}|${expiresAt}|${origin}|${deviceFingerprint.hash}`;
+    // Sign the entire payload, including email and app trust claims.
+    const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url');
     const signature = crypto
       .createHmac('sha256', SECURITY_SECRET)
-      .update(signaturePayload)
+      .update(encodedPayload)
       .digest('hex');
 
-    const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url');
     const ssoToken = `${encodedPayload}.${signature}`;
 
     // 4. Save ticket state for replay defense
@@ -451,7 +457,7 @@ export const SsoSecurity = {
    * If any tampering, expiration, or replay is detected, it fails securely.
    */
   async verifyAndConsumeTicket({ ssoToken, nonce, req = null }) {
-    if (!ssoToken || !nonce) {
+    if (typeof ssoToken !== 'string' || typeof nonce !== 'string' || !ssoToken || !nonce) {
       return { valid: false, error: 'Missing SSO token or nonce' };
     }
 
@@ -470,20 +476,19 @@ export const SsoSecurity = {
     }
 
     // Verify nonce match.
-    if (payload.nonce !== nonce) {
+    if (!payload || payload.nonce !== nonce) {
       return { valid: false, error: 'Nonce mismatch in token payload' };
     }
 
     // Verify expiration (strictly 60 seconds TTL).
-    if (Date.now() > payload.expiresAt) {
+    if (!Number.isFinite(payload.expiresAt) || Date.now() >= payload.expiresAt) {
       return { valid: false, error: 'SSO handshake token has expired' };
     }
 
     // Verify Cryptographic HMAC-SHA256 Signature.
-    const expectedSignaturePayload = `${payload.userId}|${payload.tiwiId}|${payload.nonce}|${payload.expiresAt}|${payload.origin}|${payload.deviceFingerprint?.hash || ''}`;
     const expectedSignature = crypto
       .createHmac('sha256', SECURITY_SECRET)
-      .update(expectedSignaturePayload)
+      .update(encodedPayload)
       .digest('hex');
 
     const sigBuf = Buffer.from(receivedSignature);

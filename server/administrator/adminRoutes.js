@@ -101,7 +101,7 @@ export function requireAdmin(req, res, next) {
       return res.status(401).json({ error: 'Session expired or invalid.' });
     }
     const user = sessionData.user;
-    if (!isSuperAdminUser(user) && user.role !== 'admin') {
+    if (user.isBanned || (!isSuperAdminUser(user) && user.role !== 'admin')) {
       return res.status(403).json({ error: 'Forbidden. Admin privileges required.' });
     }
     req.adminUser = user;
@@ -113,7 +113,7 @@ export function requireAdmin(req, res, next) {
 }
 
 function isSuperAdminUser(user) {
-  return user?.role === 'super_admin' || user?.email?.toLowerCase() === 'tiwloltd@gmail.com';
+  return user?.role === 'super_admin';
 }
 
 // Helper to read Master DB safely
@@ -488,7 +488,7 @@ router.get('/users', requireAdmin, async (req, res) => {
         tiwiId: u.tiwiId || u.storeId || '',
         name: u.name || u.storeName || 'System User',
         email: u.email,
-        role: u.role || (u.email === 'tiwloltd@gmail.com' ? 'super_admin' : 'owner'),
+        role: u.role || 'owner',
         planId: u.planId || 'free',
         planName: u.planName || u.planId || 'Unknown',
         storeCount,
@@ -557,7 +557,7 @@ router.post('/users/:id/ban', requireAdmin, async (req, res) => {
     if (!existingUser) {
       return res.status(404).json({ error: 'User not found in system.' });
     }
-    if (existingUser.role === 'super_admin' || existingUser.email?.toLowerCase() === 'tiwloltd@gmail.com') {
+    if (isSuperAdminUser(existingUser)) {
       return res.status(403).json({ error: 'Super Administrator accounts cannot be disabled.' });
     }
     if (existingUser.role === 'admin' && !isSuperAdminUser(req.adminUser)) {
@@ -643,7 +643,7 @@ router.put('/users/:id', requireAdmin, async (req, res) => {
     if (!currentUser) {
       return res.status(404).json({ error: 'User not found in system.' });
     }
-    if (currentUser.role === 'super_admin' || currentUser.email?.toLowerCase() === 'tiwloltd@gmail.com') {
+    if (isSuperAdminUser(currentUser)) {
       return res.status(403).json({ error: 'Super Administrator accounts cannot be edited here.' });
     }
     if (currentUser.role === 'admin' && !isSuperAdminUser(req.adminUser)) {
@@ -699,7 +699,7 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
     if (!targetUser) {
       return res.status(404).json({ error: 'User not found.' });
     }
-    if (targetUser.role === 'super_admin' || targetUser.email?.toLowerCase() === 'tiwloltd@gmail.com') {
+    if (isSuperAdminUser(targetUser)) {
       return res.status(403).json({ error: 'Super Administrator accounts cannot be deleted.' });
     }
     if (targetUser.role === 'admin' && !isSuperAdminUser(req.adminUser)) {

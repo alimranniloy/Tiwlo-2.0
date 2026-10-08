@@ -421,7 +421,6 @@ export const MasterDB = {
   async createUser(userData) {
     const tiwiId = userData.tiwiId || userData.storeId;
     const master = this.getMasterData();
-    const isFirstUser = (!master.users || master.users.length === 0);
 
     if (!userData.email || !userData.email.trim()) {
       throw new Error('A valid email address is required.');
@@ -438,12 +437,11 @@ export const MasterDB = {
     }
 
     // Cryptographic Password Hashing (scrypt + random salt)
-    const passwordHash = (userData.password && userData.password.startsWith('scrypt$'))
-      ? userData.password
-      : PasswordSecurity.hash(userData.password || 'default123');
+    const passwordHash = PasswordSecurity.hash(userData.password);
 
-    const isAdminEmail = userData.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
-    const assignedRole = isAdminEmail ? 'super_admin' : (userData.role && userData.role !== 'super_admin' ? userData.role : 'owner');
+    // Account creation never grants administrative privileges. Administrators
+    // must be provisioned explicitly through a trusted administrative process.
+    const assignedRole = 'owner';
 
     const newUser = {
       id: userData.id || `usr_${Date.now()}`,

@@ -4,6 +4,7 @@ import path from 'path';
 import multer from 'multer';
 import { fileURLToPath } from 'url';
 import { createTemporaryFileStorage } from '../db/temporaryFileStorage.js';
+import { requireAuthenticatedUser } from './authGuards.js';
 import { deleteMedia, getPublicMediaUrl, inferMediaType, storeMedia } from '../db/mediaStorage.js';
 import {
   createMediaSessionTicket,
@@ -77,6 +78,9 @@ router.get('/media/stream/:ticket', (req, res) => {
 // ==========================================
 // MEDIA UPLOADS & INSPECTION
 // ==========================================
+// Apply the guard before multer can write files or inspection work can start.
+router.use(['/upload', '/upload-single', '/upload-base64', '/upload-async', '/security'], requireAuthenticatedUser);
+
 router.post('/upload', upload.array('images', 10), async (req, res) => {
   if (!req.files || req.files.length === 0) {
     return res.status(400).json({ error: 'No files uploaded' });

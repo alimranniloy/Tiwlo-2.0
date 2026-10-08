@@ -280,7 +280,8 @@ export default function LoginView({
         credentials: 'include',
         body: JSON.stringify({
           tempToken: emailVerifyData.tempToken,
-          newEmail: newEmailInput.trim()
+          newEmail: newEmailInput.trim(),
+          password
         })
       });
 
@@ -896,6 +897,21 @@ export default function LoginView({
                       placeholder="name@example.com"
                       required
                       autoFocus
+                      className="w-full px-4 py-3 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#0B57D0] focus:ring-1 focus:ring-[#0B57D0]"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="email-correction-password" className="block text-[12px] font-medium text-[#444746] dark:text-[#C4C7C5] mb-1">
+                      Confirm your account password
+                    </label>
+                    <input
+                      id="email-correction-password"
+                      type="password"
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
                       className="w-full px-4 py-3 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#0B57D0] focus:ring-1 focus:ring-[#0B57D0]"
                     />
                   </div>
