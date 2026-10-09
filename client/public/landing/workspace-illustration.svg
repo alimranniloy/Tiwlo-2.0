@@ -1,77 +1,77 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="680" height="540" viewBox="0 0 680 540" fill="none">
-  <title>A little more space for your business</title>
+  <title>Your connected Tiwlo workspace</title>
   <desc>A hand-drawn-style workspace illustration connecting a shop, a product card, a checkout, and cloud services.</desc>
   <defs>
     <filter id="shadow" x="-25%" y="-25%" width="150%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#222" flood-opacity=".045"/></filter>
-    <pattern id="dots" x="0" y="0" width="19" height="19" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".85" fill="#d8dad6"/></pattern>
+    <pattern id="dots" x="0" y="0" width="19" height="19" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".85" fill="#d3e2f6"/></pattern>
   </defs>
-  <rect x="24" y="32" width="632" height="476" rx="36" fill="#f6f7f4"/>
+  <rect x="24" y="32" width="632" height="476" rx="36" fill="#f2f7ff"/>
   <rect x="44" y="52" width="592" height="436" rx="28" fill="url(#dots)"/>
-  <circle cx="332" cy="264" r="182" stroke="#dfe3dc" stroke-dasharray="4 7"/>
-  <path d="M136 171C101 209 103 275 128 306M495 127C539 151 565 185 570 231M465 429C425 454 379 461 339 450" stroke="#bec7bb" stroke-width="1.3" stroke-linecap="round"/>
-  <path d="m120 300 9 8 1-12m433-72 8 9 6-11m-234 219-7 10 13 2" stroke="#bec7bb" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="332" cy="264" r="182" stroke="#d3e2f6" stroke-dasharray="4 7"/>
+  <path d="M136 171C101 209 103 275 128 306M495 127C539 151 565 185 570 231M465 429C425 454 379 461 339 450" stroke="#a8c1e5" stroke-width="1.3" stroke-linecap="round"/>
+  <path d="m120 300 9 8 1-12m433-72 8 9 6-11m-234 219-7 10 13 2" stroke="#a8c1e5" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
   <!-- Main workspace: flat, editable vector artwork. -->
   <g transform="rotate(-3 326 271)" filter="url(#shadow)">
-    <rect x="117" y="124" width="432" height="298" rx="15" fill="white" stroke="#dcded9"/>
-    <path d="M117 166H549" stroke="#eceee9"/>
-    <circle cx="137" cy="145" r="3" fill="#d4d6d1"/><circle cx="149" cy="145" r="3" fill="#d4d6d1"/><circle cx="161" cy="145" r="3" fill="#d4d6d1"/>
-    <rect x="218" y="135" width="170" height="19" rx="6" fill="#f6f7f4"/>
-    <text x="303" y="148" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" fill="#73786f">Your Tiwlo workspace</text>
-    <path d="M182 167V422" stroke="#eceee9"/>
-    <rect x="138" y="189" width="20" height="20" rx="6" fill="#252925"/>
+    <rect x="117" y="124" width="432" height="298" rx="15" fill="white" stroke="#d3e2f6"/>
+    <path d="M117 166H549" stroke="#e8f0fc"/>
+    <circle cx="137" cy="145" r="3" fill="#d3e2f6"/><circle cx="149" cy="145" r="3" fill="#d3e2f6"/><circle cx="161" cy="145" r="3" fill="#d3e2f6"/>
+    <rect x="218" y="135" width="170" height="19" rx="6" fill="#f2f7ff"/>
+    <text x="303" y="148" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" fill="#617792">Your Tiwlo workspace</text>
+    <path d="M182 167V422" stroke="#e8f0fc"/>
+    <rect x="138" y="189" width="20" height="20" rx="6" fill="#2563eb"/>
     <path d="M144 195h9m-4-1v11" stroke="white" stroke-width="2" stroke-linecap="round"/>
-    <rect x="130" y="232" width="40" height="31" rx="8" fill="#f0f2ed"/>
-    <g stroke="#80887a" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="130" y="232" width="40" height="31" rx="8" fill="#e8f0fc"/>
+    <g stroke="#6b91c7" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
       <rect x="143" y="241" width="5" height="5" rx="1"/><rect x="151" y="241" width="5" height="5" rx="1"/><rect x="143" y="249" width="5" height="5" rx="1"/><rect x="151" y="249" width="5" height="5" rx="1"/>
       <path d="M142 285h15v12h-15zm3 0v-3h9v3m-11 34v11h15m-11-3v-7m4 7v-12m4 12v-9"/>
       <circle cx="149" cy="366" r="7"/><path d="m147 366 2 2 3-4"/>
     </g>
-    <text x="202" y="196" font-family="Arial,sans-serif" font-size="9" fill="#83897e">A LITTLE ROOM FOR EVERYTHING</text>
-    <text x="202" y="222" font-family="Arial,sans-serif" font-size="20" letter-spacing="-.6" fill="#2c322b">Good things start here.</text>
-    <rect x="202" y="240" width="99" height="68" rx="9" fill="#f4f6f0"/>
-    <rect x="311" y="240" width="99" height="68" rx="9" fill="#f6f5f2"/>
-    <rect x="420" y="240" width="108" height="68" rx="9" fill="#f1f4f7"/>
-    <g stroke="#62735c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M218 255h13l2 5h-17zm0 6v9h13v-9m-9 9v-6h5v6"/></g>
-    <text x="216" y="293" font-family="Arial,sans-serif" font-size="10" fill="#424b3c">Your store</text>
-    <g stroke="#86745c" stroke-width="1.5" stroke-linecap="round"><rect x="325" y="254" width="19" height="13" rx="2"/><path d="M334 267v4m-5 0h10"/></g>
-    <text x="325" y="293" font-family="Arial,sans-serif" font-size="10" fill="#5d5141">Point of sale</text>
-    <path d="M437 270h12a5 5 0 0 0 0-10 7 7 0 0 0-13-1 5.5 5.5 0 0 0 1 11Z" stroke="#6e8399" stroke-width="1.4"/>
-    <text x="434" y="293" font-family="Arial,sans-serif" font-size="10" fill="#4b5e72">Cloud tools</text>
-    <text x="204" y="335" font-family="Arial,sans-serif" font-size="10" fill="#596151">Everything in its place</text>
-    <rect x="203" y="347" width="325" height="53" rx="8" stroke="#ebede7"/>
-    <rect x="214" y="361" width="25" height="25" rx="6" fill="#edf3e9"/>
-    <path d="m222 373 4 4 6-8" stroke="#719269" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-    <text x="249" y="369" font-family="Arial,sans-serif" font-size="10" fill="#464d40">Your workspace, connected</text>
-    <text x="249" y="385" font-family="Arial,sans-serif" font-size="8" fill="#92998b">Store · Retail · Cloud</text>
-    <path d="M504 373h9m-4-4 4 4-4 4" stroke="#82897b" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="202" y="196" font-family="Arial,sans-serif" font-size="9" fill="#617792">A LITTLE ROOM FOR EVERYTHING</text>
+    <text x="202" y="222" font-family="Arial,sans-serif" font-size="20" letter-spacing="-.6" fill="#334155">Good things start here.</text>
+    <rect x="202" y="240" width="99" height="68" rx="9" fill="#eef5ff"/>
+    <rect x="311" y="240" width="99" height="68" rx="9" fill="#eef5ff"/>
+    <rect x="420" y="240" width="108" height="68" rx="9" fill="#eef5ff"/>
+    <g stroke="#6b91c7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M218 255h13l2 5h-17zm0 6v9h13v-9m-9 9v-6h5v6"/></g>
+    <text x="216" y="293" font-family="Arial,sans-serif" font-size="10" fill="#334155">Your store</text>
+    <g stroke="#6b91c7" stroke-width="1.5" stroke-linecap="round"><rect x="325" y="254" width="19" height="13" rx="2"/><path d="M334 267v4m-5 0h10"/></g>
+    <text x="325" y="293" font-family="Arial,sans-serif" font-size="10" fill="#334155">Point of sale</text>
+    <path d="M437 270h12a5 5 0 0 0 0-10 7 7 0 0 0-13-1 5.5 5.5 0 0 0 1 11Z" stroke="#6b91c7" stroke-width="1.4"/>
+    <text x="434" y="293" font-family="Arial,sans-serif" font-size="10" fill="#334155">Cloud tools</text>
+    <text x="204" y="335" font-family="Arial,sans-serif" font-size="10" fill="#334155">Everything in its place</text>
+    <rect x="203" y="347" width="325" height="53" rx="8" stroke="#d3e2f6"/>
+    <rect x="214" y="361" width="25" height="25" rx="6" fill="#e8f0fc"/>
+    <path d="m222 373 4 4 6-8" stroke="#6b91c7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="249" y="369" font-family="Arial,sans-serif" font-size="10" fill="#334155">Your workspace, connected</text>
+    <text x="249" y="385" font-family="Arial,sans-serif" font-size="8" fill="#617792">Store · Retail · Cloud</text>
+    <path d="M504 373h9m-4-4 4 4-4 4" stroke="#6b91c7" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
   <!-- Product card. -->
   <g transform="rotate(7 529 127)" filter="url(#shadow)">
-    <rect x="465" y="54" width="135" height="151" rx="14" fill="white" stroke="#dedfd9"/>
-    <rect x="475" y="64" width="115" height="93" rx="9" fill="#eaf0e5"/>
-    <path d="M511 99h44l5 45h-54l5-45Z" fill="#d2dcc6" stroke="#849477" stroke-width="1.4" stroke-linejoin="round"/>
-    <path d="M522 105V93c0-15 23-15 23 0v12" stroke="#849477" stroke-width="2" stroke-linecap="round"/>
-    <path d="m531 119 6 3-3 7-6-3 3-7Z" fill="#f4f7f1"/>
-    <text x="477" y="175" font-family="Arial,sans-serif" font-size="10" fill="#434b3e">Something worth sharing.</text>
-    <text x="477" y="189" font-family="Arial,sans-serif" font-size="8" fill="#92998d">Your next collection</text>
+    <rect x="465" y="54" width="135" height="151" rx="14" fill="white" stroke="#d3e2f6"/>
+    <rect x="475" y="64" width="115" height="93" rx="9" fill="#e8f0fc"/>
+    <path d="M511 99h44l5 45h-54l5-45Z" fill="#c9ddf8" stroke="#6b91c7" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M522 105V93c0-15 23-15 23 0v12" stroke="#6b91c7" stroke-width="2" stroke-linecap="round"/>
+    <path d="m531 119 6 3-3 7-6-3 3-7Z" fill="#f2f7ff"/>
+    <text x="477" y="175" font-family="Arial,sans-serif" font-size="10" fill="#334155">Something worth sharing.</text>
+    <text x="477" y="189" font-family="Arial,sans-serif" font-size="8" fill="#617792">Your next collection</text>
   </g>
   <!-- Small shop and completion card. -->
   <g transform="rotate(-7 111 370)" filter="url(#shadow)">
-    <rect x="53" y="314" width="113" height="111" rx="15" fill="#fff" stroke="#dedfd9"/>
-    <rect x="78" y="351" width="62" height="48" rx="3" fill="#f7f5f0" stroke="#8d8980" stroke-width="1.3"/>
-    <path d="m79 335-7 20h74l-7-20H79Z" fill="#e4dfd1" stroke="#8d8980" stroke-width="1.3" stroke-linejoin="round"/>
-    <path d="m93 335-3 20m17-20v20m15-20 3 20" stroke="#8d8980" stroke-width="1.3"/>
-    <path d="M72 355v5c0 7 18 7 18 0 0 7 17 7 17 0 0 7 18 7 18 0 0 7 21 7 21 0v-5" fill="#f4f0e6" stroke="#8d8980" stroke-width="1.3"/>
-    <rect x="88" y="375" width="16" height="14" rx="2" fill="#e0e8db" stroke="#8d8980"/>
-    <path d="M114 399v-25h17v25" stroke="#8d8980" stroke-width="1.3"/><path d="M119 384v5" stroke="#8d8980" stroke-linecap="round"/>
+    <rect x="53" y="314" width="113" height="111" rx="15" fill="#fff" stroke="#d3e2f6"/>
+    <rect x="78" y="351" width="62" height="48" rx="3" fill="#f2f7ff" stroke="#6b91c7" stroke-width="1.3"/>
+    <path d="m79 335-7 20h74l-7-20H79Z" fill="#c9ddf8" stroke="#6b91c7" stroke-width="1.3" stroke-linejoin="round"/>
+    <path d="m93 335-3 20m17-20v20m15-20 3 20" stroke="#6b91c7" stroke-width="1.3"/>
+    <path d="M72 355v5c0 7 18 7 18 0 0 7 17 7 17 0 0 7 18 7 18 0 0 7 21 7 21 0v-5" fill="#eef5ff" stroke="#6b91c7" stroke-width="1.3"/>
+    <rect x="88" y="375" width="16" height="14" rx="2" fill="#c9ddf8" stroke="#6b91c7"/>
+    <path d="M114 399v-25h17v25" stroke="#6b91c7" stroke-width="1.3"/><path d="M119 384v5" stroke="#6b91c7" stroke-linecap="round"/>
   </g>
   <g transform="rotate(3 477 427)" filter="url(#shadow)">
-    <rect x="382" y="401" width="215" height="59" rx="14" fill="white" stroke="#dedfd9"/>
-    <circle cx="411" cy="430" r="14" fill="#eaf3e5"/><path d="m405 430 4 4 8-9" stroke="#6f9064" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-    <text x="435" y="426" font-family="Arial,sans-serif" font-size="10" fill="#41493c">A little less to think about.</text>
-    <text x="435" y="442" font-family="Arial,sans-serif" font-size="8" fill="#8c9584">A little more room to grow.</text>
+    <rect x="382" y="401" width="215" height="59" rx="14" fill="white" stroke="#d3e2f6"/>
+    <circle cx="411" cy="430" r="14" fill="#e8f0fc"/><path d="m405 430 4 4 8-9" stroke="#6b91c7" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="435" y="426" font-family="Arial,sans-serif" font-size="10" fill="#334155">A little less to think about.</text>
+    <text x="435" y="442" font-family="Arial,sans-serif" font-size="8" fill="#617792">A little more room to grow.</text>
   </g>
-  <path d="M95 95v16m-8-8h16M607 300v12m-6-6h12" stroke="#acbba2" stroke-width="1.4" stroke-linecap="round"/>
-  <circle cx="395" cy="69" r="4" stroke="#c2cbbb"/><circle cx="248" cy="469" r="3" fill="#c2cbbb"/>
-  <text x="340" y="494" text-anchor="middle" font-family="Arial,sans-serif" font-size="8" letter-spacing="1.6" fill="#9ba393">A WORKSPACE ILLUSTRATION. MADE FOR YOUR POSSIBILITIES.</text>
+  <path d="M95 95v16m-8-8h16M607 300v12m-6-6h12" stroke="#a8c1e5" stroke-width="1.4" stroke-linecap="round"/>
+  <circle cx="395" cy="69" r="4" stroke="#a8c1e5"/><circle cx="248" cy="469" r="3" fill="#a8c1e5"/>
+  <text x="340" y="494" text-anchor="middle" font-family="Arial,sans-serif" font-size="8" letter-spacing="1.6" fill="#617792">A WORKSPACE ILLUSTRATION. MADE FOR YOUR POSSIBILITIES.</text>
 </svg>

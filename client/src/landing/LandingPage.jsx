@@ -14,7 +14,6 @@ import {
   Plus,
   ShieldCheck,
   ShoppingBag,
-  Sparkles,
   X,
 } from "lucide-react";
 import "./landing.css";
@@ -393,12 +392,6 @@ export default function LandingPage({ onNavigate, currentUser }) {
             aria-labelledby="tl-hero-title"
           >
             <div className="tl-hero-copy">
-              <a className="tl-announcement" href="#tl-products">
-                <span>
-                  <Sparkles size={13} /> A little more space to grow
-                </span>
-                <ArrowUpRight size={15} />
-              </a>
               <h1 id="tl-hero-title">
                 Less busywork.
                 <br />
