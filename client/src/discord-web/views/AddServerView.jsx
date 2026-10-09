@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Server, Save, Users, Hash, Box } from 'lucide-react';
+import { ArrowLeft, Server, Save, Users, Hash, RotateCw, AlertTriangle } from 'lucide-react';
 import { DiscordAPI } from '../api/discordApi';
 
 export default function AddServerView({ onBack, onServerCreated }) {
@@ -55,132 +55,124 @@ export default function AddServerView({ onBack, onServerCreated }) {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-12">
-      {/* Back button */}
-      <button
-        onClick={onBack}
-        className="inline-flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-[#0F172A] transition-colors cursor-pointer"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        <span>Back to workspace</span>
-      </button>
+    <div className="max-w-3xl mx-auto space-y-6 pb-16 font-sans">
+      {/* 1. Google Cloud Header */}
+      <div className="border-b border-[#DADCE0] pb-4">
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-2 text-[13px] font-medium text-[#1A73E8] hover:text-[#174EA6] cursor-pointer mb-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Connected Servers</span>
+          <span className="text-[#BDC1C6]">/</span>
+          <span className="text-[#5F6368]">Connect server</span>
+        </button>
 
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">
+        <h1 className="text-xl sm:text-2xl font-normal text-[#202124] tracking-tight">
           Connect Discord Server
         </h1>
-        <p className="text-gray-500 text-sm mt-1">
-          Link your community server to manage bot permissions, automations, and roles.
+        <p className="text-xs sm:text-sm text-[#5F6368] mt-1">
+          Link an active Discord guild instance to assign bot workers, automations, and channel monitoring.
         </p>
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-medium">
-          {error}
+        <div className="p-3.5 rounded-lg bg-[#FCE8E6] border border-[#FAD2CF] text-[#C5221F] text-[13px] flex items-center gap-2.5">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
-      {/* Form Card */}
-      <form onSubmit={handleSubmit} className="bg-white border border-[#E2E8F0] rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
+      {/* 2. Google Cloud Form Card */}
+      <form onSubmit={handleSubmit} className="bg-white border border-[#DADCE0] rounded-lg p-6 sm:p-7 space-y-5">
         {/* Server Name */}
-        <div>
-          <label className="block text-sm font-bold text-[#0F172A] mb-1.5">
-            Server Name <span className="text-red-500">*</span>
+        <div className="space-y-1.5">
+          <label className="block text-[13px] font-medium text-[#202124]">
+            Server Name <span className="text-[#C5221F]">*</span>
           </label>
-          <div className="relative">
-            <Server className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Gaming Lounge, Design Collective"
-              className="w-full bg-white border border-[#E2E8F0] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#0F172A] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-            />
-          </div>
+          <input
+            type="text"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Design Community Hub, Gaming Lounge"
+            className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] placeholder-[#5F6368] focus:outline-none focus:border-[#1A73E8]"
+          />
         </div>
 
-        {/* Discord Guild ID & Member Count */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-bold text-[#0F172A] mb-1.5">
-              Discord Guild / Server ID
-            </label>
-            <div className="relative">
-              <Hash className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={guildId}
-                onChange={(e) => setGuildId(e.target.value)}
-                placeholder="e.g. 987654321098765432"
-                className="w-full bg-white border border-[#E2E8F0] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#0F172A] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono"
-              />
-            </div>
-            <p className="text-xs text-gray-400 mt-1">Copy ID from Discord by right-clicking your server icon.</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-[#0F172A] mb-1.5">
-              Member Count
-            </label>
-            <div className="relative">
-              <Users className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="number"
-                min="0"
-                value={memberCount}
-                onChange={(e) => setMemberCount(e.target.value)}
-                placeholder="0"
-                className="w-full bg-white border border-[#E2E8F0] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#0F172A] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Assign Bot */}
-        <div>
-          <label className="block text-sm font-bold text-[#0F172A] mb-1.5">
-            Assign Bot to this Server
+        {/* Guild ID */}
+        <div className="space-y-1.5">
+          <label className="block text-[13px] font-medium text-[#202124]">
+            Discord Guild / Server ID
           </label>
-          <div className="relative">
-            <Box className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <select
-              value={selectedBotId}
-              onChange={(e) => setSelectedBotId(e.target.value)}
-              className="w-full bg-white border border-[#E2E8F0] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
-            >
-              <option value="">No bot assigned initially</option>
-              {availableBots.map((bot) => (
-                <option key={bot.id} value={bot.id}>
-                  {bot.name} ({bot.status})
-                </option>
-              ))}
-            </select>
-          </div>
-          <p className="text-xs text-gray-400 mt-1">
-            {availableBots.length === 0
-              ? 'No bots created yet. You can create a bot anytime from My bots.'
-              : 'Choose which of your registered bots will actively manage this server.'}
-          </p>
+          <input
+            type="text"
+            value={guildId}
+            onChange={(e) => setGuildId(e.target.value)}
+            placeholder="e.g. 109823485719234812"
+            className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] placeholder-[#5F6368] font-mono focus:outline-none focus:border-[#1A73E8]"
+          />
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+        {/* Member Count */}
+        <div className="space-y-1.5">
+          <label className="block text-[13px] font-medium text-[#202124]">
+            Estimated Member Count
+          </label>
+          <input
+            type="number"
+            min="0"
+            value={memberCount}
+            onChange={(e) => setMemberCount(e.target.value)}
+            placeholder="e.g. 250"
+            className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] placeholder-[#5F6368] focus:outline-none focus:border-[#1A73E8]"
+          />
+        </div>
+
+        {/* Assign Initial Bot */}
+        <div className="space-y-1.5">
+          <label className="block text-[13px] font-medium text-[#202124]">
+            Assign Primary Bot Daemon
+          </label>
+          <select
+            value={selectedBotId}
+            onChange={(e) => setSelectedBotId(e.target.value)}
+            className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] focus:outline-none focus:border-[#1A73E8]"
+          >
+            <option value="">No bot (assign later)</option>
+            {availableBots.map((bot) => (
+              <option key={bot.id} value={bot.id}>
+                {bot.name} ({bot.prefix || '!'})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Actions */}
+        <div className="pt-4 border-t border-[#F1F3F4] flex items-center justify-end gap-3">
           <button
             type="button"
             onClick={onBack}
-            className="px-5 py-2.5 rounded-xl border border-[#E2E8F0] text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
+            className="px-4 py-2 text-[13px] font-medium text-[#3C4043] bg-white border border-[#DADCE0] hover:bg-[#F8F9FA] rounded-md cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-[#1A73E8] hover:bg-[#174EA6] rounded-md transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
           >
-            <Save className="w-4 h-4" />
-            <span>{saving ? 'Connecting...' : 'Connect Server'}</span>
+            {saving ? (
+              <>
+                <RotateCw className="w-4 h-4 animate-spin" />
+                <span>Connecting...</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                <span>Connect Server</span>
+              </>
+            )}
           </button>
         </div>
       </form>

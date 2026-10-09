@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Server, Save, Trash2, Box, Plus, X, Users, Hash } from 'lucide-react';
+import { ArrowLeft, Server, Save, Trash2, Bot, Plus, X, Users, Hash, RotateCw, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { DiscordAPI } from '../api/discordApi';
 
 export default function ServerDetailView({ serverId, onBack, onServerUpdated, onServerDeleted }) {
@@ -7,6 +7,8 @@ export default function ServerDetailView({ serverId, onBack, onServerUpdated, on
   const [allBots, setAllBots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [name, setName] = useState('');
   const [memberCount, setMemberCount] = useState('');
   const [guildId, setGuildId] = useState('');
@@ -48,7 +50,7 @@ export default function ServerDetailView({ serverId, onBack, onServerUpdated, on
         guildId
       });
       setServer(res.server);
-      setMsg({ text: 'Server details updated successfully!', type: 'success' });
+      setMsg({ text: 'Server configuration updated successfully!', type: 'success' });
       if (onServerUpdated) onServerUpdated(res.server);
     } catch (err) {
       setMsg({ text: err.message || 'Failed to update server', type: 'error' });
@@ -82,93 +84,93 @@ export default function ServerDetailView({ serverId, onBack, onServerUpdated, on
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Are you sure you want to disconnect server "${server?.name}"?`)) return;
+    setDeleting(true);
     try {
       await DiscordAPI.deleteServer(serverId);
       if (onServerDeleted) onServerDeleted(serverId);
       onBack();
     } catch (err) {
       setMsg({ text: err.message || 'Failed to delete server', type: 'error' });
+      setDeleting(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="py-20 text-center text-gray-500">
-        <p>Loading server details...</p>
+      <div className="bg-white border border-[#DADCE0] rounded-lg p-16 text-center max-w-4xl mx-auto">
+        <RotateCw className="w-6 h-6 text-[#1A73E8] animate-spin mx-auto mb-3" />
+        <p className="text-[13px] text-[#5F6368]">Loading server details...</p>
       </div>
     );
   }
 
   if (!server) {
     return (
-      <div className="max-w-xl mx-auto py-12 text-center space-y-4">
-        <p className="text-gray-500">Server not found or was removed.</p>
+      <div className="bg-white border border-[#DADCE0] rounded-lg p-12 text-center max-w-xl mx-auto space-y-4">
+        <AlertTriangle className="w-10 h-10 text-[#C5221F] mx-auto" />
+        <h2 className="text-lg font-medium text-[#202124]">Server Not Found</h2>
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-sm font-semibold text-gray-700 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[#1A73E8] hover:bg-[#174EA6] text-white text-[13px] font-medium rounded-md transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to servers</span>
+          <span>Back to Servers</span>
         </button>
       </div>
     );
   }
 
-  const assignedBots = server.bots || [];
-  const assignedBotIds = assignedBots.map((b) => b.id);
-  const unassignedBots = allBots.filter((b) => !assignedBotIds.includes(b.id));
-
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-12">
-      {/* Back button */}
-      <button
-        onClick={onBack}
-        className="inline-flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-[#0F172A] transition-colors cursor-pointer"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        <span>Back to servers</span>
-      </button>
+    <div className="max-w-4xl mx-auto space-y-6 pb-16 font-sans">
+      {/* 1. Google Cloud Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#DADCE0] pb-4">
+        <div>
+          <button
+            onClick={onBack}
+            className="inline-flex items-center gap-2 text-[13px] font-medium text-[#1A73E8] hover:text-[#174EA6] cursor-pointer mb-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Connected Servers</span>
+            <span className="text-[#BDC1C6]">/</span>
+            <span className="text-[#5F6368]">{server.name}</span>
+          </button>
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-700 font-bold text-lg flex items-center justify-center shrink-0">
-            {server.name.charAt(0).toUpperCase()}
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-normal text-[#202124] tracking-tight">{server.name}</h1>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-medium bg-[#E6F4EA] text-[#137333] border border-[#CEEAD6]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#137333]" />
+              Connected
+            </span>
           </div>
-          <div>
-            <h1 className="text-2xl font-extrabold text-[#0F172A]">{server.name}</h1>
-            <p className="text-xs text-gray-400 font-mono">ID: {server.id}</p>
-          </div>
+          <p className="text-xs text-[#5F6368] font-mono mt-1">Guild ID: {server.guildId || 'N/A'}</p>
         </div>
-
-        <button
-          onClick={handleDelete}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-red-600 hover:bg-red-50 border border-red-200 text-xs font-semibold transition-colors cursor-pointer"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-          <span>Disconnect Server</span>
-        </button>
       </div>
 
       {msg && (
         <div
-          className={`p-4 rounded-xl text-sm font-medium ${
+          className={`p-3.5 rounded-lg border text-[13px] flex items-center gap-2.5 ${
             msg.type === 'error'
-              ? 'bg-red-50 text-red-700 border border-red-200'
-              : 'bg-green-50 text-green-700 border border-green-200'
+              ? 'bg-[#FCE8E6] text-[#C5221F] border-[#FAD2CF]'
+              : 'bg-[#E6F4EA] text-[#137333] border-[#CEEAD6]'
           }`}
         >
-          {msg.text}
+          {msg.type === 'error' ? (
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+          ) : (
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+          )}
+          <span>{msg.text}</span>
         </div>
       )}
 
-      {/* Server Settings Form */}
-      <form onSubmit={handleSave} className="bg-white border border-[#E2E8F0] rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
-        <h2 className="text-base font-bold text-[#0F172A]">Server Settings</h2>
+      {/* 2. Server Configuration Card */}
+      <form onSubmit={handleSave} className="bg-white border border-[#DADCE0] rounded-lg p-6 sm:p-7 space-y-5">
+        <h2 className="text-[16px] font-medium text-[#202124] border-b border-[#F1F3F4] pb-2">
+          Server Details
+        </h2>
 
-        <div>
-          <label className="block text-sm font-bold text-[#0F172A] mb-1.5">
+        <div className="space-y-1.5">
+          <label className="block text-[13px] font-medium text-[#202124]">
             Server Name
           </label>
           <input
@@ -176,113 +178,146 @@ export default function ServerDetailView({ serverId, onBack, onServerUpdated, on
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full bg-white border border-[#E2E8F0] rounded-xl px-4 py-2.5 text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] focus:outline-none focus:border-[#1A73E8]"
           />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-bold text-[#0F172A] mb-1.5">
-              Member Count
-            </label>
-            <div className="relative">
-              <Users className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="number"
-                min="0"
-                value={memberCount}
-                onChange={(e) => setMemberCount(e.target.value)}
-                className="w-full bg-white border border-[#E2E8F0] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-[#0F172A] mb-1.5">
+          <div className="space-y-1.5">
+            <label className="block text-[13px] font-medium text-[#202124]">
               Discord Guild ID
             </label>
-            <div className="relative">
-              <Hash className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={guildId}
-                onChange={(e) => setGuildId(e.target.value)}
-                className="w-full bg-white border border-[#E2E8F0] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#0F172A] font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              />
-            </div>
+            <input
+              type="text"
+              value={guildId}
+              onChange={(e) => setGuildId(e.target.value)}
+              className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] font-mono focus:outline-none focus:border-[#1A73E8]"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-[13px] font-medium text-[#202124]">
+              Member Count
+            </label>
+            <input
+              type="number"
+              value={memberCount}
+              onChange={(e) => setMemberCount(e.target.value)}
+              className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] focus:outline-none focus:border-[#1A73E8]"
+            />
           </div>
         </div>
 
-        <div className="flex items-center justify-end pt-2">
+        <div className="pt-3 border-t border-[#F1F3F4] flex items-center justify-end gap-3">
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-[#1A73E8] hover:bg-[#174EA6] rounded-md transition-colors shadow-2xs disabled:opacity-50"
           >
-            <Save className="w-4 h-4" />
-            <span>{saving ? 'Saving...' : 'Save Settings'}</span>
+            {saving ? <RotateCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            <span>Save Server</span>
           </button>
         </div>
       </form>
 
-      {/* Assigned Bots Section */}
-      <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 sm:p-8 shadow-xs space-y-4">
-        <h2 className="text-base font-bold text-[#0F172A]">Assigned Bots in Server</h2>
+      {/* 3. Assigned Bots Card */}
+      <div className="bg-white border border-[#DADCE0] rounded-lg p-6 sm:p-7 space-y-4">
+        <h2 className="text-[16px] font-medium text-[#202124] border-b border-[#F1F3F4] pb-2">
+          Assigned Bot Workers
+        </h2>
 
-        {/* Assigned Bots List */}
-        {assignedBots.length > 0 ? (
-          <div className="divide-y divide-gray-100">
-            {assignedBots.map((b) => (
+        {/* List of assigned bots */}
+        {(server.bots || []).length > 0 ? (
+          <div className="divide-y divide-[#F1F3F4]">
+            {server.bots.map((b) => (
               <div key={b.id || b.name} className="py-3 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600">
-                    <Box className="w-4 h-4" />
+                  <div className="w-8 h-8 rounded-md bg-[#E8F0FE] text-[#1A73E8] flex items-center justify-center font-bold text-xs border border-[#D2E3FC]">
+                    <Bot className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="font-semibold text-sm text-[#0F172A]">{b.name}</span>
-                    <span className="text-xs text-gray-400 block capitalize">{b.status || 'Active'}</span>
+                    <span className="font-medium text-[#202124] text-[13px]">{b.name}</span>
+                    <span className="text-[11px] text-[#5F6368] block">Prefix: {b.prefix || '!'}</span>
                   </div>
                 </div>
-
                 <button
                   type="button"
                   onClick={() => handleRemoveBot(b.id)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                  title="Unassign Bot"
+                  className="text-[12px] font-medium text-[#C5221F] hover:underline"
                 >
-                  <X className="w-4 h-4" />
+                  Unassign
                 </button>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-gray-400 italic">No bots currently assigned to this server.</p>
+          <p className="text-[13px] text-[#5F6368] py-2">No bots currently assigned to this server.</p>
         )}
 
-        {/* Assign another bot */}
-        {unassignedBots.length > 0 && (
-          <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row gap-3">
-            <select
-              value={selectedBotToAssign}
-              onChange={(e) => setSelectedBotToAssign(e.target.value)}
-              className="flex-1 bg-white border border-[#E2E8F0] rounded-xl px-4 py-2 text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
-            >
-              <option value="">Select a bot to assign...</option>
-              {unassignedBots.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={handleAssignBot}
-              disabled={!selectedBotToAssign}
-              className="inline-flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl bg-gray-900 hover:bg-black text-white text-sm font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Assign</span>
-            </button>
+        {/* Assign new bot */}
+        <div className="pt-3 border-t border-[#F1F3F4] flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <select
+            value={selectedBotToAssign}
+            onChange={(e) => setSelectedBotToAssign(e.target.value)}
+            className="flex-1 bg-white border border-[#DADCE0] rounded-md px-3 py-1.5 text-[13px] text-[#202124] focus:outline-none focus:border-[#1A73E8]"
+          >
+            <option value="">Select a bot to assign...</option>
+            {allBots.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name} ({b.prefix || '!'})
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleAssignBot}
+            disabled={!selectedBotToAssign}
+            className="px-4 py-1.5 text-[13px] font-medium text-[#1A73E8] bg-white border border-[#DADCE0] hover:bg-[#F8F9FA] rounded-md transition-colors disabled:opacity-50"
+          >
+            Assign Bot
+          </button>
+        </div>
+      </div>
+
+      {/* 4. Disconnect Server Card (No popup) */}
+      <div className="bg-white border border-[#DADCE0] rounded-lg p-6 space-y-4">
+        <h2 className="text-[16px] font-medium text-[#C5221F]">
+          Disconnect Community Server
+        </h2>
+        <p className="text-[13px] text-[#5F6368]">
+          Disconnecting this guild removes all bot webhooks and role sync configurations.
+        </p>
+
+        {!confirmDelete ? (
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            className="px-4 py-2 text-[13px] font-medium text-[#C5221F] bg-white border border-[#FAD2CF] hover:bg-[#FCE8E6] rounded-md transition-colors"
+          >
+            Disconnect server...
+          </button>
+        ) : (
+          <div className="p-4 bg-[#FCE8E6] border border-[#FAD2CF] rounded-md space-y-3">
+            <p className="text-[13px] text-[#C5221F] font-medium">
+              Are you sure you want to disconnect "{server.name}"?
+            </p>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="px-4 py-1.5 text-[13px] font-medium text-white bg-[#C5221F] hover:bg-[#A51D24] rounded-md shadow-2xs"
+              >
+                {deleting ? 'Disconnecting...' : 'Confirm Disconnect'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                className="px-3 py-1.5 text-[13px] font-medium text-[#3C4043] bg-white border border-[#DADCE0] rounded-md"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
       </div>

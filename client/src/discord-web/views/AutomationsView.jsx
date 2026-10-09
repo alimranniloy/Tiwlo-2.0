@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, MessageSquare, UserCheck, Terminal, Save, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, MessageSquare, UserCheck, Terminal, Save, CheckCircle2, RotateCw } from 'lucide-react';
 import { DiscordAPI } from '../api/discordApi';
 
 export default function AutomationsView({ initialTab = 'welcome', onNavigate }) {
@@ -40,7 +40,7 @@ export default function AutomationsView({ initialTab = 'welcome', onNavigate }) 
           config: { trigger: commandPrefix, response: commandResponse }
         });
       }
-      setSavedMsg('Automation saved successfully!');
+      setSavedMsg('Automation rule synchronized and deployed.');
     } catch (err) {
       setSavedMsg(err.message || 'Error saving automation');
     } finally {
@@ -49,156 +49,145 @@ export default function AutomationsView({ initialTab = 'welcome', onNavigate }) 
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-12">
-      {/* Header */}
-      <div>
+    <div className="max-w-4xl mx-auto space-y-6 pb-16 font-sans">
+      {/* 1. Google Cloud Header */}
+      <div className="border-b border-[#DADCE0] pb-4">
         <button
           onClick={() => onNavigate('/discord')}
-          className="inline-flex items-center gap-2 text-xs font-semibold text-gray-500 hover:text-[#0F172A] transition-colors mb-2 cursor-pointer"
+          className="inline-flex items-center gap-2 text-[13px] font-medium text-[#1A73E8] hover:text-[#174EA6] cursor-pointer mb-2"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Workspace Overview</span>
+          <ArrowLeft className="w-4 h-4" />
+          <span>Console Overview</span>
+          <span className="text-[#BDC1C6]">/</span>
+          <span className="text-[#5F6368]">Automations</span>
         </button>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">
-          Automations
+
+        <h1 className="text-xl sm:text-2xl font-normal text-[#202124] tracking-tight">
+          Community Automations
         </h1>
-        <p className="text-gray-500 text-sm mt-1">
-          Configure greeting messages, auto-assigned roles, and custom command responses for your bots.
+        <p className="text-xs sm:text-sm text-[#5F6368] mt-1">
+          Configure greeting triggers, automated role assignment, and command responders.
         </p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-gray-200 gap-2">
-        <button
-          onClick={() => setActiveTab('welcome')}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 cursor-pointer transition-colors ${
-            activeTab === 'welcome'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-900'
-          }`}
-        >
-          <MessageSquare className="w-4 h-4" />
-          <span>Welcome Messages</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('auto-roles')}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 cursor-pointer transition-colors ${
-            activeTab === 'auto-roles'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-900'
-          }`}
-        >
-          <UserCheck className="w-4 h-4" />
-          <span>Auto Roles</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('commands')}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 cursor-pointer transition-colors ${
-            activeTab === 'commands'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-900'
-          }`}
-        >
-          <Terminal className="w-4 h-4" />
-          <span>Custom Commands</span>
-        </button>
+      {/* 2. Google Cloud Horizontal Tabs */}
+      <div className="flex border-b border-[#DADCE0] gap-6 text-[13px]">
+        {[
+          { id: 'welcome', label: 'Welcome Messages', icon: MessageSquare },
+          { id: 'auto-roles', label: 'Auto Roles', icon: UserCheck },
+          { id: 'commands', label: 'Custom Commands', icon: Terminal }
+        ].map((t) => {
+          const Icon = t.icon;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`pb-3 font-medium cursor-pointer transition-colors border-b-2 -mb-px flex items-center gap-2 ${
+                activeTab === t.id
+                  ? 'border-[#1A73E8] text-[#1A73E8]'
+                  : 'border-transparent text-[#5F6368] hover:text-[#202124]'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              <span>{t.label}</span>
+            </button>
+          );
+        })}
       </div>
 
+      {/* Feedback Banner */}
       {savedMsg && (
-        <div className="p-4 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm font-medium flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4" />
+        <div className="p-3.5 rounded-lg bg-[#E6F4EA] border border-[#CEEAD6] text-[#137333] text-[13px] flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>{savedMsg}</span>
         </div>
       )}
 
-      {/* Form Content */}
-      <form onSubmit={handleSave} className="bg-white border border-[#E2E8F0] rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
+      {/* 3. Form Card */}
+      <form onSubmit={handleSave} className="bg-white border border-[#DADCE0] rounded-lg p-6 sm:p-7 space-y-5">
         {activeTab === 'welcome' && (
           <>
-            <div>
-              <label className="block text-sm font-bold text-[#0F172A] mb-1.5">
-                Greeting Channel
+            <div className="space-y-1.5">
+              <label className="block text-[13px] font-medium text-[#202124]">
+                Announcement Channel
               </label>
               <input
                 type="text"
                 value={welcomeChannel}
                 onChange={(e) => setWelcomeChannel(e.target.value)}
                 placeholder="#welcome"
-                className="w-full bg-white border border-[#E2E8F0] rounded-xl px-4 py-2.5 text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] focus:outline-none focus:border-[#1A73E8]"
               />
-              <p className="text-xs text-gray-400 mt-1">Channel where the bot announces new joiners.</p>
             </div>
 
-            <div>
-              <label className="block text-sm font-bold text-[#0F172A] mb-1.5">
-                Welcome Message Template
+            <div className="space-y-1.5">
+              <label className="block text-[13px] font-medium text-[#202124]">
+                Greeting Template
               </label>
               <textarea
-                rows={4}
+                rows="4"
                 value={welcomeMessage}
                 onChange={(e) => setWelcomeMessage(e.target.value)}
-                className="w-full bg-white border border-[#E2E8F0] rounded-xl p-3.5 text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] focus:outline-none focus:border-[#1A73E8]"
               />
-              <p className="text-xs text-gray-400 mt-1">Available variables: {'{user}'}, {'{server}'}, {'{count}'}.</p>
+              <p className="text-[11px] text-[#5F6368]">Use {'{user}'} to mention the joining account, and {'{server}'} for guild name.</p>
             </div>
           </>
         )}
 
         {activeTab === 'auto-roles' && (
-          <>
-            <div>
-              <label className="block text-sm font-bold text-[#0F172A] mb-1.5">
-                Default Member Role
-              </label>
-              <input
-                type="text"
-                value={autoRoleName}
-                onChange={(e) => setAutoRoleName(e.target.value)}
-                placeholder="e.g. Member, Verified Community"
-                className="w-full bg-white border border-[#E2E8F0] rounded-xl px-4 py-2.5 text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              />
-              <p className="text-xs text-gray-400 mt-1">Role automatically assigned when a new user joins.</p>
-            </div>
-          </>
+          <div className="space-y-1.5">
+            <label className="block text-[13px] font-medium text-[#202124]">
+              Default Role for New Members
+            </label>
+            <input
+              type="text"
+              value={autoRoleName}
+              onChange={(e) => setAutoRoleName(e.target.value)}
+              placeholder="Member"
+              className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] focus:outline-none focus:border-[#1A73E8]"
+            />
+            <p className="text-[11px] text-[#5F6368]">Automatically assigned upon joining after Discord verification.</p>
+          </div>
         )}
 
         {activeTab === 'commands' && (
           <>
-            <div>
-              <label className="block text-sm font-bold text-[#0F172A] mb-1.5">
-                Trigger Command
+            <div className="space-y-1.5">
+              <label className="block text-[13px] font-medium text-[#202124]">
+                Command Trigger
               </label>
               <input
                 type="text"
                 value={commandPrefix}
                 onChange={(e) => setCommandPrefix(e.target.value)}
                 placeholder="!help"
-                className="w-full bg-white border border-[#E2E8F0] rounded-xl px-4 py-2.5 text-sm text-[#0F172A] font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] font-mono focus:outline-none focus:border-[#1A73E8]"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-bold text-[#0F172A] mb-1.5">
+            <div className="space-y-1.5">
+              <label className="block text-[13px] font-medium text-[#202124]">
                 Bot Response
               </label>
               <textarea
-                rows={4}
+                rows="3"
                 value={commandResponse}
                 onChange={(e) => setCommandResponse(e.target.value)}
-                className="w-full bg-white border border-[#E2E8F0] rounded-xl p-3.5 text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] focus:outline-none focus:border-[#1A73E8]"
               />
             </div>
           </>
         )}
 
-        <div className="flex justify-end pt-4 border-t border-gray-100">
+        <div className="pt-4 border-t border-[#F1F3F4] flex justify-end">
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-[#1A73E8] hover:bg-[#174EA6] rounded-md transition-colors shadow-2xs disabled:opacity-50"
           >
-            <Save className="w-4 h-4" />
-            <span>{saving ? 'Saving...' : 'Save Automation'}</span>
+            {saving ? <RotateCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            <span>Save Automation</span>
           </button>
         </div>
       </form>

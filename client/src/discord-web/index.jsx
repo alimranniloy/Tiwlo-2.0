@@ -13,8 +13,6 @@ import ModerationView from './views/ModerationView';
 import TicketsView from './views/TicketsView';
 import ActivityView from './views/ActivityView';
 import SettingsView from './views/SettingsView';
-import MarketplaceView from './views/MarketplaceView';
-import MarketplaceProductDetailView from './views/MarketplaceProductDetailView';
 import { DiscordAPI } from './api/discordApi';
 
 export default function DiscordBotManager({ currentUser, onNavigateHome }) {
@@ -60,26 +58,24 @@ export default function DiscordBotManager({ currentUser, onNavigateHome }) {
     loadOverviewData();
   }, [loadOverviewData]);
 
-  // Compute breadcrumbs from currentPath
+  // Compute clean breadcrumbs from currentPath
   const getBreadcrumbs = () => {
     const path = currentPath.replace(/\/+$/, '');
     if (path === '/discord' || path === '/discord/overview' || path === '') {
-      return ['Discord', 'Overview'];
+      return ['Discord Console', 'Overview'];
     }
-    if (path === '/discord/bots') return ['Workspace', 'My bots'];
-    if (path === '/discord/bots/new') return ['Workspace', 'My bots', 'Add bot'];
-    if (path.startsWith('/discord/bots/')) return ['Workspace', 'My bots', 'Manage'];
-    if (path === '/discord/marketplace') return ['Workspace', 'Marketplace'];
-    if (path.startsWith('/discord/marketplace/')) return ['Workspace', 'Marketplace', 'Product'];
-    if (path === '/discord/servers') return ['Workspace', 'Your servers'];
-    if (path === '/discord/servers/new') return ['Workspace', 'Your servers', 'Add server'];
-    if (path.startsWith('/discord/servers/')) return ['Workspace', 'Your servers', 'Manage'];
-    if (path.startsWith('/discord/automations')) return ['Workspace', 'Automations'];
-    if (path === '/discord/moderation') return ['Workspace', 'Moderation'];
-    if (path === '/discord/tickets') return ['Workspace', 'Tickets'];
-    if (path === '/discord/activity') return ['Workspace', 'Activity'];
-    if (path === '/discord/settings') return ['Workspace', 'Settings'];
-    return ['Workspace', 'Discord'];
+    if (path === '/discord/bots') return ['Discord Console', 'My bots'];
+    if (path === '/discord/bots/new') return ['Discord Console', 'My bots', 'Add bot'];
+    if (path.startsWith('/discord/bots/')) return ['Discord Console', 'My bots', 'Manage'];
+    if (path === '/discord/servers') return ['Discord Console', 'Your servers'];
+    if (path === '/discord/servers/new') return ['Discord Console', 'Your servers', 'Add server'];
+    if (path.startsWith('/discord/servers/')) return ['Discord Console', 'Your servers', 'Manage'];
+    if (path.startsWith('/discord/automations')) return ['Discord Console', 'Automations'];
+    if (path === '/discord/moderation') return ['Discord Console', 'Moderation'];
+    if (path === '/discord/tickets') return ['Discord Console', 'Tickets'];
+    if (path === '/discord/activity') return ['Discord Console', 'Activity'];
+    if (path === '/discord/settings') return ['Discord Console', 'Settings'];
+    return ['Discord Console'];
   };
 
   // Render appropriate view based on clean routing (NO POPUPS)
@@ -123,35 +119,14 @@ export default function DiscordBotManager({ currentUser, onNavigateHome }) {
       );
     }
 
-    // Subroute: Marketplace Product Detail
-    if (path.startsWith('/discord/marketplace/') && path !== '/discord/marketplace') {
-      const productId = path.replace('/discord/marketplace/', '');
-      return (
-        <MarketplaceProductDetailView
-          productId={productId}
-          onBack={() => navigateTo('/discord/marketplace')}
-          onNavigate={navigateTo}
-        />
-      );
-    }
-
-    // Subroute: Marketplace Catalog
-    if (path === '/discord/marketplace') {
-      return (
-        <MarketplaceView
-          onNavigate={navigateTo}
-        />
-      );
-    }
-
     // Subroute: Add server
     if (path === '/discord/servers/new') {
       return (
         <AddServerView
-          onBack={() => navigateTo('/discord')}
+          onBack={() => navigateTo('/discord/servers')}
           onServerCreated={() => {
             loadOverviewData();
-            navigateTo('/discord');
+            navigateTo('/discord/servers');
           }}
         />
       );
@@ -163,7 +138,7 @@ export default function DiscordBotManager({ currentUser, onNavigateHome }) {
       return (
         <ServerDetailView
           serverId={serverId}
-          onBack={() => navigateTo('/discord')}
+          onBack={() => navigateTo('/discord/servers')}
           onServerUpdated={loadOverviewData}
           onServerDeleted={loadOverviewData}
         />
@@ -204,15 +179,25 @@ export default function DiscordBotManager({ currentUser, onNavigateHome }) {
 
     // Subroute: Activity
     if (path === '/discord/activity') {
-      return <ActivityView onNavigate={navigateTo} />;
+      return (
+        <ActivityView
+          activities={overviewData?.recentActivities || []}
+          onNavigate={navigateTo}
+        />
+      );
     }
 
-    // Subroute: Settings / Help
-    if (path === '/discord/settings' || path === '/discord/help') {
-      return <SettingsView onNavigate={navigateTo} />;
+    // Subroute: Settings
+    if (path === '/discord/settings') {
+      return (
+        <SettingsView
+          currentUser={currentUser}
+          onNavigate={navigateTo}
+        />
+      );
     }
 
-    // Default / Overview route
+    // Default: Overview Dashboard
     return (
       <OverviewView
         overviewData={overviewData}
@@ -223,7 +208,7 @@ export default function DiscordBotManager({ currentUser, onNavigateHome }) {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC] text-[#0F172A] font-sans antialiased">
+    <div className="flex min-h-screen bg-[#F8F9FA] text-[#202124] font-sans antialiased">
       {/* Sidebar Navigation */}
       <DiscordSidebar
         currentPath={currentPath}
@@ -242,10 +227,11 @@ export default function DiscordBotManager({ currentUser, onNavigateHome }) {
           onSearchChange={setSearchQuery}
           currentUser={currentUser}
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
+          onNavigateHome={onNavigateHome}
         />
 
         {/* Scrollable Page Body */}
-        <main className="flex-1 p-4 sm:p-8 overflow-y-auto min-w-0">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto min-w-0">
           {renderCurrentView()}
         </main>
       </div>

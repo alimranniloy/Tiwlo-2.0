@@ -18,7 +18,12 @@ import {
   Calendar,
   Users,
   Settings,
-  ArrowRight
+  ArrowRight,
+  Activity,
+  Layers,
+  ExternalLink,
+  SlidersHorizontal,
+  Bot
 } from 'lucide-react';
 import { WorkspaceAPI } from '../../api/workspaceApi';
 
@@ -89,385 +94,400 @@ export default function WorkspaceView({ onNavigate }) {
     );
   };
 
+  // Google Cloud styled service icon
   const renderServiceIcon = (iconType) => {
     switch (iconType) {
       case 'shield':
         return (
-          <div className="w-10 h-10 rounded-xl bg-[#0F2D6B] text-white flex items-center justify-center shrink-0 shadow-2xs">
-            <Shield className="w-5 h-5 stroke-[2]" />
+          <div className="w-8 h-8 rounded-md bg-[#E8F0FE] text-[#1A73E8] border border-[#D2E3FC] flex items-center justify-center shrink-0">
+            <Shield className="w-4 h-4 stroke-[2]" />
           </div>
         );
       case 'ticket':
         return (
-          <div className="w-10 h-10 rounded-xl bg-[#0D9488] text-white flex items-center justify-center shrink-0 shadow-2xs">
-            <MessageSquare className="w-5 h-5 stroke-[2]" />
+          <div className="w-8 h-8 rounded-md bg-[#E6F4EA] text-[#137333] border border-[#CEEAD6] flex items-center justify-center shrink-0">
+            <MessageSquare className="w-4 h-4 stroke-[2]" />
           </div>
         );
       case 'chart':
         return (
-          <div className="w-10 h-10 rounded-xl bg-[#7C3AED] text-white flex items-center justify-center shrink-0 shadow-2xs">
-            <BarChart2 className="w-5 h-5 stroke-[2]" />
+          <div className="w-8 h-8 rounded-md bg-[#FEF7E0] text-[#B06000] border border-[#FEEFC3] flex items-center justify-center shrink-0">
+            <BarChart2 className="w-4 h-4 stroke-[2]" />
           </div>
         );
-      case 'calendar':
-        return (
-          <div className="w-10 h-10 rounded-xl bg-[#2563EB] text-white flex items-center justify-center shrink-0 shadow-2xs">
-            <Calendar className="w-5 h-5 stroke-[2]" />
-          </div>
-        );
-      case 'users':
-        return (
-          <div className="w-10 h-10 rounded-xl bg-[#16A34A] text-white flex items-center justify-center shrink-0 shadow-2xs">
-            <Users className="w-5 h-5 stroke-[2]" />
-          </div>
-        );
-      case 'settings':
       default:
         return (
-          <div className="w-10 h-10 rounded-xl bg-[#475569] text-white flex items-center justify-center shrink-0 shadow-2xs">
-            <Settings className="w-5 h-5 stroke-[2]" />
+          <div className="w-8 h-8 rounded-md bg-[#F1F3F4] text-[#5F6368] border border-[#DADCE0] flex items-center justify-center shrink-0">
+            <Layers className="w-4 h-4 stroke-[2]" />
           </div>
         );
     }
   };
 
   return (
-    <div className="space-y-7 max-w-7xl mx-auto pb-16">
-      {/* 1. Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        {/* Title & Help */}
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">
-            Workspace
-          </h1>
-          <button
-            type="button"
-            title="Workspace overview and activated services information"
-            className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
-          >
-            <HelpCircle className="w-5 h-5" />
-          </button>
+    <div className="space-y-6 max-w-7xl mx-auto pb-16 font-sans">
+      {/* 1. Google Cloud Top Action Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#DADCE0] pb-4">
+        {/* Title & Description */}
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-normal text-[#202124] tracking-tight">
+              Workspace
+            </h1>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-[#E8F0FE] text-[#1A73E8] font-medium border border-[#D2E3FC]">
+              Enterprise Console
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm text-[#5F6368] mt-1">
+            Centrally manage, monitor, and provision active workspace services and community extensions.
+          </p>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm font-bold tracking-wide">
-          {/* + ACTIVATE SERVICE */}
+        {/* Action Buttons (Google Cloud styling) */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Primary: ACTIVATE SERVICE */}
           <button
             onClick={() => onNavigate?.('workspace/activate')}
-            className="inline-flex items-center gap-1.5 text-[#2563EB] hover:text-[#1D4ED8] transition-colors cursor-pointer uppercase"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[13px] font-medium text-white bg-[#1A73E8] hover:bg-[#174EA6] rounded-md transition-colors shadow-2xs cursor-pointer"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>ACTIVATE SERVICE</span>
+            <span>Activate service</span>
           </button>
 
-          {/* REFRESH */}
+          {/* Secondary: REFRESH */}
           <button
             onClick={() => loadWorkspace(true)}
             disabled={refreshing}
-            className="inline-flex items-center gap-1.5 text-[#2563EB] hover:text-[#1D4ED8] transition-colors cursor-pointer uppercase disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-[#1A73E8] bg-white border border-[#DADCE0] hover:bg-[#F8F9FA] rounded-md transition-colors cursor-pointer disabled:opacity-50"
           >
-            <RotateCw className={`w-4 h-4 stroke-[2.5] ${refreshing ? 'animate-spin' : ''}`} />
-            <span>REFRESH</span>
+            <RotateCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
           </button>
 
-          {/* VIEW BILLING */}
+          {/* Secondary: BILLING */}
           <button
             onClick={() => onNavigate?.('workspace/billing')}
-            className="inline-flex items-center gap-1.5 text-[#2563EB] hover:text-[#1D4ED8] transition-colors cursor-pointer uppercase"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-[#3C4043] bg-white border border-[#DADCE0] hover:bg-[#F8F9FA] rounded-md transition-colors cursor-pointer"
           >
-            <CreditCard className="w-4 h-4 stroke-[2]" />
-            <span>VIEW BILLING</span>
+            <CreditCard className="w-3.5 h-3.5 text-[#5F6368]" />
+            <span>Billing</span>
+          </button>
+
+          {/* Secondary: OPERATIONS AUDIT */}
+          <button
+            onClick={() => onNavigate?.('workspace/operations')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-[#3C4043] bg-white border border-[#DADCE0] hover:bg-[#F8F9FA] rounded-md transition-colors cursor-pointer"
+          >
+            <Activity className="w-3.5 h-3.5 text-[#5F6368]" />
+            <span>Audit log</span>
           </button>
         </div>
       </div>
 
-      {/* Subtitle */}
-      <p className="text-sm text-gray-500 -mt-4">
-        Manage the services activated in your workspace.
-      </p>
-
-      {/* 2. Meta Stats Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm">
-        <div className="text-[#334155] font-medium">
-          <span>{stats.totalServices} services</span>
-          <span className="mx-2 font-bold text-gray-400">·</span>
-          <span>{stats.connectedServersCount} connected servers</span>
+      {/* 2. Google Cloud Status & Summary Row */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1 text-[13px]">
+        <div className="text-[#3C4043] flex items-center gap-2">
+          <span className="font-medium text-[#202124]">{stats.totalServices}</span> active services
+          <span className="text-[#BDC1C6]">•</span>
+          <span className="font-medium text-[#202124]">{stats.connectedServersCount}</span> connected environments
         </div>
 
-        <div className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-[#15803D]">
-          <CheckCircle2 className="w-4 h-4 fill-[#16A34A] text-white" />
-          <span>All services healthy</span>
+        <div className="flex items-center gap-1.5 font-medium text-[12px] text-[#137333] bg-[#E6F4EA] border border-[#CEEAD6] px-2.5 py-1 rounded-full w-fit">
+          <CheckCircle2 className="w-3.5 h-3.5 fill-[#137333] text-white" />
+          <span>All operational services healthy</span>
         </div>
       </div>
 
-      {/* 3. Filter Bar */}
-      <form
-        onSubmit={handleSearchSubmit}
-        className="flex items-center bg-white border border-[#E2E8F0] rounded-xl shadow-2xs overflow-hidden"
-      >
-        {/* Filter Button */}
-        <button
-          type="button"
-          onClick={() => {}}
-          className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors border-r border-[#E2E8F0] shrink-0 cursor-pointer"
+      {/* 3. Google Cloud Table Container */}
+      <div className="bg-white border border-[#DADCE0] rounded-lg shadow-2xs overflow-hidden">
+        {/* Table Filter Toolbar */}
+        <form
+          onSubmit={handleSearchSubmit}
+          className="flex items-center justify-between border-b border-[#DADCE0] px-4 py-2.5 bg-[#FFFFFF]"
         >
-          <Filter className="w-4 h-4 text-gray-500" />
-          <span>Filter</span>
-        </button>
+          <div className="flex items-center gap-2 flex-1 max-w-xl">
+            <Filter className="w-4 h-4 text-[#5F6368] shrink-0" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Filter table by service name, plan, server or status..."
+              className="w-full text-[13px] text-[#202124] placeholder-[#5F6368] bg-transparent focus:outline-none"
+            />
+          </div>
 
-        {/* Search Input */}
-        <div className="relative flex-1">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter by name, server, status or plan"
-            className="w-full pl-4 pr-10 py-2.5 text-sm text-[#0F172A] placeholder-gray-400 bg-transparent focus:outline-none"
-          />
-        </div>
+          <div className="flex items-center gap-2 text-[#5F6368] shrink-0">
+            <button
+              type="submit"
+              className="p-1.5 hover:text-[#202124] hover:bg-[#F1F3F4] rounded-full transition-colors cursor-pointer"
+              title="Filter"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => loadWorkspace(true)}
+              className="p-1.5 hover:text-[#202124] hover:bg-[#F1F3F4] rounded-full transition-colors cursor-pointer"
+              title="Refresh table"
+            >
+              <RotateCw className="w-4 h-4" />
+            </button>
+          </div>
+        </form>
 
-        {/* Right Search & Columns Icons */}
-        <div className="flex items-center gap-1 pr-3 pl-2 text-gray-400 shrink-0">
-          <button
-            type="submit"
-            className="p-1 hover:text-gray-600 transition-colors cursor-pointer"
-            aria-label="Search"
-          >
-            <Search className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            className="p-1 hover:text-gray-600 transition-colors cursor-pointer"
-            aria-label="Toggle columns view"
-          >
-            <Columns className="w-4 h-4" />
-          </button>
-        </div>
-      </form>
-
-      {/* 4. Active Services Table */}
-      <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs overflow-hidden">
+        {/* Data Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm border-collapse min-w-[800px]">
+          <table className="w-full text-left text-[13px] border-collapse min-w-[840px]">
             <thead>
-              <tr className="border-b border-[#E2E8F0] bg-[#FAFAFA] text-xs font-semibold text-gray-500">
-                <th className="py-3.5 px-4 w-10">
+              <tr className="border-b border-[#DADCE0] bg-[#F8F9FA] text-[11px] font-medium text-[#5F6368] uppercase tracking-wider">
+                <th className="py-3 px-4 w-10">
                   <input
                     type="checkbox"
                     checked={services.length > 0 && selectedIds.length === services.length}
                     onChange={handleSelectAll}
-                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    className="w-3.5 h-3.5 rounded border-[#DADCE0] accent-[#1A73E8] cursor-pointer"
                   />
                 </th>
                 <th
                   onClick={handleSortToggle}
-                  className="py-3.5 px-4 font-semibold text-gray-600 hover:text-gray-900 cursor-pointer select-none"
+                  className="py-3 px-4 font-medium text-[#5F6368] hover:text-[#202124] cursor-pointer select-none"
                 >
                   <div className="flex items-center gap-1">
                     <span>Service name</span>
-                    <ArrowDown className={`w-3.5 h-3.5 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} />
+                    <ArrowDown className={`w-3 h-3 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} />
                   </div>
                 </th>
-                <th className="py-3.5 px-4 font-semibold text-gray-600">Status</th>
-                <th className="py-3.5 px-4 font-semibold text-gray-600">Connected server</th>
-                <th className="py-3.5 px-4 font-semibold text-gray-600">Plan</th>
-                <th className="py-3.5 px-4 font-semibold text-gray-600">Usage</th>
-                <th className="py-3.5 px-4 font-semibold text-gray-600">Renewal</th>
-                <th className="py-3.5 px-4 font-semibold text-gray-600 text-right pr-6">Actions</th>
+                <th className="py-3 px-4 font-medium">Status</th>
+                <th className="py-3 px-4 font-medium">Environment</th>
+                <th className="py-3 px-4 font-medium">Plan tier</th>
+                <th className="py-3 px-4 font-medium">Capacity usage</th>
+                <th className="py-3 px-4 font-medium">Billing renewal</th>
+                <th className="py-3 px-4 font-medium text-right pr-6">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#F1F5F9]">
-              {services.map((service) => {
-                const isSelected = selectedIds.includes(service.id);
-                return (
-                  <tr
-                    key={service.id}
-                    className={`hover:bg-[#F8FAFC] transition-colors ${isSelected ? 'bg-blue-50/30' : ''}`}
-                  >
-                    {/* Checkbox */}
-                    <td className="py-4 px-4">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => handleToggleSelect(service.id)}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                      />
-                    </td>
+            <tbody className="divide-y divide-[#E8EAED]">
+              {loading ? (
+                <tr>
+                  <td colSpan="8" className="py-12 text-center text-[#5F6368]">
+                    <RotateCw className="w-5 h-5 text-[#1A73E8] animate-spin mx-auto mb-2" />
+                    <span>Loading workspace services...</span>
+                  </td>
+                </tr>
+              ) : services.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="py-12 text-center text-[#5F6368]">
+                    <Layers className="w-8 h-8 text-[#BDC1C6] mx-auto mb-2" />
+                    <p className="font-medium text-[#202124]">No services match your filter</p>
+                    <button
+                      onClick={() => { setSearch(''); loadWorkspace(); }}
+                      className="mt-2 text-[#1A73E8] hover:underline font-medium cursor-pointer"
+                    >
+                      Reset filter
+                    </button>
+                  </td>
+                </tr>
+              ) : (
+                services.map((service) => {
+                  const isSelected = selectedIds.includes(service.id);
+                  return (
+                    <tr
+                      key={service.id}
+                      className={`hover:bg-[#F8F9FA] transition-colors ${isSelected ? 'bg-[#E8F0FE]/40' : ''}`}
+                    >
+                      {/* Checkbox */}
+                      <td className="py-3.5 px-4">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelect(service.id)}
+                          className="w-3.5 h-3.5 rounded border-[#DADCE0] accent-[#1A73E8] cursor-pointer"
+                        />
+                      </td>
 
-                    {/* Service Name & Category */}
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-3">
-                        {renderServiceIcon(service.iconType)}
-                        <div>
-                          <div className="font-bold text-[#0F172A] leading-tight">
-                            {service.name}
-                          </div>
-                          <div className="text-xs text-gray-500 mt-0.5">
-                            {service.category}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Status */}
-                    <td className="py-4 px-4 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5 font-medium text-xs text-[#0F172A]">
-                        <CheckCircle2 className="w-3.5 h-3.5 fill-[#16A34A] text-white" />
-                        <span>{service.status || 'Active'}</span>
-                      </div>
-                    </td>
-
-                    {/* Connected Server */}
-                    <td className="py-4 px-4 whitespace-nowrap">
-                      <span className="text-[#2563EB] font-medium text-sm">
-                        {service.serverName}
-                      </span>
-                    </td>
-
-                    {/* Plan */}
-                    <td className="py-4 px-4 whitespace-nowrap text-gray-700 font-medium">
-                      {service.plan}
-                    </td>
-
-                    {/* Usage */}
-                    <td className="py-4 px-4 whitespace-nowrap text-gray-600">
-                      {service.usageLabel || '—'}
-                    </td>
-
-                    {/* Renewal */}
-                    <td className="py-4 px-4 whitespace-nowrap text-gray-600">
-                      {service.renewalDate || '—'}
-                    </td>
-
-                    {/* Actions: Manage + ⋮ */}
-                    <td className="py-4 px-4 whitespace-nowrap text-right pr-6">
-                      <div className="flex items-center justify-end gap-3">
-                        <button
-                          onClick={() => onNavigate?.(`workspace/service/${service.id}`)}
-                          className="text-[#2563EB] hover:text-[#1D4ED8] font-bold text-sm hover:underline cursor-pointer"
-                        >
-                          Manage
-                        </button>
-                        <div className="relative">
-                          <button
-                            onClick={() =>
-                              setActiveMenuId(activeMenuId === service.id ? null : service.id)
-                            }
-                            className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
-                            aria-label="Options"
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </button>
-                          {activeMenuId === service.id && (
-                            <div className="absolute right-0 mt-1 w-44 bg-white border border-[#E2E8F0] rounded-xl shadow-lg py-1.5 z-20 text-left">
-                              <button
-                                onClick={() => {
-                                  setActiveMenuId(null);
-                                  onNavigate?.(`workspace/service/${service.id}`);
-                                }}
-                                className="w-full px-3.5 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer"
-                              >
-                                <span>Service Settings</span>
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setActiveMenuId(null);
-                                  onNavigate?.('workspace/billing');
-                                }}
-                                className="w-full px-3.5 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer"
-                              >
-                                <span>Change Plan</span>
-                              </button>
+                      {/* Service Name & Category */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-3">
+                          {renderServiceIcon(service.iconType)}
+                          <div>
+                            <button
+                              onClick={() => onNavigate?.(`workspace/service/${service.id}`)}
+                              className="font-medium text-[#1A73E8] hover:underline text-left leading-tight cursor-pointer"
+                            >
+                              {service.name}
+                            </button>
+                            <div className="text-[11px] text-[#5F6368] mt-0.5 capitalize">
+                              {service.category || 'Service extension'}
                             </div>
-                          )}
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-medium bg-[#E6F4EA] text-[#137333] border border-[#CEEAD6]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#137333]" />
+                          <span>{service.status || 'Active'}</span>
+                        </span>
+                      </td>
+
+                      {/* Connected Server */}
+                      <td className="py-3.5 px-4 text-[#3C4043] font-mono text-[12px]">
+                        {service.connectedServer || 'production-cluster-01'}
+                      </td>
+
+                      {/* Plan */}
+                      <td className="py-3.5 px-4">
+                        <span className="inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-[#F1F3F4] text-[#3C4043] border border-[#DADCE0]">
+                          {service.plan || 'Standard'}
+                        </span>
+                      </td>
+
+                      {/* Usage */}
+                      <td className="py-3.5 px-4 min-w-[130px]">
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px] text-[#5F6368]">
+                            <span>{service.usage || '32%'}</span>
+                          </div>
+                          <div className="w-full bg-[#E8EAED] rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className="bg-[#1A73E8] h-1.5 rounded-full"
+                              style={{ width: service.usage || '32%' }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Renewal */}
+                      <td className="py-3.5 px-4 text-[#5F6368] text-[12px] whitespace-nowrap">
+                        {service.renewal || 'Monthly • Auto-renews'}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-right pr-6 relative">
+                        <button
+                          onClick={() => setActiveMenuId(activeMenuId === service.id ? null : service.id)}
+                          className="p-1 rounded-full hover:bg-[#F1F3F4] text-[#5F6368] hover:text-[#202124] transition-colors cursor-pointer"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+
+                        {/* Google Cloud action dropdown */}
+                        {activeMenuId === service.id && (
+                          <div className="absolute right-6 top-10 w-44 bg-white border border-[#DADCE0] rounded-md shadow-lg py-1 z-20 text-left text-[13px]">
+                            <button
+                              onClick={() => {
+                                setActiveMenuId(null);
+                                onNavigate?.(`workspace/service/${service.id}`);
+                              }}
+                              className="w-full px-4 py-2 text-[#202124] hover:bg-[#F8F9FA] transition-colors"
+                            >
+                              View details
+                            </button>
+                            <button
+                              onClick={() => {
+                                setActiveMenuId(null);
+                                onNavigate?.('workspace/billing');
+                              }}
+                              className="w-full px-4 py-2 text-[#202124] hover:bg-[#F8F9FA] transition-colors"
+                            >
+                              Manage billing
+                            </button>
+                            <div className="border-t border-[#DADCE0] my-1" />
+                            <button
+                              onClick={() => {
+                                setActiveMenuId(null);
+                                onNavigate?.('workspace/operations');
+                              }}
+                              className="w-full px-4 py-2 text-[#202124] hover:bg-[#F8F9FA] transition-colors"
+                            >
+                              Audit logs
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* Table Pagination Bar */}
-        <div className="flex items-center justify-end gap-5 px-6 py-3.5 border-t border-[#E2E8F0] text-xs font-medium text-gray-500 bg-white">
-          <div className="flex items-center gap-1.5">
+        {/* Table Pagination Footer (Google Cloud style) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-t border-[#DADCE0] px-4 py-3 bg-[#FFFFFF] text-[12px] text-[#5F6368] gap-3">
+          <div className="flex items-center gap-2">
             <span>Rows per page:</span>
-            <span className="font-semibold text-gray-700">10 ▾</span>
+            <span className="font-medium text-[#202124]">10</span>
           </div>
-          <div>
-            1–{services.length} of {services.length}
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              disabled
-              className="p-1 rounded text-gray-300 disabled:opacity-40 cursor-not-allowed"
-              aria-label="Previous page"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              disabled
-              className="p-1 rounded text-gray-300 disabled:opacity-40 cursor-not-allowed"
-              aria-label="Next page"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
+
+          <div className="flex items-center gap-4">
+            <span>1-{services.length} of {services.length}</span>
+            <div className="flex items-center gap-1">
+              <button
+                disabled
+                className="p-1 rounded hover:bg-[#F1F3F4] text-[#BDC1C6] disabled:cursor-not-allowed cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                disabled
+                className="p-1 rounded hover:bg-[#F1F3F4] text-[#BDC1C6] disabled:cursor-not-allowed cursor-pointer"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* 5. Recent Operations Section */}
-      <section className="space-y-3 pt-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-[#0F172A]">Recent operations</h2>
+      {/* 4. Google Cloud Operations Audit Card */}
+      <div className="bg-white border border-[#DADCE0] rounded-lg p-5">
+        <div className="flex items-center justify-between border-b border-[#F1F3F4] pb-3 mb-4">
+          <div>
+            <h2 className="text-[15px] font-medium text-[#202124]">
+              Recent Workspace Operations
+            </h2>
+            <p className="text-[12px] text-[#5F6368] mt-0.5">
+              Live audit stream of lifecycle operations recorded across services.
+            </p>
+          </div>
           <button
             onClick={() => onNavigate?.('workspace/operations')}
-            className="text-xs font-bold text-[#2563EB] hover:text-[#1D4ED8] uppercase tracking-wider cursor-pointer"
+            className="text-[13px] font-medium text-[#1A73E8] hover:underline cursor-pointer"
           >
-            VIEW ALL
+            View all logs →
           </button>
         </div>
 
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse min-w-[650px]">
-              <thead>
-                <tr className="border-b border-[#E2E8F0] bg-[#FAFAFA] text-xs font-semibold text-gray-500">
-                  <th className="py-3 px-6 font-semibold">Operation</th>
-                  <th className="py-3 px-6 font-semibold">Service</th>
-                  <th className="py-3 px-6 font-semibold">Result</th>
-                  <th className="py-3 px-6 font-semibold">Time</th>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-[12px] border-collapse">
+            <thead>
+              <tr className="border-b border-[#DADCE0] text-[#5F6368] uppercase text-[11px] font-medium">
+                <th className="py-2 px-3">Timestamp</th>
+                <th className="py-2 px-3">Operation</th>
+                <th className="py-2 px-3">Target Service</th>
+                <th className="py-2 px-3">Initiator</th>
+                <th className="py-2 px-3 text-right">Result</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#F1F3F4]">
+              {(operations.slice(0, 4)).map((op) => (
+                <tr key={op.id} className="hover:bg-[#F8F9FA]">
+                  <td className="py-2.5 px-3 text-[#5F6368] font-mono">{op.timestamp || 'Just now'}</td>
+                  <td className="py-2.5 px-3 font-medium text-[#202124]">{op.action}</td>
+                  <td className="py-2.5 px-3 text-[#3C4043]">{op.targetService}</td>
+                  <td className="py-2.5 px-3 text-[#5F6368]">{op.user || 'system'}</td>
+                  <td className="py-2.5 px-3 text-right">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#E6F4EA] text-[#137333]">
+                      {op.status || 'Success'}
+                    </span>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F1F5F9]">
-                {operations.map((op) => (
-                  <tr key={op.id} className="hover:bg-[#F8FAFC] transition-colors">
-                    <td className="py-3.5 px-6 font-medium text-[#0F172A]">
-                      {op.operation}
-                    </td>
-                    <td className="py-3.5 px-6">
-                      <span className="text-[#2563EB] font-medium">
-                        {op.serviceName}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-6">
-                      <div className="flex items-center gap-1.5 font-medium text-xs text-[#0F172A]">
-                        <CheckCircle2 className="w-3.5 h-3.5 fill-[#16A34A] text-white" />
-                        <span>{op.result || 'Completed'}</span>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-6 text-gray-500 text-xs">
-                      {op.timeAgo || 'Recent'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

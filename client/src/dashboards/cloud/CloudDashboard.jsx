@@ -28,6 +28,8 @@ import WorkspaceServiceDetailView from '../../views/workspace/WorkspaceServiceDe
 import WorkspaceActivateView from '../../views/workspace/WorkspaceActivateView';
 import WorkspaceBillingView from '../../views/workspace/WorkspaceBillingView';
 import WorkspaceOperationsView from '../../views/workspace/WorkspaceOperationsView';
+import MarketplaceView from '../../views/marketplace/MarketplaceView';
+import MarketplaceProductDetailView from '../../views/marketplace/MarketplaceProductDetailView';
 
 // Real GraphQL / REST Client
 import {
@@ -200,6 +202,7 @@ export default function CloudDashboard({
           setActiveNav(nav);
           try {
             if (nav === 'workspace') window.history.pushState(null, '', '/workspace');
+            else if (nav === 'marketplace') window.history.pushState(null, '', '/marketplace');
             else if (nav === 'dashboard') window.history.pushState(null, '', '/');
             else if (nav === 'whatsapp-automation') window.history.pushState(null, '', '/whatsapp-automation');
           } catch (e) {}
@@ -394,6 +397,29 @@ export default function CloudDashboard({
                 />
               ) : (
                 <WorkspaceView
+                  onNavigate={(target) => {
+                    setActiveNav(target);
+                    try { window.history.pushState(null, '', `/${target}`); } catch (e) {}
+                  }}
+                />
+              )}
+            </div>
+          ) : (activeNav === 'marketplace' || activeNav.startsWith('marketplace')) ? (
+            <div className="max-w-[1500px] mx-auto">
+              {activeNav.startsWith('marketplace/') ? (
+                <MarketplaceProductDetailView
+                  productId={activeNav.replace('marketplace/', '')}
+                  onBack={() => {
+                    setActiveNav('marketplace');
+                    try { window.history.pushState(null, '', '/marketplace'); } catch (e) {}
+                  }}
+                  onNavigate={(target) => {
+                    setActiveNav(target);
+                    try { window.history.pushState(null, '', `/${target}`); } catch (e) {}
+                  }}
+                />
+              ) : (
+                <MarketplaceView
                   onNavigate={(target) => {
                     setActiveNav(target);
                     try { window.history.pushState(null, '', `/${target}`); } catch (e) {}

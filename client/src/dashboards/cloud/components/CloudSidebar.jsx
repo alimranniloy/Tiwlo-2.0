@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   LayoutDashboard,
   LayoutGrid,
+  ShoppingBag,
   Server,
   Network,
   Shield,
@@ -100,24 +101,7 @@ export default function CloudSidebar({
 
         {/* Navigation Items */}
         <nav className="space-y-1 text-xs font-medium">
-          {/* Dashboard item */}
-          <button
-            onClick={() => handleNavSelect('dashboard')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
-              activeNav === 'dashboard'
-                ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-gray-800'
-            }`}
-          >
-            <div className={`w-5 h-5 rounded-lg flex items-center justify-center ${
-              activeNav === 'dashboard' ? 'bg-blue-600 text-white' : 'text-slate-400'
-            }`}>
-              <LayoutDashboard className="w-3.5 h-3.5" />
-            </div>
-            <span>Dashboard</span>
-          </button>
-
-          {/* Dedicated Category: "Workspace" */}
+          {/* 1. Dedicated Category: "Workspace" (At the top of the menu) */}
           <button
             onClick={() => handleNavSelect('workspace')}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer group ${
@@ -134,6 +118,42 @@ export default function CloudSidebar({
               <LayoutGrid className="w-3.5 h-3.5" />
             </div>
             <span className="truncate">Workspace</span>
+          </button>
+
+          {/* 2. Dashboard item */}
+          <button
+            onClick={() => handleNavSelect('dashboard')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+              activeNav === 'dashboard'
+                ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <div className={`w-5 h-5 rounded-lg flex items-center justify-center ${
+              activeNav === 'dashboard' ? 'bg-blue-600 text-white' : 'text-slate-400'
+            }`}>
+              <LayoutDashboard className="w-3.5 h-3.5" />
+            </div>
+            <span>Dashboard</span>
+          </button>
+
+          {/* 3. Marketplace item */}
+          <button
+            onClick={() => handleNavSelect('marketplace')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer group ${
+              activeNav === 'marketplace' || activeNav.startsWith('marketplace')
+                ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <div className={`w-5 h-5 rounded-lg flex items-center justify-center transition-colors ${
+              activeNav === 'marketplace' || activeNav.startsWith('marketplace')
+                ? 'bg-blue-600 text-white'
+                : 'text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400'
+            }`}>
+              <ShoppingBag className="w-3.5 h-3.5" />
+            </div>
+            <span className="truncate">Marketplace</span>
           </button>
 
           {/* Dedicated Category: "My Online Store" (Opens separate full page with Apple iOS aesthetic) */}
