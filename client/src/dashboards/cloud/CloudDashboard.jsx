@@ -194,7 +194,7 @@ export default function CloudDashboard({
   });
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0B0F19] text-slate-800 dark:text-slate-100 flex transition-colors">
+    <div className="min-h-screen bg-[#FFFFFF] text-[#1F1F1F] flex font-sans">
       {/* Left Sidebar */}
       <CloudSidebar
         activeNav={activeNav}

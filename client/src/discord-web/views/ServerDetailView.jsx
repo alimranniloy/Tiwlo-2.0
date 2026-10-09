@@ -97,21 +97,21 @@ export default function ServerDetailView({ serverId, onBack, onServerUpdated, on
 
   if (loading) {
     return (
-      <div className="bg-white border border-[#DADCE0] rounded-lg p-16 text-center max-w-4xl mx-auto">
-        <RotateCw className="w-6 h-6 text-[#1A73E8] animate-spin mx-auto mb-3" />
-        <p className="text-[13px] text-[#5F6368]">Loading server details...</p>
+      <div className="bg-white border border-[#E0E2EC] rounded-2xl p-16 text-center max-w-4xl mx-auto shadow-none">
+        <RotateCw className="w-6 h-6 text-[#0B57D0] animate-spin mx-auto mb-3" />
+        <p className="text-[13px] text-[#747775]">Loading server details...</p>
       </div>
     );
   }
 
   if (!server) {
     return (
-      <div className="bg-white border border-[#DADCE0] rounded-lg p-12 text-center max-w-xl mx-auto space-y-4">
-        <AlertTriangle className="w-10 h-10 text-[#C5221F] mx-auto" />
-        <h2 className="text-lg font-medium text-[#202124]">Server Not Found</h2>
+      <div className="bg-white border border-[#E0E2EC] rounded-2xl p-12 text-center max-w-xl mx-auto space-y-4 shadow-none">
+        <AlertTriangle className="w-10 h-10 text-[#B3261E] mx-auto" />
+        <h2 className="text-lg font-medium text-[#1F1F1F]">Server Not Found</h2>
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-[#1A73E8] hover:bg-[#174EA6] text-white text-[13px] font-medium rounded-md transition-colors"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0B57D0] hover:bg-[#0842A0] text-white text-[13px] font-medium rounded-full transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Servers</span>
@@ -121,56 +121,56 @@ export default function ServerDetailView({ serverId, onBack, onServerUpdated, on
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-16 font-sans">
-      {/* 1. Google Cloud Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#DADCE0] pb-4">
+    <div className="max-w-4xl mx-auto space-y-6 pb-16 font-sans bg-white">
+      {/* 1. Modern Google Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#E0E2EC] pb-5">
         <div>
           <button
             onClick={onBack}
-            className="inline-flex items-center gap-2 text-[13px] font-medium text-[#1A73E8] hover:text-[#174EA6] cursor-pointer mb-2"
+            className="inline-flex items-center gap-2 text-[13px] font-medium text-[#0B57D0] hover:text-[#0842A0] cursor-pointer mb-2.5"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Connected Servers</span>
-            <span className="text-[#BDC1C6]">/</span>
-            <span className="text-[#5F6368]">{server.name}</span>
+            <span className="text-[#C4C7C5]">/</span>
+            <span className="text-[#444746]">{server.name}</span>
           </button>
 
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-normal text-[#202124] tracking-tight">{server.name}</h1>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-medium bg-[#E6F4EA] text-[#137333] border border-[#CEEAD6]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#137333]" />
+            <h1 className="text-2xl font-normal text-[#1F1F1F] tracking-tight">{server.name}</h1>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium bg-[#C4EED0] text-[#072711]">
+              <span className="w-2 h-2 rounded-full bg-[#137333]" />
               Connected
             </span>
           </div>
-          <p className="text-xs text-[#5F6368] font-mono mt-1">Guild ID: {server.guildId || 'N/A'}</p>
+          <p className="text-xs text-[#747775] font-mono mt-1">Guild ID: {server.guildId || 'N/A'}</p>
         </div>
       </div>
 
       {msg && (
         <div
-          className={`p-3.5 rounded-lg border text-[13px] flex items-center gap-2.5 ${
+          className={`p-4 rounded-2xl border text-[13px] flex items-center gap-2.5 ${
             msg.type === 'error'
-              ? 'bg-[#FCE8E6] text-[#C5221F] border-[#FAD2CF]'
-              : 'bg-[#E6F4EA] text-[#137333] border-[#CEEAD6]'
+              ? 'bg-[#FCE8E6] text-[#B3261E] border-[#F9DEDC]'
+              : 'bg-[#C4EED0]/30 text-[#072711] border-[#C4EED0]'
           }`}
         >
           {msg.type === 'error' ? (
-            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <AlertTriangle className="w-4 h-4 shrink-0 text-[#B3261E]" />
           ) : (
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-[#137333]" />
           )}
           <span>{msg.text}</span>
         </div>
       )}
 
       {/* 2. Server Configuration Card */}
-      <form onSubmit={handleSave} className="bg-white border border-[#DADCE0] rounded-lg p-6 sm:p-7 space-y-5">
-        <h2 className="text-[16px] font-medium text-[#202124] border-b border-[#F1F3F4] pb-2">
+      <form onSubmit={handleSave} className="bg-white border border-[#E0E2EC] rounded-2xl p-6 sm:p-8 space-y-5 shadow-none">
+        <h2 className="text-[16px] font-medium text-[#1F1F1F] border-b border-[#F0F4F9] pb-3">
           Server Details
         </h2>
 
-        <div className="space-y-1.5">
-          <label className="block text-[13px] font-medium text-[#202124]">
+        <div className="space-y-2">
+          <label className="block text-[13px] font-medium text-[#1F1F1F]">
             Server Name
           </label>
           <input
@@ -178,41 +178,41 @@ export default function ServerDetailView({ serverId, onBack, onServerUpdated, on
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] focus:outline-none focus:border-[#1A73E8]"
+            className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#0B57D0] transition-colors"
           />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <label className="block text-[13px] font-medium text-[#202124]">
+          <div className="space-y-2">
+            <label className="block text-[13px] font-medium text-[#1F1F1F]">
               Discord Guild ID
             </label>
             <input
               type="text"
               value={guildId}
               onChange={(e) => setGuildId(e.target.value)}
-              className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] font-mono focus:outline-none focus:border-[#1A73E8]"
+              className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] font-mono focus:outline-none focus:bg-white focus:border-[#0B57D0] transition-colors"
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="block text-[13px] font-medium text-[#202124]">
+          <div className="space-y-2">
+            <label className="block text-[13px] font-medium text-[#1F1F1F]">
               Member Count
             </label>
             <input
               type="number"
               value={memberCount}
               onChange={(e) => setMemberCount(e.target.value)}
-              className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] focus:outline-none focus:border-[#1A73E8]"
+              className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#0B57D0] transition-colors"
             />
           </div>
         </div>
 
-        <div className="pt-3 border-t border-[#F1F3F4] flex items-center justify-end gap-3">
+        <div className="pt-4 border-t border-[#F0F4F9] flex items-center justify-end gap-3">
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-[#1A73E8] hover:bg-[#174EA6] rounded-md transition-colors shadow-2xs disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-6 py-2.5 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-colors disabled:opacity-50 cursor-pointer"
           >
             {saving ? <RotateCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             <span>Save Server</span>
@@ -221,29 +221,29 @@ export default function ServerDetailView({ serverId, onBack, onServerUpdated, on
       </form>
 
       {/* 3. Assigned Bots Card */}
-      <div className="bg-white border border-[#DADCE0] rounded-lg p-6 sm:p-7 space-y-4">
-        <h2 className="text-[16px] font-medium text-[#202124] border-b border-[#F1F3F4] pb-2">
+      <div className="bg-white border border-[#E0E2EC] rounded-2xl p-6 sm:p-8 space-y-5 shadow-none">
+        <h2 className="text-[16px] font-medium text-[#1F1F1F] border-b border-[#F0F4F9] pb-3">
           Assigned Bot Workers
         </h2>
 
         {/* List of assigned bots */}
         {(server.bots || []).length > 0 ? (
-          <div className="divide-y divide-[#F1F3F4]">
+          <div className="divide-y divide-[#F0F4F9]">
             {server.bots.map((b) => (
-              <div key={b.id || b.name} className="py-3 flex items-center justify-between">
+              <div key={b.id || b.name} className="py-3.5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-md bg-[#E8F0FE] text-[#1A73E8] flex items-center justify-center font-bold text-xs border border-[#D2E3FC]">
+                  <div className="w-9 h-9 rounded-xl bg-[#C2E7FF] text-[#001D35] flex items-center justify-center font-bold text-xs">
                     <Bot className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="font-medium text-[#202124] text-[13px]">{b.name}</span>
-                    <span className="text-[11px] text-[#5F6368] block">Prefix: {b.prefix || '!'}</span>
+                    <span className="font-medium text-[#1F1F1F] text-[13px]">{b.name}</span>
+                    <span className="text-[11px] text-[#747775] block">Prefix: {b.prefix || '!'}</span>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => handleRemoveBot(b.id)}
-                  className="text-[12px] font-medium text-[#C5221F] hover:underline"
+                  className="text-[12px] font-medium text-[#B3261E] hover:underline cursor-pointer"
                 >
                   Unassign
                 </button>
@@ -251,15 +251,15 @@ export default function ServerDetailView({ serverId, onBack, onServerUpdated, on
             ))}
           </div>
         ) : (
-          <p className="text-[13px] text-[#5F6368] py-2">No bots currently assigned to this server.</p>
+          <p className="text-[13px] text-[#747775] py-2">No bots currently assigned to this server.</p>
         )}
 
         {/* Assign new bot */}
-        <div className="pt-3 border-t border-[#F1F3F4] flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="pt-4 border-t border-[#F0F4F9] flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <select
             value={selectedBotToAssign}
             onChange={(e) => setSelectedBotToAssign(e.target.value)}
-            className="flex-1 bg-white border border-[#DADCE0] rounded-md px-3 py-1.5 text-[13px] text-[#202124] focus:outline-none focus:border-[#1A73E8]"
+            className="flex-1 bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#0B57D0] transition-colors"
           >
             <option value="">Select a bot to assign...</option>
             {allBots.map((b) => (
@@ -272,7 +272,7 @@ export default function ServerDetailView({ serverId, onBack, onServerUpdated, on
             type="button"
             onClick={handleAssignBot}
             disabled={!selectedBotToAssign}
-            className="px-4 py-1.5 text-[13px] font-medium text-[#1A73E8] bg-white border border-[#DADCE0] hover:bg-[#F8F9FA] rounded-md transition-colors disabled:opacity-50"
+            className="px-5 py-2 text-[13px] font-medium text-[#0B57D0] bg-white border border-[#747775]/30 hover:bg-[#F0F4F9] rounded-full transition-colors disabled:opacity-50 cursor-pointer"
           >
             Assign Bot
           </button>
@@ -280,11 +280,11 @@ export default function ServerDetailView({ serverId, onBack, onServerUpdated, on
       </div>
 
       {/* 4. Disconnect Server Card (No popup) */}
-      <div className="bg-white border border-[#DADCE0] rounded-lg p-6 space-y-4">
-        <h2 className="text-[16px] font-medium text-[#C5221F]">
+      <div className="bg-white border border-[#FAD2CF] rounded-2xl p-6 sm:p-7 space-y-4 shadow-none">
+        <h2 className="text-[16px] font-medium text-[#B3261E]">
           Disconnect Community Server
         </h2>
-        <p className="text-[13px] text-[#5F6368]">
+        <p className="text-[13px] text-[#444746]">
           Disconnecting this guild removes all bot webhooks and role sync configurations.
         </p>
 
@@ -292,13 +292,13 @@ export default function ServerDetailView({ serverId, onBack, onServerUpdated, on
           <button
             type="button"
             onClick={() => setConfirmDelete(true)}
-            className="px-4 py-2 text-[13px] font-medium text-[#C5221F] bg-white border border-[#FAD2CF] hover:bg-[#FCE8E6] rounded-md transition-colors"
+            className="px-5 py-2 text-[13px] font-medium text-[#B3261E] bg-white border border-[#B3261E]/40 hover:bg-[#FCE8E6] rounded-full transition-colors cursor-pointer"
           >
             Disconnect server...
           </button>
         ) : (
-          <div className="p-4 bg-[#FCE8E6] border border-[#FAD2CF] rounded-md space-y-3">
-            <p className="text-[13px] text-[#C5221F] font-medium">
+          <div className="p-5 bg-[#FCE8E6]/50 border border-[#FAD2CF] rounded-2xl space-y-4">
+            <p className="text-[13px] text-[#B3261E] font-medium">
               Are you sure you want to disconnect "{server.name}"?
             </p>
             <div className="flex items-center gap-3">
@@ -306,14 +306,14 @@ export default function ServerDetailView({ serverId, onBack, onServerUpdated, on
                 type="button"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="px-4 py-1.5 text-[13px] font-medium text-white bg-[#C5221F] hover:bg-[#A51D24] rounded-md shadow-2xs"
+                className="px-5 py-2 text-[13px] font-medium text-white bg-[#B3261E] hover:bg-[#8C1D18] rounded-full cursor-pointer"
               >
                 {deleting ? 'Disconnecting...' : 'Confirm Disconnect'}
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmDelete(false)}
-                className="px-3 py-1.5 text-[13px] font-medium text-[#3C4043] bg-white border border-[#DADCE0] rounded-md"
+                className="px-4 py-2 text-[13px] font-medium text-[#444746] bg-white border border-[#747775]/30 rounded-full"
               >
                 Cancel
               </button>

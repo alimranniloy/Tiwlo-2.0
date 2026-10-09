@@ -55,40 +55,40 @@ export default function AddServerView({ onBack, onServerCreated }) {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-16 font-sans">
-      {/* 1. Google Cloud Header */}
-      <div className="border-b border-[#DADCE0] pb-4">
+    <div className="max-w-3xl mx-auto space-y-6 pb-16 font-sans bg-white">
+      {/* 1. Modern Google Header */}
+      <div className="border-b border-[#E0E2EC] pb-5">
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-2 text-[13px] font-medium text-[#1A73E8] hover:text-[#174EA6] cursor-pointer mb-2"
+          className="inline-flex items-center gap-2 text-[13px] font-medium text-[#0B57D0] hover:text-[#0842A0] cursor-pointer mb-2.5"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Connected Servers</span>
-          <span className="text-[#BDC1C6]">/</span>
-          <span className="text-[#5F6368]">Connect server</span>
+          <span className="text-[#C4C7C5]">/</span>
+          <span className="text-[#444746]">Connect server</span>
         </button>
 
-        <h1 className="text-xl sm:text-2xl font-normal text-[#202124] tracking-tight">
+        <h1 className="text-xl sm:text-2xl font-normal text-[#1F1F1F] tracking-tight">
           Connect Discord Server
         </h1>
-        <p className="text-xs sm:text-sm text-[#5F6368] mt-1">
+        <p className="text-xs sm:text-sm text-[#444746] mt-1">
           Link an active Discord guild instance to assign bot workers, automations, and channel monitoring.
         </p>
       </div>
 
       {error && (
-        <div className="p-3.5 rounded-lg bg-[#FCE8E6] border border-[#FAD2CF] text-[#C5221F] text-[13px] flex items-center gap-2.5">
+        <div className="p-4 rounded-2xl bg-[#FCE8E6] border border-[#F9DEDC] text-[#B3261E] text-[13px] flex items-center gap-2.5">
           <AlertTriangle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
-      {/* 2. Google Cloud Form Card */}
-      <form onSubmit={handleSubmit} className="bg-white border border-[#DADCE0] rounded-lg p-6 sm:p-7 space-y-5">
+      {/* 2. Modern Google Material 3 Form Card */}
+      <form onSubmit={handleSubmit} className="bg-white border border-[#E0E2EC] rounded-2xl p-6 sm:p-8 space-y-5 shadow-none">
         {/* Server Name */}
-        <div className="space-y-1.5">
-          <label className="block text-[13px] font-medium text-[#202124]">
-            Server Name <span className="text-[#C5221F]">*</span>
+        <div className="space-y-2">
+          <label className="block text-[13px] font-medium text-[#1F1F1F]">
+            Server Name <span className="text-[#B3261E]">*</span>
           </label>
           <input
             type="text"
@@ -96,13 +96,13 @@ export default function AddServerView({ onBack, onServerCreated }) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Design Community Hub, Gaming Lounge"
-            className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] placeholder-[#5F6368] focus:outline-none focus:border-[#1A73E8]"
+            className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] placeholder-[#747775] focus:outline-none focus:bg-white focus:border-[#0B57D0] transition-colors"
           />
         </div>
 
         {/* Guild ID */}
-        <div className="space-y-1.5">
-          <label className="block text-[13px] font-medium text-[#202124]">
+        <div className="space-y-2">
+          <label className="block text-[13px] font-medium text-[#1F1F1F]">
             Discord Guild / Server ID
           </label>
           <input
@@ -110,13 +110,13 @@ export default function AddServerView({ onBack, onServerCreated }) {
             value={guildId}
             onChange={(e) => setGuildId(e.target.value)}
             placeholder="e.g. 109823485719234812"
-            className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] placeholder-[#5F6368] font-mono focus:outline-none focus:border-[#1A73E8]"
+            className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] placeholder-[#747775] font-mono focus:outline-none focus:bg-white focus:border-[#0B57D0] transition-colors"
           />
         </div>
 
         {/* Member Count */}
-        <div className="space-y-1.5">
-          <label className="block text-[13px] font-medium text-[#202124]">
+        <div className="space-y-2">
+          <label className="block text-[13px] font-medium text-[#1F1F1F]">
             Estimated Member Count
           </label>
           <input
@@ -125,19 +125,19 @@ export default function AddServerView({ onBack, onServerCreated }) {
             value={memberCount}
             onChange={(e) => setMemberCount(e.target.value)}
             placeholder="e.g. 250"
-            className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] placeholder-[#5F6368] focus:outline-none focus:border-[#1A73E8]"
+            className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] placeholder-[#747775] focus:outline-none focus:bg-white focus:border-[#0B57D0] transition-colors"
           />
         </div>
 
         {/* Assign Initial Bot */}
-        <div className="space-y-1.5">
-          <label className="block text-[13px] font-medium text-[#202124]">
+        <div className="space-y-2">
+          <label className="block text-[13px] font-medium text-[#1F1F1F]">
             Assign Primary Bot Daemon
           </label>
           <select
             value={selectedBotId}
             onChange={(e) => setSelectedBotId(e.target.value)}
-            className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] focus:outline-none focus:border-[#1A73E8]"
+            className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#0B57D0] transition-colors"
           >
             <option value="">No bot (assign later)</option>
             {availableBots.map((bot) => (
@@ -149,18 +149,18 @@ export default function AddServerView({ onBack, onServerCreated }) {
         </div>
 
         {/* Actions */}
-        <div className="pt-4 border-t border-[#F1F3F4] flex items-center justify-end gap-3">
+        <div className="pt-4 border-t border-[#F0F4F9] flex items-center justify-end gap-3">
           <button
             type="button"
             onClick={onBack}
-            className="px-4 py-2 text-[13px] font-medium text-[#3C4043] bg-white border border-[#DADCE0] hover:bg-[#F8F9FA] rounded-md cursor-pointer"
+            className="px-5 py-2.5 text-[13px] font-medium text-[#444746] bg-white border border-[#747775]/30 hover:bg-[#F0F4F9] rounded-full cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-[#1A73E8] hover:bg-[#174EA6] rounded-md transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-6 py-2.5 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-colors cursor-pointer disabled:opacity-50"
           >
             {saving ? (
               <>

@@ -73,55 +73,55 @@ export default function WorkspaceActivateView({ onBack, onNavigate }) {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-16 font-sans">
-      {/* 1. Google Cloud Header */}
-      <div className="border-b border-[#DADCE0] pb-4">
+    <div className="max-w-3xl mx-auto space-y-6 pb-16 font-sans bg-white">
+      {/* 1. Modern Google Material 3 Header */}
+      <div className="border-b border-[#E0E2EC] pb-5">
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-2 text-[13px] font-medium text-[#1A73E8] hover:text-[#174EA6] cursor-pointer mb-2"
+          className="inline-flex items-center gap-2 text-[13px] font-medium text-[#0B57D0] hover:text-[#0842A0] cursor-pointer mb-2.5"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Workspace</span>
-          <span className="text-[#BDC1C6]">/</span>
-          <span className="text-[#5F6368]">Activate service</span>
+          <span className="text-[#C4C7C5]">/</span>
+          <span className="text-[#444746]">Activate service</span>
         </button>
 
-        <h1 className="text-xl sm:text-2xl font-normal text-[#202124] tracking-tight">
+        <h1 className="text-xl sm:text-2xl font-normal text-[#1F1F1F] tracking-tight">
           Activate Workspace Service
         </h1>
-        <p className="text-xs sm:text-sm text-[#5F6368] mt-1">
+        <p className="text-xs sm:text-sm text-[#444746] mt-1">
           Deploy an extension, automation bot, or governance service to your target environment.
         </p>
       </div>
 
       {msg && (
         <div
-          className={`p-3.5 rounded-lg text-[13px] font-medium flex items-center gap-2.5 border ${
+          className={`p-4 rounded-2xl text-[13px] font-medium flex items-center gap-2.5 border ${
             msg.type === 'success'
-              ? 'bg-[#E6F4EA] text-[#137333] border-[#CEEAD6]'
-              : 'bg-[#FCE8E6] text-[#C5221F] border-[#FAD2CF]'
+              ? 'bg-[#C4EED0]/30 text-[#072711] border-[#C4EED0]'
+              : 'bg-[#FCE8E6] text-[#B3261E] border-[#F9DEDC]'
           }`}
         >
           {msg.type === 'success' ? (
             <CheckCircle2 className="w-4 h-4 shrink-0 text-[#137333]" />
           ) : (
-            <AlertTriangle className="w-4 h-4 shrink-0 text-[#C5221F]" />
+            <AlertTriangle className="w-4 h-4 shrink-0 text-[#B3261E]" />
           )}
           <span>{msg.text}</span>
         </div>
       )}
 
-      {/* 2. Google Cloud Form Card */}
-      <form onSubmit={handleActivate} className="bg-white border border-[#DADCE0] rounded-lg p-6 sm:p-7 space-y-6">
+      {/* 2. Modern Google Material 3 Form Card */}
+      <form onSubmit={handleActivate} className="bg-white border border-[#E0E2EC] rounded-2xl p-6 sm:p-8 space-y-6 shadow-none">
         {/* Solution to Deploy */}
-        <div className="space-y-1.5">
-          <label className="block text-[13px] font-medium text-[#202124]">
+        <div className="space-y-2">
+          <label className="block text-[13px] font-medium text-[#1F1F1F]">
             Select Solution
           </label>
           <select
             value={selectedProductId}
             onChange={(e) => setSelectedProductId(e.target.value)}
-            className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] focus:outline-none focus:border-[#1A73E8]"
+            className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:bg-white focus:border-[#0B57D0] focus:outline-none transition-colors"
           >
             {products.map((p) => (
               <option key={p.id} value={p.id}>
@@ -130,11 +130,11 @@ export default function WorkspaceActivateView({ onBack, onNavigate }) {
             ))}
           </select>
           <div className="flex justify-between items-center text-[12px] pt-1">
-            <span className="text-[#5F6368]">Need more solutions?</span>
+            <span className="text-[#747775]">Need more solutions?</span>
             <button
               type="button"
               onClick={() => onNavigate?.('marketplace')}
-              className="text-[#1A73E8] hover:underline font-medium inline-flex items-center gap-1 cursor-pointer"
+              className="text-[#0B57D0] hover:underline font-medium inline-flex items-center gap-1 cursor-pointer"
             >
               <ShoppingBag className="w-3.5 h-3.5" />
               <span>Browse Marketplace Catalog</span>
@@ -143,14 +143,14 @@ export default function WorkspaceActivateView({ onBack, onNavigate }) {
         </div>
 
         {/* Target Server */}
-        <div className="space-y-1.5">
-          <label className="block text-[13px] font-medium text-[#202124]">
+        <div className="space-y-2">
+          <label className="block text-[13px] font-medium text-[#1F1F1F]">
             Target Environment / Server
           </label>
           <select
             value={selectedServerName}
             onChange={(e) => setSelectedServerName(e.target.value)}
-            className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] focus:outline-none focus:border-[#1A73E8]"
+            className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:bg-white focus:border-[#0B57D0] focus:outline-none transition-colors"
           >
             {servers.map((s) => (
               <option key={s.id} value={s.name}>
@@ -158,20 +158,20 @@ export default function WorkspaceActivateView({ onBack, onNavigate }) {
               </option>
             ))}
           </select>
-          <p className="text-[11px] text-[#5F6368]">
+          <p className="text-[11px] text-[#747775]">
             The service daemon will be registered and scheduled on this target node.
           </p>
         </div>
 
         {/* Plan Tier */}
-        <div className="space-y-1.5">
-          <label className="block text-[13px] font-medium text-[#202124]">
+        <div className="space-y-2">
+          <label className="block text-[13px] font-medium text-[#1F1F1F]">
             Allocation Tier
           </label>
           <select
             value={plan}
             onChange={(e) => setPlan(e.target.value)}
-            className="w-full bg-white border border-[#DADCE0] rounded-md px-3 py-2 text-[13px] text-[#202124] focus:outline-none focus:border-[#1A73E8]"
+            className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:bg-white focus:border-[#0B57D0] focus:outline-none transition-colors"
           >
             <option value="Free">Free Community (Up to 1,000 monthly events)</option>
             <option value="Standard">Standard Tier (Up to 25,000 monthly events)</option>
@@ -180,18 +180,18 @@ export default function WorkspaceActivateView({ onBack, onNavigate }) {
         </div>
 
         {/* Actions */}
-        <div className="pt-4 border-t border-[#F1F3F4] flex items-center justify-end gap-3">
+        <div className="pt-4 border-t border-[#F0F4F9] flex items-center justify-end gap-3">
           <button
             type="button"
             onClick={onBack}
-            className="px-4 py-2 text-[13px] font-medium text-[#3C4043] bg-white border border-[#DADCE0] hover:bg-[#F8F9FA] rounded-md cursor-pointer"
+            className="px-5 py-2.5 text-[13px] font-medium text-[#444746] bg-white border border-[#747775]/30 hover:bg-[#F0F4F9] rounded-full cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-[#1A73E8] hover:bg-[#174EA6] rounded-md transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-6 py-2.5 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-colors cursor-pointer disabled:opacity-50"
           >
             {submitting ? (
               <>

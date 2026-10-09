@@ -64,14 +64,14 @@ export default function CloudSidebar({
       )}
 
       <aside className={`
-        w-[260px] sm:w-[270px] lg:w-[250px] h-screen overflow-y-auto bg-white dark:bg-[#111827] border-r border-slate-100 dark:border-gray-800 flex flex-col justify-between p-5 select-none transition-all duration-300 ease-in-out shrink-0
+        w-[260px] sm:w-[270px] lg:w-[250px] h-screen overflow-y-auto bg-white border-r border-[#E0E2EC] flex flex-col justify-between p-4 select-none transition-all duration-300 ease-in-out shrink-0 font-sans
         fixed inset-y-0 left-0 z-50
         lg:static lg:translate-x-0 lg:z-20 lg:sticky lg:top-0
         ${mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
       `}>
         <div>
-          {/* Brand Header using Official Tiwlo Logo as requested & Mobile Close Button */}
-          <div className="flex items-center justify-between mb-6 px-1">
+          {/* Brand Header using Official Tiwlo Logo & Mobile Close Button */}
+          <div className="flex items-center justify-between mb-5 px-2">
             <div
               onClick={() => handleNavSelect('dashboard')}
               className="h-9 flex items-center shrink-0 cursor-pointer"
@@ -79,12 +79,7 @@ export default function CloudSidebar({
               <img
                 src="/tiwlologo.png"
                 alt="Tiwlo"
-                className="h-8 w-auto object-contain dark:hidden"
-              />
-              <img
-                src="/tiwlologo-dark.png"
-                alt="Tiwlo"
-                className="h-8 w-auto object-contain hidden dark:block"
+                className="h-8 w-auto object-contain"
               />
             </div>
 
@@ -92,30 +87,30 @@ export default function CloudSidebar({
             <button
               type="button"
               onClick={() => setMobileOpen?.(false)}
-              className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-gray-800 transition"
+              className="lg:hidden p-1.5 rounded-full text-[#444746] hover:bg-[#F0F4F9] transition"
               aria-label="Close menu"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-        {/* Navigation Items */}
-        <nav className="space-y-1 text-xs font-medium">
+        {/* Navigation Items (Modern Google Material 3 Pill Styling) */}
+        <nav className="space-y-1 text-[13px] font-medium">
           {/* 1. Dedicated Category: "Workspace" (At the top of the menu) */}
           <button
             onClick={() => handleNavSelect('workspace')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer group ${
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-full transition cursor-pointer group ${
               activeNav === 'workspace' || activeNav.startsWith('workspace')
-                ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-gray-800'
+                ? 'bg-[#C2E7FF] text-[#001D35] font-semibold'
+                : 'text-[#444746] hover:bg-[#F0F4F9] hover:text-[#1F1F1F]'
             }`}
           >
-            <div className={`w-5 h-5 rounded-lg flex items-center justify-center transition-colors ${
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors ${
               activeNav === 'workspace' || activeNav.startsWith('workspace')
-                ? 'bg-blue-600 text-white'
-                : 'text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400'
+                ? 'text-[#001D35]'
+                : 'text-[#444746] group-hover:text-[#0B57D0]'
             }`}>
-              <LayoutGrid className="w-3.5 h-3.5" />
+              <LayoutGrid className="w-4 h-4" />
             </div>
             <span className="truncate">Workspace</span>
           </button>
@@ -123,16 +118,16 @@ export default function CloudSidebar({
           {/* 2. Dashboard item */}
           <button
             onClick={() => handleNavSelect('dashboard')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer ${
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-full transition cursor-pointer group ${
               activeNav === 'dashboard'
-                ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-gray-800'
+                ? 'bg-[#C2E7FF] text-[#001D35] font-semibold'
+                : 'text-[#444746] hover:bg-[#F0F4F9] hover:text-[#1F1F1F]'
             }`}
           >
-            <div className={`w-5 h-5 rounded-lg flex items-center justify-center ${
-              activeNav === 'dashboard' ? 'bg-blue-600 text-white' : 'text-slate-400'
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+              activeNav === 'dashboard' ? 'text-[#001D35]' : 'text-[#444746] group-hover:text-[#0B57D0]'
             }`}>
-              <LayoutDashboard className="w-3.5 h-3.5" />
+              <LayoutDashboard className="w-4 h-4" />
             </div>
             <span>Dashboard</span>
           </button>
@@ -140,18 +135,18 @@ export default function CloudSidebar({
           {/* 3. Marketplace item */}
           <button
             onClick={() => handleNavSelect('marketplace')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition cursor-pointer group ${
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-full transition cursor-pointer group ${
               activeNav === 'marketplace' || activeNav.startsWith('marketplace')
-                ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-gray-800'
+                ? 'bg-[#C2E7FF] text-[#001D35] font-semibold'
+                : 'text-[#444746] hover:bg-[#F0F4F9] hover:text-[#1F1F1F]'
             }`}
           >
-            <div className={`w-5 h-5 rounded-lg flex items-center justify-center transition-colors ${
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors ${
               activeNav === 'marketplace' || activeNav.startsWith('marketplace')
-                ? 'bg-blue-600 text-white'
-                : 'text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400'
+                ? 'text-[#001D35]'
+                : 'text-[#444746] group-hover:text-[#0B57D0]'
             }`}>
-              <ShoppingBag className="w-3.5 h-3.5" />
+              <ShoppingBag className="w-4 h-4" />
             </div>
             <span className="truncate">Marketplace</span>
           </button>

@@ -23,7 +23,7 @@ export default function DiscordSidebar({
   mobileOpen,
   onCloseMobile
 }) {
-  // Pure Discord bot management items (NO Marketplace per user request)
+  // Pure Discord bot management items
   const mainNavItems = [
     { id: 'overview', label: 'Overview', icon: Home, path: '/discord' },
     { id: 'bots', label: 'My bots', icon: Bot, path: '/discord/bots' },
@@ -57,18 +57,18 @@ export default function DiscordSidebar({
   const displayName = currentUser?.name || currentUser?.storeName || 'Alex Morgan';
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-white text-[#202124] border-r border-[#DADCE0] select-none font-sans">
+    <div className="flex flex-col h-full bg-white text-[#1F1F1F] border-r border-[#E0E2EC] select-none font-sans">
       {/* Top Console Title */}
-      <div className="px-4 py-3.5 flex items-center justify-between border-b border-[#F1F3F4]">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-md bg-[#1A73E8] text-white flex items-center justify-center">
+      <div className="px-5 py-4 flex items-center justify-between border-b border-[#E0E2EC]">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-[#0B57D0] text-white flex items-center justify-center shadow-none">
             <Bot className="w-4 h-4 stroke-[2]" />
           </div>
           <div>
-            <div className="text-[14px] font-medium text-[#202124] leading-tight">
+            <div className="text-[14px] font-medium text-[#1F1F1F] leading-tight">
               Bot Platform
             </div>
-            <div className="text-[11px] text-[#5F6368]">
+            <div className="text-[11px] text-[#747775]">
               Tiwlo Cloud Extensions
             </div>
           </div>
@@ -77,7 +77,7 @@ export default function DiscordSidebar({
         {mobileOpen && (
           <button
             onClick={onCloseMobile}
-            className="md:hidden p-1 rounded-full text-[#5F6368] hover:bg-[#F1F3F4]"
+            className="md:hidden p-1.5 rounded-full text-[#444746] hover:bg-[#F0F4F9]"
             aria-label="Close navigation"
           >
             <X className="w-5 h-5" />
@@ -85,9 +85,9 @@ export default function DiscordSidebar({
         )}
       </div>
 
-      {/* Main Navigation Links (Google Cloud Drawer styling) */}
-      <div className="py-2 flex-1 overflow-y-auto space-y-0.5">
-        <div className="px-4 py-1.5 text-[11px] font-medium text-[#5F6368] uppercase tracking-wider">
+      {/* Main Navigation Links (Google Material 3 Pill Drawer Items) */}
+      <div className="py-3 flex-1 overflow-y-auto space-y-1">
+        <div className="px-5 py-2 text-[11px] font-medium text-[#747775] uppercase tracking-wider">
           Bot Management
         </div>
 
@@ -95,25 +95,26 @@ export default function DiscordSidebar({
           const Icon = item.icon;
           const active = isCurrentActive(item.path);
           return (
-            <button
-              key={item.id}
-              onClick={() => {
-                onNavigate(item.path);
-                if (mobileOpen) onCloseMobile();
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-2 text-[13px] font-medium transition-colors text-left cursor-pointer mr-2 rounded-r-full ${
-                active
-                  ? 'bg-[#E8F0FE] text-[#1A73E8] font-medium'
-                  : 'text-[#3C4043] hover:bg-[#F8F9FA] hover:text-[#202124]'
-              }`}
-            >
-              <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-[#1A73E8]' : 'text-[#5F6368]'}`} />
-              <span className="truncate">{item.label}</span>
-            </button>
+            <div key={item.id} className="px-3">
+              <button
+                onClick={() => {
+                  onNavigate(item.path);
+                  if (mobileOpen) onCloseMobile();
+                }}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium transition-colors text-left cursor-pointer rounded-full ${
+                  active
+                    ? 'bg-[#C2E7FF] text-[#001D35] font-semibold'
+                    : 'text-[#444746] hover:bg-[#F0F4F9] hover:text-[#1F1F1F]'
+                }`}
+              >
+                <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-[#001D35]' : 'text-[#747775]'}`} />
+                <span className="truncate">{item.label}</span>
+              </button>
+            </div>
           );
         })}
 
-        <div className="px-4 pt-4 pb-1.5 text-[11px] font-medium text-[#5F6368] uppercase tracking-wider">
+        <div className="px-5 pt-5 pb-2 text-[11px] font-medium text-[#747775] uppercase tracking-wider">
           Configuration
         </div>
 
@@ -121,32 +122,33 @@ export default function DiscordSidebar({
           const Icon = item.icon;
           const active = isCurrentActive(item.path);
           return (
-            <button
-              key={item.id}
-              onClick={() => {
-                onNavigate(item.path);
-                if (mobileOpen) onCloseMobile();
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-2 text-[13px] font-medium transition-colors text-left cursor-pointer mr-2 rounded-r-full ${
-                active
-                  ? 'bg-[#E8F0FE] text-[#1A73E8] font-medium'
-                  : 'text-[#3C4043] hover:bg-[#F8F9FA] hover:text-[#202124]'
-              }`}
-            >
-              <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-[#1A73E8]' : 'text-[#5F6368]'}`} />
-              <span className="truncate">{item.label}</span>
-            </button>
+            <div key={item.id} className="px-3">
+              <button
+                onClick={() => {
+                  onNavigate(item.path);
+                  if (mobileOpen) onCloseMobile();
+                }}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium transition-colors text-left cursor-pointer rounded-full ${
+                  active
+                    ? 'bg-[#C2E7FF] text-[#001D35] font-semibold'
+                    : 'text-[#444746] hover:bg-[#F0F4F9] hover:text-[#1F1F1F]'
+                }`}
+              >
+                <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-[#001D35]' : 'text-[#747775]'}`} />
+                <span className="truncate">{item.label}</span>
+              </button>
+            </div>
           );
         })}
       </div>
 
       {/* Bottom Area: Link back to Main Cloud Platform */}
-      <div className="p-3 border-t border-[#DADCE0] space-y-2 bg-[#FAFAFA]">
+      <div className="p-3 border-t border-[#E0E2EC] space-y-2 bg-white">
         <button
           onClick={() => {
             window.location.href = '/';
           }}
-          className="w-full flex items-center justify-between px-3 py-2 text-[12px] font-medium text-[#1A73E8] hover:bg-[#E8F0FE] rounded-md transition-colors cursor-pointer"
+          className="w-full flex items-center justify-between px-3 py-2 text-[12px] font-medium text-[#0B57D0] hover:bg-[#F0F4F9] rounded-full transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-2">
             <Layers className="w-3.5 h-3.5" />
@@ -156,16 +158,16 @@ export default function DiscordSidebar({
         </button>
 
         {/* User Card */}
-        <div className="flex items-center gap-2.5 px-3 py-1.5">
-          <div className="w-7 h-7 rounded-full bg-[#1A73E8] text-white text-[11px] font-medium flex items-center justify-center shrink-0">
+        <div className="flex items-center gap-2.5 px-3 py-2">
+          <div className="w-7 h-7 rounded-full bg-[#0B57D0] text-white text-[11px] font-medium flex items-center justify-center shrink-0">
             {getInitials()}
           </div>
-          <div className="min-w-0">
-            <div className="text-[12px] font-medium text-[#202124] truncate leading-tight">
+          <div className="min-w-0 flex-1">
+            <div className="text-[12px] font-medium text-[#1F1F1F] truncate">
               {displayName}
             </div>
-            <div className="text-[11px] text-[#5F6368] truncate">
-              Standard tier
+            <div className="text-[10px] text-[#747775] truncate">
+              Standard Workspace
             </div>
           </div>
         </div>
@@ -175,19 +177,21 @@ export default function DiscordSidebar({
 
   return (
     <>
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-60 h-screen sticky top-0 shrink-0 z-30">
-        {sidebarContent}
+      {/* Desktop Persistent Sidebar */}
+      <aside className="hidden md:block w-64 shrink-0 min-h-screen">
+        <div className="fixed top-0 bottom-0 w-64 z-30">
+          {sidebarContent}
+        </div>
       </aside>
 
-      {/* Mobile Drawer */}
+      {/* Mobile Drawer (with backdrop) */}
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex">
+        <div className="fixed inset-0 z-50 md:hidden flex">
           <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-2xs transition-opacity"
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
             onClick={onCloseMobile}
           />
-          <div className="relative flex flex-col w-64 max-w-[85vw] h-full shadow-2xl z-10 animate-in slide-in-from-left duration-200">
+          <div className="relative w-72 max-w-[85vw] bg-white h-full shadow-xl z-10 animate-in slide-in-from-left duration-200">
             {sidebarContent}
           </div>
         </div>

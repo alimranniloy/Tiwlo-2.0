@@ -69,33 +69,32 @@ export default function CloudHeader({
   };
 
   return (
-    <header className="h-16 px-3 sm:px-6 lg:px-8 bg-white dark:bg-[#111827] border-b border-slate-100 dark:border-gray-800 flex items-center justify-between sticky top-0 z-30 transition-colors">
+    <header className="h-16 px-3 sm:px-6 lg:px-8 bg-white border-b border-[#E0E2EC] flex items-center justify-between sticky top-0 z-30 font-sans">
       {/* Left: Hamburger menu on mobile & Search Bar */}
       <div className="flex items-center flex-1 max-w-xs sm:max-w-md min-w-0 mr-2 sm:mr-4">
         {/* Mobile Hamburger Button */}
         <button
           type="button"
           onClick={onToggleMobileMenu}
-          className="lg:hidden mr-2 p-2 rounded-xl border border-slate-200/80 dark:border-gray-700 bg-slate-50 dark:bg-gray-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition shadow-2xs shrink-0 cursor-pointer"
+          className="lg:hidden mr-2 p-2 rounded-full border border-[#E0E2EC] bg-[#F0F4F9] text-[#444746] hover:bg-[#E9EEF6] transition shrink-0 cursor-pointer"
           title="Open menu"
           aria-label="Open menu"
         >
           <Menu className="w-4 h-4" />
         </button>
 
-        {/* Search Input Bar */}
+        {/* Modern Google Material 3 Omnibox Search Bar */}
         <div className="relative w-full">
-          <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 absolute left-3 sm:left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-[#444746] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search servers, IPs..."
-            className="w-full pl-8 sm:pl-10 pr-4 sm:pr-14 py-2 rounded-xl bg-slate-50/80 dark:bg-gray-800/80 border border-slate-200/80 dark:border-gray-700/80 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/50 transition font-medium min-w-0"
+            placeholder="Search resources, services, and docs (/)..."
+            className="w-full pl-10 pr-12 py-2 rounded-full bg-[#F0F4F9] hover:bg-[#E9EEF6] focus:bg-white border border-transparent focus:border-[#0B57D0] focus:ring-1 focus:ring-[#0B57D0] text-[13px] text-[#1F1F1F] placeholder-[#444746] transition font-normal min-w-0 outline-none"
           />
-          <div className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 text-[10px] font-semibold text-slate-400 shadow-2xs">
-            <span>⌘</span>
-            <span>K</span>
+          <div className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 items-center gap-0.5 px-2 py-0.5 rounded-full bg-white border border-[#E0E2EC] text-[10px] font-semibold text-[#444746]">
+            <span>/</span>
           </div>
         </div>
       </div>

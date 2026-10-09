@@ -107,66 +107,65 @@ export default function MarketplaceView({ onNavigate }) {
     loadProducts();
   };
 
-  // Google Cloud styled icon renderer
   const renderProductIcon = (iconType) => {
     switch (iconType) {
       case 'shield':
         return (
-          <div className="w-11 h-11 rounded-lg bg-[#E8F0FE] text-[#1A73E8] flex items-center justify-center shrink-0 border border-[#D2E3FC]">
-            <Shield className="w-5 h-5 stroke-[2]" />
+          <div className="w-12 h-12 rounded-2xl bg-[#E8F0FE] text-[#0B57D0] flex items-center justify-center shrink-0">
+            <Shield className="w-6 h-6 stroke-[2]" />
           </div>
         );
       case 'ticket':
         return (
-          <div className="w-11 h-11 rounded-lg bg-[#E6F4EA] text-[#137333] flex items-center justify-center shrink-0 border border-[#CEEAD6]">
-            <MessageSquare className="w-5 h-5 stroke-[2]" />
+          <div className="w-12 h-12 rounded-2xl bg-[#C4EED0] text-[#072711] flex items-center justify-center shrink-0">
+            <MessageSquare className="w-6 h-6 stroke-[2]" />
           </div>
         );
       case 'chart':
         return (
-          <div className="w-11 h-11 rounded-lg bg-[#FEF7E0] text-[#B06000] flex items-center justify-center shrink-0 border border-[#FEEFC3]">
-            <BarChart2 className="w-5 h-5 stroke-[2]" />
+          <div className="w-12 h-12 rounded-2xl bg-[#FEEDAD] text-[#2C1F00] flex items-center justify-center shrink-0">
+            <BarChart2 className="w-6 h-6 stroke-[2]" />
           </div>
         );
       case 'trending':
         return (
-          <div className="w-11 h-11 rounded-lg bg-[#FCE8E6] text-[#C5221F] flex items-center justify-center shrink-0 border border-[#FAD2CF]">
-            <TrendingUp className="w-5 h-5 stroke-[2]" />
+          <div className="w-12 h-12 rounded-2xl bg-[#FCE8E6] text-[#B3261E] flex items-center justify-center shrink-0">
+            <TrendingUp className="w-6 h-6 stroke-[2]" />
           </div>
         );
       default:
         return (
-          <div className="w-11 h-11 rounded-lg bg-[#F1F3F4] text-[#5F6368] flex items-center justify-center shrink-0 border border-[#DADCE0]">
-            <Bot className="w-5 h-5 stroke-[2]" />
+          <div className="w-12 h-12 rounded-2xl bg-[#F0F4F9] text-[#444746] flex items-center justify-center shrink-0">
+            <Bot className="w-6 h-6 stroke-[2]" />
           </div>
         );
     }
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16 font-sans">
-      {/* 1. Google Cloud Console Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#DADCE0] pb-5">
+    <div className="space-y-6 max-w-7xl mx-auto pb-16 font-sans bg-white">
+      {/* 1. Modern Google Marketplace Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#E0E2EC] pb-5">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-normal text-[#202124] tracking-tight">
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl sm:text-3xl font-normal text-[#1F1F1F] tracking-tight">
               Marketplace
             </h1>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-[#E8F0FE] text-[#1A73E8] font-medium border border-[#D2E3FC]">
-              Verified Catalog
+            <span className="text-xs px-3 py-1 rounded-full bg-[#E8F0FE] text-[#0B57D0] font-medium">
+              Verified Solutions
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-[#5F6368] mt-1">
-            Discover, evaluate, and deploy verified enterprise bots, extensions, and integrations.
+          <p className="text-sm text-[#444746] mt-1">
+            Discover, evaluate, and provision enterprise-verified bots, server extensions, and automations.
           </p>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={() => loadProducts(true)}
             disabled={refreshing}
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 text-[13px] font-medium text-[#1A73E8] bg-white border border-[#DADCE0] hover:bg-[#F8F9FA] rounded-md transition-colors cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-[#0B57D0] bg-white border border-[#747775]/30 hover:bg-[#F2F6FC] rounded-full transition-colors cursor-pointer disabled:opacity-50"
           >
             <RotateCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
@@ -174,26 +173,26 @@ export default function MarketplaceView({ onNavigate }) {
 
           <button
             onClick={() => onNavigate?.('workspace')}
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 text-[13px] font-medium text-white bg-[#1A73E8] hover:bg-[#174EA6] rounded-md transition-colors shadow-2xs cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-all shadow-xs cursor-pointer"
           >
-            <Layers className="w-3.5 h-3.5" />
+            <Layers className="w-4 h-4" />
             <span>Go to Workspace</span>
           </button>
         </div>
       </div>
 
-      {/* 2. Google Cloud Search & Filter Toolbar */}
-      <div className="bg-white border border-[#DADCE0] rounded-lg p-3 sm:p-4 space-y-3">
+      {/* 2. Modern Google Omnibox & Filter Chips Toolbar */}
+      <div className="bg-[#F8FAFD] border border-[#E0E2EC] rounded-2xl p-4 sm:p-5 space-y-4">
         <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row gap-3">
-          {/* Search Input Box */}
+          {/* Omnibox Search */}
           <div className="relative flex-1">
-            <Search className="w-4 h-4 text-[#5F6368] absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-[#444746] absolute left-4 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search solutions, bots, providers, or capabilities..."
-              className="w-full bg-[#F8F9FA] hover:bg-[#F1F3F4] focus:bg-white border border-[#DADCE0] focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] rounded-md pl-10 pr-4 py-2 text-[13px] text-[#202124] placeholder-[#5F6368] transition-all outline-none"
+              className="w-full bg-white hover:bg-[#F0F4F9] focus:bg-white border border-[#E0E2EC] focus:border-[#0B57D0] focus:ring-1 focus:ring-[#0B57D0] rounded-full pl-11 pr-4 py-2.5 text-[13px] text-[#1F1F1F] placeholder-[#444746] transition-all outline-none"
             />
           </div>
 
@@ -202,7 +201,7 @@ export default function MarketplaceView({ onNavigate }) {
             <select
               value={pricing}
               onChange={(e) => setPricing(e.target.value)}
-              className="bg-white border border-[#DADCE0] text-[#3C4043] text-[13px] rounded-md px-3 py-2 hover:bg-[#F8F9FA] focus:outline-none focus:border-[#1A73E8] cursor-pointer"
+              className="bg-white border border-[#E0E2EC] text-[#1F1F1F] text-[13px] rounded-full px-4 py-2 hover:bg-[#F2F6FC] focus:outline-none focus:border-[#0B57D0] cursor-pointer"
             >
               <option value="all">Pricing: All</option>
               <option value="free">Free</option>
@@ -213,7 +212,7 @@ export default function MarketplaceView({ onNavigate }) {
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value)}
-              className="bg-white border border-[#DADCE0] text-[#3C4043] text-[13px] rounded-md px-3 py-2 hover:bg-[#F8F9FA] focus:outline-none focus:border-[#1A73E8] cursor-pointer"
+              className="bg-white border border-[#E0E2EC] text-[#1F1F1F] text-[13px] rounded-full px-4 py-2 hover:bg-[#F2F6FC] focus:outline-none focus:border-[#0B57D0] cursor-pointer"
             >
               <option value="recommended">Sort: Recommended</option>
               <option value="rating">Highest Rated</option>
@@ -223,16 +222,16 @@ export default function MarketplaceView({ onNavigate }) {
           </div>
         </form>
 
-        {/* Google Cloud Style Category Chips */}
+        {/* Modern Google Material 3 Category Pill Chips */}
         <div className="flex items-center gap-2 overflow-x-auto pt-1 pb-1 scrollbar-none">
           {categories.map((cat) => (
             <button
               key={cat.id}
               onClick={() => setCategory(cat.id)}
-              className={`shrink-0 px-3.5 py-1.5 rounded-full text-[12px] transition-all cursor-pointer ${
+              className={`shrink-0 px-4 py-1.5 rounded-full text-[13px] transition-all cursor-pointer ${
                 category === cat.id
-                  ? 'bg-[#E8F0FE] text-[#1A73E8] font-medium border border-[#1A73E8]'
-                  : 'bg-white text-[#3C4043] border border-[#DADCE0] hover:bg-[#F8F9FA]'
+                  ? 'bg-[#C2E7FF] text-[#001D35] font-semibold shadow-xs'
+                  : 'bg-white text-[#444746] border border-[#747775]/30 hover:bg-[#F2F6FC]'
               }`}
             >
               {cat.label}
@@ -241,18 +240,18 @@ export default function MarketplaceView({ onNavigate }) {
         </div>
       </div>
 
-      {/* 3. Catalog Products Grid */}
+      {/* 3. Catalog Products Grid (Modern Google 2026 Cards) */}
       {loading ? (
-        <div className="bg-white border border-[#DADCE0] rounded-lg p-16 text-center">
-          <RotateCw className="w-6 h-6 text-[#1A73E8] animate-spin mx-auto mb-3" />
-          <p className="text-[13px] text-[#5F6368]">Loading Marketplace solutions...</p>
+        <div className="bg-white border border-[#E0E2EC] rounded-2xl p-16 text-center">
+          <RotateCw className="w-6 h-6 text-[#0B57D0] animate-spin mx-auto mb-3" />
+          <p className="text-[13px] text-[#444746]">Loading Marketplace solutions...</p>
         </div>
       ) : products.length === 0 ? (
-        <div className="bg-white border border-[#DADCE0] rounded-lg p-16 text-center">
-          <Bot className="w-10 h-10 text-[#BDC1C6] mx-auto mb-3" />
-          <h3 className="text-base font-medium text-[#202124]">No solutions match your search</h3>
-          <p className="text-[13px] text-[#5F6368] mt-1 max-w-md mx-auto">
-            Try adjusting your search query, clearing filters, or browsing other categories.
+        <div className="bg-white border border-[#E0E2EC] rounded-2xl p-16 text-center">
+          <Bot className="w-12 h-12 text-[#C4C7C5] mx-auto mb-3" />
+          <h3 className="text-base font-medium text-[#1F1F1F]">No solutions match your search</h3>
+          <p className="text-[13px] text-[#444746] mt-1 max-w-md mx-auto">
+            Try adjusting your query or resetting filters to browse all verified extensions.
           </p>
           <button
             onClick={() => {
@@ -260,48 +259,48 @@ export default function MarketplaceView({ onNavigate }) {
               setCategory('all');
               setPricing('all');
             }}
-            className="mt-4 px-4 py-1.5 text-[13px] font-medium text-[#1A73E8] bg-white border border-[#DADCE0] hover:bg-[#F8F9FA] rounded-md transition-colors cursor-pointer"
+            className="mt-4 px-5 py-2 text-[13px] font-medium text-[#0B57D0] bg-white border border-[#747775]/30 hover:bg-[#F2F6FC] rounded-full transition-colors cursor-pointer"
           >
             Clear filters
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {products.map((product) => (
             <div
               key={product.id}
               onClick={() => onNavigate?.(`marketplace/${product.id}`)}
-              className="group bg-white border border-[#DADCE0] hover:border-[#1A73E8] rounded-lg p-5 flex flex-col justify-between transition-all hover:shadow-[0_1px_3px_0_rgba(60,64,67,0.3)] cursor-pointer"
+              className="group bg-white border border-[#E0E2EC] hover:border-[#0B57D0] rounded-2xl p-6 flex flex-col justify-between transition-all hover:shadow-md cursor-pointer"
             >
               <div>
                 {/* Header: Icon, Name, Provider */}
-                <div className="flex items-start gap-3.5 mb-3">
+                <div className="flex items-start gap-4 mb-3.5">
                   {renderProductIcon(product.icon || product.category)}
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-[14px] font-medium text-[#202124] group-hover:text-[#1A73E8] transition-colors truncate">
+                    <h3 className="text-[15px] font-medium text-[#1F1F1F] group-hover:text-[#0B57D0] transition-colors truncate">
                       {product.name}
                     </h3>
-                    <p className="text-[12px] text-[#5F6368] truncate">
+                    <p className="text-[12px] text-[#444746] truncate mt-0.5">
                       by {product.developer || 'Tiwlo Ecosystem'}
                     </p>
                   </div>
                   {product.verified && (
-                    <span className="shrink-0 text-[#1A73E8]" title="Verified Provider">
-                      <CheckCircle2 className="w-4 h-4 fill-[#1A73E8] text-white" />
+                    <span className="shrink-0 text-[#0B57D0]" title="Verified Provider">
+                      <CheckCircle2 className="w-4 h-4 fill-[#0B57D0] text-white" />
                     </span>
                   )}
                 </div>
 
                 {/* Description */}
-                <p className="text-[13px] text-[#5F6368] line-clamp-2 leading-relaxed mb-4">
+                <p className="text-[13px] text-[#444746] line-clamp-2 leading-relaxed mb-4">
                   {product.description}
                 </p>
               </div>
 
               {/* Footer: Rating, Installs, Price & CTA */}
-              <div className="border-t border-[#F1F3F4] pt-3 flex items-center justify-between text-[12px]">
-                <div className="flex items-center gap-3 text-[#5F6368]">
-                  <div className="flex items-center gap-1 font-medium text-[#202124]">
+              <div className="border-t border-[#F1F3F8] pt-3.5 flex items-center justify-between text-[12px]">
+                <div className="flex items-center gap-3 text-[#444746]">
+                  <div className="flex items-center gap-1 font-medium text-[#1F1F1F]">
                     <Star className="w-3.5 h-3.5 fill-[#F29900] text-[#F29900]" />
                     <span>{product.rating ? Number(product.rating).toFixed(1) : '5.0'}</span>
                   </div>
@@ -310,10 +309,10 @@ export default function MarketplaceView({ onNavigate }) {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className={`font-medium ${product.price === 'Free' ? 'text-[#137333]' : 'text-[#202124]'}`}>
+                  <span className={`font-semibold ${product.price === 'Free' ? 'text-[#072711]' : 'text-[#1F1F1F]'}`}>
                     {product.price || 'Free'}
                   </span>
-                  <ArrowRight className="w-3.5 h-3.5 text-[#5F6368] group-hover:text-[#1A73E8] group-hover:translate-x-0.5 transition-all" />
+                  <ArrowRight className="w-4 h-4 text-[#444746] group-hover:text-[#0B57D0] group-hover:translate-x-0.5 transition-all" />
                 </div>
               </div>
             </div>
