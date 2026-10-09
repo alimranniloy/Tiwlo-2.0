@@ -48,6 +48,9 @@ import tpanelPlugin from './plugins/tpanel/index.js';
 import whatsappPlugin from './plugins/whatsapp/index.js';
 import supportAiPlugin from './plugins/support-ai/index.js';
 import securityPlugin from './plugins/security/index.js';
+import discordPlugin from './plugins/discord/index.js';
+import discordRoutes from './discord/discordRoutes.js';
+import { DiscordDB } from './discord/discordDb.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -339,6 +342,9 @@ app.use('/api/support', supportRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/mail', emailRoutes);
 
+// Discord Bot & Community Manager Gateway
+app.use('/api/discord', discordRoutes);
+
 // Authentication, 2FA, Profiles & SSO Handshake (Mounted first to handle public login/register/check endpoints)
 app.use('/api', authRoutes);
 app.use('/api/domains', domainRoutes);
@@ -360,6 +366,7 @@ await pluginManager.registerPlugin(tpanelPlugin);
 await pluginManager.registerPlugin(whatsappPlugin);
 await pluginManager.registerPlugin(supportAiPlugin);
 await pluginManager.registerPlugin(securityPlugin);
+await pluginManager.registerPlugin(discordPlugin);
 app.use('/api/plugins', pluginManager.getRouter());
 app.get('/api/plugins-list', (req, res) => {
   res.json({ success: true, plugins: pluginManager.getRegisteredPlugins() });
@@ -418,6 +425,7 @@ async function startServer() {
   }
   WhatsAppManager.init().catch(err => console.warn('⚠️ WhatsApp Manager init notice:', err.message));
   await SocialDB.hydrateFromPg().catch(err => console.warn('⚠️ SocialDB PostgreSQL hydration notice:', err.message));
+  await DiscordDB.init().catch(err => console.warn('⚠️ DiscordDB init notice:', err.message));
   if (postgresReady) {
     const pendingVideos = await resumePendingVideoProcessing();
     if (pendingVideos > 0) {

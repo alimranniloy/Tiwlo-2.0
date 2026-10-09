@@ -46,6 +46,9 @@ const TiwiSocialWeb = lazy(() => import('./social-web'));
 // Tiwi Outlook Email Experience (/email, /mail)
 const TiwiOutlookEmail = lazy(() => import('./email-web'));
 
+// Tiwlo Discord Bot & Community Manager (/discord)
+const DiscordBotManager = lazy(() => import('./discord-web'));
+
 // Live Support AI Widget
 const LiveSupportWidget = lazy(() => import('./support/ai/LiveSupportWidget'));
 
@@ -245,6 +248,15 @@ export default function App() {
         if (pathname === 'whatsapp-automation' || pathname.startsWith('whatsapp-automation/')) return 'whatsapp-automation';
         if (pathname === 'tiwi' || pathname.startsWith('tiwi/') || pathname === 'social' || pathname.startsWith('social/')) return 'tiwi';
         if (pathname === 'email' || pathname.startsWith('email/') || pathname === 'mail' || pathname.startsWith('mail/')) return 'email';
+        if (pathname === 'discord' || pathname.startsWith('discord/')) {
+          const hasSession = !!localStorage.getItem('stockpro_session') && !!localStorage.getItem('stockpro_user');
+          if (!hasSession) {
+            const redirectParam = encodeURIComponent('/' + pathname + (window.location.search || ''));
+            window.location.replace(getAuthUrl(`/login?redirect=${redirectParam}`));
+            return 'login';
+          }
+          return 'discord';
+        }
 
         // Unrecognized route -> 404
         return 'not-found';
@@ -355,6 +367,19 @@ export default function App() {
         return;
       }
       setActiveTab('email');
+      return;
+    }
+
+    if (tabId === 'discord' || (typeof tabId === 'string' && tabId.startsWith('discord'))) {
+      const hasSession = !!localStorage.getItem('stockpro_session') && !!localStorage.getItem('stockpro_user');
+      if (!hasSession) {
+        window.location.replace(getAuthUrl('/login?redirect=%2Fdiscord'));
+        return;
+      }
+      setActiveTab('discord');
+      if (!window.location.pathname.startsWith('/discord')) {
+        window.history.pushState(null, '', '/discord');
+      }
       return;
     }
 
@@ -1352,6 +1377,11 @@ export default function App() {
               handleTabChange('dashboard');
             }
           }}
+        />
+      ) : (activeTab === 'discord' || (typeof activeTab === 'string' && activeTab.startsWith('discord'))) ? (
+        <DiscordBotManager
+          currentUser={currentUser}
+          onNavigateHome={() => handleTabChange('dashboard')}
         />
       ) : activeTab === 'pos' ? (
         <POSView

@@ -1,6 +1,7 @@
 import { buildSchema, graphql } from 'graphql';
 import { MasterDB, TenantDB } from '../db/multiTenant.js';
 import { CloudDB } from '../db/cloud.js';
+import { DiscordDB } from '../discord/discordDb.js';
 
 // Initialize Cloud demo data
 CloudDB.init();
@@ -306,6 +307,12 @@ export const schema = buildSchema(`
     storeSettings(tiwiId: String): StoreSettings
     dashboardStats(tiwiId: String): DashboardStats
     tiwiStores: [TiwiStore]
+    discordOverview(userId: String!): DiscordOverview
+    discordBots(userId: String!): [DiscordBot]
+    discordServers(userId: String!): [DiscordServer]
+    discordMarketplace(category: String, search: String): [DiscordMarketplaceProduct]
+    discordWorkspace(userId: String!, search: String): DiscordWorkspaceData
+    discordWorkspaceOperations(userId: String!): [DiscordWorkspaceOperation]
   }
 
   type Mutation {
@@ -318,6 +325,132 @@ export const schema = buildSchema(`
     deleteProduct(tiwiId: String, id: ID!): Boolean
     recordSale(tiwiId: String, input: SaleInput!): Sale
     recordPurchase(tiwiId: String, input: PurchaseInput!): Purchase
+
+    # Discord Bot & Community Mutations
+    createDiscordBot(userId: String!, input: CreateDiscordBotInput!): DiscordBot
+    createDiscordServer(userId: String!, input: CreateDiscordServerInput!): DiscordServer
+    deleteDiscordBot(userId: String!, id: ID!): Boolean
+    deleteDiscordServer(userId: String!, id: ID!): Boolean
+  }
+
+  # Discord Bot Manager Schema Types
+  type DiscordBot {
+    id: ID!
+    userId: String!
+    name: String!
+    token: String
+    clientId: String
+    avatar: String
+    prefix: String!
+    status: String!
+    description: String
+    commandsToday: Int
+    serversCount: Int
+    createdAt: String
+    updatedAt: String
+  }
+
+  type DiscordServer {
+    id: ID!
+    userId: String!
+    name: String!
+    icon: String
+    memberCount: Int!
+    guildId: String
+    bots: [DiscordBot]
+    createdAt: String
+    updatedAt: String
+  }
+
+  type DiscordActivity {
+    id: ID!
+    userId: String!
+    botId: String
+    serverId: String
+    title: String!
+    description: String
+    actionType: String
+    createdAt: String
+  }
+
+  type DiscordOverview {
+    botsOnlineCount: Int!
+    connectedServersCount: Int!
+    totalMembersCount: Int!
+    bots: [DiscordBot]!
+    servers: [DiscordServer]!
+    recentActivities: [DiscordActivity]!
+  }
+
+  type DiscordMarketplaceProduct {
+    id: ID!
+    name: String!
+    developer: String!
+    category: String!
+    description: String!
+    rating: Float!
+    reviewsCount: Int!
+    pricingType: String!
+    pricingLabel: String!
+    iconType: String
+    iconBg: String
+    iconColor: String
+  }
+
+  type DiscordWorkspaceService {
+    id: ID!
+    userId: String!
+    serviceId: String
+    name: String!
+    category: String!
+    iconType: String
+    status: String!
+    serverId: String
+    serverName: String!
+    plan: String!
+    usageCurrent: Int
+    usageLimit: Int
+    usageLabel: String!
+    renewalDate: String
+    createdAt: String
+    updatedAt: String
+  }
+
+  type DiscordWorkspaceOperation {
+    id: ID!
+    userId: String!
+    operation: String!
+    serviceId: String
+    serviceName: String!
+    result: String!
+    timeAgo: String!
+    createdAt: String
+  }
+
+  type DiscordWorkspaceData {
+    services: [DiscordWorkspaceService]!
+    operations: [DiscordWorkspaceOperation]!
+    totalServices: Int!
+    connectedServersCount: Int!
+    allServicesHealthy: Boolean!
+  }
+
+  input CreateDiscordBotInput {
+    name: String!
+    token: String
+    clientId: String
+    prefix: String
+    status: String
+    description: String
+    avatar: String
+  }
+
+  input CreateDiscordServerInput {
+    name: String!
+    icon: String
+    memberCount: Int
+    guildId: String
+    botId: String
   }
 `);
 
@@ -478,6 +611,47 @@ export const rootValue = {
 
   async recordPurchase({ tiwiId, input }) {
     return await TenantDB.addPurchase(tiwiId, input);
+  },
+
+  // Discord Bot Manager GraphQL Resolvers
+  async discordOverview({ userId }) {
+    return await DiscordDB.getOverview(userId);
+  },
+
+  async discordBots({ userId }) {
+    return await DiscordDB.getBots(userId);
+  },
+
+  async discordServers({ userId }) {
+    return await DiscordDB.getServers(userId);
+  },
+
+  async createDiscordBot({ userId, input }) {
+    return await DiscordDB.createBot(userId, input);
+  },
+
+  async createDiscordServer({ userId, input }) {
+    return await DiscordDB.createServer(userId, input);
+  },
+
+  async deleteDiscordBot({ userId, id }) {
+    return await DiscordDB.deleteBot(userId, id);
+  },
+
+  async deleteDiscordServer({ userId, id }) {
+    return await DiscordDB.deleteServer(userId, id);
+  },
+
+  async discordMarketplace({ category, search }) {
+    return await DiscordDB.getMarketplaceProducts({ category, search });
+  },
+
+  async discordWorkspace({ userId, search }) {
+    return await DiscordDB.getWorkspace(userId, { search });
+  },
+
+  async discordWorkspaceOperations({ userId }) {
+    return await DiscordDB.getWorkspaceOperations(userId);
   }
 };
 
