@@ -23,8 +23,7 @@ export default function DiscordSidebar({
   onCloseMobile
 }) {
   const navItems = [
-    { id: 'workspace', label: 'Workspace', icon: LayoutGrid, path: '/discord/workspace' },
-    { id: 'overview', label: 'Overview', icon: Home, path: '/discord/overview' },
+    { id: 'overview', label: 'Overview', icon: Home, path: '/discord' },
     { id: 'bots', label: 'My bots', icon: Bot, path: '/discord/bots' },
     { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag, path: '/discord/marketplace' },
     { id: 'automations', label: 'Automations', icon: Zap, path: '/discord/automations' },
@@ -39,11 +38,8 @@ export default function DiscordSidebar({
   ];
 
   const isCurrentActive = (itemPath) => {
-    if (itemPath === '/discord/workspace') {
-      return currentPath === '/discord/workspace' || currentPath === '/discord' || currentPath === '';
-    }
-    if (itemPath === '/discord/overview') {
-      return currentPath === '/discord/overview';
+    if (itemPath === '/discord') {
+      return currentPath === '/discord' || currentPath === '/discord/overview' || currentPath === '';
     }
     return currentPath.startsWith(itemPath);
   };

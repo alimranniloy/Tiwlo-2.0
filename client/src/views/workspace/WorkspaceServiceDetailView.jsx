@@ -15,7 +15,7 @@ import {
   CreditCard,
   Check
 } from 'lucide-react';
-import { DiscordAPI } from '../api/discordApi';
+import { WorkspaceAPI } from '../../api/workspaceApi';
 
 export default function WorkspaceServiceDetailView({ serviceId, onBack, onNavigate }) {
   const [service, setService] = useState(null);
@@ -24,7 +24,6 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState(null);
 
-  // Form fields
   const [status, setStatus] = useState('Active');
   const [plan, setPlan] = useState('Free');
   const [serverName, setServerName] = useState('');
@@ -35,8 +34,8 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
       setLoading(true);
       try {
         const [srv, serverList] = await Promise.all([
-          DiscordAPI.getWorkspaceServiceById(serviceId),
-          DiscordAPI.getServers()
+          WorkspaceAPI.getWorkspaceServiceById(serviceId),
+          WorkspaceAPI.getConnectedServers()
         ]);
         if (srv) {
           setService(srv);
@@ -60,7 +59,7 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
     setSaving(true);
     setMsg(null);
     try {
-      const updated = await DiscordAPI.updateWorkspaceService(serviceId, {
+      const updated = await WorkspaceAPI.updateWorkspaceService(serviceId, {
         status,
         plan,
         serverName,
@@ -78,7 +77,7 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
   const handleDeactivate = async () => {
     if (!window.confirm(`Are you sure you want to deactivate ${service?.name}?`)) return;
     try {
-      await DiscordAPI.deleteWorkspaceService(serviceId);
+      await WorkspaceAPI.deleteWorkspaceService(serviceId);
       onBack();
     } catch (err) {
       setMsg({ text: err.message || 'Failed to deactivate service', type: 'error' });
@@ -151,7 +150,6 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-16">
-      {/* Back button */}
       <div>
         <button
           onClick={onBack}
@@ -162,7 +160,6 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
         </button>
       </div>
 
-      {/* Header Card */}
       <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 sm:p-8 shadow-xs flex flex-col sm:flex-row items-start justify-between gap-6">
         <div className="flex items-start gap-4">
           {renderIcon(service.iconType)}
@@ -186,7 +183,7 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => onNavigate('/discord/workspace/billing')}
+            onClick={() => onNavigate?.('workspace/billing')}
             className="px-4 py-2 rounded-xl border border-[#E2E8F0] text-gray-700 hover:bg-gray-50 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 cursor-pointer transition-colors"
           >
             <CreditCard className="w-4 h-4" />
@@ -208,14 +205,12 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
         </div>
       )}
 
-      {/* Configuration Form */}
       <form onSubmit={handleSave} className="bg-white border border-[#E2E8F0] rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
         <h2 className="text-lg font-bold text-[#0F172A] border-b border-gray-100 pb-3">
           Service Settings & Allocation
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {/* Status Selection */}
           <div>
             <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">
               Operational Status
@@ -231,7 +226,6 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
             </select>
           </div>
 
-          {/* Plan Selection */}
           <div>
             <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">
               Subscription Tier
@@ -249,10 +243,9 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
             </select>
           </div>
 
-          {/* Connected Server Selection */}
           <div className="sm:col-span-2">
             <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">
-              Assigned Discord Server
+              Assigned Server
             </label>
             <select
               value={serverName}
@@ -273,12 +266,11 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
               ))}
             </select>
             <p className="text-xs text-gray-400 mt-1.5">
-              Service bot commands and moderation hooks will listen only inside this selected guild.
+              Service bot commands and moderation hooks will listen inside this selected server.
             </p>
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="flex items-center justify-between pt-6 border-t border-gray-100">
           <button
             type="button"

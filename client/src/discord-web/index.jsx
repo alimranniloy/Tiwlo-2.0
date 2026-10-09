@@ -15,11 +15,6 @@ import ActivityView from './views/ActivityView';
 import SettingsView from './views/SettingsView';
 import MarketplaceView from './views/MarketplaceView';
 import MarketplaceProductDetailView from './views/MarketplaceProductDetailView';
-import WorkspaceView from './views/WorkspaceView';
-import WorkspaceServiceDetailView from './views/WorkspaceServiceDetailView';
-import WorkspaceActivateView from './views/WorkspaceActivateView';
-import WorkspaceBillingView from './views/WorkspaceBillingView';
-import WorkspaceOperationsView from './views/WorkspaceOperationsView';
 import { DiscordAPI } from './api/discordApi';
 
 export default function DiscordBotManager({ currentUser, onNavigateHome }) {
@@ -68,14 +63,9 @@ export default function DiscordBotManager({ currentUser, onNavigateHome }) {
   // Compute breadcrumbs from currentPath
   const getBreadcrumbs = () => {
     const path = currentPath.replace(/\/+$/, '');
-    if (path === '/discord' || path === '/discord/workspace' || path === '') {
-      return ['Workspace'];
+    if (path === '/discord' || path === '/discord/overview' || path === '') {
+      return ['Discord', 'Overview'];
     }
-    if (path === '/discord/workspace/activate') return ['Workspace', 'Activate service'];
-    if (path === '/discord/workspace/billing') return ['Workspace', 'Billing'];
-    if (path === '/discord/workspace/operations') return ['Workspace', 'Operations log'];
-    if (path.startsWith('/discord/workspace/service/')) return ['Workspace', 'Manage service'];
-    if (path === '/discord/overview') return ['Workspace', 'Overview'];
     if (path === '/discord/bots') return ['Workspace', 'My bots'];
     if (path === '/discord/bots/new') return ['Workspace', 'My bots', 'Add bot'];
     if (path.startsWith('/discord/bots/')) return ['Workspace', 'My bots', 'Manage'];
@@ -222,61 +212,14 @@ export default function DiscordBotManager({ currentUser, onNavigateHome }) {
       return <SettingsView onNavigate={navigateTo} />;
     }
 
-    // Subroute: Workspace activate service
-    if (path === '/discord/workspace/activate') {
-      return (
-        <WorkspaceActivateView
-          onBack={() => navigateTo('/discord/workspace')}
-          onNavigate={navigateTo}
-        />
-      );
-    }
-
-    // Subroute: Workspace billing
-    if (path === '/discord/workspace/billing') {
-      return (
-        <WorkspaceBillingView
-          onBack={() => navigateTo('/discord/workspace')}
-          onNavigate={navigateTo}
-        />
-      );
-    }
-
-    // Subroute: Workspace operations log
-    if (path === '/discord/workspace/operations') {
-      return (
-        <WorkspaceOperationsView
-          onBack={() => navigateTo('/discord/workspace')}
-          onNavigate={navigateTo}
-        />
-      );
-    }
-
-    // Subroute: Workspace manage service
-    if (path.startsWith('/discord/workspace/service/')) {
-      const serviceId = path.replace('/discord/workspace/service/', '');
-      return (
-        <WorkspaceServiceDetailView
-          serviceId={serviceId}
-          onBack={() => navigateTo('/discord/workspace')}
-          onNavigate={navigateTo}
-        />
-      );
-    }
-
-    // Subroute: Overview view
-    if (path === '/discord/overview') {
-      return (
-        <OverviewView
-          overviewData={overviewData}
-          loading={loading}
-          onNavigate={navigateTo}
-        />
-      );
-    }
-
-    // Default / Workspace main dashboard route
-    return <WorkspaceView onNavigate={navigateTo} />;
+    // Default / Overview route
+    return (
+      <OverviewView
+        overviewData={overviewData}
+        loading={loading}
+        onNavigate={navigateTo}
+      />
+    );
   };
 
   return (

@@ -2,14 +2,11 @@ import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Plus,
-  Server,
   ShoppingBag,
   CheckCircle2,
-  AlertTriangle,
-  Zap,
-  ArrowRight
+  AlertTriangle
 } from 'lucide-react';
-import { DiscordAPI } from '../api/discordApi';
+import { WorkspaceAPI } from '../../api/workspaceApi';
 
 export default function WorkspaceActivateView({ onBack, onNavigate }) {
   const [servers, setServers] = useState([]);
@@ -17,23 +14,20 @@ export default function WorkspaceActivateView({ onBack, onNavigate }) {
   const [selectedProductId, setSelectedProductId] = useState('prod_sentinel');
   const [selectedServerName, setSelectedServerName] = useState('Creative Hub');
   const [plan, setPlan] = useState('Free');
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState(null);
 
   useEffect(() => {
     async function init() {
       try {
-        const [srvList, mktRes] = await Promise.all([
-          DiscordAPI.getServers(),
-          DiscordAPI.getMarketplace()
+        const [srvList, catalog] = await Promise.all([
+          WorkspaceAPI.getConnectedServers(),
+          WorkspaceAPI.getMarketplaceCatalog()
         ]);
         setServers(srvList || []);
-        setProducts(mktRes.products || []);
+        setProducts(catalog || []);
       } catch (err) {
         console.warn('Could not load activation form data:', err);
-      } finally {
-        setLoading(false);
       }
     }
     init();
@@ -45,12 +39,12 @@ export default function WorkspaceActivateView({ onBack, onNavigate }) {
     setMsg(null);
     try {
       const selectedProd = products.find((p) => p.id === selectedProductId) || {
-        name: 'Custom Bot Service',
-        category: 'Automation',
-        iconType: 'settings'
+        name: 'Sentinel',
+        category: 'Moderation',
+        iconType: 'shield'
       };
 
-      await DiscordAPI.activateWorkspaceService({
+      await WorkspaceAPI.activateWorkspaceService({
         serviceId: selectedProd.id,
         name: selectedProd.name,
         category: selectedProd.category,
@@ -62,7 +56,7 @@ export default function WorkspaceActivateView({ onBack, onNavigate }) {
 
       setMsg({ text: `${selectedProd.name} activated successfully in workspace!`, type: 'success' });
       setTimeout(() => {
-        onNavigate('/discord/workspace');
+        onNavigate?.('workspace');
       }, 1000);
     } catch (err) {
       setMsg({ text: err.message || 'Failed to activate service', type: 'error' });
@@ -73,7 +67,6 @@ export default function WorkspaceActivateView({ onBack, onNavigate }) {
 
   return (
     <div className="max-w-3xl mx-auto space-y-7 pb-16">
-      {/* Back button */}
       <div>
         <button
           onClick={onBack}
@@ -84,13 +77,12 @@ export default function WorkspaceActivateView({ onBack, onNavigate }) {
         </button>
       </div>
 
-      {/* Header */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">
           Activate Service
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Deploy an add-on or bot service to one of your connected Discord servers.
+          Deploy an add-on or bot service to one of your connected workspace servers.
         </p>
       </div>
 
@@ -107,11 +99,10 @@ export default function WorkspaceActivateView({ onBack, onNavigate }) {
         </div>
       )}
 
-      {/* Activation Form */}
       <form onSubmit={handleActivate} className="bg-white border border-[#E2E8F0] rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
         <div>
           <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">
-            Select Add-on / Bot Service
+            Select Add-on / Service
           </label>
           <select
             value={selectedProductId}
@@ -129,7 +120,7 @@ export default function WorkspaceActivateView({ onBack, onNavigate }) {
 
         <div>
           <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">
-            Target Discord Server
+            Target Connected Server
           </label>
           <select
             value={selectedServerName}
@@ -166,11 +157,10 @@ export default function WorkspaceActivateView({ onBack, onNavigate }) {
         <div className="pt-4 flex items-center justify-between border-t border-gray-100">
           <button
             type="button"
-            onClick={() => onNavigate('/discord/marketplace')}
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#2563EB] hover:text-[#1D4ED8] transition-colors cursor-pointer"
+            onClick={() => onNavigate?.('workspace')}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
           >
-            <ShoppingBag className="w-4 h-4" />
-            <span>Browse Marketplace</span>
+            <span>Cancel</span>
           </button>
 
           <button

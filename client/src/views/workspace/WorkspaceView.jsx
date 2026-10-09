@@ -18,13 +18,9 @@ import {
   Calendar,
   Users,
   Settings,
-  Zap,
-  TrendingUp,
-  Layers,
-  ArrowRight,
-  Check
+  ArrowRight
 } from 'lucide-react';
-import { DiscordAPI } from '../api/discordApi';
+import { WorkspaceAPI } from '../../api/workspaceApi';
 
 export default function WorkspaceView({ onNavigate }) {
   const [services, setServices] = useState([]);
@@ -34,7 +30,7 @@ export default function WorkspaceView({ onNavigate }) {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
-  const [sortOrder, setSortOrder] = useState('asc'); // asc or desc by name
+  const [sortOrder, setSortOrder] = useState('asc');
   const [activeMenuId, setActiveMenuId] = useState(null);
 
   const loadWorkspace = async (isManualRefresh = false) => {
@@ -42,7 +38,7 @@ export default function WorkspaceView({ onNavigate }) {
     else setLoading(true);
 
     try {
-      const data = await DiscordAPI.getWorkspace({ search });
+      const data = await WorkspaceAPI.getWorkspace({ search });
       setServices(data.services || []);
       setOperations(data.operations || []);
       setStats({
@@ -93,7 +89,6 @@ export default function WorkspaceView({ onNavigate }) {
     );
   };
 
-  // Render product/service icon based on type
   const renderServiceIcon = (iconType) => {
     switch (iconType) {
       case 'shield':
@@ -158,7 +153,7 @@ export default function WorkspaceView({ onNavigate }) {
         <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm font-bold tracking-wide">
           {/* + ACTIVATE SERVICE */}
           <button
-            onClick={() => onNavigate('/discord/workspace/activate')}
+            onClick={() => onNavigate?.('workspace/activate')}
             className="inline-flex items-center gap-1.5 text-[#2563EB] hover:text-[#1D4ED8] transition-colors cursor-pointer uppercase"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
@@ -177,7 +172,7 @@ export default function WorkspaceView({ onNavigate }) {
 
           {/* VIEW BILLING */}
           <button
-            onClick={() => onNavigate('/discord/workspace/billing')}
+            onClick={() => onNavigate?.('workspace/billing')}
             className="inline-flex items-center gap-1.5 text-[#2563EB] hover:text-[#1D4ED8] transition-colors cursor-pointer uppercase"
           >
             <CreditCard className="w-4 h-4 stroke-[2]" />
@@ -324,12 +319,9 @@ export default function WorkspaceView({ onNavigate }) {
 
                     {/* Connected Server */}
                     <td className="py-4 px-4 whitespace-nowrap">
-                      <button
-                        onClick={() => onNavigate(`/discord/servers`)}
-                        className="text-[#2563EB] hover:text-[#1D4ED8] hover:underline font-medium text-sm cursor-pointer"
-                      >
+                      <span className="text-[#2563EB] font-medium text-sm">
                         {service.serverName}
-                      </button>
+                      </span>
                     </td>
 
                     {/* Plan */}
@@ -351,7 +343,7 @@ export default function WorkspaceView({ onNavigate }) {
                     <td className="py-4 px-4 whitespace-nowrap text-right pr-6">
                       <div className="flex items-center justify-end gap-3">
                         <button
-                          onClick={() => onNavigate(`/discord/workspace/service/${service.id}`)}
+                          onClick={() => onNavigate?.(`workspace/service/${service.id}`)}
                           className="text-[#2563EB] hover:text-[#1D4ED8] font-bold text-sm hover:underline cursor-pointer"
                         >
                           Manage
@@ -371,7 +363,7 @@ export default function WorkspaceView({ onNavigate }) {
                               <button
                                 onClick={() => {
                                   setActiveMenuId(null);
-                                  onNavigate(`/discord/workspace/service/${service.id}`);
+                                  onNavigate?.(`workspace/service/${service.id}`);
                                 }}
                                 className="w-full px-3.5 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer"
                               >
@@ -380,20 +372,11 @@ export default function WorkspaceView({ onNavigate }) {
                               <button
                                 onClick={() => {
                                   setActiveMenuId(null);
-                                  onNavigate('/discord/workspace/billing');
+                                  onNavigate?.('workspace/billing');
                                 }}
                                 className="w-full px-3.5 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer"
                               >
                                 <span>Change Plan</span>
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setActiveMenuId(null);
-                                  onNavigate(`/discord/servers`);
-                                }}
-                                className="w-full px-3.5 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer"
-                              >
-                                <span>Switch Server</span>
                               </button>
                             </div>
                           )}
@@ -440,7 +423,7 @@ export default function WorkspaceView({ onNavigate }) {
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold text-[#0F172A]">Recent operations</h2>
           <button
-            onClick={() => onNavigate('/discord/workspace/operations')}
+            onClick={() => onNavigate?.('workspace/operations')}
             className="text-xs font-bold text-[#2563EB] hover:text-[#1D4ED8] uppercase tracking-wider cursor-pointer"
           >
             VIEW ALL
@@ -465,12 +448,9 @@ export default function WorkspaceView({ onNavigate }) {
                       {op.operation}
                     </td>
                     <td className="py-3.5 px-6">
-                      <button
-                        onClick={() => onNavigate(`/discord/marketplace`)}
-                        className="text-[#2563EB] hover:text-[#1D4ED8] font-medium hover:underline cursor-pointer"
-                      >
+                      <span className="text-[#2563EB] font-medium">
                         {op.serviceName}
-                      </button>
+                      </span>
                     </td>
                     <td className="py-3.5 px-6">
                       <div className="flex items-center gap-1.5 font-medium text-xs text-[#0F172A]">

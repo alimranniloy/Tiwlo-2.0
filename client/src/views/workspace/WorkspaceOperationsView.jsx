@@ -2,12 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   CheckCircle2,
-  Clock,
-  Filter,
-  Search,
-  Activity
+  Search
 } from 'lucide-react';
-import { DiscordAPI } from '../api/discordApi';
+import { WorkspaceAPI } from '../../api/workspaceApi';
 
 export default function WorkspaceOperationsView({ onBack, onNavigate }) {
   const [operations, setOperations] = useState([]);
@@ -17,7 +14,7 @@ export default function WorkspaceOperationsView({ onBack, onNavigate }) {
   useEffect(() => {
     async function load() {
       try {
-        const ops = await DiscordAPI.getWorkspaceOperations();
+        const ops = await WorkspaceAPI.getWorkspaceOperations();
         setOperations(ops);
       } catch (err) {
         console.warn('Failed to load workspace operations:', err);
@@ -40,7 +37,6 @@ export default function WorkspaceOperationsView({ onBack, onNavigate }) {
 
   return (
     <div className="max-w-4xl mx-auto space-y-7 pb-16">
-      {/* Back button */}
       <div>
         <button
           onClick={onBack}
@@ -51,7 +47,6 @@ export default function WorkspaceOperationsView({ onBack, onNavigate }) {
         </button>
       </div>
 
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">
@@ -63,7 +58,6 @@ export default function WorkspaceOperationsView({ onBack, onNavigate }) {
         </div>
       </div>
 
-      {/* Search Bar */}
       <div className="relative">
         <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
         <input
@@ -75,7 +69,6 @@ export default function WorkspaceOperationsView({ onBack, onNavigate }) {
         />
       </div>
 
-      {/* Operations Table */}
       <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm border-collapse min-w-[650px]">

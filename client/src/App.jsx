@@ -245,6 +245,7 @@ export default function App() {
         if (pathname === 'help-center') return 'help-support/help-center';
         if (pathname === 'guides') return 'help-support/guides';
         if (pathname === 'add-product') return 'add-product';
+        if (pathname === 'workspace' || pathname.startsWith('workspace/')) return pathname;
         if (pathname === 'whatsapp-automation' || pathname.startsWith('whatsapp-automation/')) return 'whatsapp-automation';
         if (pathname === 'tiwi' || pathname.startsWith('tiwi/') || pathname === 'social' || pathname.startsWith('social/')) return 'tiwi';
         if (pathname === 'email' || pathname.startsWith('email/') || pathname === 'mail' || pathname.startsWith('mail/')) return 'email';
@@ -1401,10 +1402,10 @@ export default function App() {
           showToast={showToast}
           onBackToApp={() => handleTabChange('dashboard')}
         />
-      ) : (activeTab === 'dashboard' || activeTab === 'whatsapp-automation' || activeTab.startsWith('whatsapp-automation')) ? (
+      ) : (activeTab === 'dashboard' || activeTab === 'workspace' || activeTab.startsWith('workspace') || activeTab === 'whatsapp-automation' || activeTab.startsWith('whatsapp-automation')) ? (
         <CloudDashboard
           currentUser={currentUser}
-          initialNav={activeTab.startsWith('whatsapp-automation') ? 'whatsapp-automation' : 'dashboard'}
+          initialNav={activeTab.startsWith('workspace') ? activeTab : activeTab.startsWith('whatsapp-automation') ? 'whatsapp-automation' : 'dashboard'}
           onLogout={handleLogout}
           onOpenStoreDashboard={() => handleTabChange('ecommerce-dashboard')}
           onNavigateTab={handleTabChange}

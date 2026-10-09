@@ -23,6 +23,11 @@ import MyOnlineStoreView from './views/MyOnlineStoreView';
 import WhatsAppAutomationView from './views/WhatsAppAutomationView';
 import HelpSupportView from '../../views/HelpSupportView';
 import CloudBillingView from './views/CloudBillingView';
+import WorkspaceView from '../../views/workspace/WorkspaceView';
+import WorkspaceServiceDetailView from '../../views/workspace/WorkspaceServiceDetailView';
+import WorkspaceActivateView from '../../views/workspace/WorkspaceActivateView';
+import WorkspaceBillingView from '../../views/workspace/WorkspaceBillingView';
+import WorkspaceOperationsView from '../../views/workspace/WorkspaceOperationsView';
 
 // Real GraphQL / REST Client
 import {
@@ -191,7 +196,14 @@ export default function CloudDashboard({
       {/* Left Sidebar */}
       <CloudSidebar
         activeNav={activeNav}
-        setActiveNav={setActiveNav}
+        setActiveNav={(nav) => {
+          setActiveNav(nav);
+          try {
+            if (nav === 'workspace') window.history.pushState(null, '', '/workspace');
+            else if (nav === 'dashboard') window.history.pushState(null, '', '/');
+            else if (nav === 'whatsapp-automation') window.history.pushState(null, '', '/whatsapp-automation');
+          } catch (e) {}
+        }}
         userStores={userStores}
         currentStore={currentStore}
         onSelectStore={(st) => setCurrentStore(st)}
@@ -332,6 +344,62 @@ export default function CloudDashboard({
                 showToast={showToast}
                 onBack={() => setActiveNav('dashboard')}
               />
+            </div>
+          ) : (activeNav === 'workspace' || activeNav.startsWith('workspace')) ? (
+            <div className="max-w-[1500px] mx-auto">
+              {activeNav === 'workspace/activate' ? (
+                <WorkspaceActivateView
+                  onBack={() => {
+                    setActiveNav('workspace');
+                    try { window.history.pushState(null, '', '/workspace'); } catch (e) {}
+                  }}
+                  onNavigate={(target) => {
+                    setActiveNav(target);
+                    try { window.history.pushState(null, '', `/${target}`); } catch (e) {}
+                  }}
+                />
+              ) : activeNav === 'workspace/billing' ? (
+                <WorkspaceBillingView
+                  onBack={() => {
+                    setActiveNav('workspace');
+                    try { window.history.pushState(null, '', '/workspace'); } catch (e) {}
+                  }}
+                  onNavigate={(target) => {
+                    setActiveNav(target);
+                    try { window.history.pushState(null, '', `/${target}`); } catch (e) {}
+                  }}
+                />
+              ) : activeNav === 'workspace/operations' ? (
+                <WorkspaceOperationsView
+                  onBack={() => {
+                    setActiveNav('workspace');
+                    try { window.history.pushState(null, '', '/workspace'); } catch (e) {}
+                  }}
+                  onNavigate={(target) => {
+                    setActiveNav(target);
+                    try { window.history.pushState(null, '', `/${target}`); } catch (e) {}
+                  }}
+                />
+              ) : activeNav.startsWith('workspace/service/') ? (
+                <WorkspaceServiceDetailView
+                  serviceId={activeNav.replace('workspace/service/', '')}
+                  onBack={() => {
+                    setActiveNav('workspace');
+                    try { window.history.pushState(null, '', '/workspace'); } catch (e) {}
+                  }}
+                  onNavigate={(target) => {
+                    setActiveNav(target);
+                    try { window.history.pushState(null, '', `/${target}`); } catch (e) {}
+                  }}
+                />
+              ) : (
+                <WorkspaceView
+                  onNavigate={(target) => {
+                    setActiveNav(target);
+                    try { window.history.pushState(null, '', `/${target}`); } catch (e) {}
+                  }}
+                />
+              )}
             </div>
           ) : (
             <div className="max-w-[1600px] mx-auto space-y-6">

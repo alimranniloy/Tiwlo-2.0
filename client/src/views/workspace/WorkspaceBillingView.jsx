@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   CreditCard,
   CheckCircle2,
-  Download,
   Calendar,
   Shield,
   Zap,
@@ -20,7 +19,6 @@ export default function WorkspaceBillingView({ onBack, onNavigate }) {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-16">
-      {/* Back button */}
       <div>
         <button
           onClick={onBack}
@@ -31,7 +29,6 @@ export default function WorkspaceBillingView({ onBack, onNavigate }) {
         </button>
       </div>
 
-      {/* Header */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">
           Workspace Billing & Subscriptions
@@ -41,7 +38,6 @@ export default function WorkspaceBillingView({ onBack, onNavigate }) {
         </p>
       </div>
 
-      {/* Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-xs">
           <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">
@@ -71,12 +67,11 @@ export default function WorkspaceBillingView({ onBack, onNavigate }) {
         </div>
       </div>
 
-      {/* Active Subscriptions Table */}
       <div className="bg-white border border-[#E2E8F0] rounded-2xl shadow-xs overflow-hidden">
         <div className="p-6 border-b border-[#E2E8F0] flex items-center justify-between">
           <h2 className="text-lg font-bold text-[#0F172A]">Active Subscriptions</h2>
           <button
-            onClick={() => onNavigate('/discord/marketplace')}
+            onClick={() => onNavigate?.('workspace/activate')}
             className="text-xs font-bold text-[#2563EB] hover:text-[#1D4ED8] uppercase cursor-pointer"
           >
             + ADD SERVICE
