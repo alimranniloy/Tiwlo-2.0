@@ -1,4 +1,6 @@
 import fsSync from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { normalizeSignupEmail, signupEmailKey, duplicateAccountError } from '../security/signupIdentity.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getPgPool, isPgActive, queryPg } from './postgres.js';
@@ -275,7 +277,27 @@ export const MasterDB = {
     );
   },
 
+  async isSignupEmailTaken(email, excludeUserId = null) {
+    const key = signupEmailKey(email);
+    if (!key) return false;
+    const result = await queryPg(
+      `SELECT 1 FROM system_users
+       WHERE tiwlo_signup_email_key(email) = $1
+         AND ($2::text IS NULL OR (id <> $2 AND tiwi_id IS DISTINCT FROM $2))
+       LIMIT 1`,
+      [key, excludeUserId]
+    );
+    return result.rows.length > 0;
+  },
+
   async updateUser(userId, updates = {}) {
+    if (updates.email !== undefined) {
+      if (!isPgActive()) throw new Error('PostgreSQL is unavailable; email changes are disabled.');
+      const email = normalizeSignupEmail(updates.email);
+      if (!email) throw new Error('A valid email address is required.');
+      if (await this.isSignupEmailTaken(email, userId)) throw duplicateAccountError();
+      updates = { ...updates, email };
+    }
     const clean = String(userId || '').trim().toLowerCase();
     const master = this.getMasterData();
     const idx = (master.users || []).findIndex(
@@ -422,16 +444,9 @@ export const MasterDB = {
     const tiwiId = userData.tiwiId || userData.storeId;
     const master = this.getMasterData();
 
-    if (!userData.email || !userData.email.trim()) {
-      throw new Error('A valid email address is required.');
-    }
-    const normalizedEmail = userData.email.trim().toLowerCase();
-    const existingEmailUser = (master.users || []).find(
-      (user) => user.email?.trim().toLowerCase() === normalizedEmail
-    );
-    if (existingEmailUser) {
-      throw new Error('That email is already in use. Please sign in or use another email.');
-    }
+    const normalizedEmail = normalizeSignupEmail(userData.email);
+    if (!normalizedEmail) throw new Error('A valid email address is required.');
+    if (await this.isSignupEmailTaken(normalizedEmail)) throw duplicateAccountError();
     if (tiwiId && (master.users || []).some((user) => user.tiwiId === tiwiId || user.storeId === tiwiId)) {
       throw new Error('Could not reserve a unique account ID. Please try again.');
     }
@@ -444,7 +459,7 @@ export const MasterDB = {
     const assignedRole = 'owner';
 
     const newUser = {
-      id: userData.id || `usr_${Date.now()}`,
+      id: userData.id || `usr_${randomUUID()}`,
       tiwiId,
       storeId: tiwiId,
       storeName: userData.storeName,
@@ -477,6 +492,39 @@ export const MasterDB = {
       createdAt: new Date().toISOString()
     };
 
+    // Persist first. A failed insert must never publish a runtime account or
+    // provision a tenant. Plain INSERT prevents ID collisions overwriting users.
+    await queryPg(`
+      WITH created_user AS (INSERT INTO system_users (
+        id, tiwi_id, store_name, name, email, password_hash, role, date_of_birth, phone, city, country, address, postal_code, plan_id, plan_name, subdomain, auth_method, email_verified, two_factor_enabled, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+        RETURNING id)
+      INSERT INTO system_signup_browsers (key_hash, user_id)
+      SELECT $21::text, id FROM created_user WHERE $21::text IS NOT NULL
+    `, [
+      newUser.id,
+      newUser.tiwiId,
+      newUser.storeName,
+      newUser.name || newUser.storeName,
+      newUser.email,
+      newUser.password,
+      newUser.role,
+      newUser.dateOfBirth || null,
+      newUser.billingDetails?.phone || newUser.phone || '',
+      newUser.billingDetails?.city || '',
+      newUser.billingDetails?.country || 'Bangladesh',
+      newUser.billingDetails?.address || newUser.address || '',
+      newUser.billingDetails?.postalCode || '',
+      newUser.planId,
+      newUser.planName,
+      newUser.subdomain,
+      newUser.authMethod || 'credentials',
+      newUser.emailVerified || false,
+      newUser.twoFactorEnabled || false,
+      newUser.createdAt,
+      userData.signupBrowserKey || null
+    ]);
+
     master.users = master.users || [];
     master.users.push(newUser);
 
@@ -502,47 +550,6 @@ export const MasterDB = {
     if (newUser.accountType === 'business') {
       await TenantDB.provisionStore(tiwiId, newUser.storeName || newUser.businessName || 'Business Store', newUser.planId);
     }
-
-    // Sync to PostgreSQL if online
-    if (isPgActive()) {
-      try {
-        await queryPg(`
-          INSERT INTO system_users (
-            id, tiwi_id, store_name, name, email, password_hash, role, date_of_birth, phone, city, country, address, postal_code, plan_id, plan_name, subdomain, auth_method, email_verified, two_factor_enabled, created_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
-          ON CONFLICT (id) DO UPDATE SET
-            store_name = EXCLUDED.store_name,
-            name = EXCLUDED.name,
-            email = EXCLUDED.email,
-            password_hash = EXCLUDED.password_hash,
-            updated_at = NOW()
-        `, [
-          newUser.id,
-          newUser.tiwiId,
-          newUser.storeName,
-          newUser.name || newUser.storeName,
-          newUser.email,
-          newUser.password,
-          newUser.role,
-          newUser.dateOfBirth || null,
-          newUser.billingDetails?.phone || newUser.phone || '',
-          newUser.billingDetails?.city || '',
-          newUser.billingDetails?.country || 'Bangladesh',
-          newUser.billingDetails?.address || newUser.address || '',
-          newUser.billingDetails?.postalCode || '',
-          newUser.planId,
-          newUser.planName,
-          newUser.subdomain,
-          newUser.authMethod || 'credentials',
-          newUser.emailVerified || false,
-          newUser.twoFactorEnabled || false,
-          newUser.createdAt
-        ]);
-      } catch (e) {
-        console.warn('PostgreSQL user sync warning:', e.message);
-      }
-    }
-
     return newUser;
   },
 

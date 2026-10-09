@@ -1,4 +1,6 @@
 import express from 'express';
+import { registrationGuards } from '../plugins/security/index.js';
+import { isDuplicateAccountError, isDuplicateBrowserError } from '../security/signupIdentity.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -588,16 +590,16 @@ router.post('/graphql', async (req, res) => {
 // 3. AUTH & USER REST ENDPOINTS
 // Authentication is handled by the shared /api/auth routes.
 // ====================================================================
-router.post('/register', async (req, res) => {
+router.post('/register', ...registrationGuards, async (req, res) => {
   const { name, email, handle, password, accountType = 'personal', birthday, gender, phone, billingAddress } = req.body;
   if (!name || !email) {
     return res.status(400).json({ error: 'Name and email are required' });
   }
-  if (!password || password.length < 6) {
+  if (typeof password !== 'string' || password.length < 6) {
     return res.status(400).json({ error: 'Password must be at least 6 characters long' });
   }
   try {
-    const result = await SocialDB.registerUser({ name, email, handle, password, accountType, birthday, gender, phone, billingAddress });
+    const result = await SocialDB.registerUser({ name, email, handle, password, accountType, birthday, gender, phone, billingAddress, signupBrowserKey: req.signupBrowserKey });
     const user = result.user;
     const verifyOtp = await generateSecureOtp(user.email, 'email_verify', 15);
     const masked = maskEmail(user.email);
@@ -617,7 +619,13 @@ router.post('/register', async (req, res) => {
       message: `A 6-digit verification code was sent to ${masked}. Please verify your email to continue.`
     });
   } catch (err) {
-    res.status(400).json({ error: err.message || 'Registration failed' });
+    if (isDuplicateBrowserError(err)) {
+      return res.status(409).json({ error: 'This browser already created an account. Please sign in or contact support for help with a shared device.' });
+    }
+    if (isDuplicateAccountError(err)) {
+      return res.status(409).json({ error: 'An account already uses this email. Please sign in or recover your existing account.' });
+    }
+    res.status(400).json({ error: 'Registration failed. Check your details or try again later.' });
   }
 });
 

@@ -362,8 +362,9 @@ export const socialResolvers = {
   login: async ({ emailOrPhone, password }) => {
     return await SocialDB.authenticateUser(emailOrPhone, password);
   },
-  register: async ({ name, email, handle, password, accountType }) => {
-    return await SocialDB.registerUser({ name, email, handle, password, accountType });
+  register: async () => {
+    // GraphQL aliases/batched mutations must not bypass HTTP signup protections.
+    throw new Error('Use /api/auth/register to create an account and verify your email.');
   },
   createPost: async ({ authorId, caption, images }) => {
     return await SocialDB.createPost({ authorId, caption, images });

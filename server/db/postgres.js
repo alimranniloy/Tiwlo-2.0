@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { signupIdentitySchema } from './signupIdentitySchema.js';
 const { Pool } = pg;
 
 // PostgreSQL Connection Pool Configuration
@@ -944,6 +945,7 @@ export async function initPgSchema() {
         device_info VARCHAR(128)
       );
     `);
+    await p.query(signupIdentitySchema);
     await p.query('DELETE FROM system_security_rate_limits WHERE expires_at <= CURRENT_TIMESTAMP');
     console.log('✅ Enterprise PostgreSQL Multi-Domain Schema Verified & Provisioned.');
   } catch (err) {

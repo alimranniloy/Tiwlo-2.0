@@ -29,7 +29,8 @@ import { requireAdmin } from '../administrator/adminRoutes.js';
 import { SocialDB } from '../social/socialDb.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
-import { securityLimiters } from '../plugins/security/index.js';
+import { securityLimiters, registrationGuards } from '../plugins/security/index.js';
+import { normalizeSignupEmail, isDuplicateAccountError, isDuplicateBrowserError } from '../security/signupIdentity.js';
 
 const router = express.Router();
 
@@ -183,11 +184,11 @@ router.post('/auth/social-check', async (req, res) => {
 router.post('/auth/check-email', async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email || !email.includes('@')) {
-      return res.json({ exists: false });
+    if (!normalizeSignupEmail(email)) {
+      return res.status(400).json({ error: 'A valid email address is required.' });
     }
     const normalized = email.trim().toLowerCase();
-    const existing = await MasterDB.findUserByIdentifier(normalized);
+    const existing = await MasterDB.isSignupEmailTaken(normalized);
     if (existing) {
       return res.json({
         exists: true,
@@ -197,7 +198,7 @@ router.post('/auth/check-email', async (req, res) => {
     return res.json({ exists: false });
   } catch (err) {
     console.error('Check email error:', err);
-    return res.json({ exists: false });
+    return res.status(503).json({ error: 'Email availability is temporarily unavailable.' });
   }
 });
 
@@ -218,7 +219,7 @@ router.all('/auth/check-availability', async (req, res) => {
 });
 
 // Register
-router.post('/auth/register', securityLimiters.registration, securityLimiters.registrationDaily, securityLimiters.registrationMonthly, async (req, res) => {
+router.post('/auth/register', ...registrationGuards, async (req, res) => {
   try {
     if (hasUnverifiedSsoIdentity(req.body)) {
       return res.status(400).json({
@@ -247,7 +248,7 @@ router.post('/auth/register', securityLimiters.registration, securityLimiters.re
       return res.status(400).json({ error: 'A valid email address is required' });
     }
 
-    if (!password || password.length < 6) {
+    if (typeof password !== 'string' || password.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters long' });
     }
 
@@ -313,6 +314,7 @@ router.post('/auth/register', securityLimiters.registration, securityLimiters.re
     };
 
     const newUser = await MasterDB.createUser({
+      signupBrowserKey: req.signupBrowserKey,
       tiwiId,
       storeName: effectiveDisplayName,
       name: (accountType === 'business' ? (name || effectiveDisplayName) : effectiveDisplayName)?.trim(),
@@ -412,6 +414,12 @@ router.post('/auth/register', securityLimiters.registration, securityLimiters.re
       message: `Store "${newUser.storeName}" created! A 6-digit verification code was sent to ${masked}. Please verify your email to activate your store.`
     });
   } catch (err) {
+    if (isDuplicateBrowserError(err)) {
+      return res.status(409).json({ error: 'This browser already created an account. Please sign in or contact support for help with a shared device.' });
+    }
+    if (isDuplicateAccountError(err)) {
+      return res.status(409).json({ error: 'An account already uses this email. Please sign in or recover your existing account.' });
+    }
     console.error('Registration error:', err);
     res.status(500).json({ error: 'Failed to create new account' });
   }
@@ -963,15 +971,15 @@ export async function authorizeEmailCorrection(req, res, next) {
 router.post('/auth/change-email', authorizeEmailCorrection, async (req, res) => {
   try {
     const { tempToken, newEmail } = req.body;
-    if (!tempToken || !newEmail || !newEmail.includes('@')) {
+    if (!tempToken || !normalizeSignupEmail(newEmail)) {
       return res.status(400).json({ error: 'Please provide a valid new email address.' });
     }
 
     const cleanNewEmail = newEmail.trim().toLowerCase();
     const { user, challenge: session } = req.emailCorrection;
 
-    const existing = await MasterDB.findUserByIdentifier(cleanNewEmail);
-    if (existing && existing.email !== session.email) {
+    const existing = await MasterDB.isSignupEmailTaken(cleanNewEmail, user.id);
+    if (existing) {
       return res.status(400).json({ error: 'This email address is already associated with another account.' });
     }
 
@@ -1003,6 +1011,9 @@ router.post('/auth/change-email', authorizeEmailCorrection, async (req, res) => 
       message: `Email address changed to ${cleanNewEmail}. Verification passcode sent.`
     });
   } catch (err) {
+    if (isDuplicateAccountError(err)) {
+      return res.status(409).json({ error: 'This email address is already associated with another account.' });
+    }
     console.error('Change email error:', err);
     res.status(500).json({ error: 'Failed to change email address.' });
   }

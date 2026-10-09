@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { once } from 'node:events';
 import express from 'express';
+import cookieParser from 'cookie-parser';
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tiwlo-security-test-'));
 process.env.TIWLO_DATA_DIR = dataDir;
@@ -15,6 +16,9 @@ const { getActiveTiwiId } = await import('../db/storeDataAdapter.js');
 const { default: authRoutes, authorizeEmailCorrection } = await import('../routes/authRoutes.js');
 const { default: securityRoutes } = await import('./securityRoutes.js');
 const { requireAdmin } = await import('../administrator/adminRoutes.js');
+const { default: socialRoutes } = await import('../social/socialRoutes.js');
+const { SocialDB } = await import('../social/socialDb.js');
+const { executeSocialGraphQL } = await import('../social/socialSchema.js');
 
 after(async () => {
   await getPgPool().end();
@@ -23,7 +27,10 @@ after(async () => {
 
 async function withServer(run) {
   const app = express();
+  // Only this loopback test server trusts synthetic source IPs.
+  app.set('trust proxy', 'loopback');
   app.use(express.json());
+  app.use(cookieParser());
   app.use((req, _res, next) => {
     if (req.headers.authorization === 'Bearer owner-session') {
       req.activeUser = { id: 'owner', email: 'owner@example.com' };
@@ -32,6 +39,7 @@ async function withServer(run) {
   });
   app.get('/admin-check', requireAdmin, (_req, res) => res.sendStatus(204));
   app.use('/api', authRoutes, securityRoutes);
+  app.use('/api/social', socialRoutes);
   const server = app.listen(0, '127.0.0.1');
   await once(server, 'listening');
   try {
@@ -118,7 +126,8 @@ test('admin authorization uses persisted roles, rejects banned admins and email 
   });
 });
 
-test('public account creation never promotes an email or caller-supplied role', async () => {
+test('public account creation never promotes an email or caller-supplied role', async (t) => {
+  t.mock.method(getPgPool(), 'query', async () => ({ rows: [] }));
   for (const [index, email] of ['tiwloltd@gmail.com', 'ordinary@example.com'].entries()) {
     const user = await MasterDB.createUser({ id: `user-${index}`, email, password: 'scrypt$literal-password', role: 'super_admin' });
     assert.equal(user.role, 'owner');
@@ -126,6 +135,78 @@ test('public account creation never promotes an email or caller-supplied role', 
     assert.equal(PasswordSecurity.verify('scrypt$literal-password', user.password), true);
   }
   await assert.rejects(MasterDB.createUser({ email: 'missing-password@example.com' }), /Password/);
+});
+
+test('failed database inserts cannot leave runtime accounts or tenant stores behind', async (t) => {
+  const before = structuredClone(MasterDB.getMasterData());
+  t.mock.method(getPgPool(), 'query', async sql => {
+    if (sql.includes('INSERT INTO system_users')) throw Object.assign(new Error('duplicate mailbox'), { code: '23505' });
+    return { rows: [] };
+  });
+  await assert.rejects(MasterDB.createUser({
+    email: 'failure@example.com', password: 'test-password', accountType: 'business', tiwiId: 'TIW-FAILURE'
+  }), { code: '23505' });
+  assert.deepEqual(MasterDB.getMasterData(), before);
+  assert.equal(fs.existsSync(path.join(dataDir, 'db', 'stores', 'TIW-FAILURE.json')), false);
+});
+
+test('mailbox availability fails closed when its database cannot be queried', async (t) => {
+  t.mock.method(getPgPool(), 'query', async () => { throw new Error('database unavailable'); });
+  await assert.rejects(SocialDB.isEmailTaken('user@example.com'), /database unavailable/);
+});
+
+test('GraphQL registration aliases cannot bypass protected signup', async (t) => {
+  t.mock.method(SocialDB, 'registerUser', () => assert.fail('Unprotected registration was called'));
+  const result = await executeSocialGraphQL(`mutation {
+    attempt: register(name: "Test", email: "test@example.com", handle: "test", password: "password") { token }
+  }`);
+  assert.match(result.errors[0].message, /\/api\/auth\/register/);
+});
+
+function mockSignupCounters(t) {
+  const counters = new Map();
+  t.mock.method(getPgPool(), 'query', async (sql, params) => {
+    if (sql.includes('INSERT INTO system_security_rate_limits')) {
+      const key = `${params[0]}:${params[1]}`;
+      const count = (counters.get(key) || 0) + 1;
+      counters.set(key, count);
+      return { rows: [{ hitCount: count, expiresAt: new Date(Date.now() + 3600000) }] };
+    }
+    if (sql.includes('INSERT INTO system_security_events')) return { rows: [{ id: 1 }] };
+    assert.fail('A throttled or invalid signup reached account storage');
+  });
+  return counters;
+}
+
+test('both signup APIs share mailbox limits across IP changes and Gmail aliases', async (t) => {
+  const counters = mockSignupCounters(t);
+  await withServer(async base => {
+    for (let i = 0; i < 6; i++) {
+      const response = await fetch(`${base}${i % 2 ? '/api/social/register' : '/api/auth/register'}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': `192.0.2.${i + 1}` },
+        body: JSON.stringify({ email: `test.user+${i}@${i % 2 ? 'googlemail.com' : 'gmail.com'}`, name: 'Test', password: '' })
+      });
+      assert.equal(response.status, i < 5 ? 400 : 429);
+      if (i === 5) assert.ok(Number(response.headers.get('retry-after')) > 0);
+    }
+  });
+  assert.equal([...counters.entries()].filter(([key, count]) => key.startsWith('auth_registration_mailbox:') && count === 6).length, 1);
+});
+
+test('browser limits survive changing both email and IP across signup APIs', async (t) => {
+  const counters = mockSignupCounters(t);
+  await withServer(async base => {
+    let cookie;
+    for (let i = 0; i < 6; i++) {
+      const response = await fetch(`${base}${i % 2 ? '/api/social/register' : '/api/auth/register'}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': `198.51.100.${i + 1}`, ...(cookie ? { Cookie: cookie } : {}) },
+        body: JSON.stringify({ email: `person${i}@example.com`, name: 'Test', password: '' })
+      });
+      if (!cookie) cookie = response.headers.get('set-cookie').split(';')[0];
+      assert.equal(response.status, i < 5 ? 400 : 429);
+    }
+  });
+  assert.equal([...counters.entries()].filter(([key, count]) => key.startsWith('auth_registration_browser:') && count === 6).length, 1);
 });
 
 test('checking an unlocked account cannot erase its active failure window', async (t) => {

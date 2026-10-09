@@ -10,6 +10,7 @@ import http from 'http';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
+import { configureTrustedProxy } from './security/proxyTrust.js';
 import { PLATFORM_CONFIG, getSubdomain } from './config/platformConfig.js';
 
 import { ensureCertificates } from './scripts/generate-cert.js';
@@ -52,7 +53,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.set('trust proxy', 1);
+configureTrustedProxy(app);
 const PORT = process.env.PORT || 5000;
 const HTTP_PORT = Number.parseInt(process.env.HTTP_PORT || String(Number(PORT) + 1), 10);
 

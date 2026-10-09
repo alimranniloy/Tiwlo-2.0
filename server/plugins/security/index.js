@@ -1,4 +1,6 @@
 import { ipKeyGenerator } from 'express-rate-limit';
+import { signupEmailKey } from '../../security/signupIdentity.js';
+import { prepareSignupRequest } from '../../security/signupBrowser.js';
 import { queryPg } from '../../db/postgres.js';
 import { hashSecuritySubject, recordSecurityEvent } from '../../db/securityPersistence.js';
 
@@ -102,6 +104,27 @@ const day = 24 * hour;
 const month = 30 * day;
 
 export const securityLimiters = {
+  registrationEmail: createLimiter({
+    policyId: 'auth_registration_mailbox',
+    windowMs: hour,
+    limit: 5,
+    getIdentity: (req) => signupEmailKey(req.body?.email),
+    error: 'Too many signup attempts for this email. Please sign in or try again later.'
+  }),
+  registrationBrowser: createLimiter({
+    policyId: 'auth_registration_browser',
+    windowMs: day,
+    limit: 5,
+    getIdentity: (req) => req.signupBrowserId,
+    error: 'Too many account creation attempts in this browser. Please try again tomorrow.'
+  }),
+  registrationBrowserMonthly: createLimiter({
+    policyId: 'auth_registration_browser_monthly',
+    windowMs: month,
+    limit: 10,
+    getIdentity: (req) => req.signupBrowserId,
+    error: 'This browser has reached its monthly signup limit. Please use your existing account.'
+  }),
   login: createLimiter({
     policyId: 'auth_login_ip',
     windowMs: 15 * 60 * 1000,
@@ -160,6 +183,17 @@ export const securityLimiters = {
     error: 'This account has reached its daily sending limit. Try again tomorrow.'
   })
 };
+
+// Keep both public registration APIs on exactly the same persisted policies.
+export const registrationGuards = [
+  prepareSignupRequest,
+  securityLimiters.registration,
+  securityLimiters.registrationDaily,
+  securityLimiters.registrationMonthly,
+  securityLimiters.registrationEmail,
+  securityLimiters.registrationBrowser,
+  securityLimiters.registrationBrowserMonthly
+];
 
 export default {
   id: 'security',

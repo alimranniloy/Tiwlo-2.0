@@ -530,17 +530,7 @@ export const SocialDB = {
   },
 
   async isEmailTaken(email, excludeUserId = null) {
-    if (!email || !email.trim()) return false;
-    const clean = email.trim().toLowerCase();
-    try {
-      const masterUsers = await MasterDB.getUsers();
-      return masterUsers.some((u) => {
-        if (excludeUserId && (u.id === excludeUserId || u.tiwiId === excludeUserId)) return false;
-        return u.email && u.email.trim().toLowerCase() === clean;
-      });
-    } catch (e) {
-      return false;
-    }
+    return MasterDB.isSignupEmailTaken(email, excludeUserId);
   },
 
   async isHandleTaken(handle, excludeUserId = null) {
@@ -624,7 +614,7 @@ export const SocialDB = {
     };
   },
 
-  async registerUser({ name, email, handle, password, accountType = 'personal', birthday = '', gender = '', phone = '', billingAddress = null }) {
+  async registerUser({ name, email, handle, password, accountType = 'personal', birthday = '', gender = '', phone = '', billingAddress = null, signupBrowserKey = null }) {
     if (!name || !name.trim()) throw new Error('Name is required.');
     if (!email || !email.trim()) throw new Error('Email is required.');
     if (!password || password.length < 6) throw new Error('Password must be at least 6 characters.');
@@ -678,6 +668,7 @@ export const SocialDB = {
 
     // Create user in MasterDB (Unified ecosystem: Dashboard + Platform + Social)
     const newMasterUser = await MasterDB.createUser({
+      signupBrowserKey,
       tiwiId,
       name: name.trim(),
       storeName: name.trim(),
