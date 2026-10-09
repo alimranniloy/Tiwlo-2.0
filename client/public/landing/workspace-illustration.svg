@@ -1,77 +1,108 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="680" height="540" viewBox="0 0 680 540" fill="none">
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="680" height="540" viewBox="0 0 680 540" fill="none">
   <title>Your connected Tiwlo workspace</title>
-  <desc>A hand-drawn-style workspace illustration connecting a shop, a product card, a checkout, and cloud services.</desc>
+  <desc>A blue and white storefront with illustrated products, a retail checkout, and connected cloud services.</desc>
   <defs>
-    <filter id="shadow" x="-25%" y="-25%" width="150%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#222" flood-opacity=".045"/></filter>
-    <pattern id="dots" x="0" y="0" width="19" height="19" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".85" fill="#d3e2f6"/></pattern>
+    <radialGradient id="halo"><stop stop-color="#dbeafe"/><stop offset=".72" stop-color="#eff6ff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="panel"><stop stop-color="#e6efff"/><stop offset="1" stop-color="#f4f8ff"/></linearGradient>
+    <linearGradient id="blue" x2="1" y2="1"><stop stop-color="#6e9ff8"/><stop offset="1" stop-color="#2563eb"/></linearGradient>
+    <linearGradient id="ceramic"><stop stop-color="#7da4df"/><stop offset=".45" stop-color="#c4dcff"/><stop offset="1" stop-color="#8eb5ee"/></linearGradient>
+    <linearGradient id="fabric" x2="1" y2="1"><stop stop-color="#f8fbff"/><stop offset="1" stop-color="#c9ddfa"/></linearGradient>
+    <filter id="shadow" x="-25%" y="-30%" width="160%" height="175%"><feDropShadow dx="0" dy="12" stdDeviation="15" flood-color="#234f97" flood-opacity=".09"/><feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#234f97" flood-opacity=".04"/></filter>
+    <pattern id="dots" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#bfd3f2"/></pattern>
   </defs>
-  <rect x="24" y="32" width="632" height="476" rx="36" fill="#f2f7ff"/>
-  <rect x="44" y="52" width="592" height="436" rx="28" fill="url(#dots)"/>
-  <circle cx="332" cy="264" r="182" stroke="#d3e2f6" stroke-dasharray="4 7"/>
-  <path d="M136 171C101 209 103 275 128 306M495 127C539 151 565 185 570 231M465 429C425 454 379 461 339 450" stroke="#a8c1e5" stroke-width="1.3" stroke-linecap="round"/>
-  <path d="m120 300 9 8 1-12m433-72 8 9 6-11m-234 219-7 10 13 2" stroke="#a8c1e5" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- Main workspace: flat, editable vector artwork. -->
-  <g transform="rotate(-3 326 271)" filter="url(#shadow)">
-    <rect x="117" y="124" width="432" height="298" rx="15" fill="white" stroke="#d3e2f6"/>
-    <path d="M117 166H549" stroke="#e8f0fc"/>
-    <circle cx="137" cy="145" r="3" fill="#d3e2f6"/><circle cx="149" cy="145" r="3" fill="#d3e2f6"/><circle cx="161" cy="145" r="3" fill="#d3e2f6"/>
-    <rect x="218" y="135" width="170" height="19" rx="6" fill="#f2f7ff"/>
-    <text x="303" y="148" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" fill="#617792">Your Tiwlo workspace</text>
-    <path d="M182 167V422" stroke="#e8f0fc"/>
-    <rect x="138" y="189" width="20" height="20" rx="6" fill="#2563eb"/>
-    <path d="M144 195h9m-4-1v11" stroke="white" stroke-width="2" stroke-linecap="round"/>
-    <rect x="130" y="232" width="40" height="31" rx="8" fill="#e8f0fc"/>
-    <g stroke="#6b91c7" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="143" y="241" width="5" height="5" rx="1"/><rect x="151" y="241" width="5" height="5" rx="1"/><rect x="143" y="249" width="5" height="5" rx="1"/><rect x="151" y="249" width="5" height="5" rx="1"/>
-      <path d="M142 285h15v12h-15zm3 0v-3h9v3m-11 34v11h15m-11-3v-7m4 7v-12m4 12v-9"/>
-      <circle cx="149" cy="366" r="7"/><path d="m147 366 2 2 3-4"/>
-    </g>
-    <text x="202" y="196" font-family="Arial,sans-serif" font-size="9" fill="#617792">A LITTLE ROOM FOR EVERYTHING</text>
-    <text x="202" y="222" font-family="Arial,sans-serif" font-size="20" letter-spacing="-.6" fill="#334155">Good things start here.</text>
-    <rect x="202" y="240" width="99" height="68" rx="9" fill="#eef5ff"/>
-    <rect x="311" y="240" width="99" height="68" rx="9" fill="#eef5ff"/>
-    <rect x="420" y="240" width="108" height="68" rx="9" fill="#eef5ff"/>
-    <g stroke="#6b91c7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M218 255h13l2 5h-17zm0 6v9h13v-9m-9 9v-6h5v6"/></g>
-    <text x="216" y="293" font-family="Arial,sans-serif" font-size="10" fill="#334155">Your store</text>
-    <g stroke="#6b91c7" stroke-width="1.5" stroke-linecap="round"><rect x="325" y="254" width="19" height="13" rx="2"/><path d="M334 267v4m-5 0h10"/></g>
-    <text x="325" y="293" font-family="Arial,sans-serif" font-size="10" fill="#334155">Point of sale</text>
-    <path d="M437 270h12a5 5 0 0 0 0-10 7 7 0 0 0-13-1 5.5 5.5 0 0 0 1 11Z" stroke="#6b91c7" stroke-width="1.4"/>
-    <text x="434" y="293" font-family="Arial,sans-serif" font-size="10" fill="#334155">Cloud tools</text>
-    <text x="204" y="335" font-family="Arial,sans-serif" font-size="10" fill="#334155">Everything in its place</text>
-    <rect x="203" y="347" width="325" height="53" rx="8" stroke="#d3e2f6"/>
-    <rect x="214" y="361" width="25" height="25" rx="6" fill="#e8f0fc"/>
-    <path d="m222 373 4 4 6-8" stroke="#6b91c7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-    <text x="249" y="369" font-family="Arial,sans-serif" font-size="10" fill="#334155">Your workspace, connected</text>
-    <text x="249" y="385" font-family="Arial,sans-serif" font-size="8" fill="#617792">Store · Retail · Cloud</text>
-    <path d="M504 373h9m-4-4 4 4-4 4" stroke="#6b91c7" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- An open, softly lit backdrop blends into the white page. -->
+  <ellipse cx="347" cy="278" rx="333" ry="259" fill="url(#halo)"/>
+  <circle cx="347" cy="270" r="209" stroke="#dce8fb"/>
+  <circle cx="347" cy="270" r="238" stroke="#e6eefb" stroke-dasharray="3 9"/>
+  <rect x="48" y="153" width="86" height="110" fill="url(#dots)" opacity=".65"/>
+  <rect x="545" y="217" width="88" height="89" fill="url(#dots)" opacity=".65"/>
+  <g stroke="#b1caf1" stroke-width="1.5" stroke-linecap="round">
+    <path d="M156 116v27M550 150v29q0 14-14 14h-18M96 347v83q0 18 18 18h49" stroke-dasharray="4 5"/>
+    <path d="M59 293h12m-6-6v12M609 184h12m-6-6v12M315 55h10m-5-5v10"/>
   </g>
-  <!-- Product card. -->
-  <g transform="rotate(7 529 127)" filter="url(#shadow)">
-    <rect x="465" y="54" width="135" height="151" rx="14" fill="white" stroke="#d3e2f6"/>
-    <rect x="475" y="64" width="115" height="93" rx="9" fill="#e8f0fc"/>
-    <path d="M511 99h44l5 45h-54l5-45Z" fill="#c9ddf8" stroke="#6b91c7" stroke-width="1.4" stroke-linejoin="round"/>
-    <path d="M522 105V93c0-15 23-15 23 0v12" stroke="#6b91c7" stroke-width="2" stroke-linecap="round"/>
-    <path d="m531 119 6 3-3 7-6-3 3-7Z" fill="#f2f7ff"/>
-    <text x="477" y="175" font-family="Arial,sans-serif" font-size="10" fill="#334155">Something worth sharing.</text>
-    <text x="477" y="189" font-family="Arial,sans-serif" font-size="8" fill="#617792">Your next collection</text>
+  <circle cx="586" cy="273" r="4" fill="#9fbff2"/><circle cx="275" cy="475" r="4" fill="#b6cef5"/>
+
+  <!-- Storefront with large product silhouettes for smaller screens. -->
+  <g transform="rotate(-3 328 273)" filter="url(#shadow)">
+    <rect x="105" y="135" width="438" height="288" rx="18" fill="#fff" stroke="#d9e5f7"/>
+    <path d="M106 175h436" stroke="#e9eff9"/>
+    <g fill="#c4d5ed"><circle cx="125" cy="155" r="3"/><circle cx="136" cy="155" r="3"/><circle cx="147" cy="155" r="3"/></g>
+    <rect x="243" y="145" width="165" height="20" rx="7" fill="#f3f7fd"/>
+    <g stroke="#7f96b5" stroke-width="1.1" stroke-linecap="round"><rect x="257" y="153" width="6" height="5" rx="1"/><path d="M258 153v-2a2 2 0 0 1 4 0v2"/></g>
+    <text x="275" y="159" fill="#60748e" font-family="Arial,sans-serif" font-size="9">your-store.tiwlo.com</text>
+    <circle cx="522" cy="155" r="7" fill="#e8f0fd"/>
+    <rect x="121" y="191" width="26" height="26" rx="8" fill="url(#blue)"/>
+    <path d="M128 199h12m-6 0v11" stroke="#fff" stroke-width="2.3" stroke-linecap="round"/>
+    <text x="157" y="209" fill="#273c59" font-family="Arial,sans-serif" font-size="13" font-weight="700">Your store</text>
+    <g stroke="#b7c7df" stroke-width="3" stroke-linecap="round"><path d="M380 204h24m14 0h24m14 0h16"/></g>
+    <g stroke="#6486bb" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M510 200h11l1 10h-13l1-10Z"/><path d="M512 200v-2a3 3 0 0 1 6 0v2"/></g>
+    <rect x="122" y="230" width="404" height="101" rx="12" fill="url(#panel)"/>
+    <text x="140" y="253" fill="#587bad" font-family="Arial,sans-serif" font-size="8" letter-spacing="1.5">MADE FOR YOUR EVERYDAY</text>
+    <text x="140" y="277" fill="#293f60" font-family="Arial,sans-serif" font-size="20" letter-spacing="-.5">Small things.</text>
+    <text x="140" y="299" fill="#293f60" font-family="Arial,sans-serif" font-size="20" letter-spacing="-.5">Big possibilities.</text>
+    <path d="M141 313h50m-4-3 4 3-4 3" stroke="#6486bb" stroke-width="1.4" stroke-linecap="round"/>
+    <ellipse cx="454" cy="315" rx="44" ry="5" fill="#cadcf6" opacity=".65"/>
+    <path d="M436 260h26v15c0 8 16 17 16 30 0 8-10 12-29 12s-29-4-29-12c0-13 16-22 16-30v-15Z" fill="url(#ceramic)"/>
+    <ellipse cx="449" cy="260" rx="13" ry="3" fill="#7199d1"/>
+    <path d="M449 260c-1-20 2-32 11-45m-10 28c-12-6-17-14-18-23" stroke="#789bcc" stroke-width="2" stroke-linecap="round"/>
+    <path d="M454 227c-1-12 4-20 15-23 0 12-5 20-15 23Zm-11 11c-12-1-20-6-22-18 12 1 20 7 22 18Zm9 10c4-11 12-16 23-15-4 11-12 16-23 15Z" fill="#9ebce6"/>
+    <rect x="122" y="343" width="126" height="62" rx="10" fill="#f3f7fd"/>
+    <rect x="260" y="343" width="126" height="62" rx="10" fill="#edf4ff"/>
+    <rect x="398" y="343" width="128" height="62" rx="10" fill="#f3f7fd"/>
+    <path d="M170 365h29l3 29h-35l3-29Z" fill="url(#fabric)" stroke="#96b5df"/>
+    <path d="M177 367v-7a7 7 0 0 1 14 0v7" stroke="#8aabda" stroke-width="2" stroke-linecap="round"/>
+    <path d="M333 365h6a8 8 0 0 1 0 16h-6" stroke="#94b4e1" stroke-width="4"/>
+    <path d="M305 363h30v17a15 15 0 0 1-30 0v-17Z" fill="url(#ceramic)"/>
+    <ellipse cx="320" cy="363" rx="15" ry="3" fill="#bad1f1"/>
+    <path d="M458 378v17m-10 0h20" stroke="#86a7d7" stroke-width="2" stroke-linecap="round"/>
+    <path d="M439 378a19 22 0 0 1 38 0h-38Z" fill="url(#ceramic)"/>
   </g>
-  <!-- Small shop and completion card. -->
-  <g transform="rotate(-7 111 370)" filter="url(#shadow)">
-    <rect x="53" y="314" width="113" height="111" rx="15" fill="#fff" stroke="#d3e2f6"/>
-    <rect x="78" y="351" width="62" height="48" rx="3" fill="#f2f7ff" stroke="#6b91c7" stroke-width="1.3"/>
-    <path d="m79 335-7 20h74l-7-20H79Z" fill="#c9ddf8" stroke="#6b91c7" stroke-width="1.3" stroke-linejoin="round"/>
-    <path d="m93 335-3 20m17-20v20m15-20 3 20" stroke="#6b91c7" stroke-width="1.3"/>
-    <path d="M72 355v5c0 7 18 7 18 0 0 7 17 7 17 0 0 7 18 7 18 0 0 7 21 7 21 0v-5" fill="#eef5ff" stroke="#6b91c7" stroke-width="1.3"/>
-    <rect x="88" y="375" width="16" height="14" rx="2" fill="#c9ddf8" stroke="#6b91c7"/>
-    <path d="M114 399v-25h17v25" stroke="#6b91c7" stroke-width="1.3"/><path d="M119 384v5" stroke="#6b91c7" stroke-linecap="round"/>
+
+  <!-- Connected cloud card. -->
+  <g filter="url(#shadow)">
+    <rect x="61" y="51" width="207" height="75" rx="18" fill="#fff" stroke="#dae6f8"/>
+    <rect x="75" y="66" width="44" height="44" rx="13" fill="#edf4ff"/>
+    <path d="M88 96h19a6 6 0 0 0 0-12 10 10 0 0 0-19-1 6.5 6.5 0 0 0 0 13Z" fill="#dceaff" stroke="#6995da" stroke-width="1.5"/>
+    <text x="131" y="82" fill="#304866" font-family="Arial,sans-serif" font-size="12" font-weight="700">Cloud workspace</text>
+    <circle cx="135" cy="100" r="3" fill="#5b8fe3"/>
+    <text x="145" y="103" fill="#7286a0" font-family="Arial,sans-serif" font-size="10">Everything connected</text>
   </g>
-  <g transform="rotate(3 477 427)" filter="url(#shadow)">
-    <rect x="382" y="401" width="215" height="59" rx="14" fill="white" stroke="#d3e2f6"/>
-    <circle cx="411" cy="430" r="14" fill="#e8f0fc"/><path d="m405 430 4 4 8-9" stroke="#6b91c7" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-    <text x="435" y="426" font-family="Arial,sans-serif" font-size="10" fill="#334155">A little less to think about.</text>
-    <text x="435" y="442" font-family="Arial,sans-serif" font-size="8" fill="#617792">A little more room to grow.</text>
+
+  <!-- Floating collection card. -->
+  <g transform="rotate(8 552 107)" filter="url(#shadow)">
+    <rect x="490" y="37" width="124" height="132" rx="18" fill="#fff" stroke="#d9e5f7"/>
+    <rect x="500" y="47" width="104" height="86" rx="12" fill="#edf4ff"/>
+    <ellipse cx="552" cy="119" rx="29" ry="4" fill="#d3e2f8"/>
+    <path d="M530 79h43l5 39h-52l4-39Z" fill="url(#fabric)" stroke="#8daedc" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M541 84V73a11 11 0 0 1 22 0v11" stroke="#729bd3" stroke-width="2.5" stroke-linecap="round"/>
+    <rect x="547" y="94" width="11" height="11" rx="3" fill="#fff"/>
+    <path d="M551 97h4m-2 0v5" stroke="#82a5d8" stroke-width="1.3" stroke-linecap="round"/>
+    <text x="505" y="151" fill="#486487" font-family="Arial,sans-serif" font-size="10">Your next collection</text>
   </g>
-  <path d="M95 95v16m-8-8h16M607 300v12m-6-6h12" stroke="#a8c1e5" stroke-width="1.4" stroke-linecap="round"/>
-  <circle cx="395" cy="69" r="4" stroke="#a8c1e5"/><circle cx="248" cy="469" r="3" fill="#a8c1e5"/>
-  <text x="340" y="494" text-anchor="middle" font-family="Arial,sans-serif" font-size="8" letter-spacing="1.6" fill="#617792">A WORKSPACE ILLUSTRATION. MADE FOR YOUR POSSIBILITIES.</text>
+
+  <!-- POS terminal and receipt. -->
+  <g transform="rotate(5 533 404)" filter="url(#shadow)">
+    <rect x="454" y="326" width="159" height="161" rx="19" fill="#fff" stroke="#d4e2f7"/>
+    <text x="471" y="352" fill="#304866" font-family="Arial,sans-serif" font-size="12" font-weight="700">Retail &amp; POS</text>
+    <circle cx="592" cy="348" r="4" fill="#80a9ec"/>
+    <rect x="469" y="367" width="62" height="54" rx="8" fill="#eaf2ff" stroke="#c8dbf7"/>
+    <rect x="475" y="374" width="50" height="32" rx="4" fill="#fff"/>
+    <path d="M482 382h23m-23 7h13" stroke="#adc6ec" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="514" cy="394" r="4" fill="#78a3e8"/>
+    <path d="M494 421v7m-8 0h28" stroke="#94b4e3" stroke-width="3" stroke-linecap="round"/>
+    <path d="M547 367h48v61l-6-4-6 4-6-4-6 4-6-4-6 4-6-4-6 4v-61Z" fill="#f6f9ff" stroke="#d5e3f7" stroke-linejoin="round"/>
+    <g stroke="#b1c8e9" stroke-width="2" stroke-linecap="round"><path d="M557 381h27m-27 7h18m-18 8h27m-27 12h11m9 0h7"/></g>
+    <rect x="469" y="442" width="129" height="29" rx="9" fill="url(#blue)"/>
+    <path d="m482 456 3 3 6-7" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="501" y="460" fill="#fff" font-family="Arial,sans-serif" font-size="10">Checkout, simplified</text>
+  </g>
+
+  <!-- Small brand tile balances the composition. -->
+  <g transform="rotate(-9 95 386)" filter="url(#shadow)">
+    <rect x="62" y="353" width="66" height="66" rx="19" fill="#fff" stroke="#d9e5f7"/>
+    <rect x="78" y="369" width="19" height="19" rx="3" fill="#2563eb"/>
+    <rect x="98" y="382" width="13" height="13" rx="2" fill="#98baf4"/>
+    <rect x="85" y="391" width="10" height="10" rx="2" fill="#243b63"/>
+  </g>
 </svg>
