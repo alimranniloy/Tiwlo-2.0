@@ -1,27 +1,27 @@
 import React, { useState } from 'react';
-import { ArrowLeft, ArrowRight, Menu, X } from 'lucide-react';
+import { Menu, X, ArrowRight } from 'lucide-react';
 
 /**
  * Clean Google-inspired Navigation Header for uids.app
- * Matches screenshot layout:
- * - Left: Back button (pill shaped)
- * - Center: uids.app logo
- * - Center-right: Home, Pricing, About, Contact links
- * - Right: Browse Subdomains -> action button
+ * Updated based on user feedback:
+ * - Back button REMOVED.
+ * - uids.app logo is perfectly CENTERED on both Desktop and Mobile.
+ * - Left: Navigation links (Features, Pricing, How It Works, FAQ).
+ * - Right: Login and Sign Up buttons (replaces Browse Subdomains).
+ * - Mobile responsive drawer.
  */
 export default function UidsNavbar({
-  onBack,
-  onNavigateTab,
+  onNavigateAuth,
   onScrollTo,
   activeSection = 'home'
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
-    { id: 'home', label: 'Home' },
     { id: 'pricing', label: 'Pricing' },
-    { id: 'about', label: 'About' },
-    { id: 'contact', label: 'Contact' }
+    { id: 'how-it-works', label: 'How It Works' },
+    { id: 'features', label: 'Features' },
+    { id: 'faq', label: 'FAQ' }
   ];
 
   const handleLinkClick = (id) => {
@@ -33,31 +33,23 @@ export default function UidsNavbar({
 
   return (
     <header className="relative w-full z-40 px-4 sm:px-8 lg:px-12 pt-5 pb-4">
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
-        {/* Left: Back Button */}
+      <div className="max-w-7xl mx-auto flex items-center justify-between relative">
+        {/* Left: Desktop Nav Links / Mobile Menu Button */}
         <div className="flex items-center">
-          <button
-            type="button"
-            onClick={onBack}
-            className="group inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white/95 hover:bg-white border border-slate-200/90 rounded-full shadow-sm hover:shadow transition-all duration-150 active:scale-95"
-            aria-label="Go back"
-          >
-            <ArrowLeft className="w-4 h-4 text-slate-500 group-hover:-translate-x-0.5 transition-transform" />
-            <span className="font-semibold text-slate-800">Back</span>
-          </button>
-        </div>
-
-        {/* Center: Brand Logo */}
-        <div className="flex items-center cursor-pointer select-none" onClick={() => handleLinkClick('home')}>
-          <div className="text-2xl sm:text-[26px] font-extrabold tracking-tight text-slate-900 flex items-center">
-            <span>uids</span>
-            <span className="text-[#00C261]">.app</span>
+          {/* Mobile Menu Toggle */}
+          <div className="flex md:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 rounded-full bg-white/95 border border-slate-200 text-slate-700 hover:bg-slate-50 transition shadow-xs"
+              aria-label="Toggle navigation menu"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
-        </div>
 
-        {/* Desktop Navigation Links & Action Button */}
-        <div className="hidden md:flex items-center gap-8">
-          <nav className="flex items-center gap-7 text-sm font-medium text-slate-600">
+          {/* Desktop Left Nav Links */}
+          <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-600">
             {navLinks.map((link) => {
               const isActive = activeSection === link.id;
               return (
@@ -77,32 +69,40 @@ export default function UidsNavbar({
               );
             })}
           </nav>
-
-          {/* Right: Browse Subdomains Action */}
-          <button
-            type="button"
-            onClick={() => handleLinkClick('pricing')}
-            className="group inline-flex items-center gap-2.5 px-5 py-2.5 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 active:bg-slate-950 rounded-full shadow-sm hover:shadow-md transition-all duration-150 active:scale-95"
-          >
-            <span>Browse Subdomains</span>
-            <ArrowRight className="w-4 h-4 text-slate-300 group-hover:translate-x-0.5 transition-transform" />
-          </button>
         </div>
 
-        {/* Mobile Hamburger Toggle */}
-        <div className="flex md:hidden items-center">
+        {/* Center: Brand Logo (Centered on Desktop & Mobile) */}
+        <div
+          className="absolute left-1/2 -translate-x-1/2 flex items-center cursor-pointer select-none"
+          onClick={() => handleLinkClick('home')}
+        >
+          <div className="text-2xl sm:text-[28px] font-extrabold tracking-tight text-slate-900 flex items-center">
+            <span>uids</span>
+            <span className="text-[#00C261]">.app</span>
+          </div>
+        </div>
+
+        {/* Right: Login & Sign Up Actions (replaces Browse Subdomains) */}
+        <div className="flex items-center gap-2.5 sm:gap-3">
           <button
             type="button"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-full bg-white/90 border border-slate-200 text-slate-700 hover:bg-slate-50 transition shadow-sm"
-            aria-label="Toggle navigation menu"
+            onClick={() => onNavigateAuth && onNavigateAuth('login')}
+            className="px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-slate-700 hover:text-slate-950 rounded-full hover:bg-slate-100/80 transition-colors"
           >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            Login
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigateAuth && onNavigateAuth('signup')}
+            className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 active:bg-black rounded-full shadow-xs hover:shadow transition-all duration-150 active:scale-95"
+          >
+            <span>Sign Up</span>
+            <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
           </button>
         </div>
       </div>
 
-      {/* Mobile Drawer (No Popup, cleanly inlined under header) */}
+      {/* Mobile Menu Drawer */}
       {mobileMenuOpen && (
         <div className="md:hidden mt-3 p-4 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-lg animate-in slide-in-from-top-2 duration-200">
           <nav className="flex flex-col gap-2">
@@ -122,14 +122,26 @@ export default function UidsNavbar({
                 </button>
               );
             })}
-            <div className="pt-2 border-t border-slate-100">
+            <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => handleLinkClick('pricing')}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-full shadow-sm transition"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onNavigateAuth && onNavigateAuth('login');
+                }}
+                className="flex-1 py-2 text-center text-sm font-semibold text-slate-700 bg-slate-100 rounded-full"
               >
-                <span>Browse Subdomains</span>
-                <ArrowRight className="w-4 h-4" />
+                Login
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onNavigateAuth && onNavigateAuth('signup');
+                }}
+                className="flex-1 py-2 text-center text-sm font-semibold text-white bg-slate-900 rounded-full"
+              >
+                Sign Up
               </button>
             </div>
           </nav>

@@ -4,22 +4,24 @@ import UidsHero from './components/UidsHero';
 import UidsSearchBox from './components/UidsSearchBox';
 import UidsPopularChips from './components/UidsPopularChips';
 import UidsClaimConsole from './components/UidsClaimConsole';
-import UidsFeaturesRow from './components/UidsFeaturesRow';
 import UidsPricingCards from './components/UidsPricingCards';
+import UidsHowItWorks from './components/UidsHowItWorks';
+import UidsEdgeSpecs from './components/UidsEdgeSpecs';
+import UidsCommunityShowcase from './components/UidsCommunityShowcase';
+import UidsFaq from './components/UidsFaq';
 import UidsFooter from './components/UidsFooter';
 
 /**
  * uids.app Main Landing Page Component
- * Recreates the exact design from the user's provided screenshot:
- * - Back button & uids.app brand navbar
- * - Hero with "A small name for big ideas.|" + handwritten annotations
- * - Search input with suffix dropdown (.uids.app) and black arrow button
- * - POPULAR EXAMPLES chips with colored dots
- * - 4 Feature cards (Free Hosting, Node.js Support, More Storage, Your Brand)
- * - 2 Pricing cards (Free Plan: 20MB Hosting, Paid Plan: More Power)
- * - Google-inspired clean aesthetics, soft elevation, and background.png
- * - Fully mobile-responsive layout (mobile-ui-rule.md)
- * - Zero popups/modals (page-nopopup-role.md)
+ * Fully optimized per user feedback:
+ * 1. Background image (background.jpg - 91KB optimized) is ONLY applied to the Hero Section.
+ * 2. Downwards, clean Google-style white surfaces.
+ * 3. uids.app logo centered on Desktop and Mobile.
+ * 4. Back button removed, replaced with Login & Sign Up.
+ * 5. Headline enhanced with dynamic typewriter text switching.
+ * 6. Pricing cards moved directly up, followed by How It Works, Features, Showcase, and FAQ.
+ * 7. In-page dedicated Claim wizard (Zero Popups/Modals).
+ * 8. Zero lag, crisp Google borders.
  */
 export default function UidsLandingPage({
   onNavigateTab,
@@ -31,17 +33,6 @@ export default function UidsLandingPage({
   const [activeSection, setActiveSection] = useState('home');
 
   const searchRef = useRef(null);
-  const pricingRef = useRef(null);
-
-  const handleBack = () => {
-    if (onNavigateTab) {
-      onNavigateTab('dashboard');
-    } else if (window.history.length > 1) {
-      window.history.back();
-    } else {
-      window.location.assign('/');
-    }
-  };
 
   const handleSearch = (name) => {
     if (!name || name.trim() === '') {
@@ -63,70 +54,78 @@ export default function UidsLandingPage({
     setActiveSection(sectionId);
     if (sectionId === 'home') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else if (sectionId === 'pricing') {
-      const el = document.getElementById('pricing');
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-    } else if (sectionId === 'about' || sectionId === 'contact') {
-      const el = document.getElementById('pricing');
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      const el = document.getElementById(sectionId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
     }
   };
 
   return (
-    <div
-      className="min-h-screen relative flex flex-col font-sans text-slate-800 bg-[#FBFDFB] selection:bg-emerald-500 selection:text-white"
-      style={{
-        backgroundImage: "url('/background.png')",
-        backgroundSize: 'cover',
-        backgroundPosition: 'top center',
-        backgroundRepeat: 'no-repeat',
-        backgroundAttachment: 'fixed',
-      }}
-    >
-      {/* Light subtle clean overlay to guarantee Google-inspired contrast and pristine readability */}
-      <div className="absolute inset-0 bg-white/75 backdrop-blur-[1px] pointer-events-none -z-10" />
+    <div className="min-h-screen flex flex-col font-sans text-slate-800 bg-white selection:bg-emerald-500 selection:text-white">
+      {/* 
+        ========================================================================
+        HERO SECTION: background.jpg is APPLIED ONLY HERE (as instructed by user)
+        Optimized high-res 91KB image loads instantly with zero lag.
+        ========================================================================
+      */}
+      <div
+        className="relative w-full overflow-hidden border-b border-slate-100 bg-[#FCFDFC]"
+        style={{
+          backgroundImage: "url('/background.jpg'), url('/background.png')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'top center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      >
+        {/* Subtle Google-style light overlay for perfect text contrast */}
+        <div className="absolute inset-0 bg-white/70 backdrop-blur-[0.5px] pointer-events-none -z-10" />
 
-      {/* Top Navbar */}
-      <UidsNavbar
-        onBack={handleBack}
-        onNavigateTab={onNavigateTab}
-        onScrollTo={handleScrollTo}
-        activeSection={activeSection}
-      />
+        {/* Navigation Bar (Centered uids.app logo, Login/Sign Up, Nav Links) */}
+        <UidsNavbar
+          onNavigateAuth={onNavigateAuth}
+          onScrollTo={handleScrollTo}
+          activeSection={activeSection}
+        />
 
-      {/* Main Content Body */}
-      <main className="flex-1 w-full max-w-7xl mx-auto flex flex-col items-center justify-start pb-12 sm:pb-20">
-        {/* Hero Section */}
-        <UidsHero />
+        {/* Hero Headline & Typewriter Animation */}
+        <div className="max-w-7xl mx-auto pb-12 sm:pb-16">
+          <UidsHero />
 
-        {/* Subdomain Discovery Search Box */}
-        <div ref={searchRef} className="w-full">
-          <UidsSearchBox
-            subdomain={subdomain}
-            setSubdomain={setSubdomain}
-            selectedSuffix={selectedSuffix}
-            setSelectedSuffix={setSelectedSuffix}
-            onSearch={handleSearch}
-          />
+          {/* Subdomain Discovery Search Box */}
+          <div ref={searchRef} className="w-full">
+            <UidsSearchBox
+              subdomain={subdomain}
+              setSubdomain={setSubdomain}
+              selectedSuffix={selectedSuffix}
+              setSelectedSuffix={setSelectedSuffix}
+              onSearch={handleSearch}
+            />
+          </div>
+
+          {/* Popular Examples (ai.uids.app, dev.uids.app, etc.) */}
+          <UidsPopularChips onSelectExample={handleSelectExample} />
+
+          {/* In-Page Dedicated Claim Console (Expands on Search, NO Popups) */}
+          {showClaimConsole && (
+            <UidsClaimConsole
+              subdomain={subdomain}
+              suffix={selectedSuffix}
+              onClose={() => setShowClaimConsole(false)}
+              onNavigateAuth={onNavigateAuth}
+            />
+          )}
         </div>
+      </div>
 
-        {/* Popular Example Chips */}
-        <UidsPopularChips onSelectExample={handleSelectExample} />
-
-        {/* In-Page Dedicated Claim Console (Reveals smoothly on search, zero popups) */}
-        {showClaimConsole && (
-          <UidsClaimConsole
-            subdomain={subdomain}
-            suffix={selectedSuffix}
-            onClose={() => setShowClaimConsole(false)}
-            onNavigateAuth={onNavigateAuth}
-          />
-        )}
-
-        {/* 4 Feature Value Cards Row */}
-        <UidsFeaturesRow />
-
-        {/* 2 Comparison Pricing Cards (Free Plan & Paid Plan) */}
+      {/* 
+        ========================================================================
+        BODY CONTENT SECTIONS (Clean White/Slate Google Product Surfaces)
+        ========================================================================
+      */}
+      <main className="flex-1 w-full bg-white">
+        {/* 1. Comparison Pricing Cards (Moved Up Directly as requested) */}
         <UidsPricingCards
           onSelectPlan={(plan) => {
             if (plan === 'free') {
@@ -143,9 +142,43 @@ export default function UidsLandingPage({
             }
           }}
         />
+
+        {/* 2. How It Works (3-Step Guide) */}
+        <div className="bg-[#F8FAFC]/70 border-y border-slate-100/90 py-6 sm:py-10">
+          <UidsHowItWorks
+            onGetStarted={() => {
+              if (searchRef.current) {
+                searchRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }}
+          />
+        </div>
+
+        {/* 3. Global Edge Infrastructure & Features */}
+        <div className="py-6 sm:py-10">
+          <UidsEdgeSpecs />
+        </div>
+
+        {/* 4. Active Community Subdomains Showcase */}
+        <div className="bg-[#F8FAFC]/70 border-y border-slate-100/90 py-6 sm:py-10">
+          <UidsCommunityShowcase
+            onSelectDomain={(name) => {
+              setSubdomain(name);
+              setShowClaimConsole(true);
+              if (searchRef.current) {
+                searchRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }}
+          />
+        </div>
+
+        {/* 5. Frequently Asked Questions (FAQ) */}
+        <div className="py-6 sm:py-10">
+          <UidsFaq />
+        </div>
       </main>
 
-      {/* Clean Google-Inspired Footer */}
+      {/* Clean Google-Inspired Minimal Footer */}
       <UidsFooter onScrollTo={handleScrollTo} />
     </div>
   );

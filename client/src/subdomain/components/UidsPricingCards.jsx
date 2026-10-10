@@ -3,9 +3,10 @@ import { Check, ArrowRight } from 'lucide-react';
 
 /**
  * UidsPricingCards Component
- * Matches screenshot 2 comparison cards:
- * - Free Plan: 20MB Hosting (mint green tint)
- * - Paid Plan: More Power (ice blue tint)
+ * Clean Google-inspired Plan Cards:
+ * - Free Plan: 20MB Hosting (Mint Green Surface)
+ * - Paid Plan: More Power (Ice Blue Surface)
+ * Crisp borders, no lag, generous whitespace.
  */
 export default function UidsPricingCards({ onSelectPlan }) {
   const freePoints = [
@@ -23,14 +24,14 @@ export default function UidsPricingCards({ onSelectPlan }) {
   ];
 
   return (
-    <div id="pricing" className="w-full max-w-6xl mx-auto px-4 mt-8 sm:mt-10 pb-16 sm:pb-24">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-7">
+    <div id="pricing" className="w-full max-w-6xl mx-auto px-4 mt-8 sm:mt-10">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
         {/* FREE PLAN CARD (Mint Green Tint) */}
-        <div className="relative bg-[#F4FBF7] border border-[#D2F4E3] rounded-3xl p-6 sm:p-8 lg:p-9 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between">
+        <div className="relative bg-[#F4FBF7] border border-emerald-200/80 hover:border-emerald-300 rounded-3xl p-6 sm:p-8 shadow-xs hover:shadow-sm transition-all duration-150 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
               {/* Badge */}
-              <span className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold tracking-wider uppercase">
+              <span className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-100/90 text-emerald-800 text-[11px] font-bold tracking-wider uppercase">
                 FREE PLAN
               </span>
             </div>
@@ -62,7 +63,7 @@ export default function UidsPricingCards({ onSelectPlan }) {
             <button
               type="button"
               onClick={() => onSelectPlan && onSelectPlan('free')}
-              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-white hover:bg-emerald-50 border border-emerald-300/80 text-emerald-900 font-bold text-sm shadow-xs hover:shadow transition-all duration-150 active:scale-[0.99]"
+              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-white hover:bg-emerald-50 border border-emerald-300 text-emerald-900 font-bold text-sm shadow-2xs hover:shadow-xs transition-all duration-150 active:scale-[0.99]"
             >
               <span>Get Started Free</span>
               <ArrowRight className="w-4 h-4 text-emerald-700" />
@@ -71,11 +72,11 @@ export default function UidsPricingCards({ onSelectPlan }) {
         </div>
 
         {/* PAID PLAN CARD (Ice Blue Tint) */}
-        <div className="relative bg-[#F0F8FF] border border-[#CFE6FF] rounded-3xl p-6 sm:p-8 lg:p-9 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between">
+        <div className="relative bg-[#F0F8FF] border border-blue-200/80 hover:border-blue-300 rounded-3xl p-6 sm:p-8 shadow-xs hover:shadow-sm transition-all duration-150 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
               {/* Badge */}
-              <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-[11px] font-bold tracking-wider uppercase">
+              <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-100/90 text-blue-800 text-[11px] font-bold tracking-wider uppercase">
                 PAID PLAN
               </span>
             </div>
@@ -107,7 +108,7 @@ export default function UidsPricingCards({ onSelectPlan }) {
             <button
               type="button"
               onClick={() => onSelectPlan && onSelectPlan('paid')}
-              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-sm shadow-xs hover:shadow-md transition-all duration-150 active:scale-[0.99]"
+              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-sm shadow-2xs hover:shadow-xs transition-all duration-150 active:scale-[0.99]"
             >
               <span>Upgrade to Pro</span>
               <ArrowRight className="w-4 h-4 text-white" />
