@@ -1,4 +1,4 @@
-import PixelArtLandingPage from './landing-page/pixel-art';
+import UidsLandingPage from './UidsLandingPage';
 
-export default PixelArtLandingPage;
-export { PixelArtLandingPage };
+export default UidsLandingPage;
+export { UidsLandingPage };

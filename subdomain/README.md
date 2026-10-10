@@ -1,21 +1,21 @@
-# 🌐 Subdomain Service Engine — uids.app (Pixel Art Landing Page)
+# 🌐 Subdomain Service Engine — uids.app
 
-This directory references the **uids.app** Subdomain Engine & Pixel Art UI experience located in:
-👉 [`client/src/subdomain/landing-page/pixel-art/`](../client/src/subdomain/landing-page/pixel-art/)
+This directory references the **uids.app** Free Subdomain Service & Google-Inspired Clean UI experience located in:
+👉 [`client/src/subdomain/`](../client/src/subdomain/)
 
 ### Architecture & Components
-- **Landing Page**: `client/src/subdomain/landing-page/pixel-art/PixelArtLandingPage.jsx`
-- **Stylesheet**: `client/src/subdomain/landing-page/pixel-art/pixelArt.css`
-- **Interactive Console**: `client/src/subdomain/landing-page/pixel-art/components/PixelHero.jsx`
-- **Domain availability UI**: `client/src/subdomain/landing-page/pixel-art/components/PixelHero.jsx`
-- **Community Showcase**: `client/src/subdomain/landing-page/pixel-art/components/PixelShowcase.jsx`
-- **Features & Specs**: `client/src/subdomain/landing-page/pixel-art/components/PixelFeatures.jsx`
-- **3-Step Quest**: `client/src/subdomain/landing-page/pixel-art/components/PixelHowItWorks.jsx`
-- **Knowledge Vault**: `client/src/subdomain/landing-page/pixel-art/components/PixelFaq.jsx`
-- **Retro Footer**: `client/src/subdomain/landing-page/pixel-art/components/PixelFooter.jsx`
-- **Web Audio FX**: `client/src/subdomain/landing-page/pixel-art/components/PixelSoundFx.js`
+- **Container**: `client/src/subdomain/UidsLandingPage.jsx`
+- **Navigation Bar**: `client/src/subdomain/components/UidsNavbar.jsx`
+- **Hero & Doodles**: `client/src/subdomain/components/UidsHero.jsx`
+- **Search Console**: `client/src/subdomain/components/UidsSearchBox.jsx`
+- **Popular Examples**: `client/src/subdomain/components/UidsPopularChips.jsx`
+- **In-Page Claim Wizard**: `client/src/subdomain/components/UidsClaimConsole.jsx`
+- **4 Feature Cards**: `client/src/subdomain/components/UidsFeaturesRow.jsx`
+- **2 Pricing Plans**: `client/src/subdomain/components/UidsPricingCards.jsx`
+- **Clean Footer**: `client/src/subdomain/components/UidsFooter.jsx`
+- **Public Background**: `client/public/background.png`
 
-### Supported URLs / Routes:
-- `/subdomain`
-- `/subdomains`
-- `https://uids.app`
+### Supported URLs & Routes:
+- `/subdomain`, `/subdomains`
+- `/uids`, `/uids.app`, `/uidis`, `/uidis.app`
+- Standalone host: `https://uids.app`

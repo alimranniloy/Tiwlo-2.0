@@ -50,8 +50,8 @@ const TiwiOutlookEmail = lazy(() => import('./email-web'));
 // Tiwlo Discord Bot & Community Manager (/discord)
 const DiscordBotManager = lazy(() => import('./discord-web'));
 
-// uidis.app Pixel Art Subdomain Landing Page (/subdomain, /uidis)
-const SubdomainPixelLanding = lazy(() => import('./subdomain/landing-page/pixel-art'));
+// uids.app Subdomain Landing Page (/subdomain, /uidis, /uids)
+const SubdomainLanding = lazy(() => import('./subdomain'));
 
 // Live Support AI Widget
 const LiveSupportWidget = lazy(() => import('./support/ai/LiveSupportWidget'));
@@ -269,7 +269,7 @@ export default function App() {
           return 'discord';
         }
 
-        if (pathname === 'subdomain' || pathname.startsWith('subdomain/') || pathname === 'subdomains' || pathname === 'uidis' || pathname === 'uidis.app' || pathname.startsWith('uidis/')) {
+        if (pathname === 'subdomain' || pathname.startsWith('subdomain/') || pathname === 'subdomains' || pathname === 'uidis' || pathname === 'uidis.app' || pathname.startsWith('uidis/') || pathname === 'uids' || pathname === 'uids.app' || pathname.startsWith('uids/')) {
           return 'subdomain';
         }
 
@@ -627,7 +627,8 @@ export default function App() {
           path === 'create-account' || path === 'register' || path === 'signup' ||
           path === 'create-store' || path.startsWith('create-store/') ||
           path === 'subdomain' || path.startsWith('subdomain/') || path === 'subdomains' ||
-          path === 'uidis' || path === 'uidis.app' || path.startsWith('uidis/');
+          path === 'uidis' || path === 'uidis.app' || path.startsWith('uidis/') ||
+          path === 'uids' || path === 'uids.app' || path.startsWith('uids/');
 
         if (!isPublicPath || isTpanelRoute) {
           if (isMailSubdomain()) {
@@ -1411,8 +1412,8 @@ export default function App() {
           currentUser={currentUser}
           onNavigateHome={() => handleTabChange('dashboard')}
         />
-      ) : (activeTab === 'subdomain' || (typeof activeTab === 'string' && (activeTab.startsWith('subdomain') || activeTab.startsWith('uidis')))) ? (
-        <SubdomainPixelLanding
+      ) : (activeTab === 'subdomain' || (typeof activeTab === 'string' && (activeTab.startsWith('subdomain') || activeTab.startsWith('uidis') || activeTab.startsWith('uids')))) ? (
+        <SubdomainLanding
           onNavigateAuth={(mode) => {
             if (mode === 'signup') handleTabChange('create-account');
             else handleTabChange('login');
