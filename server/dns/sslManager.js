@@ -34,6 +34,22 @@ export const SSL_CONFIG = {
   RENEWAL_HOOK_PATH: '/etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh'
 };
 
+function getCertificatePaths(domain) {
+  const candidates = [
+    `/etc/letsencrypt/live/${domain}/fullchain.pem`,
+    `/etc/letsencrypt/live/${domain}-0001/fullchain.pem`
+  ];
+
+  for (const certificatePath of candidates) {
+    const keyPath = certificatePath.replace('/fullchain.pem', '/privkey.pem');
+    if (fs.existsSync(certificatePath) && fs.existsSync(keyPath)) {
+      return { certificatePath, keyPath };
+    }
+  }
+
+  return null;
+}
+
 /**
  * Ensure Certbot, Nginx, and ACME challenge directories are ready
  */
@@ -85,14 +101,19 @@ export function ensurePrerequisites() {
  * Generate full Nginx configuration supporting both HTTP and HTTPS with HTTP/2 and ACME challenges
  */
 export function generateNginxConfig(primaryDomain = SSL_CONFIG.PRIMARY_DOMAIN) {
-  let certPath = `/etc/letsencrypt/live/${primaryDomain}-0001/fullchain.pem`;
-  let keyPath = `/etc/letsencrypt/live/${primaryDomain}-0001/privkey.pem`;
-  if (!fs.existsSync(certPath)) {
-    certPath = `/etc/letsencrypt/live/${primaryDomain}/fullchain.pem`;
-    keyPath = `/etc/letsencrypt/live/${primaryDomain}/privkey.pem`;
-  }
-  const hasSsl = fs.existsSync(certPath) && fs.existsSync(keyPath);
-
+  const primaryCertificate = getCertificatePaths(primaryDomain);
+  const certPath = primaryCertificate?.certificatePath;
+  const keyPath = primaryCertificate?.keyPath;
+  const hasSsl = Boolean(primaryCertificate);
+  const dedicatedDomains = PLATFORM_CONFIG.managedDomains
+    .filter(domain => domain !== primaryDomain && getCertificatePaths(domain))
+    .map(domain => ({ domain, certificate: getCertificatePaths(domain) }));
+  const primaryServerNames = [...new Set([
+    ...SSL_CONFIG.DOMAINS,
+    PLATFORM_CONFIG.serverIpv4
+  ])].filter(name => !dedicatedDomains.some(
+    ({ domain }) => name === domain || name === `*.${domain}`
+  ));
   console.log(`Checking SSL certificate for ${primaryDomain}: ${hasSsl ? 'FOUND' : 'NOT FOUND (Using HTTP-only)'}`);
 
   const commonLocations = `
@@ -153,6 +174,30 @@ export function generateNginxConfig(primaryDomain = SSL_CONFIG.PRIMARY_DOMAIN) {
         proxy_request_buffering off;
     }
   `;
+  const dedicatedHttpsServers = dedicatedDomains.map(({ domain, certificate }) => `
+
+# ========================================================
+# HTTPS Server (${domain})
+# ========================================================
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name ${domain};
+
+    ssl_certificate ${certificate.certificatePath};
+    ssl_certificate_key ${certificate.keyPath};
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    client_max_body_size 100M;
+
+    location /.well-known/acme-challenge/ {
+        root ${SSL_CONFIG.CERTBOT_WEBROOT};
+        allow all;
+    }
+
+    ${commonLocations}
+}
+`).join('');
 
   if (hasSsl) {
     return `
@@ -162,7 +207,7 @@ export function generateNginxConfig(primaryDomain = SSL_CONFIG.PRIMARY_DOMAIN) {
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
-    server_name ${[...new Set([...SSL_CONFIG.DOMAINS, PLATFORM_CONFIG.serverIpv4])].join(' ')} _;
+    server_name ${primaryServerNames.join(' ')} _;
 
     client_max_body_size 100M;
 
@@ -184,7 +229,7 @@ server {
 server {
     listen 443 ssl http2 default_server;
     listen [::]:443 ssl http2 default_server;
-    server_name ${[...new Set([...SSL_CONFIG.DOMAINS, PLATFORM_CONFIG.serverIpv4])].join(' ')} _;
+    server_name ${primaryServerNames.join(' ')} _;
 
     ssl_certificate ${certPath};
     ssl_certificate_key ${keyPath};
@@ -204,6 +249,7 @@ server {
 
     ${commonLocations}
 }
+${dedicatedHttpsServers}
 `;
   }
 
@@ -212,7 +258,7 @@ server {
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
-    server_name ${[...new Set([...SSL_CONFIG.DOMAINS, PLATFORM_CONFIG.serverIpv4])].join(' ')} _;
+    server_name ${primaryServerNames.join(' ')} _;
 
     client_max_body_size 100M;
 
