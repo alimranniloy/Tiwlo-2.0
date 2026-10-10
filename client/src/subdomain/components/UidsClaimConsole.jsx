@@ -13,7 +13,7 @@ export default function UidsClaimConsole({
   const isAvailable = availability?.available === true;
 
   const goToAuth = (mode) => {
-    const redirect = `/dashboard?domain_claim=${encodeURIComponent(subdomain || '')}`;
+    const redirect = `/domains?domain_claim=${encodeURIComponent(subdomain || '')}`;
     window.location.replace(getAuthUrl(`/${mode === 'signup' ? 'create-account' : 'login'}?redirect=${encodeURIComponent(redirect)}`));
   };
 

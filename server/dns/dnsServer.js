@@ -171,14 +171,23 @@ async function handleDnsRequest(request, send, rinfo) {
 
     response.header.rcode = Packet.RCODE.NOERROR;
 
+    let claimedSubdomain = false;
     if (isPgActive() && queryDomain.endsWith(`.${PLATFORM_CONFIG.freeSubdomainDomain}`)) {
-      const { rows } = await queryPg(
+      const { rows: domainRows } = await queryPg(
+        `SELECT id
+         FROM system_free_subdomains
+         WHERE domain = $1 AND status = 'active'
+         LIMIT 1`,
+        [queryDomain]
+      );
+      claimedSubdomain = domainRows.length > 0;
+      const { rows } = claimedSubdomain ? await queryPg(
         `SELECT type, name, value, ttl
          FROM system_free_subdomain_records r
          JOIN system_free_subdomains d ON d.id = r.subdomain_id
-         WHERE d.domain = $1 AND d.status = 'active' AND LOWER(r.name) IN ($1, '@')`,
+         WHERE d.domain = $1 AND d.status = 'active'`,
         [queryDomain]
-      );
+      ) : [];
       for (const record of rows) {
         const name = question.name;
         if (record.type === 'A' && queryType === Packet.TYPE.A) {
@@ -198,6 +207,10 @@ async function handleDnsRequest(request, send, rinfo) {
       // TYPE A (IPv4 Address)
       // -------------------------------------------------------------
       case Packet.TYPE.A: {
+        if (queryDomain.endsWith(`.${PLATFORM_CONFIG.freeSubdomainDomain}`) && !claimedSubdomain) {
+          response.header.rcode = Packet.RCODE.NXDOMAIN;
+          return send(response);
+        }
         const address = queryDomain === DNS_CONFIG.NS1 || queryDomain === DNS_CONFIG.NS2
           ? DNS_CONFIG.PUBLIC_DNS_IP
           : queryDomain === DNS_CONFIG.MAIL_HOST
@@ -211,6 +224,10 @@ async function handleDnsRequest(request, send, rinfo) {
       // TYPE NS (Nameservers)
       // -------------------------------------------------------------
       case Packet.TYPE.NS: {
+        if (queryDomain.endsWith(`.${PLATFORM_CONFIG.freeSubdomainDomain}`) && !claimedSubdomain) {
+          response.header.rcode = Packet.RCODE.NXDOMAIN;
+          return send(response);
+        }
         response.answers.push(
           {
             name: question.name,

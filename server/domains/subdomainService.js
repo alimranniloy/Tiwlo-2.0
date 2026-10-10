@@ -201,7 +201,13 @@ export async function listUserSubdomains(userId) {
      ORDER BY created_at DESC`,
     [userId]
   );
-  return rows;
+  return rows.map(row => ({
+    ...row,
+    nameservers: [
+      `dns1.${PLATFORM_CONFIG.primaryDomain}`,
+      `dns2.${PLATFORM_CONFIG.primaryDomain}`
+    ]
+  }));
 }
 
 export async function listSubdomainRecords({ userId, subdomainId }) {

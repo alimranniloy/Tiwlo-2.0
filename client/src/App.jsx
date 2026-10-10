@@ -776,7 +776,8 @@ export default function App() {
         return;
       }
       const isSuper = user?.role === 'super_admin' || user?.email === 'tiwloltd@gmail.com';
-      const target = isSuper ? '/administrator' : '/dashboard';
+      const requestedRedirect = getSafeRedirectPath(new URLSearchParams(window.location.search).get('redirect'));
+      const target = requestedRedirect || (isSuper ? '/administrator' : '/dashboard');
       window.location.replace(getMainAppUrl(target));
       return;
     }
