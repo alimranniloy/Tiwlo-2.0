@@ -50,6 +50,9 @@ const TiwiOutlookEmail = lazy(() => import('./email-web'));
 // Tiwlo Discord Bot & Community Manager (/discord)
 const DiscordBotManager = lazy(() => import('./discord-web'));
 
+// uidis.app Pixel Art Subdomain Landing Page (/subdomain, /uidis)
+const SubdomainPixelLanding = lazy(() => import('./subdomain/landing-page/pixel-art'));
+
 // Live Support AI Widget
 const LiveSupportWidget = lazy(() => import('./support/ai/LiveSupportWidget'));
 
@@ -261,6 +264,10 @@ export default function App() {
           return 'discord';
         }
 
+        if (pathname === 'subdomain' || pathname.startsWith('subdomain/') || pathname === 'subdomains' || pathname === 'uidis' || pathname === 'uidis.app' || pathname.startsWith('uidis/')) {
+          return 'subdomain';
+        }
+
         // Unrecognized route -> 404
         return 'not-found';
       }
@@ -270,6 +277,9 @@ export default function App() {
       }
       if (searchParams.get('tab') === 'tiwi' || searchParams.get('view') === 'tiwi' || searchParams.get('view') === 'social') {
         return 'tiwi';
+      }
+      if (searchParams.get('tab') === 'subdomain' || searchParams.get('view') === 'subdomain' || searchParams.get('view') === 'uidis') {
+        return 'subdomain';
       }
       if (searchParams.get('view') === 'landing') return 'landing';
       if (searchParams.get('view') === 'login') {
@@ -382,6 +392,14 @@ export default function App() {
       setActiveTab('discord');
       if (!window.location.pathname.startsWith('/discord')) {
         window.history.pushState(null, '', '/discord');
+      }
+      return;
+    }
+
+    if (tabId === 'subdomain' || (typeof tabId === 'string' && (tabId.startsWith('subdomain') || tabId.startsWith('uidis')))) {
+      setActiveTab('subdomain');
+      if (!window.location.pathname.startsWith('/subdomain') && !window.location.pathname.startsWith('/uidis')) {
+        window.history.pushState(null, '', '/subdomain');
       }
       return;
     }
@@ -602,7 +620,9 @@ export default function App() {
         const isPublicPath = (!isMailSubdomain() && path === '') || path === 'landing' || path === 'home' ||
           path === 'store' || path.startsWith('store/') ||
           path === 'create-account' || path === 'register' || path === 'signup' ||
-          path === 'create-store' || path.startsWith('create-store/');
+          path === 'create-store' || path.startsWith('create-store/') ||
+          path === 'subdomain' || path.startsWith('subdomain/') || path === 'subdomains' ||
+          path === 'uidis' || path === 'uidis.app' || path.startsWith('uidis/');
 
         if (!isPublicPath || isTpanelRoute) {
           if (isMailSubdomain()) {
@@ -1316,7 +1336,7 @@ export default function App() {
         />
       ) : authChecking ? (
         <TiwloPageLoader />
-      ) : (!currentUser && activeTab !== 'store' && activeTab !== 'create-account' && !activeTab.startsWith('create-store') && activeTab !== 'mobile-help-support' && activeTab !== 'help-support/mobile' && activeTab !== 'tpanel' && activeTab !== 'landing') ? (
+      ) : (!currentUser && activeTab !== 'store' && activeTab !== 'create-account' && !activeTab.startsWith('create-store') && activeTab !== 'mobile-help-support' && activeTab !== 'help-support/mobile' && activeTab !== 'tpanel' && activeTab !== 'landing' && activeTab !== 'subdomain' && !(typeof activeTab === 'string' && (activeTab.startsWith('subdomain') || activeTab.startsWith('uidis')))) ? (
         <LoginView
           onLoginSuccess={handleLoginSuccess}
           onAccountDisabled={(info) => {
@@ -1385,6 +1405,14 @@ export default function App() {
         <DiscordBotManager
           currentUser={currentUser}
           onNavigateHome={() => handleTabChange('dashboard')}
+        />
+      ) : (activeTab === 'subdomain' || (typeof activeTab === 'string' && (activeTab.startsWith('subdomain') || activeTab.startsWith('uidis')))) ? (
+        <SubdomainPixelLanding
+          onNavigateAuth={(mode) => {
+            if (mode === 'signup') handleTabChange('create-account');
+            else handleTabChange('login');
+          }}
+          onNavigateTab={handleTabChange}
         />
       ) : activeTab === 'pos' ? (
         <POSView

@@ -1,0 +1,204 @@
+/* ============================================================
+   PIXEL ART UI THEME & RETRO STYLESHEET for uidis.app
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=VT323&family=Space+Mono:wght@400;700&family=Outfit:wght@400;500;600;700&display=swap');
+
+:root {
+  --pixel-font-display: 'Press Start 2P', monospace;
+  --pixel-font-sub: 'Silkscreen', monospace;
+  --pixel-font-mono: 'Space Mono', monospace;
+  --pixel-font-sans: 'Outfit', sans-serif;
+
+  --pixel-bg: #FAF7F2;
+  --pixel-surface: #FFFFFF;
+  --pixel-ink: #181425;
+  --pixel-cyan: #29D8FF;
+  --pixel-mint: #2CE8A2;
+  --pixel-yellow: #FFD214;
+  --pixel-pink: #FF3864;
+  --pixel-purple: #8B5CF6;
+  --pixel-orange: #FF7B00;
+  --pixel-border: #181425;
+}
+
+/* Pixel Typography Utilities */
+.font-pixel {
+  font-family: var(--pixel-font-display);
+}
+
+.font-pixel-sub {
+  font-family: var(--pixel-font-sub);
+}
+
+.font-pixel-mono {
+  font-family: var(--pixel-font-mono);
+}
+
+/* Pixel Art Background Canvas Pattern */
+.pixel-grid-canvas {
+  background-color: var(--pixel-bg);
+  background-image: 
+    linear-gradient(to right, rgba(24, 20, 37, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(24, 20, 37, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.pixel-dots-pattern {
+  background-image: radial-gradient(rgba(24, 20, 37, 0.12) 1.5px, transparent 1.5px);
+  background-size: 16px 16px;
+}
+
+/* Retro Pixel Box Shadows (Hard 90-degree block shadows) */
+.pixel-shadow-sm {
+  box-shadow: 2px 2px 0px 0px var(--pixel-ink);
+}
+
+.pixel-shadow {
+  box-shadow: 4px 4px 0px 0px var(--pixel-ink);
+}
+
+.pixel-shadow-lg {
+  box-shadow: 6px 6px 0px 0px var(--pixel-ink);
+}
+
+.pixel-shadow-xl {
+  box-shadow: 8px 8px 0px 0px var(--pixel-ink);
+}
+
+.pixel-shadow-cyan {
+  box-shadow: 4px 4px 0px 0px #00B4D8;
+}
+
+.pixel-shadow-yellow {
+  box-shadow: 4px 4px 0px 0px #C79800;
+}
+
+.pixel-shadow-pink {
+  box-shadow: 4px 4px 0px 0px #C2185B;
+}
+
+/* Tactical Pixel Button Tactile Press */
+.pixel-btn {
+  border: 3px solid var(--pixel-ink);
+  box-shadow: 4px 4px 0px 0px var(--pixel-ink);
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+  image-rendering: pixelated;
+  user-select: none;
+}
+
+.pixel-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0px 0px var(--pixel-ink);
+}
+
+.pixel-btn:active {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0px 0px var(--pixel-ink);
+}
+
+/* Pixel Card Containers */
+.pixel-card {
+  border: 3px solid var(--pixel-ink);
+  box-shadow: 5px 5px 0px 0px var(--pixel-ink);
+  background-color: #FFFFFF;
+}
+
+/* Stepped Pixel Corners */
+.pixel-corners {
+  clip-path: polygon(
+    0 6px,
+    3px 6px,
+    3px 3px,
+    6px 3px,
+    6px 0,
+    calc(100% - 6px) 0,
+    calc(100% - 6px) 3px,
+    calc(100% - 3px) 3px,
+    calc(100% - 3px) 6px,
+    100% 6px,
+    100% calc(100% - 6px),
+    calc(100% - 3px) calc(100% - 6px),
+    calc(100% - 3px) calc(100% - 3px),
+    calc(100% - 6px) calc(100% - 3px),
+    calc(100% - 6px) 100%,
+    6px 100%,
+    6px calc(100% - 3px),
+    3px calc(100% - 3px),
+    3px calc(100% - 6px),
+    0 calc(100% - 6px)
+  );
+}
+
+/* Subtle CRT Scanline Overlay */
+.pixel-scanlines::before {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0; left: 0; bottom: 0; right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.08) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+  z-index: 40;
+  background-size: 100% 4px, 6px 100%;
+  pointer-events: none;
+}
+
+/* Retro Animations */
+@keyframes pixel-float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-pixel-float {
+  animation: pixel-float 3s steps(6, end) infinite;
+}
+
+@keyframes pixel-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.animate-pixel-blink {
+  animation: pixel-pulse 1s steps(2, start) infinite;
+}
+
+@keyframes pixel-marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-pixel-marquee {
+  display: flex;
+  width: 200%;
+  animation: pixel-marquee 24s linear infinite;
+}
+
+.animate-pixel-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Custom Scrollbar */
+.pixel-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.pixel-scrollbar::-webkit-scrollbar-track {
+  background: #EFECE6;
+  border-left: 2px solid var(--pixel-ink);
+}
+
+.pixel-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--pixel-ink);
+  border: 2px solid #EFECE6;
+}
