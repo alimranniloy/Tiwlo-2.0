@@ -76,7 +76,7 @@ function candidateNames(name) {
 
 async function readStatus(names) {
   if (!names.length) return new Map();
-  const { rows } = await client.query(
+  const { rows } = await queryPg(
     `SELECT subdomain, status
      FROM system_free_subdomains
      WHERE subdomain = ANY($1::text[])
