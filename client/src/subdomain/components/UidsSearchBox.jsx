@@ -15,7 +15,9 @@ export default function UidsSearchBox({
   setSubdomain,
   selectedSuffix,
   setSelectedSuffix,
-  onSearch
+  onSearch,
+  availability,
+  setAvailability
 }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -60,12 +62,32 @@ export default function UidsSearchBox({
     return () => clearTimeout(timer);
   }, [placeholderText, pDeleting, pIndex, subdomain]);
 
-  const availableSuffixes = [
-    '.uids.app',
-    '.uids.dev',
-    '.uids.is',
-    '.uids.me'
-  ];
+  useEffect(() => {
+    if (!subdomain) {
+      setAvailability?.(null);
+      return undefined;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/subdomains/check?name=${encodeURIComponent(subdomain)}`, {
+          credentials: 'include',
+          signal: controller.signal
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || 'Availability check failed.');
+        setAvailability?.(payload);
+      } catch (error) {
+        if (error.name !== 'AbortError') setAvailability?.({ error: error.message });
+      }
+    }, 350);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [subdomain, setAvailability]);
+
+  const availableSuffixes = ['.uids.app'];
 
   const handleInputChange = (e) => {
     const clean = e.target.value
@@ -78,7 +100,7 @@ export default function UidsSearchBox({
   const handleSubmit = (e) => {
     e.preventDefault();
     if (onSearch) {
-      onSearch(subdomain || placeholderExamples[pIndex]);
+      onSearch(subdomain || placeholderExamples[pIndex], availability);
     }
   };
 
@@ -158,6 +180,31 @@ export default function UidsSearchBox({
           <ArrowRight className="w-4 h-4 text-white" />
         </button>
       </form>
+      {subdomain && availability && !availability.error && (
+        <div className="mt-2 px-5 text-xs">
+          <span className={availability.available ? 'text-emerald-700 font-semibold' : 'text-rose-600 font-semibold'}>
+            {availability.available ? 'Available to register' : 'Already registered or reserved'}
+          </span>
+          {availability.suggestions?.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="text-slate-500">Recommended:</span>
+              {availability.suggestions.map((suggestion) => (
+                <button
+                  key={suggestion.name}
+                  type="button"
+                  onClick={() => setSubdomain(suggestion.name)}
+                  className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-semibold text-slate-700 hover:border-emerald-400 hover:text-emerald-700"
+                >
+                  {suggestion.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {availability?.error && (
+        <div className="mt-2 px-5 text-xs text-rose-600">{availability.error}</div>
+      )}
     </div>
   );
 }

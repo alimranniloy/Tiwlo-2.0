@@ -29,6 +29,7 @@ import systemRoutes from './routes/systemRoutes.js';
 import storeRoutes from './routes/storeRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import domainRoutes from './routes/domainRoutes.js';
+import subdomainRoutes from './routes/subdomainRoutes.js';
 import { findActiveCustomDomain } from './domains/domainService.js';
 
 import socialRoutes, { resumePendingVideoProcessing } from './social/socialRoutes.js';
@@ -297,6 +298,7 @@ const applicationRoutes = [
   ['/api/social', ecosystemRoutes], ['/api/tiwi', ecosystemRoutes],
   ['/api/social/chat', chatRoutes], ['/api/tiwi/chat', chatRoutes],
   ['/api/admin', adminRoutes], ['/api/whatsapp', whatsappRoutes],
+  ['/api/subdomains', subdomainRoutes],
   ['/api/plugins/tpanel', tpanelRoutes], ['/api/plugins/whatsapp', whatsappRoutes],
   ['/api/plugins/support-ai', supportRoutes],
   ['/api/tpanel', tpanelRoutes], ['/api/support', supportRoutes],
@@ -344,6 +346,7 @@ app.use('/api/discord', discordRoutes);
 // Authentication, 2FA, Profiles & SSO Handshake (Mounted first to handle public login/register/check endpoints)
 app.use('/api', authRoutes);
 app.use('/api/domains', domainRoutes);
+app.use('/api/subdomains', subdomainRoutes);
 
 // Cloud & Droplets
 app.use('/api/cloud', cloudRoutes);

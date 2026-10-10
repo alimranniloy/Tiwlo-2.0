@@ -362,6 +362,21 @@ export async function initPgSchema() {
       CREATE INDEX IF NOT EXISTS idx_custom_domains_user ON system_custom_domains(user_id);
       CREATE INDEX IF NOT EXISTS idx_custom_domains_status ON system_custom_domains(status, ssl_status);
 
+      CREATE TABLE IF NOT EXISTS system_free_subdomains (
+        id VARCHAR(64) PRIMARY KEY,
+        subdomain VARCHAR(63) NOT NULL UNIQUE,
+        domain VARCHAR(253) NOT NULL UNIQUE,
+        user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
+        status VARCHAR(32) NOT NULL DEFAULT 'active'
+          CHECK (status IN ('active', 'suspended', 'released')),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_free_subdomains_user
+        ON system_free_subdomains(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_free_subdomains_status
+        ON system_free_subdomains(status);
+
       -- 2. TIWI SOCIAL ECOSYSTEM TABLES
       CREATE TABLE IF NOT EXISTS social_profiles (
         id VARCHAR(64) PRIMARY KEY REFERENCES system_users(id) ON DELETE CASCADE,

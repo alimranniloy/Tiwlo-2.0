@@ -9,6 +9,7 @@ import { CheckCircle2, Copy, Check, Globe, Server, ExternalLink, X, ShieldAlert 
 export default function UidsClaimConsole({
   subdomain,
   suffix = '.uids.app',
+  availability,
   onClose,
   onNavigateAuth
 }) {
@@ -17,8 +18,11 @@ export default function UidsClaimConsole({
   const [customIp, setCustomIp] = useState('76.76.21.21');
   const [copiedKey, setCopiedKey] = useState(null);
   const [claimed, setClaimed] = useState(false);
+  const [claimError, setClaimError] = useState('');
+  const [claiming, setClaiming] = useState(false);
 
   const fullDomain = `${subdomain || 'mybrand'}${suffix}`;
+  const isAvailable = availability?.available === true;
 
   const copyToClipboard = (text, key) => {
     navigator.clipboard.writeText(text);
@@ -60,7 +64,7 @@ export default function UidsClaimConsole({
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold mb-2">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Available to Register</span>
+              <span>{isAvailable ? 'Available to Register' : 'Registration Status'}</span>
             </div>
             <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
               <span>{fullDomain}</span>
@@ -170,12 +174,36 @@ export default function UidsClaimConsole({
               <div className="text-xs text-slate-500 text-center sm:text-left">
                 No credit card required. Free subdomains renew automatically.
               </div>
+              {claimError && <p className="text-xs text-rose-600">{claimError}</p>}
               <button
                 type="button"
-                onClick={() => setClaimed(true)}
-                className="w-full sm:w-auto px-7 py-3 rounded-full bg-slate-900 hover:bg-slate-800 active:bg-black text-white font-bold text-sm shadow-md transition-all active:scale-95"
+                disabled={!isAvailable || claiming}
+                onClick={async () => {
+                  setClaiming(true);
+                  setClaimError('');
+                  try {
+                    const response = await fetch('/api/subdomains/claim', {
+                      method: 'POST',
+                      credentials: 'include',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ name: subdomain })
+                    });
+                    const payload = await response.json();
+                    if (response.status === 401) {
+                      onNavigateAuth?.('login');
+                      return;
+                    }
+                    if (!response.ok) throw new Error(payload.error || 'Registration failed.');
+                    setClaimed(true);
+                  } catch (error) {
+                    setClaimError(error.message);
+                  } finally {
+                    setClaiming(false);
+                  }
+                }}
+                className="w-full sm:w-auto px-7 py-3 rounded-full bg-slate-900 hover:bg-slate-800 active:bg-black text-white font-bold text-sm shadow-md transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-45"
               >
-                Claim {fullDomain} Now
+                {claiming ? 'Checking account…' : isAvailable ? `Claim ${fullDomain} Now` : 'Unavailable'}
               </button>
             </div>
           </div>

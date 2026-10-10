@@ -28,19 +28,22 @@ export default function UidsLandingPage({
   const [subdomain, setSubdomain] = useState('');
   const [selectedSuffix, setSelectedSuffix] = useState('.uids.app');
   const [showClaimConsole, setShowClaimConsole] = useState(false);
+  const [availability, setAvailability] = useState(null);
   const [activeSection, setActiveSection] = useState('home');
 
   const searchRef = useRef(null);
 
-  const handleSearch = (name) => {
+  const handleSearch = (name, result) => {
     if (!name || name.trim() === '') {
       setSubdomain('myproject');
     }
+    if (result) setAvailability(result);
     setShowClaimConsole(true);
   };
 
   const handleSelectExample = (name, suffix) => {
     setSubdomain(name);
+    setAvailability(null);
     setSelectedSuffix(suffix || '.uids.app');
     setShowClaimConsole(true);
     if (searchRef.current) {
@@ -99,6 +102,8 @@ export default function UidsLandingPage({
               selectedSuffix={selectedSuffix}
               setSelectedSuffix={setSelectedSuffix}
               onSearch={handleSearch}
+              availability={availability}
+              setAvailability={setAvailability}
             />
           </div>
 
@@ -110,6 +115,7 @@ export default function UidsLandingPage({
             <UidsClaimConsole
               subdomain={subdomain}
               suffix={selectedSuffix}
+              availability={availability}
               onClose={() => setShowClaimConsole(false)}
               onNavigateAuth={onNavigateAuth}
             />
