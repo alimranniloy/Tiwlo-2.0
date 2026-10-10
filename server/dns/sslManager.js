@@ -19,8 +19,7 @@ export const SSL_CONFIG = {
   EMAIL: PLATFORM_CONFIG.sslEmail,
   PRIMARY_DOMAIN: PLATFORM_CONFIG.primaryDomain,
   DOMAINS: [
-    PLATFORM_CONFIG.primaryDomain,
-    PLATFORM_CONFIG.storeDomain,
+    ...PLATFORM_CONFIG.managedDomains.flatMap(domain => [domain, `*.${domain}`]),
     getSubdomain(PLATFORM_CONFIG.wwwSubdomain),
     getSubdomain(PLATFORM_CONFIG.authSubdomain),
     getSubdomain(PLATFORM_CONFIG.tpanelSubdomain),
@@ -163,7 +162,7 @@ export function generateNginxConfig(primaryDomain = SSL_CONFIG.PRIMARY_DOMAIN) {
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
-    server_name ${[...new Set([...SSL_CONFIG.DOMAINS, `*.${SSL_CONFIG.PRIMARY_DOMAIN}`, `*.${PLATFORM_CONFIG.storeDomain}`, PLATFORM_CONFIG.serverIpv4])].join(' ')} _;
+    server_name ${[...new Set([...SSL_CONFIG.DOMAINS, PLATFORM_CONFIG.serverIpv4])].join(' ')} _;
 
     client_max_body_size 100M;
 
@@ -185,7 +184,7 @@ server {
 server {
     listen 443 ssl http2 default_server;
     listen [::]:443 ssl http2 default_server;
-    server_name ${[...new Set([...SSL_CONFIG.DOMAINS, `*.${SSL_CONFIG.PRIMARY_DOMAIN}`, `*.${PLATFORM_CONFIG.storeDomain}`, PLATFORM_CONFIG.serverIpv4])].join(' ')} _;
+    server_name ${[...new Set([...SSL_CONFIG.DOMAINS, PLATFORM_CONFIG.serverIpv4])].join(' ')} _;
 
     ssl_certificate ${certPath};
     ssl_certificate_key ${keyPath};
@@ -213,7 +212,7 @@ server {
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
-    server_name ${[...new Set([...SSL_CONFIG.DOMAINS, `*.${SSL_CONFIG.PRIMARY_DOMAIN}`, `*.${PLATFORM_CONFIG.storeDomain}`, PLATFORM_CONFIG.serverIpv4])].join(' ')} _;
+    server_name ${[...new Set([...SSL_CONFIG.DOMAINS, PLATFORM_CONFIG.serverIpv4])].join(' ')} _;
 
     client_max_body_size 100M;
 
@@ -256,7 +255,7 @@ export function provisionCustomDomain(domain) {
   console.log(`🔒 Checking SSL provisioning for domain: ${cleanDomain}...`);
 
   // Configured platform/store subdomains are covered by wildcard SSL.
-  if ([SSL_CONFIG.PRIMARY_DOMAIN, PLATFORM_CONFIG.storeDomain].some(
+  if (PLATFORM_CONFIG.managedDomains.some(
     domain => cleanDomain === domain || cleanDomain.endsWith(`.${domain}`)
   )) {
     console.log(`✅ ${cleanDomain} is covered by the configured platform/store wildcard certificate.`);

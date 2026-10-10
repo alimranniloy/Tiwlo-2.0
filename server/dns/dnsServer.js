@@ -31,6 +31,7 @@ export const DNS_CONFIG = {
   PRIMARY_IP: PLATFORM_CONFIG.serverIpv4,
   PRIMARY_DOMAIN: PLATFORM_CONFIG.primaryDomain,
   STORE_DOMAIN: PLATFORM_CONFIG.storeDomain,
+  MANAGED_DOMAINS: PLATFORM_CONFIG.managedDomains,
   NS1: getSubdomain(PLATFORM_CONFIG.dns1Subdomain),
   NS2: getSubdomain(PLATFORM_CONFIG.dns2Subdomain),
   ADMIN_EMAIL: PLATFORM_CONFIG.adminEmail,
@@ -103,7 +104,7 @@ function isDomainAuthoritative(queryDomain) {
   const d = queryDomain.toLowerCase().replace(/\.$/, '');
 
   // 1. All tiwlo domains and subdomains
-  if ([DNS_CONFIG.PRIMARY_DOMAIN, DNS_CONFIG.STORE_DOMAIN].some(
+  if (DNS_CONFIG.MANAGED_DOMAINS.some(
     domain => d === domain || d.endsWith(`.${domain}`)
   )) {
     return true;
