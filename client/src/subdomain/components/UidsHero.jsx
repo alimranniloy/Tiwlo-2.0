@@ -2,24 +2,22 @@ import React, { useState, useEffect } from 'react';
 
 /**
  * UidsHero Component
- * Updated per user instructions:
- * - Removed THE UIDS NAMESPACE badge.
- * - Removed duplicate HTML/SVG doodles (already present inside the background graphic).
- * - Sized headline harmoniously with dynamic typewriter animation:
- *   "A small name for [dynamic text]|"
- * - Subtitle centered and readable.
+ * Minimized, compact and beautifully proportioned per user feedback:
+ * - Headline with smooth typewriter animation cycling through systems:
+ *   "A small name for [startup MVPs. | developer tools. | AI agent apps. | indie SaaS. | creative portfolios.]"
+ * - Compact typography and spacing (no huge awkward height).
  */
 export default function UidsHero() {
-  const words = [
-    'big ideas.',
-    'next projects.',
-    'indie apps.',
-    'creator portfolios.',
+  const systems = [
+    'startup MVPs.',
     'developer tools.',
-    'startup MVPs.'
+    'AI agent apps.',
+    'indie SaaS.',
+    'creative portfolios.',
+    'side projects.'
   ];
 
-  const [wordIndex, setWordIndex] = useState(0);
+  const [systemIndex, setSystemIndex] = useState(0);
   const [displayText, setDisplayText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [cursorVisible, setCursorVisible] = useState(true);
@@ -28,53 +26,50 @@ export default function UidsHero() {
   useEffect(() => {
     const cursorInterval = setInterval(() => {
       setCursorVisible((v) => !v);
-    }, 500);
+    }, 480);
     return () => clearInterval(cursorInterval);
   }, []);
 
-  // Typewriter animation
+  // Typewriter animation cycling through systems
   useEffect(() => {
-    const currentWord = words[wordIndex];
-    const typingSpeed = isDeleting ? 45 : 95;
+    const currentWord = systems[systemIndex];
+    const speed = isDeleting ? 40 : 85;
 
     const timer = setTimeout(() => {
       if (!isDeleting) {
-        // Typing forward
-        const nextText = currentWord.substring(0, displayText.length + 1);
-        setDisplayText(nextText);
+        const next = currentWord.substring(0, displayText.length + 1);
+        setDisplayText(next);
 
-        if (nextText === currentWord) {
-          // Pause before deleting
-          setTimeout(() => setIsDeleting(true), 1800);
+        if (next === currentWord) {
+          setTimeout(() => setIsDeleting(true), 2000);
         }
       } else {
-        // Deleting backward
-        const prevText = currentWord.substring(0, displayText.length - 1);
-        setDisplayText(prevText);
+        const prev = currentWord.substring(0, displayText.length - 1);
+        setDisplayText(prev);
 
-        if (prevText === '') {
+        if (prev === '') {
           setIsDeleting(false);
-          setWordIndex((prev) => (prev + 1) % words.length);
+          setSystemIndex((idx) => (idx + 1) % systems.length);
         }
       }
-    }, typingSpeed);
+    }, speed);
 
     return () => clearTimeout(timer);
-  }, [displayText, isDeleting, wordIndex]);
+  }, [displayText, isDeleting, systemIndex]);
 
   return (
-    <div className="relative w-full pt-10 sm:pt-16 pb-6 px-4 sm:px-6 select-none text-center">
-      <div className="max-w-4xl mx-auto relative">
-        {/* Core Title */}
-        <h1 className="text-3xl sm:text-5xl md:text-[54px] lg:text-[60px] font-extrabold tracking-tight text-slate-900 leading-[1.12] sm:leading-[1.1]">
+    <div className="relative w-full pt-6 sm:pt-10 pb-3 px-4 sm:px-6 select-none text-center">
+      <div className="max-w-3xl mx-auto relative">
+        {/* Core Headline - Compact, crisp and enhanced */}
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.15]">
           <div>A small name</div>
-          <div className="mt-1 sm:mt-2 min-h-[1.2em] flex items-center justify-center flex-wrap">
+          <div className="mt-1 flex items-center justify-center flex-wrap">
             <span>for&nbsp;</span>
             <span className="text-[#00C261] font-extrabold">
-              {displayText || words[0]}
+              {displayText || systems[0]}
             </span>
             <span
-              className={`inline-block w-[3px] sm:w-[3.5px] h-[30px] sm:h-[46px] bg-slate-900 ml-1 rounded-full transition-opacity duration-100 ${
+              className={`inline-block w-[2.5px] sm:w-[3px] h-[26px] sm:h-[38px] bg-slate-900 ml-1 rounded-full transition-opacity duration-100 ${
                 cursorVisible ? 'opacity-100' : 'opacity-0'
               }`}
               aria-hidden="true"
@@ -82,8 +77,8 @@ export default function UidsHero() {
           </div>
         </h1>
 
-        {/* Subtitle */}
-        <p className="mt-4 sm:mt-5 text-sm sm:text-base md:text-lg text-slate-600 max-w-xl mx-auto leading-relaxed font-normal">
+        {/* Subtitle - Minimized and clean */}
+        <p className="mt-3 sm:mt-4 text-xs sm:text-sm md:text-base text-slate-600 max-w-lg mx-auto leading-relaxed font-normal">
           Get a clean, short and memorable subdomain on <span className="font-semibold text-slate-800">uids.app</span> and start building in seconds.
         </p>
       </div>

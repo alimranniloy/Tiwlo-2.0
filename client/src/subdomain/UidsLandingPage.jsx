@@ -7,21 +7,19 @@ import UidsClaimConsole from './components/UidsClaimConsole';
 import UidsPricingCards from './components/UidsPricingCards';
 import UidsHowItWorks from './components/UidsHowItWorks';
 import UidsEdgeSpecs from './components/UidsEdgeSpecs';
-import UidsCommunityShowcase from './components/UidsCommunityShowcase';
 import UidsFaq from './components/UidsFaq';
 import UidsFooter from './components/UidsFooter';
 
 /**
  * uids.app Main Landing Page Component
- * Fully optimized per user feedback:
- * 1. Background image (background.jpg - 91KB optimized) is ONLY applied to the Hero Section.
- * 2. Downwards, clean Google-style white surfaces.
- * 3. uids.app logo centered on Desktop and Mobile.
- * 4. Back button removed, replaced with Login & Sign Up.
- * 5. Headline enhanced with dynamic typewriter text switching.
- * 6. Pricing cards moved directly up, followed by How It Works, Features, Showcase, and FAQ.
+ * Minimized, compact and refined per user feedback:
+ * 1. Community Ecosystem section REMOVED completely.
+ * 2. Mobile navbar has ONLY Login button to avoid overlap with centered uids.app logo.
+ * 3. Search box has dynamic animated typing placeholder for system types.
+ * 4. Hero headline has animated system typewriter cycling through startup MVPs, dev tools, AI apps, etc.
+ * 5. Background image (91KB background.jpg) is applied ONLY to the hero section.
+ * 6. All section sizes, paddings and cards are minimized and made compact, clean and Google-inspired.
  * 7. In-page dedicated Claim wizard (Zero Popups/Modals).
- * 8. Zero lag, crisp Google borders.
  */
 export default function UidsLandingPage({
   onNavigateTab,
@@ -66,8 +64,8 @@ export default function UidsLandingPage({
     <div className="min-h-screen flex flex-col font-sans text-slate-800 bg-white selection:bg-emerald-500 selection:text-white">
       {/* 
         ========================================================================
-        HERO SECTION: background.jpg is APPLIED ONLY HERE (as instructed by user)
-        Optimized high-res 91KB image loads instantly with zero lag.
+        HERO SECTION: background.jpg is APPLIED ONLY HERE
+        91KB optimized asset loads instantly with zero lag or frame drops.
         ========================================================================
       */}
       <div
@@ -79,21 +77,21 @@ export default function UidsLandingPage({
           backgroundRepeat: 'no-repeat',
         }}
       >
-        {/* Subtle Google-style light overlay for perfect text contrast */}
+        {/* Subtle light overlay for perfect readability and crisp contrast */}
         <div className="absolute inset-0 bg-white/70 backdrop-blur-[0.5px] pointer-events-none -z-10" />
 
-        {/* Navigation Bar (Centered uids.app logo, Login/Sign Up, Nav Links) */}
+        {/* Navigation Bar (Mobile shows ONLY Login; uids.app centered on all screens) */}
         <UidsNavbar
           onNavigateAuth={onNavigateAuth}
           onScrollTo={handleScrollTo}
           activeSection={activeSection}
         />
 
-        {/* Hero Headline & Typewriter Animation */}
-        <div className="max-w-7xl mx-auto pb-12 sm:pb-16">
+        {/* Hero Headline & System Typewriter Animation */}
+        <div className="max-w-6xl mx-auto pb-8 sm:pb-12">
           <UidsHero />
 
-          {/* Subdomain Discovery Search Box */}
+          {/* Subdomain Discovery Search Box with Animated Placeholder */}
           <div ref={searchRef} className="w-full">
             <UidsSearchBox
               subdomain={subdomain}
@@ -121,11 +119,11 @@ export default function UidsLandingPage({
 
       {/* 
         ========================================================================
-        BODY CONTENT SECTIONS (Clean White/Slate Google Product Surfaces)
+        BODY CONTENT SECTIONS (Compact, Sleek, Clean Google UI)
         ========================================================================
       */}
       <main className="flex-1 w-full bg-white">
-        {/* 1. Comparison Pricing Cards (Moved Up Directly as requested) */}
+        {/* 1. Comparison Pricing Cards (Free Plan 20MB & Paid Plan More Power) */}
         <UidsPricingCards
           onSelectPlan={(plan) => {
             if (plan === 'free') {
@@ -143,8 +141,8 @@ export default function UidsLandingPage({
           }}
         />
 
-        {/* 2. How It Works (3-Step Guide) */}
-        <div className="bg-[#F8FAFC]/70 border-y border-slate-100/90 py-6 sm:py-10">
+        {/* 2. How It Works (Compact 3-Step Setup) */}
+        <div className="bg-[#F8FAFC]/80 border-y border-slate-100 py-6 sm:py-8 mt-8 sm:mt-10">
           <UidsHowItWorks
             onGetStarted={() => {
               if (searchRef.current) {
@@ -154,26 +152,13 @@ export default function UidsLandingPage({
           />
         </div>
 
-        {/* 3. Global Edge Infrastructure & Features */}
-        <div className="py-6 sm:py-10">
+        {/* 3. Global Edge Infrastructure & Features (Compact 6-Card Grid) */}
+        <div className="py-6 sm:py-8">
           <UidsEdgeSpecs />
         </div>
 
-        {/* 4. Active Community Subdomains Showcase */}
-        <div className="bg-[#F8FAFC]/70 border-y border-slate-100/90 py-6 sm:py-10">
-          <UidsCommunityShowcase
-            onSelectDomain={(name) => {
-              setSubdomain(name);
-              setShowClaimConsole(true);
-              if (searchRef.current) {
-                searchRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-            }}
-          />
-        </div>
-
-        {/* 5. Frequently Asked Questions (FAQ) */}
-        <div className="py-6 sm:py-10">
+        {/* 4. Frequently Asked Questions (Compact Accordion Vault) */}
+        <div className="bg-[#F8FAFC]/80 border-t border-slate-100 py-6 sm:py-8">
           <UidsFaq />
         </div>
       </main>
