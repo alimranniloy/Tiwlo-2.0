@@ -1,19 +1,7 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Shield, CheckCircle2, Save } from 'lucide-react';
+import React from 'react';
+import { ArrowLeft } from 'lucide-react';
 
 export default function ModerationView({ onNavigate }) {
-  const [spamFilter, setSpamFilter] = useState(true);
-  const [linkFilter, setLinkFilter] = useState(false);
-  const [profanityFilter, setProfanityFilter] = useState(true);
-  const [mentionRaidFilter, setMentionRaidFilter] = useState(true);
-  const [saved, setSaved] = useState(false);
-
-  const handleSave = (e) => {
-    e.preventDefault();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
-  };
-
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-16 font-sans bg-white">
       {/* 1. Modern Google Header */}
@@ -32,19 +20,11 @@ export default function ModerationView({ onNavigate }) {
           Automated Moderation & Safety Policies
         </h1>
         <p className="text-xs sm:text-sm text-[#444746] mt-1">
-          Enforce automated safeguards against spam, unauthorized links, mass mentions, and toxic content.
+          Moderation policy configuration is unavailable because no live Discord bot worker is connected.
         </p>
       </div>
 
-      {saved && (
-        <div className="p-4 rounded-2xl bg-[#C4EED0]/30 border border-[#C4EED0] text-[#072711] text-[13px] flex items-center gap-2.5">
-          <CheckCircle2 className="w-4 h-4 shrink-0 text-[#137333]" />
-          <span>Security and moderation policies applied across all linked guilds.</span>
-        </div>
-      )}
-
-      {/* 2. Policies Card */}
-      <form onSubmit={handleSave} className="bg-white border border-[#E0E2EC] rounded-2xl p-6 sm:p-8 space-y-5 shadow-none">
+      <div className="bg-white border border-[#E0E2EC] rounded-2xl p-6 sm:p-8 space-y-5 shadow-none">
         <h2 className="text-[16px] font-medium text-[#1F1F1F] border-b border-[#F0F4F9] pb-3">
           Active Defense Rules
         </h2>
@@ -57,8 +37,8 @@ export default function ModerationView({ onNavigate }) {
             </div>
             <input
               type="checkbox"
-              checked={spamFilter}
-              onChange={(e) => setSpamFilter(e.target.checked)}
+              checked={false}
+              disabled
               className="w-5 h-5 rounded-lg accent-[#0B57D0] cursor-pointer"
             />
           </div>
@@ -70,8 +50,8 @@ export default function ModerationView({ onNavigate }) {
             </div>
             <input
               type="checkbox"
-              checked={linkFilter}
-              onChange={(e) => setLinkFilter(e.target.checked)}
+              checked={false}
+              disabled
               className="w-5 h-5 rounded-lg accent-[#0B57D0] cursor-pointer"
             />
           </div>
@@ -83,8 +63,8 @@ export default function ModerationView({ onNavigate }) {
             </div>
             <input
               type="checkbox"
-              checked={profanityFilter}
-              onChange={(e) => setProfanityFilter(e.target.checked)}
+              checked={false}
+              disabled
               className="w-5 h-5 rounded-lg accent-[#0B57D0] cursor-pointer"
             />
           </div>
@@ -96,23 +76,15 @@ export default function ModerationView({ onNavigate }) {
             </div>
             <input
               type="checkbox"
-              checked={mentionRaidFilter}
-              onChange={(e) => setMentionRaidFilter(e.target.checked)}
+              checked={false}
+              disabled
               className="w-5 h-5 rounded-lg accent-[#0B57D0] cursor-pointer"
             />
           </div>
         </div>
 
-        <div className="pt-4 border-t border-[#F0F4F9] flex justify-end">
-          <button
-            type="submit"
-            className="inline-flex items-center gap-1.5 px-6 py-2.5 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-colors cursor-pointer"
-          >
-            <Save className="w-4 h-4" />
-            <span>Apply Rules</span>
-          </button>
-        </div>
-      </form>
+        <p className="pt-4 border-t border-[#F0F4F9] text-[12px] text-[#747775]">These rules are informational only; no policies are saved or enforced.</p>
+      </div>
     </div>
   );
 }

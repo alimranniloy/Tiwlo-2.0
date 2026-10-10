@@ -119,7 +119,7 @@ export default function BotDetailView({ botId, onBack, onBotUpdated, onBotDelete
             <h1 className="text-2xl font-normal text-[#1F1F1F] tracking-tight">{bot.name}</h1>
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium bg-[#C4EED0] text-[#072711]">
               <span className="w-2 h-2 rounded-full bg-[#137333]" />
-              {bot.status || 'Online'}
+              {bot.status || 'Status unavailable'}
             </span>
           </div>
           <p className="text-xs text-[#747775] font-mono mt-1">ID: {bot.id}</p>

@@ -41,14 +41,6 @@ export const WorkspaceAPI = {
     return res.service;
   },
 
-  async activateWorkspaceService(payload) {
-    return request('/workspace/services', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-  },
-
   async updateWorkspaceService(id, payload) {
     return request(`/workspace/services/${encodeURIComponent(id)}`, {
       method: 'PUT',

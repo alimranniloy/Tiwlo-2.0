@@ -27,7 +27,7 @@ export default function OverviewView({
   const [serverFilter, setServerFilter] = useState('all');
 
   const {
-    botsOnlineCount = 0,
+    botsRegisteredCount = 0,
     connectedServersCount = 0,
     totalMembersCount = 0,
     servers = [],
@@ -50,9 +50,6 @@ export default function OverviewView({
             <h1 className="text-xl sm:text-2xl font-normal text-[#1F1F1F] tracking-tight">
               Console Overview
             </h1>
-            <span className="text-xs px-3 py-1 rounded-full bg-[#C4EED0] text-[#072711] font-medium">
-              Cluster Healthy
-            </span>
           </div>
           <p className="text-xs sm:text-sm text-[#444746] mt-1">
             Centrally manage automated bot daemons, connected servers, and live operational traffic.
@@ -84,16 +81,16 @@ export default function OverviewView({
         {/* Metric 1 */}
         <div className="bg-white border border-[#E0E2EC] rounded-2xl p-5 hover:border-[#C4C7C5] transition-all">
           <div className="text-[12px] font-medium text-[#747775]">
-            Bots Active
+            Registered Bots
           </div>
           <div className="text-2xl font-normal text-[#1F1F1F] mt-1.5 flex items-center gap-2">
-            <span>{botsOnlineCount}</span>
-            <span className="text-xs px-3 py-0.5 rounded-full bg-[#C4EED0] text-[#072711] font-medium">
-              Operational
+            <span>{botsRegisteredCount}</span>
+            <span className="text-xs px-3 py-0.5 rounded-full bg-[#F0F4F9] text-[#444746] font-medium">
+              Created in this account
             </span>
           </div>
           <p className="text-[12px] text-[#747775] mt-1">
-            Running with active heartbeat websocket
+            Currently marked online
           </p>
         </div>
 
@@ -279,16 +276,16 @@ export default function OverviewView({
                       </div>
                     </td>
                     <td className="py-3.5 px-6">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium bg-[#C4EED0] text-[#072711]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#137333]" />
-                        <span>Online</span>
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium ${bot.status === 'online' ? 'bg-[#C4EED0] text-[#072711]' : 'bg-[#F0F4F9] text-[#444746]'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${bot.status === 'online' ? 'bg-[#137333]' : 'bg-[#747775]'}`} />
+                        <span>{bot.status || 'Status unavailable'}</span>
                       </span>
                     </td>
                     <td className="py-3.5 px-6 text-[#444746]">
-                      {(bot.servers || []).length || 1} servers
+                      {bot.serversCount ?? (bot.servers || []).length} servers
                     </td>
                     <td className="py-3.5 px-6 font-mono text-[12px] text-[#747775]">
-                      {bot.latency || '28ms'}
+                      {bot.latency || '—'}
                     </td>
                     <td className="py-3.5 px-6 text-right pr-6">
                       <button
@@ -333,9 +330,9 @@ export default function OverviewView({
             <tbody className="divide-y divide-[#E0E2EC]/60">
               {recentActivities.slice(0, 5).map((act, i) => (
                 <tr key={i} className="hover:bg-[#F0F4F9]/40">
-                  <td className="py-3 px-4 text-[#747775] font-mono">{act.timeAgo || 'Just now'}</td>
+                  <td className="py-3 px-4 text-[#747775] font-mono">{act.createdAt ? new Date(act.createdAt).toLocaleString() : '—'}</td>
                   <td className="py-3 px-4 font-medium text-[#1F1F1F]">{act.action}</td>
-                  <td className="py-3 px-4 text-[#444746]">{act.serverName || 'System'}</td>
+                  <td className="py-3 px-4 text-[#444746]">{act.serverName || '—'}</td>
                   <td className="py-3 px-4 text-right pr-4">
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-medium bg-[#C4EED0] text-[#072711]">
                       Success

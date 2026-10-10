@@ -32,8 +32,8 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
   const [msg, setMsg] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
 
-  const [status, setStatus] = useState('Active');
-  const [plan, setPlan] = useState('Free');
+  const [status, setStatus] = useState('');
+  const [plan, setPlan] = useState('');
   const [serverName, setServerName] = useState('');
   const [serverId, setServerId] = useState('');
 
@@ -47,10 +47,10 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
         ]);
         if (srv) {
           setService(srv);
-          setStatus(srv.status || 'Active');
-          setPlan(srv.plan || 'Free');
-          setServerName(srv.serverName || 'Production Cluster');
-          setServerId(srv.serverId || 'srv_1');
+          setStatus(srv.status || '');
+          setPlan(srv.plan || '');
+          setServerName(srv.serverName || '');
+          setServerId(srv.serverId || '');
         }
         setServers(serverList || []);
       } catch (err) {
@@ -138,7 +138,7 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
             <h1 className="text-2xl font-normal text-[#1F1F1F] tracking-tight">{service.name}</h1>
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium bg-[#C4EED0] text-[#072711]">
               <span className="w-2 h-2 rounded-full bg-[#137333]" />
-              {service.status || 'Active'}
+              {service.status || 'Status unavailable'}
             </span>
           </div>
           <p className="text-xs text-[#747775] font-mono mt-1">ID: {service.id}</p>
@@ -217,15 +217,15 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
                 </div>
                 <div>
                   <span className="text-[#747775] block text-xs mb-1">Target Environment</span>
-                  <span className="font-medium text-[#1F1F1F] font-mono">{service.serverName || 'Production Cluster'}</span>
+                  <span className="font-medium text-[#1F1F1F] font-mono">{service.serverName || '—'}</span>
                 </div>
                 <div>
                   <span className="text-[#747775] block text-xs mb-1">Allocated Tier</span>
-                  <span className="font-medium text-[#1F1F1F]">{service.plan || 'Standard'}</span>
+                  <span className="font-medium text-[#1F1F1F]">{service.plan || '—'}</span>
                 </div>
                 <div>
                   <span className="text-[#747775] block text-xs mb-1">Current Capacity Utilization</span>
-                  <span className="font-medium text-[#1F1F1F]">{service.usage || '32%'}</span>
+                  <span className="font-medium text-[#1F1F1F]">{service.usageLabel || '—'}</span>
                 </div>
               </div>
             </div>
@@ -235,8 +235,8 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
                 Health & SLA Telemetry
               </h2>
               <div className="flex items-center gap-3 text-[13px] text-[#444746]">
-                <CheckCircle2 className="w-5 h-5 text-[#137333] shrink-0" />
-                <span>All health probes passing. Continuous uptime 99.98% over the past 30 days.</span>
+                <Info className="w-5 h-5 text-[#747775] shrink-0" />
+                <span>Live health and SLA telemetry is not available for this service.</span>
               </div>
             </div>
           </div>
@@ -299,7 +299,7 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
             >
               {servers.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name} ({s.region || 'Default Region'})
+                  {s.name}{s.region ? ` (${s.region})` : ''}
                 </option>
               ))}
             </select>

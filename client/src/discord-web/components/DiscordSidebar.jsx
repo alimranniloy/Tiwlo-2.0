@@ -46,7 +46,8 @@ export default function DiscordSidebar({
   };
 
   const getInitials = () => {
-    const name = currentUser?.name || currentUser?.storeName || 'Alex Morgan';
+    const name = currentUser?.name || currentUser?.storeName || currentUser?.email || '';
+    if (!name.trim()) return '?';
     const parts = name.trim().split(' ');
     if (parts.length >= 2) {
       return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
@@ -54,7 +55,7 @@ export default function DiscordSidebar({
     return name.slice(0, 2).toUpperCase();
   };
 
-  const displayName = currentUser?.name || currentUser?.storeName || 'Alex Morgan';
+  const displayName = currentUser?.name || currentUser?.storeName || 'Account';
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-white text-[#1F1F1F] border-r border-[#E0E2EC] select-none font-sans">
@@ -69,7 +70,7 @@ export default function DiscordSidebar({
               Bot Platform
             </div>
             <div className="text-[11px] text-[#747775]">
-              Tiwlo Cloud Extensions
+              Discord Console
             </div>
           </div>
         </div>

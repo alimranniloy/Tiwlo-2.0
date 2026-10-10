@@ -374,7 +374,8 @@ export const schema = buildSchema(`
   }
 
   type DiscordOverview {
-    botsOnlineCount: Int!
+    botsOnlineCount: Int @deprecated(reason: "Live bot heartbeat is not available.")
+    botsRegisteredCount: Int!
     connectedServersCount: Int!
     totalMembersCount: Int!
     bots: [DiscordBot]!
@@ -388,13 +389,15 @@ export const schema = buildSchema(`
     developer: String!
     category: String!
     description: String!
-    rating: Float!
-    reviewsCount: Int!
-    pricingType: String!
-    pricingLabel: String!
+    rating: Float
+    reviewsCount: Int
+    pricingType: String
+    pricingLabel: String
     iconType: String
     iconBg: String
     iconColor: String
+    logoUrl: String
+    installCount: Int
   }
 
   type DiscordWorkspaceService {
@@ -407,10 +410,10 @@ export const schema = buildSchema(`
     status: String!
     serverId: String
     serverName: String!
-    plan: String!
+    plan: String
     usageCurrent: Int
     usageLimit: Int
-    usageLabel: String!
+    usageLabel: String
     renewalDate: String
     createdAt: String
     updatedAt: String
@@ -423,7 +426,7 @@ export const schema = buildSchema(`
     serviceId: String
     serviceName: String!
     result: String!
-    timeAgo: String!
+    timeAgo: String
     createdAt: String
   }
 
@@ -432,7 +435,7 @@ export const schema = buildSchema(`
     operations: [DiscordWorkspaceOperation]!
     totalServices: Int!
     connectedServersCount: Int!
-    allServicesHealthy: Boolean!
+    allServicesHealthy: Boolean
   }
 
   input CreateDiscordBotInput {

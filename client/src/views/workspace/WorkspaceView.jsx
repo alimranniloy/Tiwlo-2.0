@@ -30,8 +30,9 @@ import { WorkspaceAPI } from '../../api/workspaceApi';
 export default function WorkspaceView({ onNavigate }) {
   const [services, setServices] = useState([]);
   const [operations, setOperations] = useState([]);
-  const [stats, setStats] = useState({ totalServices: 6, connectedServersCount: 3, allServicesHealthy: true });
+  const [stats, setStats] = useState({ totalServices: 0, connectedServersCount: 0, allServicesHealthy: null });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
@@ -41,18 +42,19 @@ export default function WorkspaceView({ onNavigate }) {
   const loadWorkspace = async (isManualRefresh = false) => {
     if (isManualRefresh) setRefreshing(true);
     else setLoading(true);
+    setLoadError('');
 
     try {
       const data = await WorkspaceAPI.getWorkspace({ search });
       setServices(data.services || []);
       setOperations(data.operations || []);
       setStats({
-        totalServices: data.totalServices || (data.services || []).length,
-        connectedServersCount: data.connectedServersCount || 3,
-        allServicesHealthy: data.allServicesHealthy !== false
+        totalServices: data.totalServices ?? (data.services || []).length,
+        connectedServersCount: data.connectedServersCount ?? 0,
+        allServicesHealthy: data.allServicesHealthy
       });
     } catch (err) {
-      console.warn('Could not load workspace data:', err);
+      setLoadError(err.message || 'Could not load Workspace data.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -185,17 +187,13 @@ export default function WorkspaceView({ onNavigate }) {
       {/* 2. Modern Google Summary Status Card */}
       <div className="bg-[#F8FAFD] border border-[#E0E2EC] rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[13px]">
         <div className="text-[#444746] flex items-center gap-3">
-          <span className="font-semibold text-[#1F1F1F] text-base">{stats.totalServices}</span> active services
+          <span className="font-semibold text-[#1F1F1F] text-base">{stats.totalServices}</span> Marketplace services
           <span className="text-[#C4C7C5]">•</span>
           <span className="font-semibold text-[#1F1F1F] text-base">{stats.connectedServersCount}</span> connected clusters
           <span className="text-[#C4C7C5]">•</span>
-          <span>Zero incident reports</span>
+          <span>Marketplace activations recorded in this account</span>
         </div>
 
-        <div className="flex items-center gap-2 font-medium text-[12px] text-[#072711] bg-[#C4EED0] px-3.5 py-1.5 rounded-full w-fit">
-          <CheckCircle2 className="w-4 h-4 fill-[#072711] text-white" />
-          <span>All operational services healthy</span>
-        </div>
       </div>
 
       {/* 3. Modern Google Table Card Container */}
@@ -275,11 +273,13 @@ export default function WorkspaceView({ onNavigate }) {
                     <span>Loading workspace services...</span>
                   </td>
                 </tr>
+              ) : loadError ? (
+                <tr><td colSpan="8" className="py-16 text-center text-[#B3261E]">{loadError}</td></tr>
               ) : services.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="py-16 text-center text-[#444746]">
                     <Layers className="w-10 h-10 text-[#C4C7C5] mx-auto mb-3" />
-                    <p className="font-medium text-[#1F1F1F] text-base">No services match your search</p>
+                    <p className="font-medium text-[#1F1F1F] text-base">{search ? 'No services match your search' : 'No Marketplace services activated'}</p>
                     <button
                       onClick={() => { setSearch(''); loadWorkspace(); }}
                       className="mt-3 px-4 py-1.5 rounded-full text-[13px] font-medium text-[#0B57D0] border border-[#747775]/30 hover:bg-[#F2F6FC] transition-colors"
@@ -309,7 +309,9 @@ export default function WorkspaceView({ onNavigate }) {
                       {/* Service Name & Category */}
                       <td className="py-4 px-5">
                         <div className="flex items-center gap-3.5">
-                          {renderServiceIcon(service.iconType)}
+                          {service.logoUrl
+                            ? <img src={service.logoUrl} alt="" className="w-10 h-10 rounded-xl object-contain shrink-0" />
+                            : renderServiceIcon(service.iconType)}
                           <div>
                             <button
                               onClick={() => onNavigate?.(`workspace/service/${service.id}`)}
@@ -326,43 +328,32 @@ export default function WorkspaceView({ onNavigate }) {
 
                       {/* Status */}
                       <td className="py-4 px-5 whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium bg-[#C4EED0] text-[#072711]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#072711]" />
-                          <span>{service.status || 'Active'}</span>
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium ${service.status?.toLowerCase() === 'active' ? 'bg-[#C4EED0] text-[#072711]' : 'bg-[#F0F4F9] text-[#444746]'}`}>
+                          {service.status?.toLowerCase() === 'active' && <span className="w-1.5 h-1.5 rounded-full bg-[#072711]" />}
+                          <span>{service.status || 'Status unavailable'}</span>
                         </span>
                       </td>
 
                       {/* Cluster */}
                       <td className="py-4 px-5 text-[#1F1F1F] font-mono text-[12px]">
-                        {service.connectedServer || 'production-cluster-01'}
+                        {service.serverName || '—'}
                       </td>
 
                       {/* Plan */}
                       <td className="py-4 px-5">
                         <span className="inline-block px-3 py-1 rounded-full text-[11px] font-medium bg-[#F0F4F9] text-[#1F1F1F]">
-                          {service.plan || 'Standard'}
+                          {service.plan || '—'}
                         </span>
                       </td>
 
                       {/* Usage */}
                       <td className="py-4 px-5 min-w-[140px]">
-                        <div className="space-y-1.5">
-                          <div className="flex justify-between text-[11px] text-[#444746] font-medium">
-                            <span>Capacity</span>
-                            <span>{service.usage || '32%'}</span>
-                          </div>
-                          <div className="w-full bg-[#E0E2EC] rounded-full h-1.5 overflow-hidden">
-                            <div
-                              className="bg-[#0B57D0] h-1.5 rounded-full transition-all duration-500"
-                              style={{ width: service.usage || '32%' }}
-                            />
-                          </div>
-                        </div>
+                        <span>{service.usageLabel || '—'}</span>
                       </td>
 
                       {/* Renewal */}
                       <td className="py-4 px-5 text-[#444746] text-[12px] whitespace-nowrap">
-                        {service.renewal || 'Monthly • Auto-renews'}
+                        {service.renewalDate || '—'}
                       </td>
 
                       {/* Actions */}
@@ -451,7 +442,7 @@ export default function WorkspaceView({ onNavigate }) {
               Recent Lifecycle Operations
             </h2>
             <p className="text-[12px] text-[#444746] mt-0.5">
-              Live immutable audit stream of daemon executions and provisioning events.
+              Recorded Workspace changes and Marketplace activation events.
             </p>
           </div>
           <button
@@ -474,15 +465,17 @@ export default function WorkspaceView({ onNavigate }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F1F3F8]">
-              {(operations.slice(0, 4)).map((op) => (
+              {operations.length === 0 ? (
+                <tr><td colSpan="5" className="py-8 text-center text-[#747775]">No lifecycle operations recorded.</td></tr>
+              ) : (operations.slice(0, 4)).map((op) => (
                 <tr key={op.id} className="hover:bg-[#F8FAFD] transition-colors">
-                  <td className="py-3 px-4 text-[#444746] font-mono">{op.timestamp || 'Just now'}</td>
-                  <td className="py-3 px-4 font-medium text-[#1F1F1F]">{op.action}</td>
-                  <td className="py-3 px-4 text-[#0B57D0] font-medium">{op.targetService}</td>
-                  <td className="py-3 px-4 text-[#444746]">{op.user || 'system'}</td>
+                  <td className="py-3 px-4 text-[#444746] font-mono">{op.createdAt ? new Date(op.createdAt).toLocaleString() : '—'}</td>
+                  <td className="py-3 px-4 font-medium text-[#1F1F1F]">{op.operation}</td>
+                  <td className="py-3 px-4 text-[#0B57D0] font-medium">{op.serviceName || '—'}</td>
+                  <td className="py-3 px-4 text-[#444746]">—</td>
                   <td className="py-3 px-4 text-right">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#C4EED0] text-[#072711]">
-                      {op.status || 'Success'}
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#F0F4F9] text-[#444746]">
+                      {op.result || '—'}
                     </span>
                   </td>
                 </tr>

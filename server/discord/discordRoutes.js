@@ -63,7 +63,7 @@ router.post('/bots', async (req, res) => {
       token,
       clientId,
       prefix,
-      status: status || 'online',
+      status: status || 'offline',
       description,
       avatar
     });
@@ -295,7 +295,7 @@ router.get('/marketplace', async (req, res) => {
       search: search || '',
       sort: sort || 'recommended'
     });
-    res.json({ success: true, count: products.length, total: 128, products });
+    res.json({ success: true, count: products.length, total: products.length, products });
   } catch (err) {
     console.error('[Discord API] Marketplace products error:', err);
     res.status(500).json({ error: 'Failed to retrieve marketplace products' });
@@ -316,15 +316,8 @@ router.get('/marketplace/:id', async (req, res) => {
 });
 
 router.post('/marketplace/:id/install', async (req, res) => {
-  try {
-    const userId = getAuthUserId(req);
-    const { serverId } = req.body || {};
-    const result = await DiscordDB.installMarketplaceProduct(userId, req.params.id, serverId);
-    res.json(result);
-  } catch (err) {
-    console.error('[Discord API] Install marketplace product error:', err);
-    res.status(500).json({ error: err.message || 'Failed to install product' });
-  }
+  getAuthUserId(req);
+  res.status(503).json({ error: 'Marketplace activation is unavailable because no deployment provider is configured.' });
 });
 
 // ==========================================
@@ -353,17 +346,6 @@ router.get('/workspace/services/:id', async (req, res) => {
   } catch (err) {
     console.error('[Discord API] Get workspace service error:', err);
     res.status(500).json({ error: 'Failed to retrieve workspace service' });
-  }
-});
-
-router.post('/workspace/services', async (req, res) => {
-  try {
-    const userId = getAuthUserId(req);
-    const service = await DiscordDB.activateWorkspaceService(userId, req.body || {});
-    res.status(201).json({ success: true, service });
-  } catch (err) {
-    console.error('[Discord API] Activate workspace service error:', err);
-    res.status(500).json({ error: err.message || 'Failed to activate service' });
   }
 });
 
@@ -412,4 +394,3 @@ router.post('/workspace/refresh', async (req, res) => {
 });
 
 export default router;
-

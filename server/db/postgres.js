@@ -1,5 +1,6 @@
 import pg from 'pg';
 import { signupIdentitySchema } from './signupIdentitySchema.js';
+import { ensureDiscordSchema } from '../discord/discordSchema.js';
 const { Pool } = pg;
 
 // PostgreSQL Connection Pool Configuration
@@ -945,82 +946,8 @@ export async function initPgSchema() {
         device_info VARCHAR(128)
       );
 
-      -- 6. DISCORD BOT & COMMUNITY MANAGEMENT TABLES
-      CREATE TABLE IF NOT EXISTS discord_bots (
-        id VARCHAR(64) PRIMARY KEY,
-        user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
-        name VARCHAR(255) NOT NULL,
-        token TEXT,
-        client_id VARCHAR(128),
-        avatar TEXT,
-        prefix VARCHAR(16) DEFAULT '!',
-        status VARCHAR(32) DEFAULT 'online',
-        description TEXT,
-        commands_today INTEGER DEFAULT 0,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE INDEX IF NOT EXISTS idx_discord_bots_user ON discord_bots(user_id);
-
-      CREATE TABLE IF NOT EXISTS discord_servers (
-        id VARCHAR(64) PRIMARY KEY,
-        user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
-        name VARCHAR(255) NOT NULL,
-        icon TEXT,
-        member_count INTEGER DEFAULT 0,
-        guild_id VARCHAR(128),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE INDEX IF NOT EXISTS idx_discord_servers_user ON discord_servers(user_id);
-
-      CREATE TABLE IF NOT EXISTS discord_bot_servers (
-        id VARCHAR(64) PRIMARY KEY,
-        bot_id VARCHAR(64) NOT NULL REFERENCES discord_bots(id) ON DELETE CASCADE,
-        server_id VARCHAR(64) NOT NULL REFERENCES discord_servers(id) ON DELETE CASCADE,
-        added_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(bot_id, server_id)
-      );
-
-      CREATE TABLE IF NOT EXISTS discord_activities (
-        id VARCHAR(64) PRIMARY KEY,
-        user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
-        bot_id VARCHAR(64),
-        server_id VARCHAR(64),
-        title VARCHAR(255) NOT NULL,
-        description TEXT,
-        action_type VARCHAR(64) DEFAULT 'general',
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE INDEX IF NOT EXISTS idx_discord_activities_user ON discord_activities(user_id, created_at DESC);
-
-      CREATE TABLE IF NOT EXISTS discord_automations (
-        id VARCHAR(64) PRIMARY KEY,
-        user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
-        bot_id VARCHAR(64),
-        server_id VARCHAR(64),
-        type VARCHAR(64) NOT NULL,
-        title VARCHAR(255) NOT NULL,
-        description TEXT,
-        config JSONB DEFAULT '{}'::jsonb,
-        enabled BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE INDEX IF NOT EXISTS idx_discord_automations_user ON discord_automations(user_id);
-
-      CREATE TABLE IF NOT EXISTS discord_tickets (
-        id VARCHAR(64) PRIMARY KEY,
-        user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
-        server_id VARCHAR(64),
-        channel_name VARCHAR(255),
-        author_name VARCHAR(255),
-        subject VARCHAR(255),
-        status VARCHAR(32) DEFAULT 'open',
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE INDEX IF NOT EXISTS idx_discord_tickets_user ON discord_tickets(user_id);
     `);
+    await ensureDiscordSchema(p);
     await p.query(signupIdentitySchema);
     await p.query('DELETE FROM system_security_rate_limits WHERE expires_at <= CURRENT_TIMESTAMP');
     console.log('✅ Enterprise PostgreSQL Multi-Domain Schema Verified & Provisioned.');

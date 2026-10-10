@@ -2,7 +2,6 @@ import React from 'react';
 import { Search, Bell, Menu, HelpCircle, ChevronDown, Bot } from 'lucide-react';
 
 export default function DiscordHeader({
-  breadcrumbs = ['Discord Console', 'Overview'],
   searchQuery,
   onSearchChange,
   currentUser,
@@ -10,7 +9,8 @@ export default function DiscordHeader({
   onNavigateHome
 }) {
   const getInitials = () => {
-    const name = currentUser?.name || currentUser?.storeName || 'Alex Morgan';
+    const name = currentUser?.name || currentUser?.storeName || currentUser?.email || '';
+    if (!name.trim()) return '?';
     const parts = name.trim().split(' ');
     if (parts.length >= 2) {
       return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
@@ -18,8 +18,8 @@ export default function DiscordHeader({
     return name.slice(0, 2).toUpperCase();
   };
 
-  const displayName = currentUser?.name || currentUser?.storeName || 'Alex Morgan';
-  const displayEmail = currentUser?.email || 'admin@tiwlo.internal';
+  const displayName = currentUser?.name || currentUser?.storeName || 'Account';
+  const displayEmail = currentUser?.email || '';
 
   return (
     <header className="h-16 border-b border-[#E0E2EC] bg-white px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20 font-sans select-none">
@@ -89,13 +89,12 @@ export default function DiscordHeader({
           title="Notifications"
         >
           <Bell className="w-4 h-4" />
-          <span className="w-2 h-2 rounded-full bg-[#0B57D0] absolute top-2 right-2" />
         </button>
 
         {/* User Avatar Circle */}
         <div
           className="w-8 h-8 rounded-full bg-[#0B57D0] text-white text-[12px] font-medium flex items-center justify-center shrink-0 ml-1.5 cursor-pointer ring-2 ring-transparent hover:ring-[#C2E7FF]"
-          title={`${displayName} (${displayEmail})`}
+          title={displayEmail ? `${displayName} (${displayEmail})` : displayName}
         >
           {getInitials()}
         </div>

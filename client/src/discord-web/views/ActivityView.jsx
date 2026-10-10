@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Clock, MessageSquare, BarChart2, RotateCw, Filter, CheckCircle2, Search } from 'lucide-react';
+import { ArrowLeft, RotateCw, Search } from 'lucide-react';
 import { DiscordAPI } from '../api/discordApi';
 
 export default function ActivityView({ onNavigate }) {
@@ -95,7 +95,7 @@ export default function ActivityView({ onNavigate }) {
                 <th className="py-3 px-6">Timestamp</th>
                 <th className="py-3 px-6">Activity Event</th>
                 <th className="py-3 px-6">Context / Details</th>
-                <th className="py-3 px-6 text-right pr-6">Status</th>
+                <th className="py-3 px-6 text-right pr-6">Event Type</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E0E2EC]/60">
@@ -116,19 +116,16 @@ export default function ActivityView({ onNavigate }) {
                 filtered.map((act) => (
                   <tr key={act.id} className="hover:bg-[#F0F4F9]/40 transition-colors">
                     <td className="py-3.5 px-6 font-mono text-[12px] text-[#747775] whitespace-nowrap">
-                      {act.createdAt ? new Date(act.createdAt).toLocaleString() : 'Just now'}
+                      {act.createdAt ? new Date(act.createdAt).toLocaleString() : '—'}
                     </td>
                     <td className="py-3.5 px-6 font-medium text-[#1F1F1F]">
                       {act.title || act.action}
                     </td>
                     <td className="py-3.5 px-6 text-[#444746] text-[12px]">
-                      {act.description || act.serverName || 'System event'}
+                      {act.description || act.serverName || '—'}
                     </td>
                     <td className="py-3.5 px-6 text-right pr-6">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium bg-[#C4EED0] text-[#072711]">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-[#137333]" />
-                        <span>Completed</span>
-                      </span>
+                      <span className="text-[11px] text-[#747775]">{act.actionType || '—'}</span>
                     </td>
                   </tr>
                 ))

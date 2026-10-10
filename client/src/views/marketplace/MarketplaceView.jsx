@@ -7,24 +7,16 @@ import {
   MessageSquare,
   BarChart2,
   TrendingUp,
-  Users,
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
   CheckCircle2,
-  Filter,
-  Download,
   RotateCw,
-  Sparkles,
-  ExternalLink,
   Layers,
-  SlidersHorizontal,
   Bot
 } from 'lucide-react';
 import { WorkspaceAPI } from '../../api/workspaceApi';
 
 export default function MarketplaceView({ onNavigate }) {
   const [products, setProducts] = useState([]);
+  const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
@@ -45,6 +37,7 @@ export default function MarketplaceView({ onNavigate }) {
   const loadProducts = async (isManual = false) => {
     if (isManual) setRefreshing(true);
     else setLoading(true);
+    setLoadError('');
 
     try {
       const allCatalog = await WorkspaceAPI.getMarketplaceCatalog();
@@ -57,8 +50,8 @@ export default function MarketplaceView({ onNavigate }) {
       // Filter by pricing
       if (pricing !== 'all') {
         list = list.filter((p) => {
-          if (pricing === 'free') return p.price === 'Free' || p.price === 0 || p.pricingModel === 'Free';
-          if (pricing === 'paid') return p.price !== 'Free' && p.price !== 0;
+          if (pricing === 'free') return ['free', 'freemium'].includes(String(p.pricingType || '').toLowerCase());
+          if (pricing === 'paid') return String(p.pricingType || '').toLowerCase() === 'paid';
           return true;
         });
       }
@@ -91,7 +84,7 @@ export default function MarketplaceView({ onNavigate }) {
 
       setProducts(list);
     } catch (e) {
-      console.warn('Could not load marketplace products:', e);
+      setLoadError(e.message || 'Could not load Marketplace products.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -246,10 +239,12 @@ export default function MarketplaceView({ onNavigate }) {
           <RotateCw className="w-6 h-6 text-[#0B57D0] animate-spin mx-auto mb-3" />
           <p className="text-[13px] text-[#444746]">Loading Marketplace solutions...</p>
         </div>
+      ) : loadError ? (
+        <div className="bg-white border border-[#E0E2EC] rounded-2xl p-16 text-center text-[13px] text-[#B3261E]">{loadError}</div>
       ) : products.length === 0 ? (
         <div className="bg-white border border-[#E0E2EC] rounded-2xl p-16 text-center">
           <Bot className="w-12 h-12 text-[#C4C7C5] mx-auto mb-3" />
-          <h3 className="text-base font-medium text-[#1F1F1F]">No solutions match your search</h3>
+          <h3 className="text-base font-medium text-[#1F1F1F]">{search || category !== 'all' || pricing !== 'all' ? 'No solutions match your filters' : 'No published Marketplace products'}</h3>
           <p className="text-[13px] text-[#444746] mt-1 max-w-md mx-auto">
             Try adjusting your query or resetting filters to browse all verified extensions.
           </p>
@@ -275,13 +270,15 @@ export default function MarketplaceView({ onNavigate }) {
               <div>
                 {/* Header: Icon, Name, Provider */}
                 <div className="flex items-start gap-4 mb-3.5">
-                  {renderProductIcon(product.icon || product.category)}
+                  {product.logoUrl ? (
+                    <img src={product.logoUrl} alt="" className="w-12 h-12 rounded-2xl object-contain shrink-0" />
+                  ) : renderProductIcon(product.iconType || product.category)}
                   <div className="flex-1 min-w-0">
                     <h3 className="text-[15px] font-medium text-[#1F1F1F] group-hover:text-[#0B57D0] transition-colors truncate">
                       {product.name}
                     </h3>
                     <p className="text-[12px] text-[#444746] truncate mt-0.5">
-                      by {product.developer || 'Tiwlo Ecosystem'}
+                      by {product.developer || 'Publisher not specified'}
                     </p>
                   </div>
                   {product.verified && (
@@ -300,17 +297,13 @@ export default function MarketplaceView({ onNavigate }) {
               {/* Footer: Rating, Installs, Price & CTA */}
               <div className="border-t border-[#F1F3F8] pt-3.5 flex items-center justify-between text-[12px]">
                 <div className="flex items-center gap-3 text-[#444746]">
-                  <div className="flex items-center gap-1 font-medium text-[#1F1F1F]">
-                    <Star className="w-3.5 h-3.5 fill-[#F29900] text-[#F29900]" />
-                    <span>{product.rating ? Number(product.rating).toFixed(1) : '5.0'}</span>
-                  </div>
-                  <span>•</span>
-                  <span>{(product.installCount || 100).toLocaleString()} installs</span>
+                  {product.rating != null && <span className="flex items-center gap-1 font-medium text-[#1F1F1F]"><Star className="w-3.5 h-3.5 fill-[#F29900] text-[#F29900]" />{Number(product.rating).toFixed(1)}</span>}
+                  {product.installCount != null && <span>{Number(product.installCount).toLocaleString()} installs</span>}
                 </div>
 
                 <div className="flex items-center gap-2">
                   <span className={`font-semibold ${product.price === 'Free' ? 'text-[#072711]' : 'text-[#1F1F1F]'}`}>
-                    {product.price || 'Free'}
+                    {product.price || 'Pricing not specified'}
                   </span>
                   <ArrowRight className="w-4 h-4 text-[#444746] group-hover:text-[#0B57D0] group-hover:translate-x-0.5 transition-all" />
                 </div>

@@ -162,14 +162,6 @@ export const DiscordAPI = {
     return res.product;
   },
 
-  async installMarketplaceProduct(id, serverId) {
-    return request(`/marketplace/${encodeURIComponent(id)}/install`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ serverId })
-    });
-  },
-
   // Workspace
   async getWorkspace(params = {}) {
     const searchParams = new URLSearchParams();
@@ -177,20 +169,12 @@ export const DiscordAPI = {
     if (params.filter) searchParams.set('filter', params.filter);
     const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
     const res = await request(`/workspace${query}`);
-    return res.workspace || { services: [], operations: [], totalServices: 0, connectedServersCount: 0, allServicesHealthy: true };
+    return res.workspace || { services: [], operations: [], totalServices: 0, connectedServersCount: 0, allServicesHealthy: null };
   },
 
   async getWorkspaceServiceById(id) {
     const res = await request(`/workspace/services/${encodeURIComponent(id)}`);
     return res.service;
-  },
-
-  async activateWorkspaceService(payload) {
-    return request('/workspace/services', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
   },
 
   async updateWorkspaceService(id, payload) {
@@ -217,4 +201,3 @@ export const DiscordAPI = {
     return res.workspace;
   }
 };
-

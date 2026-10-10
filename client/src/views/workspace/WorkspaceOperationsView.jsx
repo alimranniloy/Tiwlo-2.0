@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
-  CheckCircle2,
   Search,
   Filter,
   RotateCw,
   Activity,
-  Layers
 } from 'lucide-react';
 import { WorkspaceAPI } from '../../api/workspaceApi';
 
-export default function WorkspaceOperationsView({ onBack, onNavigate }) {
+export default function WorkspaceOperationsView({ onBack }) {
   const [operations, setOperations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -136,13 +134,12 @@ export default function WorkspaceOperationsView({ onBack, onNavigate }) {
                       <span className="font-medium text-[#0B57D0]">{op.serviceName || op.targetService}</span>
                     </td>
                     <td className="py-3.5 px-5">
-                      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#072711] bg-[#C4EED0] px-3 py-1 rounded-full">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-[#137333]" />
-                        <span>{op.result || op.status || 'Success'}</span>
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#444746] bg-[#F0F4F9] px-3 py-1 rounded-full">
+                        <span>{op.result || op.status || '—'}</span>
                       </span>
                     </td>
                     <td className="py-3.5 px-5 text-[#747775] text-[12px] font-mono text-right pr-6">
-                      {op.timeAgo || op.timestamp || 'Just now'}
+                      {op.createdAt ? new Date(op.createdAt).toLocaleString() : '—'}
                     </td>
                   </tr>
                 ))

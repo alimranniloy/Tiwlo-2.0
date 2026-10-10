@@ -3,14 +3,10 @@ import {
   Plus,
   Search,
   Bot,
-  ArrowRight,
-  ArrowLeft,
-  RotateCw,
-  Filter,
-  CheckCircle2
+  ArrowLeft
 } from 'lucide-react';
 
-export default function BotsView({ bots = [], onNavigate, onReload }) {
+export default function BotsView({ bots = [], onNavigate }) {
   const [search, setSearch] = useState('');
 
   const filteredBots = bots.filter((b) => {
@@ -118,7 +114,7 @@ export default function BotsView({ bots = [], onNavigate, onReload }) {
                             {bot.name}
                           </button>
                           <div className="text-[11px] text-[#747775] mt-0.5 max-w-xs truncate">
-                            {bot.description || 'Configured via Tiwlo Cloud'}
+                            {bot.description || '—'}
                           </div>
                         </div>
                       </div>
@@ -131,20 +127,20 @@ export default function BotsView({ bots = [], onNavigate, onReload }) {
 
                     {/* Status */}
                     <td className="py-3.5 px-6 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium bg-[#C4EED0] text-[#072711]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#137333]" />
-                        <span>{bot.status || 'Online'}</span>
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium ${bot.status === 'online' ? 'bg-[#C4EED0] text-[#072711]' : 'bg-[#F0F4F9] text-[#444746]'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${bot.status === 'online' ? 'bg-[#137333]' : 'bg-[#747775]'}`} />
+                        <span>{bot.status || 'Status unavailable'}</span>
                       </span>
                     </td>
 
                     {/* Servers */}
                     <td className="py-3.5 px-6 text-[#444746]">
-                      {(bot.servers || []).length || 1} servers
+                      {bot.serversCount ?? (bot.servers || []).length} servers
                     </td>
 
                     {/* Throughput */}
                     <td className="py-3.5 px-6 text-[#747775] text-[12px]">
-                      {(bot.commandsRun || 142).toLocaleString()} commands
+                      {(bot.commandsToday ?? 0).toLocaleString()} commands today
                     </td>
 
                     {/* Action */}
