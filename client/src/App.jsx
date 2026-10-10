@@ -231,6 +231,7 @@ export default function App() {
 
         if (pathname === 'ecommerce' || pathname === 'store-dashboard' || pathname === 'ecommerce-dashboard') return 'ecommerce-dashboard';
         if (pathname === 'cloud' || pathname === 'dashboard') return 'dashboard';
+        if (pathname === 'domains') return 'domains';
         if (pathname === 'store') return 'store';
         if (pathname === 'pos') return 'pos';
         if (pathname === 'subscription' || pathname === 'storage') return 'subscription';
@@ -1438,10 +1439,10 @@ export default function App() {
           showToast={showToast}
           onBackToApp={() => handleTabChange('dashboard')}
         />
-      ) : (activeTab === 'dashboard' || activeTab === 'workspace' || activeTab.startsWith('workspace') || activeTab === 'marketplace' || activeTab.startsWith('marketplace') || activeTab === 'whatsapp-automation' || activeTab.startsWith('whatsapp-automation')) ? (
+      ) : (activeTab === 'dashboard' || activeTab === 'domains' || activeTab === 'workspace' || activeTab.startsWith('workspace') || activeTab === 'marketplace' || activeTab.startsWith('marketplace') || activeTab === 'whatsapp-automation' || activeTab.startsWith('whatsapp-automation')) ? (
         <CloudDashboard
           currentUser={currentUser}
-          initialNav={activeTab.startsWith('workspace') ? activeTab : activeTab.startsWith('marketplace') ? activeTab : activeTab.startsWith('whatsapp-automation') ? 'whatsapp-automation' : 'dashboard'}
+          initialNav={activeTab === 'domains' ? 'domains' : activeTab.startsWith('workspace') ? activeTab : activeTab.startsWith('marketplace') ? activeTab : activeTab.startsWith('whatsapp-automation') ? 'whatsapp-automation' : 'dashboard'}
           onLogout={handleLogout}
           onOpenStoreDashboard={() => handleTabChange('ecommerce-dashboard')}
           onNavigateTab={handleTabChange}

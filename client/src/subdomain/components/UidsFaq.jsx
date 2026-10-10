@@ -14,20 +14,20 @@ export default function UidsFaq() {
       a: 'Yes! You can claim, configure, and route your personal or project subdomain completely free forever with zero credit card required. Includes 20MB of high-speed static hosting and automated wildcard SSL.'
     },
     {
-      q: 'Can I connect my GitHub Pages or Vercel projects?',
-      a: 'Yes. In our in-page DNS console, choose GitHub Pages or Vercel, and we will automatically map the appropriate CNAME records so your deployments point directly to your clean uids.app domain.'
+      q: 'Can I manage DNS records?',
+      a: 'Yes. After registration, open Domains in your Tiwlo dashboard to manage A, CNAME, and TXT records.'
     },
     {
       q: 'Does every subdomain get an automatic SSL certificate?',
-      a: 'Yes. Our global Anycast edge automatically provisions and auto-renews TLS/SSL certificates for all registered subdomains, ensuring your site is always loaded securely via HTTPS.'
+      a: 'The uids.app service manages the platform domain and renews its certificates. User records are managed from the dashboard.'
     },
     {
       q: 'Can I point custom A or TXT records to a custom VPS or server?',
-      a: 'Yes. You can specify any IPv4 address for an A record or add custom TXT verification records to prove ownership of external services.'
+      a: 'Yes. A, CNAME, and TXT records can be added from the Domains page after you register a name.'
     },
     {
-      q: 'What is included in the Paid / Pro Plan?',
-      a: 'The Paid Plan unlocks Node.js backend execution, higher storage space, priority Anycast routing, custom root domain mapping, and 24/7 priority support.'
+      q: 'Does a free subdomain expire?',
+      a: 'No. Registered free subdomains do not have an expiry date. Platform safety and abuse policies still apply.'
     }
   ];
 

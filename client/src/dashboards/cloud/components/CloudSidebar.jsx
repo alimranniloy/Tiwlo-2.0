@@ -5,6 +5,7 @@ import {
   ShoppingBag,
   Server,
   Network,
+  Globe2,
   Shield,
   HelpCircle,
   Activity,
@@ -149,6 +150,16 @@ export default function CloudSidebar({
               <ShoppingBag className="w-4 h-4" />
             </div>
             <span className="truncate">Marketplace</span>
+          </button>
+
+          <button
+            onClick={() => handleNavSelect('domains')}
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-full transition cursor-pointer group ${
+              activeNav === 'domains' ? 'bg-[#C2E7FF] text-[#001D35] font-semibold' : 'text-[#444746] hover:bg-[#F0F4F9]'
+            }`}
+          >
+            <Globe2 className="h-4 w-4" />
+            <span>Domains</span>
           </button>
 
           {/* Dedicated Category: "My Online Store" (Opens separate full page with Apple iOS aesthetic) */}

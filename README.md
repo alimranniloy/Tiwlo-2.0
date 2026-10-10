@@ -35,6 +35,28 @@ Tenant store records and the store registry persist under `server/data/db/stores
 
 ### Shared domain and DNS configuration
 
+### Fresh Ubuntu 24 one-command setup
+
+On a fresh Ubuntu 24.04 host, clone the repository and run the safe dry-run:
+
+```bash
+git clone https://github.com/alimranniloy/Tiwlo-2.0.git /opt/tiwlo && cd /opt/tiwlo && sudo bash ops/ubuntu24/bootstrap.sh --dry-run
+```
+
+After reviewing the commands, apply with an explicit administrator SSH
+allowlist. The script installs Node.js, PM2, PostgreSQL, Redis, Nginx,
+Certbot, Postfix prerequisites, nftables, Fail2ban, auditd, AppArmor and
+application dependencies:
+
+```bash
+cd /opt/tiwlo && sudo SSH_ALLOWLIST_CIDRS="YOUR_ADMIN_IP/32" bash ops/ubuntu24/bootstrap.sh --apply
+```
+
+Create `/opt/tiwlo/.env` from `.env.example` before the apply step. DNS
+registrar changes, TLS issuance and SMTP delivery still require valid DNS
+records and provider credentials; the installer refuses to invent secrets or
+claim those services are healthy without configuration.
+
 Copy the repository-root `.env.example` to `.env` before starting the web client or backend. The root `.env` is the single source for the website domain, default store-domain suffix, server IPv4, auth/TPanel/DNS/mail subdomains, platform email addresses, DNS record policies, TTLs, and server-only integration credentials. The server loads it at runtime, and the Vite client reads only its public `VITE_` values during development/build. Never put passwords, provider secrets, or API keys in `VITE_` variables. Keep `.env` out of Git; production servers need their own root `.env` with the same settings. Docker deployment also needs its separate `docker/.env.production` for database credentials.
 
 Free stores use `<store-name>.<VITE_STORE_DOMAIN>`; leave `VITE_STORE_DOMAIN` blank to follow `VITE_PRIMARY_DOMAIN`. `VITE_FREE_SUBDOMAIN_DOMAIN` is reserved separately for the future user Domain Service (currently `uids.app`) and is not used by store routing or provisioning. Add future platform domains as a comma-separated `VITE_MANAGED_DOMAINS` value; authoritative DNS and generated SSL/Nginx host lists read this registry automatically. SMTP settings use `SMTP_*`; Gemini uses `GEMINI_API_KEY`; Stripe, PayPal, bKash, Nagad, and SSLCommerz use their corresponding server-only `*_KEY`, `*_SECRET`, or provider-prefixed variables. Email transport settings are read from `.env`; there is no separate email JSON file or admin API write path. Editable platform settings are stored in PostgreSQL. These payment entries are placeholders only; checkout and webhook integrations are not implemented. Generate unique values for the application signing secrets before production use. After changing a domain, rebuild the web client and restart the server. Update registrar DNS/glue records and provision matching SSL certificates separately; an application `.env` cannot change external registrar records by itself.

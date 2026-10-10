@@ -21,6 +21,11 @@ import { tenantContext } from './db/storeDataAdapter.js';
 import { createGraphQLMiddleware } from './graphql/index.js';
 import { createApplicationGraphQL, protectAsyncRouter } from './graphql/applicationApi.js';
 import { InputSanitizer } from './security/cryptoSecurity.js';
+import {
+  getRateLimitStore,
+  initializeOptionalSecurity,
+  optionalSecurityMiddleware
+} from './security/optionalSecurity.js';
 
 // Modular Feature Routers
 import cloudRoutes from './routes/cloudRoutes.js';
@@ -61,6 +66,8 @@ const app = express();
 configureTrustedProxy(app);
 const PORT = process.env.PORT || 5000;
 const HTTP_PORT = Number.parseInt(process.env.HTTP_PORT || String(Number(PORT) + 1), 10);
+await initializeOptionalSecurity();
+const apiRateLimitStore = getRateLimitStore('tiwlo:api');
 
 // ==========================================
 // 1. ENTERPRISE SECURITY HEADERS (HELMET)
@@ -95,6 +102,7 @@ app.use(helmet({
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 3000,
+  ...(apiRateLimitStore ? { store: apiRateLimitStore } : {}),
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Security firewall rate limit reached. Please try again shortly.' }
@@ -221,6 +229,10 @@ app.use(async (req, res, next) => {
 app.use((req, res, next) => {
   tenantContext.run({ tiwiId: req.activeUser?.tiwiId || req.activeUser?.storeId || null }, next);
 });
+
+// Run optional WAF/bot enforcement after session resolution so repeated
+// authenticated abuse can trigger the existing account-disable policy.
+app.use(optionalSecurityMiddleware);
 
 // Enterprise GraphQL Endpoint
 app.use('/graphql', createGraphQLMiddleware());

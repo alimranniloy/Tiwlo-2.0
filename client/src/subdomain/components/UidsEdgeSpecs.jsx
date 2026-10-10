@@ -8,38 +8,38 @@ import { ShieldCheck, Zap, Server, Lock, Cpu, RefreshCw } from 'lucide-react';
 export default function UidsEdgeSpecs() {
   const specs = [
     {
-      title: 'Automated Edge SSL',
-      desc: 'Instant wildcard TLS certificates issued and renewed with zero manual setup.',
+      title: 'Managed HTTPS',
+      desc: 'The platform keeps the uids.app service available over HTTPS.',
       icon: <Lock className="w-4 h-4 text-emerald-600" />,
       bg: 'bg-emerald-50'
     },
     {
-      title: 'Global Anycast DNS',
-      desc: '200+ edge POPs ensuring ultra-fast sub-50ms DNS resolution latencies.',
+      title: 'Authoritative DNS',
+      desc: 'Tiwlo serves the authoritative DNS for the uids.app service.',
       icon: <Zap className="w-4 h-4 text-amber-600" />,
       bg: 'bg-amber-50'
     },
     {
-      title: 'DDoS & L7 Defense',
-      desc: 'Automatic protection against volumetric floods and traffic spikes.',
+      title: 'Account Control',
+      desc: 'Your domains and records are managed from your authenticated dashboard.',
       icon: <ShieldCheck className="w-4 h-4 text-blue-600" />,
       bg: 'bg-blue-50'
     },
     {
-      title: 'Instant DNS Sync',
-      desc: 'CNAME, A, and TXT updates propagate across global resolvers in seconds.',
+      title: 'DNS Records',
+      desc: 'Add A, CNAME, and TXT records for your registered domain.',
       icon: <RefreshCw className="w-4 h-4 text-indigo-600" />,
       bg: 'bg-indigo-50'
     },
     {
-      title: 'Custom Host Routing',
-      desc: 'Point to Vercel, Netlify, GitHub Pages, Render, or custom VPS IPs.',
+      title: 'No Expiry',
+      desc: 'Free registered subdomains do not expire.',
       icon: <Server className="w-4 h-4 text-purple-600" />,
       bg: 'bg-purple-50'
     },
     {
-      title: 'Developer REST API',
-      desc: 'Automate subdomain registration and record updates programmatically.',
+      title: 'Simple Management',
+      desc: 'A focused interface for checking, registering, and managing names.',
       icon: <Cpu className="w-4 h-4 text-slate-800" />,
       bg: 'bg-slate-100'
     }

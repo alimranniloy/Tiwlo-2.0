@@ -5,6 +5,7 @@ import { getPgPool, isPgActive, queryPg } from './postgres.js';
 import { PasswordSecurity, SessionSecurity } from '../security/cryptoSecurity.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { recordSecurityEvent } from './securityPersistence.js';
+import { getDeviceIdentitySignals } from '../security/deviceIdentity.js';
 
 const TENANT_ARRAY_FIELDS = ['products', 'categories', 'subcategories', 'customers', 'suppliers', 'purchases', 'sales', 'inventory_adjustments', 'activities'];
 function validateTenantStore(store, storeId) {
@@ -412,6 +413,30 @@ export const MasterDB = {
         fingerprint,
         expiresAt
     ]);
+    if (req) {
+      const identity = getDeviceIdentitySignals(req, userId);
+      await queryPg(
+        `INSERT INTO system_user_device_identities
+          (user_id, identity_hash, device_hash, ip_hash, user_agent_hash, client_hints_hash, platform_class)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (user_id, identity_hash) DO UPDATE SET
+           device_hash = EXCLUDED.device_hash,
+           ip_hash = EXCLUDED.ip_hash,
+           client_hints_hash = EXCLUDED.client_hints_hash,
+           platform_class = EXCLUDED.platform_class,
+           last_seen_at = CURRENT_TIMESTAMP,
+           login_count = system_user_device_identities.login_count + 1`,
+        [
+          identity.userId,
+          identity.identityHash,
+          identity.deviceHash,
+          identity.ipHash,
+          identity.userAgentHash,
+          identity.clientHintsHash,
+          identity.platformClass
+        ]
+      );
+    }
     try {
         await recordSecurityEvent({
           eventType: 'auth.session_created',

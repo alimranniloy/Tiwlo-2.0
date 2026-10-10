@@ -13,7 +13,9 @@
     "docker:down": "docker-compose -f docker/docker-compose.yml down",
     "docker:db": "docker-compose -f docker/docker-compose.yml up -d postgres pgadmin",
     "install:all": "npm install && npm --prefix server install && npm --prefix client install",
-    "deploy:production": "bash ./deploy-production.sh"
+    "deploy:production": "bash ./deploy-production.sh",
+    "setup:ubuntu": "bash ./ops/ubuntu24/bootstrap.sh --dry-run",
+    "setup:ubuntu:apply": "sudo bash ./ops/ubuntu24/bootstrap.sh --apply"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

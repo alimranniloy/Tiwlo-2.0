@@ -29,6 +29,8 @@
     "nsfwjs": "^4.3.0",
     "pg": "^8.23.0",
     "qrcode": "^1.5.4",
+    "rate-limit-redis": "^6.0.1",
+    "redis": "^6.3.0",
     "sanitize-html": "^2.18.0",
     "selfsigned": "^5.5.0",
     "sharp": "^0.35.5",

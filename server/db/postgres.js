@@ -84,6 +84,8 @@ export async function initPgSchema() {
       ALTER TABLE system_users ADD COLUMN IF NOT EXISTS postal_code VARCHAR(32);
       ALTER TABLE system_users ADD COLUMN IF NOT EXISTS account_type VARCHAR(32) DEFAULT 'personal';
       ALTER TABLE system_users ADD COLUMN IF NOT EXISTS business_name VARCHAR(255);
+      ALTER TABLE system_users ADD COLUMN IF NOT EXISTS free_subdomain_claimed_at TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE system_users ADD COLUMN IF NOT EXISTS free_subdomain_id VARCHAR(64);
       CREATE UNIQUE INDEX IF NOT EXISTS idx_users_tiwi_id_unique ON system_users(tiwi_id) WHERE tiwi_id IS NOT NULL;
 
       CREATE TABLE IF NOT EXISTS system_sessions (
@@ -105,6 +107,25 @@ export async function initPgSchema() {
       ALTER TABLE system_sessions ADD COLUMN IF NOT EXISTS device_fingerprint VARCHAR(128);
       ALTER TABLE system_sessions ADD COLUMN IF NOT EXISTS user_agent TEXT;
       CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_session_token_unique ON system_sessions(session_token);
+
+      CREATE TABLE IF NOT EXISTS system_user_device_identities (
+        id BIGSERIAL PRIMARY KEY,
+        user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
+        identity_hash CHAR(64) NOT NULL,
+        device_hash CHAR(64),
+        ip_hash CHAR(64) NOT NULL,
+        user_agent_hash CHAR(64) NOT NULL,
+        client_hints_hash CHAR(64),
+        platform_class VARCHAR(32) NOT NULL DEFAULT 'unknown',
+        first_seen_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_seen_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        login_count INTEGER NOT NULL DEFAULT 1,
+        UNIQUE (user_id, identity_hash)
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_device_identities_identity
+        ON system_user_device_identities(identity_hash);
+      CREATE INDEX IF NOT EXISTS idx_user_device_identities_ip
+        ON system_user_device_identities(ip_hash, last_seen_at DESC);
 
       CREATE TABLE IF NOT EXISTS system_otp_challenges (
         token_hash CHAR(64) PRIMARY KEY,
@@ -376,6 +397,45 @@ export async function initPgSchema() {
         ON system_free_subdomains(user_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_free_subdomains_status
         ON system_free_subdomains(status);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_free_subdomains_one_per_user
+        ON system_free_subdomains(user_id);
+      UPDATE system_users u
+      SET free_subdomain_claimed_at = COALESCE(u.free_subdomain_claimed_at, d.created_at),
+          free_subdomain_id = COALESCE(u.free_subdomain_id, d.id)
+      FROM system_free_subdomains d
+      WHERE d.user_id = u.id
+        AND d.status = 'active'
+        AND u.free_subdomain_claimed_at IS NULL;
+      CREATE TABLE IF NOT EXISTS system_free_subdomain_records (
+        id VARCHAR(64) PRIMARY KEY,
+        subdomain_id VARCHAR(64) NOT NULL REFERENCES system_free_subdomains(id) ON DELETE CASCADE,
+        type VARCHAR(8) NOT NULL CHECK (type IN ('A', 'CNAME', 'TXT')),
+        name VARCHAR(253) NOT NULL,
+        value TEXT NOT NULL,
+        ttl INTEGER NOT NULL DEFAULT 300 CHECK (ttl BETWEEN 60 AND 86400),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (subdomain_id, type, name)
+      );
+      CREATE INDEX IF NOT EXISTS idx_free_subdomain_records_domain
+        ON system_free_subdomain_records(subdomain_id);
+
+      CREATE TABLE IF NOT EXISTS system_free_subdomain_claim_attempts (
+        id BIGSERIAL PRIMARY KEY,
+        user_id VARCHAR(64) REFERENCES system_users(id) ON DELETE SET NULL,
+        subdomain VARCHAR(63) NOT NULL,
+        ip_hash CHAR(64) NOT NULL,
+        device_hash CHAR(64),
+        email_hash CHAR(64),
+        outcome VARCHAR(32) NOT NULL,
+        reason VARCHAR(128),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_free_claim_attempts_ip
+        ON system_free_subdomain_claim_attempts(ip_hash, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_free_claim_attempts_device
+        ON system_free_subdomain_claim_attempts(device_hash, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_free_claim_attempts_user
+        ON system_free_subdomain_claim_attempts(user_id, created_at DESC);
 
       -- 2. TIWI SOCIAL ECOSYSTEM TABLES
       CREATE TABLE IF NOT EXISTS social_profiles (

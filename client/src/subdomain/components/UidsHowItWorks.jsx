@@ -16,15 +16,15 @@ export default function UidsHowItWorks({ onGetStarted }) {
     },
     {
       num: '02',
-      title: 'Connect or Upload',
-      desc: 'Route to Vercel, GitHub Pages, or use built-in 20MB edge static storage.',
+      title: 'Manage DNS',
+      desc: 'Open Domains in your dashboard to add A, CNAME, or TXT records.',
       icon: <Globe2 className="w-4 h-4 text-blue-600" />,
       tag: 'Zero-Config'
     },
     {
       num: '03',
-      title: 'Broadcast Globally',
-      desc: 'Live on Anycast edge with automated wildcard SSL in under 60 seconds.',
+      title: 'Keep it forever',
+      desc: 'Your free subdomain has no expiry date and stays available in your account.',
       icon: <Rocket className="w-4 h-4 text-purple-600" />,
       tag: 'Global Edge'
     }

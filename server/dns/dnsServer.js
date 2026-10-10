@@ -18,6 +18,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { PLATFORM_CONFIG, getSubdomain } from '../config/platformConfig.js';
+import { isPgActive, queryPg, testPgConnection } from '../db/postgres.js';
 
 const { Packet } = dns2;
 
@@ -28,7 +29,11 @@ const __dirname = path.dirname(__filename);
 // CONFIGURATION & CONSTANTS
 // ==========================================
 export const DNS_CONFIG = {
-  PRIMARY_IP: PLATFORM_CONFIG.serverIpv4,
+  // Keep the origin private when traffic is served through an edge. These
+  // addresses must be explicitly configured; never fall back to the origin.
+  PUBLIC_EDGE_IP: process.env.DNS_PUBLIC_EDGE_IP || '',
+  PUBLIC_DNS_IP: process.env.DNS_PUBLIC_IP || '',
+  PUBLIC_MAIL_IP: process.env.DNS_PUBLIC_MAIL_IP || process.env.DNS_PUBLIC_EDGE_IP || '',
   PRIMARY_DOMAIN: PLATFORM_CONFIG.primaryDomain,
   STORE_DOMAIN: PLATFORM_CONFIG.storeDomain,
   MANAGED_DOMAINS: PLATFORM_CONFIG.managedDomains,
@@ -47,6 +52,17 @@ export const DNS_CONFIG = {
   MAX_QUERIES_PER_SEC: 60,
   BAN_DURATION_MS: 30000
 };
+
+function addARecord(response, name, address, ttl = DNS_CONFIG.DEFAULT_TTL) {
+  if (!address) return;
+  response.answers.push({
+    name,
+    type: Packet.TYPE.A,
+    class: Packet.CLASS.IN,
+    ttl,
+    address
+  });
+}
 
 // ==========================================
 // IN-MEMORY RATE LIMITING (RRL Protection)
@@ -155,19 +171,39 @@ async function handleDnsRequest(request, send, rinfo) {
 
     response.header.rcode = Packet.RCODE.NOERROR;
 
+    if (isPgActive() && queryDomain.endsWith(`.${PLATFORM_CONFIG.freeSubdomainDomain}`)) {
+      const { rows } = await queryPg(
+        `SELECT type, name, value, ttl
+         FROM system_free_subdomain_records r
+         JOIN system_free_subdomains d ON d.id = r.subdomain_id
+         WHERE d.domain = $1 AND d.status = 'active' AND LOWER(r.name) IN ($1, '@')`,
+        [queryDomain]
+      );
+      for (const record of rows) {
+        const name = question.name;
+        if (record.type === 'A' && queryType === Packet.TYPE.A) {
+          response.answers.push({ name, type: Packet.TYPE.A, class: Packet.CLASS.IN, ttl: record.ttl, address: record.value });
+        } else if (record.type === 'CNAME' && queryType === Packet.TYPE.CNAME) {
+          response.answers.push({ name, type: Packet.TYPE.CNAME, class: Packet.CLASS.IN, ttl: record.ttl, domain: record.value });
+        } else if (record.type === 'TXT' && queryType === Packet.TYPE.TXT) {
+          response.answers.push({ name, type: Packet.TYPE.TXT, class: Packet.CLASS.IN, ttl: record.ttl, data: record.value });
+        }
+      }
+      if (response.answers.length > 0) return send(response);
+    }
+
     // 3. Handle DNS Query Types
     switch (queryType) {
       // -------------------------------------------------------------
       // TYPE A (IPv4 Address)
       // -------------------------------------------------------------
       case Packet.TYPE.A: {
-        response.answers.push({
-          name: question.name,
-          type: Packet.TYPE.A,
-          class: Packet.CLASS.IN,
-          ttl: DNS_CONFIG.DEFAULT_TTL,
-          address: DNS_CONFIG.PRIMARY_IP
-        });
+        const address = queryDomain === DNS_CONFIG.NS1 || queryDomain === DNS_CONFIG.NS2
+          ? DNS_CONFIG.PUBLIC_DNS_IP
+          : queryDomain === DNS_CONFIG.MAIL_HOST
+            ? DNS_CONFIG.PUBLIC_MAIL_IP
+            : DNS_CONFIG.PUBLIC_EDGE_IP;
+        addARecord(response, question.name, address);
         break;
       }
 
@@ -192,22 +228,8 @@ async function handleDnsRequest(request, send, rinfo) {
           }
         );
         // Include glue records in additionals
-        response.additionals.push(
-          {
-            name: DNS_CONFIG.NS1,
-            type: Packet.TYPE.A,
-            class: Packet.CLASS.IN,
-            ttl: DNS_CONFIG.DEFAULT_TTL,
-            address: DNS_CONFIG.PRIMARY_IP
-          },
-          {
-            name: DNS_CONFIG.NS2,
-            type: Packet.TYPE.A,
-            class: Packet.CLASS.IN,
-            ttl: DNS_CONFIG.DEFAULT_TTL,
-            address: DNS_CONFIG.PRIMARY_IP
-          }
-        );
+        addARecord(response, DNS_CONFIG.NS1, DNS_CONFIG.PUBLIC_DNS_IP);
+        addARecord(response, DNS_CONFIG.NS2, DNS_CONFIG.PUBLIC_DNS_IP);
         break;
       }
 
@@ -243,13 +265,7 @@ async function handleDnsRequest(request, send, rinfo) {
           exchange: DNS_CONFIG.MAIL_HOST,
           priority: 10
         });
-        response.additionals.push({
-          name: DNS_CONFIG.MAIL_HOST,
-          type: Packet.TYPE.A,
-          class: Packet.CLASS.IN,
-          ttl: DNS_CONFIG.DEFAULT_TTL,
-          address: DNS_CONFIG.PRIMARY_IP
-        });
+        addARecord(response, DNS_CONFIG.MAIL_HOST, DNS_CONFIG.PUBLIC_MAIL_IP);
         break;
       }
 
@@ -318,7 +334,7 @@ async function handleDnsRequest(request, send, rinfo) {
             type: Packet.TYPE.TXT,
             class: Packet.CLASS.IN,
             ttl: DNS_CONFIG.DEFAULT_TTL,
-            data: `v=spf1 mx ip4:${DNS_CONFIG.PRIMARY_IP} ${PLATFORM_CONFIG.dnsSpfPolicy}`
+            data: `v=spf1 mx${DNS_CONFIG.PUBLIC_MAIL_IP ? ` ip4:${DNS_CONFIG.PUBLIC_MAIL_IP}` : ''} ${PLATFORM_CONFIG.dnsSpfPolicy}`
           });
         }
         break;
@@ -342,13 +358,7 @@ async function handleDnsRequest(request, send, rinfo) {
       // TYPE ANY (Amplification Mitigation -> minimal answer)
       // -------------------------------------------------------------
       case Packet.TYPE.ANY: {
-        response.answers.push({
-          name: question.name,
-          type: Packet.TYPE.A,
-          class: Packet.CLASS.IN,
-          ttl: DNS_CONFIG.DEFAULT_TTL,
-          address: DNS_CONFIG.PRIMARY_IP
-        });
+        // Do not provide a useful ANY answer that can be amplified.
         break;
       }
 
@@ -385,6 +395,11 @@ async function handleDnsRequest(request, send, rinfo) {
 // START DNS SERVER
 // ==========================================
 export async function startDnsServer() {
+  try {
+    await testPgConnection();
+  } catch (error) {
+    console.warn('[DNS] PostgreSQL unavailable; user DNS records will be skipped:', error.message);
+  }
   const server = dns2.createServer({
     udp: true,
     tcp: true,
@@ -404,7 +419,11 @@ export async function startDnsServer() {
     console.log('====================================================');
     console.log('🚀 TIWLO AUTHORITATIVE DNS SERVER RUNNING');
     console.log(`📡 Interface: ${DNS_CONFIG.HOST}:${DNS_CONFIG.PORT} (UDP/TCP)`);
-    console.log(`🌐 Primary Domain: ${DNS_CONFIG.PRIMARY_DOMAIN} -> ${DNS_CONFIG.PRIMARY_IP}`);
+    console.log(`🌐 Public edge address configured: ${DNS_CONFIG.PUBLIC_EDGE_IP ? 'yes' : 'no'}`);
+    console.log(`🛡️ Origin fallback disabled: ${!DNS_CONFIG.PUBLIC_EDGE_IP}`);
+    if (!DNS_CONFIG.PUBLIC_EDGE_IP || !DNS_CONFIG.PUBLIC_DNS_IP) {
+      console.warn('⚠️ Configure DNS_PUBLIC_EDGE_IP and DNS_PUBLIC_IP before publishing DNS records.');
+    }
     console.log(`🏷️  Nameservers: ${DNS_CONFIG.NS1}, ${DNS_CONFIG.NS2}`);
     console.log('🛡️  Security: Authoritative-Only (Anti-Amplification DDoS & RRL Active)');
     console.log('====================================================');

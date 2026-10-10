@@ -27,6 +27,7 @@ import WorkspaceView from '../../views/workspace/WorkspaceView';
 import WorkspaceServiceDetailView from '../../views/workspace/WorkspaceServiceDetailView';
 import WorkspaceActivateView from '../../views/workspace/WorkspaceActivateView';
 import WorkspaceBillingView from '../../views/workspace/WorkspaceBillingView';
+import DomainsView from './views/DomainsView';
 import WorkspaceOperationsView from '../../views/workspace/WorkspaceOperationsView';
 import MarketplaceView from '../../views/marketplace/MarketplaceView';
 import MarketplaceProductDetailView from '../../views/marketplace/MarketplaceProductDetailView';
@@ -252,7 +253,9 @@ export default function CloudDashboard({
 
         {/* Scrollable Dashboard Body */}
         <main className="flex-1 p-3.5 sm:p-6 lg:p-8 overflow-y-auto min-w-0">
-          {activeNav === 'create-droplet' ? (
+          {activeNav === 'domains' ? (
+            <div className="max-w-[1500px] mx-auto"><DomainsView currentUser={currentUser} showToast={showToast} /></div>
+          ) : activeNav === 'create-droplet' ? (
             <div className="max-w-[1500px] mx-auto">
               <CreateDropletView
                 onBack={() => setActiveNav('dashboard')}
