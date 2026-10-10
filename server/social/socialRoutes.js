@@ -29,6 +29,7 @@ import {
   listPendingVideoMedia,
   normalizeMediaPath,
   readMediaBuffer,
+  isMediaRequestAuthorized,
   storeMedia
 } from '../db/mediaStorage.js';
 import {
@@ -358,6 +359,12 @@ router.get('/video-status', async (req, res) => {
     getMediaMetadata(originalUrl),
     getMediaMetadata(optimizedUrl)
   ]);
+  const mediaMetadata = optimizedMetadata || sourceMetadata;
+  if (!mediaMetadata || !isMediaRequestAuthorized(req, mediaMetadata)) {
+    return res.status(mediaMetadata?.review_status === 'pending' ? 425 : 404).json({
+      error: mediaMetadata?.review_status === 'pending' ? 'MEDIA_PROCESSING' : 'MEDIA_NOT_AVAILABLE'
+    });
+  }
   const hasOptimizedFile = fs.existsSync(optimizedPath);
   const playbackPath = hasOptimizedFile ? optimizedPath : filePath;
   const playbackStats = fs.existsSync(playbackPath) ? fs.statSync(playbackPath) : null;
@@ -1438,6 +1445,13 @@ router.get('/stream/:folder/:filename', async (req, res) => {
       if (!media) return res.status(404).json({ error: 'Media not found' });
       const query = new URLSearchParams(req.query).toString();
       return res.redirect(307, `/api/upload/${sanitizedFolder}/${sanitizedFilename}${query ? `?${query}` : ''}`);
+    }
+
+    const media = await getMediaMetadata(`/upload/${sanitizedFolder}/${sanitizedFilename}`);
+    if (!media || !isMediaRequestAuthorized(req, media)) {
+      return res.status(media?.review_status === 'pending' ? 425 : 404).json({
+        error: media?.review_status === 'pending' ? 'MEDIA_PROCESSING' : 'MEDIA_NOT_AVAILABLE'
+      });
     }
 
     const stat = fs.statSync(filePath);

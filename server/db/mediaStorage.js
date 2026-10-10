@@ -500,6 +500,16 @@ export function parseMediaRange(rangeHeader, size) {
   return { start, end: Math.min(end, size - 1) };
 }
 
+export function isMediaRequestAuthorized(req, metadata) {
+  if (!metadata || metadata.review_status !== 'approved') return false;
+
+  const purpose = String(metadata.purpose || 'general');
+  if (purpose !== 'direct_message') return true;
+
+  const userId = req.activeUser?.id;
+  return Boolean(userId && metadata.owner_id && String(userId) === String(metadata.owner_id));
+}
+
 export async function streamStoredMedia(req, res, next) {
   if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
   const storagePath = normalizeMediaPath(req.originalUrl || req.path);
@@ -514,7 +524,7 @@ export async function streamStoredMedia(req, res, next) {
   try {
     const { rows } = await pool.query(
       `SELECT m.id, m.content_type, m.original_filename, m.size_bytes, m.sha256, m.review_status,
-              m.storage_backend, m.drive_file_id, m.drive_account_id
+              m.owner_id, m.purpose, m.storage_backend, m.drive_file_id, m.drive_account_id
        FROM system_media_aliases a
        JOIN system_media m ON m.id = a.media_id
        WHERE a.storage_path = $1`,
@@ -527,14 +537,12 @@ export async function streamStoredMedia(req, res, next) {
   }
 
   if (!metadata) return next();
-  if (metadata.storage_backend === 'local') return next();
-  if (metadata.review_status === 'rejected') {
+  if (!isMediaRequestAuthorized(req, metadata)) {
+    if (metadata.review_status === 'pending') {
+      res.setHeader('Retry-After', '2');
+      return res.status(425).json({ error: 'MEDIA_PROCESSING' });
+    }
     return res.status(404).json({ error: 'MEDIA_NOT_AVAILABLE' });
-  }
-
-  if (metadata.review_status !== 'approved') {
-    res.setHeader('Retry-After', '2');
-    return res.status(425).json({ error: 'MEDIA_PROCESSING' });
   }
 
   const etag = `"${metadata.sha256}"`;
@@ -559,6 +567,30 @@ export async function streamStoredMedia(req, res, next) {
   const start = range?.start ?? 0;
   const end = range?.end ?? metadata.size_bytes - 1;
   const responseSize = end - start + 1;
+  if (metadata.storage_backend === 'local') {
+    const root = LOCAL_MEDIA_ROOTS[storagePath.startsWith('/upload/') ? '/upload/' : '/uploads/'];
+    const relativePath = storagePath.replace(/^\/uploads?\//, '');
+    const filePath = path.resolve(root, ...relativePath.split('/'));
+    if (!filePath.startsWith(`${root}${path.sep}`)) {
+      return res.status(404).json({ error: 'MEDIA_NOT_AVAILABLE' });
+    }
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'MEDIA_NOT_AVAILABLE' });
+    if (req.method === 'HEAD') return res.end();
+    const localStat = await fs.promises.stat(filePath);
+    if (localStat.size !== Number(metadata.size_bytes)) {
+      return res.status(409).json({ error: 'MEDIA_METADATA_MISMATCH' });
+    }
+    const localStart = range?.start ?? 0;
+    const localEnd = range?.end ?? localStat.size - 1;
+    if (range) {
+      res.status(206);
+      res.setHeader('Content-Range', `bytes ${localStart}-${localEnd}/${localStat.size}`);
+      res.setHeader('Content-Length', localEnd - localStart + 1);
+    }
+    fs.createReadStream(filePath, { start: localStart, end: localEnd }).pipe(res);
+    return;
+  }
+
   let driveAccount = null;
   if (metadata.storage_backend === 'google_drive') {
     try {

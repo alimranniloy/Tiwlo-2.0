@@ -239,43 +239,12 @@ const UPLOADS_DIR = path.join(__dirname, 'uploads');
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
-const staticMediaOptions = {
-  acceptRanges: true,
-  etag: true,
-  maxAge: '30d',
-  setHeaders: (res, filePath) => {
-    res.setHeader('Accept-Ranges', 'bytes');
-    res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-    res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
-    const extension = path.extname(filePath).toLowerCase();
-    const videoMimeTypes = {
-      '.mp4': 'video/mp4',
-      '.m4v': 'video/x-m4v',
-      '.mov': 'video/quicktime',
-      '.webm': 'video/webm',
-      '.mkv': 'video/x-matroska',
-    };
-    if (videoMimeTypes[extension]) {
-      res.setHeader('Content-Type', videoMimeTypes[extension]);
-      res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
-    } else {
-      res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
-    }
-  },
-};
 app.use(['/uploads', '/api/uploads', '/upload', '/api/upload'], streamStoredMedia);
-app.use('/uploads', express.static(UPLOADS_DIR, staticMediaOptions));
-app.use('/api/uploads', express.static(UPLOADS_DIR, staticMediaOptions));
 
 const ROOT_UPLOAD_DIR = path.resolve(__dirname, '../upload');
 if (!fs.existsSync(ROOT_UPLOAD_DIR)) {
   fs.mkdirSync(ROOT_UPLOAD_DIR, { recursive: true });
 }
-app.use('/upload', express.static(ROOT_UPLOAD_DIR, staticMediaOptions));
-app.use('/api/upload', express.static(ROOT_UPLOAD_DIR, staticMediaOptions));
-
 // Video Streaming for Landing Page Hero
 app.get(['/api/landing/hero-video', '/landing/hero-bg.mp4'], (req, res) => {
   const possiblePaths = [
