@@ -61,7 +61,7 @@ export default function PixelFeatures() {
             BUILT FOR <span className="text-[#29D8FF]">SPEED</span> & <span className="text-[#FF3864]">FREEDOM</span>
           </h2>
           <p className="font-pixel-sub text-xs sm:text-sm text-[#5A5766]">
-            Every <span className="text-[#181425] font-bold">uidis.app</span> subdomain comes packed with enterprise-grade edge routing wrapped in 8-bit charm.
+            Every planned <span className="text-[#181425] font-bold">uids.app</span> subdomain will use configuration-driven DNS and SSL once the Domain Service is live.
           </p>
         </div>
 

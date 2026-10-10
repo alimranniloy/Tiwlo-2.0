@@ -3,86 +3,16 @@ import { PixelAudio } from './PixelSoundFx';
 import { Globe, ArrowUpRight, Zap, Heart, Eye } from 'lucide-react';
 
 export default function PixelShowcase({ onSelectDomain }) {
-  const showcaseItems = [
-    {
-      subdomain: 'retro-arcade',
-      fullDomain: 'retro-arcade.uidis.app',
-      category: 'GAMING',
-      color: '#FFD214',
-      views: '4.8k',
-      ping: '12ms',
-      desc: 'Browser-based WebGL retro emulator and pixel arcade games.'
-    },
-    {
-      subdomain: 'cyber-craft',
-      fullDomain: 'cyber-craft.uidis.app',
-      category: 'DEV PORTFOLIO',
-      color: '#29D8FF',
-      views: '12.4k',
-      ping: '9ms',
-      desc: 'Personal portfolio of an indie pixel artist and shader programmer.'
-    },
-    {
-      subdomain: 'pixel-bot',
-      fullDomain: 'pixel-bot.uidis.app',
-      category: 'API / SERVICE',
-      color: '#2CE8A2',
-      views: '8.1k',
-      ping: '14ms',
-      desc: 'Discord bot webhook callback and live server status dashboard.'
-    },
-    {
-      subdomain: 'neo-beats',
-      fullDomain: 'neo-beats.uidis.app',
-      category: 'AUDIO / MUSIC',
-      color: '#FF3864',
-      views: '6.2k',
-      ping: '11ms',
-      desc: 'Chiptune and 8-bit lofi music radio streaming around the clock.'
-    },
-    {
-      subdomain: 'voxel-forge',
-      fullDomain: 'voxel-forge.uidis.app',
-      category: 'TOOLS',
-      color: '#8B5CF6',
-      views: '3.9k',
-      ping: '16ms',
-      desc: 'Open source web-based voxel 3D model generator and exporter.'
-    },
-    {
-      subdomain: 'indie-studio',
-      fullDomain: 'indie-studio.uidis.app',
-      category: 'COMMUNITY',
-      color: '#FF7B00',
-      views: '9.5k',
-      ping: '13ms',
-      desc: 'Collaborative development hub for weekend game-jam hackers.'
-    }
-  ];
-
-  const tickerList = [
-    '👾 alex.uidis.app',
-    '⚡ retro-hub.uidis.app',
-    '🎨 pixel-art.uidis.app',
-    '🚀 indie-game.uidis.app',
-    '💎 zero-lag.uidis.app',
-    '🔥 neo-store.uidis.app',
-    '🎮 gameboy.uidis.app',
-    '💾 floppy.uidis.app',
-  ];
+  const showcaseItems = [];
+  const tickerList = [];
 
   return (
     <section id="showcase" className="py-14 sm:py-20 border-b-[3px] border-[#181425] bg-[#FAF7F2] select-none">
       
       {/* Ticker Marquee Bar */}
       <div className="border-y-[3px] border-[#181425] bg-[#FFEEC2] py-2.5 overflow-hidden mb-12 sm:mb-16">
-        <div className="flex gap-8 whitespace-nowrap animate-pixel-marquee font-pixel text-[10px] text-[#181425]">
-          {[...tickerList, ...tickerList, ...tickerList].map((item, idx) => (
-            <span key={idx} className="flex items-center gap-2">
-              <span>{item}</span>
-              <span className="text-[#FF3864]">★</span>
-            </span>
-          ))}
+        <div className="font-pixel text-[10px] text-[#5A5766] text-center">
+          COMMUNITY SHOWCASE WILL APPEAR AFTER VERIFIED SUBDOMAINS ARE REGISTERED.
         </div>
       </div>
 
@@ -98,7 +28,7 @@ export default function PixelShowcase({ onSelectDomain }) {
               BUILT ON <span className="text-[#FF3864]">UIDIS.APP</span>
             </h2>
             <p className="font-pixel-sub text-xs sm:text-sm text-[#5A5766] mt-1 max-w-xl">
-              Over 40,000+ indie developers, games, and web experiments broadcasting on our free pixel domains.
+              Verified projects will appear here after the Domain Service is connected to PostgreSQL.
             </p>
           </div>
 
@@ -108,7 +38,12 @@ export default function PixelShowcase({ onSelectDomain }) {
         </div>
 
         {/* Showcase Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 gap-5">
+          {showcaseItems.length === 0 && (
+            <div className="bg-white border-[3px] border-[#181425] pixel-shadow p-6 text-center font-pixel text-[10px] text-[#5A5766]">
+              NO VERIFIED SUBDOMAINS YET.
+            </div>
+          )}
           {showcaseItems.map((item, index) => (
             <div
               key={index}

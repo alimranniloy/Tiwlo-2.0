@@ -7,28 +7,28 @@ export default function PixelFaq() {
 
   const faqs = [
     {
-      q: 'IS UIDIS.APP TRULY 100% FREE FOREVER?',
-      a: 'Yes, completely! uidis.app is a community-first free subdomain registry built for developers, students, gamers, and indie makers. There are zero subscription costs, no renewal fees, and no credit card required.'
+      q: 'WHAT IS UIDS.APP?',
+      a: 'uids.app is the planned standalone Domain Service for free user subdomains. Registration and entitlement rules will be published when its PostgreSQL-backed service is launched.'
     },
     {
-      q: 'HOW MANY SUBDOMAINS CAN I CLAIM?',
-      a: 'Every user account can register and manage up to 5 free active subdomains simultaneously. If you need more for high-volume hackathons or community organizations, you can request an increase in one click.'
+      q: 'WHEN CAN I REGISTER A SUBDOMAIN?',
+      a: 'The registration workflow is not active yet. The landing page does not claim availability or create DNS records until the backend Domain Service is ready.'
     },
     {
-      q: 'HOW DO I CONNECT GITHUB PAGES OR VERCEL?',
-      a: 'Simply select Vercel or GitHub Pages during the claim wizard or in your DNS management panel. Enter your deployment target (e.g., username.github.io or cname.vercel-dns.com), and our Anycast nameservers will route traffic instantly.'
+      q: 'WILL DNS RECORDS BE STORED IN POSTGRESQL?',
+      a: 'Yes. The planned Domain Service will keep ownership, subdomain allocation, DNS configuration, and audit state in the main PostgreSQL database.'
     },
     {
-      q: 'ARE AUTOMATED SSL CERTIFICATES PROVIDED?',
-      a: 'Yes! Automated wildcard Let’s Encrypt TLS/SSL certificates are pre-provisioned on all uidis.app subdomains. All your traffic routes through HTTPS with zero manual certificate renewals.'
+      q: 'WILL AUTOMATED SSL BE PROVIDED?',
+      a: 'The platform configuration includes uids.app for future DNS and SSL coverage. Certificates are not claimed as active until registrar delegation and production certificate issuance are verified.'
     },
     {
-      q: 'CAN I CONFIGURE CUSTOM A AND CNAME RECORDS?',
-      a: 'Absolutely. You have full granular DNS record control, including A records (IPv4), AAAA records (IPv6), CNAME aliases, and TXT verification records for Google Search Console, verification, or Bluesky handles.'
+      q: 'CAN I ADD MY OWN DOMAIN?',
+      a: 'A separate authenticated custom-domain workflow already exists for eligible accounts. The free uids.app service will have its own rules and will not reuse store-domain routing.'
     },
     {
-      q: 'CAN I USE UIDIS.APP SUBDOMAINS FOR COMMERCIAL PROJECTS?',
-      a: 'Yes! You are completely free to run commercial software, SaaS backends, Discord bot webhooks, client demos, and online stores on any claimed subdomain.'
+      q: 'IS THE SERVICE LIVE NOW?',
+      a: 'No. This page is informational until the PostgreSQL-backed Domain Service, registrar delegation, DNS records, and production SSL are operational.'
     }
   ];
 

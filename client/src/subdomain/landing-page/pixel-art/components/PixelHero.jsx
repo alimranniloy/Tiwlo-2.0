@@ -1,24 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { PixelAudio } from './PixelSoundFx';
+import { FREE_SUBDOMAIN_DOMAIN } from '../../../../config/platformConfig';
 import { Sparkles, CheckCircle2, AlertTriangle, ArrowRight, Globe, Shield, Zap, Terminal, Copy, Check } from 'lucide-react';
 
-export default function PixelHero({ onStartClaim }) {
+export default function PixelHero() {
   const [subdomain, setSubdomain] = useState('');
-  const [domainSuffix, setDomainSuffix] = useState('.uidis.app');
+  const domainSuffix = `.${FREE_SUBDOMAIN_DOMAIN}`;
   const [checking, setChecking] = useState(false);
   const [availability, setAvailability] = useState(null); // 'available' | 'taken' | 'invalid' | null
-  const [copied, setCopied] = useState(false);
-
-  const reservedNames = ['admin', 'api', 'root', 'auth', 'mail', 'billing', 'cloud', 'system', 'status'];
-
-  const suffixes = [
-    { value: '.uidis.app', label: '.uidis.app', tag: 'RECOMMENDED' },
-    { value: '.uidis.is', label: '.uidis.is', tag: 'SHORT' },
-    { value: '.uidis.dev', label: '.uidis.dev', tag: 'DEV' },
-    { value: '.uidis.me', label: '.uidis.me', tag: 'INDIE' },
-  ];
-
-  // Real-time check
+  // Availability is intentionally not fabricated before the PostgreSQL domain service exists.
   useEffect(() => {
     const clean = subdomain.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
     if (!clean) {
@@ -33,17 +23,8 @@ export default function PixelHero({ onStartClaim }) {
       return;
     }
 
-    setChecking(true);
-    const timer = setTimeout(() => {
-      setChecking(false);
-      if (reservedNames.includes(clean)) {
-        setAvailability('taken');
-      } else {
-        setAvailability('available');
-      }
-    }, 280);
-
-    return () => clearTimeout(timer);
+    setChecking(false);
+    setAvailability('service_unavailable');
   }, [subdomain, domainSuffix]);
 
   const handleInputChange = (e) => {
@@ -53,29 +34,9 @@ export default function PixelHero({ onStartClaim }) {
     PixelAudio.playBlip();
   };
 
-  const handleSuffixChange = (newSuffix) => {
-    PixelAudio.playSelect();
-    setDomainSuffix(newSuffix);
-  };
-
   const handleQuickName = (name) => {
     PixelAudio.playBlip();
     setSubdomain(name);
-  };
-
-  const handleClaim = () => {
-    if (!subdomain.trim() || availability !== 'available') {
-      PixelAudio.playBlip();
-      return;
-    }
-    PixelAudio.playCoin();
-    if (onStartClaim) {
-      onStartClaim({
-        name: subdomain.trim(),
-        suffix: domainSuffix,
-        fullDomain: `${subdomain.trim()}${domainSuffix}`
-      });
-    }
   };
 
   const fullPreview = subdomain.trim() ? `${subdomain.trim()}${domainSuffix}` : `yourname${domainSuffix}`;
@@ -111,7 +72,7 @@ export default function PixelHero({ onStartClaim }) {
         <h1 className="font-pixel text-2xl sm:text-4xl md:text-5xl text-[#181425] leading-tight sm:leading-tight mb-5 tracking-tight">
           CLAIM YOUR FREE <br />
           <span className="bg-[#29D8FF] px-2.5 sm:px-4 py-1 border-[3.5px] border-[#181425] pixel-shadow inline-block transform -rotate-1 mt-2 text-[#181425]">
-            uidis.app
+            uids.app
           </span>{' '}
           <span className="text-[#FF3864]">SUBDOMAIN</span>
         </h1>
@@ -164,33 +125,17 @@ export default function PixelHero({ onStartClaim }) {
 
             {/* Domain Suffix Selector */}
             <div className="relative">
-              <select
-                value={domainSuffix}
-                onChange={(e) => handleSuffixChange(e.target.value)}
-                className="w-full sm:w-auto h-full px-3.5 py-2.5 bg-[#FFEEC2] border-[3px] border-[#181425] pixel-shadow-sm font-pixel text-[11px] text-[#181425] focus:outline-none cursor-pointer appearance-none pr-8"
-              >
-                {suffixes.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none font-pixel text-[9px] text-[#181425]">
-                ▼
-              </span>
+              <div className="h-full px-3.5 py-2.5 bg-[#FFEEC2] border-[3px] border-[#181425] pixel-shadow-sm font-pixel text-[11px] text-[#181425] flex items-center">
+                {domainSuffix}
+              </div>
             </div>
 
             {/* Claim Action Button */}
             <button
-              onClick={handleClaim}
-              disabled={availability !== 'available'}
-              className={`px-5 py-3 font-pixel text-[11px] sm:text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap pixel-btn ${
-                availability === 'available'
-                  ? 'bg-[#2CE8A2] hover:bg-[#1FD691] text-[#181425]'
-                  : 'bg-[#E5E0D8] text-[#8C8894] cursor-not-allowed opacity-80'
-              }`}
+              disabled
+              className="px-5 py-3 font-pixel text-[11px] sm:text-xs flex items-center justify-center gap-1.5 whitespace-nowrap pixel-btn bg-[#E5E0D8] text-[#8C8894] cursor-not-allowed opacity-80"
             >
-              <span>CLAIM NOW</span>
+              <span>COMING SOON</span>
               <span className="text-[12px]">⚡</span>
             </button>
           </div>
@@ -202,28 +147,9 @@ export default function PixelHero({ onStartClaim }) {
                 <span className="w-2.5 h-2.5 bg-[#29D8FF] animate-pixel-blink" />
                 <span>SCANNING 8-BIT ANYCAST CLUSTER...</span>
               </div>
-            ) : availability === 'available' ? (
-              <div className="w-full p-2.5 bg-[#E7F9F0] border-[2px] border-[#2CE8A2] flex flex-col xs:flex-row xs:items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 bg-[#2CE8A2] text-[#181425] font-pixel text-[9px] flex items-center justify-center font-bold">
-                    ✓
-                  </span>
-                  <span className="font-pixel text-[10px] sm:text-[11px] text-[#0A5C36]">
-                    <strong className="font-black">{fullPreview}</strong> IS AVAILABLE!
-                  </span>
-                </div>
-                <span className="font-pixel text-[9px] text-[#0A5C36] bg-[#2CE8A2]/30 px-2 py-0.5 border border-[#2CE8A2]">
-                  FREE FOREVER • 0 COINS
-                </span>
-              </div>
-            ) : availability === 'taken' ? (
-              <div className="w-full p-2.5 bg-[#FDE8EC] border-[2px] border-[#FF3864] flex items-center gap-2">
-                <span className="w-3 h-3 bg-[#FF3864] text-white font-pixel text-[9px] flex items-center justify-center font-bold">
-                  ✕
-                </span>
-                <span className="font-pixel text-[10px] text-[#93122D]">
-                  ALAS! <strong>{fullPreview}</strong> IS RESERVED. TRY ANOTHER NAME.
-                </span>
+            ) : availability === 'service_unavailable' ? (
+              <div className="w-full p-2.5 bg-[#FFF4D6] border-[2px] border-[#FFD214] font-pixel text-[10px] text-[#5A5766]">
+                DOMAIN AVAILABILITY WILL BE CHECKED BY THE POSTGRESQL DOMAIN SERVICE WHEN IT LAUNCHES.
               </div>
             ) : availability === 'too_short' ? (
               <div className="font-pixel text-[10px] text-[#5A5766]">

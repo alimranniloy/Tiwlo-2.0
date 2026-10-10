@@ -7,7 +7,7 @@ export default function PixelHowItWorks({ onScrollToHero }) {
     {
       step: '01',
       title: 'QUEST 1: CHOOSE YOUR HANDLE',
-      desc: 'Type your ideal subdomain prefix in our radar console and choose your desired domain extension (.uidis.app, .uidis.is, .uidis.dev).',
+      desc: 'Choose a future uids.app prefix after the PostgreSQL-backed Domain Service opens registration.',
       color: '#FFD214',
       badge: 'NAME DISCOVERY'
     },

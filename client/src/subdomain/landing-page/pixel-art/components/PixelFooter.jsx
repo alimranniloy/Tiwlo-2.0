@@ -22,7 +22,7 @@ export default function PixelFooter() {
                 ★
               </div>
               <span className="font-pixel text-lg text-white">
-                uidis<span className="text-[#FF3864]">.</span>app
+                uids<span className="text-[#FF3864]">.</span>app
               </span>
             </div>
             <p className="font-pixel-sub text-xs text-[#9E9AA8] max-w-sm leading-relaxed">

@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import './pixelArt.css';
 import PixelHeader from './components/PixelHeader';
 import PixelHero from './components/PixelHero';
-import PixelClaimWizard from './components/PixelClaimWizard';
 import PixelShowcase from './components/PixelShowcase';
 import PixelFeatures from './components/PixelFeatures';
 import PixelHowItWorks from './components/PixelHowItWorks';
@@ -11,23 +10,6 @@ import PixelFooter from './components/PixelFooter';
 import { PixelAudio } from './components/PixelSoundFx';
 
 export default function PixelArtLandingPage({ onNavigateAuth, onNavigateTab }) {
-  const [activeClaimData, setActiveClaimData] = useState(null);
-
-  const handleStartClaim = (claimPayload) => {
-    setActiveClaimData(claimPayload);
-    // Smooth scroll to wizard
-    setTimeout(() => {
-      const el = document.getElementById('claim-wizard');
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
-  };
-
-  const handleCancelClaim = () => {
-    setActiveClaimData(null);
-    const el = document.getElementById('hero');
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
-  };
-
   const handleOpenAuth = (mode) => {
     if (onNavigateAuth) {
       onNavigateAuth(mode);
@@ -58,23 +40,10 @@ export default function PixelArtLandingPage({ onNavigateAuth, onNavigateTab }) {
         
         {/* 2. Hero with Subdomain Suffix Picker & Availability Radar */}
         <PixelHero
-          onStartClaim={handleStartClaim}
+          onStartClaim={undefined}
         />
 
-        {/* 3. In-page Dedicated Claim Wizard (Rendered when claiming, NO POPUPS!) */}
-        {activeClaimData && (
-          <div className="px-4 sm:px-6 lg:px-8 py-4 bg-[#FFEEC2]/60 border-y-[3px] border-[#181425]">
-            <PixelClaimWizard
-              claimData={activeClaimData}
-              onCancel={handleCancelClaim}
-              onComplete={() => {
-                // Completed
-              }}
-            />
-          </div>
-        )}
-
-        {/* 4. Live Subdomain Ticker & Showcase */}
+        {/* 3. Verified Subdomain Showcase */}
         <PixelShowcase
           onSelectDomain={(sub) => {
             handleScrollToHero();

@@ -56,7 +56,7 @@ export default function PixelHeader({ onOpenAuth, onNavigateSection }) {
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
                 <span className="font-pixel text-[15px] sm:text-[17px] tracking-tight text-[#181425] font-black">
-                  uidis<span className="text-[#FF3864]">.</span>app
+                  uids<span className="text-[#FF3864]">.</span>app
                 </span>
                 <span className="hidden sm:inline-block bg-[#2CE8A2] border-[2px] border-[#181425] text-[#181425] text-[9px] font-pixel px-1.5 py-0.5 rounded-none shadow-[1px_1px_0px_#181425]">
                   FREE

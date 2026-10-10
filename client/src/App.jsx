@@ -8,7 +8,7 @@ import CreateAccountView from './views/CreateAccountView';
 import { CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import TiwloPageLoader, { TiwloTopSyncBar } from './components/TiwloUniqueLoader';
 import { isAuthSubdomain, isMailSubdomain, getAuthUrl, getMainAppUrl, getMailUrl } from './utils/navigation';
-import { getPlatformUrl, getSubdomain, PLATFORM_DOMAIN, TPANEL_SUBDOMAIN } from './config/platformConfig';
+import { getPlatformUrl, getSubdomain, PLATFORM_DOMAIN, FREE_SUBDOMAIN_DOMAIN, TPANEL_SUBDOMAIN } from './config/platformConfig';
 
 // Dedicated Dashboards (Code-Split via React.lazy)
 const CloudDashboard = lazy(() => import('./dashboards/cloud/CloudDashboard'));
@@ -101,6 +101,11 @@ export default function App() {
         const cleanQuery = searchParams.toString();
         const cleanUrl = window.location.pathname + (cleanQuery ? `?${cleanQuery}` : '');
         window.history.replaceState(null, '', cleanUrl);
+      }
+
+      // The standalone free-subdomain service has its own landing page.
+      if (hostname === FREE_SUBDOMAIN_DOMAIN) {
+        return 'subdomain';
       }
 
       // TPanel Subdomain or Direct Route Detection
