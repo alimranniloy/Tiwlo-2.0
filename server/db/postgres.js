@@ -421,7 +421,8 @@ export async function initPgSchema() {
       ALTER TABLE system_free_subdomain_records
         ADD CONSTRAINT system_free_subdomain_records_type_check
         CHECK (type IN ('A', 'CNAME', 'TXT', 'NS'));
-      DROP INDEX IF EXISTS system_free_subdomain_records_subdomain_id_type_name_key;
+      ALTER TABLE system_free_subdomain_records
+        DROP CONSTRAINT IF EXISTS system_free_subdomain_records_subdomain_id_type_name_key;
       CREATE UNIQUE INDEX IF NOT EXISTS idx_free_subdomain_records_unique_value
         ON system_free_subdomain_records(subdomain_id, type, name, value);
       CREATE INDEX IF NOT EXISTS idx_free_subdomain_records_domain
