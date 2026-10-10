@@ -196,6 +196,8 @@ async function handleDnsRequest(request, send, rinfo) {
           response.answers.push({ name, type: Packet.TYPE.CNAME, class: Packet.CLASS.IN, ttl: record.ttl, domain: record.value });
         } else if (record.type === 'TXT' && queryType === Packet.TYPE.TXT) {
           response.answers.push({ name, type: Packet.TYPE.TXT, class: Packet.CLASS.IN, ttl: record.ttl, data: record.value });
+        } else if (record.type === 'NS' && queryType === Packet.TYPE.NS) {
+          response.answers.push({ name, type: Packet.TYPE.NS, class: Packet.CLASS.IN, ttl: record.ttl, ns: record.value });
         }
       }
       if (response.answers.length > 0) return send(response);

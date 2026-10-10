@@ -5,8 +5,10 @@ import {
   checkSubdomain,
   claimSubdomain,
   createSubdomainRecord,
+  deleteSubdomainRecord,
   listSubdomainRecords,
-  listUserSubdomains
+  listUserSubdomains,
+  updateSubdomainRecord
 } from '../domains/subdomainService.js';
 
 const router = express.Router();
@@ -99,6 +101,37 @@ router.post('/:id/records', async (req, res) => {
       userId: req.activeUser.id,
       subdomainId: req.params.id,
       ...req.body
+    });
+
+    router.patch('/:id/records/:recordId', async (req, res) => {
+      try {
+        const record = await updateSubdomainRecord({
+          userId: req.activeUser.id,
+          subdomainId: req.params.id,
+          recordId: req.params.recordId,
+          ...req.body
+        });
+        res.json({ record });
+      } catch (error) {
+        if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
+        console.error('[SubdomainRoutes] DNS record update failed:', error);
+        res.status(500).json({ error: 'Could not update DNS record.' });
+      }
+    });
+
+    router.delete('/:id/records/:recordId', async (req, res) => {
+      try {
+        await deleteSubdomainRecord({
+          userId: req.activeUser.id,
+          subdomainId: req.params.id,
+          recordId: req.params.recordId
+        });
+        res.status(204).end();
+      } catch (error) {
+        if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
+        console.error('[SubdomainRoutes] DNS record delete failed:', error);
+        res.status(500).json({ error: 'Could not delete DNS record.' });
+      }
     });
     res.status(201).json({ record });
   } catch (error) {

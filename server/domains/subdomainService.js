@@ -226,8 +226,13 @@ export async function listSubdomainRecords({ userId, subdomainId }) {
 export async function createSubdomainRecord({ userId, subdomainId, type, name, value, ttl = 300 }) {
   requireDatabase();
   const normalizedType = String(type || '').toUpperCase();
-  if (!['A', 'CNAME', 'TXT'].includes(normalizedType) || !String(name || '').trim() || !String(value || '').trim()) {
+  const normalizedName = String(name || '').trim().toLowerCase();
+  const normalizedValue = String(value || '').trim().replace(/\.$/, '');
+  if (!['A', 'CNAME', 'TXT', 'NS'].includes(normalizedType) || !normalizedName || !normalizedValue) {
     throw new DomainServiceError('Record type, name, and value are required.');
+  }
+  if (normalizedType === 'NS' && !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/i.test(normalizedValue)) {
+    throw new DomainServiceError('Nameserver must be a valid hostname.');
   }
   const { rows } = await queryPg(
     `INSERT INTO system_free_subdomain_records
@@ -236,8 +241,46 @@ export async function createSubdomainRecord({ userId, subdomainId, type, name, v
      FROM system_free_subdomains
      WHERE id = $2 AND user_id = $7 AND status = 'active'
      RETURNING id, type, name, value, ttl`,
-    [`rec_${randomBytes(12).toString('hex')}`, subdomainId, normalizedType, name.trim(), value.trim(), Math.max(60, Math.min(86400, Number(ttl) || 300)), userId]
+    [`rec_${randomBytes(12).toString('hex')}`, subdomainId, normalizedType, normalizedName, normalizedValue, Math.max(60, Math.min(86400, Number(ttl) || 300)), userId]
   );
   if (!rows[0]) throw new DomainServiceError('Subdomain was not found for this account.', 404);
   return rows[0];
+}
+
+export async function updateSubdomainRecord({ userId, subdomainId, recordId, type, name, value, ttl = 300 }) {
+  requireDatabase();
+  const normalizedType = String(type || '').toUpperCase();
+  const normalizedName = String(name || '').trim().toLowerCase();
+  const normalizedValue = String(value || '').trim().replace(/\.$/, '');
+  if (!['A', 'CNAME', 'TXT', 'NS'].includes(normalizedType) || !normalizedName || !normalizedValue) {
+    throw new DomainServiceError('Record type, name, and value are required.');
+  }
+  if (normalizedType === 'NS' && !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/i.test(normalizedValue)) {
+    throw new DomainServiceError('Nameserver must be a valid hostname.');
+  }
+  const { rows } = await queryPg(
+    `UPDATE system_free_subdomain_records
+     SET type = $1, name = $2, value = $3, ttl = $4
+     WHERE id = $5 AND subdomain_id = $6
+       AND EXISTS (
+         SELECT 1 FROM system_free_subdomains
+         WHERE id = $6 AND user_id = $7 AND status = 'active'
+       )
+     RETURNING id, type, name, value, ttl`,
+    [normalizedType, normalizedName, normalizedValue, Math.max(60, Math.min(86400, Number(ttl) || 300)), recordId, subdomainId, userId]
+  );
+  if (!rows[0]) throw new DomainServiceError('DNS record was not found for this account.', 404);
+  return rows[0];
+}
+
+export async function deleteSubdomainRecord({ userId, subdomainId, recordId }) {
+  requireDatabase();
+  const { rowCount } = await queryPg(
+    `DELETE FROM system_free_subdomain_records r
+     USING system_free_subdomains d
+     WHERE r.id = $1 AND r.subdomain_id = $2
+       AND d.id = r.subdomain_id AND d.user_id = $3 AND d.status = 'active'`,
+    [recordId, subdomainId, userId]
+  );
+  if (!rowCount) throw new DomainServiceError('DNS record was not found for this account.', 404);
 }

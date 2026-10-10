@@ -409,13 +409,21 @@ export async function initPgSchema() {
       CREATE TABLE IF NOT EXISTS system_free_subdomain_records (
         id VARCHAR(64) PRIMARY KEY,
         subdomain_id VARCHAR(64) NOT NULL REFERENCES system_free_subdomains(id) ON DELETE CASCADE,
-        type VARCHAR(8) NOT NULL CHECK (type IN ('A', 'CNAME', 'TXT')),
+        type VARCHAR(8) NOT NULL CHECK (type IN ('A', 'CNAME', 'TXT', 'NS')),
         name VARCHAR(253) NOT NULL,
         value TEXT NOT NULL,
         ttl INTEGER NOT NULL DEFAULT 300 CHECK (ttl BETWEEN 60 AND 86400),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE (subdomain_id, type, name)
+        UNIQUE (subdomain_id, type, name, value)
       );
+      ALTER TABLE system_free_subdomain_records
+        DROP CONSTRAINT IF EXISTS system_free_subdomain_records_type_check;
+      ALTER TABLE system_free_subdomain_records
+        ADD CONSTRAINT system_free_subdomain_records_type_check
+        CHECK (type IN ('A', 'CNAME', 'TXT', 'NS'));
+      DROP INDEX IF EXISTS system_free_subdomain_records_subdomain_id_type_name_key;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_free_subdomain_records_unique_value
+        ON system_free_subdomain_records(subdomain_id, type, name, value);
       CREATE INDEX IF NOT EXISTS idx_free_subdomain_records_domain
         ON system_free_subdomain_records(subdomain_id);
 
