@@ -23,12 +23,12 @@ test('account creation and browser reservation commit together or both roll back
     });
     const first = await create('first@gmail.com', 'a'.repeat(64));
     assert.ok((await db.query('SELECT id FROM system_users WHERE id = $1', [first.id])).rows[0]);
-    const runtimeCount = MasterDB.getMasterData().users.length;
+    const runtimeCount = (await MasterDB.getMasterData()).users.length;
     await assert.rejects(create('second@gmail.com', 'a'.repeat(64)), {
       code: '23505', constraint: 'system_signup_browsers_pkey'
     });
     assert.equal((await db.query("SELECT count(*)::int AS count FROM system_users WHERE email = 'second@gmail.com'")).rows[0].count, 0);
-    assert.equal(MasterDB.getMasterData().users.length, runtimeCount);
+    assert.equal((await MasterDB.getMasterData()).users.length, runtimeCount);
     await create('second@gmail.com', 'b'.repeat(64));
     await assert.rejects(create('f.irst+alias@googlemail.com', 'c'.repeat(64)), { code: 'DUPLICATE_ACCOUNT' });
     await assert.rejects(create('third@gmail.com', 'd'.repeat(64), { id: first.id }), { code: '23505' });

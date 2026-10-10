@@ -154,7 +154,7 @@ router.post('/auth/social-check', async (req, res) => {
         code: otpResult.code
       }).catch(() => {});
 
-      logActivity('auth', `2FA Login Challenge Initiated via ${provider}`, `Target: ${user.email} • Code dispatched to ${masked}`);
+      (await logActivity('auth', `2FA Login Challenge Initiated via ${provider}`, `Target: ${user.email} • Code dispatched to ${masked}`));
 
       return res.json({
         exists: true,
@@ -338,7 +338,7 @@ router.post('/auth/register', ...registrationGuards, async (req, res) => {
 
     // 3. Immediately Provision Unique Profile in SocialDB to prevent any profile routing collisions
     try {
-      const socialData = SocialDB.getData();
+      const socialData = (await SocialDB.getData());
       if (!socialData.profiles) socialData.profiles = {};
       const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(newUser.name || effectiveDisplayName)}&background=0B57D0&color=fff&size=256&bold=true`;
       socialData.profiles[newUser.id] = {
@@ -373,12 +373,12 @@ router.post('/auth/register', ...registrationGuards, async (req, res) => {
           appIcon: 'Default',
         },
       };
-      SocialDB.saveData(socialData);
+      (await SocialDB.saveData(socialData));
     } catch (socErr) {
       console.warn('[Register] SocialDB profile provisioning warning:', socErr.message);
     }
 
-    logActivity('auth', `Store "${newUser.storeName}" Created`, `Tiwi ID: ${tiwiId} • Email: ${normalizedEmail}`, tiwiId);
+    (await logActivity('auth', `Store "${newUser.storeName}" Created`, `Tiwi ID: ${tiwiId} • Email: ${normalizedEmail}`, tiwiId));
 
     const verifyOtp = await generateSecureOtp(newUser.email, 'email_verify', 15);
     const masked = maskEmail(newUser.email);
@@ -470,7 +470,7 @@ router.post('/auth/login', securityLimiters.login, async (req, res) => {
         userAgent: req.get('user-agent'),
         details: { accountExists: Boolean(user) }
       });
-      logActivity('alert', `Failed Login Attempt`, `Target: ${cleanId} from IP ${clientIp}`);
+      (await logActivity('alert', `Failed Login Attempt`, `Target: ${cleanId} from IP ${clientIp}`));
 
       const remaining = Math.max(0, BruteForceShield.MAX_ATTEMPTS - (acctRecord?.count || 1));
       let errorMsg = 'Incorrect email, Tiwi ID, or password. Please verify and try again.';
@@ -495,7 +495,7 @@ router.post('/auth/login', securityLimiters.login, async (req, res) => {
         ip: clientIp,
         userAgent: req.get('user-agent')
       });
-      logActivity('alert', `Disabled Account Sign-In Blocked`, `Target: ${cleanId} from IP ${clientIp}`);
+      (await logActivity('alert', `Disabled Account Sign-In Blocked`, `Target: ${cleanId} from IP ${clientIp}`));
       return res.status(403).json({
         error: 'Your Tiwlo Account has been disabled.',
         isBanned: true,
@@ -535,7 +535,7 @@ router.post('/auth/login', securityLimiters.login, async (req, res) => {
         code: otpResult.code
       }).catch(err => ({ success: false, delivered: false, error: err.message }));
 
-      logActivity('auth', `Email Verification Required`, `Target: ${cleanId} • Code dispatched to ${masked}`);
+      (await logActivity('auth', `Email Verification Required`, `Target: ${cleanId} • Code dispatched to ${masked}`));
 
       return res.json({
         success: true,
@@ -559,7 +559,7 @@ router.post('/auth/login', securityLimiters.login, async (req, res) => {
         code: otpResult.code
       });
 
-      logActivity('auth', `2FA Setup Challenge Initiated`, `Target: ${cleanId} • Status: ${emailResult?.status}`);
+      (await logActivity('auth', `2FA Setup Challenge Initiated`, `Target: ${cleanId} • Status: ${emailResult?.status}`));
 
       return res.json({
         success: true,
@@ -582,7 +582,7 @@ router.post('/auth/login', securityLimiters.login, async (req, res) => {
       code: otpResult.code
     });
 
-    logActivity('auth', `2FA Challenge Initiated`, `Target: ${cleanId} • Status: ${emailResult?.status}`);
+    (await logActivity('auth', `2FA Challenge Initiated`, `Target: ${cleanId} • Status: ${emailResult?.status}`));
 
     return res.json({
       success: true,
@@ -624,7 +624,7 @@ router.post('/auth/verify-2fa', async (req, res) => {
     const { sessionToken } = await MasterDB.createSession(user.id, tiwiId, user.email, req);
     setSessionCookie(res, req, sessionToken);
 
-    logActivity('auth', `User completed 2FA login`, `Store: ${user.storeName} (${tiwiId})`, tiwiId);
+    (await logActivity('auth', `User completed 2FA login`, `Store: ${user.storeName} (${tiwiId})`, tiwiId));
 
     sendLoginActivityAlertEmail({
       to: user.email,
@@ -696,7 +696,7 @@ router.post('/auth/resend-2fa', async (req, res) => {
       code: newOtp.code
     });
 
-    logActivity('auth', '2FA Code Resent', `Target: ${user.email} • Status: ${emailResult?.status}`);
+    (await logActivity('auth', '2FA Code Resent', `Target: ${user.email} • Status: ${emailResult?.status}`));
 
     return res.json({
       success: true,
@@ -741,7 +741,7 @@ router.post('/auth/resend-setup-2fa', async (req, res) => {
       code: newOtp.code
     });
 
-    logActivity('auth', '2FA Setup Code Resent', `Target: ${user.email} • Status: ${emailResult?.status}`);
+    (await logActivity('auth', '2FA Setup Code Resent', `Target: ${user.email} • Status: ${emailResult?.status}`));
 
     return res.json({
       success: true,
@@ -783,7 +783,7 @@ router.post('/auth/setup-2fa', async (req, res) => {
     const { sessionToken } = await MasterDB.createSession(user.id, tiwiId, user.email, req);
     setSessionCookie(res, req, sessionToken);
 
-    logActivity('auth', `User completed 2FA setup & signed in`, `Store: ${user.storeName} (${tiwiId})`, tiwiId);
+    (await logActivity('auth', `User completed 2FA setup & signed in`, `Store: ${user.storeName} (${tiwiId})`, tiwiId));
 
     sendLoginActivityAlertEmail({
       to: user.email,
@@ -887,7 +887,7 @@ router.post('/auth/verify-email', async (req, res) => {
     }
 
     await MasterDB.updateUser(user.id, { emailVerified: true });
-    logActivity('auth', 'Email Address Verified', `User: ${user.email} (${user.tiwiId})`, user.tiwiId);
+    (await logActivity('auth', 'Email Address Verified', `User: ${user.email} (${user.tiwiId})`, user.tiwiId));
 
     const masked = maskEmail(user.email);
 
@@ -999,7 +999,7 @@ router.post('/auth/change-email', authorizeEmailCorrection, async (req, res) => 
       code: newOtp.code
     }).catch(err => ({ success: false, delivered: false, error: err.message }));
 
-    logActivity('auth', 'User Updated Email Address', `Old: ${session.email} • New: ${cleanNewEmail}`, user.tiwiId);
+    (await logActivity('auth', 'User Updated Email Address', `Old: ${session.email} • New: ${cleanNewEmail}`, user.tiwiId));
 
     return res.json({
       success: true,
@@ -1089,7 +1089,7 @@ router.post('/auth/forgot-password/request', async (req, res) => {
       code: otp.code
     });
 
-    logActivity('auth', 'Password Recovery Dispatched', `Target: ${user.email} • Status: ${emailResult?.status}`);
+    (await logActivity('auth', 'Password Recovery Dispatched', `Target: ${user.email} • Status: ${emailResult?.status}`));
 
     return res.json({
       success: true,
@@ -1137,7 +1137,7 @@ router.post('/auth/forgot-password/reset', async (req, res) => {
       return res.status(404).json({ error: 'Account not found.' });
     }
     await MasterDB.updatePasswordAndRevokeSessions(user.id, PasswordSecurity.hash(newPassword));
-    logActivity('security', 'Password reset completed', `User: ${user.email} (${user.tiwiId})`, user.tiwiId);
+    (await logActivity('security', 'Password reset completed', `User: ${user.email} (${user.tiwiId})`, user.tiwiId));
     res.json({
       success: true,
       message: 'Password reset successful! You can now sign in with your new password.'
@@ -1173,7 +1173,7 @@ router.post('/auth/forgot-password/verify', async (req, res) => {
     const hashedPassword = PasswordSecurity.hash(newPassword);
     await MasterDB.updatePasswordAndRevokeSessions(user.id, hashedPassword);
 
-    logActivity('security', 'Password reset completed', `User: ${user.email} (${user.tiwiId})`, user.tiwiId);
+    (await logActivity('security', 'Password reset completed', `User: ${user.email} (${user.tiwiId})`, user.tiwiId));
 
     return res.json({
       success: true,
@@ -1460,7 +1460,7 @@ router.post('/auth/sso/generate-handshake', async (req, res) => {
       req
     });
 
-    logActivity('security', 'SSO Handshake Generated', `User: ${targetUser.name} (${tiwiId}) via Mobile App`, tiwiId);
+    (await logActivity('security', 'SSO Handshake Generated', `User: ${targetUser.name} (${tiwiId}) via Mobile App`, tiwiId));
 
     res.json({
       success: true,
@@ -1506,7 +1506,7 @@ router.post('/auth/sso/consume-handshake', async (req, res) => {
 
     setSessionCookie(res, req, sessionToken);
 
-    logActivity('auth', 'SSO Auto-Login Verified', `User: ${user.name} (${tiwiId}) logged in via Mobile App Trust Handshake`, tiwiId);
+    (await logActivity('auth', 'SSO Auto-Login Verified', `User: ${user.name} (${tiwiId}) logged in via Mobile App Trust Handshake`, tiwiId));
 
     res.json({
       success: true,

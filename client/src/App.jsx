@@ -1,3 +1,4 @@
+import { applicationFetch as fetch } from './api/graphqlTransport.js';
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';

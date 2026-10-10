@@ -136,8 +136,8 @@ router.post('/stores', async (req, res) => {
 // ==========================================
 // PRODUCTS CRUD
 // ==========================================
-router.get('/products', (req, res) => {
-  let products = readData(PRODUCTS_FILE, []);
+router.get('/products', async (req, res) => {
+  let products = (await readData(PRODUCTS_FILE, []));
   const { category, subCategory, status, search, sortBy } = req.query;
 
   if (category && category !== 'All Categories') {
@@ -175,15 +175,15 @@ router.get('/products', (req, res) => {
   res.json(products);
 });
 
-router.get('/products/:id', (req, res) => {
-  const products = readData(PRODUCTS_FILE, []);
+router.get('/products/:id', async (req, res) => {
+  const products = (await readData(PRODUCTS_FILE, []));
   const product = products.find(p => p.id === req.params.id);
   if (!product) return res.status(404).json({ error: 'Product not found' });
   res.json(product);
 });
 
 router.post('/products', contentSafetyMiddleware('public_product'), async (req, res) => {
-  const products = readData(PRODUCTS_FILE, []);
+  const products = (await readData(PRODUCTS_FILE, []));
   const {
     name,
     sku,
@@ -256,14 +256,14 @@ router.post('/products', contentSafetyMiddleware('public_product'), async (req, 
   };
 
   products.unshift(newProduct);
-  writeData(PRODUCTS_FILE, products);
+  (await writeData(PRODUCTS_FILE, products));
 
-  logActivity('product', 'New product added', `${name} (${sku}) - Stock: ${stockVal}`);
+  (await logActivity('product', 'New product added', `${name} (${sku}) - Stock: ${stockVal}`));
   res.status(201).json(newProduct);
 });
 
 router.put('/products/:id', contentSafetyMiddleware('public_product'), async (req, res) => {
-  const products = readData(PRODUCTS_FILE, []);
+  const products = (await readData(PRODUCTS_FILE, []));
   const { id } = req.params;
   const index = products.findIndex(p => p.id === id);
 
@@ -342,14 +342,14 @@ router.put('/products/:id', contentSafetyMiddleware('public_product'), async (re
   };
 
   products[index] = updatedProduct;
-  writeData(PRODUCTS_FILE, products);
+  (await writeData(PRODUCTS_FILE, products));
 
-  logActivity('product', 'Product updated', `${updatedProduct.name} (${updatedProduct.sku})`);
+  (await logActivity('product', 'Product updated', `${updatedProduct.name} (${updatedProduct.sku})`));
   res.json(updatedProduct);
 });
 
-router.delete('/products/:id', (req, res) => {
-  const products = readData(PRODUCTS_FILE, []);
+router.delete('/products/:id', async (req, res) => {
+  const products = (await readData(PRODUCTS_FILE, []));
   const { id } = req.params;
   const index = products.findIndex(p => p.id === id);
 
@@ -358,18 +358,18 @@ router.delete('/products/:id', (req, res) => {
   }
 
   const [deletedProduct] = products.splice(index, 1);
-  writeData(PRODUCTS_FILE, products);
+  (await writeData(PRODUCTS_FILE, products));
 
-  logActivity('alert', 'Product deleted', `${deletedProduct.name} (${deletedProduct.sku})`);
+  (await logActivity('alert', 'Product deleted', `${deletedProduct.name} (${deletedProduct.sku})`));
   res.json({ message: 'Product deleted successfully', product: deletedProduct });
 });
 
 // ==========================================
 // CATEGORIES & SUBCATEGORIES
 // ==========================================
-router.get('/categories', (req, res) => {
-  const categories = readData(CATEGORIES_FILE, []);
-  const products = readData(PRODUCTS_FILE, []);
+router.get('/categories', async (req, res) => {
+  const categories = (await readData(CATEGORIES_FILE, []));
+  const products = (await readData(PRODUCTS_FILE, []));
 
   const enriched = categories.map(cat => {
     const prods = products.filter(p => (p.category || '').toLowerCase() === cat.name.toLowerCase());
@@ -382,8 +382,8 @@ router.get('/categories', (req, res) => {
   res.json(enriched);
 });
 
-router.post('/categories', (req, res) => {
-  const categories = readData(CATEGORIES_FILE, []);
+router.post('/categories', async (req, res) => {
+  const categories = (await readData(CATEGORIES_FILE, []));
   const { name, description, icon, color } = req.body;
 
   if (!name || !name.trim()) {
@@ -407,14 +407,14 @@ router.post('/categories', (req, res) => {
   };
 
   categories.push(newCategory);
-  writeData(CATEGORIES_FILE, categories);
+  (await writeData(CATEGORIES_FILE, categories));
 
-  logActivity('category', 'New category created', newCategory.name);
+  (await logActivity('category', 'New category created', newCategory.name));
   res.status(201).json(newCategory);
 });
 
-router.put('/categories/:id', (req, res) => {
-  const categories = readData(CATEGORIES_FILE, []);
+router.put('/categories/:id', async (req, res) => {
+  const categories = (await readData(CATEGORIES_FILE, []));
   const { id } = req.params;
   const index = categories.findIndex(c => c.id === id);
 
@@ -434,29 +434,29 @@ router.put('/categories/:id', (req, res) => {
   };
 
   categories[index] = updated;
-  writeData(CATEGORIES_FILE, categories);
+  (await writeData(CATEGORIES_FILE, categories));
 
-  logActivity('category', 'Category updated', updated.name);
+  (await logActivity('category', 'Category updated', updated.name));
   res.json(updated);
 });
 
-router.delete('/categories/:id', (req, res) => {
-  const categories = readData(CATEGORIES_FILE, []);
+router.delete('/categories/:id', async (req, res) => {
+  const categories = (await readData(CATEGORIES_FILE, []));
   const { id } = req.params;
   const index = categories.findIndex(c => c.id === id);
 
   if (index === -1) return res.status(404).json({ error: 'Category not found' });
 
   const [deleted] = categories.splice(index, 1);
-  writeData(CATEGORIES_FILE, categories);
+  (await writeData(CATEGORIES_FILE, categories));
 
-  logActivity('alert', 'Category deleted', deleted.name);
+  (await logActivity('alert', 'Category deleted', deleted.name));
   res.json({ message: 'Category deleted successfully', category: deleted });
 });
 
-router.get('/subcategories', (req, res) => {
-  let subcategories = readData(SUBCATEGORIES_FILE, []);
-  const products = readData(PRODUCTS_FILE, []);
+router.get('/subcategories', async (req, res) => {
+  let subcategories = (await readData(SUBCATEGORIES_FILE, []));
+  const products = (await readData(PRODUCTS_FILE, []));
   const { categoryId, categoryName } = req.query;
 
   if (categoryId) {
@@ -477,9 +477,9 @@ router.get('/subcategories', (req, res) => {
   res.json(enriched);
 });
 
-router.post('/subcategories', (req, res) => {
-  const subcategories = readData(SUBCATEGORIES_FILE, []);
-  const categories = readData(CATEGORIES_FILE, []);
+router.post('/subcategories', async (req, res) => {
+  const subcategories = (await readData(SUBCATEGORIES_FILE, []));
+  const categories = (await readData(CATEGORIES_FILE, []));
   const { categoryId, categoryName, name, description } = req.body;
 
   if ((!categoryId && !categoryName) || !name) {
@@ -501,15 +501,15 @@ router.post('/subcategories', (req, res) => {
   };
 
   subcategories.push(newSub);
-  writeData(SUBCATEGORIES_FILE, subcategories);
+  (await writeData(SUBCATEGORIES_FILE, subcategories));
 
-  logActivity('category', 'New subcategory created', `${newSub.name} (in ${parentName})`);
+  (await logActivity('category', 'New subcategory created', `${newSub.name} (in ${parentName})`));
   res.status(201).json(newSub);
 });
 
-router.put('/subcategories/:id', (req, res) => {
-  const subcategories = readData(SUBCATEGORIES_FILE, []);
-  const categories = readData(CATEGORIES_FILE, []);
+router.put('/subcategories/:id', async (req, res) => {
+  const subcategories = (await readData(SUBCATEGORIES_FILE, []));
+  const categories = (await readData(CATEGORIES_FILE, []));
   const { id } = req.params;
   const index = subcategories.findIndex(s => s.id === id);
 
@@ -535,31 +535,31 @@ router.put('/subcategories/:id', (req, res) => {
   };
 
   subcategories[index] = updated;
-  writeData(SUBCATEGORIES_FILE, subcategories);
+  (await writeData(SUBCATEGORIES_FILE, subcategories));
 
-  logActivity('category', 'Subcategory updated', updated.name);
+  (await logActivity('category', 'Subcategory updated', updated.name));
   res.json(updated);
 });
 
-router.delete('/subcategories/:id', (req, res) => {
-  const subcategories = readData(SUBCATEGORIES_FILE, []);
+router.delete('/subcategories/:id', async (req, res) => {
+  const subcategories = (await readData(SUBCATEGORIES_FILE, []));
   const { id } = req.params;
   const index = subcategories.findIndex(s => s.id === id);
 
   if (index === -1) return res.status(404).json({ error: 'Subcategory not found' });
 
   const [deleted] = subcategories.splice(index, 1);
-  writeData(SUBCATEGORIES_FILE, subcategories);
+  (await writeData(SUBCATEGORIES_FILE, subcategories));
 
-  logActivity('alert', 'Subcategory deleted', deleted.name);
+  (await logActivity('alert', 'Subcategory deleted', deleted.name));
   res.json({ message: 'Subcategory deleted successfully', subcategory: deleted });
 });
 
 // ==========================================
 // INVENTORY CONTROL & ADJUSTMENTS
 // ==========================================
-router.get('/inventory/summary', (req, res) => {
-  const products = readData(PRODUCTS_FILE, []);
+router.get('/inventory/summary', async (req, res) => {
+  const products = (await readData(PRODUCTS_FILE, []));
   const totalUnits = products.reduce((sum, p) => sum + (p.stock || 0), 0);
   const totalRetailValuation = products.reduce((sum, p) => sum + ((p.stock || 0) * (p.price || 0)), 0);
   const totalCostValuation = products.reduce((sum, p) => sum + ((p.stock || 0) * (p.costPrice || (p.price * 0.5))), 0);
@@ -582,14 +582,14 @@ router.get('/inventory/summary', (req, res) => {
   });
 });
 
-router.get('/inventory/adjustments', (req, res) => {
-  const adjustments = readData('inventory_adjustments.json', []);
+router.get('/inventory/adjustments', async (req, res) => {
+  const adjustments = (await readData('inventory_adjustments', []));
   res.json(adjustments);
 });
 
-router.post('/inventory/adjustments', (req, res) => {
-  const adjustments = readData('inventory_adjustments.json', []);
-  const products = readData(PRODUCTS_FILE, []);
+router.post('/inventory/adjustments', async (req, res) => {
+  const adjustments = (await readData('inventory_adjustments', []));
+  const products = (await readData(PRODUCTS_FILE, []));
   const { productId, type, quantity, reason, adjustedBy } = req.body;
 
   const product = products.find(p => p.id === productId);
@@ -612,7 +612,7 @@ router.post('/inventory/adjustments', (req, res) => {
   product.status = newStock === 0 ? 'Out of Stock' : (newStock < minStock ? 'Low Stock' : 'In Stock');
   product.updatedAt = new Date().toISOString();
 
-  writeData(PRODUCTS_FILE, products);
+  (await writeData(PRODUCTS_FILE, products));
 
   const newAdjustment = {
     id: `adj-${Date.now()}`,
@@ -629,9 +629,9 @@ router.post('/inventory/adjustments', (req, res) => {
   };
 
   adjustments.unshift(newAdjustment);
-  writeData('inventory_adjustments.json', adjustments.slice(0, 100));
+  (await writeData('inventory_adjustments', adjustments.slice(0, 100)));
 
-  logActivity('stock', 'Inventory adjusted', `${product.name} (${product.sku}): ${previousStock} ➔ ${newStock} (${newAdjustment.type})`);
+  (await logActivity('stock', 'Inventory adjusted', `${product.name} (${product.sku}): ${previousStock} ➔ ${newStock} (${newAdjustment.type})`));
 
   res.status(201).json({ adjustment: newAdjustment, product });
 });
@@ -639,14 +639,14 @@ router.post('/inventory/adjustments', (req, res) => {
 // ==========================================
 // PURCHASES & RESTOCK ORDERS
 // ==========================================
-router.get('/purchases', (req, res) => {
-  const purchases = readData(PURCHASES_FILE, []);
+router.get('/purchases', async (req, res) => {
+  const purchases = (await readData(PURCHASES_FILE, []));
   res.json(purchases);
 });
 
-router.post('/purchases', (req, res) => {
-  const purchases = readData(PURCHASES_FILE, []);
-  const products = readData(PRODUCTS_FILE, []);
+router.post('/purchases', async (req, res) => {
+  const purchases = (await readData(PURCHASES_FILE, []));
+  const products = (await readData(PRODUCTS_FILE, []));
   const { supplierId, supplierName, items, notes, expectedDelivery } = req.body;
 
   if (!items || !items.length) {
@@ -691,16 +691,16 @@ router.post('/purchases', (req, res) => {
   };
 
   purchases.unshift(newPO);
-  writeData(PURCHASES_FILE, purchases);
+  (await writeData(PURCHASES_FILE, purchases));
 
-  logActivity('purchase', 'Purchase order created', `${poNumber} • $${totalAmount.toFixed(2)} (${newPO.supplierName})`);
+  (await logActivity('purchase', 'Purchase order created', `${poNumber} • $${totalAmount.toFixed(2)} (${newPO.supplierName})`));
 
   res.status(201).json(newPO);
 });
 
-router.put('/purchases/:id', (req, res) => {
-  const purchases = readData(PURCHASES_FILE, []);
-  const products = readData(PRODUCTS_FILE, []);
+router.put('/purchases/:id', async (req, res) => {
+  const purchases = (await readData(PURCHASES_FILE, []));
+  const products = (await readData(PRODUCTS_FILE, []));
   const { id } = req.params;
   const index = purchases.findIndex(p => p.id === id);
 
@@ -720,9 +720,9 @@ router.put('/purchases/:id', (req, res) => {
           prod.status = prod.stock === 0 ? 'Out of Stock' : (prod.stock < minStock ? 'Low Stock' : 'In Stock');
         }
       });
-      writeData(PRODUCTS_FILE, products);
+      (await writeData(PRODUCTS_FILE, products));
     }
-    logActivity('stock', 'PO Items Restocked into Inventory', `${existing.poNumber} received - stocks updated.`);
+    (await logActivity('stock', 'PO Items Restocked into Inventory', `${existing.poNumber} received - stocks updated.`));
   }
 
   const updated = {
@@ -734,23 +734,23 @@ router.put('/purchases/:id', (req, res) => {
   };
 
   purchases[index] = updated;
-  writeData(PURCHASES_FILE, purchases);
+  (await writeData(PURCHASES_FILE, purchases));
 
-  logActivity('purchase', 'Purchase order updated', `${updated.poNumber} status: ${updated.status}`);
+  (await logActivity('purchase', 'Purchase order updated', `${updated.poNumber} status: ${updated.status}`));
   res.json(updated);
 });
 
-router.delete('/purchases/:id', (req, res) => {
-  const purchases = readData(PURCHASES_FILE, []);
+router.delete('/purchases/:id', async (req, res) => {
+  const purchases = (await readData(PURCHASES_FILE, []));
   const { id } = req.params;
   const index = purchases.findIndex(p => p.id === id);
 
   if (index === -1) return res.status(404).json({ error: 'Purchase order not found' });
 
   const [deleted] = purchases.splice(index, 1);
-  writeData(PURCHASES_FILE, purchases);
+  (await writeData(PURCHASES_FILE, purchases));
 
-  logActivity('alert', 'Purchase order deleted', deleted.poNumber);
+  (await logActivity('alert', 'Purchase order deleted', deleted.poNumber));
   res.json({ message: 'Purchase order deleted', purchase: deleted });
 });
 
@@ -778,15 +778,15 @@ router.post('/payments/tokenize', (req, res) => {
   }
 });
 
-router.get('/sales', (req, res) => {
-  const sales = readData(SALES_FILE, []);
+router.get('/sales', async (req, res) => {
+  const sales = (await readData(SALES_FILE, []));
   res.json(sales);
 });
 
-router.post('/sales', (req, res) => {
-  const sales = readData(SALES_FILE, []);
-  const products = readData(PRODUCTS_FILE, []);
-  const customers = readData(CUSTOMERS_FILE, []);
+router.post('/sales', async (req, res) => {
+  const sales = (await readData(SALES_FILE, []));
+  const products = (await readData(PRODUCTS_FILE, []));
+  const customers = (await readData(CUSTOMERS_FILE, []));
   const tiwiId = getActiveTiwiId(req);
 
   const { customerId, customerName, items, paymentMethod, discount, notes, paymentToken, paymentSignature, paymentTimestamp } = req.body;
@@ -805,7 +805,7 @@ router.post('/sales', (req, res) => {
       req.body.totalAmount || 0
     );
     if (!isTamperFree) {
-      logActivity('alert', 'Payment Tampering Attempt Detected!', `Invalid signature on payment token: ${paymentToken}`, tiwiId);
+      (await logActivity('alert', 'Payment Tampering Attempt Detected!', `Invalid signature on payment token: ${paymentToken}`, tiwiId));
       return res.status(403).json({ error: '🚨 Security Alert: Cryptographic payment integrity verification failed. Transaction blocked.' });
     }
   }
@@ -851,9 +851,9 @@ router.post('/sales', (req, res) => {
     });
   }
 
-  writeData(PRODUCTS_FILE, products, tiwiId);
+  (await writeData(PRODUCTS_FILE, products, tiwiId));
 
-  const storeSettings = readData(STORE_SETTINGS_FILE, {}, tiwiId);
+  const storeSettings = (await readData(STORE_SETTINGS_FILE, {}, tiwiId));
   const configuredTaxRate = Number(storeSettings?.taxRate);
   const taxRate = Number.isFinite(configuredTaxRate) && configuredTaxRate >= 0 ? configuredTaxRate / 100 : 0.05;
   subtotal = parseFloat(Number(subtotal).toFixed(2));
@@ -869,7 +869,7 @@ router.post('/sales', (req, res) => {
     if (custIndex !== -1) {
       customers[custIndex].totalOrders = (customers[custIndex].totalOrders || 0) + 1;
       customers[custIndex].totalSpent = parseFloat(((customers[custIndex].totalSpent || 0) + totalAmount).toFixed(2));
-      writeData(CUSTOMERS_FILE, customers, tiwiId);
+      (await writeData(CUSTOMERS_FILE, customers, tiwiId));
     }
   }
 
@@ -891,9 +891,9 @@ router.post('/sales', (req, res) => {
   };
 
   sales.unshift(newSale);
-  writeData(SALES_FILE, sales, tiwiId);
+  (await writeData(SALES_FILE, sales, tiwiId));
 
-  logActivity('sale', 'New sale completed', `${invoiceNumber} • $${totalAmount.toFixed(2)} (${newSale.customerName})`, tiwiId);
+  (await logActivity('sale', 'New sale completed', `${invoiceNumber} • $${totalAmount.toFixed(2)} (${newSale.customerName})`, tiwiId));
 
   res.status(201).json(newSale);
 });
@@ -901,13 +901,13 @@ router.post('/sales', (req, res) => {
 // ==========================================
 // CUSTOMERS & SUPPLIERS CRUD
 // ==========================================
-router.get('/customers', (req, res) => {
-  const customers = readData(CUSTOMERS_FILE, []);
+router.get('/customers', async (req, res) => {
+  const customers = (await readData(CUSTOMERS_FILE, []));
   res.json(customers);
 });
 
-router.post('/customers', (req, res) => {
-  const customers = readData(CUSTOMERS_FILE, []);
+router.post('/customers', async (req, res) => {
+  const customers = (await readData(CUSTOMERS_FILE, []));
   const {
     name,
     email,
@@ -946,14 +946,14 @@ router.post('/customers', (req, res) => {
   };
 
   customers.unshift(newCust);
-  writeData(CUSTOMERS_FILE, customers);
+  (await writeData(CUSTOMERS_FILE, customers));
 
-  logActivity('customer', 'New customer registered', `${name} (${newCust.customerType} - ${newCust.city})`);
+  (await logActivity('customer', 'New customer registered', `${name} (${newCust.customerType} - ${newCust.city})`));
   res.status(201).json(newCust);
 });
 
-router.put('/customers/:id', (req, res) => {
-  const customers = readData(CUSTOMERS_FILE, []);
+router.put('/customers/:id', async (req, res) => {
+  const customers = (await readData(CUSTOMERS_FILE, []));
   const { id } = req.params;
   const index = customers.findIndex(c => c.id === id);
 
@@ -995,33 +995,33 @@ router.put('/customers/:id', (req, res) => {
   };
 
   customers[index] = updated;
-  writeData(CUSTOMERS_FILE, customers);
+  (await writeData(CUSTOMERS_FILE, customers));
 
-  logActivity('customer', 'Customer updated', updated.name);
+  (await logActivity('customer', 'Customer updated', updated.name));
   res.json(updated);
 });
 
-router.delete('/customers/:id', (req, res) => {
-  const customers = readData(CUSTOMERS_FILE, []);
+router.delete('/customers/:id', async (req, res) => {
+  const customers = (await readData(CUSTOMERS_FILE, []));
   const { id } = req.params;
   const index = customers.findIndex(c => c.id === id);
 
   if (index === -1) return res.status(404).json({ error: 'Customer not found' });
 
   const [deleted] = customers.splice(index, 1);
-  writeData(CUSTOMERS_FILE, customers);
+  (await writeData(CUSTOMERS_FILE, customers));
 
-  logActivity('alert', 'Customer deleted', deleted.name);
+  (await logActivity('alert', 'Customer deleted', deleted.name));
   res.json({ message: 'Customer deleted', customer: deleted });
 });
 
-router.get('/suppliers', (req, res) => {
-  const suppliers = readData(SUPPLIERS_FILE, []);
+router.get('/suppliers', async (req, res) => {
+  const suppliers = (await readData(SUPPLIERS_FILE, []));
   res.json(suppliers);
 });
 
-router.post('/suppliers', (req, res) => {
-  const suppliers = readData(SUPPLIERS_FILE, []);
+router.post('/suppliers', async (req, res) => {
+  const suppliers = (await readData(SUPPLIERS_FILE, []));
   const { companyName, contactPerson, email, phone, address, category, leadTimeDays } = req.body;
 
   if (!companyName) return res.status(400).json({ error: 'Company name is required' });
@@ -1041,14 +1041,14 @@ router.post('/suppliers', (req, res) => {
   };
 
   suppliers.unshift(newSupplier);
-  writeData(SUPPLIERS_FILE, suppliers);
+  (await writeData(SUPPLIERS_FILE, suppliers));
 
-  logActivity('supplier', 'New supplier onboarded', `${companyName} (${newSupplier.category})`);
+  (await logActivity('supplier', 'New supplier onboarded', `${companyName} (${newSupplier.category})`));
   res.status(201).json(newSupplier);
 });
 
-router.put('/suppliers/:id', (req, res) => {
-  const suppliers = readData(SUPPLIERS_FILE, []);
+router.put('/suppliers/:id', async (req, res) => {
+  const suppliers = (await readData(SUPPLIERS_FILE, []));
   const { id } = req.params;
   const index = suppliers.findIndex(s => s.id === id);
 
@@ -1071,30 +1071,30 @@ router.put('/suppliers/:id', (req, res) => {
   };
 
   suppliers[index] = updated;
-  writeData(SUPPLIERS_FILE, suppliers);
+  (await writeData(SUPPLIERS_FILE, suppliers));
 
-  logActivity('supplier', 'Supplier updated', updated.companyName);
+  (await logActivity('supplier', 'Supplier updated', updated.companyName));
   res.json(updated);
 });
 
-router.delete('/suppliers/:id', (req, res) => {
-  const suppliers = readData(SUPPLIERS_FILE, []);
+router.delete('/suppliers/:id', async (req, res) => {
+  const suppliers = (await readData(SUPPLIERS_FILE, []));
   const { id } = req.params;
   const index = suppliers.findIndex(s => s.id === id);
 
   if (index === -1) return res.status(404).json({ error: 'Supplier not found' });
 
   const [deleted] = suppliers.splice(index, 1);
-  writeData(SUPPLIERS_FILE, suppliers);
+  (await writeData(SUPPLIERS_FILE, suppliers));
 
-  logActivity('alert', 'Supplier deleted', deleted.companyName);
+  (await logActivity('alert', 'Supplier deleted', deleted.companyName));
   res.json({ message: 'Supplier deleted', supplier: deleted });
 });
 
 // ==========================================
 // STORE SETTINGS & ASSET UPLOADS
 // ==========================================
-router.get('/store/settings', (req, res) => {
+router.get('/store/settings', async (req, res) => {
   const account = req.activeUser || {};
   const defaultSettings = {
     storeName: account.storeName || account.name || 'Your Store',
@@ -1124,19 +1124,19 @@ router.get('/store/settings', (req, res) => {
       }
     ]
   };
-  const settings = readData(STORE_SETTINGS_FILE, defaultSettings);
+  const settings = (await readData(STORE_SETTINGS_FILE, defaultSettings));
   res.json({ ...defaultSettings, ...settings });
 });
 
-router.put('/store/settings', (req, res) => {
-  const current = readData(STORE_SETTINGS_FILE, {});
+router.put('/store/settings', async (req, res) => {
+  const current = (await readData(STORE_SETTINGS_FILE, {}));
   const updated = {
     ...current,
     ...req.body,
     updatedAt: new Date().toISOString()
   };
-  writeData(STORE_SETTINGS_FILE, updated);
-  logActivity('settings', 'Store settings updated', `Store: ${updated.storeName || 'TiwloMart'} • Theme: ${updated.activeTheme || 'TiwiMart'}`);
+  (await writeData(STORE_SETTINGS_FILE, updated));
+  (await logActivity('settings', 'Store settings updated', `Store: ${updated.storeName || 'TiwloMart'} • Theme: ${updated.activeTheme || 'TiwiMart'}`));
   res.json(updated);
 });
 
@@ -1146,11 +1146,11 @@ router.post('/store/upload-logo', upload.single('logo'), async (req, res) => {
       return res.status(400).json({ error: 'No logo image file uploaded' });
     }
     const logoUrl = await persistStoreImageUpload(req, 'store_logo');
-    const current = readData(STORE_SETTINGS_FILE, {});
+    const current = (await readData(STORE_SETTINGS_FILE, {}));
     current.storeLogo = logoUrl;
     current.updatedAt = new Date().toISOString();
-    writeData(STORE_SETTINGS_FILE, current);
-    logActivity('settings', 'Store logo updated', `New logo uploaded: ${req.file.originalname}`);
+    (await writeData(STORE_SETTINGS_FILE, current));
+    (await logActivity('settings', 'Store logo updated', `New logo uploaded: ${req.file.originalname}`));
     res.json({ success: true, logoUrl, message: 'Store logo uploaded successfully' });
   } catch (err) {
     console.error('Logo upload error:', err);
@@ -1167,11 +1167,11 @@ router.post('/store/upload-favicon', upload.single('favicon'), async (req, res) 
       return res.status(400).json({ error: 'No favicon image file uploaded' });
     }
     const faviconUrl = await persistStoreImageUpload(req, 'store_favicon');
-    const current = readData(STORE_SETTINGS_FILE, {});
+    const current = (await readData(STORE_SETTINGS_FILE, {}));
     current.storeFavicon = faviconUrl;
     current.updatedAt = new Date().toISOString();
-    writeData(STORE_SETTINGS_FILE, current);
-    logActivity('settings', 'Store favicon updated', `New favicon uploaded: ${req.file.originalname}`);
+    (await writeData(STORE_SETTINGS_FILE, current));
+    (await logActivity('settings', 'Store favicon updated', `New favicon uploaded: ${req.file.originalname}`));
     res.json({ success: true, faviconUrl, message: 'Store favicon uploaded successfully' });
   } catch (err) {
     console.error('Favicon upload error:', err);
@@ -1222,10 +1222,10 @@ const PLAN_CATALOG = {
   enterprise: { planId: 'enterprise', planName: 'Enterprise VIP', price: 129, productLimit: 999999, warehouseLimit: 99, hasCustomDomain: true }
 };
 
-router.get('/subscription', (req, res) => {
-  const sub = readData(SUBSCRIPTION_FILE, DEFAULT_SUBSCRIPTION);
-  const products = readData(PRODUCTS_FILE, []);
-  const storeSettings = readData(STORE_SETTINGS_FILE, {});
+router.get('/subscription', async (req, res) => {
+  const sub = (await readData(SUBSCRIPTION_FILE, DEFAULT_SUBSCRIPTION));
+  const products = (await readData(PRODUCTS_FILE, []));
+  const storeSettings = (await readData(STORE_SETTINGS_FILE, {}));
 
   const currentProducts = products.length;
   const productLimit = sub.productLimit || 50;
@@ -1247,7 +1247,7 @@ router.get('/subscription', (req, res) => {
   });
 });
 
-router.post('/subscription/upgrade', (req, res) => {
+router.post('/subscription/upgrade', async (req, res) => {
   try {
     const { planId, billingCycle = 'monthly' } = req.body;
     const planInfo = PLAN_CATALOG[planId];
@@ -1255,8 +1255,8 @@ router.post('/subscription/upgrade', (req, res) => {
       return res.status(400).json({ error: 'Invalid subscription plan selected' });
     }
 
-    const currentSub = readData(SUBSCRIPTION_FILE, DEFAULT_SUBSCRIPTION);
-    const storeSettings = readData(STORE_SETTINGS_FILE, {});
+    const currentSub = (await readData(SUBSCRIPTION_FILE, DEFAULT_SUBSCRIPTION));
+    const storeSettings = (await readData(STORE_SETTINGS_FILE, {}));
     const cleanStoreName = (storeSettings.storeName || req.activeUser?.storeName || 'store').toLowerCase().replace(/[^a-z0-9]/g, '');
 
     const updated = {
@@ -1272,10 +1272,10 @@ router.post('/subscription/upgrade', (req, res) => {
       updatedAt: new Date().toISOString()
     };
 
-    writeData(SUBSCRIPTION_FILE, updated);
-    logActivity('subscription', `Plan upgraded to ${planInfo.planName}`, `Billing: ${billingCycle}`);
+    (await writeData(SUBSCRIPTION_FILE, updated));
+    (await logActivity('subscription', `Plan upgraded to ${planInfo.planName}`, `Billing: ${billingCycle}`));
 
-    const products = readData(PRODUCTS_FILE, []);
+    const products = (await readData(PRODUCTS_FILE, []));
     const currentProducts = products.length;
     const usagePercent = Math.min(100, Math.round((currentProducts / updated.productLimit) * 100));
     const remainingQuota = Math.max(0, updated.productLimit - currentProducts);

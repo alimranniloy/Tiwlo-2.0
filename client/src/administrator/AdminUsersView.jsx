@@ -1,3 +1,4 @@
+import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useCallback, useState, useEffect } from 'react';
 import {
   Search,

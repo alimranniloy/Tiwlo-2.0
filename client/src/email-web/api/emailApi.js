@@ -1,3 +1,4 @@
+import { applicationFetch as fetch } from '../../api/graphqlTransport.js';
 const API_BASE = '/api/email';
 
 function authHeaders() {

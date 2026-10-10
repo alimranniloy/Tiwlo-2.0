@@ -326,35 +326,35 @@ export const socialResolvers = {
     return await SocialDB.getStories(currentUserId || null);
   },
   customLists: async ({ userId }) => {
-    const data = SocialDB.getData();
+    const data = (await SocialDB.getData());
     return (data.customLists || []).filter((l) => l.userId === userId);
   },
   audioSpaces: async () => {
-    const data = SocialDB.getData();
+    const data = (await SocialDB.getData());
     return data.audioSpaces || [];
   },
   circles: async () => {
-    const data = SocialDB.getData();
+    const data = (await SocialDB.getData());
     return data.circles || [];
   },
   polls: async () => {
-    const data = SocialDB.getData();
+    const data = (await SocialDB.getData());
     return data.polls || [];
   },
   creatorTiers: async ({ creatorId }) => {
-    const data = SocialDB.getData();
+    const data = (await SocialDB.getData());
     return (data.creatorTiers || []).filter((t) => t.creatorId === creatorId);
   },
   events: async () => {
-    const data = SocialDB.getData();
+    const data = (await SocialDB.getData());
     return data.events || [];
   },
   bioLinks: async ({ userId }) => {
-    const data = SocialDB.getData();
+    const data = (await SocialDB.getData());
     return (data.bioLinks || []).filter((b) => b.userId === userId);
   },
   freelanceGigs: async ({ category }) => {
-    const data = SocialDB.getData();
+    const data = (await SocialDB.getData());
     const gigs = data.freelanceGigs || [];
     if (!category || category === 'All') return gigs;
     return gigs.filter((g) => g.category?.toLowerCase() === category.toLowerCase());
@@ -404,10 +404,10 @@ export const socialResolvers = {
       membersCount: 0,
       subscribersCount: 0,
     };
-    const data = SocialDB.getData();
+    const data = (await SocialDB.getData());
     if (!data.customLists) data.customLists = [];
     data.customLists.unshift(list);
-    SocialDB.saveData(data);
+    (await SocialDB.saveData(data));
     return list;
   },
   createPoll: async ({ userId, authorName, question, options }) => {
@@ -420,19 +420,19 @@ export const socialResolvers = {
       totalVotes: 0,
       isActive: true,
     };
-    const data = SocialDB.getData();
+    const data = (await SocialDB.getData());
     if (!data.polls) data.polls = [];
     data.polls.unshift(poll);
-    SocialDB.saveData(data);
+    (await SocialDB.saveData(data));
     return poll;
   },
   votePoll: async ({ pollId, optionIndex }) => {
-    const data = SocialDB.getData();
+    const data = (await SocialDB.getData());
     const poll = (data.polls || []).find((p) => p.id === pollId);
     if (poll && poll.options[optionIndex]) {
       poll.options[optionIndex].votes += 1;
       poll.totalVotes += 1;
-      SocialDB.saveData(data);
+      (await SocialDB.saveData(data));
     }
     return poll;
   },
@@ -445,10 +445,10 @@ export const socialResolvers = {
       listenersCount: 1,
       isLive: true,
     };
-    const data = SocialDB.getData();
+    const data = (await SocialDB.getData());
     if (!data.audioSpaces) data.audioSpaces = [];
     data.audioSpaces.unshift(space);
-    SocialDB.saveData(data);
+    (await SocialDB.saveData(data));
     return space;
   },
   createCircle: async ({ name, description, category, creatorId }) => {
@@ -459,10 +459,10 @@ export const socialResolvers = {
       category: category || 'General',
       memberCount: 1,
     };
-    const data = SocialDB.getData();
+    const data = (await SocialDB.getData());
     if (!data.circles) data.circles = [];
     data.circles.unshift(circle);
-    SocialDB.saveData(data);
+    (await SocialDB.saveData(data));
     return circle;
   },
   createBioLink: async ({ userId, title, url, icon }) => {
@@ -474,10 +474,10 @@ export const socialResolvers = {
       icon: icon || 'link',
       clicks: 0,
     };
-    const data = SocialDB.getData();
+    const data = (await SocialDB.getData());
     if (!data.bioLinks) data.bioLinks = [];
     data.bioLinks.push(link);
-    SocialDB.saveData(data);
+    (await SocialDB.saveData(data));
     return link;
   },
 

@@ -1,3 +1,4 @@
+import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Layers, RefreshCw, Search } from 'lucide-react';
 

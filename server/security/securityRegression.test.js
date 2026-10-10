@@ -138,15 +138,15 @@ test('public account creation never promotes an email or caller-supplied role', 
 });
 
 test('failed database inserts cannot leave runtime accounts or tenant stores behind', async (t) => {
-  const before = structuredClone(MasterDB.getMasterData());
   t.mock.method(getPgPool(), 'query', async sql => {
     if (sql.includes('INSERT INTO system_users')) throw Object.assign(new Error('duplicate mailbox'), { code: '23505' });
     return { rows: [] };
   });
+  const before = structuredClone(await MasterDB.getMasterData());
   await assert.rejects(MasterDB.createUser({
     email: 'failure@example.com', password: 'test-password', accountType: 'business', tiwiId: 'TIW-FAILURE'
   }), { code: '23505' });
-  assert.deepEqual(MasterDB.getMasterData(), before);
+  assert.deepEqual((await MasterDB.getMasterData()), before);
   assert.equal(fs.existsSync(path.join(dataDir, 'db', 'stores', 'TIW-FAILURE.json')), false);
 });
 

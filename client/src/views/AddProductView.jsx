@@ -1,3 +1,4 @@
+import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   ArrowLeft,

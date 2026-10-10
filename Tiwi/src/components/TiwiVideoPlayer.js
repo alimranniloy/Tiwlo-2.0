@@ -1,3 +1,4 @@
+import { applicationFetch as fetch } from '../services/graphqlTransport.js';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, StyleSheet, Pressable, Image, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

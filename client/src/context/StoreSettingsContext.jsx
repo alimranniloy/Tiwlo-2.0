@@ -1,3 +1,4 @@
+import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { THEME_CONFIG, DEFAULT_HERO_BANNERS, applyThemeColor } from '../themes/themeConfig';
 

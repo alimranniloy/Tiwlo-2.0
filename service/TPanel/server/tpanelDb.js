@@ -1,3 +1,4 @@
+import { readState, saveState } from '../../../server/db/stateDocuments.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -5,34 +6,20 @@ import { PLATFORM_CONFIG, getSubdomain } from '../../../server/config/platformCo
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-let tpanelRuntimeData = {
-  accounts: []
-};
-
-function readTPanelDb() {
-  return tpanelRuntimeData;
-}
-
-function writeTPanelDb(data) {
-  tpanelRuntimeData = data;
-}
+async function readTPanelDb() { return readState('tpanel', 'accounts', { accounts: [] }); }
+async function writeTPanelDb(data) { await saveState('tpanel', 'accounts', data); }
 
 export const TPanelDB = {
-  init() {
-    if (!tpanelRuntimeData.accounts) {
-      tpanelRuntimeData.accounts = [];
-    }
-  },
+  init() { /* PostgreSQL schema is initialized by server startup. */ },
 
   async getAccount(userId) {
     if (!userId) return null;
-    const db = readTPanelDb();
+    const db = (await readTPanelDb());
     db.accounts = db.accounts || [];
 
     let acc = db.accounts.find(a => a.userId === userId || a.tiwiId === userId);
 
     if (!acc) {
-      const initial = getInitialTPanelData();
       acc = {
         userId,
         tiwiId: userId.startsWith('TIW-') ? userId : `TIW-${userId.slice(-5)}`,
@@ -104,7 +91,7 @@ export const TPanelDB = {
         ]
       };
       db.accounts.push(acc);
-      writeTPanelDb(db);
+      (await writeTPanelDb(db));
     }
 
     // Dynamic stats computation from actual data
@@ -128,7 +115,7 @@ export const TPanelDB = {
   },
 
   async createFile(userId, { dirPath = '/public_html', name, content = '' }) {
-    const db = readTPanelDb();
+    const db = (await readTPanelDb());
     const acc = db.accounts.find(a => a.userId === userId || a.tiwiId === userId);
     if (!acc) return null;
 
@@ -149,12 +136,12 @@ export const TPanelDB = {
     acc.fileSystem[cleanDir] = acc.fileSystem[cleanDir].filter(f => f.name !== name);
     acc.fileSystem[cleanDir].push(newFile);
 
-    writeTPanelDb(db);
+    (await writeTPanelDb(db));
     return newFile;
   },
 
   async createFolder(userId, { dirPath = '/public_html', name }) {
-    const db = readTPanelDb();
+    const db = (await readTPanelDb());
     const acc = db.accounts.find(a => a.userId === userId || a.tiwiId === userId);
     if (!acc) return null;
 
@@ -176,12 +163,12 @@ export const TPanelDB = {
     acc.fileSystem[cleanDir].push(newFolder);
     acc.fileSystem[newFolderPath] = acc.fileSystem[newFolderPath] || [];
 
-    writeTPanelDb(db);
+    (await writeTPanelDb(db));
     return newFolder;
   },
 
   async updateFileContent(userId, filePath, content) {
-    const db = readTPanelDb();
+    const db = (await readTPanelDb());
     const acc = db.accounts.find(a => a.userId === userId || a.tiwiId === userId);
     if (!acc) return false;
 
@@ -224,12 +211,12 @@ export const TPanelDB = {
       console.warn('[TPanel Live Sync Warning]', diskErr.message);
     }
 
-    writeTPanelDb(db);
+    (await writeTPanelDb(db));
     return true;
   },
 
   async deleteFileOrFolder(userId, itemPath) {
-    const db = readTPanelDb();
+    const db = (await readTPanelDb());
     const acc = db.accounts.find(a => a.userId === userId || a.tiwiId === userId);
     if (!acc) return false;
 
@@ -240,7 +227,7 @@ export const TPanelDB = {
     if (acc.fileSystem[dir]) {
       acc.fileSystem[dir] = acc.fileSystem[dir].filter(f => f.name !== fileName);
       delete acc.fileSystem[itemPath];
-      writeTPanelDb(db);
+      (await writeTPanelDb(db));
       return true;
     }
     return false;
@@ -248,8 +235,8 @@ export const TPanelDB = {
 
   // 2. Websites CRUD & Subdomain Directory Auto-creation
   async createWebsite(userId, websiteData) {
-    const db = readTPanelDb();
-    let acc = await this.getAccount(userId);
+    const acc = await this.getAccount(userId);
+    const db = await readTPanelDb();
     let target = db.accounts.find(a => a.userId === userId || a.tiwiId === userId) || acc;
 
     const domain = websiteData.domain || `newsite.${PLATFORM_CONFIG.storeDomain}`;
@@ -340,12 +327,12 @@ export const TPanelDB = {
       createdAt: new Date().toISOString()
     });
 
-    writeTPanelDb(db);
+    (await writeTPanelDb(db));
     return newSite;
   },
 
   async deleteWebsite(userId, siteId) {
-    const db = readTPanelDb();
+    const db = (await readTPanelDb());
     let acc = db.accounts.find(a => a.userId === userId || a.tiwiId === userId);
     if (!acc) return false;
 
@@ -363,13 +350,13 @@ export const TPanelDB = {
       });
     }
 
-    writeTPanelDb(db);
+    (await writeTPanelDb(db));
     return true;
   },
 
   // 3. 1-Click App Installer (WordPress, Laravel, Node.js)
   async installApp(userId, { appName = 'WordPress', domain, adminUser, adminPass, adminEmail }) {
-    const db = readTPanelDb();
+    const db = (await readTPanelDb());
     let acc = db.accounts.find(a => a.userId === userId || a.tiwiId === userId);
     if (!acc) return null;
 
@@ -435,14 +422,14 @@ export const TPanelDB = {
       createdAt: new Date().toISOString()
     });
 
-    writeTPanelDb(db);
+    (await writeTPanelDb(db));
     return installed;
   },
 
   // 4. Databases CRUD (Tenant-isolated namespaces)
   async createDatabase(userId, { name, engine, user, password, charset }) {
-    const db = readTPanelDb();
-    let acc = await this.getAccount(userId);
+    const acc = await this.getAccount(userId);
+    const db = await readTPanelDb();
     let target = db.accounts.find(a => a.userId === userId || a.tiwiId === userId) || acc;
 
     const userPrefix = target.panelUser || 'user';
@@ -477,12 +464,12 @@ export const TPanelDB = {
       createdAt: new Date().toISOString()
     });
 
-    writeTPanelDb(db);
+    (await writeTPanelDb(db));
     return newDb;
   },
 
   async deleteDatabase(userId, dbId) {
-    const db = readTPanelDb();
+    const db = (await readTPanelDb());
     let acc = db.accounts.find(a => a.userId === userId || a.tiwiId === userId);
     if (!acc) return false;
 
@@ -500,13 +487,13 @@ export const TPanelDB = {
       });
     }
 
-    writeTPanelDb(db);
+    (await writeTPanelDb(db));
     return true;
   },
 
   // 5. SSL Issue, Renew & PEM Management
   async issueOrRenewSsl(userId, domain) {
-    const db = readTPanelDb();
+    const db = (await readTPanelDb());
     let acc = db.accounts.find(a => a.userId === userId || a.tiwiId === userId);
     if (!acc) return null;
 
@@ -543,13 +530,13 @@ export const TPanelDB = {
       createdAt: new Date().toISOString()
     });
 
-    writeTPanelDb(db);
+    (await writeTPanelDb(db));
     return cert;
   },
 
   // 6. Security Firewall Rules with Website Mapping
   async addFirewallRule(userId, { name, port, protocol, targetSite, source, action }) {
-    const db = readTPanelDb();
+    const db = (await readTPanelDb());
     let acc = db.accounts.find(a => a.userId === userId || a.tiwiId === userId);
     if (!acc) return null;
 
@@ -566,22 +553,22 @@ export const TPanelDB = {
 
     acc.securityRules = acc.securityRules || [];
     acc.securityRules.push(newRule);
-    writeTPanelDb(db);
+    (await writeTPanelDb(db));
     return newRule;
   },
 
   async deleteFirewallRule(userId, ruleId) {
-    const db = readTPanelDb();
+    const db = (await readTPanelDb());
     let acc = db.accounts.find(a => a.userId === userId || a.tiwiId === userId);
     if (!acc) return false;
     acc.securityRules = (acc.securityRules || []).filter(r => r.id !== ruleId);
-    writeTPanelDb(db);
+    (await writeTPanelDb(db));
     return true;
   },
 
   // 7. Email Accounts CRUD & Password/Quota Update
   async updateEmail(userId, emailId, { password, quota }) {
-    const db = readTPanelDb();
+    const db = (await readTPanelDb());
     let acc = db.accounts.find(a => a.userId === userId || a.tiwiId === userId);
     if (!acc) return false;
 
@@ -589,7 +576,7 @@ export const TPanelDB = {
     if (email) {
       if (quota) email.quota = quota;
       if (password) email.hasCustomPassword = true;
-      writeTPanelDb(db);
+      (await writeTPanelDb(db));
       return email;
     }
     return false;
@@ -597,7 +584,7 @@ export const TPanelDB = {
 
   // 8. FTP Accounts CRUD & Password/Directory Update
   async updateFtp(userId, ftpId, { password, homeDir }) {
-    const db = readTPanelDb();
+    const db = (await readTPanelDb());
     let acc = db.accounts.find(a => a.userId === userId || a.tiwiId === userId);
     if (!acc) return false;
 
@@ -605,7 +592,7 @@ export const TPanelDB = {
     if (ftp) {
       if (homeDir) ftp.homeDir = homeDir;
       if (password) ftp.hasCustomPassword = true;
-      writeTPanelDb(db);
+      (await writeTPanelDb(db));
       return ftp;
     }
     return false;
@@ -613,7 +600,7 @@ export const TPanelDB = {
 
   // 9. Update Settings & PHP/Node Runtimes
   async updateSettings(userId, newSettings) {
-    const db = readTPanelDb();
+    const db = (await readTPanelDb());
     let acc = db.accounts.find(a => a.userId === userId || a.tiwiId === userId);
     if (!acc) return null;
 
@@ -625,7 +612,7 @@ export const TPanelDB = {
       });
     }
 
-    writeTPanelDb(db);
+    (await writeTPanelDb(db));
     return acc.settings;
   }
 };

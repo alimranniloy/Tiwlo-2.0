@@ -1,3 +1,4 @@
+import { applicationFetch as fetch } from './graphqlTransport.js';
 const API_BASE = '/api/discord';
 
 async function request(endpoint, options = {}) {

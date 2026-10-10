@@ -1,3 +1,4 @@
+import { applicationFetch as fetch } from '../../api/graphqlTransport.js';
 import React, { useState, useEffect, useRef } from 'react';
 import { getAuthUrl } from '../../utils/navigation';
 import { ADMIN_EMAIL, DNS_TTL, SERVER_IPV4, STORE_DOMAIN } from '../../config/platformConfig';

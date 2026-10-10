@@ -425,11 +425,11 @@ async function processSingleVideo(task) {
       }
       if (task.reelId) {
         try {
-          const sData = SocialDB.getData();
+          const sData = (await SocialDB.getData());
           const rIndex = (sData.reels || []).findIndex((r) => r.id === task.reelId);
           if (rIndex !== -1) {
             sData.reels.splice(rIndex, 1);
-            SocialDB.saveData(sData);
+            (await SocialDB.saveData(sData));
           }
         } catch (e) {}
       }
@@ -474,11 +474,11 @@ async function processSingleVideo(task) {
       purpose: 'public_feed'
     });
     if (task.reelId) {
-      const sData = SocialDB.getData();
+      const sData = (await SocialDB.getData());
       const targetReel = (sData.reels || []).find((reel) => reel.id === task.reelId);
       if (targetReel && (!targetReel.image || targetReel.image === targetReel.videoUrl)) {
         targetReel.image = posterRelativeUrl;
-        SocialDB.saveData(sData);
+        (await SocialDB.saveData(sData));
       }
     }
     console.log(`[VideoProcessor] Poster approved and stored: ${posterRelativeUrl}`);

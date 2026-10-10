@@ -1,3 +1,5 @@
+import { readState, saveState } from '../db/stateDocuments.js';
+import { requireAuthenticatedUser } from '../security/authGuards.js';
 import express from 'express';
 import { SocialDB } from './socialDb.js';
 import { isPgActive, queryPg } from '../db/postgres.js';
@@ -5,31 +7,57 @@ import { MasterDB } from '../db/multiTenant.js';
 
 const router = express.Router();
 
-// In-memory runtime collections synchronized with database
-const runtimeGigs = [];
-const runtimeTriviaSessions = [];
-const runtimeTriviaStats = {};
-const runtimeSecretChats = {};
-const runtimeAudioSpaces = [];
-const runtimeCircles = [];
-const runtimeCreatorTiers = {};
-const runtimePolls = [];
-const runtimeWallets = {};
-const runtimeEvents = [];
-const runtimeMediaKits = {};
-const runtimeBrandBriefs = [];
-const runtimeAppeals = [];
-const runtimeCustomLists = [];
-const runtimeDrafts = [];
-const runtimeScheduled = [];
-const runtimeBioLinks = [];
-const runtimeDeviceSessions = {};
-const runtimeReferrals = {};
-const runtimeContentFilters = {};
-const runtimeParentalControls = {};
-const runtimeVoiceNotes = [];
-const runtimeVerifications = [];
-const runtimeCoauthors = [];
+const ECOSYSTEM_DEFAULTS = {
+  gigs: [],
+  triviaSessions: [],
+  triviaStats: {},
+  secretChats: {},
+  audioSpaces: [],
+  circles: [],
+  creatorTiers: {},
+  polls: [],
+  wallets: {},
+  events: [],
+  mediaKits: {},
+  brandBriefs: [],
+  appeals: [],
+  customLists: [],
+  drafts: [],
+  scheduled: [],
+  bioLinks: [],
+  deviceSessions: {},
+  referrals: {},
+  contentFilters: {},
+  parentalControls: {},
+  voiceNotes: [],
+  verifications: [],
+  coauthors: []
+};
+// Applied to each feature route after registration so only these routes load
+// the durable document and successful changes commit before the response.
+async function bindEcosystemState(req, res, next) {
+  if (!req.activeUser || req.activeUser.isBanned) return requireAuthenticatedUser(req, res, next);
+  const userId = req.activeUser.id;
+  req.query = { ...req.query, userId };
+  req.body = { ...req.body, userId, senderId: userId };
+  if (req.method !== 'GET') req.body.creatorId = userId;
+  // Payment provider confirmation is required before balances can change.
+  if (req.method === 'POST' && req.path.startsWith('/wallet/')) return res.status(503).json({ error: 'Wallet payments are not connected to a payment provider.' });
+  try {
+    const state = await readState('social', 'ecosystem', ECOSYSTEM_DEFAULTS);
+    req.ecosystemState = state;
+    const before = JSON.stringify(state);
+    for (const chat of Object.values(state.secretChats)) chat.messages = (chat.messages || []).filter(message => message.expiresAt > Date.now());
+    const respond = res.json.bind(res);
+    res.json = body => {
+      res.json = respond;
+      if (res.statusCode >= 400 || JSON.stringify(state) === before) return respond(body);
+      saveState('social', 'ecosystem', state).then(() => respond(body), next);
+      return res;
+    };
+    next();
+  } catch (error) { next(error); }
+}
 
 // ====================================================================
 // 1. FREELANCE GIGS & SERVICES
@@ -37,7 +65,7 @@ const runtimeCoauthors = [];
 router.get('/gigs', async (req, res) => {
   try {
     const { category } = req.query;
-    let results = runtimeGigs;
+    let results = req.ecosystemState.gigs;
     if (category && category !== 'All') {
       results = results.filter((g) => g.category?.toLowerCase() === category.toLowerCase());
     }
@@ -67,7 +95,7 @@ router.post('/gigs', async (req, res) => {
       createdAt: new Date().toISOString(),
     };
 
-    runtimeGigs.unshift(newGig);
+    req.ecosystemState.gigs.unshift(newGig);
     return res.status(201).json({ success: true, gig: newGig });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to publish gig' });
@@ -116,7 +144,7 @@ router.get('/trivia/active', (req, res) => {
 
 router.get('/trivia/stats', (req, res) => {
   const { userId } = req.query;
-  const userStats = runtimeTriviaStats[userId] || { totalGames: 0, bestStreak: 0, totalScore: 0 };
+  const userStats = req.ecosystemState.triviaStats[userId] || { totalGames: 0, bestStreak: 0, totalScore: 0 };
   return res.json({ success: true, stats: userStats });
 });
 
@@ -124,11 +152,11 @@ router.post('/trivia/submit', (req, res) => {
   const { userId, score, streak } = req.body;
   if (!userId) return res.status(400).json({ error: 'userId is required' });
 
-  if (!runtimeTriviaStats[userId]) {
-    runtimeTriviaStats[userId] = { totalGames: 0, bestStreak: 0, totalScore: 0 };
+  if (!req.ecosystemState.triviaStats[userId]) {
+    req.ecosystemState.triviaStats[userId] = { totalGames: 0, bestStreak: 0, totalScore: 0 };
   }
 
-  const stat = runtimeTriviaStats[userId];
+  const stat = req.ecosystemState.triviaStats[userId];
   stat.totalGames += 1;
   stat.totalScore += parseInt(score, 10) || 0;
   if (streak > stat.bestStreak) stat.bestStreak = streak;
@@ -142,7 +170,7 @@ router.post('/trivia/submit', (req, res) => {
 router.get('/memories', async (req, res) => {
   try {
     const { userId } = req.query;
-    const socialData = SocialDB.getData();
+    const socialData = (await SocialDB.getData());
     const posts = socialData?.posts || [];
 
     // Filter posts published by this user from earlier than 7 days ago
@@ -165,7 +193,7 @@ router.get('/memories', async (req, res) => {
 // ====================================================================
 router.get('/secret-chats', (req, res) => {
   const { userId } = req.query;
-  const userChats = Object.values(runtimeSecretChats).filter(
+  const userChats = Object.values(req.ecosystemState.secretChats).filter(
     (c) => c.userId === userId || c.peerId === userId
   );
   return res.json({ success: true, chats: userChats });
@@ -178,8 +206,8 @@ router.post('/secret-chats/send', (req, res) => {
   }
 
   const chatId = `sc_${senderId}_${recipientUsername}`;
-  if (!runtimeSecretChats[chatId]) {
-    runtimeSecretChats[chatId] = {
+  if (!req.ecosystemState.secretChats[chatId]) {
+    req.ecosystemState.secretChats[chatId] = {
       id: chatId,
       userId: senderId,
       peerUsername: recipientUsername,
@@ -197,16 +225,7 @@ router.post('/secret-chats/send', (req, res) => {
     expiresAt: Date.now() + (parseInt(ttlSeconds, 10) || 300) * 1000,
   };
 
-  runtimeSecretChats[chatId].messages.push(msg);
-
-  // Auto clean expired messages
-  setTimeout(() => {
-    if (runtimeSecretChats[chatId]) {
-      runtimeSecretChats[chatId].messages = runtimeSecretChats[chatId].messages.filter(
-        (m) => m.expiresAt > Date.now()
-      );
-    }
-  }, (parseInt(ttlSeconds, 10) || 300) * 1000);
+  req.ecosystemState.secretChats[chatId].messages.push(msg);
 
   return res.status(201).json({ success: true, message: msg });
 });
@@ -217,7 +236,7 @@ router.post('/secret-chats/send', (req, res) => {
 router.get('/audio-spaces', (req, res) => {
   return res.json({
     success: true,
-    spaces: runtimeAudioSpaces.filter((s) => s.isLive !== false),
+    spaces: req.ecosystemState.audioSpaces.filter((s) => s.isLive !== false),
   });
 });
 
@@ -247,14 +266,14 @@ router.post('/audio-spaces', (req, res) => {
     createdAt: new Date().toISOString(),
   };
 
-  runtimeAudioSpaces.unshift(newSpace);
+  req.ecosystemState.audioSpaces.unshift(newSpace);
   return res.status(201).json({ success: true, space: newSpace });
 });
 
 router.post('/audio-spaces/:id/join', (req, res) => {
   const { id } = req.params;
   const { userId, username, name, avatar } = req.body;
-  const space = runtimeAudioSpaces.find((s) => s.id === id);
+  const space = req.ecosystemState.audioSpaces.find((s) => s.id === id);
   if (!space) return res.status(404).json({ error: 'Space not found' });
 
   if (!space.participants) space.participants = [space.hostId];
@@ -275,16 +294,16 @@ router.post('/audio-spaces/:id/join', (req, res) => {
 router.post('/audio-spaces/:id/leave', (req, res) => {
   const { id } = req.params;
   const { userId } = req.body;
-  const spaceIndex = runtimeAudioSpaces.findIndex((s) => s.id === id);
+  const spaceIndex = req.ecosystemState.audioSpaces.findIndex((s) => s.id === id);
   if (spaceIndex === -1) return res.status(404).json({ error: 'Space not found' });
 
-  const space = runtimeAudioSpaces[spaceIndex];
+  const space = req.ecosystemState.audioSpaces[spaceIndex];
   const cleanUserId = userId ? String(userId) : null;
 
   // If host leaves, end the space
   if (cleanUserId && String(space.hostId) === cleanUserId) {
     space.isLive = false;
-    runtimeAudioSpaces.splice(spaceIndex, 1);
+    req.ecosystemState.audioSpaces.splice(spaceIndex, 1);
     return res.json({ success: true, ended: true, message: 'Host ended the audio space.' });
   }
 
@@ -302,7 +321,7 @@ router.post('/audio-spaces/:id/leave', (req, res) => {
 // 6. COMMUNITY CIRCLES
 // ====================================================================
 router.get('/circles', (req, res) => {
-  return res.json({ success: true, circles: runtimeCircles });
+  return res.json({ success: true, circles: req.ecosystemState.circles });
 });
 
 router.post('/circles', (req, res) => {
@@ -320,7 +339,7 @@ router.post('/circles', (req, res) => {
     createdAt: new Date().toISOString(),
   };
 
-  runtimeCircles.unshift(circle);
+  req.ecosystemState.circles.unshift(circle);
   return res.status(201).json({ success: true, circle });
 });
 
@@ -329,7 +348,7 @@ router.post('/circles', (req, res) => {
 // ====================================================================
 router.get('/wallet/balance', (req, res) => {
   const { userId } = req.query;
-  const wallet = runtimeWallets[userId] || { balance: 0.0, transactions: [] };
+  const wallet = req.ecosystemState.wallets[userId] || { balance: 0.0, transactions: [] };
   return res.json({ success: true, balance: wallet.balance, transactions: wallet.transactions });
 });
 
@@ -351,11 +370,11 @@ router.post('/wallet/tip', (req, res) => {
     createdAt: new Date().toISOString(),
   };
 
-  if (!runtimeWallets[senderId]) runtimeWallets[senderId] = { balance: 100.0, transactions: [] };
-  runtimeWallets[senderId].balance = Math.max(0, runtimeWallets[senderId].balance - numAmount);
-  runtimeWallets[senderId].transactions.unshift(tx);
+  if (!req.ecosystemState.wallets[senderId]) req.ecosystemState.wallets[senderId] = { balance: 100.0, transactions: [] };
+  req.ecosystemState.wallets[senderId].balance = Math.max(0, req.ecosystemState.wallets[senderId].balance - numAmount);
+  req.ecosystemState.wallets[senderId].transactions.unshift(tx);
 
-  return res.json({ success: true, transaction: tx, balance: runtimeWallets[senderId].balance });
+  return res.json({ success: true, transaction: tx, balance: req.ecosystemState.wallets[senderId].balance });
 });
 
 // ====================================================================
@@ -391,7 +410,7 @@ router.post('/ai-studio/generate', (req, res) => {
 router.post('/data-export', async (req, res) => {
   try {
     const { userId, categories } = req.body;
-    const socialData = SocialDB.getData();
+    const socialData = (await SocialDB.getData());
 
     const userPosts = (socialData?.posts || []).filter(
       (p) => String(p.author?.id) === String(userId) || String(p.userId) === String(userId)
@@ -427,7 +446,7 @@ router.post('/data-export', async (req, res) => {
 // ====================================================================
 router.get('/appeals', (req, res) => {
   const { userId } = req.query;
-  const userAppeals = runtimeAppeals.filter((a) => a.userId === userId);
+  const userAppeals = req.ecosystemState.appeals.filter((a) => a.userId === userId);
   return res.json({
     success: true,
     standing: {
@@ -452,7 +471,7 @@ router.post('/appeals', (req, res) => {
     submittedAt: new Date().toISOString(),
   };
 
-  runtimeAppeals.unshift(appealTicket);
+  req.ecosystemState.appeals.unshift(appealTicket);
   return res.status(201).json({ success: true, ticket: appealTicket });
 });
 
@@ -477,8 +496,8 @@ router.get('/custom-lists', async (req, res) => {
         })),
       });
     }
-  } catch {}
-  const userLists = runtimeCustomLists.filter((l) => !userId || l.userId === userId);
+  } catch (error) { throw error; }
+  const userLists = req.ecosystemState.customLists.filter((l) => !userId || l.userId === userId);
   return res.json({ success: true, lists: userLists });
 });
 
@@ -503,20 +522,20 @@ router.post('/custom-lists', async (req, res) => {
         [item.id, item.userId, item.name, item.description, item.isPrivate, false, 0, 0]
       );
     }
-  } catch {}
-  runtimeCustomLists.unshift(item);
+  } catch (error) { throw error; }
+  req.ecosystemState.customLists.unshift(item);
   return res.status(201).json({ success: true, list: item });
 });
 
 router.post('/custom-lists/:id/pin', async (req, res) => {
   const { id } = req.params;
-  const { isPinned } = req.body;
+  const { isPinned, userId } = req.body;
   try {
     if (isPgActive()) {
-      await queryPg('UPDATE social_custom_lists SET is_pinned = $1 WHERE id = $2', [!!isPinned, id]);
+      await queryPg('UPDATE social_custom_lists SET is_pinned = $1 WHERE id = $2 AND user_id = $3', [!!isPinned, id, userId]);
     }
-  } catch {}
-  const target = runtimeCustomLists.find((l) => l.id === id);
+  } catch (error) { throw error; }
+  const target = req.ecosystemState.customLists.find((l) => l.id === id && l.userId === userId);
   if (target) target.isPinned = !!isPinned;
   return res.json({ success: true });
 });
@@ -538,8 +557,8 @@ router.get('/drafts', async (req, res) => {
         })),
       });
     }
-  } catch {}
-  const userDrafts = runtimeDrafts.filter((d) => !userId || d.userId === userId);
+  } catch (error) { throw error; }
+  const userDrafts = req.ecosystemState.drafts.filter((d) => !userId || d.userId === userId);
   return res.json({ success: true, drafts: userDrafts });
 });
 
@@ -556,20 +575,21 @@ router.post('/drafts', async (req, res) => {
     if (isPgActive()) {
       await queryPg("INSERT INTO social_drafts_scheduler (id, user_id, content, status) VALUES ($1, $2, $3, 'draft')", [draft.id, draft.userId, draft.content]);
     }
-  } catch {}
-  runtimeDrafts.unshift(draft);
+  } catch (error) { throw error; }
+  req.ecosystemState.drafts.unshift(draft);
   return res.status(201).json({ success: true, draft });
 });
 
 router.delete('/drafts/:id', async (req, res) => {
   const { id } = req.params;
+  const { userId } = req.query;
   try {
     if (isPgActive()) {
-      await queryPg('DELETE FROM social_drafts_scheduler WHERE id = $1', [id]);
+      await queryPg('DELETE FROM social_drafts_scheduler WHERE id = $1 AND user_id = $2', [id, userId]);
     }
-  } catch {}
-  const idx = runtimeDrafts.findIndex((d) => d.id === id);
-  if (idx !== -1) runtimeDrafts.splice(idx, 1);
+  } catch (error) { throw error; }
+  const idx = req.ecosystemState.drafts.findIndex((d) => d.id === id);
+  if (idx !== -1) req.ecosystemState.drafts.splice(idx, 1);
   return res.json({ success: true });
 });
 
@@ -589,8 +609,8 @@ router.get('/drafts/scheduled', async (req, res) => {
         })),
       });
     }
-  } catch {}
-  const userSch = runtimeScheduled.filter((s) => !userId || s.userId === userId);
+  } catch (error) { throw error; }
+  const userSch = req.ecosystemState.scheduled.filter((s) => !userId || s.userId === userId);
   return res.json({ success: true, scheduled: userSch });
 });
 
@@ -613,20 +633,21 @@ router.post('/drafts/schedule', async (req, res) => {
         [item.id, item.userId, item.content, item.publishAt, item.audience, item.mediaType]
       );
     }
-  } catch {}
-  runtimeScheduled.unshift(item);
+  } catch (error) { throw error; }
+  req.ecosystemState.scheduled.unshift(item);
   return res.status(201).json({ success: true, scheduledPost: item });
 });
 
 router.delete('/drafts/scheduled/:id', async (req, res) => {
   const { id } = req.params;
+  const { userId } = req.query;
   try {
     if (isPgActive()) {
-      await queryPg('DELETE FROM social_drafts_scheduler WHERE id = $1', [id]);
+      await queryPg('DELETE FROM social_drafts_scheduler WHERE id = $1 AND user_id = $2', [id, userId]);
     }
-  } catch {}
-  const idx = runtimeScheduled.findIndex((s) => s.id === id);
-  if (idx !== -1) runtimeScheduled.splice(idx, 1);
+  } catch (error) { throw error; }
+  const idx = req.ecosystemState.scheduled.findIndex((s) => s.id === id && s.userId === userId);
+  if (idx !== -1) req.ecosystemState.scheduled.splice(idx, 1);
   return res.json({ success: true });
 });
 
@@ -649,8 +670,8 @@ router.get('/bio-links', async (req, res) => {
         })),
       });
     }
-  } catch {}
-  const userLinks = runtimeBioLinks.filter((l) => !userId || l.userId === userId);
+  } catch (error) { throw error; }
+  const userLinks = req.ecosystemState.bioLinks.filter((l) => !userId || l.userId === userId);
   return res.json({ success: true, links: userLinks });
 });
 
@@ -676,20 +697,21 @@ router.post('/bio-links', async (req, res) => {
         newLink.icon,
       ]);
     }
-  } catch {}
-  runtimeBioLinks.push(newLink);
+  } catch (error) { throw error; }
+  req.ecosystemState.bioLinks.push(newLink);
   return res.status(201).json({ success: true, link: newLink });
 });
 
 router.delete('/bio-links/:id', async (req, res) => {
   const { id } = req.params;
+  const { userId } = req.query;
   try {
     if (isPgActive()) {
-      await queryPg('DELETE FROM social_bio_links WHERE id = $1', [id]);
+      await queryPg('DELETE FROM social_bio_links WHERE id = $1 AND user_id = $2', [id, userId]);
     }
-  } catch {}
-  const idx = runtimeBioLinks.findIndex((l) => l.id === id);
-  if (idx !== -1) runtimeBioLinks.splice(idx, 1);
+  } catch (error) { throw error; }
+  const idx = req.ecosystemState.bioLinks.findIndex((l) => l.id === id && l.userId === userId);
+  if (idx !== -1) req.ecosystemState.bioLinks.splice(idx, 1);
   return res.json({ success: true });
 });
 
@@ -714,8 +736,8 @@ router.get('/wallet/transactions', async (req, res) => {
         })),
       });
     }
-  } catch {}
-  const wallet = runtimeWallets[userId] || { transactions: [] };
+  } catch (error) { throw error; }
+  const wallet = req.ecosystemState.wallets[userId] || { transactions: [] };
   return res.json({ success: true, transactions: wallet.transactions || [] });
 });
 
@@ -724,8 +746,8 @@ router.post('/wallet/topup', async (req, res) => {
   const numAmt = parseFloat(amount);
   if (!numAmt || numAmt <= 0) return res.status(400).json({ error: 'Valid amount required' });
 
-  if (!runtimeWallets[userId]) runtimeWallets[userId] = { balance: 0.0, transactions: [] };
-  runtimeWallets[userId].balance += numAmt;
+  if (!req.ecosystemState.wallets[userId]) req.ecosystemState.wallets[userId] = { balance: 0.0, transactions: [] };
+  req.ecosystemState.wallets[userId].balance += numAmt;
 
   const tx = {
     id: `tx_${Date.now()}`,
@@ -735,7 +757,7 @@ router.post('/wallet/topup', async (req, res) => {
     note: 'Wallet balance reload',
     date: 'Just now',
   };
-  runtimeWallets[userId].transactions.unshift(tx);
+  req.ecosystemState.wallets[userId].transactions.unshift(tx);
 
   try {
     if (isPgActive()) {
@@ -748,9 +770,9 @@ router.post('/wallet/topup', async (req, res) => {
         [tx.id, userId, 'topup', numAmt, source || 'Card', 'Wallet reload']
       );
     }
-  } catch {}
+  } catch (error) { throw error; }
 
-  return res.json({ success: true, transaction: tx, balance: runtimeWallets[userId].balance });
+  return res.json({ success: true, transaction: tx, balance: req.ecosystemState.wallets[userId].balance });
 });
 
 // ====================================================================
@@ -775,18 +797,19 @@ router.get('/device-sessions', async (req, res) => {
         });
       }
     }
-  } catch {}
-  const list = runtimeDeviceSessions[userId] || [];
+  } catch (error) { throw error; }
+  const list = req.ecosystemState.deviceSessions[userId] || [];
   return res.json({ success: true, sessions: list });
 });
 
 router.delete('/device-sessions/:id', async (req, res) => {
   const { id } = req.params;
+  const { userId } = req.query;
   try {
     if (isPgActive()) {
-      await queryPg('DELETE FROM social_device_sessions WHERE id = $1', [id]);
+      await queryPg('DELETE FROM social_device_sessions WHERE id = $1 AND user_id = $2', [id, userId]);
     }
-  } catch {}
+  } catch (error) { throw error; }
   return res.json({ success: true });
 });
 
@@ -796,9 +819,9 @@ router.post('/device-sessions/terminate-others', async (req, res) => {
     if (isPgActive()) {
       await queryPg('DELETE FROM social_device_sessions WHERE user_id = $1 AND is_current = FALSE', [userId]);
     }
-  } catch {}
-  if (runtimeDeviceSessions[userId]) {
-    runtimeDeviceSessions[userId] = runtimeDeviceSessions[userId].filter((s) => s.isCurrent);
+  } catch (error) { throw error; }
+  if (req.ecosystemState.deviceSessions[userId]) {
+    req.ecosystemState.deviceSessions[userId] = req.ecosystemState.deviceSessions[userId].filter((s) => s.isCurrent);
   }
   return res.json({ success: true });
 });
@@ -823,20 +846,20 @@ router.get('/referrals', async (req, res) => {
         })),
       });
     }
-  } catch {}
-  const data = runtimeReferrals[userId] || { points: 0, invitedFriends: [] };
+  } catch (error) { throw error; }
+  const data = req.ecosystemState.referrals[userId] || { points: 0, invitedFriends: [] };
   return res.json({ success: true, points: data.points, invitedFriends: data.invitedFriends });
 });
 
 router.post('/referrals/redeem', async (req, res) => {
   const { userId, cost } = req.body;
   const numCost = parseInt(cost, 10);
-  if (!runtimeReferrals[userId]) runtimeReferrals[userId] = { points: 0, invitedFriends: [] };
-  if (runtimeReferrals[userId].points < numCost) {
+  if (!req.ecosystemState.referrals[userId]) req.ecosystemState.referrals[userId] = { points: 0, invitedFriends: [] };
+  if (req.ecosystemState.referrals[userId].points < numCost) {
     return res.status(400).json({ error: 'Insufficient points' });
   }
-  runtimeReferrals[userId].points -= numCost;
-  return res.json({ success: true, remainingPoints: runtimeReferrals[userId].points });
+  req.ecosystemState.referrals[userId].points -= numCost;
+  return res.json({ success: true, remainingPoints: req.ecosystemState.referrals[userId].points });
 });
 
 // ====================================================================
@@ -860,8 +883,8 @@ router.get('/content-filters', async (req, res) => {
         });
       }
     }
-  } catch {}
-  const filters = runtimeContentFilters[userId] || {
+  } catch (error) { throw error; }
+  const filters = req.ecosystemState.contentFilters[userId] || {
     harassmentShield: true,
     blurSensitive: true,
     hideLowQuality: true,
@@ -878,7 +901,7 @@ router.post('/content-filters', async (req, res) => {
     hideLowQuality: hideLowQuality ?? true,
     mutedWords: Array.isArray(mutedWords) ? mutedWords : [],
   };
-  runtimeContentFilters[userId] = updated;
+  req.ecosystemState.contentFilters[userId] = updated;
   try {
     if (isPgActive()) {
       await queryPg(
@@ -893,7 +916,7 @@ router.post('/content-filters', async (req, res) => {
         [`cf_${userId}`, userId, updated.harassmentShield, updated.blurSensitive, updated.hideLowQuality, JSON.stringify(updated.mutedWords)]
       );
     }
-  } catch {}
+  } catch (error) { throw error; }
   return res.json({ success: true, filters: updated });
 });
 
@@ -902,7 +925,7 @@ router.post('/content-filters', async (req, res) => {
 // ====================================================================
 router.get('/creator-media-kit', async (req, res) => {
   const { userId } = req.query;
-  const socialData = SocialDB.getData();
+  const socialData = (await SocialDB.getData());
   const userPosts = (socialData?.posts || []).filter(
     (p) => String(p.author?.id) === String(userId) || String(p.userId) === String(userId)
   );
@@ -913,7 +936,7 @@ router.get('/creator-media-kit', async (req, res) => {
   });
   const engRate = userPosts.length > 0 ? `${((totalLikes / userPosts.length) * 1.5).toFixed(1)}%` : '0.0%';
 
-  const pkgs = runtimeMediaKits[userId] || [];
+  const pkgs = req.ecosystemState.mediaKits[userId] || [];
   return res.json({
     success: true,
     metrics: {
@@ -937,8 +960,8 @@ router.post('/creator-media-kit/packages', (req, res) => {
     description,
     icon: icon || 'videocam',
   };
-  if (!runtimeMediaKits[userId]) runtimeMediaKits[userId] = [];
-  runtimeMediaKits[userId].unshift(pkg);
+  if (!req.ecosystemState.mediaKits[userId]) req.ecosystemState.mediaKits[userId] = [];
+  req.ecosystemState.mediaKits[userId].unshift(pkg);
   return res.status(201).json({ success: true, package: pkg });
 });
 
@@ -947,7 +970,7 @@ router.post('/creator-media-kit/packages', (req, res) => {
 // ====================================================================
 router.get('/parental-controls', async (req, res) => {
   const { userId } = req.query;
-  const controls = runtimeParentalControls[userId] || {
+  const controls = req.ecosystemState.parentalControls[userId] || {
     screenTimeLimit: '1 Hour',
     strictContent: true,
     restrictDMs: true,
@@ -966,7 +989,7 @@ router.post('/parental-controls', async (req, res) => {
     nightQuietHours: nightQuietHours ?? true,
     pairingPin: pairingPin || null,
   };
-  runtimeParentalControls[userId] = updated;
+  req.ecosystemState.parentalControls[userId] = updated;
   return res.json({ success: true, controls: updated });
 });
 
@@ -974,7 +997,7 @@ router.post('/parental-controls', async (req, res) => {
 // 20. LIVE POLLS
 // ====================================================================
 router.get('/polls', (req, res) => {
-  return res.json({ success: true, polls: runtimePolls });
+  return res.json({ success: true, polls: req.ecosystemState.polls });
 });
 
 router.post('/polls', (req, res) => {
@@ -992,14 +1015,14 @@ router.post('/polls', (req, res) => {
     isActive: true,
     createdAt: new Date().toISOString(),
   };
-  runtimePolls.unshift(poll);
+  req.ecosystemState.polls.unshift(poll);
   return res.status(201).json({ success: true, poll });
 });
 
 router.post('/polls/:id/vote', (req, res) => {
   const { id } = req.params;
   const { optionIndex } = req.body;
-  const poll = runtimePolls.find((p) => p.id === id);
+  const poll = req.ecosystemState.polls.find((p) => p.id === id);
   if (!poll || !poll.options[optionIndex]) {
     return res.status(404).json({ error: 'Poll or option not found' });
   }
@@ -1013,7 +1036,7 @@ router.post('/polls/:id/vote', (req, res) => {
 // ====================================================================
 router.get('/creator-tiers', (req, res) => {
   const { creatorId } = req.query;
-  const tiers = runtimeCreatorTiers[creatorId] || [];
+  const tiers = req.ecosystemState.creatorTiers[creatorId] || [];
   return res.json({ success: true, tiers });
 });
 
@@ -1028,8 +1051,8 @@ router.post('/creator-tiers', (req, res) => {
     benefits: Array.isArray(benefits) ? benefits : [],
     subscribersCount: 0,
   };
-  if (!runtimeCreatorTiers[creatorId]) runtimeCreatorTiers[creatorId] = [];
-  runtimeCreatorTiers[creatorId].unshift(tier);
+  if (!req.ecosystemState.creatorTiers[creatorId]) req.ecosystemState.creatorTiers[creatorId] = [];
+  req.ecosystemState.creatorTiers[creatorId].unshift(tier);
   return res.status(201).json({ success: true, tier });
 });
 
@@ -1037,7 +1060,7 @@ router.post('/creator-tiers', (req, res) => {
 // 22. EVENTS HUB
 // ====================================================================
 router.get('/events', (req, res) => {
-  return res.json({ success: true, events: runtimeEvents });
+  return res.json({ success: true, events: req.ecosystemState.events });
 });
 
 router.post('/events', (req, res) => {
@@ -1054,13 +1077,13 @@ router.post('/events', (req, res) => {
     rsvpCount: 0,
     createdAt: new Date().toISOString(),
   };
-  runtimeEvents.unshift(evt);
+  req.ecosystemState.events.unshift(evt);
   return res.status(201).json({ success: true, event: evt });
 });
 
 router.post('/events/:id/rsvp', (req, res) => {
   const { id } = req.params;
-  const evt = runtimeEvents.find((e) => e.id === id);
+  const evt = req.ecosystemState.events.find((e) => e.id === id);
   if (!evt) return res.status(404).json({ error: 'Event not found' });
   evt.rsvpCount = (evt.rsvpCount || 0) + 1;
   return res.json({ success: true, event: evt });
@@ -1071,7 +1094,7 @@ router.post('/events/:id/rsvp', (req, res) => {
 // ====================================================================
 router.get('/coauthor/invitations', (req, res) => {
   const { userId } = req.query;
-  const invites = runtimeCoauthors.filter((c) => !userId || c.recipientId === userId || c.senderId === userId);
+  const invites = req.ecosystemState.coauthors.filter((c) => !userId || c.recipientId === userId || c.senderId === userId);
   return res.json({ success: true, invitations: invites });
 });
 
@@ -1086,14 +1109,14 @@ router.post('/coauthor/invitations', (req, res) => {
     status: 'pending',
     createdAt: new Date().toISOString(),
   };
-  runtimeCoauthors.unshift(inv);
+  req.ecosystemState.coauthors.unshift(inv);
   return res.status(201).json({ success: true, invitation: inv });
 });
 
 router.post('/coauthor/invitations/:id/respond', (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
-  const inv = runtimeCoauthors.find((c) => c.id === id);
+  const inv = req.ecosystemState.coauthors.find((c) => c.id === id);
   if (!inv) return res.status(404).json({ error: 'Invitation not found' });
   inv.status = status || 'accepted';
   return res.json({ success: true, invitation: inv });
@@ -1103,7 +1126,7 @@ router.post('/coauthor/invitations/:id/respond', (req, res) => {
 // 24. BRAND MARKETPLACE
 // ====================================================================
 router.get('/brand-briefs', (req, res) => {
-  return res.json({ success: true, briefs: runtimeBrandBriefs });
+  return res.json({ success: true, briefs: req.ecosystemState.brandBriefs });
 });
 
 router.post('/brand-briefs', (req, res) => {
@@ -1120,14 +1143,14 @@ router.post('/brand-briefs', (req, res) => {
     proposals: [],
     createdAt: new Date().toISOString(),
   };
-  runtimeBrandBriefs.unshift(brief);
+  req.ecosystemState.brandBriefs.unshift(brief);
   return res.status(201).json({ success: true, brief });
 });
 
 router.post('/brand-briefs/:id/proposals', (req, res) => {
   const { id } = req.params;
   const { creatorId, pitch, requestedRate } = req.body;
-  const brief = runtimeBrandBriefs.find((b) => b.id === id);
+  const brief = req.ecosystemState.brandBriefs.find((b) => b.id === id);
   if (!brief) return res.status(404).json({ error: 'Brief not found' });
   const prop = {
     id: `prop_${Date.now()}`,
@@ -1145,7 +1168,7 @@ router.post('/brand-briefs/:id/proposals', (req, res) => {
 // ====================================================================
 router.get('/voice-notes', (req, res) => {
   const { userId } = req.query;
-  const list = runtimeVoiceNotes.filter((v) => !userId || v.userId === userId);
+  const list = req.ecosystemState.voiceNotes.filter((v) => !userId || v.userId === userId);
   return res.json({ success: true, voiceNotes: list });
 });
 
@@ -1159,7 +1182,7 @@ router.post('/voice-notes', (req, res) => {
     durationSeconds: durationSeconds || 0,
     createdAt: new Date().toISOString(),
   };
-  runtimeVoiceNotes.unshift(note);
+  req.ecosystemState.voiceNotes.unshift(note);
   return res.status(201).json({ success: true, voiceNote: note });
 });
 
@@ -1180,8 +1203,15 @@ router.post('/account-verification', (req, res) => {
     status: 'pending',
     createdAt: new Date().toISOString(),
   };
-  runtimeVerifications.unshift(reqItem);
+  req.ecosystemState.verifications.unshift(reqItem);
   return res.status(201).json({ success: true, request: reqItem });
 });
 
 export default router;
+
+for (const layer of router.stack) {
+  if (!layer.route) continue;
+  router.route(layer.route.path).all(bindEcosystemState);
+  const middlewareLayer = router.stack.pop().route.stack[0];
+  layer.route.stack.unshift(middlewareLayer);
+}

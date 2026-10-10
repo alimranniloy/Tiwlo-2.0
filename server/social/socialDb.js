@@ -1,6 +1,4 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { readState, saveState, isPersistedState } from '../db/stateDocuments.js';
 import { MasterDB, TenantDB } from '../db/multiTenant.js';
 import { PasswordSecurity } from '../security/cryptoSecurity.js';
 import { isPgActive, queryPg } from '../db/postgres.js';
@@ -13,9 +11,7 @@ import {
   sendLoginActivityAlertEmail
 } from '../db/emailService.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-let socialRuntimeData = {
+const SOCIAL_DEFAULT_DATA = {
   profiles: {},
   posts: [],
   reels: [],
@@ -33,17 +29,11 @@ let socialRuntimeData = {
 };
 
 export const SocialDB = {
-  init() {
-    if (!socialRuntimeData.profiles) socialRuntimeData.profiles = {};
-    console.log('📱 Tiwi Social Database Initialized (PostgreSQL / In-Memory Active).');
-    this.hydrateFromPg().catch(err => console.warn('⚠️ Initial SocialDB PG hydration notice:', err.message));
-    return socialRuntimeData;
-  },
+  init() { /* Schema initialization is awaited by server startup. */ },
 
   async hydrateFromPg() {
-    if (!isPgActive()) {
-      return;
-    }
+    const socialRuntimeData = await this.getData();
+    if (isPersistedState(socialRuntimeData)) return;
     try {
       // 1. Hydrate follows
       const followsRes = await queryPg(`
@@ -181,18 +171,19 @@ export const SocialDB = {
         }
       }
 
+      await this.saveData(socialRuntimeData);
       console.log(`🐘 SocialDB hydrated from PostgreSQL: ${socialRuntimeData.follows.length} follows, ${socialRuntimeData.posts.length} posts, ${socialRuntimeData.reels.length} reels, ${socialRuntimeData.likes.length} likes.`);
     } catch (err) {
-      console.warn('⚠️ SocialDB PostgreSQL hydration error:', err.message);
+      throw err;
     }
   },
 
-  getData() {
-    return socialRuntimeData;
+  async getData() {
+    return readState('social', 'community', SOCIAL_DEFAULT_DATA);
   },
 
-  saveData(data) {
-    socialRuntimeData = data;
+  async saveData(data) {
+    await saveState('social', 'community', data);
   },
 
   // Helper to map a MasterDB user into a full Social User Profile
@@ -315,7 +306,7 @@ export const SocialDB = {
       u.email?.toLowerCase() === cleanId
     );
     if (!masterUser) return null;
-    const data = this.getData();
+    const data = (await this.getData());
     const profile = (data.profiles && data.profiles[masterUser.id]) || {};
     return this._toSocialUser(masterUser, profile, data, currentUserId);
   },
@@ -326,7 +317,7 @@ export const SocialDB = {
     const cleanHandle = clean.startsWith('@') ? clean : `@${clean}`;
 
     const masterUsers = await MasterDB.getUsers();
-    const data = this.getData();
+    const data = (await this.getData());
     const profiles = data.profiles || {};
 
     const masterUser = masterUsers.find((u) => {
@@ -359,7 +350,7 @@ export const SocialDB = {
 
     // Look up directly in MasterDB (single source of truth for platform users)
     const masterUsers = await MasterDB.getUsers();
-    const data = this.getData();
+    const data = (await this.getData());
     const profiles = data.profiles || {};
 
     const masterUser = masterUsers.find((u) => {
@@ -457,7 +448,7 @@ export const SocialDB = {
       };
     }
 
-    const data = this.getData();
+    const data = (await this.getData());
     const profiles = data.profiles || {};
     const profile = profiles[masterUser.id] || {};
     const socialUser = this._toSocialUser(masterUser, profile, data);
@@ -512,7 +503,7 @@ export const SocialDB = {
     if (!identifier || !appealReason) {
       throw new Error('Account identifier and reason for appeal are required.');
     }
-    const data = this.getData();
+    const data = (await this.getData());
     if (!data.appeals) data.appeals = [];
     const appealRecord = {
       id: `appeal_${Date.now()}`,
@@ -522,7 +513,7 @@ export const SocialDB = {
       submittedAt: new Date().toISOString(),
     };
     data.appeals.push(appealRecord);
-    this.saveData(data);
+    (await this.saveData(data));
     return {
       success: true,
       message: 'Your appeal has been submitted to Tiwi Trust & Safety. Our team will review your account status.',
@@ -539,7 +530,7 @@ export const SocialDB = {
     if (clean.startsWith('@')) clean = clean.substring(1);
     if (!clean) return false;
 
-    const data = this.getData();
+    const data = (await this.getData());
     const profiles = data.profiles || {};
 
     // 1. Check in SocialDB profiles
@@ -688,7 +679,7 @@ export const SocialDB = {
     });
 
     // Save profile metadata in social database
-    const data = this.getData();
+    const data = (await this.getData());
     if (!data.profiles) data.profiles = {};
     data.profiles[newMasterUser.id] = {
       name: name.trim(),
@@ -722,7 +713,7 @@ export const SocialDB = {
         appIcon: 'Default',
       },
     };
-    this.saveData(data);
+    (await this.saveData(data));
 
     const socialUser = this._toSocialUser(newMasterUser, data.profiles[newMasterUser.id], data);
     const token = `tiwi_token_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
@@ -731,7 +722,7 @@ export const SocialDB = {
   },
 
   async updateProfile(userId, updates = {}) {
-    const data = this.getData();
+    const data = (await this.getData());
     if (!data.profiles) data.profiles = {};
 
     const cleanId = String(userId).trim().toLowerCase();
@@ -762,7 +753,7 @@ export const SocialDB = {
       }
     });
 
-    this.saveData(data);
+    (await this.saveData(data));
 
     // Sync avatar & user details directly to MasterDB (propagates to PostgreSQL system_users)
     const masterUpdates = {};
@@ -800,7 +791,7 @@ export const SocialDB = {
             if (updates.name) r.author.name = updates.name;
           }
         });
-        this.saveData(data);
+        (await this.saveData(data));
       } catch (postSyncErr) {}
     }
 
@@ -808,7 +799,7 @@ export const SocialDB = {
   },
 
   async updatePrivacySettings(userId, settings = {}) {
-    const data = this.getData();
+    const data = (await this.getData());
     if (!data.profiles) data.profiles = {};
     if (!data.profiles[userId]) {
       const user = await this.findUserById(userId);
@@ -822,12 +813,12 @@ export const SocialDB = {
       ...(data.profiles[userId].privacySettings || {}),
       ...settings,
     };
-    this.saveData(data);
+    (await this.saveData(data));
     return data.profiles[userId].privacySettings;
   },
 
   async updateAdvancedSettings(userId, settings = {}) {
-    const data = this.getData();
+    const data = (await this.getData());
     if (!data.profiles) data.profiles = {};
     if (!data.profiles[userId]) {
       const user = await this.findUserById(userId);
@@ -841,7 +832,7 @@ export const SocialDB = {
       ...(data.profiles[userId].advancedSettings || {}),
       ...settings,
     };
-    this.saveData(data);
+    (await this.saveData(data));
     return data.profiles[userId].advancedSettings;
   },
 
@@ -866,7 +857,7 @@ export const SocialDB = {
   // FEED POSTS
   // ====================================================================
   async getPosts(currentUserId = null, filter = 'for_you') {
-    const data = this.getData();
+    const data = (await this.getData());
     let posts = [...(data.posts || [])];
 
     // MasterDB Single Source of Truth: Get Banned Users
@@ -926,7 +917,7 @@ export const SocialDB = {
   },
 
   async getUserPosts(targetUserId, currentUserId = null) {
-    const data = this.getData();
+    const data = (await this.getData());
     const effectiveViewer = currentUserId || null;
 
     const targetUser =
@@ -973,7 +964,7 @@ export const SocialDB = {
   },
 
   async getPostById(postId, currentUserId = null) {
-    const data = this.getData();
+    const data = (await this.getData());
     const post = (data.posts || []).find((p) => p.id === postId);
     if (!post) return null;
     const isLiked = (data.likes || []).some(
@@ -986,7 +977,7 @@ export const SocialDB = {
   },
 
   async recordPostView(postId, viewerId) {
-    const data = this.getData();
+    const data = (await this.getData());
     const post = (data.posts || []).find((item) => item.id === postId);
     if (!post) return null;
 
@@ -1017,13 +1008,13 @@ export const SocialDB = {
     if (!alreadyViewed) {
       data.postViews.push({ postId, viewerId });
       post.viewsCount = String(Number(post.viewsCount || 0) + 1);
-      this.saveData(data);
+      (await this.saveData(data));
     }
     return { viewsCount: String(post.viewsCount || 0) };
   },
 
   async createPost({ authorId = null, caption, images = [] }) {
-    const data = this.getData();
+    const data = (await this.getData());
     const user = (await this.findUserById(authorId)) || {
       id: authorId,
       name: 'User',
@@ -1067,7 +1058,7 @@ export const SocialDB = {
     };
 
     data.posts.unshift(newPost);
-    this.saveData(data);
+    (await this.saveData(data));
 
     if (isPgActive()) {
       try {
@@ -1128,7 +1119,7 @@ export const SocialDB = {
   },
 
   async deletePost(postId, userOrId) {
-    const data = this.getData();
+    const data = (await this.getData());
     const index = (data.posts || []).findIndex(p => p.id === postId);
     if (index === -1) {
       throw new Error('Post not found');
@@ -1145,35 +1136,35 @@ export const SocialDB = {
       data.reels = data.reels.filter(r => r.id !== postId);
     }
 
-    this.saveData(data);
+    (await this.saveData(data));
     return { success: true, deletedPostId: postId };
   },
 
   async editPost(postId, userOrId, { caption }) {
-    const data = this.getData();
+    const data = (await this.getData());
     const post = (data.posts || []).find(p => p.id === postId);
     if (!post) throw new Error('Post not found');
     const canEdit = await this.isAuthorOrAdmin(post, userOrId);
     if (!canEdit) throw new Error('Unauthorized to edit this post');
     post.caption = (caption || '').trim();
     post.editedAt = new Date().toISOString();
-    this.saveData(data);
+    (await this.saveData(data));
     return post;
   },
 
   async pinPost(postId, userOrId) {
-    const data = this.getData();
+    const data = (await this.getData());
     const post = (data.posts || []).find(p => p.id === postId);
     if (!post) throw new Error('Post not found');
     const canPin = await this.isAuthorOrAdmin(post, userOrId);
     if (!canPin) throw new Error('Unauthorized to pin this post');
     post.isPinned = !post.isPinned;
-    this.saveData(data);
+    (await this.saveData(data));
     return { success: true, isPinned: post.isPinned };
   },
 
   async markPostViolated(postId, violationDetails = {}) {
-    const data = this.getData();
+    const data = (await this.getData());
     const postIndex = (data.posts || []).findIndex((p) => p.id === postId);
     if (postIndex === -1) return null;
 
@@ -1187,12 +1178,12 @@ export const SocialDB = {
     data.posts[postIndex].image = null;
     data.posts[postIndex].images = [];
 
-    this.saveData(data);
+    (await this.saveData(data));
     return data.posts[postIndex];
   },
 
   async toggleLikePost(postId, userId = null) {
-    const data = this.getData();
+    const data = (await this.getData());
     const postIndex = data.posts.findIndex((p) => p.id === postId);
     if (postIndex === -1) return null;
 
@@ -1215,13 +1206,13 @@ export const SocialDB = {
 
     data.posts[postIndex].isLiked = isLiked;
     data.posts[postIndex].likesCount = currentLikes.toString();
-    this.saveData(data);
+    (await this.saveData(data));
 
     return data.posts[postIndex];
   },
 
   async toggleSavePost(postId, userId = null) {
-    const data = this.getData();
+    const data = (await this.getData());
     const postIndex = data.posts.findIndex((p) => p.id === postId);
     if (postIndex === -1) return null;
 
@@ -1239,12 +1230,12 @@ export const SocialDB = {
     }
 
     data.posts[postIndex].isSaved = isSaved;
-    this.saveData(data);
+    (await this.saveData(data));
     return data.posts[postIndex];
   },
 
   async addComment(postId, { authorId = null, text }) {
-    const data = this.getData();
+    const data = (await this.getData());
     const postIndex = data.posts.findIndex((p) => p.id === postId);
     if (postIndex === -1) return null;
 
@@ -1272,7 +1263,7 @@ export const SocialDB = {
     data.posts[postIndex].comments.push(newComment);
     data.posts[postIndex].commentsCount = (data.posts[postIndex].comments.length).toString();
 
-    this.saveData(data);
+    (await this.saveData(data));
     return newComment;
   },
 
@@ -1280,7 +1271,7 @@ export const SocialDB = {
   // REELS
   // ====================================================================
   async getReels(currentUserId = null) {
-    const data = this.getData();
+    const data = (await this.getData());
     const hiddenReelIds = new Set(
       (data.reelPreferences || [])
         .filter((preference) => preference.userId === currentUserId && preference.notInterested)
@@ -1308,7 +1299,7 @@ export const SocialDB = {
   },
 
   async createReel({ authorId = null, caption, videoUrl, image, audioTitle, crossPostToFeed = true }) {
-    const data = this.getData();
+    const data = (await this.getData());
     const user = (await this.findUserById(authorId)) || {
       id: authorId,
       name: 'User',
@@ -1405,12 +1396,12 @@ export const SocialDB = {
       }
     }
 
-    this.saveData(data);
+    (await this.saveData(data));
     return newReel;
   },
 
   async toggleLikeReel(reelId, userId = null) {
-    const data = this.getData();
+    const data = (await this.getData());
     const reelIndex = data.reels.findIndex((r) => r.id === reelId);
     if (reelIndex === -1) return null;
 
@@ -1433,13 +1424,13 @@ export const SocialDB = {
 
     data.reels[reelIndex].isLiked = isLiked;
     data.reels[reelIndex].likesCount = currentLikes.toString();
-    this.saveData(data);
+    (await this.saveData(data));
 
     return data.reels[reelIndex];
   },
 
   async deleteReel(reelId, userId) {
-    const data = this.getData();
+    const data = (await this.getData());
     const reelIndex = (data.reels || []).findIndex((reel) => reel.id === reelId);
     if (reelIndex === -1) return { success: false, status: 404, error: 'Reel not found' };
     const reel = data.reels[reelIndex];
@@ -1450,24 +1441,24 @@ export const SocialDB = {
     data.likes = (data.likes || []).filter((like) => like.targetId !== reelId);
     data.saves = (data.saves || []).filter((save) => save.targetId !== reelId);
     data.reelPreferences = (data.reelPreferences || []).filter((preference) => preference.reelId !== reelId);
-    this.saveData(data);
+    (await this.saveData(data));
     return { success: true };
   },
 
   async markReelNotInterested(reelId, userId) {
-    const data = this.getData();
+    const data = (await this.getData());
     if (!(data.reels || []).some((reel) => reel.id === reelId)) return null;
     data.reelPreferences = data.reelPreferences || [];
     const index = data.reelPreferences.findIndex((preference) => preference.reelId === reelId && preference.userId === userId);
     const preference = { reelId, userId, notInterested: true, updatedAt: new Date().toISOString() };
     if (index >= 0) data.reelPreferences[index] = preference;
     else data.reelPreferences.push(preference);
-    this.saveData(data);
+    (await this.saveData(data));
     return preference;
   },
 
   async reportReel(reelId, reporterId, reason = 'inappropriate') {
-    const data = this.getData();
+    const data = (await this.getData());
     const reel = (data.reels || []).find((item) => item.id === reelId);
     if (!reel) return null;
     data.reelReports = data.reelReports || [];
@@ -1475,7 +1466,7 @@ export const SocialDB = {
     if (existing) return existing;
     const report = { id: `reel_report_${Date.now()}`, reelId, reporterId, reason: String(reason).slice(0, 120), createdAt: new Date().toISOString() };
     data.reelReports.push(report);
-    this.saveData(data);
+    (await this.saveData(data));
     return report;
   },
 
@@ -1483,12 +1474,12 @@ export const SocialDB = {
   // STORIES
   // ====================================================================
   async getStories(currentUserId = null) {
-    const data = this.getData();
+    const data = (await this.getData());
     return data.stories || [];
   },
 
   async createStory({ userId = null, mediaUrl }) {
-    const data = this.getData();
+    const data = (await this.getData());
     const user = (await this.findUserById(userId)) || {
       id: userId,
       name: 'User',
@@ -1507,7 +1498,7 @@ export const SocialDB = {
     };
 
     data.stories.unshift(newStory);
-    this.saveData(data);
+    (await this.saveData(data));
     return newStory;
   },
 
@@ -1519,7 +1510,7 @@ export const SocialDB = {
     const masterUser = masterUsers.find((u) => u.id === userId || u.tiwiId === userId);
     if (!masterUser) return null;
 
-    const data = this.getData();
+    const data = (await this.getData());
     if (!data.profiles) data.profiles = {};
     const existing = data.profiles[masterUser.id] || {};
     const cleanName = fields.name !== undefined ? String(fields.name).trim() : (existing.name || masterUser.name || '');
@@ -1578,7 +1569,7 @@ export const SocialDB = {
       await MasterDB.updateUser(masterUser.id, masterUpdates);
     }
 
-    this.saveData(data);
+    (await this.saveData(data));
     const socialUser = this._toSocialUser(masterUser, data.profiles[masterUser.id], data);
     const { password: _, ...safeUser } = socialUser;
     return safeUser;
@@ -1589,7 +1580,7 @@ export const SocialDB = {
     const masterUser = masterUsers.find((u) => u.id === userId || u.tiwiId === userId);
     const targetId = masterUser ? masterUser.id : userId;
 
-    const data = this.getData();
+    const data = (await this.getData());
     if (!data.profiles) data.profiles = {};
     if (!data.profiles[targetId]) data.profiles[targetId] = {};
 
@@ -1597,7 +1588,7 @@ export const SocialDB = {
       ...(data.profiles[targetId].privacySettings || {}),
       ...settings,
     };
-    this.saveData(data);
+    (await this.saveData(data));
 
     if (isPgActive()) {
       await queryPg(`
@@ -1616,7 +1607,7 @@ export const SocialDB = {
     const masterUser = masterUsers.find((u) => u.id === userId || u.tiwiId === userId);
     const targetId = masterUser ? masterUser.id : userId;
 
-    const data = this.getData();
+    const data = (await this.getData());
     if (!data.profiles) data.profiles = {};
     if (!data.profiles[targetId]) data.profiles[targetId] = {};
 
@@ -1625,7 +1616,7 @@ export const SocialDB = {
       ...settings,
     };
 
-    this.saveData(data);
+    (await this.saveData(data));
     return data.profiles[targetId].advancedSettings;
   },
 
@@ -1691,13 +1682,13 @@ export const SocialDB = {
       ]);
     }
 
-    const data = this.getData();
+    const data = (await this.getData());
     if (!data.notifications) data.notifications = [];
     data.notifications.unshift(notif);
     if (data.notifications.length > 500) {
       data.notifications = data.notifications.slice(0, 500);
     }
-    this.saveData(data);
+    (await this.saveData(data));
     return notif;
   },
 
@@ -1730,7 +1721,7 @@ export const SocialDB = {
         } : null,
       }));
     }
-    const data = this.getData();
+    const data = (await this.getData());
     return (data.notifications || []).filter(n => n.recipientId === userId || n.userId === userId);
   },
 
@@ -1744,11 +1735,11 @@ export const SocialDB = {
       `, [notifId, userId]);
       return result.rowCount > 0 ? { id: notifId, read: true } : null;
     }
-    const data = this.getData();
+    const data = (await this.getData());
     const notif = (data.notifications || []).find(n => n.id === notifId);
     if (notif) {
       notif.read = true;
-      this.saveData(data);
+      (await this.saveData(data));
     }
     return notif || null;
   },
@@ -1758,19 +1749,19 @@ export const SocialDB = {
       await queryPg('UPDATE social_notifications SET is_read = TRUE WHERE recipient_id = $1', [userId]);
       return true;
     }
-    const data = this.getData();
+    const data = (await this.getData());
     if (!userId) return true;
     (data.notifications || []).forEach(n => {
       if (n.recipientId === userId || n.userId === userId) {
         n.read = true;
       }
     });
-    this.saveData(data);
+    (await this.saveData(data));
     return true;
   },
 
   async getConversations(userId) {
-    const data = this.getData();
+    const data = (await this.getData());
     if (!userId) return [];
     return (data.conversations || []).filter(c => 
       c.participants?.includes(userId) || c.userId === userId || c.recipientId === userId
@@ -1778,13 +1769,13 @@ export const SocialDB = {
   },
 
   async getMessages(conversationId) {
-    const data = this.getData();
+    const data = (await this.getData());
     if (!data.messages) data.messages = {};
     return data.messages[conversationId] || [];
   },
 
   async sendMessage({ conversationId, senderId = null, text }) {
-    const data = this.getData();
+    const data = (await this.getData());
     if (!data.messages) data.messages = {};
     if (!data.messages[conversationId]) data.messages[conversationId] = [];
 
@@ -1806,12 +1797,12 @@ export const SocialDB = {
       conv.unread = false;
     }
 
-    this.saveData(data);
+    (await this.saveData(data));
     return newMsg;
   },
 
   async toggleRepostPost(postId, userId = null) {
-    const data = this.getData();
+    const data = (await this.getData());
     const post = (data.posts || []).find(p => p.id === postId);
     if (!post) return null;
 
@@ -1832,7 +1823,7 @@ export const SocialDB = {
 
     post.repostsCount = current.toString();
     post.isReposted = isReposted;
-    this.saveData(data);
+    (await this.saveData(data));
     return post;
   },
 
@@ -1855,7 +1846,7 @@ export const SocialDB = {
       return { error: 'Disabled accounts cannot follow or be followed.' };
     }
 
-    const data = this.getData();
+    const data = (await this.getData());
     if (!data.follows) data.follows = [];
     if (!data.followRequests) data.followRequests = [];
 
@@ -1918,7 +1909,7 @@ export const SocialDB = {
         message: `${followerUser.name || 'Someone'} requested to follow you.`,
         meta: { requestId: pendingRequest.id, followerId: fId },
       });
-      this.saveData(data);
+      (await this.saveData(data));
       return { success: true, isFollowing: false, requestPending: true };
     }
 
@@ -1963,7 +1954,7 @@ export const SocialDB = {
       });
     }
 
-    this.saveData(data);
+    (await this.saveData(data));
 
     const followersCount = data.follows.filter((f) => f.followingId === tId || (tTiwiId && f.followingId === tTiwiId)).length;
     const followingCount = data.follows.filter((f) => f.followerId === fId).length;
@@ -2003,14 +1994,14 @@ export const SocialDB = {
       return result.rows[0]?.allowed === true;
     }
 
-    const follows = this.getData().follows || [];
+    const follows = (await this.getData()).follows || [];
     const firstFollowsSecond = follows.some(
       (follow) => follow.followerId === firstUser.id && follow.followingId === secondUser.id
     );
     const secondFollowsFirst = follows.some(
       (follow) => follow.followerId === secondUser.id && follow.followingId === firstUser.id
     );
-    const acceptedRequest = (this.getData().followRequests || []).some(
+    const acceptedRequest = ((await this.getData()).followRequests || []).some(
       (request) =>
         request.status === 'accepted' &&
         ((request.requesterId === firstUser.id && request.recipientId === secondUser.id) ||
@@ -2034,7 +2025,7 @@ export const SocialDB = {
       `, [recipientId]);
       return result.rows;
     }
-    return (this.getData().followRequests || []).filter(
+    return ((await this.getData()).followRequests || []).filter(
       (request) => request.recipientId === recipientId && request.status === 'pending'
     );
   },
@@ -2043,7 +2034,7 @@ export const SocialDB = {
     if (!['accepted', 'rejected'].includes(decision)) {
       throw new Error('Follow request decision must be accepted or rejected.');
     }
-    const data = this.getData();
+    const data = (await this.getData());
     let request;
     if (isPgActive()) {
       const result = await queryPg(`
@@ -2090,7 +2081,7 @@ export const SocialDB = {
       message: `${actor?.name || 'The user'} ${decision === 'accepted' ? 'accepted' : 'declined'} your follow request.`,
       meta: { requestId: request.id, recipientId },
     });
-    this.saveData(data);
+    (await this.saveData(data));
     return request;
   },
 
@@ -2099,7 +2090,7 @@ export const SocialDB = {
     const targetUser = (await this.findUserById(targetUserId)) || (await this.findUserByHandleOrEmail(targetUserId));
     if (!targetUser) return [];
 
-    const data = this.getData();
+    const data = (await this.getData());
     const follows = data.follows || [];
     const tId = targetUser.id;
     const tTiwiId = targetUser.tiwiId || null;
@@ -2124,7 +2115,7 @@ export const SocialDB = {
     const targetUser = (await this.findUserById(targetUserId)) || (await this.findUserByHandleOrEmail(targetUserId));
     if (!targetUser) return [];
 
-    const data = this.getData();
+    const data = (await this.getData());
     const follows = data.follows || [];
     const tId = targetUser.id;
     const tTiwiId = targetUser.tiwiId || null;
@@ -2149,7 +2140,7 @@ export const SocialDB = {
   // ====================================================================
   async getAllUsers(currentUserId = null) {
     const masterUsers = await MasterDB.getUsers();
-    const data = this.getData();
+    const data = (await this.getData());
     const profiles = data.profiles || {};
 
     return masterUsers
@@ -2163,7 +2154,7 @@ export const SocialDB = {
 
   async search(query = '', currentUserId = null) {
     const allUsers = await this.getAllUsers(currentUserId);
-    const data = this.getData();
+    const data = (await this.getData());
     const q = query.trim().toLowerCase();
 
     // Single source of truth: Get banned user IDs
@@ -2201,7 +2192,7 @@ export const SocialDB = {
   },
 
   async getRealTrendingHashtags() {
-    const data = this.getData();
+    const data = (await this.getData());
     const tagCounts = {};
     (data.posts || []).forEach((p) => {
       if (p.caption && !p.isPolicyViolated) {

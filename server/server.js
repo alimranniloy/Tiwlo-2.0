@@ -19,6 +19,7 @@ import { streamStoredMedia } from './db/mediaStorage.js';
 import { MasterDB } from './db/multiTenant.js';
 import { tenantContext } from './db/storeDataAdapter.js';
 import { createGraphQLMiddleware } from './graphql/index.js';
+import { createApplicationGraphQL, protectAsyncRouter } from './graphql/applicationApi.js';
 import { InputSanitizer } from './security/cryptoSecurity.js';
 
 // Modular Feature Routers
@@ -97,7 +98,7 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Security firewall rate limit reached. Please try again shortly.' }
 });
-app.use('/api', apiLimiter);
+app.use(['/api', '/graphql'], apiLimiter);
 
 app.use(cookieParser());
 
@@ -193,6 +194,7 @@ app.use(async (req, res, next) => {
       if (sessionData?.user) {
         req.activeUser = sessionData.user;
         if (sessionData.user.isBanned &&
+            req.path !== '/api/graphql' &&
             !req.path.startsWith('/api/auth/disabled') &&
             !req.path.startsWith('/api/auth/appeal') &&
             !req.path.startsWith('/api/auth/session') &&
@@ -207,8 +209,10 @@ app.use(async (req, res, next) => {
       }
     }
 
-  } catch (e) {}
-  next();
+  } catch (e) {
+    return next(e);
+  }
+  return next();
 });
 
 // Bind every request to the authenticated user's tenant. Data-access helpers
@@ -319,6 +323,29 @@ app.get(['/api/landing/hero-video', '/landing/hero-bg.mp4'], (req, res) => {
 // 4. MOUNT MODULAR API ROUTERS
 // ==========================================
 // Tiwi Social Ecosystem (Mobile & Web)
+const applicationRoutes = [
+  ['/api/social', socialRoutes], ['/api/tiwi', socialRoutes],
+  ['/api/social', ecosystemRoutes], ['/api/tiwi', ecosystemRoutes],
+  ['/api/social/chat', chatRoutes], ['/api/tiwi/chat', chatRoutes],
+  ['/api/admin', adminRoutes], ['/api/whatsapp', whatsappRoutes],
+  ['/api/plugins/tpanel', tpanelRoutes], ['/api/plugins/whatsapp', whatsappRoutes],
+  ['/api/plugins/support-ai', supportRoutes],
+  ['/api/tpanel', tpanelRoutes], ['/api/support', supportRoutes],
+  ['/api/email', emailRoutes], ['/api/mail', emailRoutes],
+  ['/api/plugins/discord', discordRoutes], ['/api/discord', discordRoutes], ['/api', authRoutes],
+  ['/api/domains', domainRoutes], ['/api/cloud', cloudRoutes],
+  ['/api', securityRoutes], ['/api', systemRoutes], ['/api', storeRoutes]
+];
+applicationRoutes.forEach(([, router]) => protectAsyncRouter(router));
+let applicationGraphQL;
+app.post('/api/graphql', (req, res, next) => {
+  applicationGraphQL ||= createApplicationGraphQL([
+    ...applicationRoutes,
+    ['', { handle: app._router.handle.bind(app._router), stack: app._router.stack.filter(layer => layer.route && typeof layer.route.path === 'string' && layer.route.path.startsWith('/api/')) }]
+  ]);
+  return applicationGraphQL(req, res).catch(next);
+});
+
 app.use('/api/social', socialRoutes);
 app.use('/api/tiwi', socialRoutes);
 app.use('/api/social', ecosystemRoutes);
@@ -406,7 +433,7 @@ if (fs.existsSync(CLIENT_DIST)) {
 // Global Error Handler
 app.use((err, req, res, next) => {
   console.error('Unhandled API error:', err);
-  res.status(500).json({ error: err.message || 'Internal server error' });
+  res.status(err.status || 500).json({ error: err.status ? err.message : 'Internal server error' });
 });
 
 // ==========================================
@@ -414,9 +441,11 @@ app.use((err, req, res, next) => {
 // ==========================================
 async function startServer() {
   const postgresReady = await testPgConnection();
-  if (!postgresReady && process.env.NODE_ENV === 'production') {
-    throw new Error('PostgreSQL is required in production; refusing to start with volatile data fallbacks.');
+  if (!postgresReady) {
+    throw new Error('PostgreSQL is required; refusing to start without persistent storage.');
   }
+  const { runMigration } = await import('./db/migrate.js');
+  await runMigration();
   if (postgresReady) {
     const { bootstrapGoogleDriveServiceAccountFromEnv } = await import('./administrator/googleDriveStorage.js');
     await bootstrapGoogleDriveServiceAccountFromEnv();
@@ -424,7 +453,7 @@ async function startServer() {
     await resumeStorageSyncOnStartup();
   }
   WhatsAppManager.init().catch(err => console.warn('⚠️ WhatsApp Manager init notice:', err.message));
-  await SocialDB.hydrateFromPg().catch(err => console.warn('⚠️ SocialDB PostgreSQL hydration notice:', err.message));
+  await SocialDB.hydrateFromPg();
   await DiscordDB.init().catch(err => console.warn('⚠️ DiscordDB init notice:', err.message));
   if (postgresReady) {
     const pendingVideos = await resumePendingVideoProcessing();

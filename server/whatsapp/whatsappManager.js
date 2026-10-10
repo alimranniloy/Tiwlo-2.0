@@ -1,30 +1,53 @@
-import fs from 'fs';
-import path from 'path';
 import crypto from 'crypto';
-import { fileURLToPath } from 'url';
-import { default as makeWASocket, useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys';
+import { default as makeWASocket, DisconnectReason, initAuthCreds, BufferJSON, proto } from '@whiskeysockets/baileys';
 import QRCode from 'qrcode';
-import { TenantDB, MasterDB } from '../db/multiTenant.js';
-import { PLATFORM_CONFIG, getPlatformUrl } from '../config/platformConfig.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Base directory for WhatsApp sessions and credentials
-const WA_BASE_DIR = path.join(__dirname, '../data/whatsapp_sessions');
+import { TenantDB } from '../db/multiTenant.js';
+import { getPlatformUrl } from '../config/platformConfig.js';
+import { queryPg } from '../db/postgres.js';
+import { readState, saveState } from '../db/stateDocuments.js';
 // In-memory active sockets Map: sessionId -> { sock, qr, qrDataUrl, status, ... }
 const activeSockets = new Map();
 
-// In-memory sessions metadata store
-let runtimeSessionsMeta = { sessions: [] };
+const readMeta = () => readState('whatsapp', 'sessions', { sessions: [] });
+const writeMeta = data => saveState('whatsapp', 'sessions', data);
 
-// Helper: Read and Write Metadata
-function readMeta() {
-  return runtimeSessionsMeta;
-}
-
-function writeMeta(data) {
-  runtimeSessionsMeta = data;
+export async function createPostgresAuthState(sessionId) {
+  const keyPrefix = `${sessionId}:`;
+  const load = async key => {
+    const { rows } = await queryPg('SELECT data FROM whatsapp_auth_state WHERE state_key = $1', [`${keyPrefix}${key}`]);
+    return rows[0] ? JSON.parse(JSON.stringify(rows[0].data), BufferJSON.reviver) : null;
+  };
+  const save = async (key, value) => {
+    if (value === null || value === undefined) {
+      await queryPg('DELETE FROM whatsapp_auth_state WHERE state_key = $1', [`${keyPrefix}${key}`]);
+      return;
+    }
+    const data = JSON.stringify(value, BufferJSON.replacer);
+    await queryPg(`INSERT INTO whatsapp_auth_state(state_key, data) VALUES ($1, $2::jsonb)
+      ON CONFLICT (state_key) DO UPDATE SET data = EXCLUDED.data, updated_at = CURRENT_TIMESTAMP`, [`${keyPrefix}${key}`, data]);
+  };
+  const creds = await load('creds') || initAuthCreds();
+  return {
+    state: {
+      creds,
+      keys: {
+        async get(type, ids) {
+          const entries = await Promise.all(ids.map(async id => [id, await load(`${type}:${id}`)]));
+          return Object.fromEntries(entries.filter(([, value]) => value !== null).map(([id, value]) => [
+            id, type === 'app-state-sync-key' ? proto.Message.AppStateSyncKeyData.fromObject(value) : value
+          ]));
+        },
+        async set(data) {
+          const writes = [];
+          for (const [type, entries] of Object.entries(data)) {
+            for (const [id, value] of Object.entries(entries)) writes.push(save(`${type}:${id}`, value));
+          }
+          await Promise.all(writes);
+        }
+      }
+    },
+    saveCreds: () => save('creds', creds)
+  };
 }
 
 // Gemini AI Call for WhatsApp Auto-Replies
@@ -88,11 +111,11 @@ export const WhatsAppManager = {
   // Initialize and auto-resume existing sessions on server boot
   async init() {
     console.log('[WhatsAppManager] Initializing WhatsApp session engine...');
-    const meta = readMeta();
+    const meta = await readMeta();
     for (const sess of meta.sessions) {
       if (sess.status === 'CONNECTED' || sess.status === 'CONNECTING') {
-        const sessionDir = path.join(WA_BASE_DIR, sess.sessionId, 'auth');
-        if (fs.existsSync(sessionDir)) {
+        const credentials = await queryPg('SELECT 1 FROM whatsapp_auth_state WHERE state_key = $1', [`${sess.sessionId}:creds`]);
+        if (credentials.rowCount) {
           console.log(`[WhatsAppManager] Auto-resuming session ${sess.sessionId} (${sess.sessionName || 'Default'})...`);
           this.startSocket(sess.sessionId).catch(e => console.warn(`Failed to auto-resume ${sess.sessionId}:`, e.message));
         } else {
@@ -100,20 +123,17 @@ export const WhatsAppManager = {
         }
       }
     }
-    writeMeta(meta);
+    await writeMeta(meta);
   },
 
   // Create new session
   async createSession({ userId, storeId = '', sessionName = 'Primary WhatsApp Store' }) {
     if (!userId) throw new Error('Authenticated user ID is required');
     const sessionId = `wa_sess_${crypto.randomBytes(6).toString('hex')}`;
-    const sessionDir = path.join(WA_BASE_DIR, sessionId, 'auth');
-    fs.mkdirSync(sessionDir, { recursive: true });
-
     // Try to auto-populate store knowledge from TenantDB
     let initialKnowledge = null;
     try {
-      const storeDb = TenantDB.getStoreDb(storeId);
+      const storeDb = (await TenantDB.getStoreDb(storeId));
       if (storeDb) {
         initialKnowledge = {
           storeName: storeDb.store_settings?.storeName || sessionName,
@@ -165,9 +185,9 @@ export const WhatsAppManager = {
       messageLogs: []
     };
 
-    const meta = readMeta();
+    const meta = await readMeta();
     meta.sessions.unshift(sessionObj);
-    writeMeta(meta);
+    await writeMeta(meta);
 
     // Start Baileys socket for this session
     await this.startSocket(sessionId);
@@ -189,7 +209,7 @@ export const WhatsAppManager = {
 
   // Regenerate / Refresh QR Code for an existing session
   async regenerateQr(sessionId) {
-    const meta = readMeta();
+    const meta = await readMeta();
     const session = meta.sessions.find(s => s.sessionId === sessionId);
     if (!session) throw new Error('Session not found');
 
@@ -199,15 +219,12 @@ export const WhatsAppManager = {
       activeSockets.delete(sessionId);
     }
 
-    const sessionDir = path.join(WA_BASE_DIR, sessionId, 'auth');
-    try {
-      fs.rmSync(sessionDir, { recursive: true, force: true });
-    } catch (_) {}
+    await queryPg('DELETE FROM whatsapp_auth_state WHERE state_key LIKE $1', [`${sessionId}:%`]);
 
     session.status = 'INITIALIZING';
     session.qrCodeDataUrl = null;
     session.phoneNumber = null;
-    writeMeta(meta);
+    await writeMeta(meta);
 
     await this.startSocket(sessionId);
 
@@ -217,7 +234,7 @@ export const WhatsAppManager = {
       if (act?.qrDataUrl) {
         session.qrCodeDataUrl = act.qrDataUrl;
         session.status = 'SCAN_QR';
-        writeMeta(meta);
+        await writeMeta(meta);
         break;
       }
       await new Promise(r => setTimeout(r, 150));
@@ -228,12 +245,7 @@ export const WhatsAppManager = {
 
   // Start or restart a Baileys socket
   async startSocket(sessionId) {
-    const sessionDir = path.join(WA_BASE_DIR, sessionId, 'auth');
-    if (!fs.existsSync(sessionDir)) {
-      fs.mkdirSync(sessionDir, { recursive: true });
-    }
-
-    const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+    const { state, saveCreds } = await createPostgresAuthState(sessionId);
 
     const sock = makeWASocket({
       auth: state,
@@ -260,7 +272,7 @@ export const WhatsAppManager = {
     // Event: connection update (QR generation & connection state)
     sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
-      const meta = readMeta();
+      const meta = (await readMeta());
       const session = meta.sessions.find(s => s.sessionId === sessionId);
       if (!session) return;
 
@@ -276,7 +288,7 @@ export const WhatsAppManager = {
           session.qrCodeDataUrl = qrDataUrl;
           session.status = 'SCAN_QR';
           session.lastActive = new Date().toISOString();
-          writeMeta(meta);
+          (await writeMeta(meta));
           console.log(`[WhatsAppManager] New QR Code generated for session: ${sessionId}`);
         } catch (err) {
           console.error('[WhatsAppManager] QRCode generation error:', err);
@@ -295,7 +307,7 @@ export const WhatsAppManager = {
         session.phoneNumber = rawPhone.split(':')[0] || rawPhone.split('@')[0] || '';
         session.pushName = sock.user?.name || 'Tiwlo WhatsApp Business';
         
-        writeMeta(meta);
+        (await writeMeta(meta));
         console.log(`[WhatsAppManager] Session ${sessionId} connected successfully! Phone: ${session.phoneNumber}`);
       }
 
@@ -307,18 +319,18 @@ export const WhatsAppManager = {
         if (isLoggedOut) {
           session.status = 'DISCONNECTED';
           session.qrCodeDataUrl = null;
-          writeMeta(meta);
+          (await writeMeta(meta));
           activeSockets.delete(sessionId);
           // Clean up auth directory upon explicit logout
           try {
-            fs.rmSync(sessionDir, { recursive: true, force: true });
+            await queryPg('DELETE FROM whatsapp_auth_state WHERE state_key LIKE $1', [`${sessionId}:%`]);
           } catch (e) {}
         } else {
           session.status = 'RECONNECTING';
-          writeMeta(meta);
+          (await writeMeta(meta));
           // Reconnect automatically if network dropped
-          setTimeout(() => {
-            const currentSession = readMeta().sessions.find(s => s.sessionId === sessionId);
+          setTimeout(async () => {
+            const currentSession = (await readMeta()).sessions.find(s => s.sessionId === sessionId);
             if (currentSession && currentSession.status !== 'DISCONNECTED') {
               this.startSocket(sessionId).catch(e => console.warn(`Reconnect failed for ${sessionId}:`, e.message));
             }
@@ -342,7 +354,7 @@ export const WhatsAppManager = {
                      '';
         if (!text.trim()) continue;
 
-        const meta = readMeta();
+        const meta = (await readMeta());
         const session = meta.sessions.find(s => s.sessionId === sessionId);
         if (!session) continue;
 
@@ -362,7 +374,7 @@ export const WhatsAppManager = {
           timestamp: new Date().toISOString()
         });
         if (session.messageLogs.length > 50) session.messageLogs.shift();
-        writeMeta(meta);
+        (await writeMeta(meta));
 
         // 2. Check if AI auto-reply is enabled
         if (!session.automationConfig?.enabled) continue;
@@ -391,7 +403,7 @@ export const WhatsAppManager = {
             await sock.sendMessage(remoteJid, { text: aiReply });
 
             // Record outbound AI reply in logs
-            const updatedMeta = readMeta();
+            const updatedMeta = (await readMeta());
             const currentSess = updatedMeta.sessions.find(s => s.sessionId === sessionId);
             if (currentSess) {
               currentSess.stats.messagesSent = (currentSess.stats.messagesSent || 0) + 1;
@@ -405,7 +417,7 @@ export const WhatsAppManager = {
                 timestamp: new Date().toISOString()
               });
               if (currentSess.messageLogs.length > 50) currentSess.messageLogs.shift();
-              writeMeta(updatedMeta);
+              (await writeMeta(updatedMeta));
             }
           }
         } catch (aiErr) {
@@ -462,8 +474,8 @@ ${storeKnowledge?.customKnowledge ? `STORE KNOWLEDGE BASE & FAQS:\n${storeKnowle
   },
 
   // List all sessions for a user
-  listSessions(userId = null) {
-    const meta = readMeta();
+  async listSessions(userId = null) {
+    const meta = (await readMeta());
     let list = meta.sessions || [];
     if (userId && userId !== 'all') {
       list = list.filter(s => s.userId === userId);
@@ -481,8 +493,8 @@ ${storeKnowledge?.customKnowledge ? `STORE KNOWLEDGE BASE & FAQS:\n${storeKnowle
   },
 
   // Get single session details
-  getSession(sessionId) {
-    const meta = readMeta();
+  async getSession(sessionId) {
+    const meta = (await readMeta());
     const sess = meta.sessions.find(s => s.sessionId === sessionId);
     if (!sess) return null;
     const active = activeSockets.get(sessionId);
@@ -494,8 +506,8 @@ ${storeKnowledge?.customKnowledge ? `STORE KNOWLEDGE BASE & FAQS:\n${storeKnowle
   },
 
   // Update automation configuration
-  updateAutomationConfig(sessionId, newConfig) {
-    const meta = readMeta();
+  async updateAutomationConfig(sessionId, newConfig) {
+    const meta = (await readMeta());
     const session = meta.sessions.find(s => s.sessionId === sessionId);
     if (!session) throw new Error('Session not found');
 
@@ -504,13 +516,13 @@ ${storeKnowledge?.customKnowledge ? `STORE KNOWLEDGE BASE & FAQS:\n${storeKnowle
       ...newConfig
     };
     session.lastActive = new Date().toISOString();
-    writeMeta(meta);
+    (await writeMeta(meta));
     return session;
   },
 
   // Sync store catalog & domain pages into session knowledge
   async syncStoreData(sessionId, options = {}) {
-    const meta = readMeta();
+    const meta = (await readMeta());
     const session = meta.sessions.find(s => s.sessionId === sessionId);
     if (!session) throw new Error('Session not found');
 
@@ -531,7 +543,7 @@ ${storeKnowledge?.customKnowledge ? `STORE KNOWLEDGE BASE & FAQS:\n${storeKnowle
     let products = [];
 
     if (storeType === 'registered' || (storeId && storeId.startsWith('TIW-'))) {
-      const storeDb = TenantDB.getStoreDb(storeId);
+      const storeDb = (await TenantDB.getStoreDb(storeId));
       const storeSettings = storeDb?.store_settings || {};
       storeName = storeSettings.storeName || session.sessionName;
       currency = storeSettings.currency || 'BDT';
@@ -559,13 +571,13 @@ ${storeKnowledge?.customKnowledge ? `STORE KNOWLEDGE BASE & FAQS:\n${storeKnowle
     };
 
     session.lastActive = new Date().toISOString();
-    writeMeta(meta);
+    (await writeMeta(meta));
     return session.storeKnowledge;
   },
 
   // Test AI auto-reply simulation without sending actual WhatsApp message
   async testAiResponse(sessionId, testMessage) {
-    const session = this.getSession(sessionId);
+    const session = (await this.getSession(sessionId));
     if (!session) throw new Error('Session not found');
 
     const systemInstruction = this.buildPrompt({
@@ -592,7 +604,7 @@ ${storeKnowledge?.customKnowledge ? `STORE KNOWLEDGE BASE & FAQS:\n${storeKnowle
 
   // Disconnect / Logout session
   async disconnectSession(sessionId) {
-    const meta = readMeta();
+    const meta = await readMeta();
     const session = meta.sessions.find(s => s.sessionId === sessionId);
     if (!session) throw new Error('Session not found');
 
@@ -610,28 +622,18 @@ ${storeKnowledge?.customKnowledge ? `STORE KNOWLEDGE BASE & FAQS:\n${storeKnowle
     session.qrCodeDataUrl = null;
     session.phoneNumber = null;
     session.lastActive = new Date().toISOString();
-    writeMeta(meta);
-
-    // Clean auth directory
-    const sessionDir = path.join(WA_BASE_DIR, sessionId, 'auth');
-    try {
-      fs.rmSync(sessionDir, { recursive: true, force: true });
-    } catch (_) {}
+    await writeMeta(meta);
+    await queryPg('DELETE FROM whatsapp_auth_state WHERE state_key LIKE $1', [`${sessionId}:%`]);
 
     return session;
   },
 
   // Delete session entirely
   async deleteSession(sessionId) {
-    await this.disconnectSession(sessionId).catch(() => {});
-    const meta = readMeta();
+    await this.disconnectSession(sessionId);
+    const meta = await readMeta();
     meta.sessions = meta.sessions.filter(s => s.sessionId !== sessionId);
-    writeMeta(meta);
-
-    const sessionRoot = path.join(WA_BASE_DIR, sessionId);
-    try {
-      fs.rmSync(sessionRoot, { recursive: true, force: true });
-    } catch (_) {}
+    await writeMeta(meta);
 
     return { success: true, sessionId };
   }

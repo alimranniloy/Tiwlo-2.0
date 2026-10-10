@@ -14,10 +14,10 @@ const requireUser = (req, res) => {
   return userId;
 };
 
-const requireOwnedSession = (req, res) => {
+const requireOwnedSession = async (req, res) => {
   const userId = requireUser(req, res);
   if (!userId) return null;
-  const session = WhatsAppManager.getSession(req.params.sessionId);
+  const session = await WhatsAppManager.getSession(req.params.sessionId);
   if (!session) {
     res.status(404).json({ error: 'Session not found' });
     return null;
@@ -33,7 +33,7 @@ const requireOwnedSession = (req, res) => {
 router.get('/sessions', async (req, res) => {
   try {
     const userId = requireUser(req, res); if (!userId) return;
-    const sessions = WhatsAppManager.listSessions(userId);
+    const sessions = await WhatsAppManager.listSessions(userId);
     res.json({ success: true, sessions });
   } catch (err) {
     console.error('Error fetching whatsapp sessions:', err);
@@ -55,9 +55,9 @@ router.post('/sessions', async (req, res) => {
 });
 
 // 3. GET /api/whatsapp/sessions/:sessionId - Get single session status and live QR
-router.get('/sessions/:sessionId', (req, res) => {
+router.get('/sessions/:sessionId', async (req, res) => {
   try {
-    const ownedSession = requireOwnedSession(req, res); if (!ownedSession) return;
+    const session = await requireOwnedSession(req, res); if (!session) return;
     res.json({ success: true, session });
   } catch (err) {
     console.error('Error retrieving whatsapp session:', err);
@@ -66,11 +66,11 @@ router.get('/sessions/:sessionId', (req, res) => {
 });
 
 // 4. PUT /api/whatsapp/sessions/:sessionId/automation - Update automation & persona settings
-router.put('/sessions/:sessionId/automation', (req, res) => {
+router.put('/sessions/:sessionId/automation', async (req, res) => {
   try {
-    const ownedSession = requireOwnedSession(req, res); if (!ownedSession) return;
+    const ownedSession = await requireOwnedSession(req, res); if (!ownedSession) return;
     const { sessionId } = req.params;
-    const session = WhatsAppManager.updateAutomationConfig(sessionId, req.body);
+    const session = await WhatsAppManager.updateAutomationConfig(sessionId, req.body);
     res.json({ success: true, session });
   } catch (err) {
     console.error('Error updating whatsapp automation config:', err);
@@ -81,7 +81,7 @@ router.put('/sessions/:sessionId/automation', (req, res) => {
 // 4b. POST /api/whatsapp/sessions/:sessionId/regenerate-qr - Force refresh / regenerate QR
 router.post('/sessions/:sessionId/regenerate-qr', async (req, res) => {
   try {
-    const ownedSession = requireOwnedSession(req, res); if (!ownedSession) return;
+    const ownedSession = (await requireOwnedSession(req, res)); if (!ownedSession) return;
     const { sessionId } = req.params;
     const session = await WhatsAppManager.regenerateQr(sessionId);
     res.json({ success: true, session });
@@ -94,7 +94,7 @@ router.post('/sessions/:sessionId/regenerate-qr', async (req, res) => {
 // 5. POST /api/whatsapp/sessions/:sessionId/sync-store - Sync store products/catalog & domain pages
 router.post('/sessions/:sessionId/sync-store', async (req, res) => {
   try {
-    const ownedSession = requireOwnedSession(req, res); if (!ownedSession) return;
+    const ownedSession = (await requireOwnedSession(req, res)); if (!ownedSession) return;
     const { sessionId } = req.params;
     const storeKnowledge = await WhatsAppManager.syncStoreData(sessionId, req.body);
     res.json({ success: true, storeKnowledge });
@@ -107,7 +107,7 @@ router.post('/sessions/:sessionId/sync-store', async (req, res) => {
 // 6. POST /api/whatsapp/sessions/:sessionId/test-ai - Test AI persona simulation
 router.post('/sessions/:sessionId/test-ai', async (req, res) => {
   try {
-    const ownedSession = requireOwnedSession(req, res); if (!ownedSession) return;
+    const ownedSession = (await requireOwnedSession(req, res)); if (!ownedSession) return;
     const { sessionId } = req.params;
     const { message } = req.body;
     if (!message || !message.trim()) {
@@ -124,7 +124,7 @@ router.post('/sessions/:sessionId/test-ai', async (req, res) => {
 // 7. POST /api/whatsapp/sessions/:sessionId/disconnect - Disconnect / logout
 router.post('/sessions/:sessionId/disconnect', async (req, res) => {
   try {
-    const ownedSession = requireOwnedSession(req, res); if (!ownedSession) return;
+    const ownedSession = (await requireOwnedSession(req, res)); if (!ownedSession) return;
     const { sessionId } = req.params;
     const session = await WhatsAppManager.disconnectSession(sessionId);
     res.json({ success: true, session });
@@ -137,7 +137,7 @@ router.post('/sessions/:sessionId/disconnect', async (req, res) => {
 // 8. DELETE /api/whatsapp/sessions/:sessionId - Delete session
 router.delete('/sessions/:sessionId', async (req, res) => {
   try {
-    const ownedSession = requireOwnedSession(req, res); if (!ownedSession) return;
+    const ownedSession = (await requireOwnedSession(req, res)); if (!ownedSession) return;
     const { sessionId } = req.params;
     const result = await WhatsAppManager.deleteSession(sessionId);
     res.json({ success: true, result });

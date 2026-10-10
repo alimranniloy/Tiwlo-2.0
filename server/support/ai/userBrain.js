@@ -3,8 +3,8 @@ import { MasterDB } from '../../db/multiTenant.js';
 import { SupportDB } from '../../db/supportDb.js';
 import { PLATFORM_CONFIG, getPlatformUrl } from '../../config/platformConfig.js';
 
-function readSupportDB() {
-  return SupportDB.getAllData();
+async function readSupportDB() {
+  return (await SupportDB.getAllData());
 }
 
 // ====================================================================
@@ -34,7 +34,7 @@ export const UserBrain = {
         return null; // Do not invent default Imran/admin profile for unknown or guest visitors!
       }
 
-      const supportDB = readSupportDB();
+      const supportDB = (await readSupportDB());
       const userTickets = (supportDB.tickets || []).filter(t => !t.userId || t.userId === userId);
       const userConversations = (supportDB.conversations || []).filter(c => !c.userId || c.userId === userId || c.id.includes(userId));
 

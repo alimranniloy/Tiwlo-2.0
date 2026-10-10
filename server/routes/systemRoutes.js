@@ -78,10 +78,10 @@ router.get('/admin/security-events', requireAdmin, async (req, res) => {
 });
 
 // Stats / Dashboard Overview
-router.get('/stats', (req, res) => {
-  const products = readData(PRODUCTS_FILE, []);
-  const categories = readData(CATEGORIES_FILE, []);
-  const sales = readData(SALES_FILE, []);
+router.get('/stats', async (req, res) => {
+  const products = (await readData(PRODUCTS_FILE, []));
+  const categories = (await readData(CATEGORIES_FILE, []));
+  const sales = (await readData(SALES_FILE, []));
 
   const totalProductCount = products.length;
   const lowStockCount = products.filter(p => (p.stock || 0) > 0 && (p.stock || 0) < (p.minStock || 50)).length;
@@ -174,7 +174,7 @@ router.put('/system/settings', requireAdmin, async (req, res) => {
       updatedAt: new Date().toISOString()
     };
     res.json(await MasterDB.saveSystemSettings(updated));
-    logActivity('settings', 'System settings updated', 'Settings saved by administrator');
+    (await logActivity('settings', 'System settings updated', 'Settings saved by administrator'));
   } catch (error) {
     console.error('[SystemRoutes] Failed to save PostgreSQL settings:', error);
     res.status(503).json({ error: 'System settings could not be saved because PostgreSQL is unavailable.' });
@@ -182,15 +182,15 @@ router.put('/system/settings', requireAdmin, async (req, res) => {
 });
 
 // System Info
-router.get('/system/info', (req, res) => {
-  const products = readData(PRODUCTS_FILE, []);
-  const categories = readData(CATEGORIES_FILE, []);
-  const subcategories = readData(SUBCATEGORIES_FILE, []);
-  const purchases = readData(PURCHASES_FILE, []);
-  const sales = readData(SALES_FILE, []);
-  const customers = readData(CUSTOMERS_FILE, []);
-  const suppliers = readData(SUPPLIERS_FILE, []);
-  const activities = readData(ACTIVITIES_FILE, []);
+router.get('/system/info', async (req, res) => {
+  const products = (await readData(PRODUCTS_FILE, []));
+  const categories = (await readData(CATEGORIES_FILE, []));
+  const subcategories = (await readData(SUBCATEGORIES_FILE, []));
+  const purchases = (await readData(PURCHASES_FILE, []));
+  const sales = (await readData(SALES_FILE, []));
+  const customers = (await readData(CUSTOMERS_FILE, []));
+  const suppliers = (await readData(SUPPLIERS_FILE, []));
+  const activities = (await readData(ACTIVITIES_FILE, []));
 
   const totalRecords = products.length + categories.length + subcategories.length +
     purchases.length + sales.length + customers.length + suppliers.length + activities.length;
@@ -223,16 +223,16 @@ router.get('/system/backup', requireAdmin, async (req, res) => {
     const fullBackup = {
       exportDate: new Date().toISOString(),
       systemVersion: 'v3.2.0',
-      products: readData(PRODUCTS_FILE, []),
-      categories: readData(CATEGORIES_FILE, []),
-      subcategories: readData(SUBCATEGORIES_FILE, []),
-      purchases: readData(PURCHASES_FILE, []),
-      sales: readData(SALES_FILE, []),
-      customers: readData(CUSTOMERS_FILE, []),
-      suppliers: readData(SUPPLIERS_FILE, []),
-      adjustments: readData(ADJUSTMENTS_FILE, []),
+      products: (await readData(PRODUCTS_FILE, [])),
+      categories: (await readData(CATEGORIES_FILE, [])),
+      subcategories: (await readData(SUBCATEGORIES_FILE, [])),
+      purchases: (await readData(PURCHASES_FILE, [])),
+      sales: (await readData(SALES_FILE, [])),
+      customers: (await readData(CUSTOMERS_FILE, [])),
+      suppliers: (await readData(SUPPLIERS_FILE, [])),
+      adjustments: (await readData(ADJUSTMENTS_FILE, [])),
       settings: await MasterDB.getSystemSettings(defaultSystemSettings),
-      activities: readData(ACTIVITIES_FILE, [])
+      activities: (await readData(ACTIVITIES_FILE, []))
     };
     res.json(fullBackup);
   } catch (error) {
@@ -242,21 +242,21 @@ router.get('/system/backup', requireAdmin, async (req, res) => {
 });
 
 // Activities Log
-router.get('/activities', (req, res) => {
-  const activities = readData(ACTIVITIES_FILE, []);
+router.get('/activities', async (req, res) => {
+  const activities = (await readData(ACTIVITIES_FILE, []));
   res.json(activities);
 });
 
-router.delete('/activities/:id', (req, res) => {
-  const activities = readData(ACTIVITIES_FILE, []);
+router.delete('/activities/:id', async (req, res) => {
+  const activities = (await readData(ACTIVITIES_FILE, []));
   const { id } = req.params;
   const filtered = activities.filter(a => a.id !== id);
-  writeData(ACTIVITIES_FILE, filtered);
+  (await writeData(ACTIVITIES_FILE, filtered));
   res.json({ message: 'Activity deleted' });
 });
 
-router.delete('/activities', (req, res) => {
-  writeData(ACTIVITIES_FILE, []);
+router.delete('/activities', async (req, res) => {
+  (await writeData(ACTIVITIES_FILE, []));
   res.json({ message: 'All activities cleared' });
 });
 

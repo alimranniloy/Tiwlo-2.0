@@ -1,3 +1,4 @@
+import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useState, useEffect, useMemo } from 'react';
 import { getPlatformUrl } from '../config/platformConfig';
 import {

@@ -1,34 +1,17 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { readState, saveState } from './stateDocuments.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { MasterDB } from './multiTenant.js';
 import { CloudDB } from './cloud.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-let billingRuntimeData = {
-  accounts: []
-};
-
-function readBillingDb() {
-  return billingRuntimeData;
-}
-
-function writeBillingDb(data) {
-  billingRuntimeData = data;
-}
+async function readBillingDb() { return readState('billing', 'accounts', { accounts: [] }); }
+async function writeBillingDb(data) { await saveState('billing', 'accounts', data); }
 
 export const BillingDB = {
-  init() {
-    if (!billingRuntimeData.accounts) {
-      billingRuntimeData.accounts = [];
-    }
-  },
+  init() { /* PostgreSQL schema is initialized by server startup. */ },
 
   async getBillingAccount(userId) {
     if (!userId) return null;
-    const db = readBillingDb();
+    const db = (await readBillingDb());
     db.accounts = db.accounts || [];
 
     let account = db.accounts.find(
@@ -63,7 +46,7 @@ export const BillingDB = {
       };
 
       db.accounts.push(account);
-      writeBillingDb(db);
+      (await writeBillingDb(db));
     }
 
     // Always fetch user's real droplets to compute real live infrastructure utilization
@@ -87,12 +70,13 @@ export const BillingDB = {
   },
 
   async addCredits(userId, bundleAmount, paymentMethod = 'Credit Card') {
-    const db = readBillingDb();
+    let db = await readBillingDb();
     let account = db.accounts.find((a) => a.userId === userId || a.tiwiId === userId);
 
     if (!account) {
-      account = (await this.getBillingAccount(userId));
-      db.accounts.push(account);
+      await this.getBillingAccount(userId);
+      db = await readBillingDb();
+      account = db.accounts.find(a => a.userId === userId || a.tiwiId === userId);
     }
 
     const creditAmounts = { 10: 1000, 25: 2750, 50: 6000, 100: 13000 };
@@ -139,7 +123,7 @@ export const BillingDB = {
     account.invoices = account.invoices || [];
     account.invoices.unshift(newInvoice);
 
-    writeBillingDb(db);
+    (await writeBillingDb(db));
 
     return {
       success: true,
@@ -151,12 +135,13 @@ export const BillingDB = {
   },
 
   async redeemVoucher(userId, voucherCode) {
-    const db = readBillingDb();
+    let db = await readBillingDb();
     let account = db.accounts.find((a) => a.userId === userId || a.tiwiId === userId);
 
     if (!account) {
-      account = (await this.getBillingAccount(userId));
-      db.accounts.push(account);
+      await this.getBillingAccount(userId);
+      db = await readBillingDb();
+      account = db.accounts.find(a => a.userId === userId || a.tiwiId === userId);
     }
 
     const cleanCode = (voucherCode || '').trim().toUpperCase();
@@ -228,7 +213,7 @@ export const BillingDB = {
     account.invoices = account.invoices || [];
     account.invoices.unshift(newGrant);
 
-    writeBillingDb(db);
+    (await writeBillingDb(db));
 
     return {
       success: true,
@@ -240,12 +225,13 @@ export const BillingDB = {
   },
 
   async deductCredits(userId, amount, serviceName = 'Cloud Resource', description = 'Usage deduction') {
-    const db = readBillingDb();
+    let db = await readBillingDb();
     let account = db.accounts.find((a) => a.userId === userId || a.tiwiId === userId);
 
     if (!account) {
-      account = (await this.getBillingAccount(userId));
-      db.accounts.push(account);
+      await this.getBillingAccount(userId);
+      db = await readBillingDb();
+      account = db.accounts.find(a => a.userId === userId || a.tiwiId === userId);
     }
 
     const deductAmount = Math.max(0, parseInt(amount) || 0);
@@ -265,7 +251,7 @@ export const BillingDB = {
       console.warn('Failed to sync deduction to MasterDB:', err);
     }
 
-    writeBillingDb(db);
+    (await writeBillingDb(db));
 
     return {
       success: true,
@@ -275,12 +261,13 @@ export const BillingDB = {
   },
 
   async createBudget(userId, budgetInput) {
-    const db = readBillingDb();
+    let db = await readBillingDb();
     let account = db.accounts.find((a) => a.userId === userId || a.tiwiId === userId);
 
     if (!account) {
-      account = (await this.getBillingAccount(userId));
-      db.accounts.push(account);
+      await this.getBillingAccount(userId);
+      db = await readBillingDb();
+      account = db.accounts.find(a => a.userId === userId || a.tiwiId === userId);
     }
 
     const newBudget = {
@@ -298,19 +285,19 @@ export const BillingDB = {
     account.budgets.push(newBudget);
     account.updatedAt = new Date().toISOString();
 
-    writeBillingDb(db);
+    (await writeBillingDb(db));
     return newBudget;
   },
 
   async deleteBudget(userId, budgetId) {
-    const db = readBillingDb();
+    let db = await readBillingDb();
     let account = db.accounts.find((a) => a.userId === userId || a.tiwiId === userId);
     if (!account) return false;
 
     account.budgets = (account.budgets || []).filter((b) => b.id !== budgetId);
     account.updatedAt = new Date().toISOString();
 
-    writeBillingDb(db);
+    (await writeBillingDb(db));
     return true;
   }
 };

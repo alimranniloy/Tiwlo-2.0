@@ -3,9 +3,6 @@ import { MasterDB, TenantDB } from '../db/multiTenant.js';
 import { CloudDB } from '../db/cloud.js';
 import { DiscordDB } from '../discord/discordDb.js';
 
-// Initialize Cloud demo data
-CloudDB.init();
-
 // Construct GraphQL Schema using SDL
 export const schema = buildSchema(`
   type Droplet {
@@ -658,6 +655,27 @@ export const rootValue = {
   }
 };
 
+// The session determines ownership; GraphQL arguments never grant access.
+const authenticatedRoot = Object.fromEntries(Object.entries(rootValue).map(([name, resolver]) => [name, async (args, context) => {
+  if (['popularImages', 'discordMarketplace'].includes(name)) return resolver(args);
+  const user = context?.activeUser;
+  if (!user || user.isBanned) throw new Error('Authentication required');
+  if (name === 'tiwiStores' && !['admin', 'super_admin'].includes(user.role)) throw new Error('Administrator access required');
+  if (args.userId && ![user.id, user.tiwiId].includes(args.userId)) throw new Error('Account access denied');
+  const fields = schema.getQueryType().getFields()[name] || schema.getMutationType().getFields()[name];
+  if (fields.args.some(arg => arg.name === 'tiwiId')) {
+    const requested = args.tiwiId || user.tiwiId;
+    if (!requested) throw new Error('A tenant account is required');
+    if (requested !== user.tiwiId && !(await MasterDB.getUserStores(user.id)).some(store => store.tiwiId === requested)) throw new Error('Tenant access denied');
+    args = { ...args, tiwiId: requested };
+  }
+  if (['updateDropletStatus', 'deleteDroplet'].includes(name)) {
+    const droplet = await CloudDB.getDropletById(args.id);
+    if (!droplet || droplet.userId !== user.id) throw new Error('Resource access denied');
+  }
+  return resolver({ ...args, userId: user.id, ...(name === 'createUserStore' ? { input: { ...args.input, planId: 'free' } } : {}) });
+}]));
+
 // Express GraphQL Middleware
 export function createGraphQLMiddleware() {
   return async (req, res) => {
@@ -729,7 +747,8 @@ export function createGraphQLMiddleware() {
       const result = await graphql({
         schema,
         source: queryString,
-        rootValue,
+        rootValue: authenticatedRoot,
+        contextValue: { activeUser: req.activeUser },
         variableValues: variables,
         operationName
       });

@@ -1,3 +1,4 @@
+import { readState } from '../db/stateDocuments.js';
 /**
  * Tiwlo Enterprise Authoritative DNS Server
  * 
@@ -119,7 +120,7 @@ function isDomainAuthoritative(queryDomain) {
 // ==========================================
 // CORE DNS PACKET HANDLER
 // ==========================================
-function handleDnsRequest(request, send, rinfo) {
+async function handleDnsRequest(request, send, rinfo) {
   const clientIp = rinfo?.address || 'unknown';
 
   // 1. Anti-DDoS / RRL Check
@@ -278,9 +279,8 @@ function handleDnsRequest(request, send, rinfo) {
         // 1. Dynamic ACME Challenge for Wildcard SSL
         if (queryDomain.startsWith('_acme-challenge')) {
           try {
-            const tokenPath = '/var/www/certbot/dns_tokens.json';
-            if (fs.existsSync(tokenPath)) {
-              const tokens = JSON.parse(fs.readFileSync(tokenPath, 'utf8'));
+            const tokens = await readState('dns', 'acme', {});
+            {
               const list = tokens[queryDomain] ||
                 tokens[`_acme-challenge.${DNS_CONFIG.PRIMARY_DOMAIN}`] ||
                 tokens[DNS_CONFIG.PRIMARY_DOMAIN];

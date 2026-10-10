@@ -8,7 +8,9 @@
     "migrate:discord": "node discord/migrateLegacyDiscordJson.js",
     "test:signup": "node --test --test-force-exit security/signupIdentity.test.js security/signupBrowser.test.js security/proxyTrust.test.js db/signupIdentitySchema.test.js db/signupPersistence.test.js security/securityRegression.test.js",
     "dns": "node dns/dnsServer.js",
-    "ssl": "node dns/sslManager.js"
+    "ssl": "node dns/sslManager.js",
+    "migrate:storage": "node db/migrate.js",
+    "test:storage": "node --test --test-force-exit db/multiTenant.test.js db/migrate.test.js graphql/applicationApi.test.js graphql/graphqlTransport.test.js"
   },
   "dependencies": {
     "@tensorflow/tfjs": "^4.22.0",

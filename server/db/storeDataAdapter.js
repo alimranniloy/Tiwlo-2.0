@@ -1,4 +1,3 @@
-import path from 'path';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { MasterDB, TenantDB } from './multiTenant.js';
 
@@ -6,19 +5,19 @@ import { MasterDB, TenantDB } from './multiTenant.js';
 // back to the first store when a route omits an explicit tiwiId.
 export const tenantContext = new AsyncLocalStorage();
 
-export const PRODUCTS_FILE = 'products.json';
-export const CATEGORIES_FILE = 'categories.json';
-export const SUBCATEGORIES_FILE = 'subcategories.json';
-export const PURCHASES_FILE = 'purchases.json';
-export const SALES_FILE = 'sales.json';
-export const CUSTOMERS_FILE = 'customers.json';
-export const SUPPLIERS_FILE = 'suppliers.json';
-export const ADJUSTMENTS_FILE = 'inventory_adjustments.json';
-export const STORE_SETTINGS_FILE = 'store_settings.json';
-export const SUBSCRIPTION_FILE = 'subscription.json';
-export const ACTIVITIES_FILE = 'activities.json';
-export const USERS_FILE = 'users.json';
-export const SESSIONS_FILE = 'sessions.json';
+export const PRODUCTS_FILE = 'products';
+export const CATEGORIES_FILE = 'categories';
+export const SUBCATEGORIES_FILE = 'subcategories';
+export const PURCHASES_FILE = 'purchases';
+export const SALES_FILE = 'sales';
+export const CUSTOMERS_FILE = 'customers';
+export const SUPPLIERS_FILE = 'suppliers';
+export const ADJUSTMENTS_FILE = 'inventory_adjustments';
+export const STORE_SETTINGS_FILE = 'store_settings';
+export const SUBSCRIPTION_FILE = 'subscription';
+export const ACTIVITIES_FILE = 'activities';
+export const USERS_FILE = 'users';
+export const SESSIONS_FILE = 'sessions';
 
 export function getActiveTiwiId(req) {
   if (!req) return null;
@@ -30,67 +29,37 @@ export function getActiveTiwiId(req) {
   return null;
 }
 
-export function readData(filePath, defaultVal = [], tiwiId = null) {
-  const base = path.basename(filePath);
-  const master = MasterDB.getMasterData();
-  const targetTiwiId = tiwiId || tenantContext.getStore()?.tiwiId || null;
-
-  if (base === 'users.json') return master.users || defaultVal;
-  if (base === 'sessions.json') return master.sessions || defaultVal;
-  if (!targetTiwiId) return defaultVal;
-
-  const store = TenantDB.getStoreDb(targetTiwiId);
-  if (base === 'products.json') return store.products || defaultVal;
-  if (base === 'categories.json') return store.categories || defaultVal;
-  if (base === 'subcategories.json') return store.subcategories || defaultVal;
-  if (base === 'customers.json') return store.customers || defaultVal;
-  if (base === 'suppliers.json') return store.suppliers || defaultVal;
-  if (base === 'purchases.json') return store.purchases || defaultVal;
-  if (base === 'sales.json') return store.sales || defaultVal;
-  if (base === 'inventory_adjustments.json') return store.inventory_adjustments || defaultVal;
-  if (base === 'activities.json') return store.activities || defaultVal;
-  if (base === 'store_settings.json') return store.store_settings || defaultVal;
-  if (base === 'subscription.json') return store.subscription || defaultVal;
-
-  return defaultVal;
+async function requestStore(tiwiId) {
+  const context = tenantContext.getStore();
+  if (!context) throw new Error('Tenant data access requires a request context.');
+  context.snapshots ||= new Map();
+  if (!context.snapshots.has(tiwiId)) context.snapshots.set(tiwiId, await TenantDB.getStoreDb(tiwiId));
+  return context.snapshots.get(tiwiId);
 }
 
-export function writeData(filePath, data, tiwiId = null) {
-  const base = path.basename(filePath);
-  const master = MasterDB.getMasterData();
-  const targetTiwiId = tiwiId || tenantContext.getStore()?.tiwiId || null;
-  const store = targetTiwiId ? TenantDB.getStoreDb(targetTiwiId) : null;
-
-  if (base === 'users.json') {
-    master.users = data;
-    MasterDB.saveMasterData(master);
-    return;
-  }
-  if (base === 'sessions.json') {
-    master.sessions = data;
-    MasterDB.saveMasterData(master);
-    return;
-  }
-  if (!store) return;
-
-  if (base === 'products.json') store.products = data;
-  else if (base === 'categories.json') store.categories = data;
-  else if (base === 'subcategories.json') store.subcategories = data;
-  else if (base === 'customers.json') store.customers = data;
-  else if (base === 'suppliers.json') store.suppliers = data;
-  else if (base === 'purchases.json') store.purchases = data;
-  else if (base === 'sales.json') store.sales = data;
-  else if (base === 'inventory_adjustments.json') store.inventory_adjustments = data;
-  else if (base === 'activities.json') store.activities = data;
-  else if (base === 'store_settings.json') store.store_settings = data;
-  else if (base === 'subscription.json') store.subscription = data;
-
-  TenantDB.saveStoreDb(targetTiwiId, store);
+const collections = new Set(['products', 'categories', 'subcategories', 'purchases', 'sales', 'customers', 'suppliers', 'inventory_adjustments', 'store_settings', 'subscription', 'activities']);
+export async function readData(collection, defaultVal = [], tiwiId = null) {
+  const target = tiwiId || tenantContext.getStore()?.tiwiId;
+  if (collection === 'users') return MasterDB.getUsers();
+  if (collection === 'sessions') return (await MasterDB.getMasterData()).sessions;
+  if (!target) return defaultVal;
+  if (!collections.has(collection)) throw new Error('Unknown tenant collection.');
+  return (await requestStore(target))[collection] ?? defaultVal;
 }
 
-export function logActivity(type, title, subtitle, tiwiId = null) {
-  tiwiId = tiwiId || tenantContext.getStore()?.tiwiId || null;
-  if (!tiwiId) return { id: `act-${Date.now()}`, type, title, subtitle, time: 'Just now' };
-  TenantDB.logActivity(tiwiId, type, title, subtitle);
-  return { id: `act-${Date.now()}`, type, title, subtitle, time: 'Just now' };
+export async function writeData(collection, data, tiwiId = null) {
+  const target = tiwiId || tenantContext.getStore()?.tiwiId;
+  if (!target || !collections.has(collection)) throw new Error('A tenant and valid collection are required.');
+  const store = await requestStore(target);
+  store[collection] = data;
+  await TenantDB.saveStoreDb(target, store);
+}
+
+export async function logActivity(type, title, subtitle, tiwiId = null) {
+  const target = tiwiId || tenantContext.getStore()?.tiwiId;
+  if (!target) return null;
+  const entry = await TenantDB.logActivity(target, type, title, subtitle);
+  // Activity writes advance the tenant snapshot; subsequent reads must refresh.
+  tenantContext.getStore()?.snapshots?.delete(target);
+  return entry;
 }

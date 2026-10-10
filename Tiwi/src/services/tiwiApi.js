@@ -1,3 +1,4 @@
+import { applicationFetch as fetch } from './graphqlTransport.js';
 /**
  * Tiwi Social Media App - Centralized API Service
  * Handles all network requests to Tiwlo Server with robust error handling

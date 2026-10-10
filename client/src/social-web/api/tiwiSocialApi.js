@@ -1,3 +1,4 @@
+import { applicationFetch as fetch } from '../../api/graphqlTransport.js';
 /**
  * Tiwi Social Media Web - Centralized API Service
  * Connects directly to real PostgreSQL-backed endpoints on /api/tiwi and /api/social

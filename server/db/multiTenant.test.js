@@ -1,85 +1,65 @@
-import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import assert from 'node:assert/strict';
+import { PGlite } from '@electric-sql/pglite';
+import { getPgPool, initPgSchema } from './postgres.js';
+import { readState, saveState } from './stateDocuments.js';
+import { MasterDB, TenantDB } from './multiTenant.js';
+import { readData, writeData, tenantContext } from './storeDataAdapter.js';
+import { SupportDB } from './supportDb.js';
+import { TPanelDB } from '../../service/TPanel/server/tpanelDb.js';
 
-const moduleUrl = pathToFileURL(path.join(path.dirname(fileURLToPath(import.meta.url)), 'multiTenant.js')).href;
-
-async function importFreshModule(label) {
-  return import(`${moduleUrl}?${label}-${Date.now()}-${Math.random()}`);
-}
-
-test('tenant stores and store registry survive a module restart', async () => {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tiwlo-tenant-store-'));
-  const previousDataDir = process.env.TIWLO_DATA_DIR;
-  process.env.TIWLO_DATA_DIR = dataDir;
-  try {
-    const firstRun = await importFreshModule('first');
-    firstRun.TenantDB.saveStoreDb('TIW-TEST-1', {
-      tiwiId: 'TIW-TEST-1',
-      storeName: 'Test Store',
-      products: [{ id: 'product-1', name: 'Live product' }],
-      sales: [{ id: 'sale-1', totalAmount: 23, paymentStatus: 'paid' }]
-    });
-    const master = firstRun.MasterDB.getMasterData();
-    master.stores.push({
-      id: 'store-test-1',
-      tiwiId: 'TIW-TEST-1',
-      ownerId: 'user-test-1',
-      storeName: 'Test Store',
-      currency: 'USD ($)'
-    });
-    firstRun.MasterDB.saveMasterData(master);
-    const restarted = await importFreshModule('restarted');
-    const recoveredStore = restarted.TenantDB.getAllStoreData()[0];
-    assert.deepEqual(recoveredStore.products, [{ id: 'product-1', name: 'Live product' }]);
-    assert.equal(recoveredStore.ownerId, 'user-test-1');
-    assert.deepEqual(recoveredStore.sales, [{ id: 'sale-1', totalAmount: 23, paymentStatus: 'paid' }]);
-  } finally {
-    if (previousDataDir === undefined) delete process.env.TIWLO_DATA_DIR;
-    else process.env.TIWLO_DATA_DIR = previousDataDir;
-    fs.rmSync(dataDir, { recursive: true, force: true });
-  }
-});
-
-test('legacy primary tenant JSON is migrated to durable tenant storage', async () => {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tiwlo-tenant-legacy-'));
-  const previousDataDir = process.env.TIWLO_DATA_DIR;
-  process.env.TIWLO_DATA_DIR = dataDir;
-  try {
-    fs.writeFileSync(path.join(dataDir, 'products.json'), JSON.stringify([{ id: 'legacy-product' }]));
-    fs.writeFileSync(path.join(dataDir, 'sales.json'), JSON.stringify([{ id: 'legacy-sale' }]));
-
-    const { TenantDB } = await importFreshModule('legacy');
-    const migrated = TenantDB.getStoreDb('TIW-PRIMARY');
-    assert.equal(migrated.products[0].id, 'legacy-product');
-    assert.equal(migrated.sales[0].id, 'legacy-sale');
-    assert.equal(fs.existsSync(TenantDB.getStoreFilePath('TIW-PRIMARY')), true);
-  } finally {
-    if (previousDataDir === undefined) delete process.env.TIWLO_DATA_DIR;
-    else process.env.TIWLO_DATA_DIR = previousDataDir;
-    fs.rmSync(dataDir, { recursive: true, force: true });
-  }
-});
-
-test('corrupt persisted tenant JSON fails instead of appearing as an empty store', async () => {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tiwlo-tenant-corrupt-'));
-  const previousDataDir = process.env.TIWLO_DATA_DIR;
-  process.env.TIWLO_DATA_DIR = dataDir;
-  try {
-    const { TenantDB } = await importFreshModule('corrupt');
-    const storePath = TenantDB.getStoreFilePath('TIW-TEST-CORRUPT');
-    fs.mkdirSync(path.dirname(storePath), { recursive: true });
-    fs.writeFileSync(storePath, '{invalid');
-    assert.throws(
-      () => TenantDB.getStoreDb('TIW-TEST-CORRUPT'),
-      /invalid JSON/
-    );
-  } finally {
-    if (previousDataDir === undefined) delete process.env.TIWLO_DATA_DIR;
-    else process.env.TIWLO_DATA_DIR = previousDataDir;
-    fs.rmSync(dataDir, { recursive: true, force: true });
-  }
+test('PostgreSQL domain persistence and tenant isolation', async t => {
+  const db = new PGlite();
+  t.mock.method(getPgPool(), 'query', async (sql, params) => params?.length ? db.query(sql, params) : (await db.exec(sql)).at(-1));
+  t.after(async () => { await db.close(); await getPgPool().end(); });
+  await initPgSchema();
+  await t.test('tenant documents and registry survive a fresh module instance', async () => {
+    await TenantDB.provisionStore('TIW-TEST-1', 'Store One');
+    await TenantDB.addProduct('TIW-TEST-1', { id: 'p1', name: 'Live product', stock: 4 });
+    const master = await MasterDB.getMasterData();
+    master.stores.push({ tiwiId: 'TIW-TEST-1', ownerId: 'owner1' });
+    await MasterDB.saveMasterData(master);
+    const restarted = await import('./multiTenant.js?restart');
+    const stores = await restarted.TenantDB.getAllStoreData();
+    assert.equal(stores[0].products[0].name, 'Live product');
+    assert.equal(stores[0].ownerId, 'owner1');
+    assert.deepEqual(await restarted.TenantDB.getProducts('TIW-OTHER'), []);
+  });
+  await t.test('stale snapshots cannot overwrite concurrent changes', async () => {
+    const one = await TenantDB.getStoreDb('TIW-TEST-1');
+    const two = await TenantDB.getStoreDb('TIW-TEST-1');
+    one.products[0].stock = 8; await TenantDB.saveStoreDb('TIW-TEST-1', one);
+    two.products[0].stock = 1;
+    await assert.rejects(TenantDB.saveStoreDb('TIW-TEST-1', two), { code: 'STATE_CONFLICT' });
+    assert.equal((await TenantDB.getProducts('TIW-TEST-1'))[0].stock, 8);
+    const absent1 = await readState('test', 'new'); const absent2 = await readState('test', 'new');
+    await saveState('test', 'new', absent1);
+    await assert.rejects(saveState('test', 'new', absent2), { code: 'STATE_CONFLICT' });
+  });
+  await t.test('request adapter writes await durable storage and isolate tenants', async () => {
+    await Promise.all(['A', 'B'].map(id => tenantContext.run({ tiwiId: id }, async () => {
+      await writeData('products', [{ id }]);
+      assert.deepEqual(await readData('products'), [{ id }]);
+    })));
+    assert.equal((await TenantDB.getProducts('A'))[0].id, 'A');
+    assert.equal((await TenantDB.getProducts('B'))[0].id, 'B');
+    await assert.rejects(writeData('products', []), /tenant/);
+  });
+  await t.test('support and hosting updates survive reads', async () => {
+    await SupportDB.createTicket({ id: 't1', userId: 'owner1', subject: 'Help' });
+    await SupportDB.updateTicket('t1', { status: 'Resolved' });
+    assert.equal((await SupportDB.getTicketById('t1')).status, 'Resolved');
+    assert.deepEqual(await SupportDB.getTickets('other'), []);
+    await SupportDB.saveConversation({ id: 'c1', userId: 'owner1', messages: ['hello'] });
+    assert.deepEqual((await SupportDB.getConversation('c1')).messages, ['hello']);
+    await TPanelDB.getAccount('owner1');
+    await TPanelDB.createFile('owner1', { name: 'test.txt', content: 'durable' });
+    assert.equal((await TPanelDB.listFiles('owner1','/public_html')).files.find(f => f.name === 'test.txt').content, 'durable');
+  });
+  await t.test('database failure propagates without a volatile success', async () => {
+    const mock = t.mock.method(getPgPool(), 'query', async () => { throw new Error('offline'); });
+    await assert.rejects(TenantDB.getProducts('A'), /offline/);
+    await assert.rejects(SupportDB.createTicket({ subject: 'Fail' }), /offline/);
+    mock.mock.restore();
+  });
 });

@@ -210,7 +210,7 @@ async function executePostModeration({ postId, author, images = [], caption = ''
 export async function runRetroactiveContentAudit() {
   console.log('[RetroactiveAudit] Auditing existing posts and avatars for community safety...');
   try {
-    const sData = SocialDB.getData();
+    const sData = (await SocialDB.getData());
     let postsCleaned = 0;
     let filesPurged = 0;
 
@@ -244,7 +244,7 @@ export async function runRetroactiveContentAudit() {
     }
 
     // 2. Audit all user avatars in master database and social profiles
-    const master = MasterDB.getMasterData();
+    const master = (await MasterDB.getMasterData());
     let avatarsCleaned = 0;
     for (const u of (master.users || [])) {
       if (!u.avatar || u.avatar.includes('ui-avatars.com')) continue;
@@ -257,6 +257,7 @@ export async function runRetroactiveContentAudit() {
           await removeUploadMedia(u.avatar);
           filesPurged++;
           const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'User')}&background=0B57D0&color=fff&size=256&bold=true`;
+          await MasterDB.updateUser(u.id, { avatar: fallbackAvatar });
           u.avatar = fallbackAvatar;
           if (sData.profiles && sData.profiles[u.id]) {
             sData.profiles[u.id].avatar = fallbackAvatar;
@@ -277,8 +278,7 @@ export async function runRetroactiveContentAudit() {
       }
     }
     if (avatarsCleaned > 0) {
-      MasterDB.saveMasterData(master);
-      SocialDB.saveData(sData);
+      (await SocialDB.saveData(sData));
     }
 
     console.log(`[RetroactiveAudit] Completed: ${postsCleaned} posts marked violated, ${avatarsCleaned} avatars reset, ${filesPurged} files purged.`);
@@ -290,7 +290,7 @@ export async function runRetroactiveContentAudit() {
 export async function resumePendingVideoProcessing() {
   let resumed = 0;
   let afterId = '';
-  const socialData = SocialDB.getData();
+  const socialData = (await SocialDB.getData());
   while (true) {
     const pendingMedia = await listPendingVideoMedia(500, afterId);
     if (pendingMedia.length === 0) break;
@@ -572,19 +572,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 // ====================================================================
 // 2. GRAPHQL ENDPOINT
 // ====================================================================
-router.post('/graphql', async (req, res) => {
-  const { query, variables } = req.body;
-  if (!query) {
-    return res.status(400).json({ error: 'GraphQL query required' });
-  }
-  try {
-    const result = await executeSocialGraphQL(query, variables);
-    res.json(result);
-  } catch (err) {
-    console.error('GraphQL Execution Error:', err);
-    res.status(500).json({ errors: [{ message: err.message }] });
-  }
-});
+router.post('/graphql', (_req, res) => res.status(410).json({ error: 'Use the authenticated application GraphQL API at /api/graphql.' }));
 
 // ====================================================================
 // 3. AUTH & USER REST ENDPOINTS

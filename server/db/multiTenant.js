@@ -1,48 +1,12 @@
-import fsSync from 'node:fs';
+import { readState, saveState, listState } from './stateDocuments.js';
 import { randomUUID } from 'node:crypto';
 import { normalizeSignupEmail, signupEmailKey, duplicateAccountError } from '../security/signupIdentity.js';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { getPgPool, isPgActive, queryPg } from './postgres.js';
 import { PasswordSecurity, SessionSecurity } from '../security/cryptoSecurity.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { recordSecurityEvent } from './securityPersistence.js';
 
-const DATA_DIR = process.env.TIWLO_DATA_DIR ||
-  path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../data');
-const STORES_STORAGE_DIR = path.join(DATA_DIR, 'db', 'stores');
-const STORE_REGISTRY_PATH = path.join(STORES_STORAGE_DIR, 'registry.json');
-const TENANT_ARRAY_FIELDS = [
-  'products',
-  'categories',
-  'subcategories',
-  'customers',
-  'suppliers',
-  'purchases',
-  'sales',
-  'inventory_adjustments',
-  'activities'
-];
-
-function readJsonFile(filePath) {
-  try {
-    return JSON.parse(fsSync.readFileSync(filePath, 'utf8'));
-  } catch (error) {
-    if (error.code === 'ENOENT') return null;
-    if (error instanceof SyntaxError) {
-      throw new Error('Persisted tenant data contains invalid JSON.', { cause: error });
-    }
-    throw error;
-  }
-}
-
-function writeJsonFile(filePath, data) {
-  fsSync.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
-  const temporaryPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-  fsSync.writeFileSync(temporaryPath, JSON.stringify(data), { encoding: 'utf8', mode: 0o600 });
-  fsSync.renameSync(temporaryPath, filePath);
-}
-
+const TENANT_ARRAY_FIELDS = ['products', 'categories', 'subcategories', 'customers', 'suppliers', 'purchases', 'sales', 'inventory_adjustments', 'activities'];
 function validateTenantStore(store, storeId) {
   if (!store || typeof store !== 'object' || Array.isArray(store) ||
       (store.tiwiId && String(store.tiwiId) !== storeId)) {
@@ -58,43 +22,6 @@ function validateTenantStore(store, storeId) {
     throw new Error('Persisted tenant store settings have an invalid format.');
   }
 }
-
-function readStoreRegistry() {
-  const stores = readJsonFile(STORE_REGISTRY_PATH);
-  if (stores === null) return [];
-  if (!Array.isArray(stores) || stores.some(store => !store || typeof store !== 'object' || !store.tiwiId)) {
-    throw new Error('Persisted store registry has an invalid format.');
-  }
-  return stores;
-}
-
-function persistStoreRegistry(stores) {
-  if (!Array.isArray(stores) || stores.some(store => !store || typeof store !== 'object' || !store.tiwiId)) {
-    throw new Error('Store registry cannot be persisted because an entry has no tenant identifier.');
-  }
-  const registry = stores.map(store => ({
-    id: store.id,
-    tiwiId: store.tiwiId,
-    ownerId: store.ownerId || null,
-    storeName: store.storeName || 'Store',
-    subdomain: store.subdomain || null,
-    planId: store.planId || null,
-    category: store.category || null,
-    currency: store.currency || 'USD ($)',
-    status: store.status || 'active',
-    createdAt: store.createdAt || null
-  }));
-  writeJsonFile(STORE_REGISTRY_PATH, registry);
-}
-
-let masterRuntimeData = {
-  users: [],
-  sessions: [],
-  stores: readStoreRegistry(),
-  subscriptions: []
-};
-
-let tenantStoresRuntimeData = {};
 
 const makeStoreSubdomain = (name) => {
   const slug = String(name || 'store').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 30) || 'store';
@@ -123,79 +50,20 @@ function createEmptyTenantStore(tiwiId) {
   };
 }
 
-function readLegacyPrimaryStore() {
-  const fields = {
-    products: 'products.json',
-    categories: 'categories.json',
-    subcategories: 'subcategories.json',
-    customers: 'customers.json',
-    suppliers: 'suppliers.json',
-    purchases: 'purchases.json',
-    sales: 'sales.json',
-    inventory_adjustments: 'inventory_adjustments.json',
-    activities: 'activities.json',
-    store_settings: 'store_settings.json'
-  };
-  const legacyDirectories = [DATA_DIR, path.join(DATA_DIR, 'migration_backup')];
-  let store = createEmptyTenantStore('TIW-PRIMARY');
-  let foundLegacyData = false;
-
-  for (const [field, filename] of Object.entries(fields)) {
-    const filePath = legacyDirectories
-      .map(directory => path.join(directory, filename))
-      .find(candidate => fsSync.existsSync(candidate));
-    if (!filePath) continue;
-
-    const value = readJsonFile(filePath);
-    const isSettings = field === 'store_settings';
-    if (isSettings
-      ? !value || typeof value !== 'object' || Array.isArray(value)
-      : !Array.isArray(value)) {
-      throw new Error(`Legacy tenant data file "${filename}" has an invalid format.`);
-    }
-    store[field] = value;
-    foundLegacyData = true;
-  }
-
-  if (!foundLegacyData) return null;
-  store.store_settings = {
-    ...createEmptyTenantStore('TIW-PRIMARY').store_settings,
-    ...store.store_settings,
-    tiwiId: 'TIW-PRIMARY'
-  };
-  store.storeName = store.store_settings.storeName || store.storeName;
-  return store;
-}
-
-function hasLegacyPrimaryStoreData() {
-  const legacyFiles = [
-    'products.json',
-    'categories.json',
-    'subcategories.json',
-    'customers.json',
-    'suppliers.json',
-    'purchases.json',
-    'sales.json',
-    'inventory_adjustments.json',
-    'activities.json',
-    'store_settings.json'
-  ];
-  return [DATA_DIR, path.join(DATA_DIR, 'migration_backup')]
-    .some(directory => legacyFiles.some(filename => fsSync.existsSync(path.join(directory, filename))));
-}
-
 // ====================================================================
 // 1. MASTER DATABASE ENGINE
 // Manages: system_users, system_sessions, system_stores, subscriptions
 // ====================================================================
 export const MasterDB = {
-  getMasterData() {
-    return masterRuntimeData;
+  async getMasterData() {
+    const directory = await readState('master', 'directory', { stores: [], subscriptions: [] });
+    directory.users = await this.getUsers();
+    directory.sessions = (await queryPg('SELECT user_id AS "userId", tiwi_id AS "tiwiId", expires_at AS "expiresAt" FROM system_sessions')).rows;
+    return directory;
   },
 
-  saveMasterData(data) {
-    persistStoreRegistry(data.stores || []);
-    masterRuntimeData = data;
+  async saveMasterData(data) {
+    await saveState('master', 'directory', { stores: data.stores || [], subscriptions: data.subscriptions || [] }, data);
   },
 
   async getSystemSettings(defaultSettings = {}) {
@@ -227,7 +95,6 @@ export const MasterDB = {
 
   // Users
   async getUsers() {
-    if (!isPgActive()) throw new Error('PostgreSQL is unavailable; account lookup is disabled.');
     const res = await queryPg('SELECT * FROM system_users ORDER BY created_at DESC');
     return res.rows.map(r => ({
           id: r.id,
@@ -298,41 +165,6 @@ export const MasterDB = {
       if (await this.isSignupEmailTaken(email, userId)) throw duplicateAccountError();
       updates = { ...updates, email };
     }
-    const clean = String(userId || '').trim().toLowerCase();
-    const master = this.getMasterData();
-    const idx = (master.users || []).findIndex(
-      (u) =>
-        (u.id && String(u.id).toLowerCase() === clean) ||
-        (u.tiwiId && String(u.tiwiId).toLowerCase() === clean) ||
-        (u.storeId && String(u.storeId).toLowerCase() === clean) ||
-        (u.email && u.email.toLowerCase() === clean)
-    );
-    const cachedUserBefore = idx !== -1 ? { ...master.users[idx] } : null;
-    let updatedStoreIndex = -1;
-    let cachedStoreBefore = null;
-    if (idx !== -1) {
-      master.users[idx] = {
-        ...master.users[idx],
-        ...updates,
-        updatedAt: new Date().toISOString(),
-      };
-
-      if (updates.storeName) {
-        updatedStoreIndex = (master.stores || []).findIndex(
-          (s) => s.ownerId === master.users[idx].id || s.tiwiId === master.users[idx].tiwiId
-        );
-        if (updatedStoreIndex !== -1) {
-          cachedStoreBefore = { ...master.stores[updatedStoreIndex] };
-          master.stores[updatedStoreIndex].storeName = updates.storeName;
-        }
-      }
-
-      this.saveMasterData(master);
-    }
-
-    let persistedToPg = false;
-    if (isPgActive()) {
-      try {
         const fields = [];
         const values = [];
         let valIndex = 1;
@@ -404,17 +236,8 @@ export const MasterDB = {
             `UPDATE system_users SET ${fields.join(', ')} WHERE id::text = $${valIndex} OR tiwi_id = $${valIndex} OR LOWER(email) = LOWER($${valIndex})`,
             values
           );
-          persistedToPg = true;
-        }
-      } catch (e) {
-        console.error('[PostgreSQL User Update Error]', e.message);
-        if (cachedUserBefore) master.users[idx] = cachedUserBefore;
-        if (cachedStoreBefore) master.stores[updatedStoreIndex] = cachedStoreBefore;
-        if (cachedUserBefore) this.saveMasterData(master);
-        throw e;
-      }
-    }
 
+        }
     if (updates.isBanned === false) {
       await queryPg(
         `UPDATE system_account_security
@@ -430,19 +253,25 @@ export const MasterDB = {
       await recordSecurityEvent({
         eventType: 'moderation.account_restored',
         severity: 'info',
-        userId: idx >= 0 ? master.users[idx].id : userId
+        userId
       });
     }
 
-    if (persistedToPg) {
-      return await this.findUserByIdentifier(updates.email || userId);
+    const updatedUser = await this.findUserByIdentifier(updates.email || userId);
+    if (updates.storeName && updatedUser?.tiwiId) {
+      const directory = await this.getMasterData();
+      const store = directory.stores.find(row => row.ownerId === updatedUser.id || row.tiwiId === updatedUser.tiwiId);
+      if (store) {
+        store.storeName = updates.storeName;
+        await this.saveMasterData(directory);
+      }
     }
-    return idx !== -1 ? master.users[idx] : null;
+    return updatedUser;
   },
 
   async createUser(userData) {
     const tiwiId = userData.tiwiId || userData.storeId;
-    const master = this.getMasterData();
+    const master = (await this.getMasterData());
 
     const normalizedEmail = normalizeSignupEmail(userData.email);
     if (!normalizedEmail) throw new Error('A valid email address is required.');
@@ -544,7 +373,7 @@ export const MasterDB = {
       });
     }
 
-    this.saveMasterData(master);
+    if (newUser.accountType === 'business') await this.saveMasterData(master);
 
     // Provision dedicated isolated database / schema only for business accounts
     if (newUser.accountType === 'business') {
@@ -687,7 +516,7 @@ export const MasterDB = {
 
   // Subscriptions
   async getSubscription(tiwiId) {
-    const master = this.getMasterData();
+    const master = (await this.getMasterData());
     const sub = (master.subscriptions || []).find(s => s.tiwiId === tiwiId);
     return sub || {
       planId: 'free',
@@ -702,7 +531,7 @@ export const MasterDB = {
   },
 
   async updateSubscription(tiwiId, planData) {
-    const master = this.getMasterData();
+    const master = (await this.getMasterData());
     master.subscriptions = master.subscriptions || [];
     const index = master.subscriptions.findIndex(s => s.tiwiId === tiwiId);
     const updated = {
@@ -715,13 +544,13 @@ export const MasterDB = {
     } else {
       master.subscriptions.push(updated);
     }
-    this.saveMasterData(master);
+    (await this.saveMasterData(master));
     return updated;
   },
 
   // Multi-Store Directory Management ("My Online Store") - Strictly Isolated per User
   async getUserStores(userIdOrEmail) {
-    const master = this.getMasterData();
+    const master = (await this.getMasterData());
     const stores = master.stores || [];
     if (!userIdOrEmail) return [];
     const clean = userIdOrEmail.toString().trim().toLowerCase();
@@ -752,7 +581,7 @@ export const MasterDB = {
     if (!storeName || !storeName.trim()) {
       throw new Error('Store name is required');
     }
-    const master = this.getMasterData();
+    const master = (await this.getMasterData());
     master.stores = master.stores || [];
 
     const clean = userId.toString().trim().toLowerCase();
@@ -772,8 +601,8 @@ export const MasterDB = {
     const newTiwiId = `TIW-${nextSeq}`;
 
     const cleanSubdomain = subdomain?.trim().toLowerCase() || makeStoreSubdomain(storeName);
-    if (!cleanSubdomain.endsWith(`.${getPlatformDomain()}`)) {
-      throw new Error(`Store subdomain must use .${getPlatformDomain()}`);
+    if (!cleanSubdomain.endsWith(`.${PLATFORM_CONFIG.storeDomain}`)) {
+      throw new Error(`Store subdomain must use .${PLATFORM_CONFIG.storeDomain}`);
     }
     if ((master.stores || []).some((store) => store.subdomain?.toLowerCase() === cleanSubdomain)) {
       throw new Error('That store subdomain is already in use');
@@ -800,7 +629,7 @@ export const MasterDB = {
     };
 
     master.stores.push(newStore);
-    this.saveMasterData(master);
+    (await this.saveMasterData(master));
 
     // Provision isolated tenant database for this store
     await TenantDB.provisionStore(newTiwiId, newStore.storeName, planId);
@@ -814,156 +643,45 @@ export const MasterDB = {
 // Each store receives its own dedicated database/schema: store_<tiwiId>
 // ====================================================================
 export const TenantDB = {
-  getAllStoreData() {
-    const registeredStores = MasterDB.getMasterData().stores || [];
-    const storesById = new Map();
-    for (const store of registeredStores) {
-      const id = String(store.tiwiId || store.id || '');
-      if (!id) continue;
-      if (!tenantStoresRuntimeData[id]) this.getStoreDb(id);
-      storesById.set(id, {
-        tiwiId: id,
-        storeId: id,
-        ownerId: store.ownerId || null,
-        storeName: store.storeName || 'Store',
-        planId: store.planId || null,
-        createdAt: store.createdAt || null,
-        store_settings: { storeName: store.storeName, subdomain: store.subdomain, currency: store.currency }
-      });
+  async getAllStoreData() {
+    const directory = await MasterDB.getMasterData();
+    const documents = await listState('tenant');
+    const stores = new Map(documents.map(store => [store.tiwiId, store]));
+    for (const entry of directory.stores || []) {
+      const document = stores.get(entry.tiwiId) || createEmptyTenantStore(entry.tiwiId);
+      stores.set(entry.tiwiId, { ...document, ...entry, store_settings: document.store_settings });
     }
-    const primaryStorePath = this.getStoreFilePath('TIW-PRIMARY');
-    if (!storesById.has('TIW-PRIMARY') &&
-        (fsSync.existsSync(primaryStorePath) || hasLegacyPrimaryStoreData())) {
-      const primaryStore = this.getStoreDb('TIW-PRIMARY');
-      storesById.set('TIW-PRIMARY', {
-        tiwiId: 'TIW-PRIMARY',
-        storeId: 'TIW-PRIMARY',
-        ownerId: null,
-        storeName: primaryStore.storeName || 'Tiwlo Main Store',
-        store_settings: primaryStore.store_settings,
-        createdAt: primaryStore.createdAt || null
-      });
-    }
-    for (const [id, store] of Object.entries(tenantStoresRuntimeData)) {
-      storesById.set(String(store.tiwiId || id), {
-        ...(storesById.get(String(store.tiwiId || id)) || {}),
-        ...store,
-        ownerId: store.ownerId || storesById.get(String(store.tiwiId || id))?.ownerId || null
-      });
-    }
-    return [...storesById.values()];
+    return [...stores.values()];
   },
 
-  getStoreFilePath(tiwiId) {
+  async getStoreDb(tiwiId) {
     const storeId = String(tiwiId || '').trim();
     if (!storeId) throw new Error('Store tiwiId is required');
-    const cleanId = storeId.toLowerCase().replace(/[^a-z0-9]/g, '_');
-    return path.join(STORES_STORAGE_DIR, `store_${cleanId}.json`);
+    return readState('tenant', storeId, createEmptyTenantStore(storeId));
   },
 
-  getStoreDb(tiwiId) {
-    if (!tiwiId) return null;
-    const storeId = String(tiwiId).trim();
-    if (!storeId) throw new Error('Store tiwiId is required');
-    if (!tenantStoresRuntimeData[storeId]) {
-      const storePath = this.getStoreFilePath(storeId);
-      const hasPersistedStore = fsSync.existsSync(storePath);
-      const persistedStore = hasPersistedStore ? readJsonFile(storePath) : null;
-      if (hasPersistedStore) validateTenantStore(persistedStore, storeId);
-      const initialStore = hasPersistedStore
-        ? persistedStore
-        : storeId === 'TIW-PRIMARY' ? readLegacyPrimaryStore() : null;
-      if (initialStore !== null) {
-        validateTenantStore(initialStore, storeId);
-        const emptyStore = createEmptyTenantStore(storeId);
-        tenantStoresRuntimeData[storeId] = {
-          ...emptyStore,
-          ...initialStore,
-          tiwiId: storeId,
-          store_settings: {
-            ...emptyStore.store_settings,
-            ...(initialStore.store_settings || {}),
-            tiwiId: storeId
-          }
-        };
-        if (!persistedStore) this.saveStoreDb(storeId, tenantStoresRuntimeData[storeId]);
-      } else {
-        tenantStoresRuntimeData[storeId] = createEmptyTenantStore(storeId);
-      }
-    }
-    return tenantStoresRuntimeData[storeId];
-  },
-
-  saveStoreDb(tiwiId, data) {
+  async saveStoreDb(tiwiId, data) {
     const storeId = String(tiwiId || '').trim();
-    if (!storeId) {
-      throw new TypeError('A valid tenant identifier and store data object are required.');
-    }
+    if (!storeId) throw new Error('Store tiwiId is required');
     validateTenantStore(data, storeId);
-    if (!data.tiwiId) data.tiwiId = storeId;
-    const store = data;
-    writeJsonFile(this.getStoreFilePath(storeId), store);
-    tenantStoresRuntimeData[storeId] = store;
+    data.tiwiId = storeId;
+    await saveState('tenant', storeId, data);
   },
 
-  // Dynamic Store Provisioning
   async provisionStore(tiwiId, storeName, planId = 'free') {
-    const storeId = String(tiwiId || '').trim();
-    if (!storeId) throw new TypeError('Store tiwiId is required');
-    if (!tenantStoresRuntimeData[storeId] && fsSync.existsSync(this.getStoreFilePath(storeId))) {
-      this.getStoreDb(storeId);
-    }
-    if (!tenantStoresRuntimeData[storeId]) {
-      const initialStoreData = {
-        tiwiId: storeId,
-        storeName,
-        planId,
-        createdAt: new Date().toISOString(),
-        products: [],
-        categories: [],
-        subcategories: [],
-        customers: [],
-        suppliers: [],
-        purchases: [],
-        sales: [],
-        inventory_adjustments: [],
-        activities: [
-          {
-            id: `act_${Date.now()}`,
-            type: 'auth',
-            action: `Store "${storeName}" Created`,
-            details: `Isolated database provisioned with Tiwi ID: ${storeId}`,
-            timestamp: new Date().toISOString()
-          }
-        ],
-        store_settings: {
-          storeName,
-          tiwiId: storeId,
-          subdomain: makeStoreSubdomain(storeName),
-          currency: 'USD ($)',
-          timezone: 'Asia/Dhaka',
-          taxRate: 5
-        }
-      };
-      this.saveStoreDb(storeId, initialStoreData);
-      console.log(`📦 Provisioned tenant store: ${tiwiId}`);
-    }
-
-    // Provision PostgreSQL Schema if connected
-    if (isPgActive()) {
-      try {
-        const schemaName = `store_${storeId.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
-        await queryPg(`SELECT provision_store_schema($1)`, [schemaName]);
-        console.log(`🐘 Provisioned PostgreSQL schema: ${schemaName}`);
-      } catch (e) {
-        console.warn('PostgreSQL schema provisioning error:', e.message);
-      }
-    }
+    const store = await this.getStoreDb(tiwiId);
+    if (store.createdAt) return store;
+    store.storeName = storeName;
+    store.planId = planId;
+    store.createdAt = new Date().toISOString();
+    store.store_settings = { ...store.store_settings, storeName, subdomain: makeStoreSubdomain(storeName) };
+    await this.saveStoreDb(tiwiId, store);
+    return store;
   },
 
   // Products
   async getProducts(tiwiId) {
-    const store = this.getStoreDb(tiwiId);
+    const store = (await this.getStoreDb(tiwiId));
     return store.products || [];
   },
 
@@ -973,13 +691,13 @@ export const TenantDB = {
   },
 
   async saveProducts(tiwiId, products) {
-    const store = this.getStoreDb(tiwiId);
+    const store = (await this.getStoreDb(tiwiId));
     store.products = products;
-    this.saveStoreDb(tiwiId, store);
+    (await this.saveStoreDb(tiwiId, store));
   },
 
   async addProduct(tiwiId, productData) {
-    const store = this.getStoreDb(tiwiId);
+    const store = (await this.getStoreDb(tiwiId));
     const newProduct = {
       id: productData.id || `prod_${Date.now()}`,
       name: productData.name,
@@ -1004,13 +722,13 @@ export const TenantDB = {
     };
 
     store.products.unshift(newProduct);
-    this.saveStoreDb(tiwiId, store);
+    (await this.saveStoreDb(tiwiId, store));
     await this.logActivity(tiwiId, 'product', `New product added: ${newProduct.name}`, `SKU: ${newProduct.sku} • Stock: ${newProduct.stock}`);
     return newProduct;
   },
 
   async updateProduct(tiwiId, id, updateData) {
-    const store = this.getStoreDb(tiwiId);
+    const store = (await this.getStoreDb(tiwiId));
     const index = store.products.findIndex(p => p.id === id);
     if (index === -1) return null;
 
@@ -1028,70 +746,70 @@ export const TenantDB = {
     }
 
     store.products[index] = updated;
-    this.saveStoreDb(tiwiId, store);
+    (await this.saveStoreDb(tiwiId, store));
     await this.logActivity(tiwiId, 'product', `Product updated: ${updated.name}`, `SKU: ${updated.sku} • Price: $${updated.price}`);
     return updated;
   },
 
   async deleteProduct(tiwiId, id) {
-    const store = this.getStoreDb(tiwiId);
+    const store = (await this.getStoreDb(tiwiId));
     const index = store.products.findIndex(p => p.id === id);
     if (index === -1) return null;
     const [deleted] = store.products.splice(index, 1);
-    this.saveStoreDb(tiwiId, store);
+    (await this.saveStoreDb(tiwiId, store));
     await this.logActivity(tiwiId, 'alert', `Product deleted: ${deleted.name}`, `SKU: ${deleted.sku}`);
     return deleted;
   },
 
   // Categories & Subcategories
   async getCategories(tiwiId) {
-    return this.getStoreDb(tiwiId).categories || [];
+    return (await this.getStoreDb(tiwiId)).categories || [];
   },
 
   async saveCategories(tiwiId, categories) {
-    const store = this.getStoreDb(tiwiId);
+    const store = (await this.getStoreDb(tiwiId));
     store.categories = categories;
-    this.saveStoreDb(tiwiId, store);
+    (await this.saveStoreDb(tiwiId, store));
   },
 
   async getSubcategories(tiwiId) {
-    return this.getStoreDb(tiwiId).subcategories || [];
+    return (await this.getStoreDb(tiwiId)).subcategories || [];
   },
 
   async saveSubcategories(tiwiId, subcategories) {
-    const store = this.getStoreDb(tiwiId);
+    const store = (await this.getStoreDb(tiwiId));
     store.subcategories = subcategories;
-    this.saveStoreDb(tiwiId, store);
+    (await this.saveStoreDb(tiwiId, store));
   },
 
   // Customers & Suppliers
   async getCustomers(tiwiId) {
-    return this.getStoreDb(tiwiId).customers || [];
+    return (await this.getStoreDb(tiwiId)).customers || [];
   },
 
   async saveCustomers(tiwiId, customers) {
-    const store = this.getStoreDb(tiwiId);
+    const store = (await this.getStoreDb(tiwiId));
     store.customers = customers;
-    this.saveStoreDb(tiwiId, store);
+    (await this.saveStoreDb(tiwiId, store));
   },
 
   async getSuppliers(tiwiId) {
-    return this.getStoreDb(tiwiId).suppliers || [];
+    return (await this.getStoreDb(tiwiId)).suppliers || [];
   },
 
   async saveSuppliers(tiwiId, suppliers) {
-    const store = this.getStoreDb(tiwiId);
+    const store = (await this.getStoreDb(tiwiId));
     store.suppliers = suppliers;
-    this.saveStoreDb(tiwiId, store);
+    (await this.saveStoreDb(tiwiId, store));
   },
 
   // Purchases & Sales
   async getPurchases(tiwiId) {
-    return this.getStoreDb(tiwiId).purchases || [];
+    return (await this.getStoreDb(tiwiId)).purchases || [];
   },
 
   async addPurchase(tiwiId, purchaseData) {
-    const store = this.getStoreDb(tiwiId);
+    const store = (await this.getStoreDb(tiwiId));
     const newPurchase = {
       id: `po-${Date.now()}`,
       orderNumber: purchaseData.orderNumber || `PO-${Math.floor(10000 + Math.random() * 90000)}`,
@@ -1120,17 +838,17 @@ export const TenantDB = {
       }
     }
 
-    this.saveStoreDb(tiwiId, store);
+    (await this.saveStoreDb(tiwiId, store));
     await this.logActivity(tiwiId, 'purchase', `Purchase Order Restocked: ${newPurchase.orderNumber}`, `${newPurchase.productName} (+${newPurchase.quantity} units)`);
     return newPurchase;
   },
 
   async getSales(tiwiId) {
-    return this.getStoreDb(tiwiId).sales || [];
+    return (await this.getStoreDb(tiwiId)).sales || [];
   },
 
   async addSale(tiwiId, saleData) {
-    const store = this.getStoreDb(tiwiId);
+    const store = (await this.getStoreDb(tiwiId));
     const invoiceNumber = saleData.invoiceNumber || `INV-${Date.now().toString().slice(-6)}`;
     const items = saleData.items || [];
 
@@ -1161,28 +879,28 @@ export const TenantDB = {
 
     store.sales = store.sales || [];
     store.sales.unshift(newSale);
-    this.saveStoreDb(tiwiId, store);
+    (await this.saveStoreDb(tiwiId, store));
     await this.logActivity(tiwiId, 'sale', `Sale Completed: ${invoiceNumber}`, `${newSale.customerName} • Total: $${newSale.totalAmount}`);
     return newSale;
   },
 
   // Adjustments & Activities
   async getAdjustments(tiwiId) {
-    return this.getStoreDb(tiwiId).inventory_adjustments || [];
+    return (await this.getStoreDb(tiwiId)).inventory_adjustments || [];
   },
 
   async saveAdjustments(tiwiId, adjustments) {
-    const store = this.getStoreDb(tiwiId);
+    const store = (await this.getStoreDb(tiwiId));
     store.inventory_adjustments = adjustments;
-    this.saveStoreDb(tiwiId, store);
+    (await this.saveStoreDb(tiwiId, store));
   },
 
   async getActivities(tiwiId) {
-    return this.getStoreDb(tiwiId).activities || [];
+    return (await this.getStoreDb(tiwiId)).activities || [];
   },
 
   async logActivity(tiwiId, type, action, details) {
-    const store = this.getStoreDb(tiwiId);
+    const store = (await this.getStoreDb(tiwiId));
     const newActivity = {
       id: `act_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       type,
@@ -1193,13 +911,13 @@ export const TenantDB = {
     store.activities = store.activities || [];
     store.activities.unshift(newActivity);
     if (store.activities.length > 100) store.activities = store.activities.slice(0, 100);
-    this.saveStoreDb(tiwiId, store);
+    (await this.saveStoreDb(tiwiId, store));
     return newActivity;
   },
 
   // Store Settings
   async getStoreSettings(tiwiId) {
-    const store = this.getStoreDb(tiwiId);
+    const store = (await this.getStoreDb(tiwiId));
     return store.store_settings || {
       storeName: store.storeName || 'Tiwlo Main Store',
       tiwiId,
@@ -1209,7 +927,7 @@ export const TenantDB = {
   },
 
   async updateStoreSettings(tiwiId, settings) {
-    const store = this.getStoreDb(tiwiId);
+    const store = (await this.getStoreDb(tiwiId));
     store.store_settings = {
       ...store.store_settings,
       ...settings,
@@ -1217,7 +935,7 @@ export const TenantDB = {
       updatedAt: new Date().toISOString()
     };
     if (settings.storeName) store.storeName = settings.storeName;
-    this.saveStoreDb(tiwiId, store);
+    (await this.saveStoreDb(tiwiId, store));
     return store.store_settings;
   }
 };

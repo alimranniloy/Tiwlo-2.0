@@ -9,12 +9,12 @@ import {
   sendTiwloEmail
 } from '../../db/emailService.js';
 
-function readSupportDB() {
-  return SupportDB.getAllData();
+async function readSupportDB() {
+  return (await SupportDB.getAllData());
 }
 
-function writeSupportDB(data) {
-  SupportDB.saveAllData(data);
+async function writeSupportDB(data) {
+  (await SupportDB.saveAllData(data));
 }
 
 // ====================================================================
@@ -34,7 +34,7 @@ export const AiActionsEngine = {
    * Action 1: Autonomously Create Official Support Ticket (#TWTK-XXXXX)
    */
   async autoCreateTicket({ subject, category = 'Technical Cloud Operations', priority = 'High', description, userId = null, userName = 'User' }) {
-    const db = readSupportDB();
+    const db = (await readSupportDB());
     const randomNum = Math.floor(1000 + Math.random() * 9000);
     const ticketId = `TWTK-${randomNum}`;
     const serialNumber = `#TWTK-${randomNum}`;
@@ -59,7 +59,7 @@ export const AiActionsEngine = {
     };
 
     db.tickets.unshift(newTicket);
-    writeSupportDB(db);
+    (await writeSupportDB(db));
 
     // Schedule background automated AI investigation follow-up (30 seconds demo / 5 min prod)
     this.scheduleBackgroundInvestigation(ticketId, userId);
@@ -76,15 +76,15 @@ export const AiActionsEngine = {
    * Background Agent Simulation: Investigates logs and posts update
    */
   scheduleBackgroundInvestigation(ticketId, userId) {
-    setTimeout(() => {
+    setTimeout(async () => {
       try {
-        const db = readSupportDB();
+        const db = (await readSupportDB());
         const ticket = db.tickets.find(t => t.id === ticketId || t.ticketId === ticketId);
         if (ticket) {
           ticket.status = 'In Progress';
           ticket.lastUpdated = '1 min ago';
           ticket.investigationNotes = 'Automated kernel diagnostics completed. Memory buffers balanced and port routing verified normal.';
-          writeSupportDB(db);
+          (await writeSupportDB(db));
         }
       } catch (e) {}
     }, 15000);
@@ -94,7 +94,7 @@ export const AiActionsEngine = {
    * Action 2: Autonomously Close / Resolve Ticket
    */
   async resolveTicket({ ticketId, resolutionReason = 'Issue resolved in live session', userId = null }) {
-    const db = readSupportDB();
+    const db = (await readSupportDB());
     const ticket = db.tickets.find(t => t.id === ticketId || t.ticketId === ticketId || t.serialNumber?.includes(ticketId));
 
     if (ticket) {
@@ -102,7 +102,7 @@ export const AiActionsEngine = {
       ticket.lastUpdated = 'Just now';
       ticket.updatedAt = new Date().toISOString();
       ticket.resolutionNotes = resolutionReason;
-      writeSupportDB(db);
+      (await writeSupportDB(db));
 
       return {
         success: true,

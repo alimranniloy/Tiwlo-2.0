@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { STATE_SCHEMA_SQL } from './stateDocuments.js';
 import { signupIdentitySchema } from './signupIdentitySchema.js';
 import { ensureDiscordSchema } from '../discord/discordSchema.js';
 const { Pool } = pg;
@@ -558,6 +559,12 @@ export async function initPgSchema() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
 
+      CREATE TABLE IF NOT EXISTS whatsapp_auth_state (
+        state_key TEXT PRIMARY KEY,
+        data JSONB NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
       CREATE TABLE IF NOT EXISTS cloud_vouchers (
         id VARCHAR(64) PRIMARY KEY,
         code VARCHAR(64) UNIQUE NOT NULL,
@@ -948,6 +955,7 @@ export async function initPgSchema() {
 
     `);
     await ensureDiscordSchema(p);
+    await p.query(STATE_SCHEMA_SQL);
     await p.query(signupIdentitySchema);
     await p.query('DELETE FROM system_security_rate_limits WHERE expires_at <= CURRENT_TIMESTAMP');
     console.log('✅ Enterprise PostgreSQL Multi-Domain Schema Verified & Provisioned.');

@@ -117,25 +117,25 @@ function isSuperAdminUser(user) {
 }
 
 // Helper to read Master DB safely
-function getMasterDataRaw() {
-  return MasterDB.getMasterData();
+async function getMasterDataRaw() {
+  return (await MasterDB.getMasterData());
 }
 
 // Helper to write Master DB safely
-function saveMasterDataRaw(data) {
-  MasterDB.saveMasterData(data);
+async function saveMasterDataRaw(data) {
+  (await MasterDB.saveMasterData(data));
   return true;
 }
 
 // Helper to aggregate store metrics
-function getAggregatedStoreData() {
+async function getAggregatedStoreData() {
   const allStores = [];
   const allProducts = [];
   const allSales = [];
   const allCustomers = [];
   const allActivities = [];
 
-  for (const store of TenantDB.getAllStoreData()) {
+  for (const store of (await TenantDB.getAllStoreData())) {
     const storeId = String(store.tiwiId || store.storeId || 'unknown-store');
     const storeName = String(store.storeName || store.store_settings?.storeName || 'Store');
     const currency = String(store.store_settings?.currency || 'USD ($)');
@@ -211,7 +211,7 @@ function getFormattedUptime() {
 router.get('/overview', requireAdmin, async (req, res) => {
   try {
     const period = getSalesPeriod(String(req.query.range || '7days'));
-    const { allProducts, allSales, allCustomers, allActivities } = getAggregatedStoreData();
+    const { allProducts, allSales, allCustomers, allActivities } = (await getAggregatedStoreData());
     const periodSales = getPeriodSales(allSales, period.start, period.end);
     const previousSales = getPeriodSales(allSales, period.previousStart, period.previousEnd);
     const totalRevenue = getRevenue(periodSales);
@@ -393,7 +393,7 @@ router.get('/overview', requireAdmin, async (req, res) => {
 router.get('/customers', requireAdmin, async (req, res) => {
   try {
     const users = await MasterDB.getUsers();
-    const { allStores: stores } = getAggregatedStoreData();
+    const { allStores: stores } = (await getAggregatedStoreData());
     const query = (req.query.q || req.query.search || '').trim().toLowerCase();
 
     // Map each customer/store owner
@@ -465,7 +465,7 @@ router.get('/customers', requireAdmin, async (req, res) => {
 router.get('/users', requireAdmin, async (req, res) => {
   try {
     const rawUsers = await MasterDB.getUsers();
-    const { allStores: stores } = getAggregatedStoreData();
+    const { allStores: stores } = (await getAggregatedStoreData());
 
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20)); // Strictly default 20
@@ -715,10 +715,6 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
       subject: targetUser.email,
       details: { administrator: req.adminUser.email }
     });
-    const master = getMasterDataRaw();
-    master.users = (master.users || []).filter(user => user.id !== targetUser.id);
-    master.sessions = (master.sessions || []).filter(session => session.userId !== targetUser.id);
-    saveMasterDataRaw(master);
     res.json({ success: true, message: `User ${targetUser.email} deleted successfully.` });
   } catch (err) {
     console.error('[Admin Delete User Error]', err);
@@ -729,7 +725,7 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
 // GET /api/admin/orders - Full orders list (from actual store sales)
 router.get('/orders', requireAdmin, async (req, res) => {
   try {
-    const { allSales } = getAggregatedStoreData();
+    const { allSales } = (await getAggregatedStoreData());
     const orders = allSales.map((s, idx) => ({
       id: s.id || s.invoiceNumber || s.invoiceNo || null,
       rowKey: `${s.storeId || 'store'}:${s.id || s.invoiceNumber || s.invoiceNo || idx}`,
@@ -752,7 +748,7 @@ router.get('/orders', requireAdmin, async (req, res) => {
 
 router.get('/products', requireAdmin, async (req, res) => {
   try {
-    const { allProducts } = getAggregatedStoreData();
+    const { allProducts } = (await getAggregatedStoreData());
     const query = String(req.query.q || '').trim().toLowerCase();
     const products = allProducts
       .filter(product => !query || [

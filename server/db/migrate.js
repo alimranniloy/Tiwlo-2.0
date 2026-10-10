@@ -1,161 +1,93 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { MasterDB, TenantDB } from './multiTenant.js';
-import { PLATFORM_CONFIG } from '../config/platformConfig.js';
+import '../config/loadRootEnv.js';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { getPgPool, testPgConnection } from './postgres.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const DATA_DIR = path.join(__dirname, '../data');
-const BACKUP_DIR = path.join(DATA_DIR, 'migration_backup');
+const defaultDirectory = process.env.TIWLO_DATA_DIR || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../data');
+const arrayFields = ['products', 'categories', 'subcategories', 'customers', 'suppliers', 'purchases', 'sales', 'inventory_adjustments', 'activities'];
+async function readOptional(file) {
+  try { return JSON.parse(await fs.readFile(file, 'utf8')); }
+  catch (error) { if (error.code === 'ENOENT') return null; throw new Error(`Cannot migrate ${path.basename(file)}: ${error.message}`); }
+}
+function validateStore(store) {
+  if (!store || typeof store !== 'object' || Array.isArray(store) || !store.tiwiId) throw new Error('Invalid tenant document');
+  for (const field of arrayFields) if (store[field] !== undefined && !Array.isArray(store[field])) throw new Error(`Invalid tenant collection: ${field}`);
+}
 
-export async function runMigration() {
-  console.log('🔄 [Migration Engine] Starting Data Migration to Multi-Tenant Database...');
-
-  if (!fs.existsSync(BACKUP_DIR)) {
-    fs.mkdirSync(BACKUP_DIR, { recursive: true });
-  }
-
-  // 1. Read existing JSON files if they exist
-  const readOldJson = (filename, defaultVal = []) => {
-    const p = path.join(DATA_DIR, filename);
-    if (!fs.existsSync(p)) return defaultVal;
-    try {
-      return JSON.parse(fs.readFileSync(p, 'utf-8'));
-    } catch (e) {
-      console.warn(`Could not parse ${filename}:`, e.message);
-      return defaultVal;
+// Upgrade only. Application reads/writes use PostgreSQL exclusively. Retain
+// source files as backups; never destroy the only copy before verifying migration.
+export async function runMigration(directory = defaultDirectory, pool = getPgPool()) {
+  const client = await pool.connect();
+  let imported = 0;
+  try {
+    await client.query('BEGIN');
+    await client.query("SELECT pg_advisory_xact_lock(73192645)");
+    const marker = await client.query("SELECT 1 FROM system_state_documents WHERE namespace = 'migration' AND document_key = 'tenant-postgres-v1'");
+    if (marker.rows.length) { await client.query('COMMIT'); return 0; }
+    const oldUsers = await readOptional(path.join(directory, 'users.json')) ?? [];
+    if (!Array.isArray(oldUsers)) throw new Error('users.json must contain an array');
+    for (const user of oldUsers) {
+      if (!user?.id || !user.email || !(user.password_hash || user.password)) continue;
+      const result = await client.query(`INSERT INTO system_users (
+        id, tiwi_id, name, store_name, email, password, password_hash, role, plan_id, plan_name,
+        avatar, cover_photo, phone, subdomain, is_banned, ban_reason, two_factor_enabled,
+        email_verified, auth_method, created_at, account_type, business_name, address
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+      ON CONFLICT DO NOTHING`, [
+        String(user.id), user.tiwiId || user.storeId || null, user.name || user.storeName || null,
+        user.storeName || null, String(user.email).trim().toLowerCase(), user.password || user.password_hash,
+        user.password_hash || user.password, user.role === 'admin' || user.role === 'super_admin' ? 'owner' : (user.role || 'owner'),
+        user.planId || 'free', user.planName || 'Free Starter', user.avatar || null,
+        user.coverPhoto || null, user.phone || null, user.subdomain || null, Boolean(user.isBanned),
+        user.banReason || null, Boolean(user.twoFactorEnabled), Boolean(user.emailVerified),
+        user.authMethod || 'credentials', user.createdAt || new Date().toISOString(),
+        user.accountType || 'personal', user.businessName || null, user.address || null
+      ]);
+      imported += result.rowCount;
     }
-  };
-
-  const oldUsers = readOldJson('users.json', []);
-  const oldSessions = readOldJson('sessions.json', []);
-  const oldSubscription = readOldJson('subscription.json', {});
-  const oldProducts = readOldJson('products.json', []);
-  const oldCategories = readOldJson('categories.json', []);
-  const oldSubcategories = readOldJson('subcategories.json', []);
-  const oldCustomers = readOldJson('customers.json', []);
-  const oldSuppliers = readOldJson('suppliers.json', []);
-  const oldPurchases = readOldJson('purchases.json', []);
-  const oldSales = readOldJson('sales.json', []);
-  const oldAdjustments = readOldJson('inventory_adjustments.json', []);
-  const oldActivities = readOldJson('activities.json', []);
-  const oldStoreSettings = readOldJson('store_settings.json', {});
-  const oldSystemSettings = readOldJson('system_settings.json', null);
-
-  if (oldSystemSettings && typeof oldSystemSettings === 'object' && !Array.isArray(oldSystemSettings)) {
-    await MasterDB.saveSystemSettings(oldSystemSettings);
-  }
-
-  // 2. Populate Master Database
-  const masterData = MasterDB.getMasterData();
-  
-  // Migrate users & map storeId -> tiwiId
-  const migratedUsers = oldUsers.map(u => ({
-    ...u,
-    tiwiId: u.tiwiId || u.storeId || 'TIW-PRIMARY',
-    storeId: u.tiwiId || u.storeId || 'TIW-PRIMARY'
-  }));
-
-  masterData.users = migratedUsers;
-
-  // Migrate sessions
-  masterData.sessions = (oldSessions.length > 0 ? oldSessions : []).map(s => ({
-    ...s,
-    tiwiId: s.tiwiId || s.storeId || 'TIW-PRIMARY',
-    storeId: s.tiwiId || s.storeId || 'TIW-PRIMARY'
-  }));
-
-  // Migrate stores registry
-  masterData.stores = migratedUsers.map(u => ({
-    id: `store_${u.tiwiId.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
-    tiwiId: u.tiwiId,
-    storeName: u.storeName,
-    subdomain: u.subdomain || `${u.storeName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'store'}.${PLATFORM_CONFIG.storeDomain}`,
-    ownerId: u.id,
-    planId: u.planId || 'free',
-    dbSchema: `store_${u.tiwiId.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
-    status: 'active',
-    createdAt: u.createdAt || new Date().toISOString()
-  }));
-
-  // Migrate subscription
-  masterData.subscriptions = [
-    {
-      tiwiId: 'TIW-PRIMARY',
-      planId: oldSubscription.planId || 'enterprise',
-      planName: oldSubscription.planName || 'Enterprise Unlimited',
-      price: oldSubscription.price || '$0',
-      productLimit: oldSubscription.productLimit || 10000,
-      warehouseLimit: oldSubscription.warehouseLimit || 10,
-      hasCustomDomain: oldSubscription.hasCustomDomain || true
+    const persist = async (namespace, key, data) => {
+      const result = await client.query(`INSERT INTO system_state_documents(namespace, document_key, data)
+        VALUES ($1,$2,$3::jsonb) ON CONFLICT DO NOTHING RETURNING document_key`, [namespace, key, JSON.stringify(data)]);
+      imported += result.rows.length;
+    };
+    const storesDir = path.join(directory, 'db', 'stores');
+    const registry = await readOptional(path.join(storesDir, 'registry.json'));
+    const oldSubscription = await readOptional(path.join(directory, 'subscription.json')) ?? {};
+    if (registry !== null) {
+      if (!Array.isArray(registry) || registry.some(row => !row?.tiwiId)) throw new Error('Invalid tenant registry');
+      const subscriptions = Array.isArray(oldSubscription) ? oldSubscription : oldSubscription?.tiwiId ? [oldSubscription] : [];
+      await persist('master', 'directory', { stores: registry, subscriptions });
+    } else if (Array.isArray(oldSubscription) ? oldSubscription.length : Object.keys(oldSubscription).length) {
+      const subscriptions = Array.isArray(oldSubscription) ? oldSubscription : oldSubscription.tiwiId ? [oldSubscription] : [];
+      await persist('master', 'directory', { stores: [], subscriptions });
     }
-  ];
-
-  MasterDB.saveMasterData(masterData);
-  console.log(`✅ [Migration] Migrated ${masterData.users.length} Users & Stores into Master Database.`);
-
-  // 3. Populate Primary Tenant Store Database (TIW-PRIMARY)
-  const primaryStoreData = {
-    tiwiId: 'TIW-PRIMARY',
-    storeName: oldStoreSettings.storeName || 'Tiwlo Main Store',
-    products: oldProducts,
-    categories: oldCategories,
-    subcategories: oldSubcategories,
-    customers: oldCustomers,
-    suppliers: oldSuppliers,
-    purchases: oldPurchases,
-    sales: oldSales,
-    inventory_adjustments: oldAdjustments,
-    activities: oldActivities,
-    store_settings: {
-      ...oldStoreSettings,
-      tiwiId: 'TIW-PRIMARY',
-      storeName: oldStoreSettings.storeName || 'Tiwlo Main Store'
+    let files = [];
+    try { files = await fs.readdir(storesDir); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    for (const file of files.filter(name => name.endsWith('.json') && name !== 'registry.json')) {
+      const store = await readOptional(path.join(storesDir, file));
+      validateStore(store);
+      await persist('tenant', store.tiwiId, store);
     }
-  };
-
-  TenantDB.saveStoreDb('TIW-PRIMARY', primaryStoreData);
-  console.log(`✅ [Migration] Migrated ${oldProducts.length} Products, ${oldCategories.length} Categories, ${oldSales.length} Sales into Isolated Tenant Store: store_tiw_10001.json`);
-
-  // Also ensure any additional registered stores from users have their isolated DB provisioned
-  for (const u of migratedUsers) {
-    if (u.tiwiId && u.tiwiId !== 'TIW-PRIMARY') {
-      await TenantDB.provisionStore(u.tiwiId, u.storeName, u.planId);
+    const primary = { tiwiId: 'TIW-PRIMARY' };
+    let found = false;
+    for (const field of [...arrayFields, 'store_settings']) {
+      const value = await readOptional(path.join(directory, `${field}.json`)) ?? await readOptional(path.join(directory, 'migration_backup', `${field}.json`));
+      if (value !== null) { primary[field] = value; found = true; }
     }
-  }
+    if (found) { validateStore(primary); await persist('tenant', primary.tiwiId, primary); }
+    await client.query("INSERT INTO system_state_documents(namespace, document_key, data) VALUES ('migration','tenant-postgres-v1',$1::jsonb)", [JSON.stringify({ imported, completedAt: new Date().toISOString() })]);
+    await client.query('COMMIT');
+    return imported;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally { client.release(); }
+}
 
-  // 4. Backup old JSON files and delete obsolete files as requested by user
-  const filesToMigrate = [
-    'products.json',
-    'categories.json',
-    'subcategories.json',
-    'customers.json',
-    'suppliers.json',
-    'purchases.json',
-    'sales.json',
-    'inventory_adjustments.json',
-    'activities.json',
-    'users.json',
-    'sessions.json',
-    'subscription.json',
-    'store_settings.json',
-    'system_settings.json'
-  ];
-
-  let cleanedCount = 0;
-  for (const file of filesToMigrate) {
-    const src = path.join(DATA_DIR, file);
-    if (fs.existsSync(src)) {
-      // Backup
-      const dest = path.join(BACKUP_DIR, file);
-      fs.copyFileSync(src, dest);
-      // Remove obsolete flat JSON file
-      fs.unlinkSync(src);
-      cleanedCount++;
-    }
-  }
-
-  console.log(`🧹 [Migration] Cleaned up ${cleanedCount} obsolete JSON files (safely backed up to data/migration_backup/).`);
-  console.log('🎉 [Migration Engine] Multi-Tenant Database Migration Completed Successfully!');
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  try {
+    if (!await testPgConnection()) throw new Error('PostgreSQL is required for migration');
+    console.log(`Migrated ${await runMigration()} tenant documents to PostgreSQL.`);
+  } finally { await getPgPool().end(); }
 }

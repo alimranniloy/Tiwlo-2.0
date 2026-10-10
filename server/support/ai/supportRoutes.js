@@ -15,12 +15,12 @@ import { PLATFORM_CONFIG } from '../../config/platformConfig.js';
 
 const router = express.Router();
 
-function readSupportDB() {
-  return SupportDB.getAllData();
+async function readSupportDB() {
+  return (await SupportDB.getAllData());
 }
 
-function writeSupportDB(data) {
-  SupportDB.saveAllData(data);
+async function writeSupportDB(data) {
+  (await SupportDB.saveAllData(data));
 }
 
 // 1. Get online specialists count (512 online) and sample avatars
@@ -37,7 +37,7 @@ router.get('/online-agents', (req, res) => {
 });
 
 // 2. Real Tickets API: GET tickets strictly filtered by verified authenticated userId
-router.get('/tickets', (req, res) => {
+router.get('/tickets', async (req, res) => {
   try {
     const { userId } = req.query;
     if (!userId || userId === 'guest' || userId === 'guest_session') {
@@ -46,7 +46,7 @@ router.get('/tickets', (req, res) => {
         tickets: []
       });
     }
-    const db = readSupportDB();
+    const db = (await readSupportDB());
     const userTickets = (db.tickets || []).filter(t => t.userId === userId);
     res.json({
       success: true,
@@ -58,7 +58,7 @@ router.get('/tickets', (req, res) => {
 });
 
 // 3. Real Tickets API: POST create new ticket with TWTK-XXXX format
-router.post('/tickets', (req, res) => {
+router.post('/tickets', async (req, res) => {
   try {
     const {
       subject,
@@ -74,7 +74,7 @@ router.post('/tickets', (req, res) => {
       return res.status(400).json({ error: 'Subject is required' });
     }
 
-    const db = readSupportDB();
+    const db = (await readSupportDB());
     const randomNum = Math.floor(1000 + Math.random() * 9000);
     const ticketId = `TWTK-${randomNum}`;
     const serialNumber = `#TWTK-${randomNum}`;
@@ -99,7 +99,7 @@ router.post('/tickets', (req, res) => {
     };
 
     db.tickets.unshift(newTicket);
-    writeSupportDB(db);
+    (await writeSupportDB(db));
 
     res.status(201).json({
       success: true,
@@ -112,7 +112,7 @@ router.post('/tickets', (req, res) => {
 });
 
 // 4. Real Conversations API: GET conversations strictly filtered by verified authenticated userId
-router.get('/conversations', (req, res) => {
+router.get('/conversations', async (req, res) => {
   try {
     const { userId } = req.query;
     if (!userId || userId === 'guest' || userId === 'guest_session') {
@@ -121,7 +121,7 @@ router.get('/conversations', (req, res) => {
         conversations: []
       });
     }
-    const db = readSupportDB();
+    const db = (await readSupportDB());
     const userConvs = (db.conversations || []).filter(c => c.userId === userId);
     res.json({
       success: true,
@@ -150,7 +150,7 @@ router.post('/conversations/:id/messages', async (req, res) => {
       return res.status(400).json({ error: 'Message text is required' });
     }
 
-    const db = readSupportDB();
+    const db = (await readSupportDB());
     let conv = db.conversations.find(c => c.id === id);
 
     if (!conv) {
@@ -226,7 +226,7 @@ router.post('/conversations/:id/messages', async (req, res) => {
 
     conv.messages.push(agentMessage);
     conv.lastMessage = replyText;
-    writeSupportDB(db);
+    (await writeSupportDB(db));
 
     res.json({
       success: true,
@@ -241,7 +241,7 @@ router.post('/conversations/:id/messages', async (req, res) => {
 });
 
 // 6. Initiate support session with ticket serial & personalized greeting (TWTK-XXXX)
-router.post('/initiate', (req, res) => {
+router.post('/initiate', async (req, res) => {
   try {
     const {
       isLoggedIn = false,
@@ -264,7 +264,7 @@ router.post('/initiate', (req, res) => {
       ? `Hello ${cleanName}! My name is ${agent.firstName} from Tiwlo Customer Support (Ticket ${ticket.serialNumber}). How can I assist you with your servers, stores, or POS system today?`
       : `Hello and welcome to Tiwlo Support! My name is ${agent.firstName} (Session ${ticket.serialNumber}). How can I help you today? If you need help logging in or accessing your store, feel free to ask.`;
 
-    const db = readSupportDB();
+    const db = (await readSupportDB());
     if (!Array.isArray(db.tickets)) db.tickets = [];
     if (!Array.isArray(db.conversations)) db.conversations = [];
 
@@ -320,7 +320,7 @@ router.post('/initiate', (req, res) => {
       ]
     };
     db.conversations.unshift(newConv);
-    writeSupportDB(db);
+    (await writeSupportDB(db));
 
     res.json({
       sessionId,
@@ -411,7 +411,7 @@ router.post('/message', async (req, res) => {
 
     // Persist conversation and ticket updates in real support_database.json
     try {
-      const db = readSupportDB();
+      const db = (await readSupportDB());
       const targetSessionId = sessionId || activeTicketId;
       const conv = (db.conversations || []).find(c => c.id === targetSessionId || c.ticketId === activeTicketId || c.ticketId === targetSessionId);
       const now = new Date();
@@ -445,7 +445,7 @@ router.post('/message', async (req, res) => {
         ticket.snippet = message.trim().slice(0, 80) + '...';
       }
 
-      writeSupportDB(db);
+      (await writeSupportDB(db));
     } catch (e) {
       console.warn('Could not update conversation DB:', e.message);
     }

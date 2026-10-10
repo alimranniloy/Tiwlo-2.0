@@ -1,3 +1,4 @@
+import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
