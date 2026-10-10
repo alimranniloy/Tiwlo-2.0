@@ -23,6 +23,9 @@ server/data/db/
 npm-debug.log*
 yarn-debug.log*
 
+# Local live-server credentials/configuration (never commit)
+server_config.local.json
+
 # System
 .DS_Store
 Thumbs.db
