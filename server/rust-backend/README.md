@@ -105,12 +105,14 @@ future gateway; the current service does not proxy requests yet. Keep it
 private until authentication, proxy policy, and service contracts are
 implemented.
 
-The PostgreSQL repository currently supports a read-only availability lookup and
-an atomic free-domain claim transaction. It locks the account row, requires
-`email_verified`, enforces the existing one-claim-per-account constraint, and
-maps unique conflicts to explicit errors. The existing Node.js domain service
-remains the production route until this repository has integration tests against
-the real schema.
+The PostgreSQL repository currently supports a read-only availability lookup, an
+atomic free-domain claim transaction, and ownership-scoped DNS record CRUD. It
+locks the account row, requires `email_verified`, enforces the existing
+one-claim-per-account constraint, validates `A`, `CNAME`, `TXT`, and `NS`
+records, and maps unique conflicts to explicit errors. The existing Node.js
+domain service remains the production route until this repository has
+integration tests against the real schema and a trusted authenticated identity
+bridge.
 
 ## Migration rule
 

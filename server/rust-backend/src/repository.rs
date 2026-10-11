@@ -1,3 +1,4 @@
+use crate::dns::{validate, RecordPolicyRequest};
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use uuid::Uuid;
 
@@ -10,7 +11,7 @@ pub struct Repository {
 pub enum RepositoryError {
     Database(sqlx::Error),
     NotFound(&'static str),
-    Policy(&'static str),
+    Policy(String),
     Conflict(&'static str),
 }
 
@@ -34,6 +35,15 @@ pub struct ClaimedDomain {
     pub subdomain: String,
     pub domain: String,
     pub user_id: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct DnsRecord {
+    pub id: String,
+    pub record_type: String,
+    pub name: String,
+    pub value: String,
+    pub ttl: i32,
 }
 
 impl Repository {
@@ -145,6 +155,140 @@ impl Repository {
             domain: domain.to_owned(),
             user_id: user_id.to_owned(),
         })
+    }
+
+    pub async fn list_dns_records(
+        &self,
+        user_id: &str,
+        subdomain_id: &str,
+    ) -> Result<Vec<DnsRecord>, RepositoryError> {
+        let rows = sqlx::query_as::<_, (String, String, String, String, i32)>(
+            "SELECT r.id, r.type, r.name, r.value, r.ttl
+             FROM system_free_subdomain_records r
+             JOIN system_free_subdomains d ON d.id = r.subdomain_id
+             WHERE d.id = $1 AND d.user_id = $2 AND d.status = 'active'
+             ORDER BY r.created_at ASC",
+        )
+        .bind(subdomain_id)
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(DnsRecord::from_row).collect())
+    }
+
+    pub async fn create_dns_record(
+        &self,
+        user_id: &str,
+        subdomain_id: &str,
+        input: RecordPolicyRequest,
+    ) -> Result<DnsRecord, RepositoryError> {
+        let policy = validate(input);
+        if !policy.valid {
+            return Err(RepositoryError::Policy(
+                policy
+                    .error
+                    .unwrap_or_else(|| "invalid_dns_record".to_owned()),
+            ));
+        }
+
+        let id = format!("rec_{}", Uuid::new_v4().simple());
+        let row = sqlx::query_as::<_, (String, String, String, String, i32)>(
+            "INSERT INTO system_free_subdomain_records
+                (id, subdomain_id, type, name, value, ttl)
+             SELECT $1, id, $3, $4, $5, $6
+             FROM system_free_subdomains
+             WHERE id = $2 AND user_id = $7 AND status = 'active'
+             RETURNING id, type, name, value, ttl",
+        )
+        .bind(&id)
+        .bind(subdomain_id)
+        .bind(&policy.record_type)
+        .bind(&policy.name)
+        .bind(&policy.value)
+        .bind(policy.ttl as i32)
+        .bind(user_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        match row {
+            Some(row) => Ok(DnsRecord::from_row(row)),
+            None => Err(RepositoryError::NotFound("subdomain_not_found")),
+        }
+    }
+
+    pub async fn update_dns_record(
+        &self,
+        user_id: &str,
+        subdomain_id: &str,
+        record_id: &str,
+        input: RecordPolicyRequest,
+    ) -> Result<DnsRecord, RepositoryError> {
+        let policy = validate(input);
+        if !policy.valid {
+            return Err(RepositoryError::Policy(
+                policy
+                    .error
+                    .unwrap_or_else(|| "invalid_dns_record".to_owned()),
+            ));
+        }
+
+        let row = sqlx::query_as::<_, (String, String, String, String, i32)>(
+            "UPDATE system_free_subdomain_records
+             SET type = $1, name = $2, value = $3, ttl = $4
+             WHERE id = $5 AND subdomain_id = $6
+               AND EXISTS (
+                 SELECT 1 FROM system_free_subdomains
+                 WHERE id = $6 AND user_id = $7 AND status = 'active'
+               )
+             RETURNING id, type, name, value, ttl",
+        )
+        .bind(&policy.record_type)
+        .bind(&policy.name)
+        .bind(&policy.value)
+        .bind(policy.ttl as i32)
+        .bind(record_id)
+        .bind(subdomain_id)
+        .bind(user_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        row.map(DnsRecord::from_row)
+            .ok_or(RepositoryError::NotFound("dns_record_not_found"))
+    }
+
+    pub async fn delete_dns_record(
+        &self,
+        user_id: &str,
+        subdomain_id: &str,
+        record_id: &str,
+    ) -> Result<(), RepositoryError> {
+        let result = sqlx::query(
+            "DELETE FROM system_free_subdomain_records r
+             USING system_free_subdomains d
+             WHERE r.id = $1 AND r.subdomain_id = $2
+               AND d.id = r.subdomain_id AND d.user_id = $3 AND d.status = 'active'",
+        )
+        .bind(record_id)
+        .bind(subdomain_id)
+        .bind(user_id)
+        .execute(&self.pool)
+        .await?;
+        if result.rows_affected() == 0 {
+            return Err(RepositoryError::NotFound("dns_record_not_found"));
+        }
+        Ok(())
+    }
+}
+
+impl DnsRecord {
+    fn from_row(row: (String, String, String, String, i32)) -> Self {
+        Self {
+            id: row.0,
+            record_type: row.1,
+            name: row.2,
+            value: row.3,
+            ttl: row.4,
+        }
     }
 }
 
