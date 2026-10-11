@@ -97,7 +97,7 @@ export default function OneProfileTopBar({
             {/* Avatar */}
             <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden bg-slate-200 ring-2 ring-slate-100 shrink-0">
               <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
+                src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
                 alt="John Doe"
                 className="w-full h-full object-cover"
                 onError={(e) => {
@@ -110,7 +110,7 @@ export default function OneProfileTopBar({
             {/* Name & Plan info */}
             <div className="hidden sm:flex flex-col text-left">
               <span className="text-xs font-bold text-slate-900 leading-tight">John Doe</span>
-              <span className="text-[10px] font-semibold text-blue-600 leading-tight">Free Plan</span>
+              <span className="text-[10px] font-normal text-slate-400 leading-tight">Free Plan</span>
             </div>
 
             <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
