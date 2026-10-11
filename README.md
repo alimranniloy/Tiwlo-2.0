@@ -26,7 +26,7 @@ An exact replica of the modern SaaS Inventory Management Dashboard built with **
 ## 🛠️ Tech Stack
 
 - **Frontend**: React 19, Vite, Tailwind CSS v4, Lucide Icons, Plus Jakarta Sans font
-- **Backend**: Node.js, Express, CORS
+- **Backend**: Node.js, Express, CORS, with an isolated Rust services workspace for high-throughput components
 - **Storage**: PostgreSQL for production authentication, audit, and new uploaded media; tenant commerce records are atomically persisted per store under `server/data/db/stores`
 
 ## 🚀 Running the App
@@ -34,6 +34,15 @@ An exact replica of the modern SaaS Inventory Management Dashboard built with **
 Tenant store records and the store registry persist under `server/data/db/stores`; Docker Compose mounts `server/data` as a persistent volume. Legacy flat tenant JSON files are copied into the primary tenant store on first access and are left in place as a recovery source. Store data held only in memory by an older running server cannot be recovered after that server restarts, so export any such live-only records before upgrading.
 
 ### Shared domain and DNS configuration
+
+### Rust services workspace
+
+The production business API remains in [`server/`](server/). High-throughput
+Rust services live in [`server/rust-backend/`](server/rust-backend/) so a new
+developer can identify the Rust boundary immediately. The initial service is a
+private health-checked foundation; DNS, edge filtering, and media workers are
+migrated independently only after their contracts and rollback paths are
+verified. Rust is not started by the default Node.js `npm run dev` command.
 
 ### Fresh Ubuntu 24 one-command setup
 

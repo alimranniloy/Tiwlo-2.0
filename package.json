@@ -7,6 +7,8 @@
     "start": "node server/server.js",
     "client": "npm --prefix client run dev",
     "server": "npm --prefix server start",
+    "rust:check": "cargo check --manifest-path server/rust-backend/Cargo.toml",
+    "rust:run": "cargo run --manifest-path server/rust-backend/Cargo.toml",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "build": "npm --prefix client run build",
     "docker:up": "docker-compose -f docker/docker-compose.yml up -d",
