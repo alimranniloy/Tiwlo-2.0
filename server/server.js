@@ -116,7 +116,7 @@ const allowedOrigins = [
   `https://${getSubdomain(PLATFORM_CONFIG.wwwSubdomain)}`,
   `https://${getSubdomain(PLATFORM_CONFIG.authSubdomain)}`,
   `https://${PLATFORM_CONFIG.freeSubdomainDomain}`,
-  `https://my.${PLATFORM_CONFIG.freeSubdomainDomain}`,
+  `https://${PLATFORM_CONFIG.dashboardHost}`,
   `https://${getSubdomain(PLATFORM_CONFIG.tpanelSubdomain)}`,
   `https://${getSubdomain(PLATFORM_CONFIG.driveSubdomain)}`,
   'http://localhost:5173',

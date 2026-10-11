@@ -10,9 +10,16 @@ const cleanDomain = (value, fallback = '') => String(value || '')
 const primaryDomain = cleanDomain(process.env.VITE_PRIMARY_DOMAIN, 'tiwlo.com');
 const storeDomain = cleanDomain(process.env.VITE_STORE_DOMAIN, primaryDomain) || primaryDomain;
 const freeSubdomainDomain = cleanDomain(process.env.VITE_FREE_SUBDOMAIN_DOMAIN, 'uids.app');
+const dashboardHost = (() => {
+  try {
+    return new URL(process.env.VITE_DASHBOARD_URL || 'https://uids.tiwlo.com').hostname.toLowerCase();
+  } catch {
+    return 'uids.tiwlo.com';
+  }
+})();
 const sessionCookieDomain = cleanDomain(
   process.env.SESSION_COOKIE_DOMAIN,
-  freeSubdomainDomain
+  primaryDomain
 );
 const configuredDomainList = String(process.env.VITE_MANAGED_DOMAINS || '')
   .split(',')
