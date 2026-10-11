@@ -37,6 +37,14 @@ export const DNS_CONFIG = {
   PRIMARY_DOMAIN: PLATFORM_CONFIG.primaryDomain,
   STORE_DOMAIN: PLATFORM_CONFIG.storeDomain,
   MANAGED_DOMAINS: PLATFORM_CONFIG.managedDomains,
+  DASHBOARD_HOST: (() => {
+    try {
+      return new URL(process.env.VITE_DASHBOARD_URL || 'https://my.uids.app').hostname.toLowerCase();
+    } catch {
+      return 'my.uids.app';
+    }
+  })(),
+  AUTH_HOST: PLATFORM_CONFIG.authDomain,
   NS1: getSubdomain(PLATFORM_CONFIG.dns1Subdomain),
   NS2: getSubdomain(PLATFORM_CONFIG.dns2Subdomain),
   ADMIN_EMAIL: PLATFORM_CONFIG.adminEmail,
@@ -52,6 +60,10 @@ export const DNS_CONFIG = {
   MAX_QUERIES_PER_SEC: 60,
   BAN_DURATION_MS: 30000
 };
+
+function isPlatformHost(queryDomain) {
+  return queryDomain === DNS_CONFIG.DASHBOARD_HOST || queryDomain === DNS_CONFIG.AUTH_HOST;
+}
 
 function addARecord(response, name, address, ttl = DNS_CONFIG.DEFAULT_TTL) {
   if (!address) return;
@@ -211,7 +223,8 @@ async function handleDnsRequest(request, send, rinfo) {
       // TYPE A (IPv4 Address)
       // -------------------------------------------------------------
       case Packet.TYPE.A: {
-        if (queryDomain.endsWith(`.${PLATFORM_CONFIG.freeSubdomainDomain}`) && !claimedSubdomain) {
+        if (queryDomain.endsWith(`.${PLATFORM_CONFIG.freeSubdomainDomain}`) &&
+            !claimedSubdomain && !isPlatformHost(queryDomain)) {
           response.header.rcode = Packet.RCODE.NXDOMAIN;
           return send(response);
         }
@@ -228,7 +241,8 @@ async function handleDnsRequest(request, send, rinfo) {
       // TYPE NS (Nameservers)
       // -------------------------------------------------------------
       case Packet.TYPE.NS: {
-        if (queryDomain.endsWith(`.${PLATFORM_CONFIG.freeSubdomainDomain}`) && !claimedSubdomain) {
+        if (queryDomain.endsWith(`.${PLATFORM_CONFIG.freeSubdomainDomain}`) &&
+            !claimedSubdomain && !isPlatformHost(queryDomain)) {
           response.header.rcode = Packet.RCODE.NXDOMAIN;
           return send(response);
         }
