@@ -98,6 +98,12 @@ export default function App() {
       const searchParams = new URLSearchParams(window.location.search);
       const restoreToken = searchParams.get('token');
 
+      if (hostname.toLowerCase() === 'auth.uids.app') {
+        const target = `${getMainAppUrl(window.location.pathname)}${window.location.search}${window.location.hash}`;
+        window.location.replace(target);
+        return 'login';
+      }
+
       // Remove legacy session-token handoffs from the URL without trusting them.
       if (searchParams.has('auth_token')) {
         searchParams.delete('auth_token');
@@ -217,6 +223,9 @@ export default function App() {
         if (pathname === 'landing' || pathname === 'home') return 'landing';
 
         if (pathname === 'login' || pathname === 'signin') {
+          if (hostname.toLowerCase() === PLATFORM_DOMAIN || hostname.toLowerCase() === `www.${PLATFORM_DOMAIN}`) {
+            return 'login';
+          }
           const isExplicitLogout = searchParams.get('logout') === '1';
           const redirectPath = getSafeRedirectPath(searchParams.get('redirect'));
           const query = isExplicitLogout
@@ -227,6 +236,9 @@ export default function App() {
         }
 
         if (pathname === 'create-account' || pathname === 'register' || pathname === 'signup' || pathname === 'create-store' || pathname.startsWith('create-store/')) {
+          if (hostname.toLowerCase() === PLATFORM_DOMAIN || hostname.toLowerCase() === `www.${PLATFORM_DOMAIN}`) {
+            return 'create-account';
+          }
           const registrationPath = `${window.location.pathname}${window.location.search}`;
           window.location.replace(getAuthUrl(registrationPath));
           return 'create-account';
