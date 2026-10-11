@@ -9,6 +9,7 @@ mod middleware;
 mod media;
 mod metrics;
 mod rate_limit;
+mod repository;
 mod session;
 mod state;
 
@@ -19,11 +20,13 @@ use tower_http::{limit::RequestBodyLimitLayer, trace::TraceLayer};
 
 use config::Config;
 use handlers::{
-    account_policy, admission, claim_policy, domain_validation, dns_record_policy, health,
-    media_preflight, metrics, ready, session_policy,
+    account_policy, admission, claim_policy, domain_availability, domain_validation,
+    dns_record_policy, health, media_preflight, metrics, ready, session_policy,
 };
 use middleware::{rate_limit, security_headers};
+use repository::Repository;
 use state::AppState;
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -33,7 +36,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let config = Config::from_env()?;
     let address: SocketAddr = config.bind.parse()?;
-    let state = AppState::new(&config);
+    let repository = if config.postgres_url.is_empty() {
+        None
+    } else {
+        Some(Arc::new(Repository::connect(&config.postgres_url).await?))
+    };
+    let state = AppState::new(&config, repository);
 
     let app = Router::new()
         .route("/health", get(health))
@@ -41,6 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/metrics", get(metrics))
         .route("/v1/edge/admission", get(admission))
         .route("/v1/domains/validate", axum::routing::post(domain_validation))
+        .route("/v1/domains/availability", axum::routing::post(domain_availability))
         .route("/v1/accounts/policy", axum::routing::post(account_policy))
         .route("/v1/domains/claim-policy", axum::routing::post(claim_policy))
         .route("/v1/dns/record-policy", axum::routing::post(dns_record_policy))

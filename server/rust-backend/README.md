@@ -22,6 +22,7 @@ rust-backend/
     ├── dns.rs         # DNS record validation
     ├── media.rs       # video preflight and playback compatibility policy
     ├── metrics.rs     # Prometheus-compatible process counters
+    ├── repository.rs  # PostgreSQL availability and atomic domain claims
     ├── session.rs     # session and cookie security policy
     └── audit.rs       # structured audit-event contract
 ```
@@ -49,6 +50,7 @@ domain claims, account policy, and business transactions.
 | `GET` | `/metrics` | Prometheus-compatible HTTP counters |
 | `GET` | `/v1/edge/admission` | Lightweight edge admission response |
 | `POST` | `/v1/domains/validate` | Validate/normalize a subdomain label |
+| `POST` | `/v1/domains/availability` | Read PostgreSQL-backed subdomain availability |
 | `POST` | `/v1/accounts/policy` | Validate account input policy (never handles passwords) |
 | `POST` | `/v1/domains/claim-policy` | Evaluate claim preconditions |
 | `POST` | `/v1/dns/record-policy` | Validate A/CNAME/TXT/NS records |
@@ -102,6 +104,13 @@ Override the bind address with `TIWLO_RUST_BIND`. Set
 future gateway; the current service does not proxy requests yet. Keep it
 private until authentication, proxy policy, and service contracts are
 implemented.
+
+The PostgreSQL repository currently supports a read-only availability lookup and
+an atomic free-domain claim transaction. It locks the account row, requires
+`email_verified`, enforces the existing one-claim-per-account constraint, and
+maps unique conflicts to explicit errors. The existing Node.js domain service
+remains the production route until this repository has integration tests against
+the real schema.
 
 ## Migration rule
 

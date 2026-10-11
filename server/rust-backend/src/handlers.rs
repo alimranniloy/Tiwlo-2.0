@@ -81,6 +81,64 @@ pub async fn domain_validation(
     (status, Json(result))
 }
 
+pub async fn domain_availability(
+    State(state): State<AppState>,
+    Json(request): Json<domain::DomainValidationRequest>,
+) -> (StatusCode, Json<DomainAvailabilityResponse>) {
+    let validation = domain::validate(&request.name, "uids.app");
+    if !validation.available_format {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(DomainAvailabilityResponse {
+                available: false,
+                domain: validation.domain,
+                status: Some("invalid_or_reserved".to_owned()),
+            }),
+        );
+    }
+
+    let Some(repository) = state.repository.as_ref() else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(DomainAvailabilityResponse {
+                available: false,
+                domain: validation.domain,
+                status: Some("database_unavailable".to_owned()),
+            }),
+        );
+    };
+
+    match repository.availability(&validation.name).await {
+        Ok(result) => (
+            StatusCode::OK,
+            Json(DomainAvailabilityResponse {
+                available: result.available,
+                domain: if result.domain.is_empty() {
+                    validation.domain
+                } else {
+                    result.domain
+                },
+                status: result.status,
+            }),
+        ),
+        Err(_) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(DomainAvailabilityResponse {
+                available: false,
+                domain: validation.domain,
+                status: Some("database_error".to_owned()),
+            }),
+        ),
+    }
+}
+
+#[derive(Serialize)]
+pub struct DomainAvailabilityResponse {
+    pub available: bool,
+    pub domain: String,
+    pub status: Option<String>,
+}
+
 pub async fn account_policy(
     Json(request): Json<account::AccountPolicyRequest>,
 ) -> Json<account::AccountPolicyResponse> {

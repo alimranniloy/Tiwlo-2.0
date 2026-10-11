@@ -1,4 +1,6 @@
-use crate::{config::Config, metrics::Metrics, rate_limit::RateLimiter};
+use crate::{
+    config::Config, metrics::Metrics, rate_limit::RateLimiter, repository::Repository,
+};
 use std::{
     sync::Arc,
     time::Instant,
@@ -12,17 +14,19 @@ pub struct AppState {
     pub postgres_configured: bool,
     pub redis_configured: bool,
     pub metrics: Arc<Metrics>,
+    pub repository: Option<Arc<Repository>>,
 }
 
 impl AppState {
-    pub fn new(config: &Config) -> Self {
+    pub fn new(config: &Config, repository: Option<Arc<Repository>>) -> Self {
         Self {
             started_at: Instant::now(),
             limiter: Arc::new(RateLimiter::new(config.rate_limit)),
             node_backend_url: config.node_backend_url.clone(),
-            postgres_configured: !config.postgres_url.is_empty(),
+            postgres_configured: repository.is_some(),
             redis_configured: !config.redis_url.is_empty(),
             metrics: Arc::new(Metrics::default()),
+            repository,
         }
     }
 }
