@@ -10,7 +10,15 @@ import {
   listUserSubdomains,
   updateSubdomainRecord
 } from '../domains/subdomainService.js';
-import { claimDomainWithRust, isRustDomainClaimEnabled } from '../security/rustDomainClient.js';
+import {
+  claimDomainWithRust,
+  createDnsRecordWithRust,
+  deleteDnsRecordWithRust,
+  isRustDomainClaimEnabled,
+  isRustDnsEnabled,
+  listDnsRecordsWithRust,
+  updateDnsRecordWithRust
+} from '../security/rustDomainClient.js';
 
 const router = express.Router();
 const checkLimiter = rateLimit({
@@ -97,6 +105,14 @@ router.get('/', async (req, res) => {
 
 router.get('/:id/records', async (req, res) => {
   try {
+    if (isRustDnsEnabled()) {
+      const payload = await listDnsRecordsWithRust({
+        user: req.activeUser,
+        subdomainId: req.params.id,
+        request: req
+      });
+      return res.json(payload);
+    }
     res.json({ records: await listSubdomainRecords({ userId: req.activeUser.id, subdomainId: req.params.id }) });
   } catch (error) {
     if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
@@ -107,47 +123,72 @@ router.get('/:id/records', async (req, res) => {
 
 router.post('/:id/records', async (req, res) => {
   try {
+    if (isRustDnsEnabled()) {
+      const payload = await createDnsRecordWithRust({
+        user: req.activeUser,
+        subdomainId: req.params.id,
+        request: req,
+        body: req.body
+      });
+      return res.status(201).json(payload);
+    }
     const record = await createSubdomainRecord({
       userId: req.activeUser.id,
       subdomainId: req.params.id,
       ...req.body
     });
 
-    router.patch('/:id/records/:recordId', async (req, res) => {
-      try {
-        const record = await updateSubdomainRecord({
-          userId: req.activeUser.id,
-          subdomainId: req.params.id,
-          recordId: req.params.recordId,
-          ...req.body
-        });
-        res.json({ record });
-      } catch (error) {
-        if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
-        console.error('[SubdomainRoutes] DNS record update failed:', error);
-        res.status(500).json({ error: 'Could not update DNS record.' });
-      }
-    });
-
-    router.delete('/:id/records/:recordId', async (req, res) => {
-      try {
-        await deleteSubdomainRecord({
-          userId: req.activeUser.id,
-          subdomainId: req.params.id,
-          recordId: req.params.recordId
-        });
-        res.status(204).end();
-      } catch (error) {
-        if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
-        console.error('[SubdomainRoutes] DNS record delete failed:', error);
-        res.status(500).json({ error: 'Could not delete DNS record.' });
-      }
-    });
     res.status(201).json({ record });
   } catch (error) {
     if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
     console.error('[SubdomainRoutes] DNS record create failed:', error);
     res.status(500).json({ error: 'Could not create DNS record.' });
+  }
+});
+
+router.patch('/:id/records/:recordId', async (req, res) => {
+  try {
+    if (isRustDnsEnabled()) {
+      const payload = await updateDnsRecordWithRust({
+        user: req.activeUser,
+        subdomainId: req.params.id,
+        recordId: req.params.recordId,
+        request: req,
+        body: req.body
+      });
+      return res.json(payload);
+    }
+    const record = await updateSubdomainRecord({
+      userId: req.activeUser.id,
+      subdomainId: req.params.id,
+      recordId: req.params.recordId,
+      ...req.body
+    });
+    return res.json({ record });
+  } catch (error) {
+    return sendSubdomainError(res, error);
+  }
+});
+
+router.delete('/:id/records/:recordId', async (req, res) => {
+  try {
+    if (isRustDnsEnabled()) {
+      await deleteDnsRecordWithRust({
+        user: req.activeUser,
+        subdomainId: req.params.id,
+        recordId: req.params.recordId,
+        request: req
+      });
+    } else {
+      await deleteSubdomainRecord({
+        userId: req.activeUser.id,
+        subdomainId: req.params.id,
+        recordId: req.params.recordId
+      });
+    }
+    return res.status(204).end();
+  } catch (error) {
+    return sendSubdomainError(res, error);
   }
 });
 

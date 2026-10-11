@@ -53,6 +53,10 @@ domain claims, account policy, and business transactions.
 | `POST` | `/v1/domains/availability` | Read PostgreSQL-backed subdomain availability |
 | `POST` | `/v1/accounts/policy` | Validate account input policy (never handles passwords) |
 | `POST` | `/v1/domains/claim-policy` | Evaluate claim preconditions |
+| `GET` | `/v1/domains/:subdomain_id/records` | List owned DNS records |
+| `POST` | `/v1/domains/:subdomain_id/records` | Create an owned DNS record |
+| `PATCH` | `/v1/domains/:subdomain_id/records/:record_id` | Update an owned DNS record |
+| `DELETE` | `/v1/domains/:subdomain_id/records/:record_id` | Delete an owned DNS record |
 | `POST` | `/v1/dns/record-policy` | Validate A/CNAME/TXT/NS records |
 | `POST` | `/v1/media/preflight` | Validate video metadata and transcode requirements |
 | `POST` | `/v1/auth/session-policy` | Evaluate session expiry and cookie security policy |

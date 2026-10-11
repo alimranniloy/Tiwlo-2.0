@@ -1,6 +1,6 @@
 use crate::{account, claim, dns, domain, media, session, state::AppState};
 use axum::{
-    extract::State,
+    extract::{Path, State},
     http::{header, HeaderValue, StatusCode},
     response::IntoResponse,
     Json,
@@ -153,6 +153,204 @@ pub struct ClaimResponse {
     pub id: String,
     pub subdomain: String,
     pub domain: String,
+}
+
+#[derive(serde::Deserialize)]
+pub struct DnsRecordRequest {
+    pub record_type: String,
+    pub name: String,
+    pub value: String,
+    pub ttl: u32,
+}
+
+#[derive(Serialize)]
+pub struct DnsRecordResponse {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub record_type: String,
+    pub name: String,
+    pub value: String,
+    pub ttl: i32,
+}
+
+fn identity_from_header(
+    state: &AppState,
+    identity: &IdentityHeader,
+) -> Result<crate::identity::IdentityAssertion, StatusCode> {
+    crate::identity::verify(&identity.0, &state.identity_secret)
+        .map_err(|_| StatusCode::UNAUTHORIZED)
+}
+
+fn dns_record_response(record: crate::repository::DnsRecord) -> DnsRecordResponse {
+    DnsRecordResponse {
+        id: record.id,
+        record_type: record.record_type,
+        name: record.name,
+        value: record.value,
+        ttl: record.ttl,
+    }
+}
+
+pub async fn list_dns_records(
+    State(state): State<AppState>,
+    TypedHeader(identity): TypedHeader<IdentityHeader>,
+    Path(subdomain_id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let Ok(assertion) = identity_from_header(&state, &identity) else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "invalid_internal_identity"})),
+        );
+    };
+    let Some(repository) = state.repository.as_ref() else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error": "database_unavailable"})),
+        );
+    };
+    match repository.list_dns_records(&assertion.user_id, &subdomain_id).await {
+        Ok(records) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "records": records.into_iter().map(dns_record_response).collect::<Vec<_>>()
+            })),
+        ),
+        Err(crate::repository::RepositoryError::Database(_)) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error": "database_error"})),
+        ),
+        Err(_) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "subdomain_not_found"})),
+        ),
+    }
+}
+
+pub async fn create_dns_record(
+    State(state): State<AppState>,
+    TypedHeader(identity): TypedHeader<IdentityHeader>,
+    Path(subdomain_id): Path<String>,
+    Json(request): Json<DnsRecordRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let Ok(assertion) = identity_from_header(&state, &identity) else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "invalid_internal_identity"})),
+        );
+    };
+    let Some(repository) = state.repository.as_ref() else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error": "database_unavailable"})),
+        );
+    };
+    let input = dns::RecordPolicyRequest {
+        record_type: request.record_type,
+        name: request.name,
+        value: request.value,
+        ttl: request.ttl,
+    };
+    match repository
+        .create_dns_record(&assertion.user_id, &subdomain_id, input)
+        .await
+    {
+        Ok(record) => (
+            StatusCode::CREATED,
+            Json(serde_json::json!({"record": dns_record_response(record)})),
+        ),
+        Err(crate::repository::RepositoryError::Policy(reason)) => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(serde_json::json!({"error": reason})),
+        ),
+        Err(crate::repository::RepositoryError::Database(_)) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error": "database_error"})),
+        ),
+        Err(_) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "subdomain_not_found"})),
+        ),
+    }
+}
+
+pub async fn update_dns_record(
+    State(state): State<AppState>,
+    TypedHeader(identity): TypedHeader<IdentityHeader>,
+    Path((subdomain_id, record_id)): Path<(String, String)>,
+    Json(request): Json<DnsRecordRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let Ok(assertion) = identity_from_header(&state, &identity) else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "invalid_internal_identity"})),
+        );
+    };
+    let Some(repository) = state.repository.as_ref() else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error": "database_unavailable"})),
+        );
+    };
+    let input = dns::RecordPolicyRequest {
+        record_type: request.record_type,
+        name: request.name,
+        value: request.value,
+        ttl: request.ttl,
+    };
+    match repository
+        .update_dns_record(&assertion.user_id, &subdomain_id, &record_id, input)
+        .await
+    {
+        Ok(record) => (
+            StatusCode::OK,
+            Json(serde_json::json!({"record": dns_record_response(record)})),
+        ),
+        Err(crate::repository::RepositoryError::Policy(reason)) => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(serde_json::json!({"error": reason})),
+        ),
+        Err(crate::repository::RepositoryError::Database(_)) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error": "database_error"})),
+        ),
+        Err(_) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "dns_record_not_found"})),
+        ),
+    }
+}
+
+pub async fn delete_dns_record(
+    State(state): State<AppState>,
+    TypedHeader(identity): TypedHeader<IdentityHeader>,
+    Path((subdomain_id, record_id)): Path<(String, String)>,
+) -> impl IntoResponse {
+    let Ok(assertion) = identity_from_header(&state, &identity) else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "invalid_internal_identity"})),
+        );
+    };
+    let Some(repository) = state.repository.as_ref() else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error": "database_unavailable"})),
+        );
+    };
+    match repository
+        .delete_dns_record(&assertion.user_id, &subdomain_id, &record_id)
+        .await
+    {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(crate::repository::RepositoryError::Database(_)) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error": "database_error"})),
+        ),
+        Err(_) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "dns_record_not_found"})),
+        ),
+    }
 }
 
 #[derive(Clone, Debug)]
