@@ -54,14 +54,11 @@ function getSessionCookieOptions(req) {
   const host = (req?.headers?.host || req?.hostname || '').toLowerCase();
   const hostname = host.replace(/:\d+$/, '');
   const cookieParentDomain = PLATFORM_CONFIG.cookieDomain.replace(/^\./, '');
-  const isPlatformDomain = [
-    PLATFORM_CONFIG.primaryDomain,
-    PLATFORM_CONFIG.storeDomain,
-    cookieParentDomain,
-    PLATFORM_CONFIG.authDomain
-  ].some(
-    domain => hostname === domain || hostname.endsWith(`.${domain}`)
-  );
+  const isUidsHost = hostname === cookieParentDomain || hostname.endsWith(`.${cookieParentDomain}`);
+  const isMainHost = hostname === PLATFORM_CONFIG.primaryDomain ||
+    hostname.endsWith(`.${PLATFORM_CONFIG.primaryDomain}`) ||
+    hostname === PLATFORM_CONFIG.storeDomain ||
+    hostname.endsWith(`.${PLATFORM_CONFIG.storeDomain}`);
   const isSecure = process.env.NODE_ENV === 'production' || req?.secure || req?.headers?.['x-forwarded-proto'] === 'https';
 
   return {
@@ -69,7 +66,9 @@ function getSessionCookieOptions(req) {
     secure: isSecure,
     sameSite: 'lax',
     path: '/',
-    ...(isPlatformDomain ? { domain: PLATFORM_CONFIG.cookieDomain } : {})
+    ...(isUidsHost
+      ? { domain: PLATFORM_CONFIG.cookieDomain }
+      : (isMainHost ? { domain: `.${PLATFORM_CONFIG.primaryDomain}` } : {}))
   };
 }
 
