@@ -122,6 +122,10 @@ export default function App() {
 
       // The standalone free-subdomain service has its own landing page.
       if (hostname === FREE_SUBDOMAIN_DOMAIN) {
+        if (pathname === 'oneprofile' || pathname.startsWith('oneprofile/') || pathname === 'one-profile' || pathname.startsWith('one-profile/')) {
+          window.location.replace(`${getDashboardUrl(window.location.pathname)}${window.location.search}${window.location.hash}`);
+          return 'subdomain';
+        }
         return 'subdomain';
       }
 
@@ -379,6 +383,14 @@ export default function App() {
   // Instant clean URL tab navigation without any '#' hash
   const handleTabChange = (tabId) => {
     if (tabId === 'dashboard' && window.location.hostname.toLowerCase() === FREE_SUBDOMAIN_DOMAIN) {
+      window.location.replace(getDashboardUrl('/oneprofile'));
+      return;
+    }
+    if (
+      (tabId === 'oneprofile' || tabId === 'one-profile' ||
+        (typeof tabId === 'string' && (tabId.startsWith('oneprofile/') || tabId.startsWith('one-profile/')))) &&
+      window.location.hostname.toLowerCase() === FREE_SUBDOMAIN_DOMAIN
+    ) {
       window.location.replace(getDashboardUrl('/oneprofile'));
       return;
     }
