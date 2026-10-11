@@ -35,8 +35,9 @@ ensure_rust_toolchain() {
 
 build_rust_backend() {
   ensure_rust_toolchain
-  if [[ ! -f "$ROOT_DIR/server/rust-backend/Cargo.lock" ]]; then
-    echo "Cargo.lock is missing; resolving Rust dependencies once..."
+  if [[ ! -f "$ROOT_DIR/server/rust-backend/Cargo.lock" ||
+        "$ROOT_DIR/server/rust-backend/Cargo.toml" -nt "$ROOT_DIR/server/rust-backend/Cargo.lock" ]]; then
+    echo "Rust dependency manifest changed; resolving Cargo.lock..."
     cargo generate-lockfile --manifest-path "$ROOT_DIR/server/rust-backend/Cargo.toml"
   fi
   echo "--- Building Rust backend ---"
