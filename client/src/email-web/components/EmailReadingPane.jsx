@@ -309,7 +309,7 @@ export default function EmailReadingPane() {
 
         {/* Email HTML Body */}
         <div
-          className="prose dark:prose-invert max-w-none text-[13.5px] text-slate-800 dark:text-slate-200 leading-relaxed py-2"
+          className="prose dark:prose-invert max-w-none text-[13.5px] text-slate-800 dark:text-slate-200 leading-relaxed py-2 [&_a]:text-[#0078D4] [&_a]:underline [&_a]:cursor-pointer"
           dangerouslySetInnerHTML={{ __html: selectedEmail.bodyHtml }}
         />
 

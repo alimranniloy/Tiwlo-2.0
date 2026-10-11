@@ -86,21 +86,25 @@ function safeFilename(value) {
     .slice(0, 255) || 'attachment';
 }
 
+function linkifyPlainText(value) {
+  return String(value || '').replace(/(https?:\/\/[^\s<]+)/gi, (url) => {
+    const trailing = url.match(/[.,!?;:)]+$/)?.[0] || '';
+    const href = url.slice(0, url.length - trailing.length);
+    return `<a href="${href}" rel="noreferrer">${href}</a>${trailing}`;
+  });
+}
+
 function safeHtml(value, fallbackText) {
   if (!value) {
     const escapedText = String(fallbackText || '')
       .replace(/[&<>"']/g, (character) => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
       })[character])
-      .replace(/(https?:\/\/[^\s<]+)/gi, (url) => {
-        const trailing = url.match(/[.,!?;:)]+$/)?.[0] || '';
-        const href = url.slice(0, url.length - trailing.length);
-        return `<a href="${href}" rel="noreferrer">${href}</a>${trailing}`;
-      })
+      .replace(/(https?:\/\/[^\s<]+)/gi, linkifyPlainText)
       .replace(/\r?\n/g, '<br>');
     return `<p>${escapedText}</p>`;
   }
-  return sanitizeHtml(String(value), {
+  const sanitized = sanitizeHtml(String(value), {
     allowedTags: [
       'a', 'b', 'blockquote', 'br', 'caption', 'code', 'div', 'em', 'h1', 'h2', 'h3',
       'hr', 'i', 'li', 'ol', 'p', 'pre', 'span', 'strong', 'table', 'tbody', 'td',
@@ -110,6 +114,10 @@ function safeHtml(value, fallbackText) {
     allowedSchemes: ['http', 'https', 'mailto'],
     disallowedTagsMode: 'discard'
   });
+  return sanitized
+    .split(/(<[^>]+>)/g)
+    .map((part) => part.startsWith('<') ? part : linkifyPlainText(part))
+    .join('');
 }
 
 export async function storeInboundMail(rawMessage, envelopeRecipient) {
@@ -147,7 +155,7 @@ export async function storeInboundMail(rawMessage, envelopeRecipient) {
   }
   const ccRecipients = toRecipients(parsed.cc?.value || []);
   const bodyText = String(parsed.text || '').slice(0, 100000);
-  const bodyHtml = safeHtml(parsed.html, bodyText);
+  const bodyHtml = safeHtml(String(parsed.html || '').trim(), bodyText);
   const deliveryKey = crypto.createHash('sha256')
     .update(recipient)
     .update('\0')
