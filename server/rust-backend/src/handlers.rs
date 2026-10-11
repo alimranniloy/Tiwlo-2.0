@@ -1,4 +1,4 @@
-use crate::{account, claim, dns, domain, state::AppState};
+use crate::{account, claim, dns, domain, media, session, state::AppState};
 use axum::{extract::State, http::StatusCode, Json};
 use serde::Serialize;
 
@@ -81,6 +81,30 @@ pub async fn dns_record_policy(
         StatusCode::OK
     } else {
         StatusCode::UNPROCESSABLE_ENTITY
+    };
+    (status, Json(result))
+}
+
+pub async fn media_preflight(
+    Json(request): Json<media::MediaPreflightRequest>,
+) -> (StatusCode, Json<media::MediaPreflightResponse>) {
+    let result = media::preflight(request);
+    let status = if result.valid {
+        StatusCode::OK
+    } else {
+        StatusCode::UNPROCESSABLE_ENTITY
+    };
+    (status, Json(result))
+}
+
+pub async fn session_policy(
+    Json(request): Json<session::SessionPolicyRequest>,
+) -> (StatusCode, Json<session::SessionPolicyResponse>) {
+    let result = session::evaluate(request);
+    let status = if result.valid {
+        StatusCode::OK
+    } else {
+        StatusCode::UNAUTHORIZED
     };
     (status, Json(result))
 }

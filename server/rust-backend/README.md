@@ -20,6 +20,8 @@ rust-backend/
     ├── account.rs     # account input policy checks
     ├── claim.rs       # atomic domain-claim policy decisions
     ├── dns.rs         # DNS record validation
+    ├── media.rs       # video preflight and playback compatibility policy
+    ├── session.rs     # session and cookie security policy
     └── audit.rs       # structured audit-event contract
 ```
 
@@ -48,6 +50,8 @@ domain claims, account policy, and business transactions.
 | `POST` | `/v1/accounts/policy` | Validate account input policy (never handles passwords) |
 | `POST` | `/v1/domains/claim-policy` | Evaluate claim preconditions |
 | `POST` | `/v1/dns/record-policy` | Validate A/CNAME/TXT/NS records |
+| `POST` | `/v1/media/preflight` | Validate video metadata and transcode requirements |
+| `POST` | `/v1/auth/session-policy` | Evaluate session expiry and cookie security policy |
 
 Every request receives security headers and an `x-request-id`. Requests are
 limited per connected source IP (120 per minute by default) and bodies are
@@ -61,6 +65,17 @@ The domain endpoint only validates syntax and reserved names; PostgreSQL remains
 the source of truth for availability and atomic claims. The account endpoint
 does not receive or hash passwords. Node.js still owns sessions, password
 authentication, email verification, domain claims, and database writes.
+
+The media preflight endpoint does not read arbitrary filesystem paths or publish
+files. It validates trusted FFprobe metadata and returns the canonical playback
+target: MP4, H.264, YUV420P, AAC, and `+faststart`. The existing Node.js worker
+remains responsible for FFmpeg, moderation, storage, and publication until the
+isolated Rust worker is deployed and verified.
+
+The session policy endpoint is advisory and does not authenticate a user,
+create a session, or read cookies. Node.js remains the authority for password
+verification, session persistence, refresh-token rotation, and revocation until
+the Rust implementation is tested against the existing session schema.
 
 ## Local development
 

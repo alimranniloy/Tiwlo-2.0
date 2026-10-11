@@ -6,7 +6,9 @@ mod dns;
 mod domain;
 mod handlers;
 mod middleware;
+mod media;
 mod rate_limit;
+mod session;
 mod state;
 
 use axum::{middleware::from_fn_with_state, routing::get, Router};
@@ -16,7 +18,8 @@ use tower_http::{limit::RequestBodyLimitLayer, trace::TraceLayer};
 
 use config::Config;
 use handlers::{
-    account_policy, admission, claim_policy, domain_validation, dns_record_policy, health, ready,
+    account_policy, admission, claim_policy, domain_validation, dns_record_policy, health,
+    media_preflight, ready, session_policy,
 };
 use middleware::{rate_limit, security_headers};
 use state::AppState;
@@ -39,6 +42,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/v1/accounts/policy", axum::routing::post(account_policy))
         .route("/v1/domains/claim-policy", axum::routing::post(claim_policy))
         .route("/v1/dns/record-policy", axum::routing::post(dns_record_policy))
+        .route("/v1/media/preflight", axum::routing::post(media_preflight))
+        .route("/v1/auth/session-policy", axum::routing::post(session_policy))
         .with_state(state.clone())
         .layer(axum::middleware::from_fn(security_headers))
         .layer(from_fn_with_state(state, rate_limit))
