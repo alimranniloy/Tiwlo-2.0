@@ -18,6 +18,8 @@ rust-backend/
     ├── handlers.rs    # HTTP handlers
     ├── domain.rs      # subdomain validation and suggestions
     ├── account.rs     # account input policy checks
+    ├── claim.rs       # atomic domain-claim policy decisions
+    ├── dns.rs         # DNS record validation
     └── audit.rs       # structured audit-event contract
 ```
 
@@ -44,6 +46,8 @@ domain claims, account policy, and business transactions.
 | `GET` | `/v1/edge/admission` | Lightweight edge admission response |
 | `POST` | `/v1/domains/validate` | Validate/normalize a subdomain label |
 | `POST` | `/v1/accounts/policy` | Validate account input policy (never handles passwords) |
+| `POST` | `/v1/domains/claim-policy` | Evaluate claim preconditions |
+| `POST` | `/v1/dns/record-policy` | Validate A/CNAME/TXT/NS records |
 
 Every request receives security headers and an `x-request-id`. Requests are
 limited per connected source IP (120 per minute by default) and bodies are

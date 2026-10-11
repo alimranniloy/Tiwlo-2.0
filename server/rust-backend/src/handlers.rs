@@ -1,4 +1,4 @@
-use crate::{account, domain, state::AppState};
+use crate::{account, claim, dns, domain, state::AppState};
 use axum::{extract::State, http::StatusCode, Json};
 use serde::Serialize;
 
@@ -65,4 +65,22 @@ pub async fn account_policy(
     Json(request): Json<account::AccountPolicyRequest>,
 ) -> Json<account::AccountPolicyResponse> {
     Json(account::evaluate(request))
+}
+
+pub async fn claim_policy(
+    Json(request): Json<claim::ClaimPolicyRequest>,
+) -> Json<claim::ClaimPolicyResponse> {
+    Json(claim::evaluate(request))
+}
+
+pub async fn dns_record_policy(
+    Json(request): Json<dns::RecordPolicyRequest>,
+) -> (StatusCode, Json<dns::RecordPolicyResponse>) {
+    let result = dns::validate(request);
+    let status = if result.valid {
+        StatusCode::OK
+    } else {
+        StatusCode::UNPROCESSABLE_ENTITY
+    };
+    (status, Json(result))
 }

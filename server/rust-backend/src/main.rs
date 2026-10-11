@@ -1,6 +1,8 @@
 mod account;
 mod audit;
+mod claim;
 mod config;
+mod dns;
 mod domain;
 mod handlers;
 mod middleware;
@@ -13,7 +15,9 @@ use tokio::net::TcpListener;
 use tower_http::{limit::RequestBodyLimitLayer, trace::TraceLayer};
 
 use config::Config;
-use handlers::{admission, account_policy, domain_validation, health, ready};
+use handlers::{
+    account_policy, admission, claim_policy, domain_validation, dns_record_policy, health, ready,
+};
 use middleware::{rate_limit, security_headers};
 use state::AppState;
 
@@ -33,6 +37,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/v1/edge/admission", get(admission))
         .route("/v1/domains/validate", axum::routing::post(domain_validation))
         .route("/v1/accounts/policy", axum::routing::post(account_policy))
+        .route("/v1/domains/claim-policy", axum::routing::post(claim_policy))
+        .route("/v1/dns/record-policy", axum::routing::post(dns_record_policy))
         .with_state(state.clone())
         .layer(axum::middleware::from_fn(security_headers))
         .layer(from_fn_with_state(state, rate_limit))
