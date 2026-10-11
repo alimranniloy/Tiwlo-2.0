@@ -783,6 +783,11 @@ export default function App() {
         return;
       }
 
+      if (searchParams.get('dashboard') === '1') {
+        window.location.replace(getDashboardUrl('/oneprofile'));
+        return;
+      }
+
       let targetPath = '/dashboard';
       if (redirectUrl) {
         targetPath = redirectUrl;
@@ -808,6 +813,10 @@ export default function App() {
       sessionStorage.removeItem('tiwlo_explicit_logout');
       if (new URLSearchParams(window.location.search).get('mail_return') === '1') {
         window.location.replace(getMailUrl());
+        return;
+      }
+      if (new URLSearchParams(window.location.search).get('dashboard') === '1') {
+        window.location.replace(getDashboardUrl('/oneprofile'));
         return;
       }
       const isSuper = user?.role === 'super_admin' || user?.email === 'tiwloltd@gmail.com';
