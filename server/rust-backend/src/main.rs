@@ -21,8 +21,9 @@ use tower_http::{limit::RequestBodyLimitLayer, trace::TraceLayer};
 
 use config::Config;
 use handlers::{
-    account_policy, admission, claim_policy, domain_availability, domain_validation,
-    dns_record_policy, health,     claim_domain, media_preflight, metrics, ready, session_policy,
+    account_policy, admission, claim_domain, claim_policy, domain_availability,
+    domain_validation, dns_record_policy, health, media_preflight, metrics, ready,
+    session_policy,
 };
 use middleware::{rate_limit, security_headers};
 use repository::Repository;

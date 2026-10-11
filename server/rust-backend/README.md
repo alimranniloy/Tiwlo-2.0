@@ -121,6 +121,11 @@ only by the trusted internal caller and Rust service. The endpoint is not a
 replacement for the Node route until the Node caller emits this contract and
 staging integration tests pass.
 
+The Node-side assertion helper lives in `server/security/rustIdentity.js` and
+is intentionally not wired into the public claim route yet. The existing Node
+claim flow also records abuse signals and claim-attempt outcomes; those controls
+must have Rust parity before traffic is cut over.
+
 ## Migration rule
 
 Do not delete or bypass the Node.js backend for a Rust service until the Rust
