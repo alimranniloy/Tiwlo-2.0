@@ -460,17 +460,47 @@ pub async fn claim_domain(
                 domain: claimed.domain,
             })),
         ),
+        Err(crate::repository::RepositoryError::NotFound("account_not_found")) => (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "error": "Your account could not be verified.",
+                "code": "ACCOUNT_NOT_FOUND"
+            })),
+        ),
+        Err(crate::repository::RepositoryError::Policy("email_verification_required")) => (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({
+                "error": "Verify your email before claiming a free domain.",
+                "code": "EMAIL_VERIFICATION_REQUIRED"
+            })),
+        ),
+        Err(crate::repository::RepositoryError::Conflict("free_domain_already_used")) => (
+            StatusCode::CONFLICT,
+            Json(serde_json::json!({
+                "error": "This account has already used its one free domain allowance.",
+                "code": "FREE_DOMAIN_ALREADY_USED"
+            })),
+        ),
+        Err(crate::repository::RepositoryError::Conflict(_)) => (
+            StatusCode::CONFLICT,
+            Json(serde_json::json!({
+                "error": "This subdomain is already registered.",
+                "code": "SUBDOMAIN_ALREADY_REGISTERED"
+            })),
+        ),
+        Err(crate::repository::RepositoryError::RateLimited(reason)) => (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(serde_json::json!({
+                "error": "Too many free-domain attempts from this account or device. Try again later.",
+                "code": reason
+            })),
+        ),
         Err(crate::repository::RepositoryError::NotFound(reason)) => (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({"error": reason})),
         ),
-        Err(crate::repository::RepositoryError::Policy(reason))
-        | Err(crate::repository::RepositoryError::Conflict(reason)) => (
+        Err(crate::repository::RepositoryError::Policy(reason)) => (
             StatusCode::CONFLICT,
-            Json(serde_json::json!({"error": reason})),
-        ),
-        Err(crate::repository::RepositoryError::RateLimited(reason)) => (
-            StatusCode::TOO_MANY_REQUESTS,
             Json(serde_json::json!({"error": reason})),
         ),
         Err(crate::repository::RepositoryError::Database(_)) => (

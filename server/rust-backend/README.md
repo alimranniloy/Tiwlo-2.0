@@ -68,6 +68,9 @@ limited to 1 MiB. Change the limits with `TIWLO_RUST_RATE_LIMIT`.
 DNS record create/update returns `409 Conflict` with
 `dns_record_already_exists` when the database uniqueness constraint is hit.
 The delete endpoint returns an empty `204 No Content` response.
+Domain claim failures preserve stable codes such as
+`EMAIL_VERIFICATION_REQUIRED`, `FREE_DOMAIN_ALREADY_USED`,
+`SUBDOMAIN_ALREADY_REGISTERED`, and `FREE_DOMAIN_RATE_LIMITED`.
 
 `/metrics` is intended for a private monitoring network only. It reports
 process-local counters; deploy Prometheus scraping and aggregation before
