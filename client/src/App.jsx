@@ -557,23 +557,32 @@ export default function App() {
         return;
       }
       if (ssoToken && ssoNonce) {
-        const consumeResponse = await fetch(`${API_BASE}/auth/sso/consume-handshake`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ssoToken, nonce: ssoNonce })
-        });
-        const consumed = await consumeResponse.json().catch(() => ({}));
-        if (!consumeResponse.ok || !consumed.authenticated) {
-          throw new Error(consumed.error || 'SSO authentication failed');
+        try {
+          const consumeResponse = await fetch(`${API_BASE}/auth/sso/consume-handshake`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ssoToken, nonce: ssoNonce })
+          });
+          const consumed = await consumeResponse.json().catch(() => ({}));
+          if (!consumeResponse.ok || !consumed.authenticated) {
+            throw new Error(consumed.error || 'SSO authentication failed');
+          }
+          localStorage.setItem('stockpro_session', consumed.sessionToken);
+          localStorage.setItem('stockpro_user', JSON.stringify(consumed.user));
+          const target = returnTo && /^https:\/\/(my\.uids\.app|tiwlo\.com)(\/|$)/i.test(returnTo)
+            ? returnTo
+            : getMainAppUrl('/');
+          window.location.replace(target);
+          return;
+        } catch (error) {
+          console.error('Web SSO consumption failed:', error);
+          if (isMounted) {
+            setAuthChecking(false);
+            setCurrentUser(null);
+          }
+          return;
         }
-        localStorage.setItem('stockpro_session', consumed.sessionToken);
-        localStorage.setItem('stockpro_user', JSON.stringify(consumed.user));
-        const target = returnTo && /^https:\/\/(my\.uids\.app|tiwlo\.com)(\/|$)/i.test(returnTo)
-          ? returnTo
-          : getMainAppUrl('/');
-        window.location.replace(target);
-        return;
       }
 
       const token = localStorage.getItem('stockpro_session');

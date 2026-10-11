@@ -115,6 +115,8 @@ const allowedOrigins = [
   `https://${PLATFORM_CONFIG.primaryDomain}`,
   `https://${getSubdomain(PLATFORM_CONFIG.wwwSubdomain)}`,
   `https://${getSubdomain(PLATFORM_CONFIG.authSubdomain)}`,
+  `https://${PLATFORM_CONFIG.freeSubdomainDomain}`,
+  `https://my.${PLATFORM_CONFIG.freeSubdomainDomain}`,
   `https://${getSubdomain(PLATFORM_CONFIG.tpanelSubdomain)}`,
   `https://${getSubdomain(PLATFORM_CONFIG.driveSubdomain)}`,
   'http://localhost:5173',
@@ -134,7 +136,7 @@ app.use(cors({
     if (allowedOrigins.includes(origin)) return callback(null, true);
     try {
       const hostname = new URL(origin).hostname.toLowerCase();
-      if ([PLATFORM_CONFIG.primaryDomain, PLATFORM_CONFIG.storeDomain].some(
+      if ([PLATFORM_CONFIG.primaryDomain, PLATFORM_CONFIG.storeDomain, PLATFORM_CONFIG.freeSubdomainDomain].some(
         domain => hostname === domain || hostname.endsWith(`.${domain}`)
       )) {
         return callback(null, true);
