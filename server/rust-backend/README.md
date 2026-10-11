@@ -4,14 +4,28 @@ This directory contains Tiwlo's Rust services. It is intentionally separate
 from [`server/`](..), which currently contains the Node.js business
 API and remains the production API until each Rust replacement is verified.
 
+## Source layout
+
+```text
+rust-backend/
+├── Cargo.toml
+└── src/
+    ├── main.rs        # process startup and route wiring
+    ├── config.rs      # environment configuration and validation
+    ├── state.rs       # shared application state
+    ├── rate_limit.rs  # in-memory edge rate limiter
+    ├── middleware.rs  # request IDs and security middleware
+    └── handlers.rs    # health, readiness, and admission endpoints
+```
+
 ## Service boundary
 
 | Rust service | Responsibility | Status |
 | --- | --- | --- |
 | `tiwlo-rust-backend` | Edge admission, rate limiting, health/readiness | Ready |
-| Authoritative DNS | High-volume DNS, RRL, record cache | Planned |
-| Edge gateway | Connection limits and request filtering | Planned |
-| Media worker | File validation and FFmpeg orchestration | Planned |
+| Authoritative DNS | High-volume DNS, RRL, record cache | Next isolated service |
+| Edge gateway | Connection limits and request filtering | Implemented foundation |
+| Media worker | File validation and FFmpeg orchestration | Next isolated service |
 
 Rust services must not write directly to business tables without an explicit
 contract. PostgreSQL remains the source of truth; Redis is the preferred
