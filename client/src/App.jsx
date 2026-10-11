@@ -73,20 +73,34 @@ const PrintBarcodeModal = lazy(() => import('./components/modals/PrintBarcodeMod
 const API_BASE = '/api';
 
 // Return paths must remain on the first-party app and must not route back to auth.
-const getSafeRedirectPath = (value) => {
-  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) {
+const getSafeRedirectTarget = (value) => {
+  if (typeof value !== 'string' || !value.trim()) {
     return null;
   }
   try {
-    const platformUrl = getPlatformUrl();
+    const platformUrl = new URL(getPlatformUrl());
+    const dashboardUrl = new URL(getDashboardUrl());
     const target = new URL(value, platformUrl);
-    if (target.origin !== platformUrl || /^\/(login|signin|create-account|register|signup)(\/|$)/i.test(target.pathname)) {
+    const isRelative = value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\');
+    const isAllowedOrigin = target.origin === platformUrl.origin || target.origin === dashboardUrl.origin;
+    if (!isRelative && target.origin !== dashboardUrl.origin) {
       return null;
     }
-    return `${target.pathname}${target.search}${target.hash}`;
+    if (!isAllowedOrigin || /^\/(login|signin|create-account|register|signup)(\/|$)/i.test(target.pathname)) {
+      return null;
+    }
+    return target.origin === dashboardUrl.origin
+      ? target.toString()
+      : `${target.pathname}${target.search}${target.hash}`;
   } catch (e) {
     return null;
   }
+};
+
+const getSafeRedirectPath = (value) => {
+  const target = getSafeRedirectTarget(value);
+  if (!target || target.startsWith('http')) return null;
+  return target;
 };
 
 export default function App() {
@@ -129,6 +143,15 @@ export default function App() {
             sessionStorage.setItem('tiwlo_explicit_logout', '1');
           } catch (e) {}
           return 'login';
+        }
+
+        if (isDashboardSubdomain()) {
+          const hasSession = !!localStorage.getItem('stockpro_session') && !!localStorage.getItem('stockpro_user');
+          if (!hasSession) {
+            const returnTo = `${getDashboardUrl(window.location.pathname)}${window.location.search}${window.location.hash}`;
+            window.location.replace(getAuthUrl(`/login?redirect=${encodeURIComponent(returnTo)}`));
+            return 'login';
+          }
         }
 
         if (pathname === 'create-account' || pathname === 'register' || pathname === 'signup' || pathname === 'create-store' || pathname.startsWith('create-store/') ||
@@ -355,11 +378,18 @@ export default function App() {
 
   // Instant clean URL tab navigation without any '#' hash
   const handleTabChange = (tabId) => {
+    if (tabId === 'dashboard' && window.location.hostname.toLowerCase() === FREE_SUBDOMAIN_DOMAIN) {
+      window.location.replace(getDashboardUrl('/oneprofile'));
+      return;
+    }
     if (tabId === 'login' || tabId === 'signin') {
       if (!isAuthSubdomain()) {
         const path = window.location.pathname;
         const publicPaths = new Set(['/', '/landing', '/home', '/login', '/signin']);
-        const redirect = publicPaths.has(path) ? '' : `?redirect=${encodeURIComponent(path + window.location.search)}`;
+        const returnTo = window.location.hostname.toLowerCase() === FREE_SUBDOMAIN_DOMAIN
+          ? `${getDashboardUrl('/oneprofile')}`
+          : `${getMainAppUrl(path)}${window.location.search}`;
+        const redirect = `?redirect=${encodeURIComponent(publicPaths.has(path) && window.location.hostname.toLowerCase() !== FREE_SUBDOMAIN_DOMAIN ? '' : returnTo)}`;
         window.location.replace(getAuthUrl(`/login${redirect}`));
         return;
       }
@@ -373,7 +403,11 @@ export default function App() {
     }
     if (tabId === 'create-account' || tabId === 'register' || tabId === 'signup' || tabId === 'create-store' || (typeof tabId === 'string' && tabId.startsWith('create-store/'))) {
       if (!isAuthSubdomain()) {
-        window.location.replace(getAuthUrl('/create-account'));
+        const returnTo = window.location.hostname.toLowerCase() === FREE_SUBDOMAIN_DOMAIN
+          ? getDashboardUrl('/oneprofile')
+          : null;
+        const query = returnTo ? `?redirect=${encodeURIComponent(returnTo)}` : '';
+        window.location.replace(getAuthUrl(`/create-account${query}`));
         return;
       }
       setActiveTab('create-account');
@@ -834,8 +868,8 @@ export default function App() {
         targetPath = '/administrator';
       }
 
-      const safeTargetPath = getSafeRedirectPath(targetPath) || '/dashboard';
-      window.location.replace(getMainAppUrl(safeTargetPath));
+      const safeTarget = getSafeRedirectTarget(targetPath) || '/dashboard';
+      window.location.replace(safeTarget.startsWith('http') ? safeTarget : getMainAppUrl(safeTarget));
       return;
     }
     if (user?.role === 'super_admin' || user?.email === 'tiwloltd@gmail.com') {
@@ -858,9 +892,9 @@ export default function App() {
       const registerParams = new URLSearchParams(window.location.search);
       const requestedRedirect = registerParams.has('dashboard')
         ? null
-        : getSafeRedirectPath(registerParams.get('redirect'));
+        : getSafeRedirectTarget(registerParams.get('redirect'));
       const target = requestedRedirect || (isSuper ? '/administrator' : '/dashboard');
-      window.location.replace(getMainAppUrl(target));
+      window.location.replace(target.startsWith('http') ? target : getMainAppUrl(target));
       return;
     }
     setDashboardLoading(true);
