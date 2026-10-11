@@ -65,7 +65,7 @@ export default function OneProfileSidebar({
           <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => handleNavClick('home')}>
             <UidisLogoIcon className="w-8 h-8" />
             <div className="text-xl font-extrabold tracking-tight text-slate-900 flex items-center">
-              <span>UIDis</span>
+              <span>UIDs</span>
               <span className="text-slate-800 font-semibold">.app</span>
             </div>
           </div>

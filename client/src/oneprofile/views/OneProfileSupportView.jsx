@@ -33,7 +33,7 @@ export default function OneProfileSupportView() {
         <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs">
           <Mail className="w-6 h-6 text-emerald-600 mb-3" />
           <h3 className="font-extrabold text-sm text-slate-900 mb-1">Developer Support</h3>
-          <p className="text-xs text-slate-500 mb-4">Direct ticket and email support from the UIDis infrastructure engineering team.</p>
+          <p className="text-xs text-slate-500 mb-4">Direct ticket and email support from the UIDs infrastructure engineering team.</p>
           <a href="mailto:support@tiwlo.com" className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1">
             <span>Contact Support</span>
             <ExternalLink className="w-3.5 h-3.5" />

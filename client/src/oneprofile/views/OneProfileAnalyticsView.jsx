@@ -20,7 +20,7 @@ export default function OneProfileAnalyticsView() {
     <div className="w-full space-y-6 pb-12 text-left">
       <div>
         <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Analytics & Telemetry</h2>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1">Live traffic telemetry from your UIDis websites and NFC contactless taps.</p>
+        <p className="text-xs sm:text-sm text-slate-500 mt-1">Live traffic telemetry from your UIDs websites and NFC contactless taps.</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

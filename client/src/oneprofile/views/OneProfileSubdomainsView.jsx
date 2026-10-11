@@ -8,15 +8,15 @@ export default function OneProfileSubdomainsView() {
 
   const subdomains = [
     {
-      domain: 'john.uidis.app',
-      target: 'edge.uidis.app (20MB Static)',
+      domain: 'john.uids.app',
+      target: 'edge.uids.app (20MB Static)',
       type: 'CNAME',
       status: 'Active',
       ssl: 'Valid',
       created: 'Oct 02, 2026',
     },
     {
-      domain: 'dev.uidis.app',
+      domain: 'dev.uids.app',
       target: 'cname.vercel-dns.com',
       type: 'CNAME',
       status: 'Active',
@@ -35,7 +35,7 @@ export default function OneProfileSubdomainsView() {
     <div className="w-full space-y-6 pb-12 text-left">
       <div>
         <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Subdomain Management</h2>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1">Claim, route, and manage DNS records for your .uidis.app subdomains.</p>
+        <p className="text-xs sm:text-sm text-slate-500 mt-1">Claim, route, and manage DNS records for your .uids.app subdomains.</p>
       </div>
 
       {/* In-Page Create Subdomain Console (No popup/modal) */}
@@ -55,7 +55,7 @@ export default function OneProfileSubdomainsView() {
               onChange={(e) => setNewSubdomain(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
               className="bg-transparent text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none w-full"
             />
-            <span className="text-xs font-bold text-slate-400 pl-2 shrink-0">.uidis.app</span>
+            <span className="text-xs font-bold text-slate-400 pl-2 shrink-0">.uids.app</span>
           </div>
 
           <button

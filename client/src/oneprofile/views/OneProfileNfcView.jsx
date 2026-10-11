@@ -10,7 +10,7 @@ export default function OneProfileNfcView() {
     <div className="w-full space-y-6 pb-12 text-left">
       <div>
         <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">NFC Business Cards</h2>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1">Order your smart contactless NFC card and share your UIDis profile with a single tap.</p>
+        <p className="text-xs sm:text-sm text-slate-500 mt-1">Order your smart contactless NFC card and share your UIDs profile with a single tap.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -58,7 +58,7 @@ export default function OneProfileNfcView() {
           {/* Linked Target */}
           <div className="p-3.5 rounded-xl bg-blue-50/60 border border-blue-100 text-xs">
             <span className="font-bold text-blue-900">Linked Profile: </span>
-            <span className="font-mono text-blue-700 font-semibold">https://john.uidis.app</span>
+            <span className="font-mono text-blue-700 font-semibold">https://john.uids.app</span>
             <p className="text-[11px] text-blue-600/80 mt-1">Whenever anyone taps your NFC card with an iPhone or Android, your live digital profile opens instantly.</p>
           </div>
 
@@ -101,14 +101,14 @@ export default function OneProfileNfcView() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <UidisLogoIcon className="w-5 h-5" />
-                <span className="text-xs font-extrabold tracking-tight">UIDis.app</span>
+                <span className="text-xs font-extrabold tracking-tight">UIDs.app</span>
               </div>
               <Wifi className="w-4 h-4 rotate-90 opacity-70" />
             </div>
 
             <div className="my-auto py-1">
               <div className="text-base font-extrabold tracking-wide">{customName || 'Your Name'}</div>
-              <div className="text-[10px] opacity-70 font-mono">john.uidis.app</div>
+              <div className="text-[10px] opacity-70 font-mono">john.uids.app</div>
             </div>
 
             <div className="flex items-center justify-between pt-1">

@@ -4,7 +4,7 @@ import { Globe, Plus, ExternalLink, Edit3, Trash2, CheckCircle2, ShieldCheck, Ey
 export default function OneProfileWebsitesView({ onNavigateTab }) {
   const sites = [
     {
-      domain: 'john.uidis.app',
+      domain: 'john.uids.app',
       title: "John Doe Portfolio",
       status: 'Live',
       template: 'Minimal Clean',
@@ -13,7 +13,7 @@ export default function OneProfileWebsitesView({ onNavigateTab }) {
       ssl: 'Active',
     },
     {
-      domain: 'dev.uidis.app',
+      domain: 'dev.uids.app',
       title: "Dev Notes & Projects",
       status: 'Live',
       template: 'Creative Portfolio',

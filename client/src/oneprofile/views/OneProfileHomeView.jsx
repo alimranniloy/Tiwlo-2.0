@@ -57,7 +57,7 @@ export default function OneProfileHomeView({ onNavigateTab }) {
           {/* Left Text & CTA Buttons */}
           <div className="max-w-xl">
             <div className="text-[11px] font-bold text-slate-400 tracking-widest uppercase mb-1.5">
-              WELCOME TO UIDIS.APP
+              WELCOME TO UIDS.APP
             </div>
             <h1 className="text-2xl sm:text-3xl lg:text-[38px] font-extrabold text-slate-900 tracking-tight leading-[1.15] mb-2.5">
               <span>Your Identity, </span>
@@ -103,7 +103,7 @@ export default function OneProfileHomeView({ onNavigateTab }) {
                 </div>
                 <div className="flex-1 bg-white border border-slate-200 rounded-md py-0.5 px-2 text-[9px] font-mono text-slate-500 flex items-center gap-1 truncate justify-center">
                   <span>🔍</span>
-                  <span className="truncate">john.uidis.app</span>
+                  <span className="truncate">john.uids.app</span>
                 </div>
               </div>
 
@@ -135,7 +135,7 @@ export default function OneProfileHomeView({ onNavigateTab }) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1">
                   <UidisLogoIcon className="w-3.5 h-3.5" />
-                  <span className="text-[9px] font-extrabold text-slate-900">UIDis.app</span>
+                  <span className="text-[9px] font-extrabold text-slate-900">UIDs.app</span>
                 </div>
               </div>
 
@@ -262,90 +262,95 @@ export default function OneProfileHomeView({ onNavigateTab }) {
         {/* Left Card: Your Website (50%) */}
         <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-between">
           <div>
-            {/* Header */}
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm sm:text-base font-extrabold text-slate-900">Your Website</h3>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] text-[10px] font-semibold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#059669]" />
-                  <span>Live</span>
-                </span>
-              </div>
-
-              <a
-                href="https://john.uidis.app"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-[#2563EB] hover:underline"
-              >
-                <span>john.uidis.app</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
+            {/* Header: Exact match to screenshot - Only Title and Live badge */}
+            <div className="flex items-center gap-2 mb-3.5">
+              <h3 className="text-sm sm:text-base font-extrabold text-slate-900">Your Website</h3>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] text-[10px] font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#059669]" />
+                <span>Live</span>
+              </span>
             </div>
 
-            {/* Inner framed website preview & actions matching screenshot */}
-            <div className="rounded-xl border border-slate-100 bg-[#F8FAFC]/80 p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
-              {/* Profile Card Summary */}
-              <div className="flex-1 text-left min-w-0">
-                <div className="text-[10px] text-slate-400 font-medium">Hi, I'm</div>
-                <div className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">John Doe</div>
-                <div className="text-[11px] font-semibold text-slate-500 mb-1">Designer & Developer</div>
-                <p className="text-[10px] text-slate-400 leading-relaxed mb-3 max-w-[190px]">
-                  Building digital experiences that make an impact.
-                </p>
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-md bg-slate-900 text-white text-[9px] font-bold">Contact Me</span>
-                  <div className="flex items-center gap-1.5 text-slate-500 text-[10px]">
-                    <span className="font-bold">𝕏</span>
-                    <span className="font-bold">in</span>
-                    <span className="font-bold">🌐</span>
+            {/* Inner Content: Website Preview on Left (flex-1) + Action Column on Right */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-3.5">
+              {/* Framed Website Mini-Preview Card */}
+              <div className="flex-1 min-w-0 rounded-xl border border-slate-100 bg-[#F8FAFC] p-3 sm:p-3.5 flex items-center justify-between gap-2.5 sm:gap-3 overflow-hidden">
+                {/* Profile Card Summary */}
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="text-[10px] text-slate-400 font-medium leading-none">Hi, I'm</div>
+                  <div className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight mt-0.5 truncate">John Doe</div>
+                  <div className="text-[10px] sm:text-[11px] font-semibold text-slate-500 mb-1 truncate">Designer & Developer</div>
+                  <p className="text-[9px] sm:text-[10px] text-slate-400 leading-snug mb-2 line-clamp-2">
+                    Building digital experiences that make an impact.
+                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded bg-slate-900 text-white text-[8px] font-bold">Contact Me</span>
+                    <div className="flex items-center gap-1 text-slate-400 text-[9px]">
+                      <span className="font-bold">𝕏</span>
+                      <span className="font-bold">in</span>
+                      <span className="font-bold">🌐</span>
+                    </div>
                   </div>
+                </div>
+
+                {/* Photo Portrait of John Doe */}
+                <div className="w-20 sm:w-24 h-24 sm:h-28 rounded-xl overflow-hidden bg-slate-200 shrink-0 shadow-2xs">
+                  <img
+                    src={johnAvatar}
+                    alt="John Doe Portrait"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               </div>
 
-              {/* Photo Portrait of John Doe */}
-              <div className="w-24 h-28 sm:w-28 sm:h-32 rounded-xl overflow-hidden bg-slate-200 shrink-0 shadow-xs">
-                <img
-                  src={johnAvatar}
-                  alt="John Doe Portrait"
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              {/* Right Action Column: Link on Top, Buttons Stacked - Guaranteed no wrapping */}
+              <div className="w-full sm:w-36 md:w-40 shrink-0 flex flex-col justify-between gap-2 text-left">
+                {/* Domain Link matching screenshot */}
+                <a
+                  href="https://john.uids.app"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-start gap-1 text-xs font-semibold text-[#2563EB] hover:underline"
+                >
+                  <span className="truncate">john.uids.app</span>
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                </a>
 
-              {/* Right Action Buttons */}
-              <div className="flex flex-col gap-2 w-full sm:w-36 shrink-0">
+                {/* Primary: Edit Website */}
                 <button
                   type="button"
                   onClick={() => onNavigateTab && onNavigateTab('website')}
-                  className="w-full py-2 px-3 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow-2xs"
+                  className="w-full py-2 px-3 rounded-xl bg-[#2563EB] hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 whitespace-nowrap transition active:scale-95 shadow-2xs"
                 >
-                  <Edit3 className="w-3.5 h-3.5" />
+                  <Edit3 className="w-3.5 h-3.5 shrink-0" />
                   <span>Edit Website</span>
                 </button>
 
+                {/* Secondary: Change Template - Guaranteed no wrapping */}
                 <button
                   type="button"
                   onClick={() => onNavigateTab && onNavigateTab('templates')}
-                  className="w-full py-2 px-3 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1.5 transition"
+                  className="w-full py-2 px-3 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1.5 whitespace-nowrap transition active:scale-95"
                 >
-                  <LayoutGrid className="w-3.5 h-3.5 text-slate-500" />
+                  <LayoutGrid className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                   <span>Change Template</span>
                 </button>
 
-                <div className="flex items-center gap-1.5">
+                {/* Row: View Site + More Options */}
+                <div className="flex items-center gap-1.5 w-full">
                   <a
-                    href="https://john.uidis.app"
+                    href="https://john.uids.app"
                     target="_blank"
                     rel="noreferrer"
-                    className="flex-1 py-2 px-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1 transition text-center"
+                    className="flex-1 py-1.5 px-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1 whitespace-nowrap transition text-center"
                   >
-                    <ExternalLink className="w-3 h-3 text-slate-500" />
+                    <ExternalLink className="w-3 h-3 text-slate-500 shrink-0" />
                     <span>View Site</span>
                   </a>
 
                   <button
                     type="button"
-                    className="p-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 transition"
+                    className="p-1.5 w-8 h-8 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 flex items-center justify-center shrink-0 transition"
                     title="More options"
                   >
                     <MoreHorizontal className="w-3.5 h-3.5" />
@@ -377,7 +382,7 @@ export default function OneProfileHomeView({ onNavigateTab }) {
                   </div>
                   <div className="min-w-0">
                     <div className="text-xs font-bold text-slate-900 truncate">Create Subdomain</div>
-                    <div className="text-[10px] text-slate-500 truncate">Get your free .uidis.app</div>
+                    <div className="text-[10px] text-slate-500 truncate">Get your free .uids.app</div>
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-[#2563EB] group-hover:translate-x-0.5 transition-transform shrink-0" />
@@ -679,7 +684,7 @@ export default function OneProfileHomeView({ onNavigateTab }) {
                 <div className="relative w-20 h-16 mt-3">
                   {/* Back dark card */}
                   <div className="absolute left-0 bottom-0 w-16 h-11 rounded-lg bg-slate-900 text-white flex items-center justify-between px-1.5 shadow-md -rotate-6">
-                    <span className="text-[7px] font-bold">UIDis</span>
+                    <span className="text-[7px] font-bold">UIDs</span>
                     <Wifi className="w-2.5 h-2.5 text-slate-300 rotate-90" />
                   </div>
                   {/* Front white card */}

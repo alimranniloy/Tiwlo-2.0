@@ -30,4 +30,5 @@ export function UidisLogoIcon({ className = "w-8 h-8" }) {
   );
 }
 
+export const UidsLogoIcon = UidisLogoIcon;
 export default UidisLogoIcon;

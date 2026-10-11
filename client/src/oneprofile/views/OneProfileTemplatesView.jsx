@@ -71,7 +71,7 @@ export default function OneProfileTemplatesView({ onNavigateTab }) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Website Templates</h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">Select and switch themes for your live UIDis website with one click.</p>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">Select and switch themes for your live UIDs website with one click.</p>
         </div>
       </div>
 

@@ -22,7 +22,7 @@ export default function OneProfileBillingView() {
             <ul className="space-y-2 text-xs text-slate-700 font-medium mb-6">
               <li className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-600 stroke-[3]" />
-                <span>1 Live Website on your own .uidis.app subdomain</span>
+                <span>1 Live Website on your own .uids.app subdomain</span>
               </li>
               <li className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-600 stroke-[3]" />
@@ -53,7 +53,7 @@ export default function OneProfileBillingView() {
             <ul className="space-y-2 text-xs text-slate-700 font-medium mb-6">
               <li className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-[#2563EB] stroke-[3]" />
-                <span>Unlimited .uidis.app subdomains</span>
+                <span>Unlimited .uids.app subdomains</span>
               </li>
               <li className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-[#2563EB] stroke-[3]" />

@@ -76,7 +76,7 @@ export default function OneProfileTopBar({
               <div className="divide-y divide-slate-50 text-xs">
                 <div className="px-4 py-2.5 hover:bg-slate-50 transition cursor-pointer">
                   <div className="font-semibold text-slate-800">Domain active</div>
-                  <div className="text-slate-500 text-[11px] mt-0.5">john.uidis.app is now live on Anycast edge.</div>
+                  <div className="text-slate-500 text-[11px] mt-0.5">john.uids.app is now live on Anycast edge.</div>
                 </div>
                 <div className="px-4 py-2.5 hover:bg-slate-50 transition cursor-pointer">
                   <div className="font-semibold text-slate-800">NFC Card shipped</div>
