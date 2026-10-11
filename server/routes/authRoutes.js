@@ -89,6 +89,21 @@ export function clearSessionCookie(res, req) {
   res.clearCookie('tiwlo_session');
 }
 
+function migrateSessionCookie(res, req, sessionToken) {
+  const host = (req?.headers?.host || req?.hostname || '').toLowerCase().replace(/:\d+$/, '');
+  const cookieParentDomain = PLATFORM_CONFIG.cookieDomain.replace(/^\./, '');
+  const isSharedCookieHost = [
+    PLATFORM_CONFIG.primaryDomain,
+    PLATFORM_CONFIG.storeDomain,
+    cookieParentDomain,
+    PLATFORM_CONFIG.authDomain
+  ].some(domain => host === domain || host.endsWith(`.${domain}`));
+
+  if (isSharedCookieHost && sessionToken) {
+    setSessionCookie(res, req, sessionToken);
+  }
+}
+
 function maskEmail(em) {
   if (!em || !em.includes('@')) return em || '';
   const [u, d] = em.split('@');
@@ -1278,6 +1293,7 @@ router.get('/auth/session', async (req, res) => {
 
     const { user } = sessionData;
     const tiwiId = user.tiwiId || user.storeId;
+    migrateSessionCookie(res, req, token);
 
     res.json({
       authenticated: true,
@@ -1336,6 +1352,7 @@ router.get('/auth/me', async (req, res) => {
     }
 
     const tiwiId = freshUser.tiwiId || freshUser.storeId || null;
+    migrateSessionCookie(res, req, token);
 
     res.json({
       success: true,
@@ -1399,6 +1416,7 @@ router.get('/auth/sync-session', async (req, res) => {
     }
 
     const tiwiId = freshUser.tiwiId || freshUser.storeId || null;
+    migrateSessionCookie(res, req, token);
 
     res.json({
       success: true,
