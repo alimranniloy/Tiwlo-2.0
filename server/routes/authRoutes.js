@@ -1454,12 +1454,12 @@ router.get('/auth/sso/web-start', async (req, res) => {
 
     const token = getRequestSessionToken(req);
     if (!token) {
-      return res.redirect(`https://auth.uids.app/login?return_to=${encodeURIComponent(returnTo)}`);
+      return res.redirect(`https://auth.uids.app/login?return_to=${encodeURIComponent(returnTo)}&sso_login=1`);
     }
 
     const sessionData = await MasterDB.getSession(token, req);
     if (!sessionData?.user) {
-      return res.redirect(`https://auth.uids.app/login?return_to=${encodeURIComponent(returnTo)}`);
+      return res.redirect(`https://auth.uids.app/login?return_to=${encodeURIComponent(returnTo)}&sso_login=1`);
     }
 
     const user = sessionData.user;

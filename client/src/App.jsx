@@ -547,15 +547,11 @@ export default function App() {
         return;
       }
       const initialPath = window.location.pathname.replace(/^\/+|\/+$/g, '');
-      if (!isAuthHost && (initialPath === 'login' || initialPath === 'signin')) {
-        if (isMounted) setAuthChecking(false);
-        return;
-      }
-
       const ssoToken = searchParams.get('sso_token');
       const ssoNonce = searchParams.get('sso_nonce');
       const returnTo = searchParams.get('return_to');
-      if (isAuthHost && returnTo && !ssoToken) {
+      const ssoLoginMode = searchParams.get('sso_login') === '1';
+      if (isAuthHost && returnTo && !ssoToken && !ssoLoginMode) {
         const bridgeUrl = `${getMainAppUrl('/api/auth/sso/web-start')}?return_to=${encodeURIComponent(returnTo)}`;
         window.location.replace(bridgeUrl);
         return;
@@ -604,12 +600,15 @@ export default function App() {
                   return;
                 }
                 const safeRedirect = getSafeRedirectPath(searchParams.get('redirect'));
+                const safeReturnTo = returnTo && /^https:\/\/(my\.uids\.app|tiwlo\.com)(\/|$)/i.test(returnTo)
+                  ? returnTo
+                  : null;
                 const isSuper = data.user.role === 'super_admin' || data.user.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
                 const target = safeRedirect && !searchParams.has('dashboard')
                   ? safeRedirect
                   : (isSuper ? '/administrator' : null);
                 window.location.replace(
-                  target ? getMainAppUrl(target) : getMainAppUrl('/')
+                  safeReturnTo || (target ? getMainAppUrl(target) : getMainAppUrl('/'))
                 );
                 return;
               }
