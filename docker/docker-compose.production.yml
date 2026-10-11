@@ -16,6 +16,41 @@ services:
       retries: 12
     networks: [tiwlo]
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - tiwlo_redisdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks: [tiwlo]
+
+  rust:
+    build:
+      context: ..
+      dockerfile: server/rust-backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      TIWLO_RUST_BIND: 0.0.0.0:7100
+      TIWLO_NODE_BACKEND_URL: http://app:5000
+      TIWLO_RUST_RATE_LIMIT: ${TIWLO_RUST_RATE_LIMIT:-120}
+      TIWLO_RUST_MAX_BODY_BYTES: ${TIWLO_RUST_MAX_BODY_BYTES:-1048576}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:7100/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    depends_on:
+      app:
+        condition: service_started
+    networks: [tiwlo]
+
   app:
     build:
       context: ..
@@ -35,11 +70,14 @@ services:
       DB_USER: ${POSTGRES_USER:-tiwlo}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_NAME: ${POSTGRES_DB:-tiwlo_master}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
     volumes:
       - tiwlo_uploads:/app/upload
       - tiwlo_app_data:/app/server/data
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks: [tiwlo]
 
@@ -61,6 +99,7 @@ services:
 
 volumes:
   tiwlo_pgdata:
+  tiwlo_redisdata:
   tiwlo_uploads:
   caddy_data:
   caddy_config:

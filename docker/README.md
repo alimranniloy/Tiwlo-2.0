@@ -7,6 +7,8 @@ This directory contains the production-grade Docker and PostgreSQL 16 infrastruc
 | Service | Port | Description |
 | :--- | :--- | :--- |
 | **`postgres`** | `5432` | PostgreSQL 16 Alpine Multi-Tenant Engine |
+| **`redis`** | private | Redis 7 queue/cache/rate-limit boundary |
+| **`rust`** | private `7100` | Rust edge and policy services |
 | **`pgadmin`** | `5050` | pgAdmin 4 Web GUI (http://localhost:5050) |
 | **`app`** | `5000` / `5173` | Tiwlo Node.js Backend & Client |
 
@@ -48,3 +50,15 @@ docker-compose -f docker/docker-compose.yml down
      - `store_settings`: Store metadata, currency, logo, and policies
 
 When a store is registered via `POST /api/auth/register`, the backend automatically calls `provision_store_schema('store_tiw_XXXXX')` to initialize all tenant tables instantly.
+
+## Production service boundaries
+
+The production compose stack keeps the public entrypoint in Caddy. Node.js
+continues to own authentication, business transactions, and PostgreSQL writes.
+Rust runs as a private health-checked service for edge, media, domain, and
+session policy workloads. Redis is private and password-protected; Node.js may
+use it for distributed rate limits, queues, and cache coordination.
+
+The Rust service is not wired as a public proxy yet. It must pass contract
+tests, staging traffic, load tests, and rollback verification before any Node.js
+route is removed.
