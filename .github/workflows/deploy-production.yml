@@ -1,0 +1,111 @@
+name: Deploy Tiwlo production
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: tiwlo-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy latest main to production
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Validate deployment configuration
+        env:
+          DEPLOY_HOST: ${{ vars.TIWLO_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.TIWLO_DEPLOY_USER }}
+          DEPLOY_PATH: ${{ vars.TIWLO_DEPLOY_PATH }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.TIWLO_DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_SSH_KEY: ${{ secrets.TIWLO_DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_PATH DEPLOY_KNOWN_HOSTS DEPLOY_SSH_KEY; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Configure the GitHub Actions variable or secret: $name"
+              exit 1
+            fi
+          done
+          if [[ ! "$DEPLOY_HOST" =~ ^[A-Za-z0-9.-]+$ ]]; then
+            echo "::error::TIWLO_DEPLOY_HOST must be a hostname or IP address."
+            exit 1
+          fi
+          if [[ ! "$DEPLOY_USER" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]]; then
+            echo "::error::TIWLO_DEPLOY_USER has an invalid format."
+            exit 1
+          fi
+          if [[ ! "$DEPLOY_PATH" =~ ^/[A-Za-z0-9._/-]+$ ]]; then
+            echo "::error::TIWLO_DEPLOY_PATH must be an absolute path without shell-special characters."
+            exit 1
+          fi
+          if [[ "$DEPLOY_KNOWN_HOSTS" == *$'\n'* ]]; then
+            echo "::error::TIWLO_DEPLOY_KNOWN_HOSTS must contain one verified host-key line."
+            exit 1
+          fi
+
+      - name: Configure pinned SSH access
+        env:
+          DEPLOY_KNOWN_HOSTS: ${{ vars.TIWLO_DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_SSH_KEY: ${{ secrets.TIWLO_DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/tiwlo_deploy"
+          chmod 600 "$HOME/.ssh/tiwlo_deploy"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Update and deploy the live server
+        env:
+          DEPLOY_HOST: ${{ vars.TIWLO_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.TIWLO_DEPLOY_USER }}
+          DEPLOY_PATH: ${{ vars.TIWLO_DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          ssh \
+            -i "$HOME/.ssh/tiwlo_deploy" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            "$DEPLOY_USER@$DEPLOY_HOST" bash -s -- "$DEPLOY_PATH" <<'REMOTE'
+          set -Eeuo pipefail
+          deploy_path="$1"
+
+          if [[ ! -d "$deploy_path/.git" ]]; then
+            echo "Deployment path is not a Git checkout: $deploy_path"
+            exit 1
+          fi
+          if [[ ! -f "$deploy_path/.env" ]]; then
+            echo "The live server is missing its private .env file; configure it before deploying."
+            exit 1
+          fi
+          if ! grep -Eq '^SECURITY_SECRET=.{32,}$' "$deploy_path/.env"; then
+            echo "The live server .env must contain a SECURITY_SECRET of at least 32 characters."
+            exit 1
+          fi
+          if [[ "$(git -C "$deploy_path" branch --show-current)" != "main" ]]; then
+            echo "The live server checkout must be on the main branch."
+            exit 1
+          fi
+          if [[ -n "$(git -C "$deploy_path" status --porcelain)" ]]; then
+            echo "The live server checkout has local changes; refusing to overwrite them."
+            exit 1
+          fi
+
+          git -C "$deploy_path" fetch origin main
+          git -C "$deploy_path" merge --ff-only origin/main
+          cd "$deploy_path"
+          sudo -n npm run deploy:live
+          sudo -n systemctl is-active --quiet tiwlo-rust
+          if ! curl --fail --silent http://127.0.0.1:5001/api/health >/dev/null &&
+             ! curl --fail --silent http://127.0.0.1:5000/api/health >/dev/null; then
+            echo "The deployed Node API did not pass its local health check."
+            exit 1
+          fi
+          echo "Production deployment and health checks succeeded."
+          REMOTE
