@@ -12,7 +12,7 @@ function rustDnsEnabled() {
 
 function getRustBackendUrl() {
   const value = String(process.env.TIWLO_RUST_BACKEND_URL || '').trim().replace(/\/+$/, '');
-  if (!value) throw new Error('TIWLO_RUST_BACKEND_URL must be configured when Rust domain claims are enabled.');
+  if (!value) throw new Error('TIWLO_RUST_BACKEND_URL must be configured when a Rust feature is enabled.');
   return value;
 }
 

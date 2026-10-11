@@ -23,6 +23,7 @@ pub enum IdentityError {
     InvalidSignature,
     Expired,
     InvalidSubject,
+    InvalidSignal,
 }
 
 pub fn sign(assertion: &IdentityAssertion, secret: &str) -> Result<String, IdentityError> {
@@ -60,6 +61,15 @@ pub fn verify(token: &str, secret: &str) -> Result<IdentityAssertion, IdentityEr
     if !valid_subject(&assertion.user_id) {
         return Err(IdentityError::InvalidSubject);
     }
+    if !valid_hash(&assertion.ip_hash)
+        || !assertion
+            .device_hash
+            .as_deref()
+            .map_or(true, valid_hash)
+        || !valid_hash(&assertion.email_hash)
+    {
+        return Err(IdentityError::InvalidSignal);
+    }
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|_| IdentityError::Malformed)?
@@ -72,6 +82,13 @@ pub fn verify(token: &str, secret: &str) -> Result<IdentityAssertion, IdentityEr
 
 fn valid_subject(value: &str) -> bool {
     !value.is_empty() && value.len() <= 128 && !value.bytes().any(|byte| byte < 0x20)
+}
+
+fn valid_hash(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 #[cfg(test)]
@@ -104,6 +121,28 @@ mod tests {
         assert!(matches!(
             verify(&tampered, "test-secret"),
             Err(IdentityError::InvalidSignature)
+        ));
+    }
+
+    #[test]
+    fn rejects_malformed_signal_hashes() {
+        let mut invalid = assertion();
+        invalid.ip_hash = "not-a-hash".to_owned();
+        let token = sign(&invalid, "test-secret").expect("token");
+        assert!(matches!(
+            verify(&token, "test-secret"),
+            Err(IdentityError::InvalidSignal)
+        ));
+    }
+
+    #[test]
+    fn rejects_uppercase_signal_hashes() {
+        let mut invalid = assertion();
+        invalid.email_hash = "A".repeat(64);
+        let token = sign(&invalid, "test-secret").expect("token");
+        assert!(matches!(
+            verify(&token, "test-secret"),
+            Err(IdentityError::InvalidSignal)
         ));
     }
 }
