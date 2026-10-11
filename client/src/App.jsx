@@ -556,7 +556,7 @@ export default function App() {
         window.location.replace(bridgeUrl);
         return;
       }
-      if (isAuthHost && ssoToken && ssoNonce) {
+      if (ssoToken && ssoNonce) {
         const consumeResponse = await fetch(`${API_BASE}/auth/sso/consume-handshake`, {
           method: 'POST',
           credentials: 'include',
