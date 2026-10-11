@@ -59,9 +59,9 @@ impl Repository {
         let pool = PgPoolOptions::new()
             .max_connections(10)
             .min_connections(1)
-            .acquire_timeout(std::time::Duration::from_secs(5))
-            .connect(database_url)
-            .await?;
+                .acquire_timeout(std::time::Duration::from_secs(5))
+                .connect(database_url)
+                .await?;
         Ok(Self { pool })
     }
 
@@ -278,7 +278,14 @@ impl Repository {
         .bind(policy.ttl as i32)
         .bind(user_id)
         .fetch_optional(&self.pool)
-        .await?;
+        .await
+        .map_err(|error| {
+            if is_unique_violation(&error) {
+                RepositoryError::Conflict("dns_record_already_exists")
+            } else {
+                RepositoryError::Database(error)
+            }
+        })?;
 
         match row {
             Some(row) => Ok(DnsRecord::from_row(row)),
@@ -320,7 +327,14 @@ impl Repository {
         .bind(subdomain_id)
         .bind(user_id)
         .fetch_optional(&self.pool)
-        .await?;
+        .await
+        .map_err(|error| {
+            if is_unique_violation(&error) {
+                RepositoryError::Conflict("dns_record_already_exists")
+            } else {
+                RepositoryError::Database(error)
+            }
+        })?;
 
         row.map(DnsRecord::from_row)
             .ok_or(RepositoryError::NotFound("dns_record_not_found"))

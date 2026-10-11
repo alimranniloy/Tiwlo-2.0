@@ -262,6 +262,10 @@ pub async fn create_dns_record(
             StatusCode::UNPROCESSABLE_ENTITY,
             Json(serde_json::json!({"error": reason})),
         ),
+        Err(crate::repository::RepositoryError::Conflict(reason)) => (
+            StatusCode::CONFLICT,
+            Json(serde_json::json!({"error": reason})),
+        ),
         Err(crate::repository::RepositoryError::Database(_)) => (
             StatusCode::SERVICE_UNAVAILABLE,
             Json(serde_json::json!({"error": "database_error"})),
@@ -307,6 +311,10 @@ pub async fn update_dns_record(
         ),
         Err(crate::repository::RepositoryError::Policy(reason)) => (
             StatusCode::UNPROCESSABLE_ENTITY,
+            Json(serde_json::json!({"error": reason})),
+        ),
+        Err(crate::repository::RepositoryError::Conflict(reason)) => (
+            StatusCode::CONFLICT,
             Json(serde_json::json!({"error": reason})),
         ),
         Err(crate::repository::RepositoryError::Database(_)) => (

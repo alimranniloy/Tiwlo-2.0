@@ -65,13 +65,18 @@ Every request receives security headers and an `x-request-id`. Requests are
 limited per connected source IP (120 per minute by default) and bodies are
 limited to 1 MiB. Change the limits with `TIWLO_RUST_RATE_LIMIT`.
 
+DNS record create/update returns `409 Conflict` with
+`dns_record_already_exists` when the database uniqueness constraint is hit.
+The delete endpoint returns an empty `204 No Content` response.
+
 `/metrics` is intended for a private monitoring network only. It reports
 process-local counters; deploy Prometheus scraping and aggregation before
 using these values for autoscaling decisions.
 
 This service is an edge/backend foundation, not yet a replacement for the
-Node.js business API. It deliberately does not accept account, domain, or
-database writes until those contracts are implemented and tested.
+Node.js business API. Domain claims and DNS writes remain feature-flagged and
+must complete PostgreSQL integration, staging, load, and rollback testing
+before becoming production defaults.
 
 The domain endpoint only validates syntax and reserved names; PostgreSQL remains
 the source of truth for availability and atomic claims. The account endpoint
