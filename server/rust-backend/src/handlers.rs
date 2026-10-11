@@ -5,6 +5,10 @@ use axum::{
     response::IntoResponse,
     Json,
 };
+use axum_extra::{
+    headers::{Header, HeaderName, HeaderValue as TypedHeaderValue},
+    TypedHeader,
+};
 use serde::Serialize;
 
 const SERVICE_NAME: &str = "tiwlo-rust-backend";
@@ -137,6 +141,104 @@ pub struct DomainAvailabilityResponse {
     pub available: bool,
     pub domain: String,
     pub status: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+pub struct ClaimRequest {
+    pub name: String,
+}
+
+#[derive(Serialize)]
+pub struct ClaimResponse {
+    pub id: String,
+    pub subdomain: String,
+    pub domain: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct IdentityHeader(pub String);
+
+impl Header for IdentityHeader {
+    fn name() -> &'static HeaderName {
+        static NAME: HeaderName = HeaderName::from_static("x-tiwlo-identity");
+        &NAME
+    }
+
+    fn decode<'i, I>(values: &mut I) -> Option<Self>
+    where
+        I: Iterator<Item = &'i TypedHeaderValue>,
+    {
+        values.next().and_then(|value| {
+            value
+                .to_str()
+                .ok()
+                .map(|token| Self(token.to_owned()))
+        })
+    }
+
+    fn encode<E>(&self, values: &mut E)
+    where
+        E: Extend<TypedHeaderValue>,
+    {
+        if let Ok(value) = TypedHeaderValue::from_str(&self.0) {
+            values.extend(std::iter::once(value));
+        }
+    }
+}
+
+pub async fn claim_domain(
+    State(state): State<AppState>,
+    TypedHeader(identity): TypedHeader<IdentityHeader>,
+    Json(request): Json<ClaimRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let assertion = match crate::identity::verify(&identity.0, &state.identity_secret) {
+        Ok(assertion) => assertion,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({"error": "invalid_internal_identity"})),
+            )
+        }
+    };
+    let validation = domain::validate(&request.name, "uids.app");
+    if !validation.available_format {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(serde_json::json!({"error": "invalid_or_reserved_subdomain"})),
+        );
+    }
+    let Some(repository) = state.repository.as_ref() else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error": "database_unavailable"})),
+        );
+    };
+    match repository
+        .claim_domain(&assertion.user_id, &validation.name, &validation.domain)
+        .await
+    {
+        Ok(claimed) => (
+            StatusCode::CREATED,
+            Json(serde_json::json!(ClaimResponse {
+                id: claimed.id,
+                subdomain: claimed.subdomain,
+                domain: claimed.domain,
+            })),
+        ),
+        Err(crate::repository::RepositoryError::NotFound(reason)) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": reason})),
+        ),
+        Err(crate::repository::RepositoryError::Policy(reason))
+        | Err(crate::repository::RepositoryError::Conflict(reason)) => (
+            StatusCode::CONFLICT,
+            Json(serde_json::json!({"error": reason})),
+        ),
+        Err(crate::repository::RepositoryError::Database(_)) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error": "database_error"})),
+        ),
+    }
 }
 
 pub async fn account_policy(

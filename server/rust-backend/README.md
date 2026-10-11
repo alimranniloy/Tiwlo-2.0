@@ -114,6 +114,13 @@ domain service remains the production route until this repository has
 integration tests against the real schema and a trusted authenticated identity
 bridge.
 
+`POST /v1/domains/claim` accepts only a short-lived HMAC-signed internal
+identity assertion in `x-tiwlo-identity`; it never trusts a caller-supplied
+`user_id`. Set `TIWLO_INTERNAL_IDENTITY_SECRET` to a long random value shared
+only by the trusted internal caller and Rust service. The endpoint is not a
+replacement for the Node route until the Node caller emits this contract and
+staging integration tests pass.
+
 ## Migration rule
 
 Do not delete or bypass the Node.js backend for a Rust service until the Rust

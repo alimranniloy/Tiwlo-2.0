@@ -15,6 +15,7 @@ pub struct AppState {
     pub redis_configured: bool,
     pub metrics: Arc<Metrics>,
     pub repository: Option<Arc<Repository>>,
+    pub identity_secret: Arc<str>,
 }
 
 impl AppState {
@@ -27,6 +28,7 @@ impl AppState {
             redis_configured: !config.redis_url.is_empty(),
             metrics: Arc::new(Metrics::default()),
             repository,
+            identity_secret: Arc::from(config.identity_secret.clone()),
         }
     }
 }

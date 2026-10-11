@@ -7,6 +7,7 @@ pub struct Config {
     pub node_backend_url: String,
     pub postgres_url: String,
     pub redis_url: String,
+    pub identity_secret: String,
 }
 
 impl Config {
@@ -26,6 +27,7 @@ impl Config {
             node_backend_url: env::var("TIWLO_NODE_BACKEND_URL").unwrap_or_default(),
             postgres_url: env::var("DATABASE_URL").unwrap_or_default(),
             redis_url: env::var("REDIS_URL").unwrap_or_default(),
+            identity_secret: env::var("TIWLO_INTERNAL_IDENTITY_SECRET").unwrap_or_default(),
         })
     }
 }
