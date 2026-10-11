@@ -115,7 +115,7 @@ router.get('/:id/records', async (req, res) => {
     }
     res.json({ records: await listSubdomainRecords({ userId: req.activeUser.id, subdomainId: req.params.id }) });
   } catch (error) {
-    if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
+    if (error.statusCode) return sendSubdomainError(res, error);
     console.error('[SubdomainRoutes] DNS record list failed:', error);
     res.status(500).json({ error: 'Could not load DNS records.' });
   }
@@ -140,7 +140,7 @@ router.post('/:id/records', async (req, res) => {
 
     res.status(201).json({ record });
   } catch (error) {
-    if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
+    if (error.statusCode) return sendSubdomainError(res, error);
     console.error('[SubdomainRoutes] DNS record create failed:', error);
     res.status(500).json({ error: 'Could not create DNS record.' });
   }

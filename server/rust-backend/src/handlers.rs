@@ -157,10 +157,16 @@ pub struct ClaimResponse {
 
 #[derive(serde::Deserialize)]
 pub struct DnsRecordRequest {
+    #[serde(alias = "type")]
     pub record_type: String,
     pub name: String,
     pub value: String,
+    #[serde(default = "default_dns_ttl")]
     pub ttl: u32,
+}
+
+fn default_dns_ttl() -> u32 {
+    300
 }
 
 #[derive(Serialize)]
@@ -188,6 +194,20 @@ fn dns_record_response(record: crate::repository::DnsRecord) -> DnsRecordRespons
         name: record.name,
         value: record.value,
         ttl: record.ttl,
+    }
+}
+
+#[cfg(test)]
+mod dns_request_tests {
+    use super::DnsRecordRequest;
+
+    #[test]
+    fn accepts_node_dns_payload_shape_and_default_ttl() {
+        let request: DnsRecordRequest =
+            serde_json::from_str(r#"{"type":"A","name":"@","value":"192.0.2.1"}"#)
+                .expect("Node-compatible DNS payload");
+        assert_eq!(request.record_type, "A");
+        assert_eq!(request.ttl, 300);
     }
 }
 
