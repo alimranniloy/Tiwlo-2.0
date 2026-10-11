@@ -181,13 +181,15 @@ async function handleDnsRequest(request, send, rinfo) {
         [queryDomain]
       );
       claimedSubdomain = domainRows.length > 0;
-      const { rows } = claimedSubdomain ? await queryPg(
-        `SELECT type, name, value, ttl
-         FROM system_free_subdomain_records r
-         JOIN system_free_subdomains d ON d.id = r.subdomain_id
-         WHERE d.domain = $1 AND d.status = 'active'`,
-        [queryDomain]
-      ) : [];
+      const rows = claimedSubdomain
+        ? (await queryPg(
+          `SELECT type, name, value, ttl
+           FROM system_free_subdomain_records r
+           JOIN system_free_subdomains d ON d.id = r.subdomain_id
+           WHERE d.domain = $1 AND d.status = 'active'`,
+          [queryDomain]
+        )).rows
+        : [];
       for (const record of rows) {
         const name = question.name;
         if (record.type === 'A' && queryType === Packet.TYPE.A) {
