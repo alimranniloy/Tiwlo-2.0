@@ -571,11 +571,11 @@ export default function App() {
                 }
                 const safeRedirect = getSafeRedirectPath(searchParams.get('redirect'));
                 const isSuper = data.user.role === 'super_admin' || data.user.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
-                const dashboardReturn = searchParams.get('dashboard') === '1';
-                const target = safeRedirect || (isSuper ? '/administrator' : null);
+                const target = safeRedirect && !searchParams.has('dashboard')
+                  ? safeRedirect
+                  : (isSuper ? '/administrator' : null);
                 window.location.replace(
-                  dashboardReturn ? getDashboardUrl('/oneprofile') :
-                    (target ? getMainAppUrl(target) : getDashboardUrl('/oneprofile'))
+                  target ? getMainAppUrl(target) : getMainAppUrl('/')
                 );
                 return;
               }
@@ -672,8 +672,9 @@ export default function App() {
             const requestedPath = isTpanelRoute && !path
               ? `/tpanel${window.location.search}`
               : window.location.pathname + window.location.search;
-            const dashboardQuery = isDashboardSubdomain() ? '&dashboard=1' : '';
-            window.location.replace(getAuthUrl(`/login?redirect=${encodeURIComponent(requestedPath)}${dashboardQuery}`));
+            const redirectQuery = isDashboardSubdomain() ? '' :
+              `redirect=${encodeURIComponent(requestedPath)}`;
+            window.location.replace(getAuthUrl(`/login${redirectQuery ? `?${redirectQuery}` : ''}`));
           }
         }
       }
@@ -776,19 +777,14 @@ export default function App() {
     if (isAuthSubdomain()) {
       sessionStorage.removeItem('tiwlo_explicit_logout');
       const searchParams = new URLSearchParams(window.location.search);
-      const redirectUrl = searchParams.get('redirect');
+      const redirectUrl = searchParams.has('dashboard') ? null : searchParams.get('redirect');
 
       if (searchParams.get('mail_return') === '1') {
         window.location.replace(getMailUrl());
         return;
       }
 
-      if (searchParams.get('dashboard') === '1') {
-        window.location.replace(getDashboardUrl('/oneprofile'));
-        return;
-      }
-
-      let targetPath = '/dashboard';
+      let targetPath = '/';
       if (redirectUrl) {
         targetPath = redirectUrl;
       } else if (user?.role === 'super_admin' || user?.email === 'tiwloltd@gmail.com') {
@@ -815,12 +811,11 @@ export default function App() {
         window.location.replace(getMailUrl());
         return;
       }
-      if (new URLSearchParams(window.location.search).get('dashboard') === '1') {
-        window.location.replace(getDashboardUrl('/oneprofile'));
-        return;
-      }
       const isSuper = user?.role === 'super_admin' || user?.email === 'tiwloltd@gmail.com';
-      const requestedRedirect = getSafeRedirectPath(new URLSearchParams(window.location.search).get('redirect'));
+      const registerParams = new URLSearchParams(window.location.search);
+      const requestedRedirect = registerParams.has('dashboard')
+        ? null
+        : getSafeRedirectPath(registerParams.get('redirect'));
       const target = requestedRedirect || (isSuper ? '/administrator' : '/dashboard');
       window.location.replace(getMainAppUrl(target));
       return;
