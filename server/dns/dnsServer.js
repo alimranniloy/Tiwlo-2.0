@@ -39,9 +39,9 @@ export const DNS_CONFIG = {
   MANAGED_DOMAINS: PLATFORM_CONFIG.managedDomains,
   DASHBOARD_HOST: (() => {
     try {
-      return new URL(process.env.VITE_DASHBOARD_URL || 'https://my.uids.app').hostname.toLowerCase();
+      return new URL(process.env.VITE_DASHBOARD_URL || 'https://uids.tiwlo.com').hostname.toLowerCase();
     } catch {
-      return 'my.uids.app';
+      return 'uids.tiwlo.com';
     }
   })(),
   AUTH_HOST: PLATFORM_CONFIG.authDomain,

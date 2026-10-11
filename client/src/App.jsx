@@ -570,7 +570,7 @@ export default function App() {
           }
           localStorage.setItem('stockpro_session', consumed.sessionToken);
           localStorage.setItem('stockpro_user', JSON.stringify(consumed.user));
-          const target = returnTo && /^https:\/\/(my\.uids\.app|tiwlo\.com)(\/|$)/i.test(returnTo)
+          const target = returnTo && /^https:\/\/(uids\.tiwlo\.com|tiwlo\.com)(\/|$)/i.test(returnTo)
             ? returnTo
             : getMainAppUrl('/');
           window.location.replace(target);
@@ -609,7 +609,7 @@ export default function App() {
                   return;
                 }
                 const safeRedirect = getSafeRedirectPath(searchParams.get('redirect'));
-                const safeReturnTo = returnTo && /^https:\/\/(my\.uids\.app|tiwlo\.com)(\/|$)/i.test(returnTo)
+                const safeReturnTo = returnTo && /^https:\/\/(uids\.tiwlo\.com|tiwlo\.com)(\/|$)/i.test(returnTo)
                   ? returnTo
                   : null;
                 const isSuper = data.user.role === 'super_admin' || data.user.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';

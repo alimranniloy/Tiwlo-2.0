@@ -24,7 +24,7 @@ export function isDashboardSubdomain() {
   if (typeof window === 'undefined') return false;
   const hostname = window.location.hostname.toLowerCase();
   const dashboardHost = new URL(DASHBOARD_URL).hostname.toLowerCase();
-  return hostname === dashboardHost || hostname === `my.${FREE_SUBDOMAIN_DOMAIN}.localhost`;
+  return hostname === dashboardHost || hostname === `uids.${PLATFORM_DOMAIN}.localhost`;
 }
 
 export function isTPanelSubdomain() {
@@ -58,7 +58,7 @@ export function getDashboardUrl(path = '') {
   const isLocal = window.location.hostname === 'localhost' ||
     window.location.hostname === '127.0.0.1' ||
     window.location.hostname.endsWith('.localhost');
-  const base = isLocal ? `${window.location.protocol}//my.${FREE_SUBDOMAIN_DOMAIN}.localhost${window.location.port ? `:${window.location.port}` : ''}` : DASHBOARD_URL;
+  const base = isLocal ? `${window.location.protocol}//uids.${PLATFORM_DOMAIN}.localhost${window.location.port ? `:${window.location.port}` : ''}` : DASHBOARD_URL;
   const cleanPath = path ? '/' + path.replace(/^\/+/, '') : '';
   return `${base}${cleanPath}`;
 }

@@ -1448,7 +1448,7 @@ router.get('/auth/sync-session', async (req, res) => {
 router.get('/auth/sso/web-start', async (req, res) => {
   try {
     const returnTo = String(req.query.return_to || '').trim();
-    const allowedReturn = /^https:\/\/my\.uids\.app\/oneprofile(?:\/|$)/i.test(returnTo);
+    const allowedReturn = /^https:\/\/uids\.tiwlo\.com\/oneprofile(?:\/|$)/i.test(returnTo);
     if (!allowedReturn) return res.status(400).json({ error: 'Invalid SSO return URL' });
 
     const token = getRequestSessionToken(req);
