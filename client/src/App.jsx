@@ -53,6 +53,9 @@ const DiscordBotManager = lazy(() => import('./discord-web'));
 // uids.app Subdomain Landing Page (/subdomain, /uidis, /uids)
 const SubdomainLanding = lazy(() => import('./subdomain'));
 
+// UIDis.app / OneProfile Identity & Website Dashboard (/oneprofile, /one-profile)
+const OneProfileDashboard = lazy(() => import('./oneprofile'));
+
 // Live Support AI Widget
 const LiveSupportWidget = lazy(() => import('./support/ai/LiveSupportWidget'));
 
@@ -274,6 +277,10 @@ export default function App() {
           return 'subdomain';
         }
 
+        if (pathname === 'oneprofile' || pathname.startsWith('oneprofile/') || pathname === 'one-profile' || pathname.startsWith('one-profile/') || pathname === 'uids/dashboard') {
+          return 'oneprofile';
+        }
+
         // Unrecognized route -> 404
         return 'not-found';
       }
@@ -406,6 +413,14 @@ export default function App() {
       setActiveTab('subdomain');
       if (!window.location.pathname.startsWith('/subdomain') && !window.location.pathname.startsWith('/uidis')) {
         window.history.pushState(null, '', '/subdomain');
+      }
+      return;
+    }
+
+    if (tabId === 'oneprofile' || (typeof tabId === 'string' && (tabId.startsWith('oneprofile') || tabId.startsWith('one-profile')))) {
+      setActiveTab('oneprofile');
+      if (!window.location.pathname.startsWith('/oneprofile')) {
+        window.history.pushState(null, '', '/oneprofile');
       }
       return;
     }
@@ -629,7 +644,8 @@ export default function App() {
           path === 'create-store' || path.startsWith('create-store/') ||
           path === 'subdomain' || path.startsWith('subdomain/') || path === 'subdomains' ||
           path === 'uidis' || path === 'uidis.app' || path.startsWith('uidis/') ||
-          path === 'uids' || path === 'uids.app' || path.startsWith('uids/');
+          path === 'uids' || path === 'uids.app' || path.startsWith('uids/') ||
+          path === 'oneprofile' || path.startsWith('oneprofile/') || path === 'one-profile' || path.startsWith('one-profile/');
 
         if (!isPublicPath || isTpanelRoute) {
           if (isMailSubdomain()) {
@@ -1420,6 +1436,10 @@ export default function App() {
             if (mode === 'signup') handleTabChange('create-account');
             else handleTabChange('login');
           }}
+          onNavigateTab={handleTabChange}
+        />
+      ) : (activeTab === 'oneprofile' || (typeof activeTab === 'string' && (activeTab.startsWith('oneprofile') || activeTab.startsWith('one-profile')))) ? (
+        <OneProfileDashboard
           onNavigateTab={handleTabChange}
         />
       ) : activeTab === 'pos' ? (
