@@ -56,11 +56,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/v1/domains/claim-policy", axum::routing::post(claim_policy))
         .route("/v1/domains/claim", axum::routing::post(claim_domain))
         .route(
-            "/v1/domains/:subdomain_id/records",
+            "/v1/domains/{subdomain_id}/records",
             get(list_dns_records).post(create_dns_record),
         )
         .route(
-            "/v1/domains/:subdomain_id/records/:record_id",
+            "/v1/domains/{subdomain_id}/records/{record_id}",
             axum::routing::patch(update_dns_record).delete(delete_dns_record),
         )
         .route("/v1/dns/record-policy", axum::routing::post(dns_record_policy))
