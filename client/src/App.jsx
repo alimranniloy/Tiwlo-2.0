@@ -7,7 +7,7 @@ import LoginView from './views/LoginView';
 import CreateAccountView from './views/CreateAccountView';
 import { CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import TiwloPageLoader, { TiwloTopSyncBar } from './components/TiwloUniqueLoader';
-import { isAuthSubdomain, isMailSubdomain, getAuthUrl, getMainAppUrl, getMailUrl } from './utils/navigation';
+import { isAuthSubdomain, isDashboardSubdomain, isMailSubdomain, getAuthUrl, getMainAppUrl, getMailUrl, getDashboardUrl } from './utils/navigation';
 import { getPlatformUrl, getSubdomain, PLATFORM_DOMAIN, FREE_SUBDOMAIN_DOMAIN, TPANEL_SUBDOMAIN } from './config/platformConfig';
 
 // Dedicated Dashboards (Code-Split via React.lazy)
@@ -418,6 +418,11 @@ export default function App() {
     }
 
     if (tabId === 'oneprofile' || (typeof tabId === 'string' && (tabId.startsWith('oneprofile') || tabId.startsWith('one-profile')))) {
+      if (!isDashboardSubdomain()) {
+        const dashboardPath = tabId === 'oneprofile' ? '/oneprofile' : `/${tabId.replace(/^\/+/, '')}`;
+        window.location.replace(getDashboardUrl(dashboardPath));
+        return;
+      }
       setActiveTab('oneprofile');
       if (!window.location.pathname.startsWith('/oneprofile')) {
         window.history.pushState(null, '', '/oneprofile');
@@ -566,9 +571,22 @@ export default function App() {
                 }
                 const safeRedirect = getSafeRedirectPath(searchParams.get('redirect'));
                 const isSuper = data.user.role === 'super_admin' || data.user.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
-                const target = safeRedirect || (isSuper ? '/administrator' : '/dashboard');
-                window.location.replace(getMainAppUrl(target));
+                const dashboardReturn = searchParams.get('dashboard') === '1';
+                const target = safeRedirect || (isSuper ? '/administrator' : null);
+                window.location.replace(
+                  dashboardReturn ? getDashboardUrl('/oneprofile') :
+                    (target ? getMainAppUrl(target) : getDashboardUrl('/oneprofile'))
+                );
                 return;
+              }
+
+              if (isDashboardSubdomain()) {
+                const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+                if (!path || path === 'dashboard' || path === 'login') {
+                  setActiveTab('oneprofile');
+                  window.history.replaceState(null, '', '/oneprofile');
+                  return;
+                }
               }
 
               const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
@@ -645,16 +663,17 @@ export default function App() {
           path === 'subdomain' || path.startsWith('subdomain/') || path === 'subdomains' ||
           path === 'uidis' || path === 'uidis.app' || path.startsWith('uidis/') ||
           path === 'uids' || path === 'uids.app' || path.startsWith('uids/') ||
-          path === 'oneprofile' || path.startsWith('oneprofile/') || path === 'one-profile' || path.startsWith('one-profile/');
+          path === 'one-profile' || path.startsWith('one-profile/');
 
-        if (!isPublicPath || isTpanelRoute) {
+        if (!isPublicPath || isTpanelRoute || isDashboardSubdomain()) {
           if (isMailSubdomain()) {
             window.location.replace(getAuthUrl('/login?mail_return=1'));
           } else {
             const requestedPath = isTpanelRoute && !path
               ? `/tpanel${window.location.search}`
               : window.location.pathname + window.location.search;
-            window.location.replace(getAuthUrl(`/login?redirect=${encodeURIComponent(requestedPath)}`));
+            const dashboardQuery = isDashboardSubdomain() ? '&dashboard=1' : '';
+            window.location.replace(getAuthUrl(`/login?redirect=${encodeURIComponent(requestedPath)}${dashboardQuery}`));
           }
         }
       }
@@ -1440,6 +1459,7 @@ export default function App() {
         />
       ) : (activeTab === 'oneprofile' || (typeof activeTab === 'string' && (activeTab.startsWith('oneprofile') || activeTab.startsWith('one-profile')))) ? (
         <OneProfileDashboard
+          currentUser={currentUser}
           onNavigateTab={handleTabChange}
         />
       ) : activeTab === 'pos' ? (

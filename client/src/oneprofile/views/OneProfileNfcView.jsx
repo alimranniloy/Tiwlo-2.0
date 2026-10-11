@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { CreditCard, Wifi, QrCode, Check, ShieldCheck, Truck, Sparkles } from 'lucide-react';
 import UidisLogoIcon from '../components/UidisLogoIcon';
 
-export default function OneProfileNfcView() {
+export default function OneProfileNfcView({ currentUser, summary }) {
   const [cardColor, setCardColor] = useState('matte-black');
-  const [customName, setCustomName] = useState('John Doe');
+  const [customName, setCustomName] = useState(currentUser?.name || '');
+  const domain = summary?.domains?.[0]?.domain || 'No domain claimed';
 
   return (
     <div className="w-full space-y-6 pb-12 text-left">
@@ -58,7 +59,7 @@ export default function OneProfileNfcView() {
           {/* Linked Target */}
           <div className="p-3.5 rounded-xl bg-blue-50/60 border border-blue-100 text-xs">
             <span className="font-bold text-blue-900">Linked Profile: </span>
-            <span className="font-mono text-blue-700 font-semibold">https://john.uids.app</span>
+            <span className="font-mono text-blue-700 font-semibold">{domain}</span>
             <p className="text-[11px] text-blue-600/80 mt-1">Whenever anyone taps your NFC card with an iPhone or Android, your live digital profile opens instantly.</p>
           </div>
 
@@ -108,7 +109,7 @@ export default function OneProfileNfcView() {
 
             <div className="my-auto py-1">
               <div className="text-base font-extrabold tracking-wide">{customName || 'Your Name'}</div>
-              <div className="text-[10px] opacity-70 font-mono">john.uids.app</div>
+              <div className="text-[10px] opacity-70 font-mono">{domain}</div>
             </div>
 
             <div className="flex items-center justify-between pt-1">

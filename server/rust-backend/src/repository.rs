@@ -54,6 +54,35 @@ pub struct DnsRecord {
     pub ttl: i32,
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct OneProfileSummary {
+    pub headline: Option<String>,
+    pub bio: Option<String>,
+    pub public_slug: Option<String>,
+    pub profile_visibility: String,
+    pub websites: Vec<OneProfileWebsite>,
+    pub domains: Vec<OneProfileDomain>,
+    pub unread_notifications: i32,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct OneProfileWebsite {
+    pub id: String,
+    pub domain: String,
+    pub title: Option<String>,
+    pub template_id: Option<String>,
+    pub status: String,
+    pub view_count: i64,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct OneProfileDomain {
+    pub id: String,
+    pub subdomain: String,
+    pub domain: String,
+    pub status: String,
+}
+
 impl Repository {
     pub async fn connect(database_url: &str) -> Result<Self, sqlx::Error> {
         let pool = PgPoolOptions::new()
@@ -67,6 +96,58 @@ impl Repository {
 
     pub async fn ping(&self) -> Result<(), sqlx::Error> {
         sqlx::query("SELECT 1").execute(&self.pool).await.map(|_| ())
+    }
+
+    pub async fn oneprofile_summary(
+        &self,
+        user_id: &str,
+    ) -> Result<OneProfileSummary, RepositoryError> {
+        let profile = sqlx::query_as::<_, (Option<String>, Option<String>, Option<String>, String)>(
+            "SELECT headline, bio, public_slug, profile_visibility
+             FROM system_oneprofile_profiles WHERE user_id = $1",
+        )
+        .bind(user_id)
+        .fetch_optional(&self.pool)
+        .await?
+        .unwrap_or((None, None, None, "private".to_owned()));
+        let websites = sqlx::query_as::<_, (Uuid, String, Option<String>, Option<String>, String, i64)>(
+            "SELECT id, domain, title, template_id, status, view_count
+             FROM system_oneprofile_websites WHERE user_id = $1 ORDER BY updated_at DESC",
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await?
+        .into_iter()
+        .map(|(id, domain, title, template_id, status, view_count)| OneProfileWebsite {
+            id: id.to_string(), domain, title, template_id, status, view_count,
+        })
+        .collect();
+        let domains = sqlx::query_as::<_, (String, String, String, String)>(
+            "SELECT id, subdomain, domain, status
+             FROM system_free_subdomains WHERE user_id = $1 ORDER BY created_at DESC",
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await?
+        .into_iter()
+        .map(|(id, subdomain, domain, status)| OneProfileDomain { id, subdomain, domain, status })
+        .collect();
+        let unread_notifications = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM system_oneprofile_notifications
+             WHERE user_id = $1 AND read_at IS NULL",
+        )
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await? as i32;
+        Ok(OneProfileSummary {
+            headline: profile.0,
+            bio: profile.1,
+            public_slug: profile.2,
+            profile_visibility: profile.3,
+            websites,
+            domains,
+            unread_notifications,
+        })
     }
 
     pub async fn availability(

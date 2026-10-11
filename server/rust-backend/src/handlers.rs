@@ -143,6 +143,38 @@ pub struct DomainAvailabilityResponse {
     pub status: Option<String>,
 }
 
+pub async fn oneprofile_summary(
+    State(state): State<AppState>,
+    TypedHeader(identity): TypedHeader<IdentityHeader>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let Ok(assertion) = identity_from_header(&state, &identity) else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "invalid_internal_identity"})),
+        );
+    };
+    let Some(repository) = state.repository.as_ref() else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error": "database_unavailable"})),
+        );
+    };
+    match repository.oneprofile_summary(&assertion.user_id).await {
+        Ok(summary) => (StatusCode::OK, Json(serde_json::json!({
+            "success": true,
+            "summary": summary
+        }))),
+        Err(crate::repository::RepositoryError::Database(_)) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error": "database_error"})),
+        ),
+        Err(_) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "profile_not_found"})),
+        ),
+    }
+}
+
 #[derive(serde::Deserialize)]
 pub struct ClaimRequest {
     pub name: String,

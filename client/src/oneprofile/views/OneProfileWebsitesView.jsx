@@ -1,27 +1,8 @@
 import React from 'react';
 import { Globe, Plus, ExternalLink, Edit3, Trash2, CheckCircle2, ShieldCheck, Eye } from 'lucide-react';
 
-export default function OneProfileWebsitesView({ onNavigateTab }) {
-  const sites = [
-    {
-      domain: 'john.uids.app',
-      title: "John Doe Portfolio",
-      status: 'Live',
-      template: 'Minimal Clean',
-      views: '1,240',
-      lastUpdated: '2 hours ago',
-      ssl: 'Active',
-    },
-    {
-      domain: 'dev.uids.app',
-      title: "Dev Notes & Projects",
-      status: 'Live',
-      template: 'Creative Portfolio',
-      views: '412',
-      lastUpdated: '3 days ago',
-      ssl: 'Active',
-    }
-  ];
+export default function OneProfileWebsitesView({ websites = [], onNavigateTab }) {
+  const sites = websites;
 
   return (
     <div className="w-full space-y-6 pb-12 text-left">
@@ -41,8 +22,12 @@ export default function OneProfileWebsitesView({ onNavigateTab }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {sites.map((site, i) => (
-          <div key={i} className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs hover:shadow-xs transition">
+        {sites.length === 0 ? (
+          <div className="md:col-span-2 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
+            You have not created a website yet.
+          </div>
+        ) : sites.map((site) => (
+          <div key={site.id} className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs hover:shadow-xs transition">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
@@ -59,17 +44,17 @@ export default function OneProfileWebsitesView({ onNavigateTab }) {
               </a>
             </div>
 
-            <h3 className="text-lg font-extrabold text-slate-900">{site.title}</h3>
+            <h3 className="text-lg font-extrabold text-slate-900">{site.title || 'Untitled website'}</h3>
             <div className="text-xs font-mono font-semibold text-slate-500 mb-4">{site.domain}</div>
 
             <div className="grid grid-cols-3 gap-2 py-3 px-3 bg-slate-50 rounded-xl text-xs mb-4">
               <div>
                 <div className="text-[10px] text-slate-400">Template</div>
-                <div className="font-bold text-slate-800 truncate">{site.template}</div>
+                <div className="font-bold text-slate-800 truncate">{site.template_id || 'Not selected'}</div>
               </div>
               <div>
                 <div className="text-[10px] text-slate-400">Views</div>
-                <div className="font-bold text-slate-800">{site.views}</div>
+                <div className="font-bold text-slate-800">{Number(site.view_count || 0).toLocaleString()}</div>
               </div>
               <div>
                 <div className="text-[10px] text-slate-400">SSL Status</div>

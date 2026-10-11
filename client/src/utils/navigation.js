@@ -8,13 +8,23 @@ import {
   MAIL_HOSTNAME,
   MAIL_SUBDOMAIN,
   PLATFORM_DOMAIN,
-  TPANEL_SUBDOMAIN
+  TPANEL_SUBDOMAIN,
+  AUTH_DOMAIN,
+  DASHBOARD_URL,
+  FREE_SUBDOMAIN_DOMAIN
 } from '../config/platformConfig';
 
 export function isAuthSubdomain() {
   if (typeof window === 'undefined') return false;
   const h = window.location.hostname.toLowerCase();
-  return h === `${AUTH_SUBDOMAIN}.${PLATFORM_DOMAIN}` || h === `${AUTH_SUBDOMAIN}.localhost`;
+  return h === AUTH_DOMAIN || h === `${AUTH_SUBDOMAIN}.localhost`;
+}
+
+export function isDashboardSubdomain() {
+  if (typeof window === 'undefined') return false;
+  const hostname = window.location.hostname.toLowerCase();
+  const dashboardHost = new URL(DASHBOARD_URL).hostname.toLowerCase();
+  return hostname === dashboardHost || hostname === `my.${FREE_SUBDOMAIN_DOMAIN}.localhost`;
 }
 
 export function isTPanelSubdomain() {
@@ -40,7 +50,17 @@ export function getAuthUrl(path = '') {
   if (isLocal) {
     return `${protocol}//${AUTH_SUBDOMAIN}.localhost${port}${cleanPath}`;
   }
-  return `https://${AUTH_SUBDOMAIN}.${PLATFORM_DOMAIN}${cleanPath}`;
+  return `https://${AUTH_DOMAIN}${cleanPath}`;
+}
+
+export function getDashboardUrl(path = '') {
+  if (typeof window === 'undefined') return path || '/';
+  const isLocal = window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.endsWith('.localhost');
+  const base = isLocal ? `${window.location.protocol}//my.${FREE_SUBDOMAIN_DOMAIN}.localhost${window.location.port ? `:${window.location.port}` : ''}` : DASHBOARD_URL;
+  const cleanPath = path ? '/' + path.replace(/^\/+/, '') : '';
+  return `${base}${cleanPath}`;
 }
 
 export function getMainAppUrl(path = '') {

@@ -18,17 +18,37 @@ import OneProfileSupportView from './views/OneProfileSupportView';
  * - Brand: UIDis.app
  * - Sidebar with group 1 (Home, My Website, Subdomains, Templates, NFC Card, Cloud Hosting, Analytics)
  *   and group 2 (Billing, Settings, Support) + Upgrade to Pro card
- * - TopBar with Search ⌘K, Notifications, User Profile (John Doe, Free Plan)
+ * - TopBar with search, real notifications, and authenticated user profile
  * - Home View matches exact layout of screenshot
  * - Fully mobile-responsive layout (mobile-ui-rule.md)
  * - Zero popups / modals (page-nopopup-role.md)
  */
 export default function OneProfileDashboard({
+  currentUser,
   onNavigateTab
 }) {
   const [activeView, setActiveView] = useState('home');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [summary, setSummary] = useState(null);
+  const [summaryError, setSummaryError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/oneprofile/summary', { credentials: 'include' })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Unable to load dashboard data');
+        return data;
+      })
+      .then((data) => {
+        if (active) setSummary(data);
+      })
+      .catch((error) => {
+        if (active) setSummaryError(error.message);
+      });
+    return () => { active = false; };
+  }, []);
 
   // Synchronize route with active view
   useEffect(() => {
@@ -52,26 +72,33 @@ export default function OneProfileDashboard({
   const renderActiveView = () => {
     switch (activeView) {
       case 'website':
-        return <OneProfileWebsitesView onNavigateTab={handleSelectView} />;
+        return <OneProfileWebsitesView websites={summary?.websites || []} onNavigateTab={handleSelectView} />;
       case 'subdomains':
-        return <OneProfileSubdomainsView onNavigateTab={handleSelectView} />;
+        return <OneProfileSubdomainsView domains={summary?.domains || []} onNavigateTab={handleSelectView} />;
       case 'templates':
         return <OneProfileTemplatesView onNavigateTab={handleSelectView} />;
       case 'nfc':
-        return <OneProfileNfcView onNavigateTab={handleSelectView} />;
+        return <OneProfileNfcView currentUser={currentUser} summary={summary} onNavigateTab={handleSelectView} />;
       case 'hosting':
-        return <OneProfileHostingView onNavigateTab={handleSelectView} />;
+        return <OneProfileHostingView currentUser={currentUser} summary={summary} onNavigateTab={handleSelectView} />;
       case 'analytics':
-        return <OneProfileAnalyticsView onNavigateTab={handleSelectView} />;
+        return <OneProfileAnalyticsView summary={summary} onNavigateTab={handleSelectView} />;
       case 'billing':
         return <OneProfileBillingView onNavigateTab={handleSelectView} />;
       case 'settings':
-        return <OneProfileSettingsView onNavigateTab={handleSelectView} />;
+        return (
+          <OneProfileSettingsView
+            currentUser={currentUser}
+            profile={summary?.profile}
+            onProfileUpdated={(profile) => setSummary((previous) => ({ ...previous, profile }))}
+            onNavigateTab={handleSelectView}
+          />
+        );
       case 'support':
         return <OneProfileSupportView onNavigateTab={handleSelectView} />;
       case 'home':
       default:
-        return <OneProfileHomeView onNavigateTab={handleSelectView} />;
+        return <OneProfileHomeView currentUser={currentUser} summary={summary} onNavigateTab={handleSelectView} />;
     }
   };
 
@@ -79,6 +106,7 @@ export default function OneProfileDashboard({
     <div className="min-h-screen flex bg-[#F8FAFC] text-slate-800 font-sans antialiased selection:bg-blue-500 selection:text-white">
       {/* Sidebar (Desktop Persistent & Mobile Drawer) */}
       <OneProfileSidebar
+        currentUser={currentUser}
         activeView={activeView}
         onSelectView={handleSelectView}
         mobileOpen={mobileSidebarOpen}
@@ -89,6 +117,8 @@ export default function OneProfileDashboard({
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
         {/* Sticky Header TopBar */}
         <OneProfileTopBar
+          currentUser={currentUser}
+          notifications={summary?.notifications || []}
           onToggleMobileSidebar={() => setMobileSidebarOpen(true)}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
@@ -104,7 +134,16 @@ export default function OneProfileDashboard({
 
         {/* Scrollable Main View Container */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-          {renderActiveView()}
+          {summaryError && (
+            <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
+              {summaryError}
+            </div>
+          )}
+          {summary ? renderActiveView() : (
+            <div className="rounded-2xl border border-slate-200 bg-white p-8 text-sm text-slate-500">
+              Loading your dashboard data...
+            </div>
+          )}
         </main>
       </div>
     </div>

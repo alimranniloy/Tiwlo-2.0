@@ -6,10 +6,12 @@ import { Search, Bell, ChevronDown, Menu, User, Settings, CreditCard, LogOut } f
  * Matches screenshot header:
  * - Search bar with shortcut chip ⌘K
  * - Notification bell with active badge
- * - John Doe profile chip with Free Plan tag & dropdown
+ * - Authenticated profile chip with plan tag & dropdown
  * - Mobile hamburger toggle
  */
 export default function OneProfileTopBar({
+  currentUser,
+  notifications = [],
   onToggleMobileSidebar,
   searchQuery,
   setSearchQuery,
@@ -63,7 +65,9 @@ export default function OneProfileTopBar({
             aria-label="Notifications"
           >
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
+            {notifications.some((notification) => !notification.read_at) && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
+            )}
           </button>
 
           {/* Notifications Dropdown (In-Page clean dropdown) */}
@@ -74,14 +78,14 @@ export default function OneProfileTopBar({
                 <span className="text-[10px] text-blue-600 font-semibold cursor-pointer">Mark read</span>
               </div>
               <div className="divide-y divide-slate-50 text-xs">
-                <div className="px-4 py-2.5 hover:bg-slate-50 transition cursor-pointer">
-                  <div className="font-semibold text-slate-800">Domain active</div>
-                  <div className="text-slate-500 text-[11px] mt-0.5">john.uids.app is now live on Anycast edge.</div>
-                </div>
-                <div className="px-4 py-2.5 hover:bg-slate-50 transition cursor-pointer">
-                  <div className="font-semibold text-slate-800">NFC Card shipped</div>
-                  <div className="text-slate-500 text-[11px] mt-0.5">Your physical card is on the way.</div>
-                </div>
+                {notifications.length === 0 ? (
+                  <div className="px-4 py-4 text-slate-500">No notifications.</div>
+                ) : notifications.map((notification) => (
+                  <div key={notification.id} className="px-4 py-2.5 hover:bg-slate-50 transition cursor-pointer">
+                    <div className="font-semibold text-slate-800">{notification.title}</div>
+                    <div className="text-slate-500 text-[11px] mt-0.5">{notification.body}</div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -97,8 +101,8 @@ export default function OneProfileTopBar({
             {/* Avatar */}
             <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden bg-slate-200 ring-2 ring-slate-100 shrink-0">
               <img
-                src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
-                alt="John Doe"
+                src={currentUser?.avatar || '/tiwlo-icon.png'}
+                alt={currentUser?.name || currentUser?.email || 'Account'}
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   e.target.onerror = null;
@@ -109,8 +113,8 @@ export default function OneProfileTopBar({
 
             {/* Name & Plan info */}
             <div className="hidden sm:flex flex-col text-left">
-              <span className="text-xs font-bold text-slate-900 leading-tight">John Doe</span>
-              <span className="text-[10px] font-normal text-slate-400 leading-tight">Free Plan</span>
+              <span className="text-xs font-bold text-slate-900 leading-tight">{currentUser?.name || currentUser?.email || 'Account'}</span>
+                <span className="text-[10px] font-normal text-slate-400 leading-tight">{currentUser?.planName || 'Free Starter'}</span>
             </div>
 
             <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
@@ -120,8 +124,8 @@ export default function OneProfileTopBar({
           {profileDropdownOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl border border-slate-100 shadow-xl py-1.5 z-50 animate-in fade-in duration-150 text-xs">
               <div className="px-3.5 py-2 border-b border-slate-100 sm:hidden">
-                <div className="font-bold text-slate-900">John Doe</div>
-                <div className="text-[10px] text-blue-600 font-semibold">Free Plan</div>
+                <div className="font-bold text-slate-900">{currentUser?.name || currentUser?.email || 'Account'}</div>
+                <div className="text-[10px] text-blue-600 font-semibold">{currentUser?.planName || 'Free Starter'}</div>
               </div>
               <button
                 type="button"

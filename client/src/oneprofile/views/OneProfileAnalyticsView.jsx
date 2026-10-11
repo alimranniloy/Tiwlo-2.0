@@ -1,19 +1,13 @@
 import React from 'react';
 import { Eye, TrendingUp, Globe, Users, ArrowUpRight, Clock } from 'lucide-react';
 
-export default function OneProfileAnalyticsView() {
+export default function OneProfileAnalyticsView({ summary }) {
+  const metrics = summary?.metrics || {};
   const stats = [
-    { label: 'Total Profile Views', val: '1,240', change: '+12.4%', up: true },
-    { label: 'Unique Visitors', val: '890', change: '+8.1%', up: true },
-    { label: 'Avg. Tap / Interaction', val: '42s', change: '+15.2%', up: true },
-    { label: 'NFC Contact Downloads', val: '142', change: '+24.0%', up: true },
-  ];
-
-  const topReferrers = [
-    { source: 'NFC Physical Card Tap', count: '460', pct: '37%' },
-    { source: 'Direct / QR Code', count: '380', pct: '31%' },
-    { source: 'X / Twitter Bio', count: '240', pct: '19%' },
-    { source: 'GitHub Profile', count: '160', pct: '13%' },
+    { label: 'Total Profile Views', val: Number(metrics.views || 0).toLocaleString() },
+    { label: 'Active Websites', val: Number(metrics.websites || 0).toLocaleString() },
+    { label: 'Claimed Domains', val: Number(metrics.domains || 0).toLocaleString() },
+    { label: 'Unread Notifications', val: Number(metrics.unread_notifications || 0).toLocaleString() },
   ];
 
   return (
@@ -28,27 +22,13 @@ export default function OneProfileAnalyticsView() {
           <div key={i} className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs">
             <div className="text-xs font-semibold text-slate-500 mb-1">{s.label}</div>
             <div className="text-2xl font-extrabold text-slate-900">{s.val}</div>
-            <div className="text-xs font-bold text-emerald-600 flex items-center gap-0.5 mt-1">
-              <ArrowUpRight className="w-3.5 h-3.5" />
-              <span>{s.change} vs last month</span>
-            </div>
           </div>
         ))}
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs">
-        <h3 className="text-base font-extrabold text-slate-900 mb-4">Traffic Acquisition Sources</h3>
-        <div className="space-y-3">
-          {topReferrers.map((r, i) => (
-            <div key={i} className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-slate-700">{r.source}</span>
-              <div className="flex items-center gap-3">
-                <span className="text-slate-400 font-mono">{r.count} hits</span>
-                <span className="w-12 text-right font-bold text-slate-900">{r.pct}</span>
-              </div>
-            </div>
-          ))}
-        </div>
+        <h3 className="text-base font-extrabold text-slate-900 mb-2">Traffic Acquisition Sources</h3>
+        <p className="text-sm text-slate-500">Detailed referral telemetry will appear after analytics collection is enabled.</p>
       </div>
     </div>
   );

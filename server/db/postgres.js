@@ -40,6 +40,8 @@ export async function initPgSchema() {
     if (!p) return;
     
     await p.query(`
+      CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
       -- 1. SYSTEM & AUTH TABLES
       CREATE TABLE IF NOT EXISTS system_users (
         id VARCHAR(64) PRIMARY KEY,
@@ -445,6 +447,45 @@ export async function initPgSchema() {
         ON system_free_subdomain_claim_attempts(device_hash, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_free_claim_attempts_user
         ON system_free_subdomain_claim_attempts(user_id, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS system_oneprofile_profiles (
+        user_id VARCHAR(64) PRIMARY KEY REFERENCES system_users(id) ON DELETE CASCADE,
+        headline VARCHAR(255),
+        bio TEXT,
+        public_slug VARCHAR(63) UNIQUE,
+        profile_visibility VARCHAR(16) NOT NULL DEFAULT 'private'
+          CHECK (profile_visibility IN ('private', 'public')),
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS system_oneprofile_websites (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
+        domain VARCHAR(253) NOT NULL,
+        title VARCHAR(255),
+        template_id VARCHAR(128),
+        status VARCHAR(32) NOT NULL DEFAULT 'draft'
+          CHECK (status IN ('draft', 'active', 'suspended')),
+        view_count BIGINT NOT NULL DEFAULT 0 CHECK (view_count >= 0),
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (user_id, domain)
+      );
+      CREATE INDEX IF NOT EXISTS idx_oneprofile_websites_user
+        ON system_oneprofile_websites(user_id, updated_at DESC);
+
+      CREATE TABLE IF NOT EXISTS system_oneprofile_notifications (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
+        notification_type VARCHAR(64) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        body TEXT NOT NULL,
+        read_at TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_oneprofile_notifications_user
+        ON system_oneprofile_notifications(user_id, created_at DESC);
 
       -- 2. TIWI SOCIAL ECOSYSTEM TABLES
       CREATE TABLE IF NOT EXISTS social_profiles (

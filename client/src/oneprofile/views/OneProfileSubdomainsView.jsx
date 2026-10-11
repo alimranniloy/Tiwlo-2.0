@@ -1,29 +1,12 @@
 import React, { useState } from 'react';
 import { Globe, Plus, Copy, Check, ExternalLink, ShieldCheck, Server, RefreshCw } from 'lucide-react';
 
-export default function OneProfileSubdomainsView() {
+export default function OneProfileSubdomainsView({ domains = [] }) {
   const [newSubdomain, setNewSubdomain] = useState('');
   const [selectedProvider, setSelectedProvider] = useState('tiwlo');
   const [copiedKey, setCopiedKey] = useState(null);
 
-  const subdomains = [
-    {
-      domain: 'john.uids.app',
-      target: 'edge.uids.app (20MB Static)',
-      type: 'CNAME',
-      status: 'Active',
-      ssl: 'Valid',
-      created: 'Oct 02, 2026',
-    },
-    {
-      domain: 'dev.uids.app',
-      target: 'cname.vercel-dns.com',
-      type: 'CNAME',
-      status: 'Active',
-      ssl: 'Valid',
-      created: 'Oct 08, 2026',
-    }
-  ];
+  const subdomains = domains;
 
   const handleCopy = (text, key) => {
     navigator.clipboard.writeText(text);
@@ -75,8 +58,10 @@ export default function OneProfileSubdomainsView() {
         </div>
 
         <div className="divide-y divide-slate-100">
-          {subdomains.map((sub, i) => (
-            <div key={i} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/60 transition">
+          {subdomains.length === 0 ? (
+            <div className="p-8 text-center text-sm text-slate-500">No .uids.app domain has been claimed yet.</div>
+          ) : subdomains.map((sub) => (
+            <div key={sub.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/60 transition">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-extrabold text-slate-900 text-sm font-mono">{sub.domain}</span>

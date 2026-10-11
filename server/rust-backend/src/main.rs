@@ -24,6 +24,7 @@ use handlers::{
     account_policy, admission, claim_domain, claim_policy, create_dns_record, delete_dns_record,
     domain_availability, domain_validation, dns_record_policy, health, list_dns_records,
     media_preflight, metrics, ready, session_policy, update_dns_record,
+    oneprofile_summary,
 };
 use middleware::{rate_limit, security_headers};
 use repository::Repository;
@@ -66,6 +67,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/v1/dns/record-policy", axum::routing::post(dns_record_policy))
         .route("/v1/media/preflight", axum::routing::post(media_preflight))
         .route("/v1/auth/session-policy", axum::routing::post(session_policy))
+        .route("/v1/oneprofile/summary", axum::routing::get(oneprofile_summary))
         .with_state(state.clone())
         .layer(axum::middleware::from_fn(security_headers))
         .layer(from_fn_with_state(state, rate_limit))

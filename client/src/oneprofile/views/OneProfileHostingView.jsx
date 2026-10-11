@@ -1,7 +1,8 @@
 import React from 'react';
 import { Cloud, Server, Database, ShieldCheck, Zap, HardDrive, Check, ArrowRight } from 'lucide-react';
 
-export default function OneProfileHostingView() {
+export default function OneProfileHostingView({ currentUser }) {
+  const planName = currentUser?.planName || 'Plan not configured';
   return (
     <div className="w-full space-y-6 pb-12 text-left">
       <div>
@@ -16,9 +17,9 @@ export default function OneProfileHostingView() {
             <HardDrive className="w-4 h-4" />
           </div>
           <div className="text-xs font-semibold text-slate-500 mb-1">Storage Usage</div>
-          <div className="text-xl font-extrabold text-slate-900 mb-2">48 MB / 200 MB</div>
+          <div className="text-xl font-extrabold text-slate-900 mb-2">—</div>
           <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full bg-purple-600 rounded-full" style={{ width: '24%' }} />
+            <div className="h-full bg-purple-600 rounded-full" style={{ width: '0%' }} />
           </div>
         </div>
 
@@ -28,9 +29,9 @@ export default function OneProfileHostingView() {
             <Zap className="w-4 h-4" />
           </div>
           <div className="text-xs font-semibold text-slate-500 mb-1">Monthly Edge Bandwidth</div>
-          <div className="text-xl font-extrabold text-slate-900 mb-2">1.8 GB / 10 GB</div>
+          <div className="text-xl font-extrabold text-slate-900 mb-2">—</div>
           <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full bg-blue-600 rounded-full" style={{ width: '18%' }} />
+            <div className="h-full bg-blue-600 rounded-full" style={{ width: '0%' }} />
           </div>
         </div>
 
@@ -40,8 +41,8 @@ export default function OneProfileHostingView() {
             <ShieldCheck className="w-4 h-4" />
           </div>
           <div className="text-xs font-semibold text-slate-500 mb-1">Edge Availability</div>
-          <div className="text-xl font-extrabold text-emerald-600 mb-2">99.99%</div>
-          <div className="text-[11px] text-slate-500">200+ Global Anycast POPs active</div>
+          <div className="text-xl font-extrabold text-slate-600 mb-2">—</div>
+          <div className="text-[11px] text-slate-500">Availability telemetry is not configured.</div>
         </div>
       </div>
 
@@ -49,7 +50,7 @@ export default function OneProfileHostingView() {
       <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div>
-            <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold">CURRENT PLAN: FREE 200MB</span>
+            <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold">CURRENT PLAN: {planName.toUpperCase()}</span>
             <h3 className="text-lg font-extrabold text-slate-900 mt-1">Upgrade to Pro for Full Node.js Backend</h3>
             <p className="text-xs text-slate-500 mt-0.5">Run dynamic serverless APIs, persistent databases, and custom container images.</p>
           </div>

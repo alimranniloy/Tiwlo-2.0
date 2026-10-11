@@ -31,6 +31,7 @@ import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
 import { securityLimiters, registrationGuards } from '../plugins/security/index.js';
 import { normalizeSignupEmail, isDuplicateAccountError, isDuplicateBrowserError } from '../security/signupIdentity.js';
+import { queryPg } from '../db/postgres.js';
 
 const router = express.Router();
 
@@ -52,7 +53,13 @@ const PLAN_CATALOG = {
 function getSessionCookieOptions(req) {
   const host = (req?.headers?.host || req?.hostname || '').toLowerCase();
   const hostname = host.replace(/:\d+$/, '');
-  const isTiwloDomain = [PLATFORM_CONFIG.primaryDomain, PLATFORM_CONFIG.storeDomain].some(
+  const cookieParentDomain = PLATFORM_CONFIG.cookieDomain.replace(/^\./, '');
+  const isPlatformDomain = [
+    PLATFORM_CONFIG.primaryDomain,
+    PLATFORM_CONFIG.storeDomain,
+    cookieParentDomain,
+    PLATFORM_CONFIG.authDomain
+  ].some(
     domain => hostname === domain || hostname.endsWith(`.${domain}`)
   );
   const isSecure = process.env.NODE_ENV === 'production' || req?.secure || req?.headers?.['x-forwarded-proto'] === 'https';
@@ -62,7 +69,7 @@ function getSessionCookieOptions(req) {
     secure: isSecure,
     sameSite: 'lax',
     path: '/',
-    ...(isTiwloDomain ? { domain: PLATFORM_CONFIG.cookieDomain } : {})
+    ...(isPlatformDomain ? { domain: PLATFORM_CONFIG.cookieDomain } : {})
   };
 }
 
@@ -1585,6 +1592,95 @@ router.put('/auth/profile', async (req, res) => {
     res.json({ success: true, user: updated });
   } catch (err) {
     res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+router.get('/oneprofile/summary', async (req, res) => {
+  try {
+    const token = getRequestSessionToken(req);
+    const sessionData = token ? await MasterDB.getSession(token, req) : null;
+    const userId = sessionData?.user?.id || req.activeUser?.id;
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+    await queryPg(
+      `INSERT INTO system_oneprofile_profiles (user_id)
+       VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
+      [userId]
+    );
+    const [profile, websites, domains, notifications, counts] = await Promise.all([
+      queryPg(
+        `SELECT headline, bio, public_slug, profile_visibility, created_at, updated_at
+         FROM system_oneprofile_profiles WHERE user_id = $1`,
+        [userId]
+      ),
+      queryPg(
+        `SELECT id, domain, title, template_id, status, view_count, created_at, updated_at
+         FROM system_oneprofile_websites WHERE user_id = $1 ORDER BY updated_at DESC`,
+        [userId]
+      ),
+      queryPg(
+        `SELECT id, subdomain, domain, status, created_at, updated_at
+         FROM system_free_subdomains WHERE user_id = $1 ORDER BY created_at DESC`,
+        [userId]
+      ),
+      queryPg(
+        `SELECT id, notification_type, title, body, read_at, created_at
+         FROM system_oneprofile_notifications WHERE user_id = $1
+         ORDER BY created_at DESC LIMIT 20`,
+        [userId]
+      ),
+      queryPg(
+        `SELECT
+           (SELECT COUNT(*)::int FROM system_oneprofile_websites WHERE user_id = $1) AS websites,
+           (SELECT COUNT(*)::int FROM system_free_subdomains WHERE user_id = $1 AND status = 'active') AS domains,
+           (SELECT COALESCE(SUM(view_count), 0)::bigint FROM system_oneprofile_websites WHERE user_id = $1) AS views,
+           (SELECT COUNT(*)::int FROM system_oneprofile_notifications WHERE user_id = $1 AND read_at IS NULL) AS unread_notifications`,
+        [userId]
+      )
+    ]);
+    res.json({
+      success: true,
+      profile: profile.rows[0] || null,
+      websites: websites.rows,
+      domains: domains.rows,
+      notifications: notifications.rows,
+      metrics: counts.rows[0]
+    });
+  } catch (error) {
+    console.error('OneProfile summary error:', error);
+    res.status(500).json({ error: 'Failed to fetch OneProfile data' });
+  }
+});
+
+router.put('/oneprofile/profile', async (req, res) => {
+  try {
+    const token = getRequestSessionToken(req);
+    const sessionData = token ? await MasterDB.getSession(token, req) : null;
+    const userId = sessionData?.user?.id || req.activeUser?.id;
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+    const headline = typeof req.body?.headline === 'string' ? req.body.headline.trim() : '';
+    const bio = typeof req.body?.bio === 'string' ? req.body.bio.trim() : '';
+    const visibility = req.body?.profileVisibility === 'public' ? 'public' : 'private';
+    if (headline.length > 255 || bio.length > 5000) {
+      return res.status(422).json({ error: 'Profile text exceeds the allowed length' });
+    }
+
+    const result = await queryPg(
+      `INSERT INTO system_oneprofile_profiles (user_id, headline, bio, profile_visibility)
+       VALUES ($1, NULLIF($2, ''), NULLIF($3, ''), $4)
+       ON CONFLICT (user_id) DO UPDATE SET
+         headline = EXCLUDED.headline,
+         bio = EXCLUDED.bio,
+         profile_visibility = EXCLUDED.profile_visibility,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING headline, bio, public_slug, profile_visibility, created_at, updated_at`,
+      [userId, headline, bio, visibility]
+    );
+    res.json({ success: true, profile: result.rows[0] });
+  } catch (error) {
+    console.error('OneProfile profile update error:', error);
+    res.status(500).json({ error: 'Failed to update OneProfile profile' });
   }
 });
 

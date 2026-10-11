@@ -10,6 +10,10 @@ const cleanDomain = (value, fallback = '') => String(value || '')
 const primaryDomain = cleanDomain(process.env.VITE_PRIMARY_DOMAIN, 'tiwlo.com');
 const storeDomain = cleanDomain(process.env.VITE_STORE_DOMAIN, primaryDomain) || primaryDomain;
 const freeSubdomainDomain = cleanDomain(process.env.VITE_FREE_SUBDOMAIN_DOMAIN, 'uids.app');
+const sessionCookieDomain = cleanDomain(
+  process.env.SESSION_COOKIE_DOMAIN,
+  freeSubdomainDomain
+);
 const configuredDomainList = String(process.env.VITE_MANAGED_DOMAINS || '')
   .split(',')
   .map(domain => cleanDomain(domain))
@@ -28,7 +32,8 @@ export const PLATFORM_CONFIG = Object.freeze({
   storeDomain,
   freeSubdomainDomain,
   managedDomains,
-  cookieDomain: `.${primaryDomain}`,
+  cookieDomain: `.${sessionCookieDomain}`,
+  authDomain: cleanDomain(process.env.VITE_AUTH_DOMAIN, `auth.${freeSubdomainDomain}`),
   serverIpv4: process.env.VITE_SERVER_IPV4 || '162.35.124.233',
   wwwSubdomain: subdomain('VITE_WWW_SUBDOMAIN', 'www'),
   authSubdomain: subdomain('VITE_AUTH_SUBDOMAIN', 'auth'),

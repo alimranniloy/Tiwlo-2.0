@@ -29,8 +29,13 @@ import UidisLogoIcon from '../components/UidisLogoIcon';
  * - Middle Row: Your Website (Live preview & action buttons) + Quick Actions (4 colored tiles)
  * - Bottom Row: Popular Templates (4 items) + Cloud Hosting + NFC Business Card
  */
-export default function OneProfileHomeView({ onNavigateTab }) {
-  const johnAvatar = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80";
+export default function OneProfileHomeView({ currentUser, summary, onNavigateTab }) {
+  const displayName = currentUser?.name || currentUser?.email || 'Your profile';
+  const primaryDomain = summary?.domains?.[0]?.domain || 'No domain claimed';
+  const profileAvatar = currentUser?.avatar || '/tiwlo-icon.png';
+  const metrics = summary?.metrics || {};
+  const primaryWebsite = summary?.websites?.[0];
+  const profileHeadline = summary?.profile?.headline || 'Profile headline not configured';
 
   return (
     <div className="w-full space-y-4 sm:space-y-5 pb-12 text-left">
@@ -103,7 +108,7 @@ export default function OneProfileHomeView({ onNavigateTab }) {
                 </div>
                 <div className="flex-1 bg-white border border-slate-200 rounded-md py-0.5 px-2 text-[9px] font-mono text-slate-500 flex items-center gap-1 truncate justify-center">
                   <span>🔍</span>
-                  <span className="truncate">john.uids.app</span>
+                  <span className="truncate">{primaryDomain}</span>
                 </div>
               </div>
 
@@ -111,13 +116,13 @@ export default function OneProfileHomeView({ onNavigateTab }) {
               <div className="p-4 flex flex-col items-center text-center bg-white">
                 <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-blue-500/20 shadow-xs mb-1.5">
                   <img
-                    src={johnAvatar}
-                    alt="John Doe"
+                    src={profileAvatar}
+                    alt={displayName}
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <div className="font-extrabold text-xs text-slate-900">John Doe</div>
-                <div className="text-[10px] text-slate-400 mb-2">Designer & Developer</div>
+                <div className="font-extrabold text-xs text-slate-900">{displayName}</div>
+                <div className="text-[10px] text-slate-400 mb-2">{summary?.profile?.headline || 'Profile headline not configured'}</div>
                 
                 {/* Social Icons row */}
                 <div className="flex items-center gap-1.5 text-slate-400">
@@ -146,7 +151,7 @@ export default function OneProfileHomeView({ onNavigateTab }) {
 
               {/* Details & Wave */}
               <div className="text-center">
-                <div className="text-[10px] font-bold text-slate-900 leading-tight">John Doe</div>
+                <div className="text-[10px] font-bold text-slate-900 leading-tight">{displayName}</div>
                 <div className="text-[8px] text-slate-400 leading-tight">Tap to connect</div>
               </div>
 
@@ -176,7 +181,7 @@ export default function OneProfileHomeView({ onNavigateTab }) {
             <div>
               <div className="text-[11px] font-medium text-slate-400">Subdomains</div>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-2xl font-extrabold text-slate-900 leading-none">2</span>
+                <span className="text-2xl font-extrabold text-slate-900 leading-none">{metrics.domains ?? 0}</span>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] text-[10px] font-semibold">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#059669]" />
                   <span>Active</span>
@@ -199,10 +204,7 @@ export default function OneProfileHomeView({ onNavigateTab }) {
             <div>
               <div className="text-[11px] font-medium text-slate-400">Profile Views</div>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-2xl font-extrabold text-slate-900 leading-none">1.2K</span>
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] text-[10px] font-semibold">
-                  <span>↑ 12%</span>
-                </span>
+                <span className="text-2xl font-extrabold text-slate-900 leading-none">{Number(metrics.views || 0).toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -221,16 +223,16 @@ export default function OneProfileHomeView({ onNavigateTab }) {
             <div className="flex-1 min-w-0">
               <div className="text-[11px] font-medium text-slate-400">Storage Used</div>
               <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-xl font-extrabold text-slate-900 leading-none">48 MB</span>
-                <span className="text-[11px] text-slate-400">/ 200 MB</span>
+                <span className="text-xl font-extrabold text-slate-900 leading-none">—</span>
+                <span className="text-[11px] text-slate-400">not measured</span>
               </div>
               {/* Progress bar */}
               <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1.5">
-                <div className="h-full bg-[#9333EA] rounded-full" style={{ width: '24%' }} />
+                <div className="h-full bg-[#9333EA] rounded-full" style={{ width: '0%' }} />
               </div>
             </div>
           </div>
-          <span className="text-[10px] font-bold text-slate-400 self-end mb-1 shrink-0">24%</span>
+          <span className="text-[10px] font-bold text-slate-400 self-end mb-1 shrink-0">—</span>
         </div>
 
         {/* Card 4: Active Template */}
@@ -245,7 +247,7 @@ export default function OneProfileHomeView({ onNavigateTab }) {
             <div>
               <div className="text-[11px] font-medium text-slate-400">Active Template</div>
               <div className="mt-0.5">
-                <span className="text-2xl font-extrabold text-slate-900 leading-none">1</span>
+                <span className="text-2xl font-extrabold text-slate-900 leading-none">{primaryWebsite?.template_id ? 1 : 0}</span>
               </div>
             </div>
           </div>
@@ -278,10 +280,10 @@ export default function OneProfileHomeView({ onNavigateTab }) {
                 {/* Profile Card Summary */}
                 <div className="flex-1 min-w-0 text-left">
                   <div className="text-[10px] text-slate-400 font-medium leading-none">Hi, I'm</div>
-                  <div className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight mt-0.5 truncate">John Doe</div>
-                  <div className="text-[10px] sm:text-[11px] font-semibold text-slate-500 mb-1 truncate">Designer & Developer</div>
+                  <div className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight mt-0.5 truncate">{displayName}</div>
+                  <div className="text-[10px] sm:text-[11px] font-semibold text-slate-500 mb-1 truncate">{profileHeadline}</div>
                   <p className="text-[9px] sm:text-[10px] text-slate-400 leading-snug mb-2 line-clamp-2">
-                    Building digital experiences that make an impact.
+                    {summary?.profile?.bio || 'Add a bio in settings to describe your profile.'}
                   </p>
                   <div className="flex items-center gap-1.5">
                     <span className="px-2 py-0.5 rounded bg-slate-900 text-white text-[8px] font-bold">Contact Me</span>
@@ -293,11 +295,11 @@ export default function OneProfileHomeView({ onNavigateTab }) {
                   </div>
                 </div>
 
-                {/* Photo Portrait of John Doe */}
+                {/* Authenticated profile portrait */}
                 <div className="w-20 sm:w-24 h-24 sm:h-28 rounded-xl overflow-hidden bg-slate-200 shrink-0 shadow-2xs">
                   <img
-                    src={johnAvatar}
-                    alt="John Doe Portrait"
+                    src={profileAvatar}
+                    alt={displayName}
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -307,12 +309,12 @@ export default function OneProfileHomeView({ onNavigateTab }) {
               <div className="w-full sm:w-36 md:w-40 shrink-0 flex flex-col justify-between gap-2 text-left">
                 {/* Domain Link matching screenshot */}
                 <a
-                  href="https://john.uids.app"
+                  href={primaryDomain === 'No domain claimed' ? '#' : `https://${primaryDomain}`}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center justify-start gap-1 text-xs font-semibold text-[#2563EB] hover:underline"
                 >
-                  <span className="truncate">john.uids.app</span>
+                  <span className="truncate">{primaryDomain}</span>
                   <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                 </a>
 
@@ -339,7 +341,7 @@ export default function OneProfileHomeView({ onNavigateTab }) {
                 {/* Row: View Site + More Options */}
                 <div className="flex items-center gap-1.5 w-full">
                   <a
-                    href="https://john.uids.app"
+                    href={primaryDomain === 'No domain claimed' ? '#' : `https://${primaryDomain}`}
                     target="_blank"
                     rel="noreferrer"
                     className="flex-1 py-1.5 px-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1 whitespace-nowrap transition text-center"
@@ -473,7 +475,7 @@ export default function OneProfileHomeView({ onNavigateTab }) {
               <div className="flex flex-col rounded-xl border border-slate-200/80 overflow-hidden bg-white shadow-2xs">
                 <div className="h-20 bg-slate-950 text-white p-2 flex flex-col items-center justify-center text-center select-none">
                   <div className="w-4 h-4 rounded-full bg-blue-500 mb-1" />
-                  <div className="text-[9px] font-bold">John Doe</div>
+                  <div className="text-[9px] font-bold">{displayName}</div>
                   <div className="text-[7px] text-slate-400">Designer & Developer</div>
                 </div>
                 <div className="p-2 text-left flex-1 flex flex-col justify-between bg-white">
@@ -495,7 +497,7 @@ export default function OneProfileHomeView({ onNavigateTab }) {
               <div className="flex flex-col rounded-xl border border-slate-200/80 overflow-hidden bg-white shadow-2xs">
                 <div className="h-20 bg-[#FAF7F2] text-slate-900 p-2 flex flex-col justify-between select-none">
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-bold">John Doe</span>
+                    <span className="text-[9px] font-bold">{displayName}</span>
                     <span className="text-[10px]">🌿</span>
                   </div>
                   <span className="text-[8px] bg-slate-900 text-white px-1.5 py-0.5 rounded self-start">Showcase</span>
@@ -518,7 +520,7 @@ export default function OneProfileHomeView({ onNavigateTab }) {
               {/* Template 3: Portfolio */}
               <div className="flex flex-col rounded-xl border border-slate-200/80 overflow-hidden bg-white shadow-2xs">
                 <div className="h-20 bg-[#1E1B4B] text-white p-2 flex flex-col items-center justify-center text-center select-none">
-                  <div className="text-[9px] font-bold">John Doe</div>
+                  <div className="text-[9px] font-bold">{displayName}</div>
                   <div className="text-[7px] text-indigo-300">Modern & professional</div>
                 </div>
                 <div className="p-2 text-left flex-1 flex flex-col justify-between bg-white">
