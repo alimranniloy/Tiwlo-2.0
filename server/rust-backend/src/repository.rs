@@ -119,7 +119,9 @@ impl Repository {
         .ok_or(RepositoryError::NotFound("account_not_found"))?;
 
         if !user.0 {
-            return Err(RepositoryError::Policy("email_verification_required"));
+            return Err(RepositoryError::Policy(
+                "email_verification_required".to_owned(),
+            ));
         }
         if user.1.is_some() {
             return Err(RepositoryError::Conflict("free_domain_already_used"));

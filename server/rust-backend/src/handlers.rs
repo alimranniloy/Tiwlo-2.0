@@ -6,7 +6,7 @@ use axum::{
     Json,
 };
 use axum_extra::{
-    headers::{Header, HeaderName, HeaderValue as TypedHeaderValue},
+    headers::{Error as HeaderError, Header, HeaderName, HeaderValue as TypedHeaderValue},
     TypedHeader,
 };
 use serde::Serialize;
@@ -357,13 +357,15 @@ pub async fn delete_dns_record(
         return (
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({"error": "invalid_internal_identity"})),
-        );
+        )
+            .into_response();
     };
     let Some(repository) = state.repository.as_ref() else {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
             Json(serde_json::json!({"error": "database_unavailable"})),
-        );
+        )
+            .into_response();
     };
     match repository
         .delete_dns_record(&assertion.user_id, &subdomain_id, &record_id)
@@ -373,11 +375,13 @@ pub async fn delete_dns_record(
         Err(crate::repository::RepositoryError::Database(_)) => (
             StatusCode::SERVICE_UNAVAILABLE,
             Json(serde_json::json!({"error": "database_error"})),
-        ),
+        )
+            .into_response(),
         Err(_) => (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({"error": "dns_record_not_found"})),
-        ),
+        )
+            .into_response(),
     }
 }
 
@@ -390,16 +394,16 @@ impl Header for IdentityHeader {
         &NAME
     }
 
-    fn decode<'i, I>(values: &mut I) -> Option<Self>
+    fn decode<'i, I>(values: &mut I) -> Result<Self, HeaderError>
     where
         I: Iterator<Item = &'i TypedHeaderValue>,
     {
-        values.next().and_then(|value| {
-            value
-                .to_str()
-                .ok()
-                .map(|token| Self(token.to_owned()))
-        })
+        values
+            .next()
+            .ok_or_else(HeaderError::invalid)?
+            .to_str()
+            .map(|token| Self(token.to_owned()))
+            .map_err(|_| HeaderError::invalid())
     }
 
     fn encode<E>(&self, values: &mut E)
@@ -467,7 +471,9 @@ pub async fn claim_domain(
                 "code": "ACCOUNT_NOT_FOUND"
             })),
         ),
-        Err(crate::repository::RepositoryError::Policy("email_verification_required")) => (
+        Err(crate::repository::RepositoryError::Policy(reason))
+            if reason == "email_verification_required" =>
+        (
             StatusCode::FORBIDDEN,
             Json(serde_json::json!({
                 "error": "Verify your email before claiming a free domain.",
