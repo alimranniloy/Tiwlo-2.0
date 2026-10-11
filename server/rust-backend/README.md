@@ -131,6 +131,13 @@ The Rust claim transaction now enforces the same three-signal 24-hour limit
 `blocked` attempts in the existing audit table. Raw network, device, and email
 values are never placed in the assertion.
 
+The Node route has a disabled-by-default feature flag,
+`TIWLO_RUST_DOMAIN_CLAIM_ENABLED`. When enabled in staging, it calls the Rust
+claim endpoint through `TIWLO_RUST_BACKEND_URL`. Rust errors are returned
+directly and Rust network failure is not silently retried through Node, avoiding
+ambiguous double-claim behavior. Leave the flag disabled until integration,
+race, load, and rollback tests pass.
+
 ## Migration rule
 
 Do not delete or bypass the Node.js backend for a Rust service until the Rust

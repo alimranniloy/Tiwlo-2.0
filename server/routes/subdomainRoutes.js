@@ -10,6 +10,7 @@ import {
   listUserSubdomains,
   updateSubdomainRecord
 } from '../domains/subdomainService.js';
+import { claimDomainWithRust, isRustDomainClaimEnabled } from '../security/rustDomainClient.js';
 
 const router = express.Router();
 const checkLimiter = rateLimit({
@@ -58,6 +59,15 @@ router.post('/claim', claimLimiter, async (req, res) => {
         path: '/',
         maxAge: 365 * 24 * 60 * 60 * 1000
       });
+    }
+    if (isRustDomainClaimEnabled()) {
+      if (!req.activeUser?.id) return res.status(401).json({ error: 'Authentication required.' });
+      const registration = await claimDomainWithRust({
+        user: req.activeUser,
+        name: req.body?.name,
+        request: req
+      });
+      return res.status(201).json({ registration });
     }
     const registration = await claimSubdomain({
       userId: req.activeUser?.id,
