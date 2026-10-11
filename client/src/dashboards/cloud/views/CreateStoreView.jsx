@@ -5,11 +5,6 @@ import {
   ArrowLeft,
   Sparkles,
   Globe,
-  DollarSign,
-  Mail,
-  Phone,
-  CheckCircle2,
-  Layers,
   ChevronRight,
   Info
 } from 'lucide-react';
@@ -24,7 +19,7 @@ const STORE_CATEGORIES = [
   'Digital Products & Services'
 ];
 
-export default function CreateStoreView({ onBack, onCreateStore, showToast }) {
+export default function CreateStoreView({ onBack, onCreateStore }) {
   const [storeName, setStoreName] = useState('');
   const [category, setCategory] = useState(STORE_CATEGORIES[0]);
   const [subdomain, setSubdomain] = useState('');
@@ -52,7 +47,7 @@ export default function CreateStoreView({ onBack, onCreateStore, showToast }) {
 
     try {
       setSubmitting(true);
-      await onCreateStore({
+      const created = await onCreateStore({
         storeName: storeName.trim(),
         category,
         subdomain: subdomain.trim(),
@@ -61,7 +56,7 @@ export default function CreateStoreView({ onBack, onCreateStore, showToast }) {
         phone: phone.trim(),
         description: description.trim()
       });
-      showToast?.(`Store "${storeName}" created successfully!`);
+      if (!created) throw new Error('The store could not be created.');
       onBack?.();
     } catch (err) {
       setErrorMsg(err.message || 'Failed to create store. Please try again.');

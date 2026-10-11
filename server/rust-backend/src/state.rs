@@ -16,6 +16,10 @@ pub struct AppState {
     pub metrics: Arc<Metrics>,
     pub repository: Option<Arc<Repository>>,
     pub identity_secret: Arc<str>,
+    pub otp_secret: Arc<str>,
+    pub app_trust_key: Arc<str>,
+    pub free_subdomain_domain: Arc<str>,
+    pub primary_domain: Arc<str>,
 }
 
 impl AppState {
@@ -29,6 +33,10 @@ impl AppState {
             metrics: Arc::new(Metrics::default()),
             repository,
             identity_secret: Arc::from(config.identity_secret.clone()),
+            otp_secret: Arc::from(config.otp_secret.clone()),
+            app_trust_key: Arc::from(config.app_trust_key.clone()),
+            free_subdomain_domain: Arc::from(config.free_subdomain_domain.clone()),
+            primary_domain: Arc::from(config.primary_domain.clone()),
         }
     }
 }

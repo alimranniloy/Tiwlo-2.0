@@ -1,10 +1,13 @@
 import { readState, saveState, isPersistedState } from '../db/stateDocuments.js';
 import { MasterDB, TenantDB } from '../db/multiTenant.js';
-import { PasswordSecurity } from '../security/cryptoSecurity.js';
+import {
+  hashPasswordWithRust,
+  verifyPasswordWithRust
+} from '../security/rustAuthSessionClient.js';
 import { isPgActive, queryPg } from '../db/postgres.js';
 import {
+  completeMfaLoginWithRust,
   generateSecureOtp,
-  verifySecureOtp,
   deleteOtpSession,
   getOtpSession,
   sendTwoFactorOtpEmail,
@@ -383,16 +386,11 @@ export const SocialDB = {
     }
 
     // 2. Cryptographic Password Verification
-    let passwordMatches = false;
-    if (masterUser.password) {
-      if (masterUser.password.startsWith('scrypt$')) {
-        passwordMatches = PasswordSecurity.verify(password, masterUser.password);
-      } else {
-        passwordMatches = masterUser.password === password;
-      }
-    }
+    const passwordCheck = masterUser.password
+      ? await verifyPasswordWithRust(masterUser.id, password)
+      : { valid: false, rehashPerformed: false };
 
-    if (!passwordMatches) {
+    if (!passwordCheck.valid) {
       throw new Error('Incorrect password. Please enter the correct password.');
     }
 
@@ -430,17 +428,22 @@ export const SocialDB = {
       throw new Error('Verification token and 6-digit code are required.');
     }
     const cleanCode = String(otpCode).trim();
-    const verification = await verifySecureOtp(tempToken, cleanCode, 'login_2fa');
+    const sessionRequest = {
+      headers: { 'user-agent': 'Tiwi Mobile App (iOS / Android)' }
+    };
+    const verification = await completeMfaLoginWithRust(tempToken, cleanCode, sessionRequest);
     if (!verification.valid) {
       throw new Error(verification.error || 'Invalid or expired 2FA code.');
     }
 
-    const masterUser = await MasterDB.findUserByIdentifier(verification.email);
-    if (!masterUser) {
+    const masterUser = await MasterDB.findUserByIdentifier(verification.userId);
+    if (!masterUser || masterUser.email.toLowerCase() !== verification.email.toLowerCase()) {
+      await MasterDB.deleteSession(verification.sessionToken);
       throw new Error('User account not found.');
     }
 
     if (masterUser.isBanned) {
+      await MasterDB.deleteSession(verification.sessionToken);
       return {
         isBanned: true,
         banReason: masterUser.banReason || 'Your account has been suspended by administrator.',
@@ -452,7 +455,7 @@ export const SocialDB = {
     const profiles = data.profiles || {};
     const profile = profiles[masterUser.id] || {};
     const socialUser = this._toSocialUser(masterUser, profile, data);
-    const token = `tiwi_token_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+    const token = verification.sessionToken;
 
     sendLoginActivityAlertEmail({
       to: masterUser.email,
@@ -464,7 +467,12 @@ export const SocialDB = {
     }).catch(e => console.error('[Login Alert Email Error]', e));
 
     const { password: _, ...safeUser } = socialUser;
-    return { user: safeUser, token, message: `Welcome back, ${socialUser.name}!` };
+    return {
+      user: safeUser,
+      token,
+      sessionToken: token,
+      message: `Welcome back, ${socialUser.name}!`
+    };
   },
 
   async resend2FA(tempToken) {
@@ -844,11 +852,11 @@ export const SocialDB = {
     if (!user) {
       throw new Error('User account not found.');
     }
-    const isMatch = await PasswordSecurity.verify(oldPassword, user.password);
-    if (!isMatch) {
+    const passwordCheck = await verifyPasswordWithRust(user.id, oldPassword);
+    if (!passwordCheck.valid) {
       throw new Error('Current password is incorrect.');
     }
-    const newHashed = await PasswordSecurity.hash(newPassword);
+    const newHashed = await hashPasswordWithRust(newPassword);
     await MasterDB.updatePasswordAndRevokeSessions(userId, newHashed, currentSessionToken);
     return { success: true, message: 'Password updated successfully.' };
   },
@@ -1630,13 +1638,13 @@ export const SocialDB = {
       throw new Error('User not found.');
     }
     if (masterUser.password && oldPassword) {
-      const match = PasswordSecurity.verify(oldPassword, masterUser.password);
-      if (!match) {
+      const passwordCheck = await verifyPasswordWithRust(masterUser.id, oldPassword);
+      if (!passwordCheck.valid) {
         throw new Error('Incorrect current password.');
       }
     }
-    const newHash = PasswordSecurity.hash(newPassword);
-    await MasterDB.updateUser(masterUser.id, { password: newHash });
+    const newHash = await hashPasswordWithRust(newPassword);
+    await MasterDB.updatePasswordAndRevokeSessions(masterUser.id, newHash);
     return { success: true, message: 'Password updated successfully.' };
   },
 

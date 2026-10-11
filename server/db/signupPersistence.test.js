@@ -7,14 +7,30 @@ import { PGlite } from '@electric-sql/pglite';
 
 test('account creation and browser reservation commit together or both roll back', async (t) => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tiwlo-signup-persistence-'));
-  const previousDir = process.env.TIWLO_DATA_DIR;
+  const previousEnvironment = Object.fromEntries([
+    'TIWLO_DATA_DIR',
+    'TIWLO_RUST_BACKEND_URL',
+    'TIWLO_INTERNAL_IDENTITY_SECRET'
+  ].map(key => [key, process.env[key]]));
   process.env.TIWLO_DATA_DIR = dataDir;
+  process.env.TIWLO_RUST_BACKEND_URL = 'http://rust.test';
+  process.env.TIWLO_INTERNAL_IDENTITY_SECRET = 'test-only-auth-secret-'.padEnd(32, 'x');
   const db = new PGlite();
   const { getPgPool, initPgSchema } = await import('./postgres.js');
   const { MasterDB } = await import('./multiTenant.js');
-  t.mock.method(getPgPool(), 'query', async (sql, params) => params?.length
-    ? db.query(sql, params)
-    : (await db.exec(sql)).at(-1));
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    assert.equal(url, 'http://rust.test/v1/auth/passwords/hash');
+    assert.equal(JSON.parse(options.body).password, 'isolated-test-password');
+    return new Response(JSON.stringify({
+      passwordHash: `scrypt$16384:8:1$${'a'.repeat(32)}$${'b'.repeat(128)}`
+    }), { status: 200 });
+  });
+  t.mock.method(getPgPool(), 'query', async (sql, params) => {
+    const testSql = sql.replace(/CREATE EXTENSION IF NOT EXISTS pgcrypto;/i, '');
+    return params?.length
+      ? db.query(testSql, params)
+      : (await db.exec(testSql)).at(-1);
+  });
   try {
     await initPgSchema();
     const create = (email, key, extra = {}) => MasterDB.createUser({
@@ -39,8 +55,10 @@ test('account creation and browser reservation commit together or both roll back
   } finally {
     await db.close();
     await getPgPool().end();
-    if (previousDir === undefined) delete process.env.TIWLO_DATA_DIR;
-    else process.env.TIWLO_DATA_DIR = previousDir;
+    for (const [key, value] of Object.entries(previousEnvironment)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 });

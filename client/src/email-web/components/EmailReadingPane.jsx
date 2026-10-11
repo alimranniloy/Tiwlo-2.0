@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Reply,
   ReplyAll,
@@ -13,10 +13,12 @@ import {
   ArrowLeft,
   Star,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  AlertCircle
 } from 'lucide-react';
 import { useEmail } from '../context/EmailContext';
 import { EmailAPI } from '../api/emailApi';
+import { formatEmailDate } from '../formatEmailDate';
 
 export default function EmailReadingPane() {
   const {
@@ -32,6 +34,8 @@ export default function EmailReadingPane() {
 
   const [replyText, setReplyText] = useState('');
   const [isReplying, setIsReplying] = useState(false);
+  const [showExternalImages, setShowExternalImages] = useState(false);
+  useEffect(() => setShowExternalImages(false), [selectedEmail?.id]);
   const replyRecipients = selectedEmail?.folder === 'sent'
     ? (selectedEmail.to || []).map((recipient) => recipient.email).join(', ')
     : selectedEmail?.sender?.email || '';
@@ -80,7 +84,7 @@ export default function EmailReadingPane() {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white dark:bg-[#18181B] select-none text-[13px] min-w-0 overflow-y-auto pb-24 sm:pb-6">
+    <div className="flex-1 flex flex-col h-full bg-white dark:bg-[#18181B] text-[13px] min-w-0 overflow-y-auto pb-24 sm:pb-6">
       {/* 1. Reading Action Toolbar (Always Sticky & Fully Visible) */}
       <div className="p-2.5 sm:p-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between sticky top-0 bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-xs z-20 shadow-xs">
         <div className="flex items-center gap-1.5">
@@ -213,9 +217,18 @@ export default function EmailReadingPane() {
               ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
               : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
           }`}>
-            <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-            <span className="font-semibold">Delivery status:</span>
-            <span>{selectedEmail.deliveryStatus || 'Message stored in your mailbox'}</span>
+            {selectedEmail.deliveryStatus === 'failed'
+              ? <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+              : <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />}
+            <span className="font-semibold">Mail status:</span>
+            <span>
+              {{
+                failed: 'Sending failed',
+                queued: 'Accepted by the outgoing mail server',
+                received: 'Received in this mailbox',
+                delivered: 'Delivered'
+              }[selectedEmail.deliveryStatus] || 'Saved in your mailbox'}
+            </span>
           </div>
         </div>
 
@@ -253,17 +266,26 @@ export default function EmailReadingPane() {
 
               <div className="text-[11.5px] text-slate-600 dark:text-slate-400 mt-1">
                 <span className="font-medium text-slate-400">To: </span>
-                {selectedEmail.to && selectedEmail.to.map((r, i) => (
+                {selectedEmail.to?.length ? selectedEmail.to.map((r, i) => (
                   <span key={i} className="font-medium text-slate-700 dark:text-slate-300">
                     {r.name} &lt;{r.email}&gt;{i < selectedEmail.to.length - 1 ? '; ' : ''}
                   </span>
-                ))}
+                )) : <span className="font-medium text-slate-700 dark:text-slate-300">No recipient details</span>}
+                {!!selectedEmail.cc?.length && (
+                  <div className="mt-1"><span className="font-medium text-slate-400">Cc: </span>
+                    {selectedEmail.cc.map((recipient, index) => (
+                      <span key={recipient.email} className="font-medium text-slate-700 dark:text-slate-300">
+                        {recipient.name} &lt;{recipient.email}&gt;{index < selectedEmail.cc.length - 1 ? '; ' : ''}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
           <div className="text-right text-[11.5px] text-slate-400 whitespace-nowrap flex-shrink-0">
-            {selectedEmail.fullDate}
+            {formatEmailDate(selectedEmail.fullDate, { includeTime: true })}
           </div>
         </div>
 
@@ -281,8 +303,8 @@ export default function EmailReadingPane() {
                   key={att.id || att.filename}
                   className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/60 hover:border-[#0078D4] transition group"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center font-bold text-[10px]">
-                    PDF
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] flex items-center justify-center font-bold text-[9px]">
+                    {(att.contentType?.startsWith('image/') ? 'IMG' : att.filename?.split('.').pop()?.slice(0, 4) || 'FILE').toUpperCase()}
                   </div>
                   <div className="flex flex-col text-left">
                     <span className="font-semibold text-[12.5px] text-slate-800 dark:text-slate-200 truncate max-w-[180px]">
@@ -307,10 +329,27 @@ export default function EmailReadingPane() {
           </div>
         )}
 
+        {selectedEmail.bodyHtml?.includes('data-remote-src=') && !showExternalImages && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 px-3 py-2 text-[12px]">
+            <span className="text-slate-600 dark:text-slate-300">External images are hidden to protect your privacy.</span>
+            <button
+              type="button"
+              onClick={() => setShowExternalImages(true)}
+              className="shrink-0 rounded-md bg-[#0078D4] px-3 py-1.5 font-semibold text-white hover:bg-[#106EBE]"
+            >
+              Load images
+            </button>
+          </div>
+        )}
+
         {/* Email HTML Body */}
         <div
-          className="prose dark:prose-invert max-w-none text-[13.5px] text-slate-800 dark:text-slate-200 leading-relaxed py-2 [&_a]:text-[#0078D4] [&_a]:underline [&_a]:cursor-pointer"
-          dangerouslySetInnerHTML={{ __html: selectedEmail.bodyHtml }}
+          className="prose dark:prose-invert max-w-none text-[13.5px] text-slate-800 dark:text-slate-200 leading-relaxed py-2 [&_a]:text-[#0078D4] [&_a]:underline [&_a]:cursor-pointer [&_img]:max-w-full [&_img]:h-auto"
+          dangerouslySetInnerHTML={{
+            __html: showExternalImages
+              ? selectedEmail.bodyHtml?.replace(/\bdata-remote-src=/g, 'src=') || ''
+              : selectedEmail.bodyHtml || ''
+          }}
         />
 
         {/* 3. Quick Reply Templates */}

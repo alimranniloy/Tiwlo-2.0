@@ -1,45 +1,34 @@
-import React, { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import React from 'react';
 
 export default function UsageOverviewCard({ metrics }) {
-  const [timeRange, setTimeRange] = useState('Last 7 days');
-
   const rings = [
     {
       id: 'cpu',
       label: 'CPU',
-      percent: metrics?.cpuPercent ?? 32,
-      usage: metrics?.cpuUsed || '2.6 / 8 vCPUs',
-      color: '#3B82F6', // Blue
-      trackColor: '#EFF6FF',
-      darkTrackColor: '#1e293b'
+      percent: metrics?.cpuPercent,
+      usage: metrics?.cpuUsed || 'Unavailable',
+      color: '#3B82F6'
     },
     {
       id: 'memory',
       label: 'Memory',
-      percent: metrics?.memoryPercent ?? 48,
-      usage: metrics?.memoryUsed || '3.8 / 8 GB',
-      color: '#8B5CF6', // Purple
-      trackColor: '#F5F3FF',
-      darkTrackColor: '#1e293b'
+      percent: metrics?.memoryPercent,
+      usage: metrics?.memoryUsed || 'Unavailable',
+      color: '#8B5CF6'
     },
     {
       id: 'storage',
       label: 'Storage',
-      percent: metrics?.storagePercent ?? 21,
-      usage: metrics?.storageUsed || '16 / 80 GB',
-      color: '#10B981', // Emerald
-      trackColor: '#ECFDF5',
-      darkTrackColor: '#1e293b'
+      percent: metrics?.storagePercent,
+      usage: metrics?.storageUsed || 'Unavailable',
+      color: '#10B981'
     },
     {
       id: 'bandwidth',
       label: 'Bandwidth',
-      percent: metrics?.bandwidthPercent ?? 18,
-      usage: metrics?.bandwidthUsed || '0.4 / 2.4 TB',
-      color: '#06B6D4', // Cyan
-      trackColor: '#ECFEFF',
-      darkTrackColor: '#1e293b'
+      percent: metrics?.bandwidthPercent,
+      usage: metrics?.bandwidthUsed || 'Unavailable',
+      color: '#06B6D4'
     }
   ];
 
@@ -55,16 +44,16 @@ export default function UsageOverviewCard({ metrics }) {
           Usage Overview
         </h3>
 
-        <div className="flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-gray-800/80 px-2.5 py-1 rounded-xl border border-slate-200/60 dark:border-gray-700/60 cursor-pointer">
-          <span>{timeRange}</span>
-          <ChevronDown className="w-3 h-3 text-slate-400" />
-        </div>
+        <span className="text-[11px] text-slate-500 dark:text-slate-400">Live data unavailable</span>
       </div>
 
       {/* 4 Circular Rings in a row or 2x2 grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3 text-center">
         {rings.map((ring) => {
-          const strokeDashoffset = circumference - (ring.percent / 100) * circumference;
+          const hasPercentage = Number.isFinite(ring.percent);
+          const strokeDashoffset = hasPercentage
+            ? circumference - (Math.min(100, Math.max(0, ring.percent)) / 100) * circumference
+            : circumference;
 
           return (
             <div key={ring.id} className="flex flex-col items-center">
@@ -87,7 +76,7 @@ export default function UsageOverviewCard({ metrics }) {
                     r={radius}
                     strokeWidth="4.5"
                     fill="none"
-                    stroke={ring.color}
+                    stroke={hasPercentage ? ring.color : 'transparent'}
                     strokeDasharray={circumference}
                     strokeDashoffset={strokeDashoffset}
                     strokeLinecap="round"
@@ -98,7 +87,7 @@ export default function UsageOverviewCard({ metrics }) {
                 {/* Percentage Center Text */}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-xs font-black text-slate-900 dark:text-white">
-                    {ring.percent}%
+                    {hasPercentage ? `${ring.percent}%` : '—'}
                   </span>
                 </div>
               </div>

@@ -90,12 +90,6 @@ ensure_native_rust_environment() {
   if ! grep -q '^TIWLO_RUST_BACKEND_URL=' "$ROOT_DIR/.env"; then
     printf 'TIWLO_RUST_BACKEND_URL=http://127.0.0.1:7100\n' >> "$ROOT_DIR/.env"
   fi
-  if ! grep -q '^TIWLO_RUST_DOMAIN_CLAIM_ENABLED=' "$ROOT_DIR/.env"; then
-    printf 'TIWLO_RUST_DOMAIN_CLAIM_ENABLED=false\n' >> "$ROOT_DIR/.env"
-  fi
-  if ! grep -q '^TIWLO_RUST_DNS_ENABLED=' "$ROOT_DIR/.env"; then
-    printf 'TIWLO_RUST_DNS_ENABLED=false\n' >> "$ROOT_DIR/.env"
-  fi
 }
 
 # Load the shared, non-secret platform settings. Systemd/PM2 environment values
@@ -129,8 +123,6 @@ POSTGRES_DB=tiwlo_master
 POSTGRES_PASSWORD=$DB_PASSWORD
 REDIS_PASSWORD=$REDIS_PASSWORD
 TIWLO_INTERNAL_IDENTITY_SECRET=$IDENTITY_SECRET
-TIWLO_RUST_DOMAIN_CLAIM_ENABLED=false
-TIWLO_RUST_DNS_ENABLED=false
 EOF
   fi
 
@@ -140,13 +132,6 @@ EOF
   if ! grep -q '^TIWLO_INTERNAL_IDENTITY_SECRET=' "$ENV_FILE"; then
     printf 'TIWLO_INTERNAL_IDENTITY_SECRET=%s\n' "$(openssl rand -hex 32)" >> "$ENV_FILE"
   fi
-  if ! grep -q '^TIWLO_RUST_DOMAIN_CLAIM_ENABLED=' "$ENV_FILE"; then
-    printf 'TIWLO_RUST_DOMAIN_CLAIM_ENABLED=false\n' >> "$ENV_FILE"
-  fi
-  if ! grep -q '^TIWLO_RUST_DNS_ENABLED=' "$ENV_FILE"; then
-    printf 'TIWLO_RUST_DNS_ENABLED=false\n' >> "$ENV_FILE"
-  fi
-
   cd "$ROOT_DIR"
   docker compose --env-file .env --env-file docker/.env.production -f docker/docker-compose.production.yml up -d --build --remove-orphans
   docker compose --env-file .env --env-file docker/.env.production -f docker/docker-compose.production.yml ps

@@ -1,13 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
-  HelpCircle,
   Plus,
   RotateCw,
   CreditCard,
-  CheckCircle2,
-  Filter,
   Search,
-  Columns,
   ArrowDown,
   MoreVertical,
   ChevronLeft,
@@ -15,15 +11,10 @@ import {
   Shield,
   MessageSquare,
   BarChart2,
-  Calendar,
-  Users,
-  Settings,
-  ArrowRight,
   Activity,
   Layers,
-  ExternalLink,
-  SlidersHorizontal,
-  Bot
+  Bot,
+  MessageCircle
 } from 'lucide-react';
 import { WorkspaceAPI } from '../../api/workspaceApi';
 
@@ -98,6 +89,18 @@ export default function WorkspaceView({ onNavigate }) {
 
   const renderServiceIcon = (iconType) => {
     switch (iconType) {
+      case 'discord':
+        return (
+          <div className="w-10 h-10 rounded-xl bg-[#5865F2] text-white flex items-center justify-center shrink-0">
+            <Bot className="w-5 h-5 stroke-[2]" />
+          </div>
+        );
+      case 'whatsapp':
+        return (
+          <div className="w-10 h-10 rounded-xl bg-[#25D366] text-white flex items-center justify-center shrink-0">
+            <MessageCircle className="w-5 h-5 stroke-[2]" />
+          </div>
+        );
       case 'shield':
         return (
           <div className="w-10 h-10 rounded-xl bg-[#E8F0FE] text-[#0B57D0] flex items-center justify-center shrink-0">
@@ -139,7 +142,7 @@ export default function WorkspaceView({ onNavigate }) {
             </span>
           </div>
           <p className="text-sm text-[#444746] mt-1">
-            Centrally manage, monitor, and provision active workspace services, community bots, and extensions.
+            Manage the products you have enabled, their workspace settings, and service activity.
           </p>
         </div>
 
@@ -320,7 +323,10 @@ export default function WorkspaceView({ onNavigate }) {
                               {service.name}
                             </button>
                             <div className="text-[12px] text-[#444746] mt-0.5 capitalize">
-                              {service.category || 'Extension Service'}
+                              <span>{service.productName || service.category || 'Extension Service'}</span>
+                              {service.category && service.productName && (
+                                <span className="text-[#747775]"> · {service.category}</span>
+                              )}
                             </div>
                           </div>
                         </div>

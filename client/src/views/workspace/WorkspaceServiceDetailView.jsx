@@ -1,24 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
-  CheckCircle2,
-  Server,
-  Shield,
-  MessageSquare,
-  BarChart2,
-  Calendar,
-  Users,
-  Settings,
+  Bot,
+  MessageCircle,
   AlertTriangle,
   Save,
-  Trash2,
   CreditCard,
   Check,
   RotateCw,
   Layers,
   Activity,
-  SlidersHorizontal,
-  Info
+  Info,
+  ExternalLink
 } from 'lucide-react';
 import { WorkspaceAPI } from '../../api/workspaceApi';
 
@@ -37,22 +30,25 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
   const [serverName, setServerName] = useState('');
   const [serverId, setServerId] = useState('');
 
+  const ProductIcon = service?.iconType === 'discord' ? Bot
+    : service?.iconType === 'whatsapp' ? MessageCircle
+    : Layers;
+
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
       try {
-        const [srv, serverList] = await Promise.all([
-          WorkspaceAPI.getWorkspaceServiceById(serviceId),
-          WorkspaceAPI.getConnectedServers()
-        ]);
+        const srv = await WorkspaceAPI.getWorkspaceServiceById(serviceId);
         if (srv) {
           setService(srv);
           setStatus(srv.status || '');
           setPlan(srv.plan || '');
           setServerName(srv.serverName || '');
           setServerId(srv.serverId || '');
+          if (srv.iconType === 'discord') {
+            setServers(await WorkspaceAPI.getConnectedServers());
+          }
         }
-        setServers(serverList || []);
       } catch (err) {
         setMsg({ text: err.message || 'Failed to load service', type: 'error' });
       } finally {
@@ -74,7 +70,7 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
         serverId
       });
       setService(updated.service || updated);
-      setMsg({ text: 'Configuration committed and synchronized across clusters.', type: 'success' });
+      setMsg({ text: 'Workspace configuration saved.', type: 'success' });
     } catch (err) {
       setMsg({ text: err.message || 'Failed to update service', type: 'error' });
     } finally {
@@ -135,17 +131,38 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
           </button>
 
           <div className="flex items-center gap-3">
+            {service.logoUrl ? (
+              <img src={service.logoUrl} alt="" className="w-10 h-10 rounded-xl object-contain bg-white border border-[#E0E2EC] p-1" />
+            ) : (
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white ${service.iconType === 'discord' ? 'bg-[#5865F2]' : service.iconType === 'whatsapp' ? 'bg-[#25D366]' : 'bg-[#0B57D0]'}`}>
+                <ProductIcon className="w-5 h-5" />
+              </div>
+            )}
             <h1 className="text-2xl font-normal text-[#1F1F1F] tracking-tight">{service.name}</h1>
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium bg-[#C4EED0] text-[#072711]">
               <span className="w-2 h-2 rounded-full bg-[#137333]" />
               {service.status || 'Status unavailable'}
             </span>
           </div>
-          <p className="text-xs text-[#747775] font-mono mt-1">ID: {service.id}</p>
+          <p className="text-xs text-[#5F6368] mt-1">
+            Product: <span className="font-medium text-[#1F1F1F]">{service.productName || service.category || 'Workspace service'}</span>
+            <span className="text-[#747775]"> · Enabled in Workspace (provider connection is separate)</span>
+          </p>
+          <p className="text-[11px] text-[#747775] font-mono mt-1">ID: {service.id}</p>
         </div>
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2.5">
+          {service.managePath && (
+            <button
+              type="button"
+              onClick={() => onNavigate?.(service.managePath)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-colors cursor-pointer"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Manage {service.productName || 'product'}</span>
+            </button>
+          )}
           <button
             onClick={() => onNavigate?.('workspace/billing')}
             className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-[#0B57D0] bg-white border border-[#747775]/30 hover:bg-[#F0F4F9] rounded-full transition-colors cursor-pointer"
@@ -278,32 +295,35 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
               onChange={(e) => setStatus(e.target.value)}
               className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:bg-white focus:border-[#0B57D0] focus:outline-none transition-colors"
             >
-              <option value="Active">Active (Serving traffic)</option>
-              <option value="Paused">Paused (Standby)</option>
-              <option value="Maintenance">Maintenance Window</option>
+              <option value="Active">Active in Workspace</option>
+              <option value="Paused">Paused in Workspace</option>
+              <option value="Maintenance">Marked for maintenance</option>
             </select>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="block text-[12px] font-medium text-[#444746]">
-              Target Connected Server
-            </label>
-            <select
-              value={serverId}
-              onChange={(e) => {
-                setServerId(e.target.value);
-                const s = servers.find((item) => item.id === e.target.value);
-                if (s) setServerName(s.name);
-              }}
-              className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:bg-white focus:border-[#0B57D0] focus:outline-none transition-colors"
-            >
-              {servers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}{s.region ? ` (${s.region})` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
+          {service.iconType === 'discord' && (
+            <div className="space-y-1.5">
+              <label className="block text-[12px] font-medium text-[#444746]">
+                Discord server
+              </label>
+              <select
+                value={serverId}
+                onChange={(e) => {
+                  setServerId(e.target.value);
+                  const s = servers.find((item) => item.id === e.target.value);
+                  if (s) setServerName(s.name);
+                }}
+                className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:bg-white focus:border-[#0B57D0] focus:outline-none transition-colors"
+              >
+                <option value="">No Discord server selected</option>
+                {servers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}{s.region ? ` (${s.region})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label className="block text-[12px] font-medium text-[#444746]">
@@ -348,7 +368,7 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
             <h2 className="text-[16px] font-medium">Decommission Service</h2>
           </div>
           <p className="text-[13px] text-[#444746]">
-            Deactivating this service will terminate all running background tasks, disconnect linked webhooks, and revoke associated API tokens immediately.
+            This removes the service from your Workspace and its audit list. It does not stop or disconnect external provider resources; manage those in the product itself.
           </p>
 
           {!confirmDeactivate ? (

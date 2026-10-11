@@ -87,37 +87,73 @@ function safeFilename(value) {
 }
 
 function linkifyPlainText(value) {
-  return String(value || '').replace(/(https?:\/\/[^\s<]+)/gi, (url) => {
+  const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[character]);
+  let output = '';
+  let offset = 0;
+  const urlPattern = /https?:\/\/[^\s<]+/gi;
+  for (const match of String(value || '').matchAll(urlPattern)) {
+    const url = match[0];
     const trailing = url.match(/[.,!?;:)]+$/)?.[0] || '';
     const href = url.slice(0, url.length - trailing.length);
-    return `<a href="${href}" rel="noreferrer">${href}</a>${trailing}`;
-  });
+    let safeHref = null;
+    try {
+      const parsedUrl = new URL(href);
+      if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') safeHref = parsedUrl.toString();
+    } catch {}
+    output += escapeHtml(String(value).slice(offset, match.index));
+    output += safeHref
+      ? `<a href="${escapeHtml(safeHref)}" rel="noreferrer">${escapeHtml(href)}</a>${escapeHtml(trailing)}`
+      : escapeHtml(url);
+    offset = match.index + url.length;
+  }
+  return output + escapeHtml(String(value || '').slice(offset));
 }
 
-function safeHtml(value, fallbackText) {
+export function sanitizeIncomingHtml(value, fallbackText = '', cidImageUrls = new Map()) {
   if (!value) {
-    const escapedText = String(fallbackText || '')
-      .replace(/[&<>"']/g, (character) => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-      })[character])
-      .replace(/(https?:\/\/[^\s<]+)/gi, linkifyPlainText)
-      .replace(/\r?\n/g, '<br>');
-    return `<p>${escapedText}</p>`;
+    return `<p>${linkifyPlainText(fallbackText).replace(/\r?\n/g, '<br>')}</p>`;
   }
-  const sanitized = sanitizeHtml(String(value), {
+  const htmlWithInlineImages = String(value).replace(
+    /(\bsrc\s*=\s*)(["'])cid:([^"']+)\2/gi,
+    (match, prefix, quote, contentId) => {
+      let decodedContentId = contentId;
+      try {
+        decodedContentId = decodeURIComponent(contentId);
+      } catch {}
+      const localImageUrl = cidImageUrls.get(decodedContentId.replace(/^<|>$/g, '').toLowerCase());
+      return localImageUrl ? `${prefix}${quote}${localImageUrl}${quote}` : match;
+    }
+  );
+  return sanitizeHtml(htmlWithInlineImages, {
     allowedTags: [
       'a', 'b', 'blockquote', 'br', 'caption', 'code', 'div', 'em', 'h1', 'h2', 'h3',
-      'hr', 'i', 'li', 'ol', 'p', 'pre', 'span', 'strong', 'table', 'tbody', 'td',
+      'hr', 'i', 'img', 'li', 'ol', 'p', 'pre', 'span', 'strong', 'table', 'tbody', 'td',
       'th', 'thead', 'tr', 'u', 'ul'
     ],
-    allowedAttributes: { a: ['href', 'title'], td: ['colspan', 'rowspan'], th: ['colspan', 'rowspan'] },
+    allowedAttributes: {
+      a: ['href', 'title'],
+      img: ['src', 'alt', 'width', 'height', 'data-remote-src'],
+      td: ['colspan', 'rowspan'],
+      th: ['colspan', 'rowspan']
+    },
     allowedSchemes: ['http', 'https', 'mailto'],
-    disallowedTagsMode: 'discard'
+    disallowedTagsMode: 'discard',
+    transformTags: {
+      img: (_tagName, attributes) => {
+        const source = attributes.src || '';
+        if (/^\/api\/email\/attachments\/[a-f0-9-]{36}\/inline$/i.test(source)) {
+          return { tagName: 'img', attribs: { src: source, alt: attributes.alt || '' } };
+        }
+        if (/^https?:\/\//i.test(source)) {
+          return { tagName: 'img', attribs: { 'data-remote-src': source, alt: attributes.alt || '' } };
+        }
+        return { tagName: 'img', attribs: { alt: attributes.alt || '' } };
+      }
+    },
+    exclusiveFilter: (frame) => frame.tag === 'img' && !frame.attribs.src && !frame.attribs['data-remote-src']
   });
-  return sanitized
-    .split(/(<[^>]+>)/g)
-    .map((part) => part.startsWith('<') ? part : linkifyPlainText(part))
-    .join('');
 }
 
 export async function storeInboundMail(rawMessage, envelopeRecipient) {
@@ -130,7 +166,6 @@ export async function storeInboundMail(rawMessage, envelopeRecipient) {
   const spamResult = await scanForSpam(rawMessage);
   const parsed = await simpleParser(rawMessage, {
     maxHtmlLengthToParse: MAX_RAW_MESSAGE_BYTES,
-    skipHtmlToText: true,
     skipTextToHtml: true
   });
   const sender = parsed.from?.value?.[0];
@@ -155,7 +190,15 @@ export async function storeInboundMail(rawMessage, envelopeRecipient) {
   }
   const ccRecipients = toRecipients(parsed.cc?.value || []);
   const bodyText = String(parsed.text || '').slice(0, 100000);
-  const bodyHtml = safeHtml(String(parsed.html || '').trim(), bodyText);
+  const messageId = crypto.randomUUID();
+  const cidImageUrls = new Map();
+  for (const attachment of attachments) {
+    if (!attachment.cid || !/^image\/(png|jpe?g|gif|webp|avif)$/i.test(attachment.contentType || '')) continue;
+    attachment.storageId = crypto.randomUUID();
+    const contentId = String(attachment.cid).trim().replace(/^<|>$/g, '').toLowerCase();
+    cidImageUrls.set(contentId, `/api/email/attachments/${attachment.storageId}/inline`);
+  }
+  const bodyHtml = sanitizeIncomingHtml(String(parsed.html || '').trim(), bodyText, cidImageUrls);
   const deliveryKey = crypto.createHash('sha256')
     .update(recipient)
     .update('\0')
@@ -197,7 +240,6 @@ export async function storeInboundMail(rawMessage, envelopeRecipient) {
       error.code = 'MAILBOX_QUOTA_EXCEEDED';
       throw error;
     }
-    const messageId = crypto.randomUUID();
     const { rows: inserted } = await client.query(
       `INSERT INTO system_user_mail_messages
          (id, user_id, folder, sender_name, sender_email, to_recipients, cc_recipients,
@@ -232,15 +274,16 @@ export async function storeInboundMail(rawMessage, envelopeRecipient) {
           : Buffer.from(attachment.content || '');
         await client.query(
           `INSERT INTO system_user_mail_attachments
-             (id, message_id, filename, content_type, size_bytes, content)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
+             (id, message_id, filename, content_type, size_bytes, content, content_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
           [
-            crypto.randomUUID(),
+            attachment.storageId || crypto.randomUUID(),
             messageId,
             safeFilename(attachment.filename),
             String(attachment.contentType || 'application/octet-stream').slice(0, 255),
             content.length,
-            content
+            content,
+            attachment.cid ? String(attachment.cid).trim().replace(/^<|>$/g, '').slice(0, 255) : null
           ]
         );
       }

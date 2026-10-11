@@ -137,7 +137,8 @@ export async function getUserStores(userId = null) {
   if (res.ok) {
     return await res.json();
   }
-  return [];
+  const payload = await res.json().catch(() => ({}));
+  throw new Error(payload.error || 'Failed to load stores');
 }
 
 // 3. Create Droplet Mutation
@@ -179,7 +180,8 @@ export async function createDropletGraphQL(userId, dropletInput) {
   if (res.ok) {
     return await res.json();
   }
-  throw new Error('Failed to create droplet');
+  const payload = await res.json().catch(() => ({}));
+  throw new Error(payload.error || 'Failed to create droplet');
 }
 
 // 4. Update Droplet Status Mutation
@@ -360,4 +362,3 @@ export async function deductCloudCredits(userId, amount, service, description) {
   }
   return data;
 }
-

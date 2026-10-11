@@ -1,11 +1,17 @@
 import { readState, saveState, listState } from './stateDocuments.js';
 import { randomUUID } from 'node:crypto';
 import { normalizeSignupEmail, signupEmailKey, duplicateAccountError } from '../security/signupIdentity.js';
-import { getPgPool, isPgActive, queryPg } from './postgres.js';
-import { PasswordSecurity, SessionSecurity } from '../security/cryptoSecurity.js';
+import { isPgActive, queryPg } from './postgres.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { recordSecurityEvent } from './securityPersistence.js';
-import { getDeviceIdentitySignals } from '../security/deviceIdentity.js';
+import {
+  createAuthSessionWithRust,
+  hashPasswordWithRust,
+  resolveAuthSessionWithRust,
+  revokeAuthSessionWithRust,
+  revokeUserAuthSessionsWithRust,
+  updatePasswordAndRevokeSessionsWithRust
+} from '../security/rustAuthSessionClient.js';
 
 const TENANT_ARRAY_FIELDS = ['products', 'categories', 'subcategories', 'customers', 'suppliers', 'purchases', 'sales', 'inventory_adjustments', 'activities'];
 function validateTenantStore(store, storeId) {
@@ -53,13 +59,12 @@ function createEmptyTenantStore(tiwiId) {
 
 // ====================================================================
 // 1. MASTER DATABASE ENGINE
-// Manages: system_users, system_sessions, system_stores, subscriptions
+// Manages: system_users, system_stores, subscriptions
 // ====================================================================
 export const MasterDB = {
   async getMasterData() {
     const directory = await readState('master', 'directory', { stores: [], subscriptions: [] });
     directory.users = await this.getUsers();
-    directory.sessions = (await queryPg('SELECT user_id AS "userId", tiwi_id AS "tiwiId", expires_at AS "expiresAt" FROM system_sessions')).rows;
     return directory;
   },
 
@@ -282,7 +287,7 @@ export const MasterDB = {
     }
 
     // Cryptographic Password Hashing (scrypt + random salt)
-    const passwordHash = PasswordSecurity.hash(userData.password);
+    const passwordHash = await hashPasswordWithRust(userData.password);
 
     // Account creation never grants administrative privileges. Administrators
     // must be provisioned explicitly through a trusted administrative process.
@@ -383,112 +388,18 @@ export const MasterDB = {
     return newUser;
   },
 
-  // Sessions with 384-bit token entropy and a persisted client consistency check.
   async createSession(userId, tiwiId, email, req = null) {
     if (!isPgActive()) throw new Error('PostgreSQL is unavailable; sessions cannot be created.');
-    await queryPg('DELETE FROM system_sessions WHERE expires_at <= CURRENT_TIMESTAMP');
-    const sessionToken = SessionSecurity.generateToken();
-    const fingerprint = req ? SessionSecurity.createFingerprint(req) : null;
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-
-    await queryPg(`
-        INSERT INTO system_sessions
-          (token, session_token, user_id, tiwi_id, email, ip, user_agent, device_fingerprint, expires_at)
-        VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8)
-        ON CONFLICT (session_token) DO UPDATE SET
-          user_id = EXCLUDED.user_id,
-          tiwi_id = EXCLUDED.tiwi_id,
-          email = EXCLUDED.email,
-          ip = EXCLUDED.ip,
-          user_agent = EXCLUDED.user_agent,
-          device_fingerprint = EXCLUDED.device_fingerprint,
-          expires_at = EXCLUDED.expires_at
-    `, [
-        sessionToken,
-        userId,
-        tiwiId,
-        email,
-        req?.ip || null,
-        req?.headers?.['user-agent'] || null,
-        fingerprint,
-        expiresAt
-    ]);
-    if (req) {
-      const identity = getDeviceIdentitySignals(req, userId);
-      await queryPg(
-        `INSERT INTO system_user_device_identities
-          (user_id, identity_hash, device_hash, ip_hash, user_agent_hash, client_hints_hash, platform_class)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (user_id, identity_hash) DO UPDATE SET
-           device_hash = EXCLUDED.device_hash,
-           ip_hash = EXCLUDED.ip_hash,
-           client_hints_hash = EXCLUDED.client_hints_hash,
-           platform_class = EXCLUDED.platform_class,
-           last_seen_at = CURRENT_TIMESTAMP,
-           login_count = system_user_device_identities.login_count + 1`,
-        [
-          identity.userId,
-          identity.identityHash,
-          identity.deviceHash,
-          identity.ipHash,
-          identity.userAgentHash,
-          identity.clientHintsHash,
-          identity.platformClass
-        ]
-      );
-    }
-    try {
-        await recordSecurityEvent({
-          eventType: 'auth.session_created',
-          severity: 'info',
-          userId,
-          subject: email,
-          ip: req?.ip,
-          userAgent: req?.get?.('user-agent') || req?.headers?.['user-agent']
-        });
-    } catch (error) {
-        await queryPg('DELETE FROM system_sessions WHERE session_token = $1', [sessionToken]);
-        throw error;
-    }
-
-    return { sessionToken, expiresAt };
+    const user = await this.findUserByIdentifier(userId);
+    if (!user) throw new Error('Cannot create a session for an unknown user.');
+    return createAuthSessionWithRust({ user, tiwiId, email, request: req });
   },
 
   async getSession(token, req = null) {
     if (!token) return null;
     if (!isPgActive()) throw new Error('PostgreSQL is unavailable; session validation is disabled.');
-    const res = await queryPg(
-      'SELECT * FROM system_sessions WHERE session_token = $1 AND expires_at > NOW()',
-      [token]
-    );
-    const row = res.rows[0];
-    const session = row ? {
-      sessionToken: row.session_token,
-      userId: row.user_id,
-      tiwiId: row.tiwi_id,
-      storeId: row.tiwi_id,
-      email: row.email,
-      fingerprint: row.device_fingerprint || null,
-      expiresAt: row.expires_at.toISOString()
-    } : null;
+    const session = await resolveAuthSessionWithRust({ token, request: req });
     if (!session) return null;
-    if (new Date(session.expiresAt) < new Date()) return null;
-
-    // Reject sessions presented with a different client User-Agent.
-    if (req && session.fingerprint) {
-      const isValid = SessionSecurity.validateFingerprint(req, session.fingerprint);
-      if (!isValid) {
-        await recordSecurityEvent({
-          eventType: 'auth.session_fingerprint_mismatch',
-          severity: 'warning',
-          userId: session.userId,
-          ip: req.ip,
-          userAgent: req.get?.('user-agent')
-        });
-        return null;
-      }
-    }
-
     const user = await this.findUserByIdentifier(session.userId || session.email);
     return { session, user };
   },
@@ -496,47 +407,19 @@ export const MasterDB = {
   async deleteSession(token) {
     if (!token) return;
     if (!isPgActive()) throw new Error('PostgreSQL is unavailable; session revocation cannot be completed.');
-    const { rows } = await queryPg(
-      `DELETE FROM system_sessions
-       WHERE session_token = $1 OR token = $1
-       RETURNING user_id, email`,
-      [token]
-    );
-    if (rows[0]) {
-      await recordSecurityEvent({
-        eventType: 'auth.session_revoked',
-        userId: rows[0].user_id,
-        subject: rows[0].email
-      });
-    }
+    await revokeAuthSessionWithRust(token);
+  },
+
+  async revokeUserSessions(userId, exceptToken = null) {
+    if (!userId) throw new Error('User ID is required to revoke sessions.');
+    if (!isPgActive()) throw new Error('PostgreSQL is unavailable; session revocation cannot be completed.');
+    await revokeUserAuthSessionsWithRust(userId, exceptToken);
   },
 
   async updatePasswordAndRevokeSessions(userId, passwordHash, exceptToken = null) {
     if (!userId || !passwordHash) throw new Error('User ID and password hash are required.');
     if (!isPgActive()) throw new Error('PostgreSQL is unavailable; password reset cannot be completed.');
-
-    const pool = getPgPool();
-    if (!pool) throw new Error('PostgreSQL pool is not available.');
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const updated = await client.query(
-        'UPDATE system_users SET password_hash = $1, updated_at = NOW() WHERE id = $2 RETURNING id',
-        [passwordHash, userId]
-      );
-      if (!updated.rowCount) throw new Error('User account not found.');
-      await client.query(`
-        DELETE FROM system_sessions
-        WHERE user_id = $1
-          AND ($2::VARCHAR IS NULL OR COALESCE(session_token, token) <> $2)
-      `, [userId, exceptToken]);
-      await client.query('COMMIT');
-    } catch (err) {
-      await client.query('ROLLBACK');
-      throw err;
-    } finally {
-      client.release();
-    }
+    await updatePasswordAndRevokeSessionsWithRust(userId, passwordHash, exceptToken);
   },
 
   // Subscriptions

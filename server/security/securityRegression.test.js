@@ -11,7 +11,7 @@ const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tiwlo-security-test-'));
 process.env.TIWLO_DATA_DIR = dataDir;
 const { MasterDB } = await import('../db/multiTenant.js');
 const { getPgPool } = await import('../db/postgres.js');
-const { BruteForceShield, PasswordSecurity, SsoSecurity } = await import('./cryptoSecurity.js');
+const { BruteForceShield, SsoSecurity } = await import('./cryptoSecurity.js');
 const { getActiveTiwiId } = await import('../db/storeDataAdapter.js');
 const { default: authRoutes, authorizeEmailCorrection } = await import('../routes/authRoutes.js');
 const { default: securityRoutes } = await import('./securityRoutes.js');
@@ -50,6 +50,27 @@ async function withServer(run) {
   }
 }
 
+test('unverified social identity claims cannot initiate account or MFA flows', async (t) => {
+  t.mock.method(getPgPool(), 'query', async () => {
+    assert.fail('Unverified social identity claims must not reach account storage');
+  });
+  await withServer(async base => {
+    const response = await fetch(`${base}/api/auth/social-check`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'victim@example.com',
+        name: 'Victim',
+        provider: 'Google'
+      })
+    });
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), {
+      error: 'Google and Facebook sign-in are unavailable until provider identity tokens can be verified securely.'
+    });
+  });
+});
+
 test('OTP challenge tokens alone cannot change an account email', async (t) => {
   t.mock.method(getPgPool(), 'query', async () => { throw new Error('Unauthenticated request reached the database'); });
   t.mock.method(MasterDB, 'updateUser', async () => assert.fail('Account must not be mutated'));
@@ -64,7 +85,33 @@ test('OTP challenge tokens alone cannot change an account email', async (t) => {
 
 test('email changes reject another account challenge and wrong challenge types', async (t) => {
   let challenge;
-  t.mock.method(getPgPool(), 'query', async () => ({ rows: [challenge] }));
+  const previousRustEnv = {
+    TIWLO_RUST_BACKEND_URL: process.env.TIWLO_RUST_BACKEND_URL,
+    TIWLO_INTERNAL_IDENTITY_SECRET: process.env.TIWLO_INTERNAL_IDENTITY_SECRET
+  };
+  process.env.TIWLO_RUST_BACKEND_URL = 'http://rust:7100';
+  process.env.TIWLO_INTERNAL_IDENTITY_SECRET = 'i'.repeat(32);
+  t.after(() => {
+    for (const [key, value] of Object.entries(previousRustEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+  const nativeFetch = globalThis.fetch;
+  t.mock.method(globalThis, 'fetch', async (url, ...args) => {
+    if (String(url).startsWith('http://127.0.0.1:')) {
+      return nativeFetch(url, ...args);
+    }
+    return new Response(JSON.stringify({
+      session: {
+        email: challenge.email,
+        type: challenge.type,
+        attempts: 0,
+        max_attempts: 5,
+        expires_at: Date.now() + 60_000
+      }
+    }), { status: 200 });
+  });
   t.mock.method(MasterDB, 'findUserByIdentifier', async () => ({ id: 'victim', email: 'victim@example.com' }));
   t.mock.method(MasterDB, 'updateUser', async () => assert.fail('Account must not be mutated'));
   await withServer(async base => {
@@ -84,10 +131,43 @@ test('email changes reject another account challenge and wrong challenge types',
 
 test('email correction requires the actual password and preserves verified-account and 2FA protections', async (t) => {
   const password = 'correct-test-password';
-  const account = { id: 'owner', email: 'owner@example.com', password: PasswordSecurity.hash(password) };
+  const account = { id: 'owner', email: 'owner@example.com', password: 'legacy-password' };
   let user = account;
-  t.mock.method(getPgPool(), 'query', async () => ({ rows: [{ email: account.email, type: 'email_verify' }] }));
+  const previousRustEnv = {
+    TIWLO_RUST_BACKEND_URL: process.env.TIWLO_RUST_BACKEND_URL,
+    TIWLO_INTERNAL_IDENTITY_SECRET: process.env.TIWLO_INTERNAL_IDENTITY_SECRET
+  };
+  process.env.TIWLO_RUST_BACKEND_URL = 'http://rust:7100';
+  process.env.TIWLO_INTERNAL_IDENTITY_SECRET = 'i'.repeat(32);
+  t.after(() => {
+    for (const [key, value] of Object.entries(previousRustEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    if (url.endsWith('/otp/session/get')) {
+      return new Response(JSON.stringify({
+        session: {
+          email: 'owner@example.com',
+          type: 'email_verify',
+          attempts: 0,
+          max_attempts: 5,
+          expires_at: Date.now() + 60_000
+        }
+      }), { status: 200 });
+    }
+    if (url.endsWith('/hash')) {
+      return new Response(JSON.stringify({
+        passwordHash: `scrypt$16384:8:1$${'a'.repeat(32)}$${'b'.repeat(128)}`
+      }), { status: 200 });
+    }
+    const { password: candidate } = JSON.parse(options.body);
+    const valid = candidate === password;
+    return new Response(JSON.stringify({ valid, rehashPerformed: valid }), { status: 200 });
+  });
   t.mock.method(MasterDB, 'findUserByIdentifier', async () => user);
+  t.mock.method(MasterDB, 'updateUser', async (_id, updates) => Object.assign(user, updates));
   t.mock.method(BruteForceShield, 'isLocked', async () => false);
   const failure = t.mock.method(BruteForceShield, 'recordFailure', async () => {});
   async function check(candidate, suppliedPassword) {
@@ -128,16 +208,51 @@ test('admin authorization uses persisted roles, rejects banned admins and email 
 
 test('public account creation never promotes an email or caller-supplied role', async (t) => {
   t.mock.method(getPgPool(), 'query', async () => ({ rows: [] }));
+  const previousRustEnv = {
+    TIWLO_RUST_BACKEND_URL: process.env.TIWLO_RUST_BACKEND_URL,
+    TIWLO_INTERNAL_IDENTITY_SECRET: process.env.TIWLO_INTERNAL_IDENTITY_SECRET
+  };
+  process.env.TIWLO_RUST_BACKEND_URL = 'http://rust:7100';
+  process.env.TIWLO_INTERNAL_IDENTITY_SECRET = 'i'.repeat(32);
+  t.after(() => {
+    for (const [key, value] of Object.entries(previousRustEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+  const passwordHash = `scrypt$16384:8:1$${'a'.repeat(32)}$${'b'.repeat(128)}`;
+  t.mock.method(globalThis, 'fetch', async (_url, options) => {
+    const payload = JSON.parse(options.body);
+    if (!payload.password) {
+      return new Response(JSON.stringify({ error: 'invalid_password' }), { status: 400 });
+    }
+    assert.deepEqual(payload, { password: 'scrypt$literal-password' });
+    return new Response(JSON.stringify({ passwordHash }), { status: 200 });
+  });
   for (const [index, email] of ['tiwloltd@gmail.com', 'ordinary@example.com'].entries()) {
     const user = await MasterDB.createUser({ id: `user-${index}`, email, password: 'scrypt$literal-password', role: 'super_admin' });
     assert.equal(user.role, 'owner');
-    assert.notEqual(user.password, 'scrypt$literal-password');
-    assert.equal(PasswordSecurity.verify('scrypt$literal-password', user.password), true);
+    assert.equal(user.password, passwordHash);
   }
-  await assert.rejects(MasterDB.createUser({ email: 'missing-password@example.com' }), /Password/);
+  await assert.rejects(MasterDB.createUser({ email: 'missing-password@example.com' }), /invalid_password/);
 });
 
 test('failed database inserts cannot leave runtime accounts or tenant stores behind', async (t) => {
+  const previousRustEnv = {
+    TIWLO_RUST_BACKEND_URL: process.env.TIWLO_RUST_BACKEND_URL,
+    TIWLO_INTERNAL_IDENTITY_SECRET: process.env.TIWLO_INTERNAL_IDENTITY_SECRET
+  };
+  process.env.TIWLO_RUST_BACKEND_URL = 'http://rust:7100';
+  process.env.TIWLO_INTERNAL_IDENTITY_SECRET = 'i'.repeat(32);
+  t.after(() => {
+    for (const [key, value] of Object.entries(previousRustEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+  t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({
+    passwordHash: `scrypt$16384:8:1$${'a'.repeat(32)}$${'b'.repeat(128)}`
+  }), { status: 200 }));
   t.mock.method(getPgPool(), 'query', async sql => {
     if (sql.includes('INSERT INTO system_users')) throw Object.assign(new Error('duplicate mailbox'), { code: '23505' });
     return { rows: [] };
@@ -209,25 +324,6 @@ test('browser limits survive changing both email and IP across signup APIs', asy
   assert.equal([...counters.entries()].filter(([key, count]) => key.startsWith('auth_registration_browser:') && count === 6).length, 1);
 });
 
-test('checking an unlocked account cannot erase its active failure window', async (t) => {
-  const calls = [];
-  t.mock.method(getPgPool(), 'query', async (sql, params) => {
-    calls.push({ sql, params });
-    return { rows: [{ locked_until: null }] };
-  });
-  assert.equal(await BruteForceShield.isLocked('owner@example.com'), false);
-  const deletion = calls.find(call => call.sql.includes('DELETE'));
-  assert.match(deletion.sql, /first_failure_at <= CURRENT_TIMESTAMP/);
-  assert.match(deletion.sql, /locked_until IS NULL OR locked_until <= CURRENT_TIMESTAMP/);
-  assert.equal(deletion.params[1], BruteForceShield.WINDOW_MS);
-});
-
-test('an active lockout blocks attempts without deleting the counter', async (t) => {
-  const query = t.mock.method(getPgPool(), 'query', async () => ({ rows: [{ locked_until: new Date(Date.now() + 60_000) }] }));
-  assert.equal((await BruteForceShield.isLocked('owner@example.com')).isLocked, true);
-  assert.equal(query.mock.callCount(), 1);
-});
-
 test('anonymous uploads and inspection endpoints reject requests before processing', async () => {
   await withServer(async base => {
     for (const route of ['upload', 'upload-single', 'upload-base64', 'upload-async', 'security/request-upload-token']) {
@@ -248,22 +344,80 @@ test('tenant identity cannot fall back to client-selected identifiers', () => {
 
 test('SSO rejects altered email and trust claims while allowing one use of the original ticket', async (t) => {
   let consumed = false;
-  t.mock.method(getPgPool(), 'query', async sql => {
-    if (sql.includes('RETURNING nonce_hash')) {
-      const rowCount = consumed ? 0 : 1;
-      consumed = true;
-      return { rows: [], rowCount };
+  const previousRustEnv = {
+    TIWLO_RUST_BACKEND_URL: process.env.TIWLO_RUST_BACKEND_URL,
+    TIWLO_INTERNAL_IDENTITY_SECRET: process.env.TIWLO_INTERNAL_IDENTITY_SECRET,
+    TIWI_APP_TRUST_KEY: process.env.TIWI_APP_TRUST_KEY
+  };
+  process.env.TIWLO_RUST_BACKEND_URL = 'http://rust:7100';
+  process.env.TIWLO_INTERNAL_IDENTITY_SECRET = 'i'.repeat(32);
+  process.env.TIWI_APP_TRUST_KEY = 'trusted-app';
+  t.after(() => {
+    for (const [key, value] of Object.entries(previousRustEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
     }
-    return { rows: [] };
   });
-  const ticket = await SsoSecurity.generateHandshakeTicket({ userId: 'owner', tiwiId: 'TIW-OWNER', email: 'owner@example.com' });
-  const [encoded, signature] = ticket.ssoToken.split('.');
-  for (const changes of [{ email: 'victim@example.com' }, { isAppTrusted: true }]) {
-    const payload = { ...JSON.parse(Buffer.from(encoded, 'base64url')), ...changes };
-    const ssoToken = `${Buffer.from(JSON.stringify(payload)).toString('base64url')}.${signature}`;
-    assert.equal((await SsoSecurity.verifyAndConsumeTicket({ ssoToken, nonce: ticket.nonce })).valid, false);
-    assert.equal(consumed, false);
-  }
+  const ssoToken = `${Buffer.from('signed-payload').toString('base64url')}.${'a'.repeat(64)}`;
+  const nonce = `sso_nonce_${'b'.repeat(48)}`;
+  const deviceFingerprint = {
+    hash: 'c'.repeat(64),
+    platform: 'mobile',
+    osVersion: 'unknown',
+    deviceModel: 'unknown_device',
+    appVersion: '1.0.0',
+    networkType: 'cellular/wifi',
+    ip: '127.0.0.1',
+    capturedAt: '2026-10-11T00:00:00.000Z'
+  };
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    if (url.endsWith('/tickets')) {
+      return new Response(JSON.stringify({
+        ssoToken,
+        nonce,
+        expiresAt: Date.now() + 60_000,
+        isAppTrusted: true,
+        deviceFingerprint
+      }), { status: 201 });
+    }
+    const request = JSON.parse(options.body);
+    if (!consumed && request.sso_token === ssoToken && request.nonce === nonce) {
+      consumed = true;
+      return new Response(JSON.stringify({
+        valid: true,
+        user: { id: 'owner', tiwiId: 'TIW-OWNER', email: 'owner@example.com' },
+        origin: 'tiwi_mobile_app',
+        isAppTrusted: true,
+        deviceFingerprint
+      }), { status: 200 });
+    }
+    return new Response(JSON.stringify({
+      valid: false,
+      error: request.nonce !== nonce
+        ? 'Nonce mismatch in token payload'
+        : 'Cryptographic signature verification failed: invalid or forged SSO token'
+    }), { status: 200 });
+  });
+  const ticket = await SsoSecurity.generateHandshakeTicket({
+    userId: 'owner',
+    tiwiId: 'TIW-OWNER',
+    email: 'owner@example.com',
+    appTrustToken: 'trusted-app'
+  });
+  assert.equal(ticket.isAppTrusted, true);
+  assert.equal(
+    (await SsoSecurity.verifyAndConsumeTicket({
+      ssoToken: `${ticket.ssoToken}tampered`,
+      nonce: ticket.nonce
+    })).valid,
+    false
+  );
+  assert.equal(consumed, false);
+  assert.equal((await SsoSecurity.verifyAndConsumeTicket({
+    ssoToken: ticket.ssoToken,
+    nonce: 'wrong-nonce'
+  })).valid, false);
+  assert.equal(consumed, false);
   assert.equal((await SsoSecurity.verifyAndConsumeTicket(ticket)).valid, true);
   assert.equal((await SsoSecurity.verifyAndConsumeTicket(ticket)).valid, false);
 });

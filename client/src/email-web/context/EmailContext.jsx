@@ -3,8 +3,9 @@ import { EmailAPI } from '../api/emailApi';
 import { isMailSubdomain } from '../../utils/navigation';
 
 const EmailContext = createContext(null);
+const VALID_FOLDERS = new Set(['inbox', 'sent', 'drafts', 'junk', 'trash', 'archive', 'flagged']);
 
-export function EmailProvider({ children, initialUser = null, onNavigateHome = null }) {
+export function EmailProvider({ children, initialUser = null, onNavigateHome = null, onSignOut = null }) {
   const [currentUser] = useState(() => {
     if (initialUser) return initialUser;
     try {
@@ -32,7 +33,7 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
         if (parts[1] === 'view' && parts[2]) {
           return { folder: 'inbox', isCompose: false, mailId: parts[2] };
         }
-        const folder = parts[1] || 'inbox';
+        const folder = VALID_FOLDERS.has(parts[1]) ? parts[1] : 'inbox';
         return { folder, isCompose: false, mailId: null };
       }
     } catch {}
@@ -48,13 +49,14 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
   }, []);
 
   const [activeFolder, setActiveFolderState] = useState(initialRoute.folder);
-  const [activeTab, setActiveTab] = useState('focused'); // 'focused', 'other', 'all', 'unread'
+  const [activeTab, setActiveTab] = useState('all');
   const [activeCategoryFilter, setActiveCategoryFilter] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mailbox, setMailbox] = useState(null);
   const [mailboxLoading, setMailboxLoading] = useState(true);
+  const [mailboxError, setMailboxError] = useState(null);
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [counts, setCounts] = useState({
@@ -91,27 +93,29 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
     setTimeout(() => setToastMessage(null), 3500);
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    EmailAPI.getMailbox()
-      .then((result) => {
-        if (active) setMailbox(result.mailbox);
-      })
-      .catch((error) => {
-        if (active) showToast(error.message, 'error');
-      })
-      .finally(() => {
-        if (active) setMailboxLoading(false);
-      });
-    return () => {
-      active = false;
-    };
+  const refreshMailbox = useCallback(async () => {
+    setMailboxLoading(true);
+    setMailboxError(null);
+    try {
+      const result = await EmailAPI.getMailbox();
+      setMailbox(result.mailbox);
+    } catch (error) {
+      setMailboxError(error.message);
+      showToast(error.message, 'error');
+    } finally {
+      setMailboxLoading(false);
+    }
   }, [showToast]);
+
+  useEffect(() => {
+    refreshMailbox();
+  }, [refreshMailbox]);
 
   // Synchronize route with browser history
   const navigateFolder = useCallback((folder, replace = false) => {
     setActiveFolderState(folder);
     setIsComposeOpen(false);
+    setSelectedEmail(null);
     setSelectedIds(new Set());
     setMobileView('list');
     setMobileDrawerOpen(false);
@@ -147,15 +151,22 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
     setIsComposeOpen(false);
     setMobileView('reading');
 
-    // Mark as read in local state
     if (email?.isUnread) {
-      email.isUnread = false;
-      EmailAPI.toggleRead(email.id, false).catch((error) => showToast(error.message, 'error'));
+      setEmails((previous) => previous.map((message) =>
+        message.id === email.id ? { ...message, isUnread: false } : message
+      ));
       setCounts((prev) => ({
         ...prev,
         inboxUnread: Math.max(0, prev.inboxUnread - 1)
       }));
     }
+
+    EmailAPI.getMessageById(email.id)
+      .then((message) => {
+        setSelectedEmail((current) => current?.id === email.id ? message : current);
+        setEmails((previous) => previous.map((entry) => entry.id === email.id ? message : entry));
+      })
+      .catch((error) => showToast(error.message, 'error'));
 
     try {
       window.history.pushState({ mailId: email.id }, '', emailPath(`view/${email.id}`));
@@ -197,7 +208,7 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
     setIsComposeOpen(false);
     setMobileView(selectedEmail ? 'reading' : 'list');
     try {
-      window.history.pushState({}, '', activeFolder === 'inbox' ? emailPath() : emailPath(activeFolder));
+      window.history.replaceState({}, '', activeFolder === 'inbox' ? emailPath() : emailPath(activeFolder));
     } catch (e) {}
   }, [activeFolder, emailPath, selectedEmail]);
 
@@ -225,8 +236,13 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
         if (data.counts) setCounts(data.counts);
 
         // Auto select first email on desktop if none selected
-        if (!selectedEmail && list.length > 0 && window.innerWidth >= 1024) {
-          setSelectedEmail(list[0]);
+        if (list.length > 0 && window.innerWidth >= 1024) {
+          setSelectedEmail((current) => {
+            if (current || activeFolder === 'drafts') return current;
+            return list[0];
+          });
+        } else if (selectedEmail && !list.some((message) => message.id === selectedEmail.id)) {
+          setSelectedEmail(null);
         }
       }
     } catch (err) {
@@ -302,18 +318,21 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
       setIsComposeOpen(route.isCompose);
       if (route.mailId) {
         EmailAPI.getMessageById(route.mailId).then((m) => {
-          if (m) openEmail(m);
+          if (m) setSelectedEmail(m);
         }).catch((error) => showToast(error.message, 'error'));
         setMobileView('reading');
       } else if (route.isCompose) {
+        setSelectedEmail(null);
         setMobileView('compose');
       } else {
+        setSelectedEmail(null);
+        setSelectedIds(new Set());
         setMobileView('list');
       }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [openEmail, showToast]);
+  }, [showToast]);
 
   // Actions
   const handleToggleFlag = async (id, e) => {
@@ -384,6 +403,7 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
       if (selectedEmail?.id === id) {
         setSelectedEmail(null);
         setMobileView('list');
+        window.history.replaceState({}, '', activeFolder === 'inbox' ? emailPath() : emailPath(activeFolder));
       }
       showToast(activeFolder === 'trash' ? 'Message permanently deleted' : 'Conversation moved to Deleted Items', 'info');
     } catch (error) {
@@ -399,6 +419,7 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
       if (selectedEmail?.id === id) {
         setSelectedEmail(null);
         setMobileView('list');
+        window.history.replaceState({}, '', activeFolder === 'inbox' ? emailPath() : emailPath(activeFolder));
       }
       showToast('Conversation moved to Archive', 'info');
     } catch (error) {
@@ -420,6 +441,7 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
     if (selectedEmail?.sender?.email === senderEmail) {
       setSelectedEmail(null);
       setMobileView('list');
+      window.history.replaceState({}, '', activeFolder === 'inbox' ? emailPath() : emailPath(activeFolder));
     }
     showToast(`Sweep complete: cleaned ${matching.length} messages from ${senderEmail}`, 'info');
   };
@@ -434,7 +456,7 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
       setDraftStatus('will save as you type');
       lastSavedDraftRef.current = '';
       setMobileView('list');
-      window.history.pushState({}, '', activeFolder === 'inbox' ? emailPath() : emailPath(activeFolder));
+      window.history.replaceState({}, '', activeFolder === 'inbox' ? emailPath() : emailPath(activeFolder));
       await loadEmails();
       return true;
     } catch (error) {
@@ -484,6 +506,8 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
         currentUser,
         mailbox,
         mailboxLoading,
+        mailboxError,
+        refreshMailbox,
         handleCreateMailbox,
         activeFolder,
         navigateFolder,
@@ -514,6 +538,7 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
         setMobileDrawerOpen,
         showToast,
         onNavigateHome,
+        onSignOut,
         // Actions
         handleToggleFlag,
         handleToggleRead,

@@ -1,24 +1,20 @@
 import React, { useState } from 'react';
 import { ChevronDown, CheckSquare } from 'lucide-react';
 
-export default function InventoryOverviewChart({ totalStock = '36,482', onCategorySelect }) {
+const CATEGORY_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#FB7185', '#8B5CF6', '#60A5FA'];
+
+export default function InventoryOverviewChart({ totalStock = '—', categories = [], onCategorySelect }) {
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
   const [showDropdown, setShowDropdown] = useState(false);
-
-  const categories = [
-    { name: 'Electronics', percent: 28, units: '10,213', color: '#3B82F6' },
-    { name: 'Clothing', percent: 24, units: '8,756', color: '#10B981' },
-    { name: 'Home & Living', percent: 16, units: '5,838', color: '#F59E0B' },
-    { name: 'Beauty & Health', percent: 12, units: '4,377', color: '#FB7185' },
-    { name: 'Sports', percent: 8, units: '2,918', color: '#8B5CF6' },
-    { name: 'Others', percent: 12, units: '4,380', color: '#60A5FA' }
-  ];
+  const categoryData = categories.map((category, index) => ({
+    ...category,
+    color: category.color || CATEGORY_COLORS[index % CATEGORY_COLORS.length]
+  }));
 
   // SVG Donut calculation
   const radius = 62;
   const strokeWidth = 24;
   const circumference = 2 * Math.PI * radius;
-  let accumulatedPercent = 0;
 
   return (
     <div className="bg-white dark:bg-gray-800 border border-slate-200/80 dark:border-gray-700/80 rounded-2xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex flex-col justify-between">
@@ -60,7 +56,7 @@ export default function InventoryOverviewChart({ totalStock = '36,482', onCatego
               >
                 All Categories
               </button>
-              {categories.map((c) => (
+              {categoryData.map((c) => (
                 <button
                   key={c.name}
                   onClick={() => {
@@ -93,10 +89,12 @@ export default function InventoryOverviewChart({ totalStock = '36,482', onCatego
               fill="transparent"
             />
             {/* Category Slices */}
-            {categories.map((cat) => {
+            {categoryData.map((cat, index) => {
               const strokeDasharray = `${(cat.percent / 100) * circumference} ${circumference}`;
-              const strokeDashoffset = -((accumulatedPercent / 100) * circumference);
-              accumulatedPercent += cat.percent;
+              const previousPercent = categoryData
+                .slice(0, index)
+                .reduce((total, previous) => total + previous.percent, 0);
+              const strokeDashoffset = -((previousPercent / 100) * circumference);
 
               return (
                 <circle
@@ -129,7 +127,11 @@ export default function InventoryOverviewChart({ totalStock = '36,482', onCatego
 
         {/* Categories Breakdown Table */}
         <div className="w-full space-y-2.5">
-          {categories.map((item) => (
+          {categoryData.length === 0 ? (
+            <p className="px-2 text-xs text-slate-500 dark:text-slate-400">
+              No category stock data available.
+            </p>
+          ) : categoryData.map((item) => (
             <div
               key={item.name}
               className="flex items-center justify-between text-xs hover:bg-slate-50 dark:hover:bg-gray-700/30 px-2 py-1 rounded-lg transition"
@@ -148,7 +150,7 @@ export default function InventoryOverviewChart({ totalStock = '36,482', onCatego
                   {item.percent}%
                 </span>
                 <span className="font-semibold text-slate-700 dark:text-slate-200 text-xs w-14 text-right">
-                  {item.units}
+                  {Number(item.units || 0).toLocaleString()}
                 </span>
               </div>
             </div>

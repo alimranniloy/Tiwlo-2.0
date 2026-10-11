@@ -2,10 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Grid,
   Search,
-  SlidersHorizontal,
-  Video,
-  Calendar,
-  Edit3,
   Bell,
   Settings,
   HelpCircle,
@@ -19,16 +15,20 @@ import {
   Share2,
   HardDrive,
   X,
-  Plus,
   CheckCircle2,
-  Clock,
-  Sparkles,
-  Paperclip,
-  BookmarkCheck,
-  Moon,
-  Sun
+  Moon
 } from 'lucide-react';
 import { useEmail } from '../context/EmailContext';
+import { getDashboardUrl, getMainAppUrl, getAuthUrl } from '../../utils/navigation';
+
+function userInitials(user) {
+  return String(user?.name || user?.email || 'U')
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('');
+}
 
 export default function OutlookHeader() {
   const {
@@ -39,6 +39,7 @@ export default function OutlookHeader() {
     setMobileDrawerOpen,
     setActiveTab,
     onNavigateHome,
+    onSignOut,
     showToast
   } = useEmail();
 
@@ -47,7 +48,6 @@ export default function OutlookHeader() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [userStatus, setUserStatus] = useState('Available');
 
   const waffleRef = useRef(null);
   const userMenuRef = useRef(null);
@@ -78,24 +78,18 @@ export default function OutlookHeader() {
   }, []);
 
   const appSuite = [
-    { name: 'Tiwi Mail', icon: Mail, color: 'text-[#0078D4]', bg: 'bg-[#0078D4]/10', active: true },
-    { name: 'Tiwlo Cloud', icon: HardDrive, color: 'text-[#0284C7]', bg: 'bg-[#0284C7]/10', path: '/dashboard' },
-    { name: 'TiwiMart Store', icon: ShoppingBag, color: 'text-[#107C41]', bg: 'bg-[#107C41]/10', path: '/store' },
-    { name: 'Tiwi Social', icon: Share2, color: 'text-[#1E75FF]', bg: 'bg-[#1E75FF]/10', path: '/tiwi' },
-    { name: 'Settings', icon: Settings, color: 'text-[#605E5C]', bg: 'bg-[#605E5C]/10', path: '/settings' }
-  ];
-
-  const quickNotifications = [
-    { id: 1, title: 'Security Checkup Passed', desc: 'All 2FA tokens and Exchange protocols active', time: '10m ago', unread: true },
-    { id: 2, title: 'Storage Capacity Alert', desc: 'Your mailbox is using 8% of 15 GB quota', time: '1h ago', unread: false },
-    { id: 3, title: 'New Device Login Verified', desc: 'Windows Edge browser session authorized', time: 'Yesterday', unread: false }
+    { name: 'Tiwlo Mail', icon: Mail, color: 'text-[#0078D4]', bg: 'bg-[#0078D4]/10', active: true },
+    { name: 'OneProfile', icon: Users, color: 'text-[#7355D9]', bg: 'bg-[#7355D9]/10', url: getDashboardUrl('/oneprofile') },
+    { name: 'Tiwlo Workspace', icon: HardDrive, color: 'text-[#0284C7]', bg: 'bg-[#0284C7]/10', url: getMainAppUrl('/dashboard') },
+    { name: 'Store', icon: ShoppingBag, color: 'text-[#107C41]', bg: 'bg-[#107C41]/10', url: getMainAppUrl('/store') },
+    { name: 'Tiwi Social', icon: Share2, color: 'text-[#1E75FF]', bg: 'bg-[#1E75FF]/10', url: getMainAppUrl('/tiwi') }
   ];
 
   const recentSearchFilters = [
     { label: 'Unread messages', action: () => { setActiveTab('unread'); setIsSearchFocused(false); } },
     { label: 'Has attachments', action: () => { setSearchQuery('has:attachment'); setIsSearchFocused(false); } },
-    { label: 'From: Sarah Jenkins', action: () => { setSearchQuery('Sarah Jenkins'); setIsSearchFocused(false); } },
-    { label: 'Category: Work', action: () => { setSearchQuery('Work'); setIsSearchFocused(false); } }
+    { label: 'Search by sender', action: () => { setSearchQuery('from:'); setIsSearchFocused(false); } },
+    { label: 'Search by subject', action: () => { setSearchQuery('subject:'); setIsSearchFocused(false); } }
   ];
 
   return (
@@ -131,7 +125,7 @@ export default function OutlookHeader() {
                   Apps & Services
                 </span>
                 <span className="text-[11px] font-bold text-[#0078D4] bg-[#0078D4]/10 px-2 py-0.5 rounded-full">
-                  Tiwlo 365
+                  Tiwlo Apps
                 </span>
               </div>
 
@@ -144,8 +138,8 @@ export default function OutlookHeader() {
                       type="button"
                       onClick={() => {
                         setShowWaffle(false);
-                        if (app.path) {
-                          window.location.href = app.path;
+                        if (app.url) {
+                          window.location.assign(app.url);
                         }
                       }}
                       className={`flex flex-col items-center justify-center p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer text-center group ${
@@ -167,30 +161,28 @@ export default function OutlookHeader() {
         </div>
 
         {/* Outlook Style Brand Wordmark */}
-        <div
+        <button
+          type="button"
           onClick={() => {
             if (onNavigateHome) onNavigateHome();
-            else window.location.href = '/dashboard';
+            else window.location.assign(getMainAppUrl('/dashboard'));
           }}
-          className="flex items-center gap-2 cursor-pointer group pr-2"
+          className="flex items-center gap-2 cursor-pointer group pr-2 bg-transparent border-0 text-left"
         >
-          <div className="w-7 h-7 rounded-md bg-white text-[#0078D4] flex items-center justify-center shadow-xs font-black text-[13px] group-hover:scale-105 transition-transform">
-            ✉
+          <div className="w-7 h-7 rounded-md bg-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform overflow-hidden">
+            <img src="/tiwlo-icon.png" alt="" className="w-6 h-6 object-contain" />
           </div>
           <div className="flex flex-col leading-none">
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-[16px] tracking-tight text-white group-hover:opacity-95">
                 Tiwi Mail
               </span>
-              <span className="text-[10px] font-extrabold bg-white/20 text-white px-1.5 py-0.2 rounded tracking-wide uppercase">
-                365
-              </span>
             </div>
             <span className="text-[9.5px] text-white/75 font-medium tracking-wide">
-              Exchange Online Sync
+              Your business inbox
             </span>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* 2. Center: Outlook Rounded Pill Search Bar with Interactive Dropdown */}
@@ -200,7 +192,7 @@ export default function OutlookHeader() {
         }`}>
           <input
             type="text"
-            placeholder="Search mail, people, and files (Ctrl + E)"
+            placeholder="Search mail or use from:, subject:, category:"
             value={searchQuery}
             onFocus={() => setIsSearchFocused(true)}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -229,16 +221,6 @@ export default function OutlookHeader() {
               </kbd>
             )}
 
-            <button
-              type="button"
-              onClick={() => showToast('Search filters: From, To, Has attachments, Date', 'info')}
-              className={`p-1 rounded-full transition cursor-pointer ${
-                isSearchFocused ? 'text-gray-500 hover:text-[#0078D4]' : 'text-white/80 hover:text-white'
-              }`}
-              title="Advanced Search Filters"
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-            </button>
           </div>
         </div>
 
@@ -247,7 +229,7 @@ export default function OutlookHeader() {
           <div className="absolute top-[40px] left-0 right-0 bg-white dark:bg-[#201F1E] text-[#323130] dark:text-[#E1DFDD] rounded-xl shadow-2xl border border-black/10 dark:border-white/10 p-2.5 z-50 animate-fadeIn text-[12.5px]">
             <div className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-2 py-1 flex items-center justify-between">
               <span>Quick Search Filters</span>
-              <span className="text-[10px] lowercase text-[#0078D4] font-normal">press enter to search</span>
+              <span className="text-[10px] lowercase text-[#0078D4] font-normal">search updates as you type</span>
             </div>
             <div className="flex flex-col gap-0.5 mt-1">
               {recentSearchFilters.map((f, i) => (
@@ -268,36 +250,6 @@ export default function OutlookHeader() {
 
       {/* 3. Right: Quick Tools & User Profile */}
       <div className="flex items-center gap-0.5 sm:gap-1.5 flex-shrink-0">
-        {/* Meet / Video Call */}
-        <button
-          type="button"
-          onClick={() => showToast('Starting Instant Meeting...', 'info')}
-          className="p-2 hover:bg-white/15 rounded-md transition cursor-pointer text-white hidden md:flex"
-          title="Meet Now"
-        >
-          <Video className="w-4 h-4" />
-        </button>
-
-        {/* Quick Notes */}
-        <button
-          type="button"
-          onClick={() => showToast('OneNote Notebook connected', 'info')}
-          className="p-2 hover:bg-white/15 rounded-md transition cursor-pointer text-white hidden lg:flex"
-          title="OneNote Feed"
-        >
-          <Edit3 className="w-4 h-4" />
-        </button>
-
-        {/* Calendar day pane */}
-        <button
-          type="button"
-          onClick={() => showToast('Opening Calendar preview...', 'info')}
-          className="p-2 hover:bg-white/15 rounded-md transition cursor-pointer text-white hidden lg:flex"
-          title="Calendar Day"
-        >
-          <Calendar className="w-4 h-4" />
-        </button>
-
         {/* Notifications Bell */}
         <div className="relative" ref={notifRef}>
           <button
@@ -307,26 +259,12 @@ export default function OutlookHeader() {
             title="Notifications"
           >
             <Bell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-300 ring-1 ring-[#0078D4]" />
           </button>
 
           {showNotifications && (
             <div className="absolute top-[42px] right-0 w-[310px] bg-white dark:bg-[#201F1E] text-[#323130] dark:text-[#E1DFDD] rounded-xl shadow-2xl border border-black/10 dark:border-white/10 p-3 z-50 animate-fadeIn">
-              <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-800">
-                <span className="font-bold text-[13px]">Notifications</span>
-                <span className="text-[11px] text-[#0078D4] hover:underline cursor-pointer">Mark all read</span>
-              </div>
-              <div className="flex flex-col gap-1.5 mt-2">
-                {quickNotifications.map((n) => (
-                  <div key={n.id} className="p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/60 transition cursor-pointer text-[12px]">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-gray-800 dark:text-gray-200">{n.title}</span>
-                      <span className="text-[10px] text-gray-400">{n.time}</span>
-                    </div>
-                    <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">{n.desc}</p>
-                  </div>
-                ))}
-              </div>
+              <div className="pb-2 border-b border-gray-100 dark:border-gray-800 font-bold text-[13px]">Notifications</div>
+              <p className="py-5 text-center text-[12px] text-gray-500">Mail notifications are not available yet.</p>
             </div>
           )}
         </div>
@@ -362,28 +300,6 @@ export default function OutlookHeader() {
                   </span>
                   <span className="text-[11px] text-[#0078D4]">Toggle</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    showToast('Focused inbox enabled', 'info');
-                    setShowSettingsMenu(false);
-                  }}
-                  className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
-                >
-                  <span>Focused Inbox</span>
-                  <span className="text-[11px] font-semibold text-[#107C41]">On</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    showToast('Reading pane position: Right', 'info');
-                    setShowSettingsMenu(false);
-                  }}
-                  className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
-                >
-                  <span>Reading Pane</span>
-                  <span className="text-[11px] text-gray-400">Right</span>
-                </button>
               </div>
             </div>
           )}
@@ -408,15 +324,13 @@ export default function OutlookHeader() {
             title="Account Manager"
           >
             <div className="relative">
-              <img
-                src={currentUser?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'}
-                alt={currentUser?.name || 'Ahmad'}
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover ring-1 ring-white/30"
-              />
-              <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-[#0078D4] ${
-                userStatus === 'Available' ? 'bg-[#107C41]' :
-                userStatus === 'Busy' ? 'bg-[#D83B01]' : 'bg-[#EAA300]'
-              }`} title={userStatus} />
+              {currentUser?.avatar ? (
+                <img src={currentUser.avatar} alt={currentUser.name || 'Account'} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover ring-1 ring-white/30" />
+              ) : (
+                <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white text-[#005A9E] font-bold text-[11px] flex items-center justify-center ring-1 ring-white/30">
+                  {userInitials(currentUser)}
+                </span>
+              )}
             </div>
           </button>
 
@@ -424,45 +338,24 @@ export default function OutlookHeader() {
           {showUserMenu && (
             <div className="absolute top-[42px] right-0 w-[300px] bg-white dark:bg-[#201F1E] text-[#323130] dark:text-[#F3F2F1] rounded-xl shadow-2xl border border-black/10 dark:border-white/10 p-4 z-50 animate-fadeIn">
               <div className="flex items-center gap-3 pb-3 mb-3 border-b border-gray-100 dark:border-gray-800">
-                <img
-                  src={currentUser?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'}
-                  alt={currentUser?.name || 'Ahmad'}
-                  className="w-12 h-12 rounded-full object-cover ring-2 ring-[#0078D4]/20"
-                />
+                {currentUser?.avatar ? (
+                  <img src={currentUser.avatar} alt={currentUser.name || 'Account'} className="w-12 h-12 rounded-full object-cover ring-2 ring-[#0078D4]/20" />
+                ) : (
+                  <span className="w-12 h-12 shrink-0 rounded-full bg-[#0078D4] text-white font-bold text-sm flex items-center justify-center ring-2 ring-[#0078D4]/20">
+                    {userInitials(currentUser)}
+                  </span>
+                )}
                 <div className="flex flex-col min-w-0">
                   <span className="font-bold text-[14px] truncate">
-                    {currentUser?.name || 'Ahmad Imran'}
+                    {currentUser?.name || 'Tiwlo account'}
                   </span>
                   <span className="text-[12px] text-gray-500 truncate">
                     {mailbox?.address || currentUser?.email || ''}
                   </span>
                   <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#107C41] font-semibold">
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Exchange Online Connected</span>
+                    <span>Tiwlo Mail account</span>
                   </div>
-                </div>
-              </div>
-
-              {/* Status Switcher */}
-              <div className="mb-3">
-                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
-                  Presence Status
-                </span>
-                <div className="flex items-center gap-1">
-                  {['Available', 'Busy', 'Away'].map((st) => (
-                    <button
-                      key={st}
-                      type="button"
-                      onClick={() => setUserStatus(st)}
-                      className={`flex-1 py-1 rounded text-[11.5px] font-medium transition cursor-pointer ${
-                        userStatus === st
-                          ? 'bg-[#0078D4] text-white'
-                          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200'
-                      }`}
-                    >
-                      {st}
-                    </button>
-                  ))}
                 </div>
               </div>
 
@@ -473,7 +366,7 @@ export default function OutlookHeader() {
                   onClick={() => {
                     setShowUserMenu(false);
                     if (onNavigateHome) onNavigateHome();
-                    else window.location.href = '/dashboard';
+                    else window.location.assign(getMainAppUrl('/dashboard'));
                   }}
                   className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer text-left"
                 >
@@ -488,7 +381,7 @@ export default function OutlookHeader() {
                   type="button"
                   onClick={() => {
                     setShowUserMenu(false);
-                    window.location.href = '/settings';
+                    window.location.assign(getMainAppUrl('/settings'));
                   }}
                   className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer text-left"
                 >
@@ -504,8 +397,11 @@ export default function OutlookHeader() {
                     type="button"
                     onClick={() => {
                       setShowUserMenu(false);
-                      showToast('Logged out of Tiwi Mail session', 'info');
-                      window.location.href = '/login';
+                      if (onSignOut) {
+                        onSignOut();
+                      } else {
+                        window.location.assign(getAuthUrl('/login?logout=1'));
+                      }
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 transition cursor-pointer text-left font-medium"
                   >

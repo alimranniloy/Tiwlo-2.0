@@ -36,7 +36,7 @@ export const CloudDB = {
       totalDroplets: droplets.length, totalVcpus, totalStorage: totalStorage + ' GB',
       dropletsGrowth: '', vcpusGrowth: '', storageGrowth: '',
       totalBandwidth: 'Unavailable', bandwidthGrowth: '',
-      cpuPercent: 0, memoryPercent: 0, storagePercent: 0, bandwidthPercent: 0,
+      cpuPercent: null, memoryPercent: null, storagePercent: null, bandwidthPercent: null,
       cpuUsed: 'Unavailable', memoryUsed: 'Unavailable', storageUsed: 'Unavailable', bandwidthUsed: 'Unavailable'
     };
   },

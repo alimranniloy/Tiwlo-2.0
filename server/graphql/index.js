@@ -33,14 +33,14 @@ export const schema = buildSchema(`
     storageGrowth: String
     totalBandwidth: String!
     bandwidthGrowth: String
-    cpuPercent: Int!
-    cpuUsed: String!
-    memoryPercent: Int!
-    memoryUsed: String!
-    storagePercent: Int!
-    storageUsed: String!
-    bandwidthPercent: Int!
-    bandwidthUsed: String!
+    cpuPercent: Int
+    cpuUsed: String
+    memoryPercent: Int
+    memoryUsed: String
+    storagePercent: Int
+    storageUsed: String
+    bandwidthPercent: Int
+    bandwidthUsed: String
   }
 
   type CloudActivity {
@@ -389,12 +389,15 @@ export const schema = buildSchema(`
     rating: Float
     reviewsCount: Int
     pricingType: String
+    price: String
     pricingLabel: String
     iconType: String
     iconBg: String
     iconColor: String
     logoUrl: String
     installCount: Int
+    verified: Boolean
+    managePath: String
   }
 
   type DiscordWorkspaceService {
@@ -402,6 +405,8 @@ export const schema = buildSchema(`
     userId: String!
     serviceId: String
     name: String!
+    productName: String
+    managePath: String
     category: String!
     iconType: String
     status: String!
@@ -412,6 +417,7 @@ export const schema = buildSchema(`
     usageLimit: Int
     usageLabel: String
     renewalDate: String
+    logoUrl: String
     createdAt: String
     updatedAt: String
   }

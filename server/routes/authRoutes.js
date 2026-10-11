@@ -2,13 +2,18 @@ import express from 'express';
 import { MasterDB } from '../db/multiTenant.js';
 import { hasUnverifiedSsoIdentity } from '../security/authGuards.js';
 import {
-  PasswordSecurity,
-  SessionSecurity,
   BruteForceShield,
   SsoSecurity
 } from '../security/cryptoSecurity.js';
 import {
+  completeMfaSetupWithRust,
+  hashPasswordWithRust,
+  verifyPasswordWithRust
+} from '../security/rustAuthSessionClient.js';
+import {
   consumeSecureGrant,
+  completeEmailVerificationWithRust,
+  completeMfaLoginWithRust,
   createSecureGrant,
   generateSecureOtp,
   verifySecureOtp,
@@ -120,85 +125,10 @@ function formatRemainingWaitTime(seconds) {
 // ==========================================
 // 1. SOCIAL SSO CHECK
 // ==========================================
-router.post('/auth/social-check', async (req, res) => {
-  try {
-    const { email, name, provider = 'Google' } = req.body;
-    if (!email || !email.includes('@')) {
-      return res.status(400).json({ error: 'Valid email is required for social authentication' });
-    }
-
-    const cleanEmail = email.trim().toLowerCase();
-    const user = await MasterDB.findUserByIdentifier(cleanEmail);
-
-    if (user) {
-      if (!user.emailVerified) {
-        const otpResult = await generateSecureOtp(user.email, 'email_verify', 15);
-        const masked = maskEmail(user.email);
-        await sendSignupVerificationOtpEmail({
-          to: user.email,
-          name: user.name || user.storeName,
-          code: otpResult.code
-        }).catch(() => {});
-        return res.json({
-          exists: true,
-          requiresEmailVerification: true,
-          tempToken: otpResult.token,
-          email: user.email,
-          emailMasked: masked,
-          message: `Please verify your email address. A 6-digit verification code was sent to ${masked}`
-        });
-      }
-
-      if (!user.twoFactorEnabled) {
-        const otpResult = await generateSecureOtp(user.email, 'setup_2fa', 15);
-        const masked = maskEmail(user.email);
-        await sendTwoFactorOtpEmail({
-          to: user.email,
-          name: user.name || user.storeName,
-          code: otpResult.code
-        }).catch(() => {});
-        return res.json({
-          exists: true,
-          requires2FASetup: true,
-          tempToken: otpResult.token,
-          email: user.email,
-          emailMasked: masked,
-          message: `Two-Step Verification setup is required. A 6-digit code was sent to ${masked}`
-        });
-      }
-
-      const otpResult = await generateSecureOtp(user.email, 'login_2fa', 10);
-      const masked = maskEmail(user.email);
-      await sendTwoFactorOtpEmail({
-        to: user.email,
-        name: user.name || user.storeName,
-        code: otpResult.code
-      }).catch(() => {});
-
-      (await logActivity('auth', `2FA Login Challenge Initiated via ${provider}`, `Target: ${user.email} • Code dispatched to ${masked}`));
-
-      return res.json({
-        exists: true,
-        requires2FA: true,
-        tempToken: otpResult.token,
-        email: user.email,
-        emailMasked: masked,
-        message: `Two-Step Verification code dispatched to ${masked}`
-      });
-    }
-
-    return res.json({
-      exists: false,
-      profileComplete: false,
-      requiresProfileSetup: true,
-      email: cleanEmail,
-      name: name || '',
-      provider
-    });
-  } catch (err) {
-    console.error('Social auth check error:', err);
-    res.status(500).json({ error: 'Failed to verify social authentication' });
-  }
+router.post('/auth/social-check', (_req, res) => {
+  return res.status(503).json({
+    error: 'Google and Facebook sign-in are unavailable until provider identity tokens can be verified securely.'
+  });
 });
 
 // Check Email
@@ -478,9 +408,11 @@ router.post('/auth/login', securityLimiters.login, async (req, res) => {
     }
 
     const user = await MasterDB.findUserByIdentifier(cleanId);
-    const isPasswordValid = user ? PasswordSecurity.verify(password, user.password) : false;
+    const passwordCheck = user
+      ? await verifyPasswordWithRust(user.id, password)
+      : { valid: false, rehashPerformed: false };
 
-    if (!user || !isPasswordValid) {
+    if (!user || !passwordCheck.valid) {
       await BruteForceShield.recordFailure(clientIp);
       const acctRecord = await BruteForceShield.recordFailure(cleanId);
       await recordSecurityEvent({
@@ -493,7 +425,7 @@ router.post('/auth/login', securityLimiters.login, async (req, res) => {
       });
       (await logActivity('alert', `Failed Login Attempt`, `Target: ${cleanId} from IP ${clientIp}`));
 
-      const remaining = Math.max(0, BruteForceShield.MAX_ATTEMPTS - (acctRecord?.count || 1));
+      const remaining = acctRecord?.remainingAttempts ?? 0;
       let errorMsg = 'Incorrect email, Tiwi ID, or password. Please verify and try again.';
       if (remaining === 1) {
         errorMsg = 'Incorrect password. 1 attempt remaining before temporary security pause.';
@@ -539,11 +471,6 @@ router.post('/auth/login', securityLimiters.login, async (req, res) => {
       ip: clientIp,
       userAgent: req.get('user-agent')
     });
-
-    if (!user.password.startsWith('scrypt$')) {
-      user.password = PasswordSecurity.hash(password);
-      await MasterDB.updateUser(user.id, { password: user.password });
-    }
 
     const isEmailVerified = user.emailVerified === true;
     if (!isEmailVerified) {
@@ -629,20 +556,21 @@ router.post('/auth/verify-2fa', async (req, res) => {
       return res.status(400).json({ error: 'Verification token and 6-digit code are required.' });
     }
 
-    const verification = await verifySecureOtp(tempToken, otpCode, 'login_2fa');
+    const verification = await completeMfaLoginWithRust(tempToken, otpCode, req);
     if (!verification.valid) {
-      return res.status(400).json({ error: verification.error });
+      return res.status(verification.notFound ? 404 : 400).json({ error: verification.error });
     }
 
-    const user = await MasterDB.findUserByIdentifier(verification.email);
-    if (!user) {
+    const user = await MasterDB.findUserByIdentifier(verification.userId);
+    if (!user || user.email.toLowerCase() !== verification.email.toLowerCase()) {
+      await MasterDB.deleteSession(verification.sessionToken);
       return res.status(404).json({ error: 'User account not found.' });
     }
 
     const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
     const tiwiId = user.tiwiId || user.storeId;
 
-    const { sessionToken } = await MasterDB.createSession(user.id, tiwiId, user.email, req);
+    const { sessionToken } = verification;
     setSessionCookie(res, req, sessionToken);
 
     (await logActivity('auth', `User completed 2FA login`, `Store: ${user.storeName} (${tiwiId})`, tiwiId));
@@ -786,17 +714,15 @@ router.post('/auth/setup-2fa', async (req, res) => {
       return res.status(400).json({ error: 'Verification token and 6-digit code are required.' });
     }
 
-    const verification = await verifySecureOtp(tempToken, otpCode, 'setup_2fa');
+    const verification = await completeMfaSetupWithRust(tempToken, otpCode);
     if (!verification.valid) {
-      return res.status(400).json({ error: verification.error });
+      return res.status(verification.notFound ? 404 : 400).json({ error: verification.error });
     }
 
     const user = await MasterDB.findUserByIdentifier(verification.email);
     if (!user) {
       return res.status(404).json({ error: 'User account not found.' });
     }
-
-    await MasterDB.updateUser(user.id, { twoFactorEnabled: true, emailVerified: true });
 
     const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
     const tiwiId = user.tiwiId || user.storeId;
@@ -897,9 +823,9 @@ router.post('/auth/verify-email', async (req, res) => {
       return res.status(400).json({ error: 'Verification token and 6-digit code are required.' });
     }
 
-    const verification = await verifySecureOtp(tempToken, otpCode, 'email_verify');
+    const verification = await completeEmailVerificationWithRust(tempToken, otpCode);
     if (!verification.valid) {
-      return res.status(400).json({ error: verification.error });
+      return res.status(verification.notFound ? 404 : 400).json({ error: verification.error });
     }
 
     const user = await MasterDB.findUserByIdentifier(verification.email);
@@ -907,7 +833,6 @@ router.post('/auth/verify-email', async (req, res) => {
       return res.status(404).json({ error: 'User account not found.' });
     }
 
-    await MasterDB.updateUser(user.id, { emailVerified: true });
     (await logActivity('auth', 'Email Address Verified', `User: ${user.email} (${user.tiwiId})`, user.tiwiId));
 
     const masked = maskEmail(user.email);
@@ -978,7 +903,8 @@ export async function authorizeEmailCorrection(req, res, next) {
     const lockKey = `email-correction:${user.id}`;
     const locked = await BruteForceShield.isLocked(lockKey);
     if (locked) return res.status(429).json({ error: 'Too many attempts. Please try again later.' });
-    if (!PasswordSecurity.verify(password, user.password)) {
+    const passwordCheck = await verifyPasswordWithRust(user.id, password);
+    if (!passwordCheck.valid) {
       await BruteForceShield.recordFailure(lockKey);
       return res.status(401).json({ error: 'Incorrect account password.' });
     }
@@ -1157,7 +1083,8 @@ router.post('/auth/forgot-password/reset', async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'Account not found.' });
     }
-    await MasterDB.updatePasswordAndRevokeSessions(user.id, PasswordSecurity.hash(newPassword));
+    const passwordHash = await hashPasswordWithRust(newPassword);
+    await MasterDB.updatePasswordAndRevokeSessions(user.id, passwordHash);
     (await logActivity('security', 'Password reset completed', `User: ${user.email} (${user.tiwiId})`, user.tiwiId));
     res.json({
       success: true,
@@ -1191,7 +1118,7 @@ router.post('/auth/forgot-password/verify', async (req, res) => {
       return res.status(404).json({ error: 'Account not found.' });
     }
 
-    const hashedPassword = PasswordSecurity.hash(newPassword);
+    const hashedPassword = await hashPasswordWithRust(newPassword);
     await MasterDB.updatePasswordAndRevokeSessions(user.id, hashedPassword);
 
     (await logActivity('security', 'Password reset completed', `User: ${user.email} (${user.tiwiId})`, user.tiwiId));
@@ -1448,7 +1375,16 @@ router.get('/auth/sync-session', async (req, res) => {
 router.get('/auth/sso/web-start', async (req, res) => {
   try {
     const returnTo = String(req.query.return_to || '').trim();
-    const allowedReturn = /^https:\/\/uids\.tiwlo\.com\/oneprofile(?:\/|$)/i.test(returnTo);
+    let allowedReturn = false;
+    try {
+      const target = new URL(returnTo);
+      allowedReturn = target.protocol === 'https:' &&
+        target.hostname.toLowerCase() === PLATFORM_CONFIG.dashboardHost &&
+        !target.username && !target.password &&
+        /^\/oneprofile(?:\/|$)/i.test(target.pathname);
+    } catch {
+      allowedReturn = false;
+    }
     if (!allowedReturn) return res.status(400).json({ error: 'Invalid SSO return URL' });
 
     const token = getRequestSessionToken(req);

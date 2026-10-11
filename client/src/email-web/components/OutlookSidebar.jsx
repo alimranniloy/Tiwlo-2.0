@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import {
   Mail,
-  Calendar,
-  Users,
-  CheckSquare,
-  HardDrive,
   Inbox,
   Send,
   FileEdit,
@@ -21,6 +17,7 @@ import { useEmail } from '../context/EmailContext';
 export default function OutlookSidebar() {
   const {
     activeFolder,
+    mailbox,
     navigateFolder,
     counts,
     activeCategoryFilter,
@@ -35,11 +32,7 @@ export default function OutlookSidebar() {
   const [categoriesOpen, setCategoriesOpen] = useState(true);
 
   const railItems = [
-    { id: 'mail', label: 'Mail', icon: Mail },
-    { id: 'calendar', label: 'Calendar', icon: Calendar },
-    { id: 'people', label: 'People', icon: Users },
-    { id: 'todo', label: 'To Do', icon: CheckSquare },
-    { id: 'files', label: 'Files', icon: HardDrive }
+    { id: 'mail', label: 'Mail', icon: Mail }
   ];
 
   const favoriteFolders = [
@@ -60,9 +53,7 @@ export default function OutlookSidebar() {
 
   const categoryTags = [
     { name: 'Work', color: '#0078D4' },
-    { name: 'Personal', color: '#107C41' },
-    { name: 'Finance', color: '#D83B01' },
-    { name: 'Projects', color: '#9333EA' }
+    { name: 'Personal', color: '#107C41' }
   ];
 
   return (
@@ -78,9 +69,6 @@ export default function OutlookSidebar() {
               type="button"
               onClick={() => {
                 setActiveRail(item.id);
-                if (item.id !== 'mail') {
-                  showToast(`${item.label} is not connected to Tiwi Mail yet.`, 'info');
-                }
               }}
               className={`relative w-[38px] h-[38px] rounded-lg flex items-center justify-center transition cursor-pointer ${
                 isActive
@@ -215,15 +203,6 @@ export default function OutlookSidebar() {
                   );
                 })}
 
-                {/* + New Folder button */}
-                <button
-                  type="button"
-                  onClick={() => showToast('New folder dialog opened', 'info')}
-                  className="flex items-center gap-2 px-2.5 py-1.5 text-slate-400 hover:text-[#0078D4] hover:bg-slate-200/40 dark:hover:bg-slate-800/40 rounded-lg transition cursor-pointer text-left mt-0.5"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>New folder</span>
-                </button>
               </div>
             )}
           </div>
@@ -269,24 +248,12 @@ export default function OutlookSidebar() {
           </div>
         </div>
 
-        {/* Bottom Storage Quota Card */}
+        {/* Active mailbox */}
         <div className="p-3 mt-4 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 shadow-xs">
-          <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">
-            <span className="font-semibold text-slate-700 dark:text-slate-300">Mailbox Storage</span>
-            <span>1.2 GB / 15 GB</span>
-          </div>
-          <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-            <div className="h-full bg-[#0078D4] rounded-full w-[8%]" />
-          </div>
-          <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1.5">
-            <span>8% used</span>
-            <span
-              onClick={() => showToast('Tiwlo Cloud Storage', 'info')}
-              className="text-[#0078D4] hover:underline cursor-pointer"
-            >
-              Manage
-            </span>
-          </div>
+          <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Signed in as</span>
+          <span className="block truncate text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+            {mailbox?.address || 'Tiwlo Mail'}
+          </span>
         </div>
       </div>
     </div>

@@ -145,7 +145,7 @@ export async function recordViolation({
        WHERE id = $1`,
       [userId, reason]
     );
-    await queryPg('DELETE FROM system_sessions WHERE user_id = $1', [userId]);
+    await MasterDB.revokeUserSessions(userId);
 
     // 2. Dispatch Official Suspension Email
     if (email) {

@@ -576,7 +576,7 @@ router.post('/users/:id/ban', requireAdmin, async (req, res) => {
     });
     if (!targetUser) return res.status(404).json({ error: 'User not found in system.' });
     if (newBanStatus) {
-      await queryPg('DELETE FROM system_sessions WHERE user_id = $1', [targetUser.id]);
+      await MasterDB.revokeUserSessions(targetUser.id);
       await recordSecurityEvent({
         eventType: 'admin.account_disabled',
         severity: 'warning',
@@ -705,7 +705,7 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
     if (targetUser.role === 'admin' && !isSuperAdminUser(req.adminUser)) {
       return res.status(403).json({ error: 'Only a super administrator can delete another administrator.' });
     }
-    await queryPg('DELETE FROM system_sessions WHERE user_id = $1', [targetUser.id]);
+    await MasterDB.revokeUserSessions(targetUser.id);
     const deletion = await queryPg('DELETE FROM system_users WHERE id = $1', [targetUser.id]);
     if (!deletion.rowCount) return res.status(404).json({ error: 'User not found.' });
     await recordSecurityEvent({

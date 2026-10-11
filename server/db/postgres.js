@@ -223,8 +223,10 @@ export async function initPgSchema() {
         content_type VARCHAR(255) NOT NULL,
         size_bytes BIGINT NOT NULL,
         content BYTEA NOT NULL,
+        content_id VARCHAR(255),
         created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE system_user_mail_attachments ADD COLUMN IF NOT EXISTS content_id VARCHAR(255);
       CREATE INDEX IF NOT EXISTS idx_user_mail_attachments_message
         ON system_user_mail_attachments(message_id);
 

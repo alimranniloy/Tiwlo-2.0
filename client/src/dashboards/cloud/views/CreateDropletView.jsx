@@ -5,17 +5,11 @@ import {
   Cpu,
   HardDrive,
   Globe,
-  Shield,
-  Key,
-  Lock,
-  Check,
   CheckCircle2,
   Sparkles,
-  HelpCircle,
   Zap,
   Layers,
-  ChevronRight,
-  Info
+  ChevronRight
 } from 'lucide-react';
 
 const REGIONS = [
@@ -98,7 +92,7 @@ const DROPLET_TIERS = [
   }
 ];
 
-export default function CreateDropletView({ onBack, onCreateDroplet, initialImage = 'Ubuntu 24.04 LTS' }) {
+export default function CreateDropletView({ onBack, initialImage = 'Ubuntu 24.04 LTS' }) {
   const [selectedRegion, setSelectedRegion] = useState(REGIONS[0]);
   const [selectedImage, setSelectedImage] = useState(() => {
     const found = OS_IMAGES.find(img => img.name === initialImage || img.id === initialImage);
@@ -106,16 +100,11 @@ export default function CreateDropletView({ onBack, onCreateDroplet, initialImag
   });
   const [activeImageTab, setActiveImageTab] = useState('os'); // 'os' | 'app'
   const [selectedTier, setSelectedTier] = useState(DROPLET_TIERS[1]); // Standard Pro
-  const [authMethod, setAuthMethod] = useState('password'); // 'password' | 'ssh'
-  const [password, setPassword] = useState('');
-  const [sshKey, setSshKey] = useState('');
   const [hostname, setHostname] = useState(() => `tiwlo-${selectedRegion.code.toLowerCase()}-${Math.floor(100 + Math.random() * 900)}`);
   const [tags, setTags] = useState('production, web');
   const [enableBackups, setEnableBackups] = useState(true);
   const [enableIpv6, setEnableIpv6] = useState(true);
   const [enableMonitoring, setEnableMonitoring] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
 
   const calculateTotalMonthly = () => {
     let total = selectedTier.monthlyPrice;
@@ -132,52 +121,6 @@ export default function CreateDropletView({ onBack, onCreateDroplet, initialImag
       }
       return `tiwlo-${reg.code.toLowerCase()}-${Math.floor(100 + Math.random() * 900)}`;
     });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setErrorMsg('');
-
-    if (!hostname.trim()) {
-      setErrorMsg('Please enter a valid droplet hostname.');
-      return;
-    }
-
-    if (authMethod === 'password') {
-      if (!password || password.length < 8) {
-        setErrorMsg('Root password must be at least 8 characters long.');
-        return;
-      }
-    } else {
-      if (!sshKey.trim()) {
-        setErrorMsg('Please paste a valid public SSH key.');
-        return;
-      }
-    }
-
-    try {
-      setSubmitting(true);
-      await onCreateDroplet({
-        name: hostname.trim(),
-        region: `${selectedRegion.name} (${selectedRegion.code})`,
-        regionCode: selectedRegion.code,
-        regionFlag: selectedRegion.flag,
-        image: selectedImage.name,
-        vcpus: selectedTier.vcpus,
-        memory: selectedTier.memory,
-        storage: selectedTier.storage,
-        monthlyPrice: calculateTotalMonthly(),
-        enableBackups,
-        enableIpv6,
-        enableMonitoring,
-        tags: tags.split(',').map(t => t.trim()).filter(Boolean)
-      });
-      onBack?.();
-    } catch (err) {
-      setErrorMsg(err.message || 'Failed to provision droplet. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
   };
 
   return (
@@ -217,12 +160,9 @@ export default function CreateDropletView({ onBack, onCreateDroplet, initialImag
         </div>
       </div>
 
-      {errorMsg && (
-        <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-400 text-xs sm:text-sm flex items-center gap-2.5">
-          <Info className="w-4 h-4 shrink-0" />
-          <span>{errorMsg}</span>
-        </div>
-      )}
+      <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100">
+        Cloud provisioning is not connected yet. You can review the configuration, but this page cannot create a server.
+      </div>
 
       {/* 2-Column Responsive Layout: Wizard Steps on Left (8 cols) & Pricing Summary on Right (4 cols) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -436,74 +376,9 @@ export default function CreateDropletView({ onBack, onCreateDroplet, initialImag
               </h2>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setAuthMethod('password')}
-                className={`p-4 rounded-xl border text-left transition flex items-center gap-3 cursor-pointer ${
-                  authMethod === 'password'
-                    ? 'border-blue-600 bg-blue-50/60 dark:bg-blue-950/30'
-                    : 'border-slate-200 dark:border-gray-800 hover:border-slate-300 bg-white dark:bg-[#111827]'
-                }`}
-              >
-                <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                  <Lock className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="font-semibold text-xs text-slate-900 dark:text-white">Root Password</div>
-                  <div className="text-[11px] text-slate-500">Quick sign-in via password</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setAuthMethod('ssh')}
-                className={`p-4 rounded-xl border text-left transition flex items-center gap-3 cursor-pointer ${
-                  authMethod === 'ssh'
-                    ? 'border-blue-600 bg-blue-50/60 dark:bg-blue-950/30'
-                    : 'border-slate-200 dark:border-gray-800 hover:border-slate-300 bg-white dark:bg-[#111827]'
-                }`}
-              >
-                <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                  <Key className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="font-semibold text-xs text-slate-900 dark:text-white">SSH Key (Recommended)</div>
-                  <div className="text-[11px] text-slate-500">Industry-standard cryptographic key</div>
-                </div>
-              </button>
-            </div>
-
-            {authMethod === 'password' ? (
-              <div className="space-y-2 pt-2">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Set Root Password
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter strong password (minimum 8 characters)"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-800 bg-slate-50/50 dark:bg-gray-900 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition"
-                />
-                <p className="text-[11px] text-slate-400">
-                  Password must contain at least 8 characters, one number, and one uppercase letter.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2 pt-2">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Paste SSH Public Key
-                </label>
-                <textarea
-                  rows={3}
-                  value={sshKey}
-                  onChange={(e) => setSshKey(e.target.value)}
-                  placeholder="ssh-rsa AAAAB3NzaC1yc2EAA..."
-                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-gray-800 bg-slate-50/50 dark:bg-gray-900 text-slate-900 dark:text-white text-xs font-mono focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition"
-                />
-              </div>
-            )}
+            <p className="rounded-xl bg-slate-50 p-4 text-xs leading-5 text-slate-600 dark:bg-gray-900 dark:text-slate-300">
+              Passwords and SSH keys are not collected here because cloud provisioning is not connected.
+            </p>
           </section>
 
           {/* STEP 5: Add-ons & Hostname */}
@@ -643,7 +518,7 @@ export default function CreateDropletView({ onBack, onCreateDroplet, initialImag
 
             {/* Total Price */}
             <div>
-              <div className="text-xs text-slate-500 mb-1">Total Monthly Cost</div>
+              <div className="text-xs text-slate-500 mb-1">Illustrative monthly estimate</div>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-extrabold text-blue-600 dark:text-blue-400">
                   ${calculateTotalMonthly()}
@@ -658,25 +533,15 @@ export default function CreateDropletView({ onBack, onCreateDroplet, initialImag
             {/* Deploy Action Button */}
             <button
               type="button"
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-semibold transition shadow-sm hover:shadow flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+              disabled
+              className="w-full py-3.5 px-4 rounded-xl bg-slate-400 text-white text-sm font-semibold flex items-center justify-center gap-2 cursor-not-allowed"
             >
-              {submitting ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Provisioning Droplet...</span>
-                </>
-              ) : (
-                <>
-                  <Zap className="w-4 h-4" />
-                  <span>Create & Launch Droplet</span>
-                </>
-              )}
+              <Zap className="w-4 h-4" />
+              <span>Provisioning unavailable</span>
             </button>
 
             <p className="text-[11px] text-center text-slate-400 dark:text-slate-500">
-              Zero upfront commitment. Destroy droplet anytime to stop billing immediately.
+              No server is created and no cloud-provider charge is initiated from this page.
             </p>
           </div>
         </div>

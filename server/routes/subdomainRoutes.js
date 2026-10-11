@@ -2,21 +2,12 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { randomBytes } from 'crypto';
 import {
-  checkSubdomain,
-  claimSubdomain,
-  createSubdomainRecord,
-  deleteSubdomainRecord,
-  listSubdomainRecords,
-  listUserSubdomains,
-  updateSubdomainRecord
-} from '../domains/subdomainService.js';
-import {
+  checkSubdomainWithRust,
   claimDomainWithRust,
   createDnsRecordWithRust,
   deleteDnsRecordWithRust,
-  isRustDomainClaimEnabled,
-  isRustDnsEnabled,
   listDnsRecordsWithRust,
+  listUserDomainsWithRust,
   updateDnsRecordWithRust
 } from '../security/rustDomainClient.js';
 
@@ -39,26 +30,25 @@ const claimLimiter = rateLimit({
   }
 });
 
-function sendSubdomainError(res, error) {
+function sendRustError(res, error, operation) {
   if (error.statusCode) {
     return res.status(error.statusCode).json({ error: error.message, ...error.details });
   }
-  console.error('[SubdomainRoutes] Subdomain operation failed:', error);
-  return res.status(500).json({ error: 'The subdomain operation failed unexpectedly.' });
+  console.error(`[SubdomainRoutes] ${operation} failed:`, error);
+  return res.status(502).json({ error: 'The domain service is temporarily unavailable.' });
 }
 
 router.get('/check', checkLimiter, async (req, res) => {
   try {
-    res.json(await checkSubdomain(req.query?.name));
+    res.json(await checkSubdomainWithRust(req.query?.name));
   } catch (error) {
-    if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
-    console.error('[SubdomainRoutes] Availability check failed:', error);
-    res.status(500).json({ error: 'The subdomain availability check failed.' });
+    sendRustError(res, error, 'Availability check');
   }
 });
 
 router.post('/claim', claimLimiter, async (req, res) => {
   try {
+    if (!req.activeUser?.id) return res.status(401).json({ error: 'Authentication required.' });
     if (!req.cookies?.uids_device) {
       res.cookie('uids_device', randomBytes(32).toString('base64url'), {
         httpOnly: true,
@@ -68,23 +58,14 @@ router.post('/claim', claimLimiter, async (req, res) => {
         maxAge: 365 * 24 * 60 * 60 * 1000
       });
     }
-    if (isRustDomainClaimEnabled()) {
-      if (!req.activeUser?.id) return res.status(401).json({ error: 'Authentication required.' });
-      const registration = await claimDomainWithRust({
-        user: req.activeUser,
-        name: req.body?.name,
-        request: req
-      });
-      return res.status(201).json({ registration });
-    }
-    const registration = await claimSubdomain({
-      userId: req.activeUser?.id,
-      input: req.body?.name,
+    const registration = await claimDomainWithRust({
+      user: req.activeUser,
+      name: req.body?.name,
       request: req
     });
     res.status(201).json({ registration });
   } catch (error) {
-    sendSubdomainError(res, error);
+    sendRustError(res, error, 'Domain claim');
   }
 });
 
@@ -95,100 +76,63 @@ router.use((req, res, next) => {
 
 router.get('/', async (req, res) => {
   try {
-    res.json({ domains: await listUserSubdomains(req.activeUser.id) });
+    res.json(await listUserDomainsWithRust({ user: req.activeUser, request: req }));
   } catch (error) {
-    if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
-    console.error('[SubdomainRoutes] Domain list failed:', error);
-    res.status(500).json({ error: 'Could not load your domains.' });
+    sendRustError(res, error, 'Domain list');
   }
 });
 
 router.get('/:id/records', async (req, res) => {
   try {
-    if (isRustDnsEnabled()) {
-      const payload = await listDnsRecordsWithRust({
-        user: req.activeUser,
-        subdomainId: req.params.id,
-        request: req
-      });
-      return res.json(payload);
-    }
-    res.json({ records: await listSubdomainRecords({ userId: req.activeUser.id, subdomainId: req.params.id }) });
+    res.json(await listDnsRecordsWithRust({
+      user: req.activeUser,
+      subdomainId: req.params.id,
+      request: req
+    }));
   } catch (error) {
-    if (error.statusCode) return sendSubdomainError(res, error);
-    console.error('[SubdomainRoutes] DNS record list failed:', error);
-    res.status(500).json({ error: 'Could not load DNS records.' });
+    sendRustError(res, error, 'DNS record list');
   }
 });
 
 router.post('/:id/records', async (req, res) => {
   try {
-    if (isRustDnsEnabled()) {
-      const payload = await createDnsRecordWithRust({
-        user: req.activeUser,
-        subdomainId: req.params.id,
-        request: req,
-        body: req.body
-      });
-      return res.status(201).json(payload);
-    }
-    const record = await createSubdomainRecord({
-      userId: req.activeUser.id,
+    const payload = await createDnsRecordWithRust({
+      user: req.activeUser,
       subdomainId: req.params.id,
-      ...req.body
+      request: req,
+      body: req.body
     });
-
-    res.status(201).json({ record });
+    res.status(201).json(payload);
   } catch (error) {
-    if (error.statusCode) return sendSubdomainError(res, error);
-    console.error('[SubdomainRoutes] DNS record create failed:', error);
-    res.status(500).json({ error: 'Could not create DNS record.' });
+    sendRustError(res, error, 'DNS record creation');
   }
 });
 
 router.patch('/:id/records/:recordId', async (req, res) => {
   try {
-    if (isRustDnsEnabled()) {
-      const payload = await updateDnsRecordWithRust({
-        user: req.activeUser,
-        subdomainId: req.params.id,
-        recordId: req.params.recordId,
-        request: req,
-        body: req.body
-      });
-      return res.json(payload);
-    }
-    const record = await updateSubdomainRecord({
-      userId: req.activeUser.id,
+    res.json(await updateDnsRecordWithRust({
+      user: req.activeUser,
       subdomainId: req.params.id,
       recordId: req.params.recordId,
-      ...req.body
-    });
-    return res.json({ record });
+      request: req,
+      body: req.body
+    }));
   } catch (error) {
-    return sendSubdomainError(res, error);
+    sendRustError(res, error, 'DNS record update');
   }
 });
 
 router.delete('/:id/records/:recordId', async (req, res) => {
   try {
-    if (isRustDnsEnabled()) {
-      await deleteDnsRecordWithRust({
-        user: req.activeUser,
-        subdomainId: req.params.id,
-        recordId: req.params.recordId,
-        request: req
-      });
-    } else {
-      await deleteSubdomainRecord({
-        userId: req.activeUser.id,
-        subdomainId: req.params.id,
-        recordId: req.params.recordId
-      });
-    }
-    return res.status(204).end();
+    await deleteDnsRecordWithRust({
+      user: req.activeUser,
+      subdomainId: req.params.id,
+      recordId: req.params.recordId,
+      request: req
+    });
+    res.status(204).end();
   } catch (error) {
-    return sendSubdomainError(res, error);
+    sendRustError(res, error, 'DNS record deletion');
   }
 });
 

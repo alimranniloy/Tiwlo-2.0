@@ -3,6 +3,7 @@ import { createClient } from 'redis';
 import { RedisStore } from 'rate-limit-redis';
 import { queryPg } from '../db/postgres.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
+import { MasterDB } from '../db/multiTenant.js';
 
 let redisClient = null;
 const riskCounters = new Map();
@@ -57,7 +58,7 @@ async function enforceRepeatedAbuse(req) {
      WHERE id = $1 AND is_banned = FALSE`,
     [userId, reason]
   );
-  await queryPg('DELETE FROM system_sessions WHERE user_id = $1', [userId]);
+  await MasterDB.revokeUserSessions(userId);
   await recordSecurityEvent({
     eventType: 'security.account_disabled_automated_abuse',
     severity: 'critical',

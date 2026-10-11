@@ -12,6 +12,7 @@ import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import { configureTrustedProxy } from './security/proxyTrust.js';
 import { PLATFORM_CONFIG, getSubdomain } from './config/platformConfig.js';
+import { getSeoMetadata } from '../shared/seoMetadata.mjs';
 
 import { ensureCertificates } from './scripts/generate-cert.js';
 import { testPgConnection } from './db/postgres.js';
@@ -389,6 +390,34 @@ app.get('/api/plugins-list', (req, res) => {
 // 5. STATIC WEB CLIENT & SPA FALLBACK
 // ==========================================
 const PUBLIC_DIR = path.join(__dirname, 'public');
+
+const requestHost = (req) => String(req.hostname || '').toLowerCase().replace(/:\d+$/, '');
+const isHost = (host, domain) => host === domain || host === `www.${domain}`;
+
+app.get('/robots.txt', (req, res) => {
+  const host = requestHost(req);
+  const isPublicPlatform = isHost(host, PLATFORM_CONFIG.primaryDomain);
+  const isPublicUids = host === PLATFORM_CONFIG.freeSubdomainDomain
+    || isHost(host, PLATFORM_CONFIG.freeSubdomainDomain);
+  if (isPublicPlatform || isPublicUids) {
+    const sitemapHost = isPublicUids ? PLATFORM_CONFIG.freeSubdomainDomain : PLATFORM_CONFIG.primaryDomain;
+    return res.type('text/plain').send(`User-agent: *\nAllow: /\nSitemap: https://${sitemapHost}/sitemap.xml\n`);
+  }
+  res.type('text/plain').send('User-agent: *\nAllow: /\n');
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  const host = requestHost(req);
+  const isPublicPlatform = isHost(host, PLATFORM_CONFIG.primaryDomain);
+  const isPublicUids = host === PLATFORM_CONFIG.freeSubdomainDomain
+    || isHost(host, PLATFORM_CONFIG.freeSubdomainDomain);
+  if (!isPublicPlatform && !isPublicUids) return res.sendStatus(404);
+
+  const canonicalHost = isPublicUids ? PLATFORM_CONFIG.freeSubdomainDomain : PLATFORM_CONFIG.primaryDomain;
+  const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://${canonicalHost}/</loc></url></urlset>`;
+  res.type('application/xml').send(sitemap);
+});
+
 if (fs.existsSync(PUBLIC_DIR)) {
   app.use(express.static(PUBLIC_DIR));
 }
@@ -403,17 +432,62 @@ app.get('/favicon.ico', (req, res) => {
 
 const CLIENT_DIST = path.join(__dirname, '../client/dist');
 if (fs.existsSync(CLIENT_DIST)) {
-  app.use(express.static(CLIENT_DIST));
   app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api') || req.path.startsWith('/graphql') || req.path.includes('.')) {
+    if (req.path.startsWith('/api') || req.path.startsWith('/graphql') || req.path.includes('.') || !req.accepts('html')) {
       return next();
     }
     const indexPath = path.join(CLIENT_DIST, 'index.html');
     if (fs.existsSync(indexPath)) {
-      return res.sendFile(indexPath);
+      try {
+        const metadata = getSeoMetadata({
+          hostname: requestHost(req),
+          pathname: req.path,
+          protocol: req.protocol,
+          platformDomain: PLATFORM_CONFIG.primaryDomain,
+          freeSubdomainDomain: PLATFORM_CONFIG.freeSubdomainDomain,
+          mailSubdomain: PLATFORM_CONFIG.mailSubdomain,
+          dashboardUrl: PLATFORM_CONFIG.dashboardUrl,
+          authDomain: PLATFORM_CONFIG.authDomain
+        });
+        let html = fs.readFileSync(indexPath, 'utf8');
+        const metaTags = [
+          ['name', 'description', metadata.description],
+          ['name', 'robots', metadata.robots],
+          ['name', 'googlebot', metadata.robots],
+          ['name', 'application-name', metadata.siteName],
+          ['name', 'keywords', `${metadata.siteName}, business software, business workspace`],
+          ['property', 'og:type', 'website'],
+          ['property', 'og:site_name', metadata.siteName],
+          ['property', 'og:title', metadata.title],
+          ['property', 'og:description', metadata.description],
+          ['property', 'og:url', metadata.canonicalUrl],
+          ['property', 'og:image', metadata.imageUrl],
+          ['property', 'og:image:alt', metadata.imageAlt],
+          ['property', 'og:image:width', '1200'],
+          ['property', 'og:image:height', '630'],
+          ['name', 'twitter:card', 'summary_large_image'],
+          ['name', 'twitter:title', metadata.title],
+          ['name', 'twitter:description', metadata.description],
+          ['name', 'twitter:image', metadata.imageUrl],
+          ['name', 'twitter:image:alt', metadata.imageAlt]
+        ].map(([attribute, key, value]) => `<meta ${attribute}="${key}" content="${String(value).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;')}">`).join('\n    ');
+        const schema = metadata.structuredData
+          ? `<script type="application/ld+json">${JSON.stringify(metadata.structuredData).replaceAll('<', '\\u003c')}</script>`
+          : '';
+        html = html
+          .replace(/<title>[\s\S]*?<\/title>/i, `<title>${metadata.title.replaceAll('&', '&amp;').replaceAll('<', '&lt;')}</title>`)
+          .replace(/<meta\s+(?:name|property)="(?:description|robots|googlebot|application-name|keywords|og:[^"]+|twitter:[^"]+)"[^>]*>\s*/gi, '')
+          .replace(/<link\s+rel="canonical"[^>]*>\s*/i, '')
+          .replace(/<\/head>/i, `    <link rel="canonical" href="${metadata.canonicalUrl}">\n    ${metaTags}\n    ${schema}\n  </head>`);
+        res.vary('Host');
+        return res.type('html').send(html);
+      } catch (error) {
+        return next(error);
+      }
     }
     next();
   });
+  app.use(express.static(CLIENT_DIST));
 }
 
 // Global Error Handler

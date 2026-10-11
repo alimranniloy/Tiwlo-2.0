@@ -13,6 +13,16 @@ pub struct IdentityAssertion {
     pub ip_hash: String,
     pub device_hash: Option<String>,
     pub email_hash: String,
+    #[serde(default)]
+    pub identity_hash: Option<String>,
+    #[serde(default)]
+    pub session_fingerprint: Option<String>,
+    #[serde(default)]
+    pub session_user_agent_hash: Option<String>,
+    #[serde(default)]
+    pub session_client_hints_hash: Option<String>,
+    #[serde(default)]
+    pub session_platform_class: Option<String>,
     pub expires_at: u64,
 }
 
@@ -67,6 +77,13 @@ pub fn verify(token: &str, secret: &str) -> Result<IdentityAssertion, IdentityEr
             .as_deref()
             .map_or(true, valid_hash)
         || !valid_hash(&assertion.email_hash)
+        || !assertion.identity_hash.as_deref().map_or(true, valid_hash)
+        || !assertion.session_fingerprint.as_deref().map_or(true, valid_hash)
+        || !assertion.session_user_agent_hash.as_deref().map_or(true, valid_hash)
+        || !assertion
+            .session_client_hints_hash
+            .as_deref()
+            .map_or(true, valid_hash)
     {
         return Err(IdentityError::InvalidSignal);
     }
@@ -102,6 +119,11 @@ mod tests {
             ip_hash: "a".repeat(64),
             device_hash: Some("b".repeat(64)),
             email_hash: "c".repeat(64),
+            identity_hash: Some("d".repeat(64)),
+            session_fingerprint: Some("e".repeat(64)),
+            session_user_agent_hash: Some("f".repeat(64)),
+            session_client_hints_hash: None,
+            session_platform_class: Some("test".to_owned()),
             expires_at: u64::MAX,
         }
     }

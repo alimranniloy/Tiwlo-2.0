@@ -36,9 +36,6 @@ import MarketplaceProductDetailView from '../../views/marketplace/MarketplacePro
 import {
   getCloudDashboardData,
   getUserStores,
-  createDropletGraphQL,
-  updateDropletStatusGraphQL,
-  deleteDropletGraphQL,
   createStoreGraphQL
 } from './graphql/cloudQueries';
 
@@ -57,6 +54,7 @@ export default function CloudDashboard({
   }, [initialNav]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [cloudError, setCloudError] = useState('');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [billingInitialTab, setBillingInitialTab] = useState('overview');
 
@@ -93,6 +91,7 @@ export default function CloudDashboard({
   const loadCloudData = async () => {
     try {
       setLoading(true);
+      setCloudError('');
       const [cloudData, storesData] = await Promise.all([
         getCloudDashboardData(userId),
         getUserStores(userId)
@@ -112,7 +111,7 @@ export default function CloudDashboard({
         }
       }
     } catch (err) {
-      console.warn('Error loading cloud data:', err);
+      setCloudError(err.message || 'Could not load cloud dashboard data.');
     } finally {
       setLoading(false);
     }
@@ -122,63 +121,18 @@ export default function CloudDashboard({
     loadCloudData();
   }, [userId]);
 
-  // Handler: Create Droplet
-  const handleCreateDroplet = async (dropletInput) => {
-    try {
-      const created = await createDropletGraphQL(userId, {
-        ...dropletInput,
-        tiwiId: currentStore?.tiwiId || ''
-      });
-      if (created) {
-        showToast?.(`Droplet "${created.name}" provisioned successfully!`);
-        await loadCloudData();
-      }
-    } catch (err) {
-      showToast?.('Failed to create droplet', 'error');
-    }
-  };
-
-  // Handler: Update Droplet Status
-  const handleUpdateStatus = async (dropletId, status) => {
-    try {
-      const updated = await updateDropletStatusGraphQL(dropletId, status);
-      if (updated) {
-        showToast?.(`Droplet status updated to ${status}`);
-        setDroplets(prev =>
-          prev.map(d => d.id === dropletId ? { ...d, status } : d)
-        );
-      }
-    } catch (err) {
-      showToast?.('Failed to update droplet status', 'error');
-    }
-  };
-
-  // Handler: Delete Droplet
-  const handleDeleteDroplet = async (dropletId) => {
-    try {
-      const ok = await deleteDropletGraphQL(dropletId);
-      if (ok) {
-        showToast?.('Droplet destroyed successfully');
-        setDroplets(prev => prev.filter(d => d.id !== dropletId));
-        await loadCloudData();
-      }
-    } catch (err) {
-      showToast?.('Failed to delete droplet', 'error');
-    }
-  };
-
   // Handler: Create Store ("My Online Store" + action)
   const handleCreateStore = async (storeInput) => {
     try {
       const newStore = await createStoreGraphQL(userId, storeInput);
-      if (newStore) {
-        showToast?.(`Store "${newStore.storeName}" (${newStore.tiwiId}) created successfully!`);
-        setUserStores(prev => [...prev, newStore]);
-        setCurrentStore(newStore);
-        await loadCloudData();
-      }
+      if (!newStore) throw new Error('The store could not be created.');
+      showToast?.(`Store "${newStore.storeName}" (${newStore.tiwiId}) created successfully!`);
+      setUserStores(prev => [...prev, newStore]);
+      setCurrentStore(newStore);
+      await loadCloudData();
+      return newStore;
     } catch (err) {
-      showToast?.('Failed to create store', 'error');
+      throw err;
     }
   };
 
@@ -209,9 +163,7 @@ export default function CloudDashboard({
           } catch (e) {}
         }}
         userStores={userStores}
-        currentStore={currentStore}
-        onSelectStore={(st) => setCurrentStore(st)}
-        onOpenStoreDashboard={onOpenStoreDashboard}
+        onNavigateTab={onNavigateTab}
         onOpenCreateStore={() => setActiveNav('create-store')}
         onOpenCreateDroplet={() => {
           setInitialDropletImage('Ubuntu 24.04 LTS');
@@ -253,13 +205,24 @@ export default function CloudDashboard({
 
         {/* Scrollable Dashboard Body */}
         <main className="flex-1 p-3.5 sm:p-6 lg:p-8 overflow-y-auto min-w-0">
+          {cloudError && (
+            <div role="alert" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+              <span>{cloudError}</span>
+              <button
+                type="button"
+                onClick={loadCloudData}
+                className="rounded-lg border border-rose-300 px-3 py-1.5 text-xs font-bold hover:bg-rose-100"
+              >
+                Retry
+              </button>
+            </div>
+          )}
           {activeNav === 'domains' ? (
             <div className="max-w-[1500px] mx-auto"><DomainsView currentUser={currentUser} showToast={showToast} /></div>
           ) : activeNav === 'create-droplet' ? (
             <div className="max-w-[1500px] mx-auto">
               <CreateDropletView
                 onBack={() => setActiveNav('dashboard')}
-                onCreateDroplet={handleCreateDroplet}
                 initialImage={initialDropletImage}
               />
             </div>
@@ -268,7 +231,6 @@ export default function CloudDashboard({
               <CreateStoreView
                 onBack={() => setActiveNav('my-online-store')}
                 onCreateStore={handleCreateStore}
-                showToast={showToast}
               />
             </div>
           ) : activeNav === 'images' ? (
@@ -359,6 +321,7 @@ export default function CloudDashboard({
                     setActiveNav('workspace');
                     try { window.history.pushState(null, '', '/workspace'); } catch (e) {}
                   }}
+                  showToast={showToast}
                   onNavigate={(target) => {
                     setActiveNav(target);
                     try { window.history.pushState(null, '', `/${target}`); } catch (e) {}
@@ -394,6 +357,10 @@ export default function CloudDashboard({
                     try { window.history.pushState(null, '', '/workspace'); } catch (e) {}
                   }}
                   onNavigate={(target) => {
+                    if (target === 'discord') {
+                      onNavigateTab?.(target);
+                      return;
+                    }
                     setActiveNav(target);
                     try { window.history.pushState(null, '', `/${target}`); } catch (e) {}
                   }}
@@ -440,13 +407,11 @@ export default function CloudDashboard({
                   <CloudHeroBanner currentUser={{ ...currentUser, storeName: currentStore?.storeName || currentUser?.storeName }} />
 
                   {/* 4 Stat Cards */}
-                  <CloudStatCards metrics={metrics} />
+                  <CloudStatCards metrics={metrics} loading={loading} />
 
                   {/* Droplets Table */}
                   <DropletsTable
                     droplets={filteredDroplets}
-                    onUpdateStatus={handleUpdateStatus}
-                    onDeleteDroplet={handleDeleteDroplet}
                     onOpenCreateDroplet={() => {
                       setInitialDropletImage('Ubuntu 24.04 LTS');
                       setActiveNav('create-droplet');
@@ -467,7 +432,7 @@ export default function CloudDashboard({
                         if (action === 'Droplets') setActiveNav('create-droplet');
                         else if (action === 'Volumes') setActiveNav('volumes');
                         else if (action === 'Kubernetes') setActiveNav('kubernetes');
-                        else showToast?.(`Opening ${action} manager`);
+                        else if (action === 'Domains') setActiveNav('domains');
                       }}
                     />
                   </div>

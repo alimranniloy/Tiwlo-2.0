@@ -43,14 +43,11 @@ export default function CloudHeader({
   const [showNotifications, setShowNotifications] = useState(false);
   const [showCredits, setShowCredits] = useState(false);
   const [copiedTiwiId, setCopiedTiwiId] = useState(false);
-  const [copiedBillingId, setCopiedBillingId] = useState(false);
 
   const tiwiId = currentUser?.tiwiId || currentUser?.storeId || '';
   const displayName = currentUser?.name || currentUser?.storeName || 'Tiwlo Store';
   const email = currentUser?.email || '';
-  const planName = currentUser?.planName || 'Premium Plan';
-
-  const billingAccountId = `BA-TIWLO-${(tiwiId || '10001').replace(/[^a-zA-Z0-9]/g, '')}-TCP`;
+  const planName = currentUser?.planName || 'Plan unavailable';
 
   const copyTiwiId = (e) => {
     e.stopPropagation();
@@ -58,14 +55,6 @@ export default function CloudHeader({
     setCopiedTiwiId(true);
     showToast?.(`Copied Tiwi ID: ${tiwiId}`);
     setTimeout(() => setCopiedTiwiId(false), 2000);
-  };
-
-  const copyBillingId = (e) => {
-    e.stopPropagation();
-    navigator.clipboard?.writeText(billingAccountId);
-    setCopiedBillingId(true);
-    showToast?.(`Copied Billing Account ID: ${billingAccountId}`);
-    setTimeout(() => setCopiedBillingId(false), 2000);
   };
 
   return (

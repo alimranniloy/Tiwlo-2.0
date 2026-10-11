@@ -10,7 +10,8 @@ import {
   CheckCircle2,
   RotateCw,
   Layers,
-  Bot
+  Bot,
+  MessageCircle
 } from 'lucide-react';
 import { WorkspaceAPI } from '../../api/workspaceApi';
 
@@ -22,14 +23,13 @@ export default function MarketplaceView({ onNavigate }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
   const [pricing, setPricing] = useState('all');
-  const [provider, setProvider] = useState('all');
-  const [rating, setRating] = useState('all');
   const [sort, setSort] = useState('recommended');
 
   const categories = [
     { id: 'all', label: 'All solutions' },
     { id: 'moderation', label: 'Moderation & Safety' },
     { id: 'community', label: 'Community & Engagement' },
+    { id: 'automation', label: 'Messaging & Automation' },
     { id: 'support', label: 'Support & Ticketing' },
     { id: 'analytics', label: 'Analytics & Insights' }
   ];
@@ -64,15 +64,6 @@ export default function MarketplaceView({ onNavigate }) {
           p.developer?.toLowerCase().includes(q)
         );
       }
-      // Filter by provider
-      if (provider !== 'all') {
-        list = list.filter((p) => p.developer?.toLowerCase().includes(provider.toLowerCase()));
-      }
-      // Filter by rating
-      if (rating !== 'all') {
-        const minRating = parseFloat(rating);
-        list = list.filter((p) => (p.rating || 0) >= minRating);
-      }
       // Sort
       if (sort === 'rating') {
         list.sort((a, b) => (b.rating || 0) - (a.rating || 0));
@@ -93,7 +84,7 @@ export default function MarketplaceView({ onNavigate }) {
 
   useEffect(() => {
     loadProducts();
-  }, [category, pricing, provider, rating, sort]);
+  }, [category, pricing, sort]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -102,6 +93,18 @@ export default function MarketplaceView({ onNavigate }) {
 
   const renderProductIcon = (iconType) => {
     switch (iconType) {
+      case 'discord':
+        return (
+          <div className="w-12 h-12 rounded-2xl bg-[#5865F2] text-white flex items-center justify-center shrink-0">
+            <Bot className="w-6 h-6 stroke-[2]" />
+          </div>
+        );
+      case 'whatsapp':
+        return (
+          <div className="w-12 h-12 rounded-2xl bg-[#25D366] text-white flex items-center justify-center shrink-0">
+            <MessageCircle className="w-6 h-6 stroke-[2]" />
+          </div>
+        );
       case 'shield':
         return (
           <div className="w-12 h-12 rounded-2xl bg-[#E8F0FE] text-[#0B57D0] flex items-center justify-center shrink-0">
@@ -145,11 +148,11 @@ export default function MarketplaceView({ onNavigate }) {
               Marketplace
             </h1>
             <span className="text-xs px-3 py-1 rounded-full bg-[#E8F0FE] text-[#0B57D0] font-medium">
-              Verified Solutions
+              Published products
             </span>
           </div>
           <p className="text-sm text-[#444746] mt-1">
-            Discover, evaluate, and provision enterprise-verified bots, server extensions, and automations.
+            Discover products to enable in Workspace. External provider setup may still be required.
           </p>
         </div>
 
@@ -184,7 +187,7 @@ export default function MarketplaceView({ onNavigate }) {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search solutions, bots, providers, or capabilities..."
+              placeholder="Search products, developers, or capabilities..."
               className="w-full bg-white hover:bg-[#F0F4F9] focus:bg-white border border-[#E0E2EC] focus:border-[#0B57D0] focus:ring-1 focus:ring-[#0B57D0] rounded-full pl-11 pr-4 py-2.5 text-[13px] text-[#1F1F1F] placeholder-[#444746] transition-all outline-none"
             />
           </div>

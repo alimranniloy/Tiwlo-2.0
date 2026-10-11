@@ -74,5 +74,37 @@ export const WorkspaceAPI = {
   async getMarketplaceCatalog() {
     const res = await request('/marketplace');
     return res.products || [];
+  },
+
+  async activateMarketplaceProduct(productId, payload) {
+    return request(`/marketplace/${encodeURIComponent(productId)}/install`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  },
+
+  async uploadWorkspaceIcon(file) {
+    const imageBase64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Could not read the selected image.'));
+      reader.readAsDataURL(file);
+    });
+    const response = await globalThis.fetch('/api/upload-base64', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageBase64,
+        filename: file.name,
+        purpose: 'workspace_service_icon'
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.url) {
+      throw new Error(data.message || data.error || `Image upload failed (${response.status}).`);
+    }
+    return data.url;
   }
 };

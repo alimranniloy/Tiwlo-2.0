@@ -11,10 +11,30 @@
  */
 
 import nodemailer from 'nodemailer';
-import crypto from 'crypto';
 import { PLATFORM_CONFIG, getPlatformUrl, getSubdomain } from '../config/platformConfig.js';
-import { getPgPool, queryPg } from './postgres.js';
 import { listEmailDeliveries, recordEmailDelivery } from './securityPersistence.js';
+import {
+  completeMfaLoginWithRust,
+  completeMfaSetupWithRust,
+  completeEmailVerificationWithRust,
+  consumeSecureGrantWithRust as consumeSecureGrant,
+  createSecureGrantWithRust as createSecureGrant,
+  deleteOtpSessionWithRust as deleteOtpSession,
+  generateOtpWithRust as generateSecureOtp,
+  getOtpSessionWithRust as getOtpSession,
+  verifyOtpWithRust as verifySecureOtp
+} from '../security/rustAuthSessionClient.js';
+export {
+  completeMfaLoginWithRust,
+  completeMfaSetupWithRust,
+  completeEmailVerificationWithRust,
+  consumeSecureGrant,
+  createSecureGrant,
+  deleteOtpSession,
+  generateSecureOtp,
+  getOtpSession,
+  verifySecureOtp
+};
 
 import {
   renderBaseEmail,
@@ -64,125 +84,6 @@ export function getEmailConfig() {
     },
     updatedAt: new Date().toISOString()
   };
-}
-
-// ==========================================
-// CRYPTOGRAPHIC OTP STORE
-// ==========================================
-function hashOtpValue(value) {
-  const secret = process.env.SECURITY_SECRET;
-  if (!secret) throw new Error('SECURITY_SECRET must be configured for OTP challenges.');
-  return crypto.createHmac('sha256', secret).update(String(value)).digest('hex');
-}
-
-export async function generateSecureOtp(email, type = 'login_2fa', expiryMinutes = 10) {
-  const cleanEmail = email.trim().toLowerCase();
-  const code = crypto.randomInt(100000, 999999).toString();
-  const token = `tok_${crypto.randomBytes(24).toString('hex')}`;
-  const expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
-  await queryPg(
-    `INSERT INTO system_otp_challenges (token_hash, email, challenge_type, code_hash, expires_at)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [hashOtpValue(token), cleanEmail, type, hashOtpValue(`${token}:${code}`), expiresAt]
-  );
-  await queryPg('DELETE FROM system_otp_challenges WHERE expires_at < CURRENT_TIMESTAMP');
-  return { code, token, expiresAt: expiresAt.getTime() };
-}
-
-export async function verifySecureOtp(token, inputCode, expectedType = 'login_2fa') {
-  if (!token) return { valid: false, error: 'Verification token is required' };
-  const pool = getPgPool();
-  if (!pool) throw new Error('PostgreSQL pool is unavailable for OTP verification.');
-  const client = await pool.connect();
-  const cleanInput = (inputCode || '').toString().trim().replace(/\s+/g, '');
-  try {
-    await client.query('BEGIN');
-    const { rows } = await client.query(
-      `SELECT email, challenge_type, code_hash, attempts, max_attempts, expires_at
-       FROM system_otp_challenges WHERE token_hash = $1 FOR UPDATE`,
-      [hashOtpValue(token)]
-    );
-    const record = rows[0];
-    if (!record) {
-      await client.query('COMMIT');
-      return { valid: false, error: 'Invalid or expired verification session' };
-    }
-    if (new Date(record.expires_at).getTime() <= Date.now()) {
-      await client.query('DELETE FROM system_otp_challenges WHERE token_hash = $1', [hashOtpValue(token)]);
-      await client.query('COMMIT');
-      return { valid: false, error: 'Verification code has expired. Please request a new one.' };
-    }
-    if (record.challenge_type !== expectedType) {
-      await client.query('COMMIT');
-      return { valid: false, error: 'Mismatched verification context' };
-    }
-    if (record.attempts >= record.max_attempts) {
-      await client.query('DELETE FROM system_otp_challenges WHERE token_hash = $1', [hashOtpValue(token)]);
-      await client.query('COMMIT');
-      return { valid: false, error: 'Maximum verification attempts exceeded. Please request a new code.' };
-    }
-    const expectedHash = Buffer.from(record.code_hash, 'hex');
-    const actualHash = Buffer.from(hashOtpValue(`${token}:${cleanInput}`), 'hex');
-    if (expectedHash.length !== actualHash.length || !crypto.timingSafeEqual(expectedHash, actualHash)) {
-      const update = await client.query(
-        `UPDATE system_otp_challenges SET attempts = attempts + 1
-         WHERE token_hash = $1 RETURNING attempts, max_attempts`,
-        [hashOtpValue(token)]
-      );
-      const remaining = Math.max(0, update.rows[0].max_attempts - update.rows[0].attempts);
-      if (remaining === 0) {
-        await client.query('DELETE FROM system_otp_challenges WHERE token_hash = $1', [hashOtpValue(token)]);
-      }
-      await client.query('COMMIT');
-      return { valid: false, error: `Invalid 6-digit code. ${remaining} attempt(s) remaining.` };
-    }
-    await client.query('DELETE FROM system_otp_challenges WHERE token_hash = $1', [hashOtpValue(token)]);
-    await client.query('COMMIT');
-    return { valid: true, email: record.email };
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
-export async function getOtpSession(token) {
-  if (!token) return null;
-  const { rows } = await queryPg(
-    `SELECT email, challenge_type AS type, attempts, max_attempts, expires_at
-     FROM system_otp_challenges
-     WHERE token_hash = $1 AND expires_at > CURRENT_TIMESTAMP`,
-    [hashOtpValue(token)]
-  );
-  return rows[0] || null;
-}
-
-export async function deleteOtpSession(token) {
-  if (!token) return;
-  await queryPg('DELETE FROM system_otp_challenges WHERE token_hash = $1', [hashOtpValue(token)]);
-}
-
-export async function createSecureGrant(email, type, expiryMinutes = 15) {
-  const token = `grant_${crypto.randomBytes(32).toString('hex')}`;
-  await queryPg(
-    `INSERT INTO system_otp_challenges
-       (token_hash, email, challenge_type, code_hash, max_attempts, expires_at)
-     VALUES ($1, $2, $3, $4, 1, CURRENT_TIMESTAMP + ($5 * INTERVAL '1 minute'))`,
-    [hashOtpValue(token), String(email).trim().toLowerCase(), type, hashOtpValue(token), expiryMinutes]
-  );
-  return token;
-}
-
-export async function consumeSecureGrant(token, type) {
-  if (!token) return null;
-  const { rows } = await queryPg(
-    `DELETE FROM system_otp_challenges
-     WHERE token_hash = $1 AND challenge_type = $2 AND expires_at > CURRENT_TIMESTAMP
-     RETURNING email`,
-    [hashOtpValue(token), type]
-  );
-  return rows[0]?.email || null;
 }
 
 // ==========================================

@@ -90,11 +90,10 @@ router.get('/stats', async (req, res) => {
   const currentTotalStock = products.reduce((acc, p) => acc + (p.stock || 0), 0);
   const totalSalesRevenue = sales.reduce((acc, s) => acc + Number(s.totalAmount || 0), 0);
 
-  const totalUnits = Math.max(1, currentTotalStock);
   const catDistribution = categories.map(cat => {
     const prodsInCat = products.filter(p => (p.category || '').toLowerCase() === cat.name.toLowerCase());
     const units = prodsInCat.reduce((sum, p) => sum + (p.stock || 0), 0);
-    const percent = Math.round((units / totalUnits) * 100);
+    const percent = currentTotalStock > 0 ? Math.round((units / currentTotalStock) * 100) : 0;
     return {
       name: cat.name,
       units,
@@ -114,7 +113,6 @@ router.get('/stats', async (req, res) => {
       sold: `${p.sold || 0} sold`,
       soldCount: p.sold || 0,
       revenue: `$${((p.revenue || (p.sold * p.price)) || 0).toLocaleString()}`,
-      growth: p.growth || '+10%',
       image: p.image
     }));
 
@@ -123,23 +121,12 @@ router.get('/stats', async (req, res) => {
   res.json({
     totalProducts: totalProductCount.toLocaleString(),
     activeProductCount: totalProductCount,
-    totalProductsGrowth: '+12% vs last month',
     totalStock: currentTotalStock.toLocaleString(),
     activeUnitsCount: currentTotalStock,
-    totalStockGrowth: '+8% vs last month',
     totalSales: `$${Math.round(totalSalesRevenue).toLocaleString()}`,
-    totalSalesGrowth: '+24% vs last month',
     lowStockItems: lowStockCount,
     outOfStockItems: outOfStockCount,
-    lowStockGrowth: '-5% vs last month',
-    categoryDistribution: catDistribution.length > 0 ? catDistribution : [
-      { name: 'Electronics', percent: 28, units: 10213, color: '#3B82F6' },
-      { name: 'Clothing', percent: 24, units: 8756, color: '#10B981' },
-      { name: 'Home & Living', percent: 16, units: 5838, color: '#F59E0B' },
-      { name: 'Beauty & Health', percent: 12, units: 4377, color: '#F43F5E' },
-      { name: 'Sports', percent: 8, units: 2918, color: '#8B5CF6' },
-      { name: 'Others', percent: 12, units: 4380, color: '#60A5FA' }
-    ],
+    categoryDistribution: catDistribution,
     stockMovement: stockMovementData,
     topSellingProducts: topSelling
   });

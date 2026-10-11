@@ -180,7 +180,9 @@ function makeMessage(row, attachments = []) {
       email: row.sender_email,
       avatar: null,
       initials,
-      avatarColor: 'bg-[#0078D4]',
+      avatarColor: ['bg-[#0078D4]', 'bg-[#107C41]', 'bg-[#8764B8]', 'bg-[#D83B01]', 'bg-[#038387]'][
+        [...String(row.sender_email || '').toLowerCase()].reduce((hash, character) => (hash * 31 + character.charCodeAt(0)) >>> 0, 0) % 5
+      ],
       isVerified: false
     },
     to: row.to_recipients,
@@ -190,12 +192,12 @@ function makeMessage(row, attachments = []) {
     preview: row.preview,
     bodyHtml: row.body_html,
     bodyText: row.body_text,
-    date: createdAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
-    fullDate: createdAt.toLocaleString(),
+    date: createdAt.toISOString(),
+    fullDate: createdAt.toISOString(),
     category: row.category,
     categoryColor: '#0078D4',
     deliveryStatus: row.delivery_status,
-    hasAttachments: attachments.length > 0,
+    hasAttachments: row.has_attachments ?? attachments.length > 0,
     attachments
   };
 }
@@ -217,7 +219,7 @@ async function getMessage(userId, messageId, { markRead = false } = {}) {
     rows[0].is_unread = false;
   }
   const attachmentResult = await pool.query(
-    `SELECT id, filename, content_type, size_bytes
+    `SELECT id, filename, content_type, size_bytes, content_id
      FROM system_user_mail_attachments WHERE message_id = $1 ORDER BY created_at`,
     [messageId]
   );
@@ -225,6 +227,7 @@ async function getMessage(userId, messageId, { markRead = false } = {}) {
     id: attachment.id,
     filename: attachment.filename,
     contentType: attachment.content_type,
+    isInline: Boolean(attachment.content_id),
     sizeBytes: Number(attachment.size_bytes),
     size: `${(Number(attachment.size_bytes) / (1024 * 1024)).toFixed(2)} MB`,
     url: `/api/email/attachments/${attachment.id}`
@@ -248,7 +251,7 @@ router.get('/messages', async (req, res, next) => {
   try {
     const folder = String(req.query.folder || 'inbox');
     const tab = String(req.query.tab || 'all');
-    const query = String(req.query.q || '').trim().slice(0, 200);
+    const rawQuery = String(req.query.q || '').trim().slice(0, 200);
     if (!VALID_FOLDERS.has(folder)) {
       return res.status(400).json({ success: false, error: 'Unknown mail folder.' });
     }
@@ -265,26 +268,40 @@ router.get('/messages', async (req, res, next) => {
        FROM system_user_mail_messages WHERE user_id = $1`,
       [req.activeUser.id]
     );
-    const where = ['user_id = $1'];
+    const where = ['m.user_id = $1'];
     const params = [req.activeUser.id];
-    if (folder === 'flagged') where.push('is_flagged = TRUE');
+    if (folder === 'flagged') where.push('m.is_flagged = TRUE');
     else {
       params.push(folder);
-      where.push(`folder = $${params.length}`);
+      where.push(`m.folder = $${params.length}`);
     }
     if (folder === 'inbox') {
-      if (tab === 'unread') where.push('is_unread = TRUE');
+      if (tab === 'unread') where.push('m.is_unread = TRUE');
       else if (tab === 'focused') where.push('TRUE');
     }
-    if (query) {
+    if (rawQuery.toLowerCase() === 'has:attachment') {
+      where.push('EXISTS (SELECT 1 FROM system_user_mail_attachments a WHERE a.message_id = m.id)');
+    } else if (rawQuery) {
+      const fieldQuery = rawQuery.match(/^(from|subject|category):\s*(.+)$/i);
+      const query = fieldQuery ? fieldQuery[2] : rawQuery;
       params.push(`%${query.replace(/[\\%_]/g, '\\$&')}%`);
-      where.push(`(subject ILIKE $${params.length} OR preview ILIKE $${params.length} OR sender_email ILIKE $${params.length})`);
+      if (fieldQuery?.[1].toLowerCase() === 'from') {
+        where.push(`(m.sender_name ILIKE $${params.length} OR m.sender_email ILIKE $${params.length})`);
+      } else if (fieldQuery?.[1].toLowerCase() === 'subject') {
+        where.push(`m.subject ILIKE $${params.length}`);
+      } else if (fieldQuery?.[1].toLowerCase() === 'category') {
+        where.push(`m.category ILIKE $${params.length}`);
+      } else {
+        where.push(`(m.subject ILIKE $${params.length} OR m.preview ILIKE $${params.length} OR m.sender_name ILIKE $${params.length} OR m.sender_email ILIKE $${params.length} OR m.category ILIKE $${params.length})`);
+      }
     }
     params.push(200);
     const { rows } = await pool.query(
-      `SELECT * FROM system_user_mail_messages
+      `SELECT m.*,
+              EXISTS (SELECT 1 FROM system_user_mail_attachments a WHERE a.message_id = m.id) AS has_attachments
+       FROM system_user_mail_messages m
        WHERE ${where.join(' AND ')}
-       ORDER BY is_pinned DESC, created_at DESC
+       ORDER BY m.is_pinned DESC, m.created_at DESC
        LIMIT $${params.length}`,
       params
     );
@@ -517,6 +534,32 @@ router.get('/attachments/:id', async (req, res, next) => {
     res.setHeader('Content-Type', rows[0].content_type);
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(rows[0].filename)}"`);
     res.send(rows[0].content);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/attachments/:id/inline', async (req, res, next) => {
+  try {
+    const { rows } = await getPgPool().query(
+      `SELECT a.content_type, a.content
+       FROM system_user_mail_attachments a
+       JOIN system_user_mail_messages m ON m.id = a.message_id
+       WHERE a.id = $1 AND m.user_id = $2`,
+      [req.params.id, req.activeUser.id]
+    );
+    if (!rows.length) return res.status(404).json({ success: false, error: 'Inline image not found.' });
+    if (!/^image\/(png|jpe?g|gif|webp|avif)$/i.test(rows[0].content_type)) {
+      return res.status(415).json({ success: false, error: 'This attachment cannot be displayed inline.' });
+    }
+    res.set({
+      'Content-Type': rows[0].content_type,
+      'Content-Disposition': 'inline',
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'; sandbox"
+    });
+    return res.send(rows[0].content);
   } catch (error) {
     next(error);
   }

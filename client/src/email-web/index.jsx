@@ -15,9 +15,12 @@ function OutlookEmailLayout() {
     isComposeOpen,
     mailbox,
     mailboxLoading,
+    mailboxError,
+    refreshMailbox,
     mobileView,
     mobileDrawerOpen,
-    setMobileDrawerOpen
+    setMobileDrawerOpen,
+    onSignOut
   } = useEmail();
 
   if (mailboxLoading) {
@@ -28,12 +31,23 @@ function OutlookEmailLayout() {
     );
   }
 
+  if (mailboxError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-slate-50 dark:bg-[#0F172A] px-6 text-center">
+        <p className="max-w-md text-sm text-red-600 dark:text-red-300">{mailboxError}</p>
+        <button type="button" onClick={refreshMailbox} className="rounded-lg bg-[#0078D4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#106EBE]">
+          Retry connection
+        </button>
+      </div>
+    );
+  }
+
   if (!mailbox) return <MailboxSetup />;
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#F8FAFC] dark:bg-[#0F172A] text-slate-800 dark:text-slate-100 font-sans antialiased overflow-hidden select-none">
+    <div className="h-screen w-screen flex flex-col bg-[#F8FAFC] dark:bg-[#0F172A] text-slate-800 dark:text-slate-100 font-sans antialiased overflow-hidden">
       {/* 1. Top App Header */}
-      <OutlookHeader />
+      <OutlookHeader onSignOut={onSignOut} />
 
       {/* 2. Command Ribbon Bar */}
       <OutlookRibbon />
@@ -106,9 +120,9 @@ function OutlookEmailLayout() {
   );
 }
 
-export default function TiwiOutlookEmail({ currentUser = null, onNavigateHome = null }) {
+export default function TiwiOutlookEmail({ currentUser = null, onNavigateHome = null, onSignOut = null }) {
   return (
-    <EmailProvider initialUser={currentUser} onNavigateHome={onNavigateHome}>
+    <EmailProvider initialUser={currentUser} onNavigateHome={onNavigateHome} onSignOut={onSignOut}>
       <OutlookEmailLayout />
     </EmailProvider>
   );

@@ -3,19 +3,8 @@ import { ArrowLeftRight } from 'lucide-react';
 
 export default function StockMovementChart({ data }) {
   const [hoveredIdx, setHoveredIdx] = useState(null);
-
-  const defaultData = [
-    { day: '16 Sep', inStock: 1200, outStock: 800 },
-    { day: '17 Sep', inStock: 950, outStock: 650 },
-    { day: '18 Sep', inStock: 1450, outStock: 1100 },
-    { day: '19 Sep', inStock: 1800, outStock: 1350 },
-    { day: '20 Sep', inStock: 1300, outStock: 950 },
-    { day: '21 Sep', inStock: 1150, outStock: 800 },
-    { day: '22 Sep', inStock: 1600, outStock: 1250 }
-  ];
-
-  const chartData = data && data.length > 0 ? data : defaultData;
-  const maxVal = 2000;
+  const chartData = data || [];
+  const maxVal = Math.max(1, ...chartData.flatMap(item => [item.inStock || 0, item.outStock || 0]));
 
   return (
     <div className="bg-white dark:bg-gray-800 border border-slate-200/80 dark:border-gray-700/80 rounded-2xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex flex-col justify-between">
@@ -52,8 +41,12 @@ export default function StockMovementChart({ data }) {
         </div>
       </div>
 
-      {/* Bar Chart Canvas / Area */}
-      <div className="relative pt-4 pb-2">
+      {chartData.length === 0 ? (
+        <div className="flex h-44 items-center justify-center text-center text-xs text-slate-500 dark:text-slate-400">
+          No stock movement data available yet.
+        </div>
+      ) : (
+        <div className="relative pt-4 pb-2">
         {/* Y Axis Grid Lines */}
         <div className="absolute inset-x-8 top-4 bottom-8 flex flex-col justify-between pointer-events-none opacity-40">
           <div className="border-b border-dashed border-slate-200 dark:border-gray-700 w-full"></div>
@@ -62,21 +55,20 @@ export default function StockMovementChart({ data }) {
           <div className="border-b border-dashed border-slate-200 dark:border-gray-700 w-full"></div>
           <div className="border-b border-slate-200 dark:border-gray-700 w-full"></div>
         </div>
-
         <div className="flex items-end justify-between h-44 pl-8 pr-2 relative">
           {/* Y-axis Labels on Left */}
           <div className="absolute left-0 top-0 bottom-8 flex flex-col justify-between text-[10px] text-slate-400 font-medium">
-            <span>2K</span>
-            <span>1.5K</span>
-            <span>1K</span>
-            <span>500</span>
+            <span>{maxVal.toLocaleString()}</span>
+            <span>{Math.round(maxVal * 0.75).toLocaleString()}</span>
+            <span>{Math.round(maxVal * 0.5).toLocaleString()}</span>
+            <span>{Math.round(maxVal * 0.25).toLocaleString()}</span>
             <span>0</span>
           </div>
 
           {/* Bars for each day */}
           {chartData.map((d, idx) => {
-            const inHeight = (d.inStock / maxVal) * 100;
-            const outHeight = (d.outStock / maxVal) * 100;
+            const inHeight = ((d.inStock || 0) / maxVal) * 100;
+            const outHeight = ((d.outStock || 0) / maxVal) * 100;
 
             return (
               <div
@@ -96,13 +88,13 @@ export default function StockMovementChart({ data }) {
                   {/* In Stock Bar */}
                   <div
                     className="w-2.5 sm:w-3 bg-gradient-to-t from-blue-600 to-blue-400 rounded-t-sm transition-all duration-300 group-hover:brightness-110 shadow-2xs"
-                    style={{ height: `${Math.min(100, Math.max(10, inHeight))}%` }}
+                    style={{ height: `${Math.min(100, Math.max(0, inHeight))}%` }}
                   ></div>
 
                   {/* Out Stock Bar */}
                   <div
                     className="w-2.5 sm:w-3 bg-gradient-to-t from-purple-600 to-purple-400 rounded-t-sm transition-all duration-300 group-hover:brightness-110 shadow-2xs"
-                    style={{ height: `${Math.min(100, Math.max(10, outHeight))}%` }}
+                    style={{ height: `${Math.min(100, Math.max(0, outHeight))}%` }}
                   ></div>
                 </div>
 
@@ -113,8 +105,9 @@ export default function StockMovementChart({ data }) {
               </div>
             );
           })}
-        </div>
       </div>
+      </div>
+      )}
     </div>
   );
 }

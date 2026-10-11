@@ -274,13 +274,6 @@ export default function LandingPage({ onNavigate, currentUser }) {
     };
   }, []);
   useEffect(() => {
-    const previousTitle = document.title;
-    document.title = "Tiwlo — A little idea. Unlimited possibility.";
-    return () => {
-      document.title = previousTitle;
-    };
-  }, []);
-  useEffect(() => {
     if (!menuOpen) return;
     const onKey = (event) => {
       if (event.key === "Escape") {

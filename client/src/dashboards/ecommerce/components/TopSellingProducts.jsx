@@ -1,51 +1,8 @@
 import React from 'react';
-import { ArrowUp, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 export default function TopSellingProducts({ products, onViewAll }) {
-  const defaultList = [
-    {
-      id: '1',
-      name: 'Premium T-Shirt',
-      sold: '324 sold',
-      revenue: '$2,460',
-      growth: '↑ 12%',
-      image: '/default-product.svg'
-    },
-    {
-      id: '2',
-      name: 'Running Shoes',
-      sold: '280 sold',
-      revenue: '$1,980',
-      growth: '↑ 8%',
-      image: '/default-product.svg'
-    },
-    {
-      id: '3',
-      name: 'Wireless Headphones',
-      sold: '198 sold',
-      revenue: '$1,560',
-      growth: '↑ 15%',
-      image: '/default-product.svg'
-    },
-    {
-      id: '4',
-      name: 'Backpack',
-      sold: '142 sold',
-      revenue: '$1,200',
-      growth: '↑ 6%',
-      image: '/default-product.svg'
-    },
-    {
-      id: '5',
-      name: 'Face Cream',
-      sold: '120 sold',
-      revenue: '$860',
-      growth: '↑ 10%',
-      image: '/default-product.svg'
-    }
-  ];
-
-  const items = products && products.length > 0 ? products : defaultList;
+  const items = products || [];
 
   return (
     <div className="bg-white dark:bg-gray-800 border border-slate-200/80 dark:border-gray-700/80 rounded-2xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex flex-col justify-between">
@@ -70,7 +27,11 @@ export default function TopSellingProducts({ products, onViewAll }) {
 
       {/* List */}
       <div className="space-y-3">
-        {items.map((item) => (
+        {items.length === 0 ? (
+          <p className="py-6 text-center text-xs text-slate-500 dark:text-slate-400">
+            No sales data available yet.
+          </p>
+        ) : items.map((item) => (
           <div
             key={item.id}
             className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-gray-700/40 transition group"
@@ -100,10 +61,11 @@ export default function TopSellingProducts({ products, onViewAll }) {
               <p className="text-xs font-bold text-slate-800 dark:text-white">
                 {item.revenue}
               </p>
-              <div className="flex items-center justify-end text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                <ArrowUp className="w-3 h-3 stroke-[2.5]" />
-                <span>{item.growth?.replace('↑', '').trim()}</span>
-              </div>
+              {item.growth && (
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                  {item.growth}
+                </div>
+              )}
             </div>
           </div>
         ))}

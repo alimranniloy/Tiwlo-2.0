@@ -12,6 +12,8 @@ import BottomBanners from './components/BottomBanners';
 
 export default function EcommerceDashboard({
   stats,
+  dataLoadError,
+  onReloadData,
   filteredProducts,
   tableSearch,
   setTableSearch,
@@ -30,12 +32,23 @@ export default function EcommerceDashboard({
   onImportCsv,
   onGenerateReport,
   onDeleteActivity,
-  showToast,
   onBackToCloud,
   currentStore
 }) {
   return (
     <div className="space-y-7 animate-in fade-in duration-150">
+      {dataLoadError && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200">
+          <span>Some dashboard data could not be loaded: {dataLoadError}</span>
+          <button
+            type="button"
+            onClick={onReloadData}
+            className="rounded-lg border border-rose-300 px-3 py-1.5 text-xs font-bold hover:bg-rose-100 dark:border-rose-800 dark:hover:bg-rose-900/40"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       {/* Top Banner to switch back to Main Control Center */}
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 rounded-2xl bg-white dark:bg-gray-800/80 border border-slate-200/80 dark:border-gray-700/80 shadow-2xs">
         <div className="flex items-center gap-3">
@@ -71,7 +84,8 @@ export default function EcommerceDashboard({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         <div className="lg:col-span-4">
           <InventoryOverviewChart
-            totalStock={stats?.totalStock || '36,482'}
+            totalStock={stats?.totalStock ?? '—'}
+            categories={stats?.categoryDistribution || []}
             onCategorySelect={(cat) => setTableCategory(cat)}
           />
         </div>
@@ -115,16 +129,15 @@ export default function EcommerceDashboard({
           <RecentActivity
             activities={activities}
             onDeleteActivity={onDeleteActivity}
-            onViewAll={() => onNavigateTab('settings')}
           />
         </div>
       </div>
 
       {/* Bottom 3 Banners */}
       <BottomBanners
-        onExploreFeatures={() => showToast('StockPro v3.2.0 Enterprise Pro Active')}
+        onExploreFeatures={() => onNavigateTab('inventory')}
         onViewReport={() => onNavigateTab('reports')}
-        onUpgrade={() => showToast('Enterprise Unlimited License Active')}
+        onUpgrade={() => onNavigateTab('pricing')}
       />
     </div>
   );

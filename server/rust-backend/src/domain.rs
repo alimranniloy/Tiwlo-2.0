@@ -20,8 +20,8 @@ pub fn validate(name: &str, suffix: &str) -> DomainValidationResponse {
     let normalized = name.trim().to_ascii_lowercase();
     let reserved = is_reserved(&normalized);
     let valid = is_valid_label(&normalized);
-    let suggestions = if valid && !reserved {
-        candidates(&normalized)
+    let suggestions = if valid {
+        candidate_names(&normalized).into_iter().take(5).collect()
     } else {
         Vec::new()
     };
@@ -56,7 +56,7 @@ fn is_reserved(value: &str) -> bool {
     )
 }
 
-fn candidates(value: &str) -> Vec<String> {
+pub fn candidate_names(value: &str) -> Vec<String> {
     [
         format!("{value}-app"),
         format!("{value}-dev"),
@@ -70,7 +70,6 @@ fn candidates(value: &str) -> Vec<String> {
     .into_iter()
     .filter(|candidate| candidate.len() <= MAX_LABEL_LENGTH && is_valid_label(candidate))
     .filter(|candidate| !is_reserved(candidate))
-    .take(5)
     .collect()
 }
 
@@ -97,5 +96,12 @@ mod tests {
     fn rejects_invalid_labels() {
         let result = validate("-bad-name-", "uids.app");
         assert!(!result.available_format);
+    }
+
+    #[test]
+    fn keeps_full_candidate_list_for_availability_filtering() {
+        let candidates = super::candidate_names("example");
+        assert_eq!(candidates.len(), 8);
+        assert_eq!(validate("www", "uids.app").suggestions[0], "www-app");
     }
 }

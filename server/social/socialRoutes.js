@@ -33,6 +33,8 @@ import {
   storeMedia
 } from '../db/mediaStorage.js';
 import {
+  completeMfaSetupWithRust,
+  completeEmailVerificationWithRust,
   generateSecureOtp,
   verifySecureOtp,
   getOtpSession,
@@ -631,9 +633,9 @@ router.post('/verify-email', async (req, res) => {
       return res.status(400).json({ error: 'Verification token and 6-digit code are required.' });
     }
 
-    const verification = await verifySecureOtp(tempToken, otpCode, 'email_verify');
+    const verification = await completeEmailVerificationWithRust(tempToken, otpCode);
     if (!verification.valid) {
-      return res.status(400).json({ error: verification.error });
+      return res.status(verification.notFound ? 404 : 400).json({ error: verification.error });
     }
 
     const user = await MasterDB.findUserByIdentifier(verification.email);
@@ -641,7 +643,6 @@ router.post('/verify-email', async (req, res) => {
       return res.status(404).json({ error: 'User account not found.' });
     }
 
-    await MasterDB.updateUser(user.id, { emailVerified: true });
     const masked = maskEmail(user.email);
 
     const setupOtp = await generateSecureOtp(user.email, 'setup_2fa', 15);
@@ -713,9 +714,9 @@ router.post('/setup-2fa', async (req, res) => {
       return res.status(400).json({ error: 'Verification token and 6-digit code are required.' });
     }
 
-    const verification = await verifySecureOtp(tempToken, otpCode, 'setup_2fa');
+    const verification = await completeMfaSetupWithRust(tempToken, otpCode);
     if (!verification.valid) {
-      return res.status(400).json({ error: verification.error });
+      return res.status(verification.notFound ? 404 : 400).json({ error: verification.error });
     }
 
     const user = await MasterDB.findUserByIdentifier(verification.email);
@@ -723,7 +724,6 @@ router.post('/setup-2fa', async (req, res) => {
       return res.status(404).json({ error: 'User account not found.' });
     }
 
-    await MasterDB.updateUser(user.id, { twoFactorEnabled: true, emailVerified: true });
     const tiwiId = user.tiwiId || user.storeId || user.id;
 
     const { sessionToken } = await MasterDB.createSession(user.id, tiwiId, user.email, req);

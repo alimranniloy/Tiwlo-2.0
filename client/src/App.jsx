@@ -7,8 +7,9 @@ import LoginView from './views/LoginView';
 import CreateAccountView from './views/CreateAccountView';
 import { CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import TiwloPageLoader, { TiwloTopSyncBar } from './components/TiwloUniqueLoader';
-import { isAuthSubdomain, isDashboardSubdomain, isMailSubdomain, getAuthUrl, getMainAppUrl, getMailUrl, getDashboardUrl } from './utils/navigation';
-import { getPlatformUrl, getSubdomain, PLATFORM_DOMAIN, FREE_SUBDOMAIN_DOMAIN, TPANEL_SUBDOMAIN } from './config/platformConfig';
+import { isAuthSubdomain, isDashboardSubdomain, isMailSubdomain, isTPanelSubdomain, getAuthUrl, getMainAppUrl, getMailUrl, getDashboardUrl, getTPanelUrl } from './utils/navigation';
+import { getPlatformUrl, PLATFORM_DOMAIN, FREE_SUBDOMAIN_DOMAIN } from './config/platformConfig';
+import { updateSeoMetadata } from './utils/seo';
 
 // Dedicated Dashboards (Code-Split via React.lazy)
 const CloudDashboard = lazy(() => import('./dashboards/cloud/CloudDashboard'));
@@ -97,6 +98,33 @@ const getSafeRedirectTarget = (value) => {
   }
 };
 
+const getSafeReturnToTarget = (value) => {
+  if (typeof value !== 'string' || !value.trim()) {
+    return null;
+  }
+  try {
+    const target = new URL(value);
+    const platformUrl = new URL(getPlatformUrl());
+    const dashboardUrl = new URL(getDashboardUrl());
+    const mailUrl = new URL(getMailUrl());
+    const tpanelUrl = new URL(getTPanelUrl());
+    const isAllowedOrigin = [
+      platformUrl.origin,
+      dashboardUrl.origin,
+      mailUrl.origin,
+      tpanelUrl.origin
+    ].includes(target.origin);
+    const isLocalTarget = target.protocol === 'http:' && target.hostname.endsWith('.localhost');
+    if ((target.protocol !== 'https:' && !isLocalTarget) || !isAllowedOrigin ||
+        /^\/(login|signin|create-account|register|signup)(\/|$)/i.test(target.pathname)) {
+      return null;
+    }
+    return target.toString();
+  } catch (e) {
+    return null;
+  }
+};
+
 const getSafeRedirectPath = (value) => {
   const target = getSafeRedirectTarget(value);
   if (!target || target.startsWith('http')) return null;
@@ -111,6 +139,9 @@ export default function App() {
       const pathname = window.location.pathname.replace(/^\/+|\/+$/g, '');
       const searchParams = new URLSearchParams(window.location.search);
       const restoreToken = searchParams.get('token');
+      const isOneProfilePath = pathname === 'oneprofile' || pathname.startsWith('oneprofile/') ||
+        pathname === 'one-profile' || pathname.startsWith('one-profile/');
+      const isTpanelPath = pathname === 'tpanel' || pathname.startsWith('tpanel/');
 
       // Remove legacy session-token handoffs from the URL without trusting them.
       if (searchParams.has('auth_token')) {
@@ -120,17 +151,54 @@ export default function App() {
         window.history.replaceState(null, '', cleanUrl);
       }
 
+      if (isOneProfilePath && !isDashboardSubdomain()) {
+        window.location.replace(`${getDashboardUrl(window.location.pathname)}${window.location.search}${window.location.hash}`);
+        return 'oneprofile';
+      }
+
+      if (isTpanelPath && !isTPanelSubdomain() &&
+          (hostname === PLATFORM_DOMAIN || hostname === `www.${PLATFORM_DOMAIN}` ||
+            hostname === 'localhost' || hostname === '127.0.0.1')) {
+        window.location.replace(`${getTPanelUrl(window.location.pathname)}${window.location.search}${window.location.hash}`);
+        return 'tpanel';
+      }
+
+      if (isDashboardSubdomain() && (!pathname || pathname === 'dashboard')) {
+        window.history.replaceState(null, '', `/oneprofile${window.location.search}${window.location.hash}`);
+        return 'oneprofile';
+      }
+
+      if (isTPanelSubdomain() &&
+          ['login', 'signin', 'create-account', 'register', 'signup'].includes(pathname)) {
+        const isRegistration = ['create-account', 'register', 'signup'].includes(pathname);
+        const authPath = isRegistration ? '/create-account' : '/login';
+        const authQuery = new URLSearchParams(window.location.search);
+        authQuery.set('return_to', getTPanelUrl('/'));
+        authQuery.set('sso_login', '1');
+        window.location.replace(getAuthUrl(`${authPath}?${authQuery.toString()}`));
+        return isRegistration ? 'create-account' : 'login';
+      }
+
+      if (isMailSubdomain() &&
+          ['login', 'signin', 'create-account', 'register', 'signup'].includes(pathname)) {
+        const isRegistration = ['create-account', 'register', 'signup'].includes(pathname);
+        const authPath = isRegistration ? '/create-account' : '/login';
+        const authQuery = new URLSearchParams(window.location.search);
+        authQuery.delete('mail_return');
+        authQuery.set('return_to', getMailUrl(
+          window.location.pathname + window.location.search + window.location.hash
+        ));
+        window.location.replace(getAuthUrl(`${authPath}?${authQuery.toString()}`));
+        return isRegistration ? 'create-account' : 'login';
+      }
+
       // The standalone free-subdomain service has its own landing page.
       if (hostname === FREE_SUBDOMAIN_DOMAIN) {
-        if (pathname === 'oneprofile' || pathname.startsWith('oneprofile/') || pathname === 'one-profile' || pathname.startsWith('one-profile/')) {
-          window.location.replace(`${getDashboardUrl(window.location.pathname)}${window.location.search}${window.location.hash}`);
-          return 'subdomain';
-        }
         return 'subdomain';
       }
 
       // TPanel Subdomain or Direct Route Detection
-      const isTpanelRoute = !isAuthSubdomain() && (hostname === getSubdomain(TPANEL_SUBDOMAIN) || pathname === 'tpanel' || pathname.startsWith('tpanel/') || searchParams.get('panel') === 'tpanel' || searchParams.get('tab') === 'tpanel' || searchParams.get('view') === 'tpanel');
+      const isTpanelRoute = !isAuthSubdomain() && (isTPanelSubdomain() || pathname === 'tpanel' || pathname.startsWith('tpanel/') || searchParams.get('panel') === 'tpanel' || searchParams.get('tab') === 'tpanel' || searchParams.get('view') === 'tpanel');
 
       if (isTpanelRoute) {
         return 'tpanel';
@@ -152,8 +220,8 @@ export default function App() {
         if (isDashboardSubdomain()) {
           const hasSession = !!localStorage.getItem('stockpro_session') && !!localStorage.getItem('stockpro_user');
           if (!hasSession) {
-            const returnTo = `${getDashboardUrl(window.location.pathname)}${window.location.search}${window.location.hash}`;
-            window.location.replace(getAuthUrl(`/login?redirect=${encodeURIComponent(returnTo)}`));
+            const returnTo = getDashboardUrl('/oneprofile');
+            window.location.replace(getAuthUrl(`/login?return_to=${encodeURIComponent(returnTo)}`));
             return 'login';
           }
         }
@@ -251,7 +319,9 @@ export default function App() {
           const redirectPath = getSafeRedirectPath(searchParams.get('redirect'));
           const query = isExplicitLogout
             ? '?logout=1'
-            : (redirectPath ? `?redirect=${encodeURIComponent(redirectPath)}` : '');
+            : (isDashboardSubdomain()
+              ? `?return_to=${encodeURIComponent(getDashboardUrl('/oneprofile'))}`
+              : (redirectPath ? `?redirect=${encodeURIComponent(redirectPath)}` : ''));
           window.location.replace(getAuthUrl(`/login${query}`));
           return 'login';
         }
@@ -260,7 +330,13 @@ export default function App() {
           if (hostname.toLowerCase() === PLATFORM_DOMAIN || hostname.toLowerCase() === `www.${PLATFORM_DOMAIN}`) {
             return 'create-account';
           }
-          const registrationPath = `${window.location.pathname}${window.location.search}`;
+          const registrationParams = new URLSearchParams(window.location.search);
+          if (isDashboardSubdomain()) {
+            registrationParams.set('return_to', getDashboardUrl('/oneprofile'));
+            registrationParams.set('sso_login', '1');
+          }
+          const registrationQuery = registrationParams.toString();
+          const registrationPath = `${window.location.pathname}${registrationQuery ? `?${registrationQuery}` : ''}`;
           window.location.replace(getAuthUrl(registrationPath));
           return 'create-account';
         }
@@ -360,6 +436,9 @@ export default function App() {
   };
 
   const [activeTab, setActiveTab] = useState(getTabFromUrl);
+  useEffect(() => {
+    updateSeoMetadata();
+  }, [activeTab]);
   const [ssoInitData, setSsoInitData] = useState(null);
   const [bannedAccountInfo, setBannedAccountInfo] = useState(() => {
     try {
@@ -398,36 +477,50 @@ export default function App() {
       if (!isAuthSubdomain()) {
         const path = window.location.pathname;
         const publicPaths = new Set(['/', '/landing', '/home', '/login', '/signin']);
+        const isDashboardOrigin = isDashboardSubdomain();
+        const isMailOrigin = isMailSubdomain();
         const returnTo = window.location.hostname.toLowerCase() === FREE_SUBDOMAIN_DOMAIN
           ? `${getDashboardUrl('/oneprofile')}`
           : `${getMainAppUrl(path)}${window.location.search}`;
-        const redirect = `?redirect=${encodeURIComponent(publicPaths.has(path) && window.location.hostname.toLowerCase() !== FREE_SUBDOMAIN_DOMAIN ? '' : returnTo)}`;
+        const redirect = isDashboardOrigin
+          ? `?return_to=${encodeURIComponent(getDashboardUrl('/oneprofile'))}`
+          : (isMailOrigin
+            ? `?return_to=${encodeURIComponent(getMailUrl(window.location.pathname + window.location.search + window.location.hash))}`
+            : `?redirect=${encodeURIComponent(publicPaths.has(path) && window.location.hostname.toLowerCase() !== FREE_SUBDOMAIN_DOMAIN ? '' : returnTo)}`);
         window.location.replace(getAuthUrl(`/login${redirect}`));
         return;
       }
       setActiveTab('login');
-      const mailReturn = isAuthSubdomain() &&
-        new URLSearchParams(window.location.search).get('mail_return') === '1'
-        ? '?mail_return=1'
-        : '';
-      window.history.pushState(null, '', `/login${mailReturn}`);
+      const authParams = new URLSearchParams(window.location.search);
+      const loginQuery = ['redirect', 'return_to', 'sso_login', 'mail_return', 'restore_token', 'expired']
+        .filter((key) => authParams.has(key))
+        .map((key) => [key, authParams.get(key)]);
+      const loginSearch = new URLSearchParams(loginQuery).toString();
+      window.history.pushState(null, '', `/login${loginSearch ? `?${loginSearch}` : ''}`);
       return;
     }
     if (tabId === 'create-account' || tabId === 'register' || tabId === 'signup' || tabId === 'create-store' || (typeof tabId === 'string' && tabId.startsWith('create-store/'))) {
       if (!isAuthSubdomain()) {
+        const isDashboardOrigin = isDashboardSubdomain();
+        const isMailOrigin = isMailSubdomain();
         const returnTo = window.location.hostname.toLowerCase() === FREE_SUBDOMAIN_DOMAIN
           ? getDashboardUrl('/oneprofile')
           : null;
-        const query = returnTo ? `?redirect=${encodeURIComponent(returnTo)}` : '';
+        const query = isDashboardOrigin
+          ? `?return_to=${encodeURIComponent(getDashboardUrl('/oneprofile'))}&sso_login=1`
+          : (isMailOrigin
+            ? `?return_to=${encodeURIComponent(getMailUrl(window.location.pathname + window.location.search + window.location.hash))}`
+            : (returnTo ? `?redirect=${encodeURIComponent(returnTo)}` : ''));
         window.location.replace(getAuthUrl(`/create-account${query}`));
         return;
       }
       setActiveTab('create-account');
-      const mailReturn = isAuthSubdomain() &&
-        new URLSearchParams(window.location.search).get('mail_return') === '1'
-        ? '?mail_return=1'
-        : '';
-      window.history.pushState(null, '', `/create-account${mailReturn}`);
+      const authParams = new URLSearchParams(window.location.search);
+      const signupQuery = ['redirect', 'return_to', 'sso_login', 'mail_return']
+        .filter((key) => authParams.has(key))
+        .map((key) => [key, authParams.get(key)]);
+      const signupSearch = new URLSearchParams(signupQuery).toString();
+      window.history.pushState(null, '', `/create-account${signupSearch ? `?${signupSearch}` : ''}`);
       return;
     }
 
@@ -445,6 +538,24 @@ export default function App() {
         return;
       }
       setActiveTab('email');
+      return;
+    }
+
+    if (tabId === 'tpanel' || (typeof tabId === 'string' && tabId.startsWith('tpanel/'))) {
+      if (!isTPanelSubdomain()) {
+        const panelPath = typeof tabId === 'string' && tabId.startsWith('tpanel/')
+          ? `/${tabId}`
+          : '/';
+        window.location.assign(getTPanelUrl(panelPath));
+        return;
+      }
+      setActiveTab('tpanel');
+      const panelPath = typeof tabId === 'string' && tabId.startsWith('tpanel/')
+        ? `/${tabId}`
+        : '/';
+      if (window.location.pathname !== panelPath) {
+        window.history.pushState(null, '', panelPath);
+      }
       return;
     }
 
@@ -514,14 +625,18 @@ export default function App() {
   const [stats, setStats] = useState(null);
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [dataLoadError, setDataLoadError] = useState('');
   const [manualReload, setManualReload] = useState(false);
 
   // Manual Reload Handler with smooth minimum duration
   const handleReloadData = async () => {
     setManualReload(true);
     try {
-      await loadData();
-      showToast('Inventory & POS database reloaded securely!');
+      const loaded = await loadData();
+      showToast(
+        loaded ? 'Inventory & POS data reloaded.' : 'Some data could not be refreshed.',
+        loaded ? 'success' : 'error'
+      );
     } catch (e) {
       showToast('Error refreshing data', 'error');
     } finally {
@@ -616,10 +731,7 @@ export default function App() {
           }
           localStorage.setItem('stockpro_session', consumed.sessionToken);
           localStorage.setItem('stockpro_user', JSON.stringify(consumed.user));
-          const target = returnTo && /^https:\/\/(uids\.tiwlo\.com|tiwlo\.com)(\/|$)/i.test(returnTo)
-            ? returnTo
-            : getMainAppUrl('/');
-          window.location.replace(target);
+          window.location.replace(getSafeReturnToTarget(returnTo) || getMainAppUrl('/'));
           return;
         } catch (error) {
           console.error('Web SSO consumption failed:', error);
@@ -655,9 +767,7 @@ export default function App() {
                   return;
                 }
                 const safeRedirect = getSafeRedirectPath(searchParams.get('redirect'));
-                const safeReturnTo = returnTo && /^https:\/\/(uids\.tiwlo\.com|tiwlo\.com)(\/|$)/i.test(returnTo)
-                  ? returnTo
-                  : null;
+                const safeReturnTo = getSafeReturnToTarget(returnTo);
                 const isSuper = data.user.role === 'super_admin' || data.user.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
                 const target = safeRedirect && !searchParams.has('dashboard')
                   ? safeRedirect
@@ -679,7 +789,7 @@ export default function App() {
 
               const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
               const currentParams = new URLSearchParams(window.location.search);
-              const isTpanelRoute = window.location.hostname.toLowerCase().startsWith('tpanel.') ||
+              const isTpanelRoute = isTPanelSubdomain() ||
                 path === 'tpanel' || path.startsWith('tpanel/') ||
                 currentParams.get('panel') === 'tpanel' ||
                 currentParams.get('tab') === 'tpanel' ||
@@ -755,7 +865,11 @@ export default function App() {
 
         if (!isPublicPath || isTpanelRoute || isDashboardSubdomain()) {
           if (isMailSubdomain()) {
-            window.location.replace(getAuthUrl('/login?mail_return=1'));
+            const returnTo = getMailUrl(window.location.pathname + window.location.search + window.location.hash);
+            window.location.replace(getAuthUrl(`/login?return_to=${encodeURIComponent(returnTo)}`));
+          } else if (isTPanelSubdomain()) {
+            const returnTo = getTPanelUrl(path === 'tpanel' || path.startsWith('tpanel/') ? `/${path}` : '/');
+            window.location.replace(getAuthUrl(`/login?return_to=${encodeURIComponent(returnTo)}&sso_login=1`));
           } else {
             const requestedPath = isTpanelRoute && !path
               ? `/tpanel${window.location.search}`
@@ -866,10 +980,16 @@ export default function App() {
     if (isAuthSubdomain()) {
       sessionStorage.removeItem('tiwlo_explicit_logout');
       const searchParams = new URLSearchParams(window.location.search);
+      const safeReturnTo = getSafeReturnToTarget(searchParams.get('return_to'));
       const redirectUrl = searchParams.has('dashboard') ? null : searchParams.get('redirect');
 
       if (searchParams.get('mail_return') === '1') {
         window.location.replace(getMailUrl());
+        return;
+      }
+
+      if (safeReturnTo) {
+        window.location.replace(safeReturnTo);
         return;
       }
 
@@ -902,10 +1022,11 @@ export default function App() {
       }
       const isSuper = user?.role === 'super_admin' || user?.email === 'tiwloltd@gmail.com';
       const registerParams = new URLSearchParams(window.location.search);
+      const safeReturnTo = getSafeReturnToTarget(registerParams.get('return_to'));
       const requestedRedirect = registerParams.has('dashboard')
         ? null
         : getSafeRedirectTarget(registerParams.get('redirect'));
-      const target = requestedRedirect || (isSuper ? '/administrator' : '/dashboard');
+      const target = safeReturnTo || requestedRedirect || (isSuper ? '/administrator' : '/dashboard');
       window.location.replace(target.startsWith('http') ? target : getMainAppUrl(target));
       return;
     }
@@ -958,8 +1079,15 @@ export default function App() {
   // Fetch all initial data with smooth 1.5s natural transition (Zero freeze or lagging)
   const loadData = async (enforceMinDuration = false) => {
     const minTimer = enforceMinDuration ? new Promise((r) => setTimeout(r, 1500)) : Promise.resolve();
+    const fetchJson = async (path) => {
+      const response = await fetch(`${API_BASE}${path}`);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `Request failed with HTTP ${response.status}`);
+      return data;
+    };
     try {
       setLoading(true);
+      setDataLoadError('');
       const [
         resProd,
         resStats,
@@ -969,38 +1097,45 @@ export default function App() {
         resCust,
         resSup
       ] = await Promise.allSettled([
-        fetch(`${API_BASE}/products`).then(r => r.json()),
-        fetch(`${API_BASE}/stats`).then(r => r.json()),
-        fetch(`${API_BASE}/activities`).then(r => r.json()),
-        fetch(`${API_BASE}/categories`).then(r => r.json()),
-        fetch(`${API_BASE}/subcategories`).then(r => r.json()),
-        fetch(`${API_BASE}/customers`).then(r => r.json()),
-        fetch(`${API_BASE}/suppliers`).then(r => r.json()),
+        fetchJson('/products'),
+        fetchJson('/stats'),
+        fetchJson('/activities'),
+        fetchJson('/categories'),
+        fetchJson('/subcategories'),
+        fetchJson('/customers'),
+        fetchJson('/suppliers'),
       ]);
 
-      if (resProd.status === 'fulfilled' && Array.isArray(resProd.value)) {
-        setProducts(resProd.value);
-      }
-      if (resStats.status === 'fulfilled') {
+      const failures = [];
+      const acceptArray = (result, label, setter) => {
+        if (result.status === 'fulfilled' && Array.isArray(result.value)) {
+          setter(result.value);
+        } else {
+          failures.push(`${label}: ${result.status === 'rejected' ? result.reason.message : 'Invalid response'}`);
+        }
+      };
+
+      acceptArray(resProd, 'Products', setProducts);
+      if (resStats.status === 'fulfilled' && resStats.value && typeof resStats.value === 'object' && !Array.isArray(resStats.value)) {
         setStats(resStats.value);
+      } else {
+        failures.push(`Dashboard statistics: ${resStats.status === 'rejected' ? resStats.reason.message : 'Invalid response'}`);
       }
-      if (resAct.status === 'fulfilled' && Array.isArray(resAct.value)) {
-        setActivities(resAct.value);
+      acceptArray(resAct, 'Activity', setActivities);
+      acceptArray(resCat, 'Categories', setCategories);
+      acceptArray(resSub, 'Subcategories', setSubcategories);
+      acceptArray(resCust, 'Customers', setCustomers);
+      acceptArray(resSup, 'Suppliers', setSuppliers);
+
+      if (failures.length > 0) {
+        setDataLoadError(failures.join('; '));
+        return false;
       }
-      if (resCat.status === 'fulfilled' && Array.isArray(resCat.value)) {
-        setCategories(resCat.value);
-      }
-      if (resSub.status === 'fulfilled' && Array.isArray(resSub.value)) {
-        setSubcategories(resSub.value);
-      }
-      if (resCust.status === 'fulfilled' && Array.isArray(resCust.value)) {
-        setCustomers(resCust.value);
-      }
-      if (resSup.status === 'fulfilled' && Array.isArray(resSup.value)) {
-        setSuppliers(resSup.value);
-      }
+      return true;
     } catch (err) {
       console.error('Error fetching system data:', err);
+      setDataLoadError(err.message || 'Could not load dashboard data.');
+      return false;
     } finally {
       await minTimer;
       setDashboardLoading(false);
@@ -1529,6 +1664,7 @@ export default function App() {
       ) : (activeTab === 'email' || (typeof activeTab === 'string' && activeTab.startsWith('email')) || activeTab === 'mail') ? (
         <TiwiOutlookEmail
           currentUser={currentUser}
+          onSignOut={handleLogout}
           onNavigateHome={() => {
             if (isMailSubdomain()) {
               window.location.assign(getMainAppUrl('/'));
@@ -1614,6 +1750,8 @@ export default function App() {
               {activeTab === 'ecommerce-dashboard' && (
                 <EcommerceDashboard
                   stats={stats}
+                  dataLoadError={dataLoadError}
+                  onReloadData={handleReloadData}
                   filteredProducts={filteredProducts}
                   tableSearch={tableSearch}
                   setTableSearch={setTableSearch}
@@ -1641,7 +1779,6 @@ export default function App() {
                   onImportCsv={() => handleTabChange('inventory')}
                   onGenerateReport={() => handleTabChange('reports')}
                   onDeleteActivity={handleDeleteActivity}
-                  showToast={showToast}
                   onBackToCloud={() => handleTabChange('dashboard')}
                   currentStore={currentUser}
                 />

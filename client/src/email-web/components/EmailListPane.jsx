@@ -11,11 +11,13 @@ import {
   Archive
 } from 'lucide-react';
 import { useEmail } from '../context/EmailContext';
+import { formatEmailDate } from '../formatEmailDate';
 
 export default function EmailListPane() {
   const {
     emails,
     loading,
+    mailbox,
     activeTab,
     setActiveTab,
     selectedEmail,
@@ -26,8 +28,7 @@ export default function EmailListPane() {
     handleToggleRead,
     handleTogglePin,
     handleDeleteEmail,
-    handleArchiveEmail,
-    showToast
+    handleArchiveEmail
   } = useEmail();
 
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
@@ -112,36 +113,36 @@ export default function EmailListPane() {
           </div>
         </div>
 
-        {/* Focused vs Other Tabs */}
+        {/* Inbox filters */}
         {activeFolder === 'inbox' && (
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-1">
             <div className="flex items-center gap-4">
               <button
                 type="button"
-                onClick={() => setActiveTab('focused')}
+                onClick={() => setActiveTab('all')}
                 className={`font-bold text-[13px] pb-1.5 relative transition cursor-pointer ${
-                  activeTab === 'focused'
+                  activeTab === 'all'
                     ? 'text-[#0078D4] dark:text-[#38BDF8]'
                     : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
                 }`}
               >
-                Focused
-                {activeTab === 'focused' && (
+                All mail
+                {activeTab === 'all' && (
                   <span className="absolute bottom-[-1px] left-0 right-0 h-[2.5px] bg-[#0078D4] dark:bg-[#38BDF8] rounded-full" />
                 )}
               </button>
 
               <button
                 type="button"
-                onClick={() => setActiveTab('other')}
+                onClick={() => setActiveTab('unread')}
                 className={`font-bold text-[13px] pb-1.5 relative transition cursor-pointer ${
-                  activeTab === 'other'
+                  activeTab === 'unread'
                     ? 'text-[#0078D4] dark:text-[#38BDF8]'
                     : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
                 }`}
               >
-                Other
-                {activeTab === 'other' && (
+                Unread
+                {activeTab === 'unread' && (
                   <span className="absolute bottom-[-1px] left-0 right-0 h-[2.5px] bg-[#0078D4] dark:bg-[#38BDF8] rounded-full" />
                 )}
               </button>
@@ -177,13 +178,7 @@ export default function EmailListPane() {
         <span className="font-medium text-slate-600 dark:text-slate-400">
           Showing {displayedEmails.length} message{displayedEmails.length === 1 ? '' : 's'}
         </span>
-        <button
-          type="button"
-          onClick={() => showToast('Sorting: Newest on top', 'info')}
-          className="hover:text-slate-800 dark:hover:text-white cursor-pointer font-medium"
-        >
-          Sort: Newest
-        </button>
+        <span className="font-medium">Newest first</span>
       </div>
 
       {/* 3. Scrollable List of Messages */}
@@ -202,7 +197,7 @@ export default function EmailListPane() {
             </h4>
             <p className="text-[12px] text-slate-500 max-w-[220px]">
               {activeFolder === 'inbox'
-                ? 'Incoming email is not connected. Sent messages and drafts will appear in their folders.'
+                ? `Messages sent to ${mailbox?.address || 'your Tiwlo Mail address'} will appear here when mail delivery is configured.`
                 : 'No messages found matching your filter'}
             </p>
           </div>
@@ -256,7 +251,7 @@ export default function EmailListPane() {
                     <span className={`text-[11px] whitespace-nowrap ml-2 ${
                       mail.isUnread ? 'text-[#0078D4] dark:text-[#38BDF8] font-bold' : 'text-slate-400'
                     }`}>
-                      {mail.date}
+                      {formatEmailDate(mail.date)}
                     </span>
                   </div>
 

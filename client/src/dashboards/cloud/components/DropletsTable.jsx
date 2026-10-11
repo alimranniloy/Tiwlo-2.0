@@ -2,19 +2,12 @@ import React, { useState } from 'react';
 import {
   Droplet,
   MoreVertical,
-  Play,
-  Pause,
-  RotateCw,
-  Trash2,
-  Terminal,
   ExternalLink,
   Plus
 } from 'lucide-react';
 
 export default function DropletsTable({
   droplets = [],
-  onUpdateStatus,
-  onDeleteDroplet,
   onOpenCreateDroplet
 }) {
   const [activeMenuId, setActiveMenuId] = useState(null);
@@ -92,7 +85,7 @@ export default function DropletsTable({
               </tr>
             ) : (
               droplets.map((item) => {
-                const isRunning = (item.status || 'Running').toLowerCase() === 'running';
+                const status = item.status || 'Unknown';
 
                 return (
                   <tr
@@ -117,7 +110,7 @@ export default function DropletsTable({
                             )}
                           </div>
                           <p className="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-400">
-                            {item.specs || `${item.vcpus || 2} vCPU • ${item.memory || '4 GB'} • ${item.storage || '80 GB'}`}
+                            {item.specs || [item.vcpus && `${item.vcpus} vCPU`, item.memory, item.storage].filter(Boolean).join(' • ') || 'Specifications unavailable'}
                           </p>
                         </div>
                       </div>
@@ -125,14 +118,14 @@ export default function DropletsTable({
 
                     {/* IP Address */}
                     <td className="py-3 sm:py-4 px-3 sm:px-6 font-mono text-[11px] text-slate-600 dark:text-slate-300 font-medium">
-                      {item.ip}
+                      {item.ip || '—'}
                     </td>
 
                     {/* Region */}
                     <td className="py-3 sm:py-4 px-3 sm:px-6 text-slate-700 dark:text-slate-200">
                       <div className="flex items-center gap-2">
                         <span className="text-base shrink-0">{item.regionFlag || '🌐'}</span>
-                        <span className="font-medium text-xs">{item.region}</span>
+                        <span className="font-medium text-xs">{item.region || '—'}</span>
                       </div>
                     </td>
 
@@ -146,15 +139,15 @@ export default function DropletsTable({
                               : 'bg-amber-500'
                           }`}
                         ></span>
-                        <span className={isRunning ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
-                          {item.status || 'Running'}
+                        <span className={status.toLowerCase() === 'running' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
+                          {status}
                         </span>
                       </div>
                     </td>
 
                     {/* Created */}
                     <td className="py-3 sm:py-4 px-3 sm:px-6 text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                      {item.created || 'Sep 25, 2025 10:24 AM'}
+                      {item.created || (item.createdAt ? new Date(item.createdAt).toLocaleString() : '—')}
                     </td>
 
                     {/* Actions Menu */}
@@ -193,63 +186,9 @@ export default function DropletsTable({
                               <span>Login to TPanel</span>
                             </a>
                           )}
-                          {isRunning ? (
-                            <button
-                              onClick={() => {
-                                onUpdateStatus?.(item.id, 'Paused');
-                                setActiveMenuId(null);
-                              }}
-                              className="w-full px-3.5 py-2 text-xs font-medium text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 flex items-center gap-2 cursor-pointer"
-                            >
-                              <Pause className="w-3.5 h-3.5" />
-                              <span>Pause Droplet</span>
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                onUpdateStatus?.(item.id, 'Running');
-                                setActiveMenuId(null);
-                              }}
-                              className="w-full px-3.5 py-2 text-xs font-medium text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 flex items-center gap-2 cursor-pointer"
-                            >
-                              <Play className="w-3.5 h-3.5" />
-                              <span>Start Droplet</span>
-                            </button>
-                          )}
-
-                          <button
-                            onClick={() => {
-                              onUpdateStatus?.(item.id, 'Running');
-                              setActiveMenuId(null);
-                            }}
-                            className="w-full px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-gray-800 flex items-center gap-2 cursor-pointer"
-                          >
-                            <RotateCw className="w-3.5 h-3.5 text-blue-500" />
-                            <span>Reboot Server</span>
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              setActiveMenuId(null);
-                            }}
-                            className="w-full px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-gray-800 flex items-center gap-2 cursor-pointer"
-                          >
-                            <Terminal className="w-3.5 h-3.5 text-indigo-500" />
-                            <span>Web Console</span>
-                          </button>
-
-                          <div className="pt-1 border-t border-slate-100 dark:border-gray-800">
-                            <button
-                              onClick={() => {
-                                onDeleteDroplet?.(item.id);
-                                setActiveMenuId(null);
-                              }}
-                              className="w-full px-3.5 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-2 cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>Destroy Droplet</span>
-                            </button>
-                          </div>
+                          <p className="px-3.5 py-2 text-[11px] leading-5 text-slate-500 dark:text-slate-400">
+                            Droplet controls are unavailable until a cloud provider is connected.
+                          </p>
                         </div>
                       )}
                     </td>

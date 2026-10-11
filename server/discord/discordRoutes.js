@@ -1,5 +1,6 @@
 import express from 'express';
 import { DiscordDB } from './discordDb.js';
+import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 
 const router = express.Router();
 
@@ -316,8 +317,47 @@ router.get('/marketplace/:id', async (req, res) => {
 });
 
 router.post('/marketplace/:id/install', async (req, res) => {
-  getAuthUserId(req);
-  res.status(503).json({ error: 'Marketplace activation is unavailable because no deployment provider is configured.' });
+  try {
+    const userId = getAuthUserId(req);
+    const { serviceName, logoUrl } = req.body || {};
+    if (typeof serviceName !== 'string' || !serviceName.trim()) {
+      return res.status(400).json({ error: 'Workspace service name is required.' });
+    }
+    if (serviceName.trim().length > 255) {
+      return res.status(400).json({ error: 'Workspace service name must be 255 characters or fewer.' });
+    }
+    if (logoUrl != null) {
+      if (typeof logoUrl !== 'string' || logoUrl.length > 2048) {
+        return res.status(400).json({ error: 'Workspace icon URL is invalid.' });
+      }
+      let iconUrl;
+      try {
+        iconUrl = new URL(logoUrl, `${req.protocol}://${req.get('host')}`);
+      } catch {
+        return res.status(400).json({ error: 'Workspace icon URL is invalid.' });
+      }
+      const trustedHost = iconUrl.hostname === PLATFORM_CONFIG.primaryDomain ||
+        iconUrl.hostname.endsWith(`.${PLATFORM_CONFIG.primaryDomain}`) ||
+        iconUrl.hostname === 'localhost' || iconUrl.hostname.endsWith('.localhost');
+      const secureProtocol = iconUrl.protocol === 'https:' ||
+        (iconUrl.protocol === 'http:' && (iconUrl.hostname === 'localhost' || iconUrl.hostname.endsWith('.localhost')));
+      if (!trustedHost || !secureProtocol || !/^\/uploads\/[^/]+$/.test(iconUrl.pathname)) {
+        return res.status(400).json({ error: 'Workspace icons must use an uploaded Tiwlo image.' });
+      }
+    }
+    const result = await DiscordDB.activateMarketplaceProduct(userId, req.params.id, {
+      serviceName,
+      logoUrl: logoUrl || null
+    });
+    res.status(201).json({ success: true, ...result });
+  } catch (err) {
+    const status = err.message === 'Marketplace product not found.' ? 404
+      : err.message.includes('already exists') ? 409
+      : err.message.includes('service name is required') ? 400
+      : 500;
+    if (status === 500) console.error('[Discord API] Marketplace activation error:', err);
+    res.status(status).json({ error: status === 500 ? 'Failed to enable Marketplace product in Workspace.' : err.message });
+  }
 });
 
 // ==========================================

@@ -19,6 +19,49 @@ const DEMO_SERVICE_RECORD_IDS = [
   'ws_autoroles'
 ];
 
+const FIRST_PARTY_PRODUCTS = [
+  {
+    id: 'tiwlo-discord-bot-manager',
+    name: 'Discord Bot Manager',
+    developer: 'Tiwlo',
+    category: 'community',
+    description: 'Manage Discord bots, connected servers, automations, and moderation tools from your Tiwlo workspace.',
+    rating: null,
+    reviewsCount: 0,
+    pricingType: 'free',
+    price: 'Free',
+    pricingLabel: 'Free',
+    iconType: 'discord',
+    iconBg: '#5865F2',
+    iconColor: '#FFFFFF',
+    logoUrl: null,
+    installCount: 0,
+    verified: true,
+    features: ['Discord bot management', 'Server connections', 'Community automations'],
+    managePath: 'discord'
+  },
+  {
+    id: 'tiwlo-whatsapp-automation',
+    name: 'WhatsApp Automation',
+    developer: 'Tiwlo',
+    category: 'automation',
+    description: 'Manage WhatsApp messaging automation and connected business workflows from your Tiwlo workspace.',
+    rating: null,
+    reviewsCount: 0,
+    pricingType: 'free',
+    price: 'Free',
+    pricingLabel: 'Free',
+    iconType: 'whatsapp',
+    iconBg: '#25D366',
+    iconColor: '#FFFFFF',
+    logoUrl: null,
+    installCount: 0,
+    verified: true,
+    features: ['WhatsApp automation', 'Business messaging workflows'],
+    managePath: 'whatsapp-automation'
+  }
+];
+
 const makeId = (prefix) => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 const requireUser = (userId) => {
   if (!userId) throw new Error('User authentication required.');
@@ -57,6 +100,8 @@ const mapService = (row) => ({
   userId: row.user_id,
   serviceId: row.service_id,
   name: row.name,
+  productName: row.product_name,
+  managePath: row.product_manage_path,
   category: row.category,
   iconType: row.icon_type,
   status: row.status,
@@ -471,10 +516,29 @@ export const DiscordDB = {
       WHERE ${filters.join(' AND ')}
       ORDER BY ${orderBy}
     `, values);
-    return result.rows || [];
+    const query = search.trim().toLowerCase();
+    const firstPartyProducts = FIRST_PARTY_PRODUCTS.filter((product) => {
+      if (category && category !== 'all' && product.category.toLowerCase() !== category.toLowerCase()) return false;
+      if (pricing === 'free' && !['free', 'freemium'].includes(product.pricingType)) return false;
+      if (pricing === 'paid' && product.pricingType !== 'paid') return false;
+      if (query && ![product.name, product.description, product.developer, product.category]
+        .some((value) => value.toLowerCase().includes(query))) return false;
+      return true;
+    });
+    const products = [...(result.rows || []), ...firstPartyProducts];
+    if (sort === 'rating') {
+      products.sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0) || a.name.localeCompare(b.name));
+    } else if (sort === 'name') {
+      products.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      products.sort((a, b) => (Number(b.installCount) || 0) - (Number(a.installCount) || 0) || a.name.localeCompare(b.name));
+    }
+    return products;
   },
 
   async getMarketplaceProductById(productId) {
+    const firstPartyProduct = FIRST_PARTY_PRODUCTS.find((product) => product.id === productId);
+    if (firstPartyProduct) return firstPartyProduct;
     const result = await queryPg(`
       SELECT id, name, developer, category, description, rating,
         reviews_count AS "reviewsCount", pricing_type AS "pricingType",
@@ -486,6 +550,43 @@ export const DiscordDB = {
       WHERE id = $1 AND is_published = TRUE AND id::text <> ALL($2::text[])
     `, [productId, DEMO_PRODUCT_IDS]);
     return result.rows?.[0] || null;
+  },
+
+  async activateMarketplaceProduct(userId, productId, { serviceName, logoUrl = null } = {}) {
+    requireUser(userId);
+    const normalizedName = typeof serviceName === 'string' ? serviceName.trim() : '';
+    if (!normalizedName) throw new Error('Workspace service name is required.');
+
+    const product = await this.getMarketplaceProductById(productId);
+    if (!product) throw new Error('Marketplace product not found.');
+
+    const existing = await queryPg(`
+      SELECT id
+      FROM discord_workspace_services
+      WHERE user_id = $1 AND service_id = $2 AND name = $3
+      LIMIT 1
+    `, [userId, product.id, normalizedName]);
+    if (existing.rows?.[0]) throw new Error('A workspace service with this name already exists for this product.');
+
+    const id = makeId('ws');
+    const result = await queryPg(`
+      INSERT INTO discord_workspace_services
+        (id, user_id, service_id, name, product_name, product_manage_path, category, icon_type, status, server_name, plan, logo_url)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Active', 'Not connected', $9, $10)
+      RETURNING *
+    `, [
+      id, userId, product.id, normalizedName, product.name, product.managePath || null,
+      product.category, product.iconType || null, product.price || product.pricingLabel || 'Free',
+      logoUrl || product.logoUrl || null
+    ]);
+    const service = mapService(result.rows[0]);
+    await this.logWorkspaceOperation(userId, {
+      operation: 'Product enabled in Workspace',
+      serviceId: product.id,
+      serviceName: normalizedName,
+      result: 'Completed'
+    });
+    return { service, product };
   },
 
   async getWorkspace(userId, { search = '' } = {}) {

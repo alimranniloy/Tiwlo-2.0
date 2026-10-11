@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, ArrowUp, Layers } from 'lucide-react';
+import { ArrowRight, Layers } from 'lucide-react';
 
 export default function BottomBanners({ onExploreFeatures, onViewReport, onUpgrade }) {
   return (
@@ -27,21 +27,15 @@ export default function BottomBanners({ onExploreFeatures, onViewReport, onUpgra
         </div>
       </div>
 
-      {/* Banner 2: Total Value (4 cols) */}
+      {/* Banner 2: Reports shortcut (4 cols) */}
       <div className="lg:col-span-4 rounded-2xl bg-white dark:bg-gray-800 border border-slate-200/80 dark:border-gray-700/80 p-5 sm:p-6 flex flex-col justify-between shadow-[0_1px_3px_rgba(60,64,67,0.08)]">
         <div>
           <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Total Inventory Value
+            Inventory analytics
           </span>
-          <div className="flex items-baseline space-x-2 mt-1">
-            <span className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              $248,650
-            </span>
-            <span className="inline-flex items-center text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
-              <ArrowUp className="w-3 h-3 mr-0.5" />
-              14%
-            </span>
-          </div>
+          <p className="mt-2 text-sm font-bold text-slate-900 dark:text-white">
+            Review your current business reports
+          </p>
         </div>
 
         <div className="pt-3">

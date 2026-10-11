@@ -103,6 +103,8 @@ export const DISCORD_SCHEMA_SQL = `
     user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
     service_id VARCHAR(64),
     name VARCHAR(255) NOT NULL,
+    product_name VARCHAR(255) NOT NULL DEFAULT 'Workspace Service',
+    product_manage_path VARCHAR(128),
     category VARCHAR(128) NOT NULL,
     icon_type VARCHAR(64),
     status VARCHAR(32) NOT NULL DEFAULT 'Active',
@@ -117,7 +119,28 @@ export const DISCORD_SCHEMA_SQL = `
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
   );
+  ALTER TABLE discord_workspace_services ADD COLUMN IF NOT EXISTS product_name VARCHAR(255) NOT NULL DEFAULT 'Workspace Service';
+  ALTER TABLE discord_workspace_services ADD COLUMN IF NOT EXISTS product_manage_path VARCHAR(128);
   ALTER TABLE discord_workspace_services ADD COLUMN IF NOT EXISTS logo_url TEXT;
+  UPDATE discord_workspace_services AS service
+  SET product_name = product.name,
+      category = product.category,
+      icon_type = product.icon_type
+  FROM discord_marketplace_products AS product
+  WHERE service.service_id = product.id
+    AND service.product_name = 'Workspace Service';
+  UPDATE discord_workspace_services
+  SET product_name = CASE service_id
+        WHEN 'tiwlo-discord-bot-manager' THEN 'Discord Bot Manager'
+        WHEN 'tiwlo-whatsapp-automation' THEN 'WhatsApp Automation'
+        ELSE product_name
+      END,
+      product_manage_path = CASE service_id
+        WHEN 'tiwlo-discord-bot-manager' THEN 'discord'
+        WHEN 'tiwlo-whatsapp-automation' THEN 'whatsapp-automation'
+        ELSE product_manage_path
+      END
+  WHERE service_id IN ('tiwlo-discord-bot-manager', 'tiwlo-whatsapp-automation');
   CREATE INDEX IF NOT EXISTS idx_discord_workspace_services_user ON discord_workspace_services(user_id);
 
   CREATE TABLE IF NOT EXISTS discord_workspace_operations (

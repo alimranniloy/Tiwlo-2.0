@@ -7,6 +7,7 @@ export default function QuickAccessCard({ onSelectAction }) {
       id: 'ssh',
       title: 'SSH Keys',
       desc: 'Manage your keys',
+      available: false,
       icon: Key,
       color: 'text-blue-500 bg-blue-50 dark:bg-blue-900/20'
     },
@@ -14,6 +15,7 @@ export default function QuickAccessCard({ onSelectAction }) {
       id: 'firewall',
       title: 'Firewall',
       desc: 'Control your traffic',
+      available: false,
       icon: Shield,
       color: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
     },
@@ -21,6 +23,7 @@ export default function QuickAccessCard({ onSelectAction }) {
       id: 'domains',
       title: 'Domains',
       desc: 'Manage your domains',
+      available: true,
       icon: Globe,
       color: 'text-sky-500 bg-sky-50 dark:bg-sky-900/20'
     },
@@ -28,6 +31,7 @@ export default function QuickAccessCard({ onSelectAction }) {
       id: 'api-tokens',
       title: 'API Tokens',
       desc: 'Access the API',
+      available: false,
       icon: Terminal,
       color: 'text-purple-500 bg-purple-50 dark:bg-purple-900/20'
     }
@@ -44,10 +48,12 @@ export default function QuickAccessCard({ onSelectAction }) {
           {items.map((item) => {
             const Icon = item.icon;
             return (
-              <div
+              <button
                 key={item.id}
+                type="button"
+                disabled={!item.available}
                 onClick={() => onSelectAction?.(item.title)}
-                className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-gray-800/60 transition cursor-pointer group"
+                className="flex w-full items-center justify-between p-1.5 rounded-xl text-left transition group enabled:hover:bg-slate-50 enabled:dark:hover:bg-gray-800/60 enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <div className="flex items-center gap-2.5">
                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${item.color}`}>
@@ -58,13 +64,13 @@ export default function QuickAccessCard({ onSelectAction }) {
                       {item.title}
                     </p>
                     <p className="text-[10px] text-slate-400 font-medium">
-                      {item.desc}
+                      {item.available ? item.desc : 'Not available yet'}
                     </p>
                   </div>
                 </div>
 
-                <ChevronRight className="w-3.5 h-3.5 text-slate-300 dark:text-gray-600 group-hover:text-slate-600 dark:group-hover:text-slate-200 group-hover:translate-x-0.5 transition" />
-              </div>
+                {item.available && <ChevronRight className="w-3.5 h-3.5 text-slate-300 dark:text-gray-600 group-hover:text-slate-600 dark:group-hover:text-slate-200 group-hover:translate-x-0.5 transition" />}
+              </button>
             );
           })}
         </div>

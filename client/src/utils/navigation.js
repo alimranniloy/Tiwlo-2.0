@@ -10,8 +10,7 @@ import {
   PLATFORM_DOMAIN,
   TPANEL_SUBDOMAIN,
   AUTH_DOMAIN,
-  DASHBOARD_URL,
-  FREE_SUBDOMAIN_DOMAIN
+  DASHBOARD_URL
 } from '../config/platformConfig';
 
 export function isAuthSubdomain() {
@@ -86,4 +85,15 @@ export function getMailUrl(path = '') {
   const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.localhost');
   const mailHost = isLocal ? `${MAIL_SUBDOMAIN}.localhost` : MAIL_HOSTNAME;
   return `${protocol}//${mailHost}${port}${cleanPath}`;
+}
+
+export function getTPanelUrl(path = '') {
+  if (typeof window === 'undefined') return path || '/';
+  const hostname = window.location.hostname.toLowerCase();
+  const protocol = window.location.protocol;
+  const port = window.location.port ? `:${window.location.port}` : '';
+  const cleanPath = path ? '/' + path.replace(/^\/+/, '') : '';
+  const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.localhost');
+  const tpanelHost = isLocal ? `${TPANEL_SUBDOMAIN}.localhost` : `${TPANEL_SUBDOMAIN}.${PLATFORM_DOMAIN}`;
+  return `${protocol}//${tpanelHost}${port}${cleanPath}`;
 }

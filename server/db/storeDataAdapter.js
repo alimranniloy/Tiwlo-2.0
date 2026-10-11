@@ -17,7 +17,6 @@ export const STORE_SETTINGS_FILE = 'store_settings';
 export const SUBSCRIPTION_FILE = 'subscription';
 export const ACTIVITIES_FILE = 'activities';
 export const USERS_FILE = 'users';
-export const SESSIONS_FILE = 'sessions';
 
 export function getActiveTiwiId(req) {
   if (!req) return null;
@@ -41,7 +40,6 @@ const collections = new Set(['products', 'categories', 'subcategories', 'purchas
 export async function readData(collection, defaultVal = [], tiwiId = null) {
   const target = tiwiId || tenantContext.getStore()?.tiwiId;
   if (collection === 'users') return MasterDB.getUsers();
-  if (collection === 'sessions') return (await MasterDB.getMasterData()).sessions;
   if (!target) return defaultVal;
   if (!collections.has(collection)) throw new Error('Unknown tenant collection.');
   return (await requestStore(target))[collection] ?? defaultVal;

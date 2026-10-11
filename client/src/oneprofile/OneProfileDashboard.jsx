@@ -74,7 +74,23 @@ export default function OneProfileDashboard({
       case 'website':
         return <OneProfileWebsitesView websites={summary?.websites || []} onNavigateTab={handleSelectView} />;
       case 'subdomains':
-        return <OneProfileSubdomainsView domains={summary?.domains || []} onNavigateTab={handleSelectView} />;
+        return (
+          <OneProfileSubdomainsView
+            domains={summary?.domains || []}
+            onDomainClaimed={(registration) => {
+              setSummary((previous) => ({
+                ...previous,
+                domains: [
+                  { ...registration, nameservers: [] },
+                  ...(previous?.domains || [])
+                ],
+                metrics: previous?.metrics
+                  ? { ...previous.metrics, domains: (previous.metrics.domains || 0) + 1 }
+                  : previous?.metrics
+              }));
+            }}
+          />
+        );
       case 'templates':
         return <OneProfileTemplatesView onNavigateTab={handleSelectView} />;
       case 'nfc':

@@ -2,35 +2,25 @@ import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useState, useEffect } from 'react';
 import { getPlatformUrl } from '../config/platformConfig';
 import {
-  Mail,
-  Lock,
   Eye,
   EyeOff,
   User,
   Building2,
-  MapPin,
-  Phone,
   ArrowRight,
-  ArrowLeft,
   Check,
   CheckCircle2,
-  CreditCard,
   ShieldCheck,
   AlertCircle,
   Copy,
-  Briefcase,
-  Sparkles,
   RotateCw,
   Globe,
   Plus,
   ChevronDown,
   Edit2,
   Trash2,
-  Search,
-  Receipt
+  Search
 } from 'lucide-react';
 import TiwloPageLoader from '../components/TiwloUniqueLoader';
-import SocialAuthModal from '../components/SocialAuthModal';
 
 const API_BASE = '/api';
 
@@ -240,10 +230,6 @@ export default function CreateAccountView({
     return () => clearTimeout(timer);
   }, [formData.handle]);
 
-  // Social Auth Modal State
-  const [socialModalOpen, setSocialModalOpen] = useState(false);
-  const [selectedSocialProvider, setSelectedSocialProvider] = useState('Google');
-
   // Cooldown countdown timer for OTP resend
   useEffect(() => {
     let timer;
@@ -304,78 +290,6 @@ export default function CreateAccountView({
   };
 
   const pwdStrength = getPasswordStrength(formData.password);
-
-  // Social Sign-Up Trigger
-  const handleOpenSocialModal = (provider) => {
-    setSelectedSocialProvider(provider);
-    setSocialModalOpen(true);
-  };
-
-  // When an account is confirmed via Social Modal
-  const handleSocialAccountConfirm = async (account) => {
-    setSocialModalOpen(false);
-    setLoading(true);
-    setErrorMsg('');
-
-    try {
-      const res = await fetch(`${API_BASE}/auth/social-check`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          email: account.email,
-          name: account.name,
-          provider: account.provider
-        })
-      });
-
-      const data = await res.json();
-
-      if (data.exists && data.profileComplete) {
-        if (data.sessionToken) {
-          localStorage.setItem('stockpro_session', data.sessionToken);
-        }
-        if (data.user) {
-          localStorage.setItem('stockpro_user', JSON.stringify(data.user));
-        }
-        showToast?.(`Welcome back, ${data.user.name || data.user.storeName}!`);
-        onRegisterSuccess?.(data.user);
-        return;
-      }
-
-      let matchedCountry = COUNTRY_OPTIONS[0];
-      let nationalNum = data.user?.phone || '';
-      if (data.user?.phone) {
-        const found = COUNTRY_OPTIONS.find(c => data.user.phone.startsWith(c.dial));
-        if (found) {
-          matchedCountry = found;
-          nationalNum = data.user.phone.replace(found.dial, '').trim();
-        }
-      }
-      setSelectedCountry(matchedCountry);
-
-      setFormData(prev => ({
-        ...prev,
-        email: account.email,
-        fullName: account.name || prev.fullName,
-        ownerName: account.name || prev.ownerName,
-        isSso: true,
-        ssoProvider: account.provider,
-        accountType: data.user?.accountType || prev.accountType,
-        address: data.user?.address || prev.address,
-        phoneNational: nationalNum,
-        phone: data.user?.phone || prev.phone
-      }));
-
-      setStep(2);
-      showToast?.(`Connected via ${account.provider}! Please complete your account and billing details.`);
-    } catch (err) {
-      console.error('Social check error:', err);
-      setErrorMsg('Connection error. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleDisconnectSso = () => {
     setFormData(prev => ({
@@ -985,15 +899,6 @@ export default function CreateAccountView({
       {/* Liquid Page Loader */}
       {loading && <TiwloPageLoader />}
 
-      {/* Social Account Selector Modal */}
-      <SocialAuthModal
-        isOpen={socialModalOpen}
-        onClose={() => setSocialModalOpen(false)}
-        provider={selectedSocialProvider}
-        mode="signup"
-        onConfirmAccount={handleSocialAccountConfirm}
-      />
-
       {/* ============================================================== */}
       {/* MAIN CARD CONTAINER (GOOGLE ACCOUNT 2-COLUMN CLONE)             */}
       {/* ============================================================== */}
@@ -1085,9 +990,9 @@ export default function CreateAccountView({
                     <div className="grid grid-cols-2 gap-3">
                       <button
                         type="button"
-                        onClick={() => handleOpenSocialModal('Google')}
-                        className="flex items-center justify-center gap-2.5 h-10 px-4 rounded-full border border-[#747775] hover:bg-[#f8f9fa] text-[#1f1f1f] text-[13px] font-medium transition-colors cursor-pointer"
-                        title="Sign up with Google"
+                        disabled
+                        className="flex items-center justify-center gap-2.5 h-10 px-4 rounded-full border border-[#747775] text-[#1f1f1f] text-[13px] font-medium opacity-60 cursor-not-allowed"
+                        title="Google sign-in is unavailable until provider credentials are configured."
                       >
                         <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                           <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.66-5.17 3.66-9.12z"/>
@@ -1100,9 +1005,9 @@ export default function CreateAccountView({
 
                       <button
                         type="button"
-                        onClick={() => handleOpenSocialModal('Facebook')}
-                        className="flex items-center justify-center gap-2.5 h-10 px-4 rounded-full border border-[#747775] hover:bg-[#f8f9fa] text-[#1f1f1f] text-[13px] font-medium transition-colors cursor-pointer"
-                        title="Sign up with Facebook"
+                        disabled
+                        className="flex items-center justify-center gap-2.5 h-10 px-4 rounded-full border border-[#747775] text-[#1f1f1f] text-[13px] font-medium opacity-60 cursor-not-allowed"
+                        title="Facebook sign-in is unavailable until provider credentials are configured."
                       >
                         <svg className="w-4 h-4 fill-[#1877F2] shrink-0" viewBox="0 0 24 24">
                           <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
@@ -1110,6 +1015,9 @@ export default function CreateAccountView({
                         <span>Facebook</span>
                       </button>
                     </div>
+                    <p className="mt-2 text-center text-xs text-[#747775]" role="status">
+                      Social sign-in will be enabled after provider setup.
+                    </p>
 
                     {/* Google Minimal Divider */}
                     <div className="relative my-5">

@@ -19,29 +19,20 @@ export default function CloudRecentActivity({ activities = [] }) {
     }
   };
 
-  const defaultActivities = [
-    { id: '1', action: 'Droplet created', target: 'web-server-01', time: '10:24 AM', type: 'droplet' },
-    { id: '2', action: 'Droplet deleted', target: 'old-app-server', time: 'Yesterday', type: 'delete' },
-    { id: '3', action: 'Backup completed', target: 'db-backup', time: 'Sep 24, 2025', type: 'backup' },
-    { id: '4', action: 'Snapshot created', target: 'app-snapshot', time: 'Sep 22, 2025', type: 'snapshot' },
-    { id: '5', action: 'Firewall updated', target: 'web-01', time: 'Sep 20, 2025', type: 'firewall' }
-  ];
-
-  const displayList = activities.length > 0 ? activities : defaultActivities;
-
   return (
     <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#111827] border border-slate-200/70 dark:border-gray-800 shadow-2xs">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-bold text-slate-900 dark:text-white">
           Recent Activity
         </h3>
-        <button className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 cursor-pointer">
-          View all
-        </button>
       </div>
 
       <div className="space-y-4">
-        {displayList.slice(0, 5).map((item) => (
+        {activities.length === 0 ? (
+          <p className="py-4 text-center text-xs text-slate-500 dark:text-slate-400">
+            No recent activity.
+          </p>
+        ) : activities.slice(0, 5).map((item) => (
           <div key={item.id} className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-3">
               <div className="w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center shrink-0">

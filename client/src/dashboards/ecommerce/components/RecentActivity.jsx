@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   Clock,
-  ArrowRight,
   ShoppingCart,
   Box,
   FileCheck,
@@ -10,7 +9,7 @@ import {
   Trash2
 } from 'lucide-react';
 
-export default function RecentActivity({ activities, onDeleteActivity, onViewAll }) {
+export default function RecentActivity({ activities = [], onDeleteActivity }) {
   const getIconAndStyle = (type) => {
     switch (type) {
       case 'sale':
@@ -42,45 +41,7 @@ export default function RecentActivity({ activities, onDeleteActivity, onViewAll
     }
   };
 
-  const defaultActivities = [
-    {
-      id: 'act-1',
-      type: 'sale',
-      title: 'New sale completed',
-      subtitle: '#INV-10024 • $245.00',
-      time: '2h ago'
-    },
-    {
-      id: 'act-2',
-      type: 'stock',
-      title: 'Stock updated',
-      subtitle: 'Nike T-Shirt • +10 units',
-      time: '3h ago'
-    },
-    {
-      id: 'act-3',
-      type: 'purchase',
-      title: 'Purchase order received',
-      subtitle: 'PO-0042 • 500 units',
-      time: '5h ago'
-    },
-    {
-      id: 'act-4',
-      type: 'product',
-      title: 'New product added',
-      subtitle: 'Adidas Hoodie',
-      time: '6h ago'
-    },
-    {
-      id: 'act-5',
-      type: 'alert',
-      title: 'Low stock alert',
-      subtitle: 'iPhone 15 Case • 5 units',
-      time: '7h ago'
-    }
-  ];
-
-  const items = activities && activities.length > 0 ? activities.slice(0, 6) : defaultActivities;
+  const items = activities.slice(0, 6);
 
   return (
     <div className="bg-white dark:bg-gray-800 border border-slate-200/80 dark:border-gray-700/80 rounded-2xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
@@ -92,18 +53,15 @@ export default function RecentActivity({ activities, onDeleteActivity, onViewAll
             Recent Activity
           </h3>
         </div>
-        <button
-          onClick={onViewAll}
-          className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 flex items-center space-x-1 group"
-        >
-          <span>View All</span>
-          <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-        </button>
       </div>
 
       {/* Activity Timeline List */}
       <div className="space-y-3.5">
-        {items.map((act) => {
+        {items.length === 0 ? (
+          <p className="py-5 text-center text-xs text-slate-500 dark:text-slate-400">
+            No recent activity.
+          </p>
+        ) : items.map((act) => {
           const { icon: Icon, bg } = getIconAndStyle(act.type);
           return (
             <div

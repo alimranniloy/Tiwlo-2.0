@@ -8,7 +8,6 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import TiwloPageLoader from '../components/TiwloUniqueLoader';
-import SocialAuthModal from '../components/SocialAuthModal';
 
 const API_BASE = '/api';
 
@@ -26,8 +25,6 @@ export default function LoginView({
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [restoreNotice, setRestoreNotice] = useState('');
-
   // Check for pending restore session token in URL or session quietly
   useEffect(() => {
     try {
@@ -75,10 +72,6 @@ export default function LoginView({
     confirmNewPassword: ''
   });
   const [showNewPassword, setShowNewPassword] = useState(false);
-
-  // 4. Social Auth Modal State
-  const [socialModalOpen, setSocialModalOpen] = useState(false);
-  const [selectedSocialProvider, setSelectedSocialProvider] = useState('Google');
 
   // Cooldown countdown timer for OTP resend
   useEffect(() => {
@@ -591,107 +584,10 @@ export default function LoginView({
     }
   };
 
-  const handleOpenSocial = (provider) => {
-    setSelectedSocialProvider(provider);
-    setSocialModalOpen(true);
-  };
-
-  const handleSocialAccountConfirm = async (account) => {
-    setSocialModalOpen(false);
-    setLoading(true);
-    setErrorMsg('');
-
-    try {
-      const res = await fetch(`${API_BASE}/auth/social-check`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          email: account.email,
-          name: account.name,
-          provider: account.provider
-        })
-      });
-
-      const data = await res.json();
-
-      if (data.requiresEmailVerification) {
-        setTwoFactorToken(data.tempToken);
-        setTwoFactorTargetEmail(data.email || account.email);
-        setMaskedEmail(data.emailMasked || maskEmail(data.email || account.email));
-        setVerifyEmailOtp('');
-        setViewMode('verify_email');
-        setOtpCooldown(60);
-        showToast?.(data.message || 'Please verify your email address to continue.');
-        return;
-      }
-
-      if (data.requires2FASetup) {
-        setTwoFactorToken(data.tempToken);
-        setTwoFactorTargetEmail(data.email || account.email);
-        setMaskedEmail(data.emailMasked || maskEmail(data.email || account.email));
-        setSetup2faOtp('');
-        setViewMode('setup_2fa');
-        setOtpCooldown(60);
-        showToast?.(data.message || 'Two-Step Verification setup is required.');
-        return;
-      }
-
-      if (data.requires2FA) {
-        setTwoFactorToken(data.tempToken);
-        setTwoFactorTargetEmail(data.email || account.email);
-        setMaskedEmail(data.emailMasked || maskEmail(data.email || account.email));
-        setTwoFactorOtp('');
-        setViewMode('2fa');
-        setOtpCooldown(60);
-        showToast?.(data.message || 'Two-Step Verification code dispatched.');
-        return;
-      }
-
-      if (data.exists && data.profileComplete) {
-        if (data.sessionToken) {
-          localStorage.setItem('stockpro_session', data.sessionToken);
-        }
-        if (data.user) {
-          localStorage.setItem('stockpro_user', JSON.stringify(data.user));
-        }
-        showToast?.(`Welcome back, ${data.user.name || data.user.storeName}!`);
-        onLoginSuccess?.(data.user, data.sessionToken);
-        return;
-      }
-
-      showToast?.(`Signed in with ${account.provider}. Please complete your account and billing details.`);
-      onNavigateToRegister?.({
-        email: account.email,
-        name: account.name,
-        provider: account.provider,
-        isSso: true,
-        accountType: data.user?.accountType,
-        address: data.user?.address,
-        phone: data.user?.phone,
-        billingDetails: data.user?.billingDetails
-      });
-    } catch (err) {
-      console.error('Social login error:', err);
-      setErrorMsg('Social sign-in connection failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[#F0F4F9] dark:bg-[#131314] flex flex-col justify-center items-center py-8 sm:py-12 px-4 selection:bg-[#0B57D0] selection:text-white transition-colors duration-200">
       {/* Liquid Page Loader */}
       {loading && <TiwloPageLoader />}
-
-      {/* Social Account Selector Modal */}
-      <SocialAuthModal
-        isOpen={socialModalOpen}
-        onClose={() => setSocialModalOpen(false)}
-        provider={selectedSocialProvider}
-        mode="login"
-        onConfirmAccount={handleSocialAccountConfirm}
-      />
 
       {/* Main Google Material 3 Styled Card */}
       <div className="w-full max-w-[448px]">
@@ -730,8 +626,9 @@ export default function LoginView({
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={() => handleOpenSocial('Google')}
-                    className="flex items-center justify-center space-x-2 py-2 px-3 rounded-full border border-[#747775]/40 hover:bg-[#F0F4F9] dark:hover:bg-[#28292A] text-[#1F1F1F] dark:text-[#E3E3E3] text-[13px] font-medium transition cursor-pointer"
+                    disabled
+                    title="Google sign-in is unavailable until provider credentials are configured."
+                    className="flex items-center justify-center space-x-2 py-2 px-3 rounded-full border border-[#747775]/40 text-[#1F1F1F] dark:text-[#E3E3E3] text-[13px] font-medium opacity-60 cursor-not-allowed"
                   >
                     <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                       <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.66-5.17 3.66-9.12z"/>
@@ -744,8 +641,9 @@ export default function LoginView({
 
                   <button
                     type="button"
-                    onClick={() => handleOpenSocial('Facebook')}
-                    className="flex items-center justify-center space-x-2 py-2 px-3 rounded-full border border-[#747775]/40 hover:bg-[#F0F4F9] dark:hover:bg-[#28292A] text-[#1F1F1F] dark:text-[#E3E3E3] text-[13px] font-medium transition cursor-pointer"
+                    disabled
+                    title="Facebook sign-in is unavailable until provider credentials are configured."
+                    className="flex items-center justify-center space-x-2 py-2 px-3 rounded-full border border-[#747775]/40 text-[#1F1F1F] dark:text-[#E3E3E3] text-[13px] font-medium opacity-60 cursor-not-allowed"
                   >
                     <svg className="w-4 h-4 fill-[#1877F2] shrink-0" viewBox="0 0 24 24">
                       <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
@@ -753,6 +651,9 @@ export default function LoginView({
                     <span>Facebook</span>
                   </button>
                 </div>
+                <p className="mt-2 text-center text-xs text-[#747775]" role="status">
+                  Social sign-in will be enabled after provider setup.
+                </p>
 
                 <div className="relative my-4 flex items-center justify-center">
                   <div className="absolute inset-0 flex items-center">

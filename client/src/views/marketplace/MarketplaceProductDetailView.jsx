@@ -6,11 +6,13 @@ import {
   Check,
   Shield,
   RotateCw,
-  AlertCircle
+  AlertCircle,
+  Bot,
+  MessageCircle
 } from 'lucide-react';
 import { WorkspaceAPI } from '../../api/workspaceApi';
 
-export default function MarketplaceProductDetailView({ productId, onBack }) {
+export default function MarketplaceProductDetailView({ productId, onBack, onNavigate }) {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState(null);
@@ -81,8 +83,18 @@ export default function MarketplaceProductDetailView({ productId, onBack }) {
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
           <div className="flex items-start gap-4">
             {product.logoUrl ? <img src={product.logoUrl} alt="" className="w-16 h-16 rounded-2xl object-contain shrink-0" /> : (
-              <div className="w-16 h-16 rounded-2xl bg-[#E8F0FE] text-[#0B57D0] flex items-center justify-center shrink-0">
-                <Shield className="w-8 h-8 stroke-[1.8]" />
+              <div
+                className={`w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 ${
+                  product.iconType === 'discord' ? 'bg-[#5865F2] text-white'
+                    : product.iconType === 'whatsapp' ? 'bg-[#25D366] text-white'
+                    : 'bg-[#E8F0FE] text-[#0B57D0]'
+                }`}
+              >
+                {product.iconType === 'discord'
+                  ? <Bot className="w-8 h-8 stroke-[1.8]" />
+                  : product.iconType === 'whatsapp'
+                    ? <MessageCircle className="w-8 h-8 stroke-[1.8]" />
+                    : <Shield className="w-8 h-8 stroke-[1.8]" />}
               </div>
             )}
 
@@ -119,9 +131,16 @@ export default function MarketplaceProductDetailView({ productId, onBack }) {
               {product.description}
             </p>
 
-            <p className="mt-4 text-[12px] text-[#747775]">
-              Activation is unavailable because no deployment provider is connected.
+            <p className="mt-4 text-[12px] text-[#5F6368]">
+              Enable this product in Workspace to create a manageable service entry. Provider deployment or connection is separate.
             </p>
+            <button
+              type="button"
+              onClick={() => onNavigate?.('workspace/activate')}
+              className="mt-4 w-full px-4 py-2.5 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-colors cursor-pointer"
+            >
+              Enable in Workspace
+            </button>
           </div>
         </div>
       </div>
