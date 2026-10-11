@@ -80,6 +80,23 @@ ensure_node_dependencies() {
   npm --prefix "$directory" install $install_args --no-audit --no-fund --silent
 }
 
+ensure_native_rust_environment() {
+  touch "$ROOT_DIR/.env"
+  chmod 600 "$ROOT_DIR/.env"
+  if ! grep -q '^TIWLO_INTERNAL_IDENTITY_SECRET=' "$ROOT_DIR/.env"; then
+    printf 'TIWLO_INTERNAL_IDENTITY_SECRET=%s\n' "$(openssl rand -hex 32)" >> "$ROOT_DIR/.env"
+  fi
+  if ! grep -q '^TIWLO_RUST_BACKEND_URL=' "$ROOT_DIR/.env"; then
+    printf 'TIWLO_RUST_BACKEND_URL=http://127.0.0.1:7100\n' >> "$ROOT_DIR/.env"
+  fi
+  if ! grep -q '^TIWLO_RUST_DOMAIN_CLAIM_ENABLED=' "$ROOT_DIR/.env"; then
+    printf 'TIWLO_RUST_DOMAIN_CLAIM_ENABLED=false\n' >> "$ROOT_DIR/.env"
+  fi
+  if ! grep -q '^TIWLO_RUST_DNS_ENABLED=' "$ROOT_DIR/.env"; then
+    printf 'TIWLO_RUST_DNS_ENABLED=false\n' >> "$ROOT_DIR/.env"
+  fi
+}
+
 # Load the shared, non-secret platform settings. Systemd/PM2 environment values
 # take precedence over this file.
 if [[ -f "$ROOT_DIR/.env" ]]; then
@@ -136,6 +153,7 @@ EOF
 fi
 
 if [[ "$MODE" == "--rust-only" || "$MODE" == "rust-only" ]]; then
+  ensure_native_rust_environment
   build_rust_backend
   configure_native_rust_service
   curl --fail --silent --show-error http://127.0.0.1:7100/health
@@ -217,6 +235,7 @@ fi
 
 # 3b. Rust backend
 echo "--- Step 3b: Ensuring Rust backend ---"
+ensure_native_rust_environment
 build_rust_backend
 configure_native_rust_service
 
