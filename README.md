@@ -69,32 +69,6 @@ enabling any Rust claim or DNS cutover flag. Both Rust cutover flags default to
 `false` and must remain disabled until staging and rollback verification are
 complete.
 
-### One-click GitHub production deployment
-
-After the one-time setup below, run `deploy-live.bat` from the repository folder
-to deploy the latest pushed `main` branch and open the GitHub Actions run. The
-workflow uses the existing native Node, PostgreSQL, PM2, and systemd Rust
-deployer. It refuses to deploy if the server checkout is dirty, the private
-`.env` is missing, or `SECURITY_SECRET` is shorter than 32 characters.
-
-Configure these repository **Actions variables** in GitHub Settings:
-
-- `TIWLO_DEPLOY_HOST`: live server hostname or IP.
-- `TIWLO_DEPLOY_USER`: SSH account with non-interactive `sudo -n` permission
-  for deployment.
-- `TIWLO_DEPLOY_PATH`: absolute path to the clean `main` checkout, for example
-  `/opt/tiwlo`.
-- `TIWLO_DEPLOY_KNOWN_HOSTS`: one verified OpenSSH `known_hosts` line for the
-  server (use `[host]:port` for a non-default SSH port).
-
-Configure `TIWLO_DEPLOY_SSH_KEY` as a repository **Actions secret** containing
-the matching private SSH key. Install its public key on the server account.
-Keep the live server's root `.env` on that server; the workflow never uploads,
-prints, or commits the desktop `.env`. Ensure that server `.env` contains the
-production settings and a stable `SECURITY_SECRET` before running a deployment.
-Do not use `ssh-keyscan` output without independently verifying the host-key
-fingerprint.
-
 ### Fresh Ubuntu 24 one-command setup
 
 On a fresh Ubuntu 24.04 host, clone the repository and run the safe dry-run:
