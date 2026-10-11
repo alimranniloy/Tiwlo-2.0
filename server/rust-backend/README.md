@@ -21,6 +21,7 @@ rust-backend/
     ├── claim.rs       # atomic domain-claim policy decisions
     ├── dns.rs         # DNS record validation
     ├── media.rs       # video preflight and playback compatibility policy
+    ├── metrics.rs     # Prometheus-compatible process counters
     ├── session.rs     # session and cookie security policy
     └── audit.rs       # structured audit-event contract
 ```
@@ -45,6 +46,7 @@ domain claims, account policy, and business transactions.
 | --- | --- | --- |
 | `GET` | `/health` | Liveness check |
 | `GET` | `/ready` | Readiness/configuration check |
+| `GET` | `/metrics` | Prometheus-compatible HTTP counters |
 | `GET` | `/v1/edge/admission` | Lightweight edge admission response |
 | `POST` | `/v1/domains/validate` | Validate/normalize a subdomain label |
 | `POST` | `/v1/accounts/policy` | Validate account input policy (never handles passwords) |
@@ -56,6 +58,10 @@ domain claims, account policy, and business transactions.
 Every request receives security headers and an `x-request-id`. Requests are
 limited per connected source IP (120 per minute by default) and bodies are
 limited to 1 MiB. Change the limits with `TIWLO_RUST_RATE_LIMIT`.
+
+`/metrics` is intended for a private monitoring network only. It reports
+process-local counters; deploy Prometheus scraping and aggregation before
+using these values for autoscaling decisions.
 
 This service is an edge/backend foundation, not yet a replacement for the
 Node.js business API. It deliberately does not accept account, domain, or

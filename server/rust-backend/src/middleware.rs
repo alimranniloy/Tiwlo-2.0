@@ -34,6 +34,11 @@ pub async fn rate_limit(
 ) -> Response {
     let request_id = new_request_id();
     if !state.limiter.allow(remote.ip()) {
+        state
+            .metrics
+            .rate_limited_total
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        state.metrics.record_response(StatusCode::TOO_MANY_REQUESTS.as_u16());
         let mut response = (
             StatusCode::TOO_MANY_REQUESTS,
             Json(ErrorResponse {
@@ -47,6 +52,7 @@ pub async fn rate_limit(
     }
 
     let mut response = next.run(request).await;
+    state.metrics.record_response(response.status().as_u16());
     if let Ok(value) = HeaderValue::from_str(&request_id) {
         response.headers_mut().insert("x-request-id", value);
     }
