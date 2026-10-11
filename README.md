@@ -44,6 +44,31 @@ private health-checked foundation; DNS, edge filtering, and media workers are
 migrated independently only after their contracts and rollback paths are
 verified. Rust is not started by the default Node.js `npm run dev` command.
 
+### One-command live deployment
+
+The live-server deployer is idempotent: it installs only missing system
+packages, Node dependencies, PM2, Docker, or Rust tooling. Existing
+installations are reused.
+
+From the repository root on an Ubuntu live server:
+
+```bash
+# Native Node + PostgreSQL + PM2 + systemd Rust deployment
+sudo npm run deploy:live
+
+# Build and restart only the native Rust service
+sudo npm run deploy:rust
+
+# Private Docker Compose deployment (Node, PostgreSQL, Redis, Rust, Caddy)
+sudo npm run deploy:production -- --docker
+```
+
+Docker mode creates `docker/.env.production` with random database, Redis, and
+internal identity secrets on first run only. Review the generated file before
+enabling any Rust claim or DNS cutover flag. Both Rust cutover flags default to
+`false` and must remain disabled until staging and rollback verification are
+complete.
+
 ### Fresh Ubuntu 24 one-command setup
 
 On a fresh Ubuntu 24.04 host, clone the repository and run the safe dry-run:

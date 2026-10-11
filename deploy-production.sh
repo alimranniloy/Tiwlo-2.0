@@ -14,6 +14,72 @@ fi
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODE="${1:-native}"
 
+ensure_rust_toolchain() {
+  if command -v cargo >/dev/null 2>&1; then
+    echo "Rust toolchain already installed: $(cargo --version)"
+    return
+  fi
+  echo "Rust toolchain is missing; installing rustup non-interactively..."
+  if ! command -v curl >/dev/null 2>&1; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -y
+    apt-get install -y curl
+  fi
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+  export PATH="$HOME/.cargo/bin:$PATH"
+  command -v cargo >/dev/null 2>&1 || {
+    echo "Error: Rust installation completed but cargo is unavailable."
+    exit 1
+  }
+}
+
+build_rust_backend() {
+  ensure_rust_toolchain
+  if [[ ! -f "$ROOT_DIR/server/rust-backend/Cargo.lock" ]]; then
+    echo "Cargo.lock is missing; resolving Rust dependencies once..."
+    cargo generate-lockfile --manifest-path "$ROOT_DIR/server/rust-backend/Cargo.toml"
+  fi
+  echo "--- Building Rust backend ---"
+  cargo build --locked --release --manifest-path "$ROOT_DIR/server/rust-backend/Cargo.toml"
+}
+
+configure_native_rust_service() {
+  local service_file="/etc/systemd/system/tiwlo-rust.service"
+  cat > "$service_file" <<EOF
+[Unit]
+Description=Tiwlo Rust backend
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=$ROOT_DIR/server/rust-backend
+EnvironmentFile=-$ROOT_DIR/.env
+Environment=TIWLO_RUST_BIND=127.0.0.1:7100
+ExecStart=$ROOT_DIR/server/rust-backend/target/release/tiwlo-rust-backend
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl daemon-reload
+  systemctl enable --now tiwlo-rust
+}
+
+ensure_node_dependencies() {
+  local directory="$1"
+  local install_args="${2:-}"
+  if [[ -d "$directory/node_modules" ]]; then
+    echo "Node dependencies already installed in $directory; skipping install."
+    return
+  fi
+  echo "Installing Node dependencies in $directory..."
+  # shellcheck disable=SC2086
+  npm --prefix "$directory" install $install_args --no-audit --no-fund --silent
+}
+
 # Load the shared, non-secret platform settings. Systemd/PM2 environment values
 # take precedence over this file.
 if [[ -f "$ROOT_DIR/.env" ]]; then
@@ -36,17 +102,45 @@ if [[ "$MODE" == "--docker" || "$MODE" == "docker" ]]; then
 
   if [[ ! -f "$ENV_FILE" ]]; then
     DB_PASSWORD="$(openssl rand -hex 32)"
+    REDIS_PASSWORD="$(openssl rand -hex 32)"
+    IDENTITY_SECRET="$(openssl rand -hex 32)"
     umask 077
     cat > "$ENV_FILE" <<EOF
 POSTGRES_USER=tiwlo
 POSTGRES_DB=tiwlo_master
 POSTGRES_PASSWORD=$DB_PASSWORD
+REDIS_PASSWORD=$REDIS_PASSWORD
+TIWLO_INTERNAL_IDENTITY_SECRET=$IDENTITY_SECRET
+TIWLO_RUST_DOMAIN_CLAIM_ENABLED=false
+TIWLO_RUST_DNS_ENABLED=false
 EOF
+  fi
+
+  if ! grep -q '^REDIS_PASSWORD=' "$ENV_FILE"; then
+    printf '\nREDIS_PASSWORD=%s\n' "$(openssl rand -hex 32)" >> "$ENV_FILE"
+  fi
+  if ! grep -q '^TIWLO_INTERNAL_IDENTITY_SECRET=' "$ENV_FILE"; then
+    printf 'TIWLO_INTERNAL_IDENTITY_SECRET=%s\n' "$(openssl rand -hex 32)" >> "$ENV_FILE"
+  fi
+  if ! grep -q '^TIWLO_RUST_DOMAIN_CLAIM_ENABLED=' "$ENV_FILE"; then
+    printf 'TIWLO_RUST_DOMAIN_CLAIM_ENABLED=false\n' >> "$ENV_FILE"
+  fi
+  if ! grep -q '^TIWLO_RUST_DNS_ENABLED=' "$ENV_FILE"; then
+    printf 'TIWLO_RUST_DNS_ENABLED=false\n' >> "$ENV_FILE"
   fi
 
   cd "$ROOT_DIR"
   docker compose --env-file .env --env-file docker/.env.production -f docker/docker-compose.production.yml up -d --build --remove-orphans
   docker compose --env-file .env --env-file docker/.env.production -f docker/docker-compose.production.yml ps
+  exit 0
+fi
+
+if [[ "$MODE" == "--rust-only" || "$MODE" == "rust-only" ]]; then
+  build_rust_backend
+  configure_native_rust_service
+  curl --fail --silent --show-error http://127.0.0.1:7100/health
+  echo
+  echo "Rust backend deployment completed."
   exit 0
 fi
 
@@ -103,8 +197,8 @@ chmod -R u+rwX "$ROOT_DIR/upload" "$ROOT_DIR/server/uploads" "$ROOT_DIR/server/d
 # 2b. Build Frontend Client
 echo "--- Step 2b: Building Production Frontend Client ---"
 if [[ -d "$ROOT_DIR/client" ]]; then
+  ensure_node_dependencies "$ROOT_DIR/client"
   cd "$ROOT_DIR/client"
-  npm install --no-audit --no-fund --silent
   npm run build
   cd "$ROOT_DIR"
 fi
@@ -117,13 +211,21 @@ fi
 # 3. Backend Dependencies
 echo "--- Step 3: Installing Backend Production Dependencies ---"
 if [[ -d "$ROOT_DIR/server" ]]; then
-  cd "$ROOT_DIR/server"
-  npm install --omit=dev --no-audit --no-fund --silent
+  ensure_node_dependencies "$ROOT_DIR/server" "--omit=dev"
   echo "Backend dependencies installed successfully."
 fi
 
+# 3b. Rust backend
+echo "--- Step 3b: Ensuring Rust backend ---"
+build_rust_backend
+configure_native_rust_service
+
 # 4. Process Reload (PM2)
 echo "--- Step 4: Reloading PM2 Services ---"
+if ! command -v pm2 >/dev/null 2>&1; then
+  echo "PM2 is missing; installing it globally..."
+  npm install --global pm2 --no-audit --no-fund --silent
+fi
 if command -v pm2 >/dev/null 2>&1; then
   cd "$ROOT_DIR/server"
   pm2 reload tiwlo-backend || pm2 restart tiwlo-backend || pm2 start server.js --name tiwlo-backend
