@@ -48,9 +48,9 @@ export function getAuthUrl(path = '') {
 
   const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.localhost');
   if (isLocal) {
-    return `${protocol}//localhost${port}${cleanPath}`;
+    return `${protocol}//${AUTH_SUBDOMAIN}.localhost${port}${cleanPath}`;
   }
-  return `https://${PLATFORM_DOMAIN}${cleanPath}`;
+  return `https://${AUTH_DOMAIN}${cleanPath}`;
 }
 
 export function getDashboardUrl(path = '') {

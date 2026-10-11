@@ -98,12 +98,6 @@ export default function App() {
       const searchParams = new URLSearchParams(window.location.search);
       const restoreToken = searchParams.get('token');
 
-      if (hostname.toLowerCase() === 'auth.uids.app') {
-        const target = `${getMainAppUrl(window.location.pathname)}${window.location.search}${window.location.hash}`;
-        window.location.replace(target);
-        return 'login';
-      }
-
       // Remove legacy session-token handoffs from the URL without trusting them.
       if (searchParams.has('auth_token')) {
         searchParams.delete('auth_token');
@@ -558,6 +552,34 @@ export default function App() {
         return;
       }
 
+      const ssoToken = searchParams.get('sso_token');
+      const ssoNonce = searchParams.get('sso_nonce');
+      const returnTo = searchParams.get('return_to');
+      if (isAuthHost && returnTo && !ssoToken) {
+        const bridgeUrl = `${getMainAppUrl('/api/auth/sso/web-start')}?return_to=${encodeURIComponent(returnTo)}`;
+        window.location.replace(bridgeUrl);
+        return;
+      }
+      if (isAuthHost && ssoToken && ssoNonce) {
+        const consumeResponse = await fetch(`${API_BASE}/auth/sso/consume-handshake`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ssoToken, nonce: ssoNonce })
+        });
+        const consumed = await consumeResponse.json().catch(() => ({}));
+        if (!consumeResponse.ok || !consumed.authenticated) {
+          throw new Error(consumed.error || 'SSO authentication failed');
+        }
+        localStorage.setItem('stockpro_session', consumed.sessionToken);
+        localStorage.setItem('stockpro_user', JSON.stringify(consumed.user));
+        const target = returnTo && /^https:\/\/(my\.uids\.app|tiwlo\.com)(\/|$)/i.test(returnTo)
+          ? returnTo
+          : getMainAppUrl('/');
+        window.location.replace(target);
+        return;
+      }
+
       const token = localStorage.getItem('stockpro_session');
       try {
         const res = await fetch(`${API_BASE}/auth/sync-session`, {
@@ -684,8 +706,9 @@ export default function App() {
             const requestedPath = isTpanelRoute && !path
               ? `/tpanel${window.location.search}`
               : window.location.pathname + window.location.search;
-            const redirectQuery = isDashboardSubdomain() ? '' :
-              `redirect=${encodeURIComponent(requestedPath)}`;
+            const redirectQuery = isDashboardSubdomain()
+              ? `return_to=${encodeURIComponent(window.location.origin + requestedPath)}`
+              : `redirect=${encodeURIComponent(requestedPath)}`;
             window.location.replace(getAuthUrl(`/login${redirectQuery ? `?${redirectQuery}` : ''}`));
           }
         }

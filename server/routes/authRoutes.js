@@ -1446,6 +1446,40 @@ router.get('/auth/sync-session', async (req, res) => {
   }
 });
 
+router.get('/auth/sso/web-start', async (req, res) => {
+  try {
+    const returnTo = String(req.query.return_to || '').trim();
+    const allowedReturn = /^https:\/\/(auth\.uids\.app|my\.uids\.app)(\/|$)/i.test(returnTo);
+    if (!allowedReturn) return res.status(400).json({ error: 'Invalid SSO return URL' });
+
+    const token = getRequestSessionToken(req);
+    if (!token) {
+      return res.redirect(`https://auth.uids.app/login?return_to=${encodeURIComponent(returnTo)}`);
+    }
+
+    const sessionData = await MasterDB.getSession(token, req);
+    if (!sessionData?.user) {
+      return res.redirect(`https://auth.uids.app/login?return_to=${encodeURIComponent(returnTo)}`);
+    }
+
+    const user = sessionData.user;
+    const handshake = await SsoSecurity.generateHandshakeTicket({
+      userId: user.id,
+      tiwiId: user.tiwiId || user.storeId || null,
+      email: user.email,
+      origin: 'web_sso',
+      req
+    });
+    const target = new URL(returnTo);
+    target.searchParams.set('sso_token', handshake.ssoToken);
+    target.searchParams.set('sso_nonce', handshake.nonce);
+    res.redirect(target.toString());
+  } catch (err) {
+    console.error('Web SSO start error:', err);
+    res.status(500).json({ error: 'Failed to start web SSO' });
+  }
+});
+
 // SSO Handshake Generation
 router.post('/auth/sso/generate-handshake', async (req, res) => {
   try {
