@@ -10,6 +10,9 @@ type HmacSha256 = Hmac<Sha256>;
 pub struct IdentityAssertion {
     pub user_id: String,
     pub email_verified: bool,
+    pub ip_hash: String,
+    pub device_hash: Option<String>,
+    pub email_hash: String,
     pub expires_at: u64,
 }
 
@@ -79,6 +82,9 @@ mod tests {
         IdentityAssertion {
             user_id: "user-123".to_owned(),
             email_verified: true,
+            ip_hash: "a".repeat(64),
+            device_hash: Some("b".repeat(64)),
+            email_hash: "c".repeat(64),
             expires_at: u64::MAX,
         }
     }

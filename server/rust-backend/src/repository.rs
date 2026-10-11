@@ -13,6 +13,7 @@ pub enum RepositoryError {
     NotFound(&'static str),
     Policy(String),
     Conflict(&'static str),
+    RateLimited(&'static str),
 }
 
 impl From<sqlx::Error> for RepositoryError {
@@ -35,6 +36,13 @@ pub struct ClaimedDomain {
     pub subdomain: String,
     pub domain: String,
     pub user_id: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct AbuseSignals {
+    pub ip_hash: String,
+    pub device_hash: Option<String>,
+    pub email_hash: String,
 }
 
 #[derive(Debug, Clone)]
@@ -96,6 +104,7 @@ impl Repository {
         user_id: &str,
         subdomain: &str,
         domain: &str,
+        signals: &AbuseSignals,
     ) -> Result<ClaimedDomain, RepositoryError> {
         let mut transaction = self.pool.begin().await?;
         let user = sqlx::query_as::<_, (bool, Option<String>)>(
@@ -114,6 +123,31 @@ impl Repository {
         }
         if user.1.is_some() {
             return Err(RepositoryError::Conflict("free_domain_already_used"));
+        }
+
+        let attempts = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*)
+             FROM system_free_subdomain_claim_attempts
+             WHERE created_at > CURRENT_TIMESTAMP - INTERVAL '24 hours'
+               AND (ip_hash = $1 OR device_hash = $2 OR email_hash = $3)
+               AND outcome IN ('success', 'blocked')",
+        )
+        .bind(&signals.ip_hash)
+        .bind(&signals.device_hash)
+        .bind(&signals.email_hash)
+        .fetch_one(&mut *transaction)
+        .await?;
+        if attempts >= 3 {
+            self.record_claim_attempt(
+                &mut transaction,
+                user_id,
+                subdomain,
+                signals,
+                "blocked",
+                Some("risk_limit"),
+            )
+            .await?;
+            return Err(RepositoryError::RateLimited("free_domain_risk_limit"));
         }
 
         let id = Uuid::new_v4().to_string();
@@ -148,6 +182,16 @@ impl Repository {
         .execute(&mut *transaction)
         .await?;
 
+        self.record_claim_attempt(
+            &mut transaction,
+            user_id,
+            subdomain,
+            signals,
+            "success",
+            Some("registered"),
+        )
+        .await?;
+
         transaction.commit().await?;
         Ok(ClaimedDomain {
             id,
@@ -155,6 +199,32 @@ impl Repository {
             domain: domain.to_owned(),
             user_id: user_id.to_owned(),
         })
+    }
+
+    async fn record_claim_attempt(
+        &self,
+        transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        user_id: &str,
+        subdomain: &str,
+        signals: &AbuseSignals,
+        outcome: &str,
+        reason: Option<&str>,
+    ) -> Result<(), RepositoryError> {
+        sqlx::query(
+            "INSERT INTO system_free_subdomain_claim_attempts
+                (user_id, subdomain, ip_hash, device_hash, email_hash, outcome, reason)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        )
+        .bind(user_id)
+        .bind(subdomain)
+        .bind(&signals.ip_hash)
+        .bind(&signals.device_hash)
+        .bind(&signals.email_hash)
+        .bind(outcome)
+        .bind(reason)
+        .execute(&mut **transaction)
+        .await?;
+        Ok(())
     }
 
     pub async fn list_dns_records(

@@ -126,6 +126,11 @@ is intentionally not wired into the public claim route yet. The existing Node
 claim flow also records abuse signals and claim-attempt outcomes; those controls
 must have Rust parity before traffic is cut over.
 
+The Rust claim transaction now enforces the same three-signal 24-hour limit
+(`ip_hash`, optional `device_hash`, and `email_hash`) and records `success` or
+`blocked` attempts in the existing audit table. Raw network, device, and email
+values are never placed in the assertion.
+
 ## Migration rule
 
 Do not delete or bypass the Node.js backend for a Rust service until the Rust

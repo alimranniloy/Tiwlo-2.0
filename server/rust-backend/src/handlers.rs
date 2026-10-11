@@ -214,7 +214,16 @@ pub async fn claim_domain(
         );
     };
     match repository
-        .claim_domain(&assertion.user_id, &validation.name, &validation.domain)
+        .claim_domain(
+            &assertion.user_id,
+            &validation.name,
+            &validation.domain,
+            &crate::repository::AbuseSignals {
+                ip_hash: assertion.ip_hash,
+                device_hash: assertion.device_hash,
+                email_hash: assertion.email_hash,
+            },
+        )
         .await
     {
         Ok(claimed) => (
@@ -232,6 +241,10 @@ pub async fn claim_domain(
         Err(crate::repository::RepositoryError::Policy(reason))
         | Err(crate::repository::RepositoryError::Conflict(reason)) => (
             StatusCode::CONFLICT,
+            Json(serde_json::json!({"error": reason})),
+        ),
+        Err(crate::repository::RepositoryError::RateLimited(reason)) => (
+            StatusCode::TOO_MANY_REQUESTS,
             Json(serde_json::json!({"error": reason})),
         ),
         Err(crate::repository::RepositoryError::Database(_)) => (
