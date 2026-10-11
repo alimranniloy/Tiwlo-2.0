@@ -88,11 +88,17 @@ function safeFilename(value) {
 
 function safeHtml(value, fallbackText) {
   if (!value) {
-    return `<p>${String(fallbackText || '')
+    const escapedText = String(fallbackText || '')
       .replace(/[&<>"']/g, (character) => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
       })[character])
-      .replace(/\r?\n/g, '<br>')}</p>`;
+      .replace(/(https?:\/\/[^\s<]+)/gi, (url) => {
+        const trailing = url.match(/[.,!?;:)]+$/)?.[0] || '';
+        const href = url.slice(0, url.length - trailing.length);
+        return `<a href="${href}" rel="noreferrer">${href}</a>${trailing}`;
+      })
+      .replace(/\r?\n/g, '<br>');
+    return `<p>${escapedText}</p>`;
   }
   return sanitizeHtml(String(value), {
     allowedTags: [
