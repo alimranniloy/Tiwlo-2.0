@@ -1,5 +1,5 @@
-use crate::state::AppState;
-use axum::{extract::State, Json};
+use crate::{account, domain, state::AppState};
+use axum::{extract::State, http::StatusCode, Json};
 use serde::Serialize;
 
 const SERVICE_NAME: &str = "tiwlo-rust-backend";
@@ -47,4 +47,22 @@ pub async fn admission() -> Json<AdmissionResponse> {
         service: SERVICE_NAME,
         request_id: crate::middleware::new_request_id(),
     })
+}
+
+pub async fn domain_validation(
+    Json(request): Json<domain::DomainValidationRequest>,
+) -> (StatusCode, Json<domain::DomainValidationResponse>) {
+    let result = domain::validate(&request.name, "uids.app");
+    let status = if result.available_format {
+        StatusCode::OK
+    } else {
+        StatusCode::UNPROCESSABLE_ENTITY
+    };
+    (status, Json(result))
+}
+
+pub async fn account_policy(
+    Json(request): Json<account::AccountPolicyRequest>,
+) -> Json<account::AccountPolicyResponse> {
+    Json(account::evaluate(request))
 }

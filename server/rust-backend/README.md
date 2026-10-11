@@ -15,7 +15,10 @@ rust-backend/
     ├── state.rs       # shared application state
     ├── rate_limit.rs  # in-memory edge rate limiter
     ├── middleware.rs  # request IDs and security middleware
-    └── handlers.rs    # health, readiness, and admission endpoints
+    ├── handlers.rs    # HTTP handlers
+    ├── domain.rs      # subdomain validation and suggestions
+    ├── account.rs     # account input policy checks
+    └── audit.rs       # structured audit-event contract
 ```
 
 ## Service boundary
@@ -39,6 +42,8 @@ domain claims, account policy, and business transactions.
 | `GET` | `/health` | Liveness check |
 | `GET` | `/ready` | Readiness/configuration check |
 | `GET` | `/v1/edge/admission` | Lightweight edge admission response |
+| `POST` | `/v1/domains/validate` | Validate/normalize a subdomain label |
+| `POST` | `/v1/accounts/policy` | Validate account input policy (never handles passwords) |
 
 Every request receives security headers and an `x-request-id`. Requests are
 limited per connected source IP (120 per minute by default) and bodies are
@@ -47,6 +52,11 @@ limited to 1 MiB. Change the limits with `TIWLO_RUST_RATE_LIMIT`.
 This service is an edge/backend foundation, not yet a replacement for the
 Node.js business API. It deliberately does not accept account, domain, or
 database writes until those contracts are implemented and tested.
+
+The domain endpoint only validates syntax and reserved names; PostgreSQL remains
+the source of truth for availability and atomic claims. The account endpoint
+does not receive or hash passwords. Node.js still owns sessions, password
+authentication, email verification, domain claims, and database writes.
 
 ## Local development
 
