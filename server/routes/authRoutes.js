@@ -33,6 +33,7 @@ import { logActivity } from '../db/storeDataAdapter.js';
 import { requireAdmin } from '../administrator/adminRoutes.js';
 import { SocialDB } from '../social/socialDb.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
+import { isAllowedWebSsoReturnUrl } from '../security/webSsoReturnUrl.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
 import { securityLimiters, registrationGuards } from '../plugins/security/index.js';
 import { normalizeSignupEmail, isDuplicateAccountError, isDuplicateBrowserError } from '../security/signupIdentity.js';
@@ -1375,16 +1376,10 @@ router.get('/auth/sync-session', async (req, res) => {
 router.get('/auth/sso/web-start', async (req, res) => {
   try {
     const returnTo = String(req.query.return_to || '').trim();
-    let allowedReturn = false;
-    try {
-      const target = new URL(returnTo);
-      allowedReturn = target.protocol === 'https:' &&
-        target.hostname.toLowerCase() === PLATFORM_CONFIG.dashboardHost &&
-        !target.username && !target.password &&
-        /^\/oneprofile(?:\/|$)/i.test(target.pathname);
-    } catch {
-      allowedReturn = false;
-    }
+    const allowedReturn = isAllowedWebSsoReturnUrl(returnTo, {
+      dashboardHost: PLATFORM_CONFIG.dashboardHost,
+      mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`
+    });
     if (!allowedReturn) return res.status(400).json({ error: 'Invalid SSO return URL' });
 
     const token = getRequestSessionToken(req);
