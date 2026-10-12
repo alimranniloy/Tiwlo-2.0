@@ -33,7 +33,10 @@ import { logActivity } from '../db/storeDataAdapter.js';
 import { requireAdmin } from '../administrator/adminRoutes.js';
 import { SocialDB } from '../social/socialDb.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
-import { isAllowedWebSsoReturnUrl } from '../security/webSsoReturnUrl.js';
+import {
+  getDashboardSsoBridgeUrl,
+  isAllowedWebSsoReturnUrl
+} from '../security/webSsoReturnUrl.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
 import { securityLimiters, registrationGuards } from '../plugins/security/index.js';
 import { normalizeSignupEmail, isDuplicateAccountError, isDuplicateBrowserError } from '../security/signupIdentity.js';
@@ -121,6 +124,20 @@ function formatRemainingWaitTime(seconds) {
   if (seconds < 60) return `${seconds} seconds`;
   const minutes = Math.ceil(seconds / 60);
   return `${minutes} minute${minutes > 1 ? 's' : ''}`;
+}
+
+async function createWebSsoRedirectUrl(returnTo, user, req) {
+  const handshake = await SsoSecurity.generateHandshakeTicket({
+    userId: user.id,
+    tiwiId: user.tiwiId || user.storeId || null,
+    email: user.email,
+    origin: 'web_sso',
+    req
+  });
+  const target = new URL(returnTo);
+  target.searchParams.set('sso_token', handshake.ssoToken);
+  target.searchParams.set('sso_nonce', handshake.nonce);
+  return target.toString();
 }
 
 // ==========================================
@@ -1384,29 +1401,59 @@ router.get('/auth/sso/web-start', async (req, res) => {
 
     const token = getRequestSessionToken(req);
     if (!token) {
+      const dashboardBridgeUrl = getDashboardSsoBridgeUrl(returnTo, {
+        dashboardUrl: PLATFORM_CONFIG.dashboardUrl,
+        dashboardHost: PLATFORM_CONFIG.dashboardHost,
+        mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`
+      });
+      if (dashboardBridgeUrl) return res.redirect(dashboardBridgeUrl);
       return res.redirect(`${PLATFORM_CONFIG.authDomain.startsWith('http') ? PLATFORM_CONFIG.authDomain : `https://${PLATFORM_CONFIG.authDomain}`}/login?return_to=${encodeURIComponent(returnTo)}&sso_login=1`);
     }
 
     const sessionData = await MasterDB.getSession(token, req);
     if (!sessionData?.user) {
+      const dashboardBridgeUrl = getDashboardSsoBridgeUrl(returnTo, {
+        dashboardUrl: PLATFORM_CONFIG.dashboardUrl,
+        dashboardHost: PLATFORM_CONFIG.dashboardHost,
+        mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`
+      });
+      if (dashboardBridgeUrl) return res.redirect(dashboardBridgeUrl);
       return res.redirect(`${PLATFORM_CONFIG.authDomain.startsWith('http') ? PLATFORM_CONFIG.authDomain : `https://${PLATFORM_CONFIG.authDomain}`}/login?return_to=${encodeURIComponent(returnTo)}&sso_login=1`);
     }
 
-    const user = sessionData.user;
-    const handshake = await SsoSecurity.generateHandshakeTicket({
-      userId: user.id,
-      tiwiId: user.tiwiId || user.storeId || null,
-      email: user.email,
-      origin: 'web_sso',
-      req
-    });
-    const target = new URL(returnTo);
-    target.searchParams.set('sso_token', handshake.ssoToken);
-    target.searchParams.set('sso_nonce', handshake.nonce);
-    res.redirect(target.toString());
+    res.redirect(await createWebSsoRedirectUrl(returnTo, sessionData.user, req));
   } catch (err) {
     console.error('Web SSO start error:', err);
     res.status(500).json({ error: 'Failed to start web SSO' });
+  }
+});
+
+router.post('/auth/sso/web-start', async (req, res) => {
+  try {
+    const returnTo = String(req.body?.return_to || '').trim();
+    const allowedReturn = isAllowedWebSsoReturnUrl(returnTo, {
+      dashboardHost: PLATFORM_CONFIG.dashboardHost,
+      mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`
+    });
+    if (!allowedReturn) return res.status(400).json({ error: 'Invalid SSO return URL' });
+
+    res.setHeader('Cache-Control', 'no-store');
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith('Bearer ')
+      ? authHeader.substring(7).trim()
+      : getRequestSessionToken(req);
+    if (!token) return res.status(401).json({ error: 'Authentication required' });
+
+    const sessionData = await MasterDB.getSession(token, req);
+    if (!sessionData?.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const redirectUrl = await createWebSsoRedirectUrl(returnTo, sessionData.user, req);
+    return res.json({ redirectUrl });
+  } catch (err) {
+    console.error('Web SSO session handoff error:', err);
+    return res.status(500).json({ error: 'Failed to start web SSO' });
   }
 });
 

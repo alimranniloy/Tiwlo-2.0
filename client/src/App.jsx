@@ -712,6 +712,40 @@ export default function App() {
       const ssoNonce = searchParams.get('sso_nonce');
       const returnTo = searchParams.get('return_to');
       const ssoLoginMode = searchParams.get('sso_login') === '1';
+      const webSsoReturnTo = searchParams.get('web_sso_return_to');
+      if (isDashboardSubdomain() && webSsoReturnTo) {
+        const safeReturnTo = getSafeReturnToTarget(webSsoReturnTo);
+        const dashboardSessionToken = localStorage.getItem('stockpro_session');
+        if (!safeReturnTo || !dashboardSessionToken) {
+          window.location.replace(
+            `${getAuthUrl('/login')}?return_to=${encodeURIComponent(webSsoReturnTo)}&sso_login=1`
+          );
+          return;
+        }
+        try {
+          const response = await fetch(`${API_BASE}/auth/sso/web-start`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${dashboardSessionToken}`
+            },
+            body: JSON.stringify({ return_to: safeReturnTo })
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok || typeof result.redirectUrl !== 'string') {
+            throw new Error(result.error || 'Could not continue to Tiwlo Mail.');
+          }
+          window.location.replace(result.redirectUrl);
+          return;
+        } catch (error) {
+          console.error('Dashboard web SSO handoff failed:', error);
+          window.location.replace(
+            `${getAuthUrl('/login')}?return_to=${encodeURIComponent(safeReturnTo)}&sso_login=1`
+          );
+          return;
+        }
+      }
       if (isAuthHost && returnTo && !ssoToken && !ssoLoginMode) {
         const bridgeUrl = `${getMainAppUrl('/api/auth/sso/web-start')}?return_to=${encodeURIComponent(returnTo)}`;
         window.location.replace(bridgeUrl);
