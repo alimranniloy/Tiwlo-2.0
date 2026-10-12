@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  getDashboardSsoBridgeUrl,
+  getWebSsoBridgeUrl,
   isAllowedWebSsoReturnUrl
 } from './webSsoReturnUrl.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
@@ -64,24 +64,31 @@ test('exposes the configured dashboard host to the SSO allowlist', () => {
   );
 });
 
-test('creates a OneProfile bridge only for an allowlisted TMail return URL', () => {
+test('creates a platform-origin bridge only for an allowlisted TMail return URL', () => {
   assert.equal(
-    getDashboardSsoBridgeUrl('https://tmail.tiwlo.com/inbox', {
-      dashboardUrl: 'https://uids.tiwlo.com',
+    getWebSsoBridgeUrl('https://tmail.tiwlo.com/inbox', {
+      platformUrl: 'https://tiwlo.com',
       ...hosts
     }),
-    'https://uids.tiwlo.com/oneprofile?web_sso_return_to=https%3A%2F%2Ftmail.tiwlo.com%2Finbox'
+    'https://tiwlo.com/?web_sso_return_to=https%3A%2F%2Ftmail.tiwlo.com%2Finbox'
   );
   assert.equal(
-    getDashboardSsoBridgeUrl('https://uids.tiwlo.com/oneprofile', {
-      dashboardUrl: 'https://uids.tiwlo.com',
+    getWebSsoBridgeUrl('https://uids.tiwlo.com/oneprofile', {
+      platformUrl: 'https://tiwlo.com',
       ...hosts
     }),
     null
   );
   assert.equal(
-    getDashboardSsoBridgeUrl('https://tmail.tiwlo.com/', {
-      dashboardUrl: 'https://evil.example',
+    getWebSsoBridgeUrl('https://tmail.tiwlo.com/', {
+      platformUrl: 'https://evil.example',
+      ...hosts
+    }),
+    null
+  );
+  assert.equal(
+    getWebSsoBridgeUrl('https://tmail.tiwlo.com/', {
+      platformUrl: 'http://tiwlo.com',
       ...hosts
     }),
     null

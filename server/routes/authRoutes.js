@@ -34,7 +34,7 @@ import { requireAdmin } from '../administrator/adminRoutes.js';
 import { SocialDB } from '../social/socialDb.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import {
-  getDashboardSsoBridgeUrl,
+  getWebSsoBridgeUrl,
   isAllowedWebSsoReturnUrl
 } from '../security/webSsoReturnUrl.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
@@ -1401,8 +1401,8 @@ router.get('/auth/sso/web-start', async (req, res) => {
 
     const token = getRequestSessionToken(req);
     if (!token) {
-      const dashboardBridgeUrl = getDashboardSsoBridgeUrl(returnTo, {
-        dashboardUrl: PLATFORM_CONFIG.dashboardUrl,
+      const dashboardBridgeUrl = getWebSsoBridgeUrl(returnTo, {
+        platformUrl: `https://${PLATFORM_CONFIG.primaryDomain}`,
         dashboardHost: PLATFORM_CONFIG.dashboardHost,
         mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`
       });
@@ -1412,8 +1412,8 @@ router.get('/auth/sso/web-start', async (req, res) => {
 
     const sessionData = await MasterDB.getSession(token, req);
     if (!sessionData?.user) {
-      const dashboardBridgeUrl = getDashboardSsoBridgeUrl(returnTo, {
-        dashboardUrl: PLATFORM_CONFIG.dashboardUrl,
+      const dashboardBridgeUrl = getWebSsoBridgeUrl(returnTo, {
+        platformUrl: `https://${PLATFORM_CONFIG.primaryDomain}`,
         dashboardHost: PLATFORM_CONFIG.dashboardHost,
         mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`
       });

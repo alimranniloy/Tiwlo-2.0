@@ -713,12 +713,28 @@ export default function App() {
       const returnTo = searchParams.get('return_to');
       const ssoLoginMode = searchParams.get('sso_login') === '1';
       const webSsoReturnTo = searchParams.get('web_sso_return_to');
-      if (isDashboardSubdomain() && webSsoReturnTo) {
+      const isPlatformHost = window.location.hostname.toLowerCase() ===
+        new URL(getMainAppUrl()).hostname.toLowerCase();
+      if ((isDashboardSubdomain() || isPlatformHost) && webSsoReturnTo) {
         const safeReturnTo = getSafeReturnToTarget(webSsoReturnTo);
+        if (!safeReturnTo) {
+          window.location.replace(getAuthUrl('/login'));
+          return;
+        }
         const dashboardSessionToken = localStorage.getItem('stockpro_session');
-        if (!safeReturnTo || !dashboardSessionToken) {
+        const redirectToDashboardBridge = () => {
+          const dashboardBridge = new URL(getDashboardUrl('/oneprofile'));
+          dashboardBridge.searchParams.set('web_sso_return_to', safeReturnTo);
+          dashboardBridge.searchParams.set('web_sso_fallback', 'uids');
+          window.location.replace(dashboardBridge.toString());
+        };
+        if (!dashboardSessionToken) {
+          if (isPlatformHost && searchParams.get('web_sso_fallback') !== 'uids') {
+            redirectToDashboardBridge();
+            return;
+          }
           window.location.replace(
-            `${getAuthUrl('/login')}?return_to=${encodeURIComponent(webSsoReturnTo)}&sso_login=1`
+            `${getAuthUrl('/login')}?return_to=${encodeURIComponent(safeReturnTo)}&sso_login=1`
           );
           return;
         }
@@ -734,6 +750,10 @@ export default function App() {
           });
           const result = await response.json().catch(() => ({}));
           if (!response.ok || typeof result.redirectUrl !== 'string') {
+            if (isPlatformHost && response.status === 401) {
+              redirectToDashboardBridge();
+              return;
+            }
             throw new Error(result.error || 'Could not continue to Tiwlo Mail.');
           }
           window.location.replace(result.redirectUrl);
