@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { isAllowedWebSsoReturnUrl } from './webSsoReturnUrl.js';
+import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 
 const hosts = {
   dashboardHost: 'uids.tiwlo.com',
@@ -44,4 +45,18 @@ test('rejects non-HTTPS and untrusted SSO return URLs', () => {
     false
   );
   assert.equal(isAllowedWebSsoReturnUrl('/oneprofile', hosts), false);
+});
+
+test('exposes the configured dashboard host to the SSO allowlist', () => {
+  assert.equal(typeof PLATFORM_CONFIG.dashboardHost, 'string');
+  assert.equal(
+    isAllowedWebSsoReturnUrl(
+      `${PLATFORM_CONFIG.dashboardUrl}/oneprofile`,
+      {
+        dashboardHost: PLATFORM_CONFIG.dashboardHost,
+        mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`
+      }
+    ),
+    true
+  );
 });

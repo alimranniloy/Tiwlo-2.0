@@ -10,9 +10,11 @@ export function isAllowedWebSsoReturnUrl(returnTo, { dashboardHost, mailHost }) 
     }
 
     const hostname = target.hostname.toLowerCase();
-    const isDashboardReturn = hostname === dashboardHost.toLowerCase() &&
+    const isDashboardReturn = typeof dashboardHost === 'string' &&
+      hostname === dashboardHost.toLowerCase() &&
       /^\/oneprofile(?:\/|$)/i.test(target.pathname);
-    const isMailReturn = hostname === mailHost.toLowerCase();
+    const isMailReturn = typeof mailHost === 'string' &&
+      hostname === mailHost.toLowerCase();
     return isDashboardReturn || isMailReturn;
   } catch {
     return false;
