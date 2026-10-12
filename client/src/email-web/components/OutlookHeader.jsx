@@ -16,7 +16,8 @@ import {
   HardDrive,
   X,
   CheckCircle2,
-  Moon
+  Moon,
+  Users
 } from 'lucide-react';
 import { useEmail } from '../context/EmailContext';
 import { getDashboardUrl, getMainAppUrl, getAuthUrl } from '../../utils/navigation';
