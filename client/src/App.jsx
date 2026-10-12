@@ -900,7 +900,8 @@ export default function App() {
         if (!isPublicPath || isTpanelRoute || isDashboardSubdomain()) {
           if (isMailSubdomain()) {
             const returnTo = getMailUrl(window.location.pathname + window.location.search + window.location.hash);
-            window.location.replace(getAuthUrl(`/login?return_to=${encodeURIComponent(returnTo)}`));
+            const bridgeUrl = `${getMainAppUrl('/api/auth/sso/web-start')}?return_to=${encodeURIComponent(returnTo)}`;
+            window.location.replace(bridgeUrl);
           } else if (isTPanelSubdomain()) {
             const returnTo = getTPanelUrl(path === 'tpanel' || path.startsWith('tpanel/') ? `/${path}` : '/');
             window.location.replace(getAuthUrl(`/login?return_to=${encodeURIComponent(returnTo)}&sso_login=1`));
