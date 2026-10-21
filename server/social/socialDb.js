@@ -538,6 +538,15 @@ export const SocialDB = {
     if (clean.startsWith('@')) clean = clean.substring(1);
     if (!clean) return false;
 
+    const persistedHandle = await queryPg(
+      `SELECT id FROM social_profiles
+       WHERE LOWER(BTRIM(handle)) IN ($1, '@' || $1)
+         AND ($2::text IS NULL OR id <> $2)
+       LIMIT 1`,
+      [clean, excludeUserId]
+    );
+    if (persistedHandle.rows[0]) return true;
+
     const data = (await this.getData());
     const profiles = data.profiles || {};
 

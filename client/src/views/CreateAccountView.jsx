@@ -33,7 +33,13 @@ export default function CreateAccountView({
   initialSsoData = null
 }) {
   // Stepper state: 1, 2, 3, 4 (Verify Email), 5 (Setup 2FA) or 'success'
-  const [step, setStep] = useState(1);
+  const [socialProfileMode] = useState(() =>
+    new URLSearchParams(window.location.search).get('social_profile') === 'required'
+  );
+  const [socialProfileChallengeToken] = useState(() =>
+    new URLSearchParams(window.location.hash.slice(1)).get('social_profile_token') || ''
+  );
+  const [step, setStep] = useState(socialProfileMode ? 2 : 1);
   const [socialProviders, setSocialProviders] = useState({ google: false, github: false });
 
   // Form State
@@ -98,6 +104,7 @@ export default function CreateAccountView({
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [socialProfileLoading, setSocialProfileLoading] = useState(socialProfileMode);
   const [errorMsg, setErrorMsg] = useState('');
   const [createdResult, setCreatedResult] = useState(null);
   const [copiedId, setCopiedId] = useState(false);
@@ -125,6 +132,69 @@ export default function CreateAccountView({
   const [handleError, setHandleError] = useState('');
   const [handleAvailable, setHandleAvailable] = useState(false);
   const [isCheckingHandle, setIsCheckingHandle] = useState(false);
+
+  useEffect(() => {
+    if (!socialProfileMode) return undefined;
+    let active = true;
+    const headers = socialProfileChallengeToken
+      ? { 'X-Social-Profile-Challenge': socialProfileChallengeToken }
+      : {};
+    const profileRequest = fetch(`${API_BASE}/auth/social/profile-challenge`, {
+      credentials: 'include',
+      headers
+    });
+    if (socialProfileChallengeToken) {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+    }
+    profileRequest
+      .then(async response => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.profile) {
+          throw new Error(result.error || 'Profile completion session expired. Please sign in again.');
+        }
+        const profile = result.profile;
+        const [birthYear = '', birthMonth = '', birthDay = ''] = (profile.dateOfBirth || '').split('-');
+        const matchedCountry = COUNTRY_OPTIONS.find(country => country.name === profile.country) || COUNTRY_OPTIONS[0];
+        const rawPhone = profile.phone || '';
+        const phoneCountry = COUNTRY_OPTIONS.find(country => rawPhone.startsWith(country.dial)) || matchedCountry;
+        const phoneNational = rawPhone.startsWith(phoneCountry.dial)
+          ? rawPhone.slice(phoneCountry.dial.length).trim()
+          : rawPhone;
+        const suggestedHandle = (profile.handle || profile.name || profile.email?.split('@')[0] || '')
+          .replace(/^@/, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, '')
+          .slice(0, 30);
+        setSelectedCountry(phoneCountry);
+        setFormData(current => ({
+          ...current,
+          email: profile.email || '',
+          handle: suggestedHandle,
+          accountType: 'personal',
+          fullName: profile.name || '',
+          birthMonth,
+          birthDay,
+          birthYear,
+          gender: profile.gender || '',
+          dateOfBirth: profile.dateOfBirth || '',
+          phoneCountryCode: phoneCountry.dial,
+          phoneNational,
+          phone: rawPhone,
+          address: profile.address || '',
+          addressLine2: profile.addressLine2 || '',
+          city: profile.city || '',
+          postalCode: profile.postalCode || '',
+          country: profile.country || matchedCountry.name
+        }));
+      })
+      .catch(error => {
+        if (active) setErrorMsg(error.message);
+      })
+      .finally(() => {
+        if (active) setSocialProfileLoading(false);
+      });
+    return () => { active = false; };
+  }, [socialProfileMode, socialProfileChallengeToken]);
 
   useEffect(() => {
     let active = true;
@@ -185,25 +255,43 @@ export default function CreateAccountView({
 
   // Live Sync: Check handle/username uniqueness in real-time
   useEffect(() => {
+    let active = true;
     let raw = formData.handle?.trim().toLowerCase() || '';
     if (raw.startsWith('@')) raw = raw.substring(1);
     if (!raw) {
       setHandleError('');
       setHandleAvailable(false);
-      return;
+      return () => { active = false; };
     }
 
     if (!/^[a-zA-Z0-9_]{3,30}$/.test(raw)) {
       setHandleError('Username must be 3-30 letters, numbers, or underscores.');
       setHandleAvailable(false);
-      return;
+      return () => { active = false; };
     }
 
     const timer = setTimeout(async () => {
       try {
         setIsCheckingHandle(true);
-        const res = await fetch(`${API_BASE}/auth/check-availability?handle=${encodeURIComponent(raw)}`);
+        const res = socialProfileMode
+          ? await fetch(`${API_BASE}/auth/social/check-handle`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(socialProfileChallengeToken
+                ? { 'X-Social-Profile-Challenge': socialProfileChallengeToken }
+                : {})
+            },
+            body: JSON.stringify({
+              handle: raw,
+              challengeToken: socialProfileChallengeToken || undefined
+            })
+          })
+          : await fetch(`${API_BASE}/auth/check-availability?handle=${encodeURIComponent(raw)}`);
         const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not check username availability.');
+        if (!active) return;
         if (data && !data.handleAvailable) {
           setHandleError(data.handleError || 'That username is already taken. Try another.');
           setHandleAvailable(false);
@@ -213,15 +301,20 @@ export default function CreateAccountView({
         }
       } catch (err) {
         console.error('Handle check error:', err);
-        setHandleError('Could not check username availability. Please try again.');
-        setHandleAvailable(false);
+        if (active) {
+          setHandleError(err.message || 'Could not check username availability. Please try again.');
+          setHandleAvailable(false);
+        }
       } finally {
-        setIsCheckingHandle(false);
+        if (active) setIsCheckingHandle(false);
       }
     }, 350);
 
-    return () => clearTimeout(timer);
-  }, [formData.handle]);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [formData.handle, socialProfileMode, socialProfileChallengeToken]);
 
   // Cooldown countdown timer for OTP resend
   useEffect(() => {
@@ -264,6 +357,11 @@ export default function CreateAccountView({
 
   const updateField = (field, val) => {
     setFormData(prev => ({ ...prev, [field]: val }));
+    if (field === 'handle') {
+      setHandleAvailable(false);
+      setHandleError('');
+      setIsCheckingHandle(false);
+    }
     setErrorMsg('');
   };
 
@@ -354,7 +452,7 @@ export default function CreateAccountView({
   };
 
   // Step 2 Validation & Next
-  const handleStep2Submit = (e) => {
+  const handleStep2Submit = async (e) => {
     e.preventDefault();
     if (!formData.accountType) {
       setErrorMsg('Please select an account type (Personal or Business).');
@@ -418,6 +516,87 @@ export default function CreateAccountView({
     const birthFormatted = (formData.birthYear && formData.birthMonth && formData.birthDay)
       ? `${monthObj ? monthObj.name : formData.birthMonth} ${formData.birthDay}, ${formData.birthYear}`
       : (formData.dateOfBirth || '');
+
+    if (socialProfileMode) {
+      const handle = (formData.handle || '').trim().replace(/^@/, '').toLowerCase();
+      if (!/^[a-z0-9_]{3,30}$/.test(handle)) {
+        setHandleError('Username must be 3-30 letters, numbers, or underscores.');
+        setErrorMsg('Choose a valid username.');
+        return;
+      }
+      if (isCheckingHandle || !handleAvailable || handleError) {
+        setErrorMsg(handleError || 'Wait for the username availability check to finish.');
+        return;
+      }
+      const phoneDigits = completePhone.replace(/\D/g, '');
+      if (phoneDigits.length < 7 || phoneDigits.length > 15) {
+        setErrorMsg('Please enter a valid phone number.');
+        return;
+      }
+      if (!formData.city.trim() || !formData.country) {
+        setErrorMsg('Please enter your city and country.');
+        return;
+      }
+      const fullAddress = [
+        formData.address.trim(),
+        formData.addressLine2.trim(),
+        formData.city.trim(),
+        formData.postalCode.trim(),
+        formData.country
+      ].filter(Boolean).join(', ');
+      if (fullAddress.length > 2000) {
+        setErrorMsg('Your address must be 2,000 characters or fewer.');
+        return;
+      }
+
+      setLoading(true);
+      setErrorMsg('');
+      try {
+        const response = await fetch(`${API_BASE}/auth/social/complete-profile`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(socialProfileChallengeToken
+              ? { 'X-Social-Profile-Challenge': socialProfileChallengeToken }
+              : {})
+          },
+          body: JSON.stringify({
+            challengeToken: socialProfileChallengeToken || undefined,
+            name: effectiveName,
+            handle,
+            dateOfBirth: `${formData.birthYear}-${formData.birthMonth}-${formData.birthDay.padStart(2, '0')}`,
+            address: fullAddress,
+            phone: completePhone,
+            city: formData.city.trim(),
+            country: formData.country,
+            postalCode: formData.postalCode.trim(),
+            gender: formData.gender
+          })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success) {
+          if (response.status === 409) {
+            setHandleAvailable(false);
+            setHandleError(result.error || 'That username is already taken. Choose another.');
+          }
+          throw new Error(result.error || 'Could not save your profile. Please try again.');
+        }
+        const loginParams = new URLSearchParams({
+          social_flow: '1',
+          social_challenge: result.challenge,
+          social_email: result.emailMasked || ''
+        });
+        const returnTo = new URLSearchParams(window.location.search).get('return_to');
+        if (returnTo) loginParams.set('return_to', returnTo);
+        window.location.replace(`/login?${loginParams.toString()}`);
+      } catch (error) {
+        setErrorMsg(error.message || 'Could not save your profile. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
 
     // Prepare primary billing address from step 2
     const primaryAddr = {
@@ -873,8 +1052,10 @@ export default function CreateAccountView({
         };
       case 2:
         return {
-          title: 'Choose your account type',
-          subtitle: "Select how you'll use Tiwlo and enter your verified profile details."
+          title: socialProfileMode ? 'Complete your profile' : 'Choose your account type',
+          subtitle: socialProfileMode
+            ? 'Your provider email is verified. Add your account details to continue.'
+            : "Select how you'll use Tiwlo and enter your verified profile details."
         };
       case 3:
         return {
@@ -961,12 +1142,14 @@ export default function CreateAccountView({
                 <div className="flex items-center justify-between text-[12px] text-[#444746] mb-2 font-medium">
                   <span>
                     {step === 1 && "Step 1: Account credentials"}
-                    {step === 2 && "Step 2: Profile & account type"}
+                    {step === 2 && (socialProfileMode ? 'Complete your profile' : 'Step 2: Profile & account type')}
                     {step === 3 && "Step 3: Billing address"}
                     {step === 4 && "Step 4: Email confirmation"}
                     {step === 5 && "Step 5: 2-Step Verification"}
                   </span>
-                  <span className="font-mono text-[#747775]">Step {step} of 5</span>
+                  <span className="font-mono text-[#747775]">
+                    {socialProfileMode ? 'Profile details' : `Step ${step} of 5`}
+                  </span>
                 </div>
                 <div className="w-full bg-[#e0e2ec] h-1 rounded-full overflow-hidden">
                   <div
@@ -1237,6 +1420,15 @@ export default function CreateAccountView({
               {/* ======================================================== */}
               {step === 2 && (
                 <form onSubmit={handleStep2Submit} className="space-y-4">
+                  {socialProfileMode && socialProfileLoading && (
+                    <p className="text-sm text-[#5f6368]" role="status">Loading your verified profile…</p>
+                  )}
+                  {socialProfileMode && !socialProfileLoading && formData.email && (
+                    <div className="rounded-[8px] border border-[#d2e3fc] bg-[#e8f0fe] p-3 text-[13px] text-[#174ea6]">
+                      Verified email: <span className="font-medium">{formData.email}</span>
+                    </div>
+                  )}
+
                   {/* SSO Verified Chip */}
                   {formData.isSso && (
                     <div className="p-3 rounded-[8px] bg-[#e8f0fe] border border-[#d2e3fc] flex items-center justify-between text-xs">
@@ -1256,8 +1448,54 @@ export default function CreateAccountView({
                     </div>
                   )}
 
+                  {socialProfileMode && (
+                    <div>
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <label className="block text-[13px] font-medium text-[#1f1f1f]">
+                          Username (@handle) <span className="text-[#d93025]">*</span>
+                        </label>
+                        {isCheckingHandle && <RotateCw className="h-4 w-4 animate-spin text-[#747775]" />}
+                        {handleAvailable && !isCheckingHandle && (
+                          <span className="flex items-center gap-1 rounded-full bg-[#e6f4ea] px-2 py-0.5 text-[11px] font-medium text-[#137333]">
+                            <Check className="h-3 w-3" /> Available
+                          </span>
+                        )}
+                      </div>
+                      <div className="relative">
+                        <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-[14px] font-medium text-[#747775]">@</span>
+                        <input
+                          type="text"
+                          value={formData.handle?.replace(/^@/, '') || ''}
+                          onChange={event => {
+                            updateField('handle', event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 30));
+                            setHandleAvailable(false);
+                            setHandleError('');
+                          }}
+                          placeholder="username"
+                          minLength={3}
+                          maxLength={30}
+                          required
+                          aria-describedby={handleError ? 'social-handle-error' : undefined}
+                          className={`w-full rounded-[4px] border py-3 pl-8 pr-10 text-[14px] text-[#1f1f1f] outline-none transition-colors placeholder:text-[#747775] ${
+                            handleError
+                              ? 'border-[#d93025] focus:border-[#d93025] focus:ring-1 focus:ring-[#d93025]'
+                              : handleAvailable
+                                ? 'border-[#137333] focus:border-[#137333] focus:ring-1 focus:ring-[#137333]'
+                                : 'border-[#747775] focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0]'
+                          }`}
+                        />
+                      </div>
+                      {handleError && (
+                        <div id="social-handle-error" className="mt-1.5 flex items-center gap-1.5 text-[12px] text-[#d93025]" role="alert">
+                          <AlertCircle className="h-4 w-4 shrink-0" />
+                          <span>{handleError}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Account Type Selection Tiles (Google Style) */}
-                  <div>
+                  {!socialProfileMode && <div>
                     <label className="block text-[13px] font-medium text-[#1f1f1f] mb-2">
                       Account Type <span className="text-[#d93025]">*</span>
                     </label>
@@ -1302,7 +1540,7 @@ export default function CreateAccountView({
                         <div className="text-[12px] text-[#747775]">For merchant or retailer</div>
                       </button>
                     </div>
-                  </div>
+                  </div>}
 
                   {/* Personal vs Business Fields */}
                   {formData.accountType === 'personal' ? (
@@ -1514,7 +1752,7 @@ export default function CreateAccountView({
                   {/* Phone with Country Code Selector (Google Style) */}
                   <div>
                     <label className="block text-[13px] font-medium text-[#1f1f1f] mb-1.5">
-                      Phone Number
+                      Phone Number {socialProfileMode && <span className="text-[#d93025]">*</span>}
                     </label>
                     <div className="relative flex rounded-[4px] border border-[#747775] focus-within:border-[#0b57d0] focus-within:ring-1 focus-within:ring-[#0b57d0] transition-colors bg-white">
                       {/* Country Code Trigger */}
@@ -1538,6 +1776,8 @@ export default function CreateAccountView({
                           updateField('phone', val ? `${selectedCountry.dial} ${val}` : '');
                         }}
                         placeholder={selectedCountry.placeholder}
+                        required={socialProfileMode}
+                        autoComplete="tel-national"
                         className="w-full px-3.5 py-2.5 text-[14px] text-[#1f1f1f] outline-none bg-transparent placeholder:text-[#747775]"
                       />
 
@@ -1622,9 +1862,10 @@ export default function CreateAccountView({
 
                     <button
                       type="submit"
-                      className="bg-[#0b57d0] hover:bg-[#0842a0] active:bg-[#062e6f] text-white rounded-full px-7 h-10 font-medium text-[14px] shadow-xs cursor-pointer inline-flex items-center gap-2 transition-all"
+                      disabled={loading || socialProfileLoading || (socialProfileMode && (!handleAvailable || isCheckingHandle))}
+                      className="bg-[#0b57d0] hover:bg-[#0842a0] active:bg-[#062e6f] disabled:bg-slate-300 text-white rounded-full px-7 h-10 font-medium text-[14px] shadow-xs cursor-pointer inline-flex items-center gap-2 transition-all"
                     >
-                      <span>Next</span>
+                      <span>{loading ? 'Saving…' : socialProfileMode ? 'Continue' : 'Next'}</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>

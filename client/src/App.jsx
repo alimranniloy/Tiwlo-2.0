@@ -312,6 +312,7 @@ export default function App() {
         if (pathname === 'landing' || pathname === 'home') return 'landing';
 
         if (pathname === 'login' || pathname === 'signin') {
+          if (isAuthSubdomain()) return 'login';
           if (hostname.toLowerCase() === PLATFORM_DOMAIN || hostname.toLowerCase() === `www.${PLATFORM_DOMAIN}`) {
             return 'login';
           }
@@ -327,6 +328,7 @@ export default function App() {
         }
 
         if (pathname === 'create-account' || pathname === 'register' || pathname === 'signup' || pathname === 'create-store' || pathname.startsWith('create-store/')) {
+          if (isAuthSubdomain()) return 'create-account';
           if (hostname.toLowerCase() === PLATFORM_DOMAIN || hostname.toLowerCase() === `www.${PLATFORM_DOMAIN}`) {
             return 'create-account';
           }

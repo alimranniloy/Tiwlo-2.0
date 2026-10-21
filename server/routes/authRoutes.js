@@ -158,6 +158,19 @@ function getSocialLoginUrl(provider, { returnTo, error = '' } = {}) {
   return loginUrl.toString();
 }
 
+function getSocialProfileCompletionUrl(provider, { returnTo, challengeToken }) {
+  const authOrigin = PLATFORM_CONFIG.authDomain.startsWith('http')
+    ? PLATFORM_CONFIG.authDomain
+    : `https://${PLATFORM_CONFIG.authDomain}`;
+  const profileUrl = new URL('/create-account', authOrigin);
+  profileUrl.searchParams.set('social_flow', '1');
+  profileUrl.searchParams.set('social_profile', 'required');
+  profileUrl.searchParams.set('social_provider', provider);
+  if (returnTo) profileUrl.searchParams.set('return_to', returnTo);
+  profileUrl.hash = new URLSearchParams({ social_profile_token: challengeToken }).toString();
+  return profileUrl.toString();
+}
+
 function getSocialStateCookieOptions(req) {
   return {
     httpOnly: true,
@@ -407,10 +420,10 @@ async function completeSocialLogin(provider, req, res) {
         [hashSocialProfileChallenge(challengeToken), user.id]
       );
       res.cookie('tiwlo_social_profile', challengeToken, getSocialProfileChallengeCookieOptions(req));
-      const profileUrl = new URL(getSocialLoginUrl(provider, { returnTo: savedState.returnTo }));
-      profileUrl.searchParams.set('social_profile', 'required');
-      profileUrl.hash = new URLSearchParams({ social_profile_token: challengeToken }).toString();
-      return res.redirect(profileUrl.toString());
+      return res.redirect(getSocialProfileCompletionUrl(provider, {
+        returnTo: savedState.returnTo,
+        challengeToken
+      }));
     }
     const mfaMode = user.twoFactorEnabled ? 'login' : 'setup';
     const otp = await generateSecureOtp(
@@ -481,6 +494,38 @@ router.get('/auth/social/profile-challenge', async (req, res) => {
   }
 });
 
+router.post('/auth/social/check-handle', async (req, res) => {
+  const challengeToken = getSocialProfileChallengeToken(req);
+  const handle = typeof req.body?.handle === 'string' ? req.body.handle.trim() : '';
+  if (!challengeToken) return res.status(401).json({ error: 'Profile completion session expired. Please sign in again.' });
+  if (!/^[a-zA-Z0-9_]{3,30}$/.test(handle)) {
+    return res.status(422).json({
+      handleAvailable: false,
+      handleError: 'Username must be 3-30 letters, numbers, or underscores.'
+    });
+  }
+  try {
+    const { rows } = await queryPg(
+      `SELECT user_id FROM system_social_profile_challenges
+       WHERE token_hash = $1 AND expires_at > CURRENT_TIMESTAMP`,
+      [hashSocialProfileChallenge(challengeToken)]
+    );
+    if (!rows[0]) return res.status(401).json({ error: 'Profile completion session expired. Please sign in again.' });
+    const availability = await SocialDB.checkAvailability({
+      handle,
+      userId: rows[0].user_id
+    });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({
+      handleAvailable: availability.handleAvailable,
+      handleError: availability.handleError
+    });
+  } catch (error) {
+    console.error('[SocialAuth] Could not check profile username:', error.message);
+    return res.status(503).json({ error: 'Could not check username availability. Please try again.' });
+  }
+});
+
 router.post('/auth/social/complete-profile', async (req, res) => {
   const challengeToken = getSocialProfileChallengeToken(req);
   const dateOfBirth = req.body?.dateOfBirth;
@@ -520,6 +565,10 @@ router.post('/auth/social/complete-profile', async (req, res) => {
   let userId;
   try {
     await client.query('BEGIN');
+    await client.query(
+      'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+      [`social-handle:${handle}`]
+    );
     const challenge = await client.query(
       `SELECT user_id FROM system_social_profile_challenges
        WHERE token_hash = $1 AND expires_at > CURRENT_TIMESTAMP
@@ -537,11 +586,33 @@ router.post('/auth/social/complete-profile', async (req, res) => {
     }
     await client.query(
       `UPDATE system_users
-       SET name = $2, date_of_birth = $3::date, address = $4,
+       SET name = $2,
+           store_name = CASE WHEN COALESCE(account_type, 'personal') = 'personal' THEN $2 ELSE store_name END,
+           date_of_birth = $3::date, address = $4,
            phone = $5, city = $6, country = $7, postal_code = $8, updated_at = CURRENT_TIMESTAMP
        WHERE id = $1`,
       [userId, name, dateOfBirth, address, phone, city, country, postalCode]
     );
+    const socialProfileWrite = await client.query(
+      `INSERT INTO social_profiles
+         (id, tiwi_id, name, handle, location, phone, gender, birthday, updated_at)
+       SELECT id, tiwi_id, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP
+       FROM system_users
+       WHERE id = $1
+       ON CONFLICT (id) DO UPDATE SET
+         name = EXCLUDED.name,
+         handle = EXCLUDED.handle,
+         location = EXCLUDED.location,
+         phone = EXCLUDED.phone,
+         gender = EXCLUDED.gender,
+         birthday = EXCLUDED.birthday,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING id`,
+      [userId, name, `@${handle}`, `${city}, ${country}`, phone, gender || 'Rather not say', dateOfBirth]
+    );
+    if (!socialProfileWrite.rows[0]) {
+      throw new Error('Could not persist the social username.');
+    }
     await client.query('COMMIT');
 
     const user = await MasterDB.findUserByIdentifier(userId);
@@ -598,6 +669,9 @@ router.post('/auth/social/complete-profile', async (req, res) => {
     });
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
+    if (error.code === '23505') {
+      return res.status(409).json({ error: 'That username is already taken. Choose another.' });
+    }
     console.error('[SocialAuth] Could not complete required profile details:', error.message);
     return res.status(503).json({ error: 'Profile details could not be saved. Please try again.' });
   } finally {
