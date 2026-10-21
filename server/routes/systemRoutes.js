@@ -20,6 +20,10 @@ import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { MasterDB } from '../db/multiTenant.js';
 import { findActiveCustomDomain } from '../domains/domainService.js';
 import { listSecurityEvents } from '../db/securityPersistence.js';
+import {
+  getSocialProviderStatuses,
+  saveSocialProviderSettings
+} from '../security/socialAuth.js';
 
 const router = express.Router();
 
@@ -165,6 +169,34 @@ router.put('/system/settings', requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('[SystemRoutes] Failed to save PostgreSQL settings:', error);
     res.status(503).json({ error: 'System settings could not be saved because PostgreSQL is unavailable.' });
+  }
+});
+
+router.get('/admin/social-login', requireAdmin, async (_req, res) => {
+  try {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ success: true, providers: await getSocialProviderStatuses() });
+  } catch (error) {
+    console.error('[SystemRoutes] Failed to read social login settings:', error.message);
+    res.status(503).json({ error: 'Social login settings are currently unavailable.' });
+  }
+});
+
+router.put('/admin/social-login/:provider', requireAdmin, async (req, res) => {
+  try {
+    const { clientId, clientSecret, enabled } = req.body || {};
+    await saveSocialProviderSettings(req.params.provider, { clientId, clientSecret, enabled });
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      success: true,
+      providers: await getSocialProviderStatuses()
+    });
+  } catch (error) {
+    if (error instanceof TypeError) {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error('[SystemRoutes] Failed to save social login settings:', error.message);
+    res.status(503).json({ error: 'Social login settings could not be saved.' });
   }
 });
 

@@ -223,6 +223,10 @@ export const MasterDB = {
           fields.push(`address = $${valIndex++}`);
           values.push(String(updates.address));
         }
+        if (updates.dateOfBirth !== undefined) {
+          fields.push(`date_of_birth = $${valIndex++}::date`);
+          values.push(updates.dateOfBirth || null);
+        }
         if (updates.twoFactorEnabled !== undefined) {
           fields.push(`two_factor_enabled = $${valIndex++}`);
           values.push(Boolean(updates.twoFactorEnabled));

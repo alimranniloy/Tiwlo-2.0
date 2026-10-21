@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'node:crypto';
 import { MasterDB } from '../db/multiTenant.js';
 import { hasUnverifiedSsoIdentity } from '../security/authGuards.js';
 import {
@@ -40,7 +41,13 @@ import {
 import { recordSecurityEvent } from '../db/securityPersistence.js';
 import { securityLimiters, registrationGuards } from '../plugins/security/index.js';
 import { normalizeSignupEmail, isDuplicateAccountError, isDuplicateBrowserError } from '../security/signupIdentity.js';
-import { queryPg } from '../db/postgres.js';
+import { getPgPool, queryPg } from '../db/postgres.js';
+import {
+  findOrCreateSocialUser,
+  getSocialCallbackUrl,
+  getSocialProviderCredentials,
+  getSocialProviderStatuses
+} from '../security/socialAuth.js';
 
 const router = express.Router();
 
@@ -140,9 +147,407 @@ async function createWebSsoRedirectUrl(returnTo, user, req) {
   return target.toString();
 }
 
+function getSocialLoginUrl(provider, { returnTo, error = '' } = {}) {
+  const authOrigin = PLATFORM_CONFIG.authDomain.startsWith('http')
+    ? PLATFORM_CONFIG.authDomain
+    : `https://${PLATFORM_CONFIG.authDomain}`;
+  const loginUrl = new URL('/login', authOrigin);
+  if (returnTo) loginUrl.searchParams.set('return_to', returnTo);
+  if (error) loginUrl.searchParams.set('social_error', `${provider}:${error}`);
+  return loginUrl.toString();
+}
+
+function getSocialStateCookieOptions(req) {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production' || req.secure || req.headers['x-forwarded-proto'] === 'https',
+    sameSite: 'lax',
+    path: '/api/auth',
+    maxAge: 10 * 60 * 1000
+  };
+}
+
+function clearOAuthMfaCookie(res, req) {
+  const { maxAge, ...cookieOptions } = getSocialStateCookieOptions(req);
+  res.clearCookie('tiwlo_oauth_mfa', cookieOptions);
+}
+
+function getSocialProfileChallengeCookieOptions(req) {
+  return { ...getSocialStateCookieOptions(req), maxAge: 15 * 60 * 1000 };
+}
+
+function hashSocialProfileChallenge(token) {
+  return crypto.createHash('sha256').update(token).digest();
+}
+
+function isValidSocialBirthDate(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value &&
+    parsed <= new Date();
+}
+
+function sameState(left, right) {
+  if (typeof left !== 'string' || typeof right !== 'string') return false;
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function maskSocialEmail(email) {
+  return maskEmail(email);
+}
+
+async function readOAuthJson(url, options, provider) {
+  const response = await fetch(url, options);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(`${provider} returned an unsuccessful OAuth response.`);
+    error.status = response.status;
+    throw error;
+  }
+  return payload;
+}
+
+async function fetchSocialProfile(provider, code, credentials) {
+  const callbackUrl = getSocialCallbackUrl(provider);
+  if (provider === 'google') {
+    const token = await readOAuthJson('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+      body: new URLSearchParams({
+        code,
+        client_id: credentials.clientId,
+        client_secret: credentials.clientSecret,
+        redirect_uri: callbackUrl,
+        grant_type: 'authorization_code'
+      })
+    }, 'Google');
+    if (!token.access_token) throw new Error('Google did not return an access token.');
+    const profile = await readOAuthJson('https://openidconnect.googleapis.com/v1/userinfo', {
+      headers: { Authorization: `Bearer ${token.access_token}` }
+    }, 'Google');
+    if (profile.email_verified !== true || !profile.sub || !profile.email) {
+      throw new Error('Google account does not have a verified email address.');
+    }
+    let dateOfBirth = '';
+    let address = '';
+    try {
+      const personalProfile = await readOAuthJson(
+        'https://people.googleapis.com/v1/people/me?personFields=birthdays,addresses',
+        { headers: { Authorization: `Bearer ${token.access_token}` } },
+        'Google People API'
+      );
+      const birthday = personalProfile.birthdays?.find(item => item.metadata?.primary)?.date ||
+        personalProfile.birthdays?.[0]?.date;
+      if (birthday?.year && birthday.month && birthday.day) {
+        dateOfBirth = [
+          String(birthday.year).padStart(4, '0'),
+          String(birthday.month).padStart(2, '0'),
+          String(birthday.day).padStart(2, '0')
+        ].join('-');
+      }
+      address = personalProfile.addresses?.find(item => item.metadata?.primary)?.formattedValue ||
+        personalProfile.addresses?.find(item => item.formattedValue)?.formattedValue ||
+        '';
+    } catch (error) {
+      console.warn('[SocialAuth] Google did not provide optional birthday/address data:', error.message);
+    }
+    return {
+      providerUserId: String(profile.sub),
+      email: profile.email,
+      name: profile.name || profile.given_name || '',
+      avatar: profile.picture || '',
+      dateOfBirth,
+      address
+    };
+  }
+
+  const token = await readOAuthJson('https://github.com/login/oauth/access_token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+      client_id: credentials.clientId,
+      client_secret: credentials.clientSecret,
+      code,
+      redirect_uri: callbackUrl
+    })
+  }, 'GitHub');
+  if (!token.access_token) throw new Error('GitHub did not return an access token.');
+  const headers = {
+    Authorization: `Bearer ${token.access_token}`,
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28'
+  };
+  const [profile, emailList] = await Promise.all([
+    readOAuthJson('https://api.github.com/user', { headers }, 'GitHub'),
+    readOAuthJson('https://api.github.com/user/emails', { headers }, 'GitHub')
+  ]);
+  if (!Number.isSafeInteger(profile.id) || !Array.isArray(emailList)) {
+    throw new Error('GitHub returned an invalid identity response.');
+  }
+  const verifiedEmail = emailList.find(item => item.primary === true && item.verified === true) ||
+    emailList.find(item => item.verified === true);
+  if (!verifiedEmail?.email) throw new Error('GitHub account does not have a verified email address.');
+  return {
+    providerUserId: String(profile.id),
+    email: verifiedEmail.email,
+    name: profile.name || profile.login || '',
+    avatar: profile.avatar_url || '',
+    address: typeof profile.location === 'string' ? profile.location.trim() : ''
+  };
+}
+
+async function startSocialLogin(provider, req, res) {
+  const credentials = await getSocialProviderCredentials(provider);
+  if (!credentials) return res.status(503).send(`${provider} sign-in is not configured yet.`);
+
+  const defaultReturnTo = `${PLATFORM_CONFIG.dashboardUrl.replace(/\/+$/, '')}/oneprofile`;
+  const requestedReturnTo = typeof req.query.return_to === 'string'
+    ? req.query.return_to
+    : defaultReturnTo;
+  if (!isAllowedWebSsoReturnUrl(requestedReturnTo, {
+    dashboardHost: PLATFORM_CONFIG.dashboardHost,
+    mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`
+  })) {
+    return res.status(400).send('Invalid sign-in return destination.');
+  }
+
+  const state = crypto.randomBytes(32).toString('base64url');
+  const cookieName = `tiwlo_${provider}_oauth_state`;
+  res.cookie(cookieName, JSON.stringify({ state, returnTo: requestedReturnTo }), getSocialStateCookieOptions(req));
+  const callbackUrl = getSocialCallbackUrl(provider);
+
+  if (provider === 'google') {
+    const authorizeUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    authorizeUrl.search = new URLSearchParams({
+      client_id: credentials.clientId,
+      redirect_uri: callbackUrl,
+      response_type: 'code',
+      scope: [
+        'openid',
+        'email',
+        'profile',
+        'https://www.googleapis.com/auth/user.birthday.read',
+        'https://www.googleapis.com/auth/user.addresses.read'
+      ].join(' '),
+      state,
+      prompt: 'select_account'
+    }).toString();
+    return res.redirect(authorizeUrl.toString());
+  }
+
+  const authorizeUrl = new URL('https://github.com/login/oauth/authorize');
+  authorizeUrl.search = new URLSearchParams({
+    client_id: credentials.clientId,
+    redirect_uri: callbackUrl,
+    scope: 'read:user user:email',
+    state,
+    allow_signup: 'true'
+  }).toString();
+  return res.redirect(authorizeUrl.toString());
+}
+
+async function completeSocialLogin(provider, req, res) {
+  const callbackState = req.query.state;
+  const cookieName = `tiwlo_${provider}_oauth_state`;
+  const cookieOptions = getSocialStateCookieOptions(req);
+  let savedState;
+  try {
+    savedState = JSON.parse(req.cookies?.[cookieName] || 'null');
+  } catch {
+    savedState = null;
+  }
+  res.clearCookie(cookieName, { ...cookieOptions, maxAge: undefined });
+  if (!savedState || !sameState(callbackState, savedState.state) ||
+      typeof savedState.returnTo !== 'string' ||
+      !isAllowedWebSsoReturnUrl(savedState.returnTo, {
+        dashboardHost: PLATFORM_CONFIG.dashboardHost,
+        mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`
+      })) {
+    return res.status(400).send('Social sign-in could not verify the OAuth state. Please try again.');
+  }
+
+  if (typeof req.query.error === 'string' || typeof req.query.code !== 'string') {
+    return res.redirect(getSocialLoginUrl(provider, { returnTo: savedState.returnTo, error: 'cancelled' }));
+  }
+
+  try {
+    const credentials = await getSocialProviderCredentials(provider);
+    if (!credentials) {
+      return res.redirect(getSocialLoginUrl(provider, { returnTo: savedState.returnTo, error: 'unavailable' }));
+    }
+    const identity = await fetchSocialProfile(provider, req.query.code, credentials);
+    const user = await findOrCreateSocialUser({ provider, ...identity });
+    if (!user.dateOfBirth || !user.address?.trim()) {
+      const challengeToken = crypto.randomBytes(32).toString('base64url');
+      await queryPg(
+        'DELETE FROM system_social_profile_challenges WHERE expires_at <= CURRENT_TIMESTAMP'
+      );
+      await queryPg(
+        `INSERT INTO system_social_profile_challenges (token_hash, user_id, expires_at)
+         VALUES ($1, $2, CURRENT_TIMESTAMP + INTERVAL '15 minutes')`,
+        [hashSocialProfileChallenge(challengeToken), user.id]
+      );
+      res.cookie('tiwlo_social_profile', challengeToken, getSocialProfileChallengeCookieOptions(req));
+      const profileUrl = new URL(getSocialLoginUrl(provider, { returnTo: savedState.returnTo }));
+      profileUrl.searchParams.set('social_profile', 'required');
+      return res.redirect(profileUrl.toString());
+    }
+    const mfaMode = user.twoFactorEnabled ? 'login' : 'setup';
+    const otp = await generateSecureOtp(
+      user.email,
+      mfaMode === 'login' ? 'login_2fa' : 'setup_2fa',
+      mfaMode === 'login' ? 10 : 15
+    );
+    await sendTwoFactorOtpEmail({
+      to: user.email,
+      name: user.name || user.storeName,
+      code: otp.code
+    });
+    res.cookie('tiwlo_oauth_mfa', otp.token, {
+      ...getSocialStateCookieOptions(req),
+      maxAge: 15 * 60 * 1000
+    });
+    const loginUrl = new URL(getSocialLoginUrl(provider, { returnTo: savedState.returnTo }));
+    loginUrl.searchParams.set('social_challenge', mfaMode);
+    loginUrl.searchParams.set('social_email', maskSocialEmail(user.email));
+    return res.redirect(loginUrl.toString());
+  } catch (error) {
+    if (error.code === 'ACCOUNT_DISABLED') {
+      return res.redirect(getSocialLoginUrl(provider, { returnTo: savedState.returnTo, error: 'disabled' }));
+    }
+    console.error(`[SocialAuth] ${provider} callback failed:`, error.message);
+    return res.redirect(getSocialLoginUrl(provider, { returnTo: savedState.returnTo, error: 'failed' }));
+  }
+}
+
 // ==========================================
 // 1. SOCIAL SSO CHECK
 // ==========================================
+router.get('/auth/social/profile-challenge', async (req, res) => {
+  const challengeToken = req.cookies?.tiwlo_social_profile;
+  if (!challengeToken) return res.status(401).json({ error: 'Profile completion session expired. Please sign in again.' });
+  try {
+    const { rows } = await queryPg(
+      `SELECT u.name, u.store_name, u.email, u.date_of_birth, u.address, u.avatar
+       FROM system_social_profile_challenges c
+       JOIN system_users u ON u.id = c.user_id
+       WHERE c.token_hash = $1 AND c.expires_at > CURRENT_TIMESTAMP`,
+      [hashSocialProfileChallenge(challengeToken)]
+    );
+    if (!rows[0]) return res.status(401).json({ error: 'Profile completion session expired. Please sign in again.' });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({
+      success: true,
+      profile: {
+        name: rows[0].name || rows[0].store_name || '',
+        email: rows[0].email,
+        dateOfBirth: rows[0].date_of_birth ? String(rows[0].date_of_birth).slice(0, 10) : '',
+        address: rows[0].address || '',
+        avatar: rows[0].avatar || ''
+      }
+    });
+  } catch (error) {
+    console.error('[SocialAuth] Could not load required profile details:', error.message);
+    return res.status(503).json({ error: 'Required profile details are temporarily unavailable.' });
+  }
+});
+
+router.post('/auth/social/complete-profile', async (req, res) => {
+  const challengeToken = req.cookies?.tiwlo_social_profile;
+  const dateOfBirth = req.body?.dateOfBirth;
+  const address = typeof req.body?.address === 'string' ? req.body.address.trim() : '';
+  if (!challengeToken) return res.status(401).json({ error: 'Profile completion session expired. Please sign in again.' });
+  if (!isValidSocialBirthDate(dateOfBirth)) {
+    return res.status(422).json({ error: 'Enter a valid date of birth that is not in the future.' });
+  }
+  if (!address || address.length > 2000) {
+    return res.status(422).json({ error: 'Enter an address up to 2,000 characters.' });
+  }
+
+  const pool = getPgPool();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const challenge = await client.query(
+      `SELECT user_id FROM system_social_profile_challenges
+       WHERE token_hash = $1 AND expires_at > CURRENT_TIMESTAMP
+       FOR UPDATE`,
+      [hashSocialProfileChallenge(challengeToken)]
+    );
+    if (!challenge.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(401).json({ error: 'Profile completion session expired. Please sign in again.' });
+    }
+    await client.query(
+      `UPDATE system_users
+       SET date_of_birth = $2::date, address = $3, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [challenge.rows[0].user_id, dateOfBirth, address]
+    );
+    await client.query(
+      'DELETE FROM system_social_profile_challenges WHERE token_hash = $1',
+      [hashSocialProfileChallenge(challengeToken)]
+    );
+    await client.query('COMMIT');
+
+    const user = await MasterDB.findUserByIdentifier(challenge.rows[0].user_id);
+    if (!user) throw new Error('Could not resolve the account after profile completion.');
+    const mfaMode = user.twoFactorEnabled ? 'login' : 'setup';
+    const otp = await generateSecureOtp(
+      user.email,
+      mfaMode === 'login' ? 'login_2fa' : 'setup_2fa',
+      mfaMode === 'login' ? 10 : 15
+    );
+    await sendTwoFactorOtpEmail({
+      to: user.email,
+      name: user.name || user.storeName,
+      code: otp.code
+    });
+    res.clearCookie('tiwlo_social_profile', {
+      ...getSocialProfileChallengeCookieOptions(req),
+      maxAge: undefined
+    });
+    res.cookie('tiwlo_oauth_mfa', otp.token, {
+      ...getSocialStateCookieOptions(req),
+      maxAge: 15 * 60 * 1000
+    });
+    return res.json({
+      success: true,
+      challenge: mfaMode,
+      emailMasked: maskSocialEmail(user.email),
+      message: 'Profile saved. A verification code has been sent to your email.'
+    });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('[SocialAuth] Could not complete required profile details:', error.message);
+    return res.status(503).json({ error: 'Profile details could not be saved. Please try again.' });
+  } finally {
+    client.release();
+  }
+});
+
+router.get('/auth/social/providers', async (_req, res) => {
+  try {
+    const providers = await getSocialProviderStatuses();
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      google: providers.google.enabled,
+      github: providers.github.enabled
+    });
+  } catch (error) {
+    console.error('[SocialAuth] Could not read provider status:', error.message);
+    res.status(503).json({ error: 'Social sign-in status is unavailable.' });
+  }
+});
+
+router.get('/auth/google', (req, res, next) => startSocialLogin('google', req, res).catch(next));
+router.get('/auth/google/callback', (req, res) => completeSocialLogin('google', req, res));
+router.get('/auth/github', (req, res, next) => startSocialLogin('github', req, res).catch(next));
+router.get('/auth/github/callback', (req, res) => completeSocialLogin('github', req, res));
+
 router.post('/auth/social-check', (_req, res) => {
   return res.status(503).json({
     error: 'Google and GitHub sign-in are unavailable until provider identity tokens can be verified securely.'
@@ -426,7 +831,7 @@ router.post('/auth/login', securityLimiters.login, async (req, res) => {
     }
 
     const user = await MasterDB.findUserByIdentifier(cleanId);
-    const passwordCheck = user
+    const passwordCheck = user?.password
       ? await verifyPasswordWithRust(user.id, password)
       : { valid: false, rehashPerformed: false };
 
@@ -569,7 +974,8 @@ router.post('/auth/login', securityLimiters.login, async (req, res) => {
 // Verify 2FA
 router.post('/auth/verify-2fa', async (req, res) => {
   try {
-    const { tempToken, otpCode } = req.body;
+    const tempToken = req.body?.tempToken || req.cookies?.tiwlo_oauth_mfa;
+    const { otpCode } = req.body || {};
     if (!tempToken || !otpCode) {
       return res.status(400).json({ error: 'Verification token and 6-digit code are required.' });
     }
@@ -590,6 +996,7 @@ router.post('/auth/verify-2fa', async (req, res) => {
 
     const { sessionToken } = verification;
     setSessionCookie(res, req, sessionToken);
+    clearOAuthMfaCookie(res, req);
 
     (await logActivity('auth', `User completed 2FA login`, `Store: ${user.storeName} (${tiwiId})`, tiwiId));
 
@@ -637,7 +1044,7 @@ router.post('/auth/verify-2fa', async (req, res) => {
 // Resend 2FA
 router.post('/auth/resend-2fa', async (req, res) => {
   try {
-    const { tempToken } = req.body;
+    const tempToken = req.body?.tempToken || req.cookies?.tiwlo_oauth_mfa;
     if (!tempToken) {
       return res.status(400).json({ error: 'Temporary verification token is required.' });
     }
@@ -654,6 +1061,12 @@ router.post('/auth/resend-2fa', async (req, res) => {
 
     await deleteOtpSession(tempToken);
     const newOtp = await generateSecureOtp(user.email, 'login_2fa', 10);
+    if (req.cookies?.tiwlo_oauth_mfa) {
+      res.cookie('tiwlo_oauth_mfa', newOtp.token, {
+        ...getSocialStateCookieOptions(req),
+        maxAge: 15 * 60 * 1000
+      });
+    }
     const [u, d] = user.email.split('@');
     const masked = `${u[0]}***@${d}`;
 
@@ -682,7 +1095,7 @@ router.post('/auth/resend-2fa', async (req, res) => {
 // Resend 2FA Setup Code
 router.post('/auth/resend-setup-2fa', async (req, res) => {
   try {
-    const { tempToken } = req.body;
+    const tempToken = req.body?.tempToken || req.cookies?.tiwlo_oauth_mfa;
     if (!tempToken) {
       return res.status(400).json({ error: 'Temporary verification token is required.' });
     }
@@ -699,6 +1112,12 @@ router.post('/auth/resend-setup-2fa', async (req, res) => {
 
     await deleteOtpSession(tempToken);
     const newOtp = await generateSecureOtp(user.email, 'setup_2fa', 15);
+    if (req.cookies?.tiwlo_oauth_mfa) {
+      res.cookie('tiwlo_oauth_mfa', newOtp.token, {
+        ...getSocialStateCookieOptions(req),
+        maxAge: 15 * 60 * 1000
+      });
+    }
     const [u, d] = user.email.split('@');
     const masked = `${u[0]}***@${d}`;
 
@@ -727,7 +1146,8 @@ router.post('/auth/resend-setup-2fa', async (req, res) => {
 // Setup 2FA
 router.post('/auth/setup-2fa', async (req, res) => {
   try {
-    const { tempToken, otpCode } = req.body;
+    const tempToken = req.body?.tempToken || req.cookies?.tiwlo_oauth_mfa;
+    const { otpCode } = req.body || {};
     if (!tempToken || !otpCode) {
       return res.status(400).json({ error: 'Verification token and 6-digit code are required.' });
     }
@@ -747,6 +1167,7 @@ router.post('/auth/setup-2fa', async (req, res) => {
 
     const { sessionToken } = await MasterDB.createSession(user.id, tiwiId, user.email, req);
     setSessionCookie(res, req, sessionToken);
+    clearOAuthMfaCookie(res, req);
 
     (await logActivity('auth', `User completed 2FA setup & signed in`, `Store: ${user.storeName} (${tiwiId})`, tiwiId));
 
@@ -794,7 +1215,7 @@ router.post('/auth/setup-2fa', async (req, res) => {
 // Resend Setup 2FA
 router.post('/auth/resend-setup-2fa', async (req, res) => {
   try {
-    const { tempToken } = req.body;
+    const tempToken = req.body?.tempToken || req.cookies?.tiwlo_oauth_mfa;
     if (!tempToken) {
       return res.status(400).json({ error: 'Temporary verification token is required.' });
     }
@@ -811,6 +1232,12 @@ router.post('/auth/resend-setup-2fa', async (req, res) => {
 
     await deleteOtpSession(tempToken);
     const newOtp = await generateSecureOtp(user.email, 'setup_2fa', 15);
+    if (req.cookies?.tiwlo_oauth_mfa) {
+      res.cookie('tiwlo_oauth_mfa', newOtp.token, {
+        ...getSocialStateCookieOptions(req),
+        maxAge: 15 * 60 * 1000
+      });
+    }
     const masked = maskEmail(user.email);
 
     const emailResult = await sendTwoFactorOtpEmail({
@@ -1604,22 +2031,59 @@ router.put('/auth/profile', async (req, res) => {
     const userId = sessionData?.user?.id || req.activeUser?.id || req.user?.id || req.session?.userId;
     if (!userId) return res.status(401).json({ error: 'Authentication required' });
 
-    const { name, storeName, avatar, coverPhoto } = req.body;
+    const { name, storeName, avatar, coverPhoto, address, dateOfBirth } = req.body;
     const updates = {};
     if (name) updates.name = name;
     if (storeName) updates.storeName = storeName;
-    if (avatar) updates.avatar = avatar;
+    if (avatar !== undefined) {
+      if (typeof avatar !== 'string' || avatar.length > 4096 ||
+          !(avatar.startsWith('https://') || avatar.startsWith('/api/upload/') || avatar.startsWith('/upload/'))) {
+        return res.status(422).json({ error: 'Profile photo URL is invalid.' });
+      }
+      updates.avatar = avatar;
+    }
     if (coverPhoto) updates.coverPhoto = coverPhoto;
+    if (address !== undefined) {
+      if (typeof address !== 'string' || address.trim().length > 2000) {
+        return res.status(422).json({ error: 'Address must be 2,000 characters or fewer.' });
+      }
+      updates.address = address.trim();
+    }
+    if (dateOfBirth !== undefined) {
+      if (!isValidSocialBirthDate(dateOfBirth)) {
+        return res.status(422).json({ error: 'Enter a valid date of birth that is not in the future.' });
+      }
+      updates.dateOfBirth = dateOfBirth;
+    }
 
     const updated = await MasterDB.updateUser(userId, updates);
     if (updated) {
       try {
-        const { SocialDB } = await import('../social/socialDb.js');
         await SocialDB.updateProfile(userId, updates);
-      } catch (e) {}
+      } catch (error) {
+        console.error('[Profile] Could not synchronize the social profile:', error.message);
+      }
     }
-    res.json({ success: true, user: updated });
+    res.json({
+      success: true,
+      user: updated ? {
+        id: updated.id,
+        tiwiId: updated.tiwiId || updated.storeId,
+        storeId: updated.tiwiId || updated.storeId,
+        name: updated.name,
+        storeName: updated.storeName,
+        email: updated.email,
+        avatar: updated.avatar,
+        dateOfBirth: updated.dateOfBirth || '',
+        address: updated.address || '',
+        role: updated.role,
+        planId: updated.planId,
+        planName: updated.planName,
+        subdomain: updated.subdomain
+      } : null
+    });
   } catch (err) {
+    console.error('[Profile] Could not update account profile:', err.message);
     res.status(500).json({ error: 'Failed to update profile' });
   }
 });

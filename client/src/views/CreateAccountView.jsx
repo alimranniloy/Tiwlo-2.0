@@ -70,6 +70,7 @@ export default function CreateAccountView({
 }) {
   // Stepper state: 1, 2, 3, 4 (Verify Email), 5 (Setup 2FA) or 'success'
   const [step, setStep] = useState(1);
+  const [socialProviders, setSocialProviders] = useState({ google: false, github: false });
 
   // Form State
   const [formData, setFormData] = useState({
@@ -160,6 +161,33 @@ export default function CreateAccountView({
   const [handleError, setHandleError] = useState('');
   const [handleAvailable, setHandleAvailable] = useState(false);
   const [isCheckingHandle, setIsCheckingHandle] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetch(`${API_BASE}/auth/social/providers`, { credentials: 'include' })
+      .then(async response => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Could not load social login options.');
+        if (active) {
+          setSocialProviders({
+            google: result.google === true,
+            github: result.github === true
+          });
+        }
+      })
+      .catch(error => console.error('Could not load social login provider status:', error))
+      .finally(() => {
+        if (active) setSocialProviders(current => ({ ...current, loaded: true }));
+      });
+    return () => { active = false; };
+  }, []);
+
+  const startSocialLogin = (provider) => {
+    const params = new URLSearchParams();
+    const returnTo = new URLSearchParams(window.location.search).get('return_to');
+    if (returnTo) params.set('return_to', returnTo);
+    window.location.assign(`/api/auth/${provider}${params.toString() ? `?${params}` : ''}`);
+  };
 
   // Live Sync: Check email uniqueness in real-time
   useEffect(() => {
@@ -990,9 +1018,10 @@ export default function CreateAccountView({
                     <div className="grid grid-cols-2 gap-3">
                       <button
                         type="button"
-                        disabled
-                        className="flex items-center justify-center gap-2.5 h-10 px-4 rounded-full border border-[#747775] text-[#1f1f1f] text-[13px] font-medium opacity-60 cursor-not-allowed"
-                        title="Google sign-in is unavailable until provider credentials are configured."
+                        disabled={!socialProviders.google}
+                        onClick={() => startSocialLogin('google')}
+                        className="flex items-center justify-center gap-2.5 h-10 px-4 rounded-full border border-[#747775] text-[#1f1f1f] text-[13px] font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+                        title={socialProviders.google ? 'Continue with Google' : 'Google sign-in is not configured.'}
                       >
                         <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                           <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.66-5.17 3.66-9.12z"/>
@@ -1005,9 +1034,10 @@ export default function CreateAccountView({
 
                       <button
                         type="button"
-                        disabled
-                        className="flex items-center justify-center gap-2.5 h-10 px-4 rounded-full border border-[#747775] text-[#1f1f1f] text-[13px] font-medium opacity-60 cursor-not-allowed"
-                        title="GitHub sign-in is unavailable until provider credentials are configured."
+                        disabled={!socialProviders.github}
+                        onClick={() => startSocialLogin('github')}
+                        className="flex items-center justify-center gap-2.5 h-10 px-4 rounded-full border border-[#747775] text-[#1f1f1f] text-[13px] font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+                        title={socialProviders.github ? 'Continue with GitHub' : 'GitHub sign-in is not configured.'}
                       >
                         <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true">
                           <path d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.56.1.76-.24.76-.54v-2.1c-3.1.67-3.76-1.32-3.76-1.32-.51-1.29-1.24-1.63-1.24-1.63-1.02-.7.08-.69.08-.69 1.13.08 1.73 1.16 1.73 1.16 1 .1.76 2.01 3.44 1.54.1-.73.4-1.22.69-1.5-2.48-.28-5.09-1.24-5.09-5.53 0-1.22.44-2.22 1.16-3-.12-.28-.5-1.42.11-2.96 0 0 .95-.3 3.05 1.15a10.6 10.6 0 0 1 5.55 0c2.1-1.45 3.05-1.15 3.05-1.15.61 1.54.23 2.68.11 2.96.72.78 1.16 1.78 1.16 3 0 4.3-2.62 5.25-5.12 5.52.4.35.75 1.03.75 2.08v3.08c0 .3.2.65.77.54A11.1 11.1 0 0 0 12 .9Z"/>
@@ -1016,7 +1046,9 @@ export default function CreateAccountView({
                       </button>
                     </div>
                     <p className="mt-2 text-center text-xs text-[#747775]" role="status">
-                      Social sign-in is unavailable until provider setup is complete.
+                      {socialProviders.google || socialProviders.github
+                        ? 'Choose a configured provider to continue.'
+                        : 'Social sign-in is unavailable until provider setup is complete.'}
                     </p>
 
                     {/* Google Minimal Divider */}

@@ -14,6 +14,7 @@ import AdminSubView from './AdminSubView';
 import AdminCustomersView from './AdminCustomersView';
 import AdminUsersView from './AdminUsersView';
 import AdminGoogleDrivePage from './AdminGoogleDrivePage';
+import AdminSocialLoginSettings from './AdminSocialLoginSettings';
 import { Calendar, Sparkles } from 'lucide-react';
 import { useTheme } from '../config/themeConfig';
 
@@ -154,11 +155,17 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
             />
           ) : activeView === 'google-drive' ? (
             <AdminGoogleDrivePage showToast={showToast} />
+          ) : activeView === 'social-login' ? (
+            <AdminSocialLoginSettings
+              onBackToDashboard={() => handleNavigate('dashboard')}
+              showToast={showToast}
+            />
           ) : activeView !== 'dashboard' ? (
             <AdminSubView
               key={activeView}
               viewId={activeView}
               onBackToDashboard={() => handleNavigate('dashboard')}
+              onNavigate={handleNavigate}
               showToast={showToast}
             />
           ) : (

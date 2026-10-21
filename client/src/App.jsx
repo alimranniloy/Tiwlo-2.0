@@ -1744,6 +1744,7 @@ export default function App() {
       ) : (activeTab === 'oneprofile' || (typeof activeTab === 'string' && (activeTab.startsWith('oneprofile') || activeTab.startsWith('one-profile')))) ? (
         <OneProfileDashboard
           currentUser={currentUser}
+          setCurrentUser={setCurrentUser}
           onNavigateTab={handleTabChange}
         />
       ) : activeTab === 'pos' ? (

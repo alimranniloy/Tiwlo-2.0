@@ -76,6 +76,33 @@ export async function initPgSchema() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
 
+      CREATE TABLE IF NOT EXISTS system_oauth_providers (
+        provider VARCHAR(16) PRIMARY KEY CHECK (provider IN ('google', 'github')),
+        client_id TEXT NOT NULL DEFAULT '',
+        secret_ciphertext BYTEA,
+        encryption_iv BYTEA,
+        encryption_auth_tag BYTEA,
+        enabled BOOLEAN NOT NULL DEFAULT FALSE,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS system_social_identities (
+        provider VARCHAR(16) NOT NULL CHECK (provider IN ('google', 'github')),
+        provider_user_id TEXT NOT NULL,
+        user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
+        provider_email VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (provider, provider_user_id),
+        UNIQUE (provider, user_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_social_identity_user ON system_social_identities(user_id);
+
+      CREATE TABLE IF NOT EXISTS system_social_profile_challenges (
+        token_hash BYTEA PRIMARY KEY,
+        user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL
+      );
+
       -- Keep standalone initialization compatible with docker/init-db.sql and
       -- the fields used by MasterDB. ADD COLUMN is safe for existing installs.
       ALTER TABLE system_users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);

@@ -17,14 +17,45 @@ export default function LoginView({
   onAccountDisabled,
   showToast
 }) {
+  const [socialAuthInitial] = useState(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const challenge = searchParams.get('social_challenge');
+    const socialError = searchParams.get('social_error');
+    const [, reason] = (socialError || '').split(':');
+    const messages = {
+      cancelled: 'Sign-in was cancelled.',
+      unavailable: 'This social sign-in provider is not configured.',
+      disabled: 'This Tiwlo account has been disabled.',
+      failed: 'Social sign-in could not be completed. Please try again.'
+    };
+    return {
+      challenge,
+      profileRequired: searchParams.get('social_profile') === 'required',
+      emailMasked: searchParams.get('social_email') || 'your verified email',
+      viewMode: searchParams.get('social_profile') === 'required'
+        ? 'profile_complete'
+        : challenge === 'login' ? '2fa' : challenge === 'setup' ? 'setup_2fa' : 'login',
+      errorMessage: socialError ? (messages[reason] || messages.failed) : ''
+    };
+  });
+
   // View Modes: 'login' | 'email_verify' | '2fa' | 'setup_2fa' | 'forgot_request' | 'forgot_verify'
-  const [viewMode, setViewMode] = useState('login');
+  const [viewMode, setViewMode] = useState(socialAuthInitial.viewMode);
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState(socialAuthInitial.errorMessage);
+  const [socialProviders, setSocialProviders] = useState({ google: false, github: false });
+  const [socialProfile, setSocialProfile] = useState({
+    name: '',
+    email: '',
+    dateOfBirth: '',
+    address: '',
+    avatar: ''
+  });
+  const [socialProfileLoading, setSocialProfileLoading] = useState(socialAuthInitial.profileRequired);
   // Check for pending restore session token in URL or session quietly
   useEffect(() => {
     try {
@@ -33,8 +64,99 @@ export default function LoginView({
       if (token) {
         sessionStorage.setItem('tiwlo_pending_restore_token', token);
       }
-    } catch (e) {}
+    } catch {}
   }, []);
+
+  useEffect(() => {
+    if (!socialAuthInitial.profileRequired) return undefined;
+    let active = true;
+    fetch(`${API_BASE}/auth/social/profile-challenge`, { credentials: 'include' })
+      .then(async response => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.profile) {
+          throw new Error(result.error || 'Profile completion session expired. Please sign in again.');
+        }
+        if (active) setSocialProfile(result.profile);
+      })
+      .catch(error => {
+        if (active) setErrorMsg(error.message);
+      })
+      .finally(() => {
+        if (active) setSocialProfileLoading(false);
+      });
+    return () => { active = false; };
+  }, [socialAuthInitial.profileRequired]);
+
+  useEffect(() => {
+    let active = true;
+    fetch(`${API_BASE}/auth/social/providers`, { credentials: 'include' })
+      .then(async response => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Could not load social login options.');
+        if (active) {
+          setSocialProviders({
+            google: result.google === true,
+            github: result.github === true
+          });
+        }
+      })
+      .catch(error => console.error('Could not load social login provider status:', error))
+      .finally(() => {
+        if (active) setSocialProviders(current => ({ ...current, loaded: true }));
+      });
+    return () => { active = false; };
+  }, []);
+
+  const startSocialLogin = (provider) => {
+    const params = new URLSearchParams();
+    const returnTo = new URLSearchParams(window.location.search).get('return_to');
+    if (returnTo) params.set('return_to', returnTo);
+    window.location.assign(`/api/auth/${provider}${params.size ? `?${params}` : ''}`);
+  };
+
+  const handleCompleteSocialProfile = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const response = await fetch(`${API_BASE}/auth/social/complete-profile`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dateOfBirth: socialProfile.dateOfBirth,
+          address: socialProfile.address
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Could not save your required profile details.');
+      }
+      setResendCountdown(60);
+      if (result.challenge === 'login') {
+        setTwoFactorData({
+          tempToken: '',
+          email: socialProfile.email,
+          emailMasked: result.emailMasked,
+          code: ''
+        });
+        setViewMode('2fa');
+      } else {
+        setSetup2FAData({
+          tempToken: '',
+          email: socialProfile.email,
+          emailMasked: result.emailMasked,
+          code: ''
+        });
+        setViewMode('setup_2fa');
+      }
+      showToast?.(result.message);
+    } catch (error) {
+      setErrorMsg(error.message || 'Could not save your required profile details.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // 1. Email Verification State (for users without emailVerified)
   const [emailVerifyData, setEmailVerifyData] = useState({
@@ -50,7 +172,7 @@ export default function LoginView({
   const [twoFactorData, setTwoFactorData] = useState({
     tempToken: '',
     email: '',
-    emailMasked: '',
+    emailMasked: socialAuthInitial.challenge === 'login' ? socialAuthInitial.emailMasked : '',
     code: ''
   });
 
@@ -58,7 +180,7 @@ export default function LoginView({
   const [setup2FAData, setSetup2FAData] = useState({
     tempToken: '',
     email: '',
-    emailMasked: '',
+    emailMasked: socialAuthInitial.challenge === 'setup' ? socialAuthInitial.emailMasked : '',
     code: ''
   });
   const [resendCountdown, setResendCountdown] = useState(0);
@@ -607,6 +729,78 @@ export default function LoginView({
             />
           </div>
 
+          {viewMode === 'profile_complete' && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-[24px] font-normal text-[#1F1F1F] dark:text-[#E3E3E3] leading-tight">
+                  Complete your profile
+                </h1>
+                <p className="text-[14px] text-[#444746] dark:text-[#C4C7C5] mt-1 leading-normal">
+                  Add your date of birth and address to finish setting up your Tiwlo account.
+                </p>
+              </div>
+
+              {socialProfile.avatar && (
+                <img
+                  src={socialProfile.avatar}
+                  alt="Provider profile"
+                  className="h-16 w-16 rounded-full object-cover"
+                />
+              )}
+              {socialProfile.email && (
+                <p className="text-sm text-slate-600 dark:text-slate-300">{socialProfile.email}</p>
+              )}
+              {errorMsg && (
+                <div role="alert" className="rounded-lg bg-rose-50 p-3 text-[13px] font-medium text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+                  {errorMsg}
+                </div>
+              )}
+
+              {socialProfileLoading ? (
+                <p className="text-sm text-slate-500">Loading your profile details…</p>
+              ) : (
+                <form onSubmit={handleCompleteSocialProfile} className="space-y-4">
+                  <label className="block text-[12px] font-medium text-[#444746] dark:text-[#C4C7C5]">
+                    Date of birth
+                    <input
+                      type="date"
+                      required
+                      max={new Date().toISOString().slice(0, 10)}
+                      value={socialProfile.dateOfBirth || ''}
+                      onChange={event => setSocialProfile(current => ({
+                        ...current,
+                        dateOfBirth: event.target.value
+                      }))}
+                      className="mt-1.5 w-full rounded-lg border border-[#747775] bg-transparent px-3 py-3 text-sm text-[#1F1F1F] outline-none focus:border-[#0B57D0] dark:border-[#8E918F] dark:text-[#E3E3E3]"
+                    />
+                  </label>
+                  <label className="block text-[12px] font-medium text-[#444746] dark:text-[#C4C7C5]">
+                    Address
+                    <textarea
+                      required
+                      maxLength={2000}
+                      rows={3}
+                      value={socialProfile.address || ''}
+                      onChange={event => setSocialProfile(current => ({
+                        ...current,
+                        address: event.target.value
+                      }))}
+                      placeholder="Enter your full address"
+                      className="mt-1.5 w-full rounded-lg border border-[#747775] bg-transparent px-3 py-3 text-sm text-[#1F1F1F] outline-none focus:border-[#0B57D0] dark:border-[#8E918F] dark:text-[#E3E3E3]"
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full rounded-full bg-[#0B57D0] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#0842A0] disabled:opacity-50"
+                  >
+                    {loading ? 'Saving…' : 'Continue'}
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
+
           {/* ========================================================= */}
           {/* 1. STANDARD LOGIN VIEW                                    */}
           {/* ========================================================= */}
@@ -626,9 +820,10 @@ export default function LoginView({
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    disabled
-                    title="Google sign-in is unavailable until provider credentials are configured."
-                    className="flex items-center justify-center space-x-2 py-2 px-3 rounded-full border border-[#747775]/40 text-[#1F1F1F] dark:text-[#E3E3E3] text-[13px] font-medium opacity-60 cursor-not-allowed"
+                    disabled={!socialProviders.google}
+                    onClick={() => startSocialLogin('google')}
+                    title={socialProviders.google ? 'Continue with Google' : 'Google sign-in is not configured.'}
+                    className="flex items-center justify-center space-x-2 py-2 px-3 rounded-full border border-[#747775]/40 text-[#1F1F1F] dark:text-[#E3E3E3] text-[13px] font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                       <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.66-5.17 3.66-9.12z"/>
@@ -641,9 +836,10 @@ export default function LoginView({
 
                   <button
                     type="button"
-                    disabled
-                    title="GitHub sign-in is unavailable until provider credentials are configured."
-                    className="flex items-center justify-center space-x-2 py-2 px-3 rounded-full border border-[#747775]/40 text-[#1F1F1F] dark:text-[#E3E3E3] text-[13px] font-medium opacity-60 cursor-not-allowed"
+                    disabled={!socialProviders.github}
+                    onClick={() => startSocialLogin('github')}
+                    title={socialProviders.github ? 'Continue with GitHub' : 'GitHub sign-in is not configured.'}
+                    className="flex items-center justify-center space-x-2 py-2 px-3 rounded-full border border-[#747775]/40 text-[#1F1F1F] dark:text-[#E3E3E3] text-[13px] font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.56.1.76-.24.76-.54v-2.1c-3.1.67-3.76-1.32-3.76-1.32-.51-1.29-1.24-1.63-1.24-1.63-1.02-.7.08-.69.08-.69 1.13.08 1.73 1.16 1.73 1.16 1 .1.76 2.01 3.44 1.54.1-.73.4-1.22.69-1.5-2.48-.28-5.09-1.24-5.09-5.53 0-1.22.44-2.22 1.16-3-.12-.28-.5-1.42.11-2.96 0 0 .95-.3 3.05 1.15a10.6 10.6 0 0 1 5.55 0c2.1-1.45 3.05-1.15 3.05-1.15.61 1.54.23 2.68.11 2.96.72.78 1.16 1.78 1.16 3 0 4.3-2.62 5.25-5.12 5.52.4.35.75 1.03.75 2.08v3.08c0 .3.2.65.77.54A11.1 11.1 0 0 0 12 .9Z"/>
@@ -652,7 +848,9 @@ export default function LoginView({
                   </button>
                 </div>
                 <p className="mt-2 text-center text-xs text-[#747775]" role="status">
-                  Social sign-in is unavailable until provider setup is complete.
+                  {socialProviders.google || socialProviders.github
+                    ? 'Choose a configured provider to continue.'
+                    : 'Social sign-in is unavailable until provider setup is complete.'}
                 </p>
 
                 <div className="relative my-4 flex items-center justify-center">

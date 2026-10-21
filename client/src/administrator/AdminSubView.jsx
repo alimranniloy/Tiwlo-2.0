@@ -1,6 +1,6 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Layers, RefreshCw, Search } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Layers, RefreshCw, Search, ShieldCheck } from 'lucide-react';
 
 const API_BASE = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
   ? 'http://localhost:5000/api'
@@ -15,7 +15,7 @@ const views = {
   servers: { title: 'Cloud Infrastructure & Servers', endpoint: '/admin/servers', dataKey: 'droplets' }
 };
 
-export default function AdminSubView({ viewId, onBackToDashboard }) {
+export default function AdminSubView({ viewId, onBackToDashboard, onNavigate }) {
   const config = views[viewId] || {
     title: viewId.charAt(0).toUpperCase() + viewId.slice(1).replace('-', ' ')
   };
@@ -77,6 +77,43 @@ export default function AdminSubView({ viewId, onBackToDashboard }) {
     )
   );
   const connected = Boolean(endpoint) && !error && !unavailableMessage;
+
+  if (viewId === 'system-settings') {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <button
+            onClick={onBackToDashboard}
+            className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to Dashboard
+          </button>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white">System Settings</h2>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Manage authentication and platform-wide configuration.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onNavigate?.('social-login')}
+          className="flex w-full items-center justify-between rounded-2xl border border-slate-200/70 bg-white p-5 text-left transition hover:border-blue-300 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-800"
+        >
+          <span className="flex items-center gap-4">
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
+              <ShieldCheck className="h-5 w-5" />
+            </span>
+            <span>
+              <span className="block font-semibold text-slate-900 dark:text-white">Social Login</span>
+              <span className="mt-1 block text-sm text-slate-500 dark:text-slate-400">
+                Configure Google and GitHub OAuth client credentials and callback URLs.
+              </span>
+            </span>
+          </span>
+          <ArrowRight className="h-5 w-5 text-slate-400" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

@@ -25,6 +25,7 @@ import OneProfileSupportView from './views/OneProfileSupportView';
  */
 export default function OneProfileDashboard({
   currentUser,
+  setCurrentUser,
   onNavigateTab
 }) {
   const [activeView, setActiveView] = useState('home');
@@ -105,6 +106,7 @@ export default function OneProfileDashboard({
         return (
           <OneProfileSettingsView
             currentUser={currentUser}
+            onUserUpdated={setCurrentUser}
             profile={summary?.profile}
             onProfileUpdated={(profile) => setSummary((previous) => ({ ...previous, profile }))}
             onNavigateTab={handleSelectView}

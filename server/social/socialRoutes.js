@@ -66,6 +66,16 @@ const upload = multer({
 
 const router = express.Router();
 
+function getJpegPngType(buffer) {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return 'image/jpeg';
+  }
+  if (buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
+    return 'image/png';
+  }
+  return null;
+}
+
 // ====================================================================
 // 0. REAL-TIME AVAILABILITY CHECK
 // ====================================================================
@@ -423,6 +433,18 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       const filePath = req.file.path;
       const filename = req.file.filename;
       let mediaBuffer = fs.readFileSync(filePath);
+      if (subfolder === 'profile_pic') {
+        const detectedImageType = getJpegPngType(mediaBuffer);
+        const matchingMime = detectedImageType && req.file.mimetype === detectedImageType;
+        const extension = path.extname(filename).toLowerCase();
+        const matchingExtension = detectedImageType === 'image/jpeg'
+          ? ['.jpg', '.jpeg'].includes(extension)
+          : detectedImageType === 'image/png' && extension === '.png';
+        if (!matchingMime || !matchingExtension) {
+          await fs.promises.unlink(filePath);
+          return res.status(415).json({ error: 'Profile photos must be valid JPG or PNG images.' });
+        }
+      }
       const isVideo = /\.(mp4|mov|webm|mkv|m4v|avi)(\?|$)/i.test(filename) ||
         req.file?.mimetype?.startsWith('video/') ||
         mediaBuffer.toString('utf8', 4, 8) === 'ftyp';
@@ -502,11 +524,17 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     const rawBase64 = req.body?.base64 || req.body?.data;
     if (rawBase64) {
       const dataUrl = rawBase64.match(/^data:(image\/(?:jpeg|png|webp|gif|avif));base64,(.+)$/i);
+      if (subfolder === 'profile_pic' && (!dataUrl || !['image/jpeg', 'image/png'].includes(dataUrl[1].toLowerCase()))) {
+        return res.status(415).json({ error: 'Profile photos must be JPG or PNG images.' });
+      }
       if (/^data:/i.test(rawBase64) && !dataUrl) {
         return res.status(415).json({ error: 'Only JPEG, PNG, WebP, GIF, and AVIF images are supported.' });
       }
       const cleanBase64 = dataUrl ? dataUrl[2] : rawBase64;
       const buffer = Buffer.from(cleanBase64, 'base64');
+      if (subfolder === 'profile_pic' && getJpegPngType(buffer) !== dataUrl[1].toLowerCase()) {
+        return res.status(415).json({ error: 'Profile photo contents do not match a valid JPG or PNG image.' });
+      }
       const extensionByType = {
         'image/jpeg': 'jpg',
         'image/png': 'png',
