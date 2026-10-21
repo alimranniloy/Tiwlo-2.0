@@ -1,6 +1,7 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useState, useEffect } from 'react';
 import { getPlatformUrl } from '../config/platformConfig';
+import { getDashboardUrl } from '../utils/navigation';
 import {
   Eye,
   EyeOff,
@@ -184,8 +185,9 @@ export default function CreateAccountView({
 
   const startSocialLogin = (provider) => {
     const params = new URLSearchParams();
-    const returnTo = new URLSearchParams(window.location.search).get('return_to');
-    if (returnTo) params.set('return_to', returnTo);
+    const returnTo = new URLSearchParams(window.location.search).get('return_to') ||
+      getDashboardUrl('/oneprofile');
+    params.set('return_to', returnTo);
     window.location.assign(`/api/auth/${provider}${params.toString() ? `?${params}` : ''}`);
   };
 
@@ -1047,7 +1049,7 @@ export default function CreateAccountView({
                     </div>
                     <p className="mt-2 text-center text-xs text-[#747775]" role="status">
                       {socialProviders.google || socialProviders.github
-                        ? 'Choose a configured provider to continue.'
+                        ? 'A new verified email creates an account; the same email signs into its existing account.'
                         : 'Social sign-in is unavailable until provider setup is complete.'}
                     </p>
 

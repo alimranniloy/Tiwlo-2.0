@@ -152,6 +152,7 @@ function getSocialLoginUrl(provider, { returnTo, error = '' } = {}) {
     ? PLATFORM_CONFIG.authDomain
     : `https://${PLATFORM_CONFIG.authDomain}`;
   const loginUrl = new URL('/login', authOrigin);
+  loginUrl.searchParams.set('social_flow', '1');
   if (returnTo) loginUrl.searchParams.set('return_to', returnTo);
   if (error) loginUrl.searchParams.set('social_error', `${provider}:${error}`);
   return loginUrl.toString();
@@ -294,8 +295,7 @@ async function fetchSocialProfile(provider, code, credentials) {
     providerUserId: String(profile.id),
     email: verifiedEmail.email,
     name: profile.name || profile.login || '',
-    avatar: profile.avatar_url || '',
-    address: typeof profile.location === 'string' ? profile.location.trim() : ''
+    avatar: profile.avatar_url || ''
   };
 }
 
@@ -1031,6 +1031,7 @@ router.post('/auth/verify-2fa', async (req, res) => {
         billingDetails: user.billingDetails,
         accountType: user.accountType,
         address: user.address,
+        dateOfBirth: user.dateOfBirth || '',
         phone: user.phone
       },
       message: `Two-Step verification successful. Welcome back, ${user.name || user.storeName}!`
@@ -1202,6 +1203,7 @@ router.post('/auth/setup-2fa', async (req, res) => {
         billingDetails: user.billingDetails,
         accountType: user.accountType,
         address: user.address,
+        dateOfBirth: user.dateOfBirth || '',
         phone: user.phone
       },
       message: `2-Step Verification activated successfully! Welcome to Tiwlo, ${user.name || user.storeName}!`

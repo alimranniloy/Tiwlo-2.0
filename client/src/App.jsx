@@ -1037,6 +1037,7 @@ export default function App() {
       const searchParams = new URLSearchParams(window.location.search);
       const safeReturnTo = getSafeReturnToTarget(searchParams.get('return_to'));
       const redirectUrl = searchParams.has('dashboard') ? null : searchParams.get('redirect');
+      const socialFlow = searchParams.get('social_flow') === '1';
 
       if (searchParams.get('mail_return') === '1') {
         window.location.replace(getMailUrl());
@@ -1048,14 +1049,15 @@ export default function App() {
         return;
       }
 
-      let targetPath = '/';
+      let targetPath = socialFlow ? getDashboardUrl('/oneprofile') : '/';
       if (redirectUrl) {
         targetPath = redirectUrl;
       } else if (user?.role === 'super_admin' || user?.email === 'tiwloltd@gmail.com') {
         targetPath = '/administrator';
       }
 
-      const safeTarget = getSafeRedirectTarget(targetPath) || '/dashboard';
+      const safeTarget = getSafeRedirectTarget(targetPath) ||
+        (socialFlow ? getDashboardUrl('/oneprofile') : '/dashboard');
       window.location.replace(safeTarget.startsWith('http') ? safeTarget : getMainAppUrl(safeTarget));
       return;
     }
