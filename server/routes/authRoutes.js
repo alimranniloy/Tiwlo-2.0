@@ -174,7 +174,14 @@ function clearOAuthMfaCookie(res, req) {
 }
 
 function getSocialProfileChallengeCookieOptions(req) {
-  return { ...getSocialStateCookieOptions(req), maxAge: 15 * 60 * 1000 };
+  return { ...getSocialStateCookieOptions(req), path: '/', maxAge: 30 * 60 * 1000 };
+}
+
+function getSocialProfileChallengeToken(req) {
+  const headerToken = req.get('x-social-profile-challenge');
+  const bodyToken = req.body?.challengeToken;
+  const token = typeof headerToken === 'string' ? headerToken : bodyToken;
+  return typeof token === 'string' && token ? token : req.cookies?.tiwlo_social_profile;
 }
 
 function hashSocialProfileChallenge(token) {
@@ -380,19 +387,29 @@ async function completeSocialLogin(provider, req, res) {
     }
     const identity = await fetchSocialProfile(provider, req.query.code, credentials);
     const user = await findOrCreateSocialUser({ provider, ...identity });
-    if (!user.dateOfBirth || !user.address?.trim()) {
+    const socialData = await SocialDB.getData();
+    const socialProfile = socialData.profiles?.[user.id] || {};
+    if (
+      !user.dateOfBirth ||
+      !user.address?.trim() ||
+      !user.phone?.trim() ||
+      !user.billingDetails?.city?.trim() ||
+      !user.billingDetails?.country?.trim() ||
+      !socialProfile.handle?.trim()
+    ) {
       const challengeToken = crypto.randomBytes(32).toString('base64url');
       await queryPg(
         'DELETE FROM system_social_profile_challenges WHERE expires_at <= CURRENT_TIMESTAMP'
       );
       await queryPg(
         `INSERT INTO system_social_profile_challenges (token_hash, user_id, expires_at)
-         VALUES ($1, $2, CURRENT_TIMESTAMP + INTERVAL '15 minutes')`,
+         VALUES ($1, $2, CURRENT_TIMESTAMP + INTERVAL '30 minutes')`,
         [hashSocialProfileChallenge(challengeToken), user.id]
       );
       res.cookie('tiwlo_social_profile', challengeToken, getSocialProfileChallengeCookieOptions(req));
       const profileUrl = new URL(getSocialLoginUrl(provider, { returnTo: savedState.returnTo }));
       profileUrl.searchParams.set('social_profile', 'required');
+      profileUrl.hash = new URLSearchParams({ social_profile_token: challengeToken }).toString();
       return res.redirect(profileUrl.toString());
     }
     const mfaMode = user.twoFactorEnabled ? 'login' : 'setup';
@@ -427,17 +444,20 @@ async function completeSocialLogin(provider, req, res) {
 // 1. SOCIAL SSO CHECK
 // ==========================================
 router.get('/auth/social/profile-challenge', async (req, res) => {
-  const challengeToken = req.cookies?.tiwlo_social_profile;
+  const challengeToken = getSocialProfileChallengeToken(req);
   if (!challengeToken) return res.status(401).json({ error: 'Profile completion session expired. Please sign in again.' });
   try {
     const { rows } = await queryPg(
-      `SELECT u.name, u.store_name, u.email, u.date_of_birth, u.address, u.avatar
+      `SELECT c.user_id, u.name, u.store_name, u.email, u.date_of_birth, u.address, u.avatar,
+              u.phone, u.city, u.country, u.postal_code
        FROM system_social_profile_challenges c
        JOIN system_users u ON u.id = c.user_id
        WHERE c.token_hash = $1 AND c.expires_at > CURRENT_TIMESTAMP`,
       [hashSocialProfileChallenge(challengeToken)]
     );
     if (!rows[0]) return res.status(401).json({ error: 'Profile completion session expired. Please sign in again.' });
+    const socialData = await SocialDB.getData();
+    const socialProfile = socialData.profiles?.[rows[0].user_id] || {};
     res.setHeader('Cache-Control', 'no-store');
     return res.json({
       success: true,
@@ -446,7 +466,13 @@ router.get('/auth/social/profile-challenge', async (req, res) => {
         email: rows[0].email,
         dateOfBirth: rows[0].date_of_birth ? String(rows[0].date_of_birth).slice(0, 10) : '',
         address: rows[0].address || '',
-        avatar: rows[0].avatar || ''
+        avatar: rows[0].avatar || '',
+        phone: rows[0].phone || '',
+        city: rows[0].city || '',
+        country: rows[0].country || 'Bangladesh',
+        postalCode: rows[0].postal_code || '',
+        handle: socialProfile.handle || '',
+        gender: socialProfile.gender || ''
       }
     });
   } catch (error) {
@@ -456,19 +482,42 @@ router.get('/auth/social/profile-challenge', async (req, res) => {
 });
 
 router.post('/auth/social/complete-profile', async (req, res) => {
-  const challengeToken = req.cookies?.tiwlo_social_profile;
+  const challengeToken = getSocialProfileChallengeToken(req);
   const dateOfBirth = req.body?.dateOfBirth;
   const address = typeof req.body?.address === 'string' ? req.body.address.trim() : '';
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+  const handle = typeof req.body?.handle === 'string'
+    ? req.body.handle.trim().replace(/^@/, '').toLowerCase()
+    : '';
+  const phone = typeof req.body?.phone === 'string' ? req.body.phone.trim() : '';
+  const city = typeof req.body?.city === 'string' ? req.body.city.trim() : '';
+  const country = typeof req.body?.country === 'string' ? req.body.country.trim() : '';
+  const postalCode = typeof req.body?.postalCode === 'string' ? req.body.postalCode.trim() : '';
+  const gender = typeof req.body?.gender === 'string' ? req.body.gender.trim() : '';
   if (!challengeToken) return res.status(401).json({ error: 'Profile completion session expired. Please sign in again.' });
   if (!isValidSocialBirthDate(dateOfBirth)) {
     return res.status(422).json({ error: 'Enter a valid date of birth that is not in the future.' });
   }
-  if (!address || address.length > 2000) {
-    return res.status(422).json({ error: 'Enter an address up to 2,000 characters.' });
+  if (!name || name.length > 255) {
+    return res.status(422).json({ error: 'Enter your full name.' });
+  }
+  if (!/^[a-z0-9_]{3,30}$/.test(handle)) {
+    return res.status(422).json({ error: 'Username must be 3-30 characters and can only contain letters, numbers, and underscores.' });
+  }
+  if (!address || address.length > 2000 || !city || city.length > 100 || !country || country.length > 100) {
+    return res.status(422).json({ error: 'Enter your street address, city, and country.' });
+  }
+  const phoneDigits = phone.replace(/\D/g, '');
+  if (phoneDigits.length < 7 || phoneDigits.length > 15 || phone.length > 32) {
+    return res.status(422).json({ error: 'Enter a valid phone number.' });
+  }
+  if (postalCode.length > 32 || gender.length > 50) {
+    return res.status(422).json({ error: 'Some profile details are too long.' });
   }
 
   const pool = getPgPool();
   const client = await pool.connect();
+  let userId;
   try {
     await client.query('BEGIN');
     const challenge = await client.query(
@@ -481,20 +530,47 @@ router.post('/auth/social/complete-profile', async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(401).json({ error: 'Profile completion session expired. Please sign in again.' });
     }
+    userId = challenge.rows[0].user_id;
+    if (await SocialDB.isHandleTaken(handle, userId)) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'That username is already taken. Choose another.' });
+    }
     await client.query(
       `UPDATE system_users
-       SET date_of_birth = $2::date, address = $3, updated_at = CURRENT_TIMESTAMP
+       SET name = $2, date_of_birth = $3::date, address = $4,
+           phone = $5, city = $6, country = $7, postal_code = $8, updated_at = CURRENT_TIMESTAMP
        WHERE id = $1`,
-      [challenge.rows[0].user_id, dateOfBirth, address]
-    );
-    await client.query(
-      'DELETE FROM system_social_profile_challenges WHERE token_hash = $1',
-      [hashSocialProfileChallenge(challengeToken)]
+      [userId, name, dateOfBirth, address, phone, city, country, postalCode]
     );
     await client.query('COMMIT');
 
-    const user = await MasterDB.findUserByIdentifier(challenge.rows[0].user_id);
+    const user = await MasterDB.findUserByIdentifier(userId);
     if (!user) throw new Error('Could not resolve the account after profile completion.');
+    const socialData = await SocialDB.getData();
+    const currentProfile = socialData.profiles?.[userId] || {};
+    const normalizedHandle = `@${handle}`;
+    const billingAddress = {
+      ...(currentProfile.billingAddress || {}),
+      address,
+      city,
+      country,
+      postalCode,
+      phone
+    };
+    const updatedProfile = await SocialDB.updateProfile(userId, {
+      name,
+      handle: normalizedHandle,
+      phone,
+      birthday: dateOfBirth,
+      gender: gender || currentProfile.gender || 'Rather not say',
+      location: `${city}, ${country}`,
+      billingAddress
+    });
+    if (!updatedProfile) throw new Error('Could not save the social profile details.');
+    await queryPg(
+      'DELETE FROM system_social_profile_challenges WHERE token_hash = $1',
+      [hashSocialProfileChallenge(challengeToken)]
+    );
     const mfaMode = user.twoFactorEnabled ? 'login' : 'setup';
     const otp = await generateSecureOtp(
       user.email,

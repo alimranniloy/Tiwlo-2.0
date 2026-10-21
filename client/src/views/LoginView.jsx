@@ -64,6 +64,9 @@ export default function LoginView({
     avatar: ''
   });
   const [socialProfileLoading, setSocialProfileLoading] = useState(socialAuthInitial.profileRequired);
+  const [socialProfileChallengeToken] = useState(() =>
+    new URLSearchParams(window.location.hash.slice(1)).get('social_profile_token') || ''
+  );
   // Check for pending restore session token in URL or session quietly
   useEffect(() => {
     try {
@@ -78,7 +81,17 @@ export default function LoginView({
   useEffect(() => {
     if (!socialAuthInitial.profileRequired) return undefined;
     let active = true;
-    fetch(`${API_BASE}/auth/social/profile-challenge`, { credentials: 'include' })
+    const headers = socialProfileChallengeToken
+      ? { 'X-Social-Profile-Challenge': socialProfileChallengeToken }
+      : {};
+    const profileRequest = fetch(`${API_BASE}/auth/social/profile-challenge`, {
+      credentials: 'include',
+      headers
+    });
+    if (socialProfileChallengeToken) {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+    }
+    profileRequest
       .then(async response => {
         const result = await response.json().catch(() => ({}));
         if (!response.ok || !result.profile) {
@@ -86,15 +99,18 @@ export default function LoginView({
         }
         if (active) {
           const [birthYear = '', birthMonth = '', birthDay = ''] = (result.profile.dateOfBirth || '').split('-');
+          const country = result.profile.country || 'Bangladesh';
           setSocialProfile({
             ...result.profile,
+            handle: (result.profile.handle || '').replace(/^@/, ''),
             birthYear,
             birthMonth,
             birthDay,
-            addressLine2: '',
-            city: '',
-            postalCode: '',
-            country: 'Bangladesh'
+            addressLine2: result.profile.addressLine2 || '',
+            city: result.profile.city || '',
+            postalCode: result.profile.postalCode || '',
+            country,
+            gender: result.profile.gender || ''
           });
         }
       })
@@ -105,7 +121,7 @@ export default function LoginView({
         if (active) setSocialProfileLoading(false);
       });
     return () => { active = false; };
-  }, [socialAuthInitial.profileRequired]);
+  }, [socialAuthInitial.profileRequired, socialProfileChallengeToken]);
 
   useEffect(() => {
     let active = true;
@@ -156,8 +172,23 @@ export default function LoginView({
       setErrorMsg('Enter a valid date of birth.');
       return;
     }
-    if (!socialProfile.address.trim() || !socialProfile.city.trim() || !socialProfile.country) {
-      setErrorMsg('Enter your street address, city, and country.');
+    const handle = socialProfile.handle.trim().replace(/^@/, '').toLowerCase();
+    if (!/^[a-z0-9_]{3,30}$/.test(handle)) {
+      setErrorMsg('Username must be 3-30 characters and can only contain letters, numbers, and underscores.');
+      return;
+    }
+    if (!socialProfile.name.trim() || !socialProfile.address.trim() || !socialProfile.city.trim() || !socialProfile.country) {
+      setErrorMsg('Enter your full name, street address, city, and country.');
+      return;
+    }
+    const countryOption = COUNTRY_OPTIONS.find(option => option.name === socialProfile.country);
+    const inputPhone = socialProfile.phone.trim();
+    const phone = inputPhone.startsWith('+')
+      ? inputPhone
+      : `${countryOption?.dial || ''} ${inputPhone}`.trim();
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (phoneDigits.length < 7 || phoneDigits.length > 15) {
+      setErrorMsg('Enter a valid phone number.');
       return;
     }
     const fullAddress = [
@@ -178,10 +209,23 @@ export default function LoginView({
       const response = await fetch(`${API_BASE}/auth/social/complete-profile`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(socialProfileChallengeToken
+            ? { 'X-Social-Profile-Challenge': socialProfileChallengeToken }
+            : {})
+        },
         body: JSON.stringify({
+          challengeToken: socialProfileChallengeToken || undefined,
+          name: socialProfile.name.trim(),
+          handle,
           dateOfBirth: normalizedBirthDate,
-          address: fullAddress
+          address: fullAddress,
+          phone,
+          city: socialProfile.city.trim(),
+          country: socialProfile.country,
+          postalCode: socialProfile.postalCode.trim(),
+          gender: socialProfile.gender
         })
       });
       const result = await response.json().catch(() => ({}));
@@ -792,7 +836,7 @@ export default function LoginView({
                   Complete your profile
                 </h1>
                 <p className="text-[14px] text-[#444746] dark:text-[#C4C7C5] mt-1 leading-normal">
-                  Add your date of birth and address to finish setting up your Tiwlo account.
+                  Add the required account details to finish setting up your Tiwlo ID. Your provider email is already verified.
                 </p>
               </div>
 
@@ -816,6 +860,46 @@ export default function LoginView({
                 <p className="text-sm text-slate-500">Loading your profile details…</p>
               ) : (
                 <form onSubmit={handleCompleteSocialProfile} className="space-y-4">
+                  <div>
+                    <label className="mb-1.5 block text-[13px] font-medium text-[#1f1f1f] dark:text-[#E3E3E3]">
+                      Full name <span className="text-[#d93025]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={socialProfile.name}
+                      onChange={event => setSocialProfile(current => ({
+                        ...current,
+                        name: event.target.value
+                      }))}
+                      placeholder="First and last name"
+                      maxLength={255}
+                      required
+                      className="w-full rounded-[4px] border border-[#747775] px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-[13px] font-medium text-[#1f1f1f] dark:text-[#E3E3E3]">
+                      Username (@handle) <span className="text-[#d93025]">*</span>
+                    </label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-[14px] font-medium text-[#747775]">@</span>
+                      <input
+                        type="text"
+                        value={socialProfile.handle}
+                        onChange={event => setSocialProfile(current => ({
+                          ...current,
+                          handle: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 30)
+                        }))}
+                        placeholder="username"
+                        minLength={3}
+                        maxLength={30}
+                        required
+                        className="w-full rounded-[4px] border border-[#747775] py-3 pl-8 pr-3.5 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
+                      />
+                    </div>
+                  </div>
+
                   <div className="pt-1">
                     <label className="mb-1 block text-[13px] font-medium text-[#1f1f1f] dark:text-[#E3E3E3]">
                       Date of birth <span className="text-[#d93025]">*</span>
@@ -895,6 +979,31 @@ export default function LoginView({
 
                   <div>
                     <label className="mb-1.5 block text-[13px] font-medium text-[#1f1f1f] dark:text-[#E3E3E3]">
+                      Phone number <span className="text-[#d93025]">*</span>
+                    </label>
+                    <div className="flex overflow-hidden rounded-[4px] border border-[#747775] focus-within:border-[#0b57d0] focus-within:ring-1 focus-within:ring-[#0b57d0]">
+                      <span className="flex shrink-0 items-center border-r border-[#dadce0] bg-[#f8f9fa] px-3 text-[13px] text-[#1f1f1f]">
+                        {COUNTRY_OPTIONS.find(option => option.name === socialProfile.country)?.dial || '+880'}
+                      </span>
+                      <input
+                        type="tel"
+                        value={socialProfile.phone.startsWith('+')
+                          ? socialProfile.phone.replace(/^\+\d+\s*/, '')
+                          : socialProfile.phone}
+                        onChange={event => setSocialProfile(current => ({
+                          ...current,
+                          phone: event.target.value.replace(/[^\d\s\-()]/g, '').slice(0, 24)
+                        }))}
+                        placeholder={COUNTRY_OPTIONS.find(option => option.name === socialProfile.country)?.placeholder || '1700-000000'}
+                        autoComplete="tel-national"
+                        required
+                        className="w-full px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none placeholder:text-[#747775]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-[13px] font-medium text-[#1f1f1f] dark:text-[#E3E3E3]">
                       Street address <span className="text-[#d93025]">*</span>
                     </label>
                     <input
@@ -958,6 +1067,26 @@ export default function LoginView({
                         className="w-full rounded-[4px] border border-[#747775] px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-[13px] font-medium text-[#1f1f1f] dark:text-[#E3E3E3]">
+                      Gender
+                    </label>
+                    <select
+                      value={socialProfile.gender}
+                      onChange={event => setSocialProfile(current => ({
+                        ...current,
+                        gender: event.target.value
+                      }))}
+                      className="w-full cursor-pointer rounded-[4px] border border-[#747775] bg-white px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0]"
+                    >
+                      <option value="">Select gender</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Rather not say">Rather not say</option>
+                      <option value="Custom">Custom</option>
+                    </select>
                   </div>
                   <button
                     type="submit"
