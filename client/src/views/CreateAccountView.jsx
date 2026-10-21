@@ -63,6 +63,12 @@ const MONTH_OPTIONS = [
   { value: '12', name: 'December' },
 ];
 
+const getDaysInBirthMonth = (month, year) => {
+  if (!month) return 31;
+  const parsedYear = Number(year);
+  return new Date(parsedYear || 2000, Number(month), 0).getDate();
+};
+
 export default function CreateAccountView({
   onNavigateToLogin,
   onRegisterSuccess,
@@ -405,6 +411,25 @@ export default function CreateAccountView({
       }
       if (!formData.birthMonth || !formData.birthDay || !formData.birthYear) {
         setErrorMsg('Please select your complete date of birth (Month, Day, Year).');
+        return;
+      }
+      const birthYear = Number(formData.birthYear);
+      const birthDay = Number(formData.birthDay);
+      const maxBirthDay = getDaysInBirthMonth(formData.birthMonth, formData.birthYear);
+      const normalizedBirthDate = `${formData.birthYear}-${formData.birthMonth}-${formData.birthDay.padStart(2, '0')}`;
+      const parsedBirthDate = new Date(`${normalizedBirthDate}T00:00:00.000Z`);
+      if (
+        !/^\d{4}$/.test(formData.birthYear) ||
+        birthYear < 1900 ||
+        birthYear > new Date().getFullYear() ||
+        !/^\d{1,2}$/.test(formData.birthDay) ||
+        birthDay < 1 ||
+        birthDay > maxBirthDay ||
+        Number.isNaN(parsedBirthDate.getTime()) ||
+        parsedBirthDate.toISOString().slice(0, 10) !== normalizedBirthDate ||
+        parsedBirthDate > new Date()
+      ) {
+        setErrorMsg('Enter a valid date of birth.');
         return;
       }
     } else {
@@ -916,8 +941,8 @@ export default function CreateAccountView({
         };
       default:
         return {
-          title: 'Create a Tiwlo Account',
-          subtitle: 'Get started with Tiwlo Cloud Platform'
+          title: 'Create your Tiwlo ID',
+          subtitle: 'One account for your Tiwlo services.'
         };
     }
   };
@@ -1049,8 +1074,8 @@ export default function CreateAccountView({
                     </div>
                     <p className="mt-2 text-center text-xs text-[#747775]" role="status">
                       {socialProviders.google || socialProviders.github
-                        ? 'A new verified email creates an account; the same email signs into its existing account.'
-                        : 'Social sign-in is unavailable until provider setup is complete.'}
+                        ? 'Create your account with Google or GitHub. Existing accounts will be signed in.'
+                        : 'Google and GitHub sign-up are temporarily unavailable.'}
                     </p>
 
                     {/* Google Minimal Divider */}
@@ -1339,13 +1364,13 @@ export default function CreateAccountView({
                         />
                       </div>
 
-                      {/* Google-style Date of Birth */}
+                      {/* Date of Birth */}
                       <div className="pt-1">
                         <label className="block text-[13px] font-medium text-[#1f1f1f] mb-1">
                           Date of birth <span className="text-[#d93025]">*</span>
                         </label>
                         <p className="text-[12px] text-[#747775] mb-2">
-                          Choose your birthday (Google Account style)
+                          Used to keep your account details accurate.
                         </p>
                         <div className="grid grid-cols-3 gap-2">
                           <div>
@@ -1363,25 +1388,29 @@ export default function CreateAccountView({
                           </div>
                           <div>
                             <input
-                              type="number"
-                              min="1"
-                              max="31"
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              maxLength={2}
                               value={formData.birthDay}
-                              onChange={(e) => updateField('birthDay', e.target.value)}
+                              onChange={(e) => updateField('birthDay', e.target.value.replace(/\D/g, '').slice(0, 2))}
                               placeholder="Day"
                               required
+                              aria-label="Birth day"
                               className="w-full px-3 py-2.5 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
                             />
                           </div>
                           <div>
                             <input
-                              type="number"
-                              min="1900"
-                              max={new Date().getFullYear()}
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              maxLength={4}
                               value={formData.birthYear}
-                              onChange={(e) => updateField('birthYear', e.target.value)}
+                              onChange={(e) => updateField('birthYear', e.target.value.replace(/\D/g, '').slice(0, 4))}
                               placeholder="Year"
                               required
+                              aria-label="Birth year"
                               className="w-full px-3 py-2.5 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
                             />
                           </div>

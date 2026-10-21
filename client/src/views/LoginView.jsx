@@ -813,7 +813,7 @@ export default function LoginView({
                   Sign in
                 </h1>
                 <p className="text-[14px] text-[#444746] dark:text-[#C4C7C5] mt-1 leading-normal">
-                  to continue to Tiwlo Cloud
+                  to continue to Tiwlo ID
                 </p>
               </div>
 
@@ -851,8 +851,8 @@ export default function LoginView({
                 </div>
                 <p className="mt-2 text-center text-xs text-[#747775]" role="status">
                   {socialProviders.google || socialProviders.github
-                    ? 'A new verified email creates an account; the same email signs into its existing account.'
-                    : 'Social sign-in is unavailable until provider setup is complete.'}
+                    ? 'Continue securely with Google or GitHub. New accounts are created automatically.'
+                    : 'Google and GitHub sign-in are temporarily unavailable.'}
                 </p>
 
                 <div className="relative my-4 flex items-center justify-center">
