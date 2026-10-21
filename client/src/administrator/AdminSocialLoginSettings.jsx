@@ -1,4 +1,3 @@
-import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useEffect, useState } from 'react';
 import { Check, Copy, KeyRound, Save, ShieldCheck } from 'lucide-react';
 
