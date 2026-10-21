@@ -1,6 +1,7 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useState, useEffect } from 'react';
 import { getDashboardUrl } from '../utils/navigation';
+import { COUNTRY_OPTIONS, MONTH_OPTIONS, getDaysInBirthMonth } from '../utils/accountFormOptions';
 import {
   Eye,
   EyeOff,
@@ -52,8 +53,14 @@ export default function LoginView({
   const [socialProfile, setSocialProfile] = useState({
     name: '',
     email: '',
-    dateOfBirth: '',
+    birthMonth: '',
+    birthDay: '',
+    birthYear: '',
     address: '',
+    addressLine2: '',
+    city: '',
+    postalCode: '',
+    country: 'Bangladesh',
     avatar: ''
   });
   const [socialProfileLoading, setSocialProfileLoading] = useState(socialAuthInitial.profileRequired);
@@ -77,7 +84,19 @@ export default function LoginView({
         if (!response.ok || !result.profile) {
           throw new Error(result.error || 'Profile completion session expired. Please sign in again.');
         }
-        if (active) setSocialProfile(result.profile);
+        if (active) {
+          const [birthYear = '', birthMonth = '', birthDay = ''] = (result.profile.dateOfBirth || '').split('-');
+          setSocialProfile({
+            ...result.profile,
+            birthYear,
+            birthMonth,
+            birthDay,
+            addressLine2: '',
+            city: '',
+            postalCode: '',
+            country: 'Bangladesh'
+          });
+        }
       })
       .catch(error => {
         if (active) setErrorMsg(error.message);
@@ -118,6 +137,41 @@ export default function LoginView({
 
   const handleCompleteSocialProfile = async (event) => {
     event.preventDefault();
+    const birthYear = Number(socialProfile.birthYear);
+    const birthDay = Number(socialProfile.birthDay);
+    const maxBirthDay = getDaysInBirthMonth(socialProfile.birthMonth, socialProfile.birthYear);
+    const normalizedBirthDate = `${socialProfile.birthYear}-${socialProfile.birthMonth}-${socialProfile.birthDay.padStart(2, '0')}`;
+    const parsedBirthDate = new Date(`${normalizedBirthDate}T00:00:00.000Z`);
+    if (
+      !/^\d{4}$/.test(socialProfile.birthYear) ||
+      birthYear < 1900 ||
+      birthYear > new Date().getFullYear() ||
+      !/^\d{1,2}$/.test(socialProfile.birthDay) ||
+      birthDay < 1 ||
+      birthDay > maxBirthDay ||
+      Number.isNaN(parsedBirthDate.getTime()) ||
+      parsedBirthDate.toISOString().slice(0, 10) !== normalizedBirthDate ||
+      parsedBirthDate > new Date()
+    ) {
+      setErrorMsg('Enter a valid date of birth.');
+      return;
+    }
+    if (!socialProfile.address.trim() || !socialProfile.city.trim() || !socialProfile.country) {
+      setErrorMsg('Enter your street address, city, and country.');
+      return;
+    }
+    const fullAddress = [
+      socialProfile.address.trim(),
+      socialProfile.addressLine2.trim(),
+      socialProfile.city.trim(),
+      socialProfile.postalCode.trim(),
+      socialProfile.country
+    ].filter(Boolean).join(', ');
+    if (fullAddress.length > 2000) {
+      setErrorMsg('Your address must be 2,000 characters or fewer.');
+      return;
+    }
+
     setLoading(true);
     setErrorMsg('');
     try {
@@ -126,8 +180,8 @@ export default function LoginView({
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          dateOfBirth: socialProfile.dateOfBirth,
-          address: socialProfile.address
+          dateOfBirth: normalizedBirthDate,
+          address: fullAddress
         })
       });
       const result = await response.json().catch(() => ({}));
@@ -762,35 +816,149 @@ export default function LoginView({
                 <p className="text-sm text-slate-500">Loading your profile details…</p>
               ) : (
                 <form onSubmit={handleCompleteSocialProfile} className="space-y-4">
-                  <label className="block text-[12px] font-medium text-[#444746] dark:text-[#C4C7C5]">
-                    Date of birth
-                    <input
-                      type="date"
-                      required
-                      max={new Date().toISOString().slice(0, 10)}
-                      value={socialProfile.dateOfBirth || ''}
+                  <div className="pt-1">
+                    <label className="mb-1 block text-[13px] font-medium text-[#1f1f1f] dark:text-[#E3E3E3]">
+                      Date of birth <span className="text-[#d93025]">*</span>
+                    </label>
+                    <p className="mb-2 text-[12px] text-[#747775]">
+                      Used to keep your account details accurate.
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <select
+                        value={socialProfile.birthMonth}
+                        onChange={event => setSocialProfile(current => ({
+                          ...current,
+                          birthMonth: event.target.value
+                        }))}
+                        required
+                        aria-label="Birth month"
+                        className="w-full cursor-pointer rounded-[4px] border border-[#747775] bg-white px-3 py-2.5 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0]"
+                      >
+                        <option value="">Month</option>
+                        {MONTH_OPTIONS.map(month => (
+                          <option key={month.value} value={month.value}>{month.name}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={2}
+                        value={socialProfile.birthDay}
+                        onChange={event => setSocialProfile(current => ({
+                          ...current,
+                          birthDay: event.target.value.replace(/\D/g, '').slice(0, 2)
+                        }))}
+                        placeholder="Day"
+                        required
+                        aria-label="Birth day"
+                        className="w-full rounded-[4px] border border-[#747775] px-3 py-2.5 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
+                      />
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={4}
+                        value={socialProfile.birthYear}
+                        onChange={event => setSocialProfile(current => ({
+                          ...current,
+                          birthYear: event.target.value.replace(/\D/g, '').slice(0, 4)
+                        }))}
+                        placeholder="Year"
+                        required
+                        aria-label="Birth year"
+                        className="w-full rounded-[4px] border border-[#747775] px-3 py-2.5 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-[13px] font-medium text-[#1f1f1f] dark:text-[#E3E3E3]">
+                      Country <span className="text-[#d93025]">*</span>
+                    </label>
+                    <select
+                      value={socialProfile.country}
                       onChange={event => setSocialProfile(current => ({
                         ...current,
-                        dateOfBirth: event.target.value
+                        country: event.target.value
                       }))}
-                      className="mt-1.5 w-full rounded-lg border border-[#747775] bg-transparent px-3 py-3 text-sm text-[#1F1F1F] outline-none focus:border-[#0B57D0] dark:border-[#8E918F] dark:text-[#E3E3E3]"
-                    />
-                  </label>
-                  <label className="block text-[12px] font-medium text-[#444746] dark:text-[#C4C7C5]">
-                    Address
-                    <textarea
                       required
-                      maxLength={2000}
-                      rows={3}
-                      value={socialProfile.address || ''}
+                      className="w-full cursor-pointer rounded-[4px] border border-[#747775] bg-white px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0]"
+                    >
+                      {COUNTRY_OPTIONS.map(country => (
+                        <option key={country.code} value={country.name}>
+                          {country.flag} {country.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-[13px] font-medium text-[#1f1f1f] dark:text-[#E3E3E3]">
+                      Street address <span className="text-[#d93025]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={socialProfile.address}
                       onChange={event => setSocialProfile(current => ({
                         ...current,
                         address: event.target.value
                       }))}
-                      placeholder="Enter your full address"
-                      className="mt-1.5 w-full rounded-lg border border-[#747775] bg-transparent px-3 py-3 text-sm text-[#1F1F1F] outline-none focus:border-[#0B57D0] dark:border-[#8E918F] dark:text-[#E3E3E3]"
+                      placeholder="Street address, P.O. box, company name, c/o"
+                      required
+                      className="w-full rounded-[4px] border border-[#747775] px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
                     />
-                  </label>
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-[13px] font-medium text-[#1f1f1f] dark:text-[#E3E3E3]">
+                      Apartment, suite, unit (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={socialProfile.addressLine2}
+                      onChange={event => setSocialProfile(current => ({
+                        ...current,
+                        addressLine2: event.target.value
+                      }))}
+                      placeholder="Apt, Suite, Unit, Building, Floor, etc."
+                      className="w-full rounded-[4px] border border-[#747775] px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1.5 block text-[13px] font-medium text-[#1f1f1f] dark:text-[#E3E3E3]">
+                        City / Region <span className="text-[#d93025]">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={socialProfile.city}
+                        onChange={event => setSocialProfile(current => ({
+                          ...current,
+                          city: event.target.value
+                        }))}
+                        placeholder="Dhaka"
+                        required
+                        className="w-full rounded-[4px] border border-[#747775] px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-[13px] font-medium text-[#1f1f1f] dark:text-[#E3E3E3]">
+                        Postal Code
+                      </label>
+                      <input
+                        type="text"
+                        value={socialProfile.postalCode}
+                        onChange={event => setSocialProfile(current => ({
+                          ...current,
+                          postalCode: event.target.value
+                        }))}
+                        placeholder="1212"
+                        className="w-full rounded-[4px] border border-[#747775] px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
+                      />
+                    </div>
+                  </div>
                   <button
                     type="submit"
                     disabled={loading}
