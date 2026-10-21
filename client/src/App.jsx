@@ -766,7 +766,7 @@ export default function App() {
           return;
         }
       }
-      if (isAuthHost && returnTo && !ssoToken && !ssoLoginMode) {
+      if (isAuthHost && returnTo && !ssoToken && !ssoLoginMode && searchParams.get('social_flow') !== '1') {
         const bridgeUrl = `${getMainAppUrl('/api/auth/sso/web-start')}?return_to=${encodeURIComponent(returnTo)}`;
         window.location.replace(bridgeUrl);
         return;
