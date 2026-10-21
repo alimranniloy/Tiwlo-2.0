@@ -75,7 +75,7 @@ export default function CreateAccountView({
   const [formData, setFormData] = useState({
     // SSO Flags
     isSso: false,
-    ssoProvider: null, // 'Google' | 'Facebook'
+    ssoProvider: null, // 'Google' | 'GitHub'
 
     // Step 1: Credentials
     email: '',
@@ -985,7 +985,7 @@ export default function CreateAccountView({
               {/* ======================================================== */}
               {step === 1 && (
                 <div className="space-y-4">
-                  {/* Google & Facebook SSO Buttons */}
+                  {/* Google & GitHub SSO Buttons */}
                   <div>
                     <div className="grid grid-cols-2 gap-3">
                       <button
@@ -1007,16 +1007,16 @@ export default function CreateAccountView({
                         type="button"
                         disabled
                         className="flex items-center justify-center gap-2.5 h-10 px-4 rounded-full border border-[#747775] text-[#1f1f1f] text-[13px] font-medium opacity-60 cursor-not-allowed"
-                        title="Facebook sign-in is unavailable until provider credentials are configured."
+                        title="GitHub sign-in is unavailable until provider credentials are configured."
                       >
-                        <svg className="w-4 h-4 fill-[#1877F2] shrink-0" viewBox="0 0 24 24">
-                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                        <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.56.1.76-.24.76-.54v-2.1c-3.1.67-3.76-1.32-3.76-1.32-.51-1.29-1.24-1.63-1.24-1.63-1.02-.7.08-.69.08-.69 1.13.08 1.73 1.16 1.73 1.16 1 .1.76 2.01 3.44 1.54.1-.73.4-1.22.69-1.5-2.48-.28-5.09-1.24-5.09-5.53 0-1.22.44-2.22 1.16-3-.12-.28-.5-1.42.11-2.96 0 0 .95-.3 3.05 1.15a10.6 10.6 0 0 1 5.55 0c2.1-1.45 3.05-1.15 3.05-1.15.61 1.54.23 2.68.11 2.96.72.78 1.16 1.78 1.16 3 0 4.3-2.62 5.25-5.12 5.52.4.35.75 1.03.75 2.08v3.08c0 .3.2.65.77.54A11.1 11.1 0 0 0 12 .9Z"/>
                         </svg>
-                        <span>Facebook</span>
+                        <span>GitHub</span>
                       </button>
                     </div>
                     <p className="mt-2 text-center text-xs text-[#747775]" role="status">
-                      Social sign-in will be enabled after provider setup.
+                      Social sign-in is unavailable until provider setup is complete.
                     </p>
 
                     {/* Google Minimal Divider */}

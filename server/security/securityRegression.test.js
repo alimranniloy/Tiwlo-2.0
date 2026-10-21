@@ -66,7 +66,7 @@ test('unverified social identity claims cannot initiate account or MFA flows', a
     });
     assert.equal(response.status, 503);
     assert.deepEqual(await response.json(), {
-      error: 'Google and Facebook sign-in are unavailable until provider identity tokens can be verified securely.'
+      error: 'Google and GitHub sign-in are unavailable until provider identity tokens can be verified securely.'
     });
   });
 });
