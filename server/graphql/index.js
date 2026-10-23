@@ -686,7 +686,14 @@ const authenticatedRoot = Object.fromEntries(Object.entries(rootValue).map(([nam
 // Express GraphQL Middleware
 export function createGraphQLMiddleware() {
   return async (req, res) => {
-    if (req.method === 'GET' && req.path === '/explorer.js' && process.env.NODE_ENV !== 'production') {
+    const explorerEnabled = process.env.NODE_ENV !== 'production' &&
+      process.env.GRAPHQL_EXPLORER_ENABLED === 'true';
+
+    if (req.method === 'GET' && req.path === '/explorer.js') {
+      if (!explorerEnabled) {
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(404).json({ error: 'Not found' });
+      }
       res.setHeader('Cache-Control', 'no-store');
       res.type('application/javascript').send(`
         document.getElementById('execute-query').addEventListener('click', async () => {
@@ -704,7 +711,8 @@ export function createGraphQLMiddleware() {
     }
 
     if (req.method === 'GET' && req.headers.accept?.includes('text/html')) {
-      if (process.env.NODE_ENV === 'production') {
+      if (!explorerEnabled) {
+        res.setHeader('Cache-Control', 'no-store');
         return res.status(404).json({ error: 'Not found' });
       }
       res.setHeader('Content-Type', 'text/html');

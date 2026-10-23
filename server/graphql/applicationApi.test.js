@@ -81,3 +81,29 @@ test('production GraphQL hides the explorer and rejects introspection', async t 
   assert.equal(introspection.status, 400);
   assert.match((await introspection.json()).errors[0].message, /introspection/i);
 });
+
+test('GraphQL explorer is disabled by default when NODE_ENV is unset', async t => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousExplorerFlag = process.env.GRAPHQL_EXPLORER_ENABLED;
+  delete process.env.NODE_ENV;
+  delete process.env.GRAPHQL_EXPLORER_ENABLED;
+  t.after(() => {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousExplorerFlag === undefined) delete process.env.GRAPHQL_EXPLORER_ENABLED;
+    else process.env.GRAPHQL_EXPLORER_ENABLED = previousExplorerFlag;
+  });
+
+  const app = express();
+  app.use(express.json());
+  app.use('/graphql', createGraphQLMiddleware());
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise(resolve => server.once('listening', resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const endpoint = `http://127.0.0.1:${server.address().port}/graphql`;
+  const response = await fetch(endpoint, { headers: { accept: 'text/html' } });
+
+  assert.equal(response.status, 404);
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.doesNotMatch(await response.text(), /GraphQL Explorer/);
+});
