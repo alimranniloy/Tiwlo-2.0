@@ -11,6 +11,7 @@
  */
 
 import nodemailer from 'nodemailer';
+import { isIPv4 } from 'node:net';
 import { PLATFORM_CONFIG, getPlatformUrl, getSubdomain } from '../config/platformConfig.js';
 import { listEmailDeliveries, recordEmailDelivery } from './securityPersistence.js';
 import {
@@ -69,7 +70,7 @@ export function getEmailConfig() {
     },
     dnsRecords: {
       mx: { host: getSubdomain(PLATFORM_CONFIG.mtaSubdomain), priority: 10 },
-      spf: `v=spf1 mx ip4:${PLATFORM_CONFIG.serverIpv4} ${PLATFORM_CONFIG.dnsSpfPolicy}`,
+      spf: `v=spf1 mx ${isIPv4(PLATFORM_CONFIG.serverIpv4) ? `ip4:${PLATFORM_CONFIG.serverIpv4} ` : ''}${PLATFORM_CONFIG.dnsSpfPolicy}`,
       dmarc: `v=DMARC1; p=${PLATFORM_CONFIG.dnsDmarcPolicy}; rua=mailto:${PLATFORM_CONFIG.securityEmail}; pct=100; sp=${PLATFORM_CONFIG.dnsDmarcPolicy}`,
       dkimSelector: `${PLATFORM_CONFIG.dkimSelector}._domainkey.${PLATFORM_CONFIG.primaryDomain}`
     },

@@ -1,6 +1,7 @@
-import { GraphQLScalarType, GraphQLObjectType, GraphQLInputObjectType, GraphQLSchema, GraphQLString, GraphQLInt, GraphQLList, graphql, parse, visit, valueFromASTUntyped } from 'graphql';
+import { GraphQLScalarType, GraphQLObjectType, GraphQLInputObjectType, GraphQLSchema, GraphQLString, GraphQLInt, GraphQLList, execute, valueFromASTUntyped } from 'graphql';
 import { EventEmitter } from 'node:events';
 import { InputSanitizer } from '../security/cryptoSecurity.js';
+import { prepareGraphQLQuery } from './queryLimits.js';
 
 const JSONValue = new GraphQLScalarType({ name: 'ApplicationJSON', serialize: value => value, parseValue: value => value, parseLiteral: node => valueFromASTUntyped(node) });
 const Input = new GraphQLInputObjectType({ name: 'ApplicationInput', fields: { params: { type: JSONValue }, query: { type: JSONValue }, body: { type: JSONValue } } });
@@ -101,14 +102,27 @@ export function createApplicationGraphQL(groups) {
   return async (req, res) => {
     try {
       const { query, variables, operationName } = req.body || {};
-      if (typeof query !== 'string' || query.length > 50000) return res.status(400).json({ errors: [{ message: 'A bounded GraphQL operation is required.' }] });
-      const document = parse(query);
+      const { document, errors } = prepareGraphQLQuery(schema, query);
+      if (errors) return res.status(400).json({ errors: errors.map(error => ({ message: error.message })) });
       let fields = 0;
       let rootFields = 0;
-      visit(document, { Field(_node, _key, _parent, _path, ancestors) { fields++; if (!ancestors.some(value => value?.kind === 'Field')) rootFields++; } });
+      const countFields = (selectionSet, depth = 0) => {
+        for (const selection of selectionSet.selections) {
+          if (selection.kind === 'Field') {
+            fields++;
+            if (depth === 0) rootFields++;
+            if (selection.selectionSet) countFields(selection.selectionSet, depth + 1);
+          } else if (selection.kind === 'InlineFragment') {
+            countFields(selection.selectionSet, depth);
+          }
+        }
+      };
+      for (const definition of document.definitions) {
+        if (definition.kind === 'OperationDefinition') countFields(definition.selectionSet);
+      }
       // One root operation preserves HTTP middleware/cookie semantics and prevents alias batching of authentication actions.
       if (rootFields !== 1 || fields > 50 || document.definitions.some(def => def.kind === 'FragmentDefinition')) return res.status(400).json({ errors: [{ message: 'Send one application operation per request.' }] });
-      const result = await graphql({ schema, source: query, variableValues: variables, operationName, contextValue: { req, res } });
+      const result = await execute({ schema, document, variableValues: variables, operationName, contextValue: { req, res } });
       return res.json(result);
     } catch (error) {
       return res.status(400).json({ errors: [{ message: error.message }] });

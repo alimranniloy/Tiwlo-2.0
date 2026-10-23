@@ -10,7 +10,7 @@
     "dns": "node dns/dnsServer.js",
     "ssl": "node dns/sslManager.js",
     "migrate:storage": "node db/migrate.js",
-    "test:storage": "node --test --test-force-exit db/multiTenant.test.js db/migrate.test.js graphql/applicationApi.test.js graphql/graphqlTransport.test.js"
+    "test:storage": "node --test --test-force-exit db/multiTenant.test.js db/migrate.test.js graphql/applicationApi.test.js graphql/graphqlTransport.test.js graphql/queryLimits.test.js routes/authCookie.test.js routes/cloudRoutes.test.js"
   },
   "dependencies": {
     "@tensorflow/tfjs": "^4.22.0",

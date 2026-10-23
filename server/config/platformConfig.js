@@ -43,7 +43,7 @@ export const PLATFORM_CONFIG = Object.freeze({
   dashboardHost,
   cookieDomain: `.${sessionCookieDomain}`,
   authDomain: cleanDomain(process.env.VITE_AUTH_DOMAIN, `auth.${primaryDomain}`),
-  serverIpv4: process.env.VITE_SERVER_IPV4 || '162.35.124.233',
+  serverIpv4: process.env.VITE_SERVER_IPV4 || '',
   wwwSubdomain: subdomain('VITE_WWW_SUBDOMAIN', 'www'),
   authSubdomain: subdomain('VITE_AUTH_SUBDOMAIN', 'auth'),
   tpanelSubdomain: subdomain('VITE_TPANEL_SUBDOMAIN', 'tpanel'),

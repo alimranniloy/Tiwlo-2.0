@@ -877,7 +877,7 @@ export async function getUserContext(req) {
   }
 
   // 2. Token from cookies, auth headers, query, or body
-  let token = req.cookies?.['tiwlo_session'] || 
+  let token = req.cookies?.['tiwlo_host_session'] ||
     req.cookies?.['stockpro_session'] ||
     req.headers?.authorization?.replace(/^Bearer\s+/i, '') ||
     req.headers?.['x-session-token'];
@@ -1292,7 +1292,7 @@ router.post('/change-password', async (req, res) => {
   const userId = getUserId(req); if (!userId) return res.status(401).json({ error: 'Authentication required' });
   const { oldPassword, newPassword } = req.body;
   const authHeader = req.headers.authorization;
-  const currentSessionToken = req.cookies?.tiwlo_session ||
+  const currentSessionToken = req.cookies?.tiwlo_host_session ||
     (authHeader?.startsWith('Bearer ') ? authHeader.substring(7).trim() : null) ||
     req.headers?.['x-session-token'] ||
     null;

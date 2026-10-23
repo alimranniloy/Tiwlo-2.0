@@ -86,7 +86,7 @@ router.post('/storage/sync/:direction', requireAdmin, async (req, res) => {
 
 // Middleware to verify Admin / Super Admin access
 export function requireAdmin(req, res, next) {
-  const token = req.cookies?.tiwlo_session ||
+  const token = req.cookies?.tiwlo_host_session ||
     (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')
       ? req.headers.authorization.substring(7)
       : null) ||

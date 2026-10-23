@@ -3,12 +3,13 @@ set -Eeuo pipefail
 
 # Ubuntu 24.04 host hardening for Tiwlo.
 # Safe by default: inspect with --dry-run. Applying firewall changes requires
-# an explicit SSH_ALLOWLIST_CIDRS value and --apply.
+# explicit SSH and origin source allowlists and --apply.
 
 MODE="${1:---dry-run}"
 SSH_PORT="${SSH_PORT:-22}"
 SSH_ALLOWLIST_CIDRS="${SSH_ALLOWLIST_CIDRS:-}"
 ORIGIN_PORTS="${ORIGIN_PORTS:-80,443}"
+ORIGIN_ALLOWLIST_CIDRS="${ORIGIN_ALLOWLIST_CIDRS:-}"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Run as root: sudo bash ops/ubuntu24/harden.sh --dry-run"
@@ -26,10 +27,51 @@ if [[ "${MODE}" == "--apply" && -z "${SSH_ALLOWLIST_CIDRS}" ]]; then
   exit 3
 fi
 
+if [[ "${MODE}" == "--apply" && -z "${ORIGIN_ALLOWLIST_CIDRS}" ]]; then
+  echo "Refusing to expose origin ports: set ORIGIN_ALLOWLIST_CIDRS to trusted proxy or CDN source ranges."
+  echo "Example: ORIGIN_ALLOWLIST_CIDRS='198.51.100.0/24,2001:db8::/32' $0 --apply"
+  exit 4
+fi
+
+if [[ "${ORIGIN_PORTS}" == *$'\n'* || ! "${ORIGIN_PORTS}" =~ ^[0-9,]+$ ]]; then
+  echo "ORIGIN_PORTS must be a comma-separated list of TCP port numbers."
+  exit 5
+fi
+
+ORIGIN_IPV4_CIDRS=""
+ORIGIN_IPV6_CIDRS=""
+if [[ "${ORIGIN_ALLOWLIST_CIDRS}" == *$'\n'* ]]; then
+  echo "ORIGIN_ALLOWLIST_CIDRS must be a comma-separated list on one line."
+  exit 6
+fi
+IFS=',' read -ra ORIGIN_CIDRS <<< "${ORIGIN_ALLOWLIST_CIDRS}"
+for cidr in "${ORIGIN_CIDRS[@]}"; do
+  cidr="${cidr//[[:space:]]/}"
+  [[ -z "${cidr}" ]] && continue
+  if [[ "${cidr}" =~ : ]]; then
+    if [[ ! "${cidr}" =~ ^[0-9a-fA-F:]+(/[0-9]{1,3})?$ ]]; then
+      echo "Invalid IPv6 origin allowlist entry: ${cidr}"
+      exit 7
+    fi
+    ORIGIN_IPV6_CIDRS="${ORIGIN_IPV6_CIDRS:+${ORIGIN_IPV6_CIDRS}, }${cidr}"
+  else
+    if [[ ! "${cidr}" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}(/[0-9]{1,2})?$ ]]; then
+      echo "Invalid IPv4 origin allowlist entry: ${cidr}"
+      exit 7
+    fi
+    ORIGIN_IPV4_CIDRS="${ORIGIN_IPV4_CIDRS:+${ORIGIN_IPV4_CIDRS}, }${cidr}"
+  fi
+done
+if [[ "${MODE}" == "--apply" && -z "${ORIGIN_IPV4_CIDRS}${ORIGIN_IPV6_CIDRS}" ]]; then
+  echo "Refusing to apply: ORIGIN_ALLOWLIST_CIDRS has no valid address ranges."
+  exit 8
+fi
+
 echo "Tiwlo Ubuntu 24 hardening (${MODE})"
 echo "SSH port: ${SSH_PORT}"
 echo "SSH allowlist: ${SSH_ALLOWLIST_CIDRS:-NOT CONFIGURED}"
 echo "Origin ports: ${ORIGIN_PORTS}"
+echo "Origin allowlist: ${ORIGIN_ALLOWLIST_CIDRS:-NOT CONFIGURED (dry run only)}"
 
 run() {
   if [[ "${MODE}" == "--dry-run" ]]; then
@@ -51,6 +93,13 @@ run systemctl enable --now auditd
 run systemctl enable --now apparmor
 
 if [[ "${MODE}" == "--apply" ]]; then
+  ORIGIN_FIREWALL_RULES=""
+  if [[ -n "${ORIGIN_IPV4_CIDRS}" ]]; then
+    ORIGIN_FIREWALL_RULES+="    tcp dport { ${ORIGIN_PORTS} } ip saddr { ${ORIGIN_IPV4_CIDRS} } ct state new accept"$'\n'
+  fi
+  if [[ -n "${ORIGIN_IPV6_CIDRS}" ]]; then
+    ORIGIN_FIREWALL_RULES+="    tcp dport { ${ORIGIN_PORTS} } ip6 saddr { ${ORIGIN_IPV6_CIDRS} } ct state new accept"$'\n'
+  fi
   install -d -m 0755 /etc/nftables
   cat > /etc/nftables/tiwlo.nft <<EOF
 flush ruleset
@@ -63,7 +112,7 @@ table inet tiwlo_filter {
     ip protocol icmp accept
     ip6 nexthdr ipv6-icmp accept
     tcp dport ${SSH_PORT} ip saddr { ${SSH_ALLOWLIST_CIDRS} } ct state new accept
-    tcp dport { ${ORIGIN_PORTS} } ct state new accept
+${ORIGIN_FIREWALL_RULES}
     udp dport 53 limit rate 200/second burst 400 packets accept
     tcp dport 53 ct state new accept
     tcp flags syn limit rate 100/second burst 200 packets accept

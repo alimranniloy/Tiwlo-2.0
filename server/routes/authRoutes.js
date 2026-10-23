@@ -53,7 +53,7 @@ const router = express.Router();
 
 function getRequestSessionToken(req) {
   const authHeader = req.headers.authorization;
-  return req.cookies?.tiwlo_session ||
+  return req.cookies?.tiwlo_host_session ||
     (authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7).trim() : null) ||
     req.headers?.['x-session-token'] ||
     null;
@@ -67,41 +67,38 @@ const PLAN_CATALOG = {
 };
 
 function getSessionCookieOptions(req) {
-  const host = (req?.headers?.host || req?.hostname || '').toLowerCase();
-  const hostname = host.replace(/:\d+$/, '');
-  const cookieParentDomain = PLATFORM_CONFIG.cookieDomain.replace(/^\./, '');
-  const isUidsHost = hostname === cookieParentDomain || hostname.endsWith(`.${cookieParentDomain}`);
-  const isMainHost = hostname === PLATFORM_CONFIG.primaryDomain ||
-    hostname.endsWith(`.${PLATFORM_CONFIG.primaryDomain}`) ||
-    hostname === PLATFORM_CONFIG.storeDomain ||
-    hostname.endsWith(`.${PLATFORM_CONFIG.storeDomain}`);
   const isSecure = process.env.NODE_ENV === 'production' || req?.secure || req?.headers?.['x-forwarded-proto'] === 'https';
 
   return {
     httpOnly: true,
     secure: isSecure,
     sameSite: 'lax',
-    path: '/',
-    ...(isUidsHost
-      ? { domain: PLATFORM_CONFIG.cookieDomain }
-      : (isMainHost ? { domain: `.${PLATFORM_CONFIG.primaryDomain}` } : {}))
+    path: '/'
   };
 }
 
+function clearLegacySessionCookies(res, req) {
+  const isSecure = process.env.NODE_ENV === 'production' || req?.secure || req?.headers?.['x-forwarded-proto'] === 'https';
+  for (const domain of new Set([PLATFORM_CONFIG.cookieDomain, PLATFORM_CONFIG.primaryDomain])) {
+    res.clearCookie('tiwlo_session', { path: '/', domain, secure: isSecure, sameSite: 'lax' });
+  }
+  res.clearCookie('tiwlo_session', { path: '/', secure: isSecure, sameSite: 'lax' });
+  res.clearCookie('tiwlo_session');
+}
+
 export function setSessionCookie(res, req, sessionToken) {
+  clearLegacySessionCookies(res, req);
   const opts = {
     ...getSessionCookieOptions(req),
     maxAge: 30 * 24 * 60 * 60 * 1000
   };
-  res.cookie('tiwlo_session', sessionToken, opts);
+  res.cookie('tiwlo_host_session', sessionToken, opts);
 }
 
 export function clearSessionCookie(res, req) {
-  const isSecure = process.env.NODE_ENV === 'production' || req?.secure || req?.headers?.['x-forwarded-proto'] === 'https';
-  res.clearCookie('tiwlo_session', { path: '/', domain: PLATFORM_CONFIG.cookieDomain, secure: isSecure, sameSite: 'lax' });
-  res.clearCookie('tiwlo_session', { path: '/', domain: PLATFORM_CONFIG.primaryDomain, secure: isSecure, sameSite: 'lax' });
-  res.clearCookie('tiwlo_session', { path: '/', secure: isSecure, sameSite: 'lax' });
-  res.clearCookie('tiwlo_session');
+  clearLegacySessionCookies(res, req);
+  res.clearCookie('tiwlo_host_session', getSessionCookieOptions(req));
+  res.clearCookie('tiwlo_host_session');
 }
 
 function migrateSessionCookie(res, req, sessionToken) {
@@ -2040,7 +2037,7 @@ router.post('/auth/sso/web-start', async (req, res) => {
 router.post('/auth/sso/generate-handshake', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
-    const token = req.cookies?.tiwlo_session ||
+    const token = req.cookies?.tiwlo_host_session ||
       (authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null);
 
     let targetUser = null;

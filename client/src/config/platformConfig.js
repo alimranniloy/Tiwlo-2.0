@@ -14,7 +14,7 @@ export const MANAGED_DOMAINS = Object.freeze([...new Set([
   FREE_SUBDOMAIN_DOMAIN,
   ...String(import.meta.env.VITE_MANAGED_DOMAINS || '').split(',').map(domain => cleanDomain(domain)).filter(Boolean)
 ])]);
-export const SERVER_IPV4 = import.meta.env.VITE_SERVER_IPV4 || '162.35.124.233';
+export const SERVER_IPV4 = import.meta.env.VITE_SERVER_IPV4 || '';
 export const DNS_TTL = Math.max(1, Number.parseInt(import.meta.env.VITE_DNS_TTL || '300', 10) || 300);
 export const DNS_NS_TTL = Math.max(1, Number.parseInt(import.meta.env.VITE_DNS_NS_TTL || '86400', 10) || 86400);
 export const DNS_SOA_TTL = Math.max(1, Number.parseInt(import.meta.env.VITE_DNS_SOA_TTL || '3600', 10) || 3600);

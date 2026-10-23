@@ -53,3 +53,31 @@ test('typed GraphQL rejects anonymous and other-tenant access', async t => {
   assert.ok((await call('{products(tiwiId:"other"){id}}', {}, { authorization: 'owner' }, '/graphql')).body.errors);
   assert.deepEqual((await call('{products(tiwiId:"own"){id}}', {}, { authorization: 'owner' }, '/graphql')).body.data.products, []);
 });
+
+test('production GraphQL hides the explorer and rejects introspection', async t => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  t.after(() => {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+  });
+
+  const app = express();
+  app.use(express.json());
+  app.use('/graphql', createGraphQLMiddleware());
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise(resolve => server.once('listening', resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const endpoint = `http://127.0.0.1:${server.address().port}/graphql`;
+
+  const explorer = await fetch(endpoint, { headers: { accept: 'text/html' } });
+  assert.equal(explorer.status, 404);
+
+  const introspection = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ query: '{ __schema { types { name } } }' })
+  });
+  assert.equal(introspection.status, 400);
+  assert.match((await introspection.json()).errors[0].message, /introspection/i);
+});

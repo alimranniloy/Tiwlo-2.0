@@ -12,19 +12,27 @@ production services.
 ## Dry run
 
 ```bash
-sudo SSH_ALLOWLIST_CIDRS="203.0.113.10/32" \
+sudo env SSH_ALLOWLIST_CIDRS="203.0.113.10/32" \
+  ORIGIN_ALLOWLIST_CIDRS="198.51.100.0/24,2001:db8::/32" \
   bash ops/ubuntu24/harden.sh --dry-run
 ```
 
 ## Apply
 
 The script refuses to change firewall rules unless an administrator explicitly
-provides the trusted SSH source CIDR:
+provides both the trusted SSH source CIDR and the trusted reverse-proxy/CDN
+source ranges for HTTP(S):
 
 ```bash
-sudo SSH_ALLOWLIST_CIDRS="203.0.113.10/32" \
+sudo env SSH_ALLOWLIST_CIDRS="203.0.113.10/32" \
+  ORIGIN_ALLOWLIST_CIDRS="198.51.100.0/24,2001:db8::/32" \
   bash ops/ubuntu24/harden.sh --apply
 ```
+
+Use the exact source ranges published by the proxy/CDN configured for the
+domain. Do not apply this firewall with example ranges: doing so can lock out
+SSH or block all website traffic. If the origin is intentionally public, first
+decide on the trusted ingress policy and set its allowlist explicitly.
 
 Before applying, verify that:
 
@@ -33,6 +41,7 @@ Before applying, verify that:
 - DNS and mail are hosted on the intended public addresses;
 - PostgreSQL and Redis listen only on localhost/private network;
 - the provider has an out-of-band console for recovery.
+- the origin allowlist includes every intended IPv4 and IPv6 proxy source range.
 
 The script installs and configures `nftables`, `fail2ban`, `auditd`, AppArmor,
 unattended security upgrades, SYN-cookie and network sysctl protections. It
@@ -46,3 +55,8 @@ domains are configured. Registrar nameserver changes cannot be automated by
 this repository without registrar API credentials. SMTP delivery also requires
 valid provider or local Postfix configuration; the bootstrap never fabricates
 credentials or reports these services healthy without a check.
+
+Set `VITE_SERVER_IPV4` in the protected runtime/build environment when custom
+domain DNS records or server-address displays are needed. It is intentionally
+blank in the example environment file so the origin address is not published
+in source control.

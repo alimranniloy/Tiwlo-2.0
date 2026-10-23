@@ -18,28 +18,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" id="apple-status-bar-meta" />
     <meta name="msapplication-navbutton-color" content="#FFFFFF" id="ms-navbutton-meta" />
     <!-- Immediate Mobile Status Bar & Theme Sync (Prevents flash of dark/black status bar) -->
-    <script>
-      (function() {
-        try {
-          var saved = localStorage.getItem('tiwlo_theme') || localStorage.getItem('theme');
-          var isDark = saved === 'dark' || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-          var meta = document.getElementById('theme-color-meta');
-          var appleMeta = document.getElementById('apple-status-bar-meta');
-          var msMeta = document.getElementById('ms-navbutton-meta');
-          if (isDark) {
-            document.documentElement.classList.add('dark');
-            if (meta) meta.setAttribute('content', '#0B0F17');
-            if (appleMeta) appleMeta.setAttribute('content', 'black-translucent');
-            if (msMeta) msMeta.setAttribute('content', '#0B0F17');
-          } else {
-            document.documentElement.classList.remove('dark');
-            if (meta) meta.setAttribute('content', '#FFFFFF');
-            if (appleMeta) appleMeta.setAttribute('content', 'default');
-            if (msMeta) msMeta.setAttribute('content', '#FFFFFF');
-          }
-        } catch (e) {}
-      })();
-    </script>
+    <script src="/theme-bootstrap.js"></script>
     <style>
       /* Clean Google-inspired initial bootstrap loader (pure white background, Tiwlo brand blue indicator) */
       html, body, #root { min-height: 100%; margin: 0; }

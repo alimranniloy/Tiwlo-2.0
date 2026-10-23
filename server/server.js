@@ -77,7 +77,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
@@ -197,7 +197,7 @@ app.use((req, res, next) => {
 app.use(async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-    let token = req.cookies?.tiwlo_session ||
+    let token = req.cookies?.tiwlo_host_session ||
       (authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7).trim() : null) ||
       req.headers?.['x-session-token'];
 

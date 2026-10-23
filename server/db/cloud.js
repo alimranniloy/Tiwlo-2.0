@@ -20,8 +20,8 @@ export const CloudDB = {
     return mapDroplet(rows[0]);
   },
   async createDroplet() { throw new Error('Cloud provisioning is not connected to a provider yet. No server was created.'); },
-  async updateDropletStatus() { throw new Error('Cloud provider control is unavailable. Server state was not changed.'); },
-  async deleteDroplet() { throw new Error('Cloud provider control is unavailable. No server was deleted.'); },
+  async updateDropletStatus(_userId, _id, _status) { throw new Error('Cloud provider control is unavailable. Server state was not changed.'); },
+  async deleteDroplet(_userId, _id) { throw new Error('Cloud provider control is unavailable. No server was deleted.'); },
   async getCloudActivities(userId) {
     if (!userId) return [];
     const { rows } = await queryPg('SELECT * FROM cloud_activities WHERE user_id = $1 ORDER BY created_at DESC LIMIT 10', [userId]);

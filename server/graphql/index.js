@@ -1,7 +1,8 @@
-import { buildSchema, graphql } from 'graphql';
+import { buildSchema, execute } from 'graphql';
 import { MasterDB, TenantDB } from '../db/multiTenant.js';
 import { CloudDB } from '../db/cloud.js';
 import { DiscordDB } from '../discord/discordDb.js';
+import { prepareGraphQLQuery } from './queryLimits.js';
 
 // Construct GraphQL Schema using SDL
 export const schema = buildSchema(`
@@ -685,8 +686,27 @@ const authenticatedRoot = Object.fromEntries(Object.entries(rootValue).map(([nam
 // Express GraphQL Middleware
 export function createGraphQLMiddleware() {
   return async (req, res) => {
-    // If GET request with accept html, serve interactive GraphQL Explorer UI
+    if (req.method === 'GET' && req.path === '/explorer.js' && process.env.NODE_ENV !== 'production') {
+      res.setHeader('Cache-Control', 'no-store');
+      res.type('application/javascript').send(`
+        document.getElementById('execute-query').addEventListener('click', async () => {
+          const query = document.getElementById('query').value;
+          const response = await fetch('/graphql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query })
+          });
+          const data = await response.json();
+          document.getElementById('output').textContent = JSON.stringify(data, null, 2);
+        });
+      `);
+      return;
+    }
+
     if (req.method === 'GET' && req.headers.accept?.includes('text/html')) {
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(404).json({ error: 'Not found' });
+      }
       res.setHeader('Content-Type', 'text/html');
       return res.send(`
         <!DOCTYPE html>
@@ -723,22 +743,11 @@ export function createGraphQLMiddleware() {
     category
   }
 }</textarea><br/>
-            <button onclick="runQuery()">Execute Query</button>
+            <button id="execute-query">Execute Query</button>
             <h3>Result:</h3>
             <pre id="output">Run query to see JSON output...</pre>
           </div>
-          <script>
-            async function runQuery() {
-              const query = document.getElementById('query').value;
-              const res = await fetch('/graphql', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query })
-              });
-              const data = await res.json();
-              document.getElementById('output').textContent = JSON.stringify(data, null, 2);
-            }
-          </script>
+          <script src="/graphql/explorer.js"></script>
         </body>
         </html>
       `);
@@ -750,9 +759,12 @@ export function createGraphQLMiddleware() {
         return res.status(400).json({ error: 'GraphQL query is required in request body' });
       }
 
-      const result = await graphql({
+      const { document, errors } = prepareGraphQLQuery(schema, queryString);
+      if (errors) return res.status(400).json({ errors: errors.map(error => ({ message: error.message })) });
+
+      const result = await execute({
         schema,
-        source: queryString,
+        document,
         rootValue: authenticatedRoot,
         contextValue: { activeUser: req.activeUser },
         variableValues: variables,

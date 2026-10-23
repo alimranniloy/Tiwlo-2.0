@@ -51,9 +51,13 @@ router.post('/droplets', async (req, res) => {
 
 router.patch('/droplets/:id/status', async (req, res) => {
   try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const existing = await CloudDB.getDropletById(req.params.id);
+    if (!existing || existing.userId !== userId) return res.status(404).json({ error: 'Droplet not found' });
     const { status } = req.body;
     if (!status) return res.status(400).json({ error: 'Status is required' });
-    const droplet = await CloudDB.updateDropletStatus(req.params.id, status);
+    const droplet = await CloudDB.updateDropletStatus(userId, req.params.id, status);
     if (!droplet) return res.status(404).json({ error: 'Droplet not found' });
     res.json(droplet);
   } catch (err) {
@@ -63,7 +67,11 @@ router.patch('/droplets/:id/status', async (req, res) => {
 
 router.delete('/droplets/:id', async (req, res) => {
   try {
-    const ok = await CloudDB.deleteDroplet(req.params.id);
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const existing = await CloudDB.getDropletById(req.params.id);
+    if (!existing || existing.userId !== userId) return res.status(404).json({ error: 'Droplet not found' });
+    const ok = await CloudDB.deleteDroplet(userId, req.params.id);
     res.json({ success: ok });
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete droplet' });
