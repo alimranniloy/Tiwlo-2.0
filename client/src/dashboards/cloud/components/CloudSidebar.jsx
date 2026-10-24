@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   LayoutDashboard,
-  LayoutGrid,
+  BriefcaseBusiness,
   ShoppingBag,
   Server,
   Globe2,
@@ -125,7 +125,7 @@ export default function CloudSidebar({
               Overview
             </p>
             {renderNavItem({ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard })}
-            {renderNavItem({ id: 'workspace', label: 'Workspace hub', icon: LayoutGrid })}
+            {renderNavItem({ id: 'workspace', label: 'Workspace hub', icon: BriefcaseBusiness })}
           </section>
 
           <section className="space-y-1">

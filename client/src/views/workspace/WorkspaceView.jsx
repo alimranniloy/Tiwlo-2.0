@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Plus,
   RotateCw,
@@ -20,9 +21,251 @@ import {
   Play,
   Pause,
   Trash2,
-  Pencil
+  Pencil,
+  Settings,
+  ExternalLink,
+  X,
+  AlertTriangle
 } from 'lucide-react';
 import { WorkspaceAPI } from '../../api/workspaceApi';
+
+function WorkspaceRowMenu({ service, onNavigate, onOpenStoreDashboard, onToggle, onRequestDialog }) {
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef(null);
+  const menuRef = useRef(null);
+  const isPaused = ['paused', 'suspended', 'inactive'].includes(String(service.status || '').toLowerCase());
+
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+
+    const updatePosition = () => {
+      const anchor = triggerRef.current?.getBoundingClientRect();
+      const menu = menuRef.current?.getBoundingClientRect();
+      if (!anchor || !menu) return;
+
+      const top = anchor.bottom + menu.height + 12 <= window.innerHeight
+        ? anchor.bottom + 8
+        : Math.max(12, anchor.top - menu.height - 8);
+      const left = Math.max(12, Math.min(anchor.right - menu.width, window.innerWidth - menu.width - 12));
+      setPosition({ top, left });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open]);
+
+  const closeAndRun = (callback) => {
+    setOpen(false);
+    callback();
+  };
+
+  const menuItems = service.workspaceItemType === 'store'
+    ? [
+        { label: 'Open store dashboard', icon: ExternalLink, onClick: () => closeAndRun(() => onOpenStoreDashboard?.(service.store)) },
+        { label: isPaused ? 'Resume store' : 'Pause store', icon: isPaused ? Play : Pause, onClick: () => closeAndRun(() => onToggle(service)) },
+        { label: 'Delete store permanently', icon: Trash2, destructive: true, onClick: () => closeAndRun(() => onRequestDialog('delete-store', service)) }
+      ]
+    : service.workspaceItemType === 'droplet'
+      ? [
+          { label: 'Open cloud dashboard', icon: ExternalLink, onClick: () => closeAndRun(() => onNavigate?.('dashboard')) },
+          { label: 'Rename in Workspace', icon: Pencil, onClick: () => closeAndRun(() => onRequestDialog('rename-droplet', service)) }
+        ]
+      : [
+          { label: 'Edit service configuration', icon: Settings, onClick: () => closeAndRun(() => onNavigate?.(`workspace/service/${service.id}`)) },
+          { label: isPaused ? 'Resume service' : 'Pause service', icon: isPaused ? Play : Pause, onClick: () => closeAndRun(() => onToggle(service)) },
+          { label: 'Remove from Workspace', icon: Trash2, destructive: true, onClick: () => closeAndRun(() => onRequestDialog('delete-marketplace', service)) }
+        ];
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-label={`Actions for ${service.name}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className={`p-2 rounded-xl transition-colors cursor-pointer ${
+          open ? 'bg-[#E8F0FE] text-[#0B57D0]' : 'text-[#5F6368] hover:bg-[#F0F4F9] hover:text-[#1F1F1F]'
+        }`}
+      >
+        <MoreVertical className="w-4 h-4" />
+      </button>
+      {open && createPortal(
+        <>
+          <button
+            type="button"
+            aria-label="Close service actions"
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-[80] cursor-default"
+          />
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label={`${service.name} actions`}
+            style={{ top: position.top, left: position.left }}
+            className="fixed z-[81] w-64 max-w-[calc(100vw-24px)] rounded-2xl border border-[#E0E2EC] bg-white p-2 shadow-[0_18px_48px_rgba(31,41,55,0.18)]"
+          >
+            <div className="px-3 py-2.5">
+              <p className="truncate text-[13px] font-semibold text-[#1F1F1F]">{service.name}</p>
+              <p className="mt-0.5 text-[11px] text-[#747775]">
+                {service.workspaceItemType === 'store' ? 'Store' : service.workspaceItemType === 'droplet' ? 'Cloud droplet' : 'Marketplace service'}
+              </p>
+            </div>
+            <div className="my-1 border-t border-[#F0F1F4]" />
+            {menuItems.map(({ label, icon: Icon, destructive, onClick }) => (
+              <button
+                key={label}
+                type="button"
+                role="menuitem"
+                onClick={onClick}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] transition-colors ${
+                  destructive
+                    ? 'text-[#B3261E] hover:bg-[#FCE8E6]'
+                    : 'text-[#30343B] hover:bg-[#F3F6FB]'
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+        </>,
+        document.body
+      )}
+    </>
+  );
+}
+
+function WorkspaceActionDialog({ dialog, value, setValue, busy, error, onClose, onConfirm }) {
+  useEffect(() => {
+    if (!dialog) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape' && !busy) onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [dialog, busy, onClose]);
+
+  const isRename = dialog?.type === 'rename-droplet';
+  const isStoreDelete = dialog?.type === 'delete-store';
+  if (!dialog) return null;
+
+  const title = isRename
+    ? 'Rename cloud droplet'
+    : isStoreDelete
+      ? 'Permanently delete this store?'
+      : 'Remove this service?';
+  const description = isRename
+    ? 'This changes the name shown in your Workspace only. It does not rename the virtual machine at the cloud provider.'
+    : isStoreDelete
+      ? 'The storefront address and store records, including products, orders, customers, and settings, will be removed. Uploaded media files may remain in shared storage. This cannot be undone.'
+      : 'This removes the service activation from your Workspace. It does not delete the Marketplace product or stop resources at an external provider.';
+  const canSubmit = !busy && (!isRename || (value.trim() && value.trim() !== dialog.service.name));
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#111827]/45 p-4 backdrop-blur-[2px]"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !busy) onClose();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="workspace-action-title"
+        className="w-full max-w-md overflow-hidden rounded-3xl border border-white/70 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.28)]"
+      >
+        <div className="flex items-start gap-4 px-6 pt-6">
+          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+            isRename ? 'bg-[#E8F0FE] text-[#0B57D0]' : 'bg-[#FCE8E6] text-[#B3261E]'
+          }`}>
+            {isRename ? <Pencil className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 id="workspace-action-title" className="text-lg font-semibold tracking-tight text-[#1F1F1F]">{title}</h2>
+            <p className="mt-1.5 text-[13px] leading-5 text-[#5F6368]">{description}</p>
+            <p className="mt-3 truncate rounded-xl bg-[#F8FAFD] px-3 py-2 text-[12px] font-medium text-[#30343B]">
+              {dialog.service.name}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            aria-label="Close dialog"
+            className="rounded-full p-1.5 text-[#747775] transition hover:bg-[#F0F4F9] hover:text-[#1F1F1F] disabled:opacity-50"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (canSubmit) onConfirm();
+          }}
+          className="px-6 pb-6 pt-5"
+        >
+          {isRename && (
+            <label className="block text-[12px] font-medium text-[#444746]">
+              New Workspace name
+              <input
+                autoFocus
+                value={value}
+                onChange={(event) => setValue(event.target.value)}
+                maxLength={80}
+                className="mt-1.5 w-full rounded-xl border border-[#DADCE0] bg-white px-3.5 py-2.5 text-[13px] text-[#1F1F1F] outline-none transition focus:border-[#0B57D0] focus:ring-2 focus:ring-[#0B57D0]/15"
+                placeholder="Enter a name"
+              />
+            </label>
+          )}
+          {error && (
+            <p role="alert" className="mt-3 rounded-xl border border-[#F9DEDC] bg-[#FCE8E6] px-3 py-2 text-[12px] text-[#B3261E]">
+              {error}
+            </p>
+          )}
+          <div className="mt-6 flex justify-end gap-2.5">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={busy}
+              className="rounded-full border border-[#DADCE0] px-4 py-2.5 text-[13px] font-medium text-[#444746] transition hover:bg-[#F8FAFD] disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-[13px] font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                isRename ? 'bg-[#0B57D0] hover:bg-[#0842A0]' : 'bg-[#B3261E] hover:bg-[#8C1D18]'
+              }`}
+            >
+              {busy && <RotateCw className="h-3.5 w-3.5 animate-spin" />}
+              {busy ? 'Working…' : isRename ? 'Save name' : isStoreDelete ? 'Delete store' : 'Remove service'}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>,
+    document.body
+  );
+}
 
 export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showToast }) {
   const [services, setServices] = useState([]);
@@ -34,8 +277,10 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [sortOrder, setSortOrder] = useState('asc');
-  const [activeMenuId, setActiveMenuId] = useState(null);
   const [actionError, setActionError] = useState('');
+  const [actionDialog, setActionDialog] = useState(null);
+  const [dialogValue, setDialogValue] = useState('');
+  const [dialogBusy, setDialogBusy] = useState(false);
 
   const loadWorkspace = async (isManualRefresh = false) => {
     if (isManualRefresh) setRefreshing(true);
@@ -94,9 +339,14 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
     );
   };
 
-  const runServiceAction = async (service, action) => {
+  const requestActionDialog = (type, service) => {
     setActionError('');
-    setActiveMenuId(null);
+    setDialogValue(type === 'rename-droplet' ? service.name : '');
+    setActionDialog({ type, service });
+  };
+
+  const runServiceAction = async (service, action, value) => {
+    setActionError('');
     try {
       if (action === 'toggle') {
         const isPaused = ['paused', 'suspended', 'inactive'].includes(String(service.status || '').toLowerCase());
@@ -107,29 +357,36 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
         }
         showToast?.(`${service.name} ${isPaused ? 'resumed' : 'stopped'}.`);
       } else if (action === 'delete-store') {
-        const confirmed = window.confirm(
-          `Permanently delete "${service.name}"? This removes its storefront subdomain and store records, including products, orders, customers, and settings. Uploaded media files may remain in shared storage. This cannot be undone.`
-        );
-        if (!confirmed) return;
         await WorkspaceAPI.deleteStore(service.storeId);
         showToast?.(`${service.name} and its store records were permanently deleted.`);
       } else if (action === 'delete-marketplace') {
-        const confirmed = window.confirm(
-          `Remove "${service.name}" from your Workspace? This only removes this service activation; it does not delete the Marketplace product.`
-        );
-        if (!confirmed) return;
         await WorkspaceAPI.deleteWorkspaceService(service.id);
         showToast?.(`${service.name} was removed from Workspace.`);
       } else if (action === 'rename-droplet') {
-        const name = window.prompt('Enter a new Workspace name for this droplet:', service.name);
-        if (name == null || !name.trim() || name.trim() === service.name) return;
-        await WorkspaceAPI.renameDroplet(service.dropletId, name.trim());
-        showToast?.(`Workspace name updated to "${name.trim()}".`);
+        await WorkspaceAPI.renameDroplet(service.dropletId, value.trim());
+        showToast?.(`Workspace name updated to "${value.trim()}".`);
       }
       setSelectedIds([]);
       await loadWorkspace(true);
+      return true;
     } catch (error) {
       setActionError(error.message || 'The Workspace action could not be completed.');
+      return false;
+    }
+  };
+
+  const handleActionDialogConfirm = async () => {
+    if (!actionDialog || dialogBusy) return;
+    setDialogBusy(true);
+    const completed = await runServiceAction(
+      actionDialog.service,
+      actionDialog.type,
+      dialogValue
+    );
+    setDialogBusy(false);
+    if (completed) {
+      setActionDialog(null);
+      setDialogValue('');
     }
   };
 
@@ -436,61 +693,14 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
                       </td>
 
                       {/* Actions */}
-                      <td className="py-4 px-5 text-right pr-6 relative">
-                        <button
-                          onClick={() => setActiveMenuId(activeMenuId === service.id ? null : service.id)}
-                          className="p-1.5 rounded-full hover:bg-[#F0F4F9] text-[#444746] hover:text-[#1F1F1F] transition-colors cursor-pointer"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-
-                        {/* Modern Google Menu Dropdown */}
-                        {activeMenuId === service.id && (
-                          <div className="absolute right-6 top-10 w-48 bg-white border border-[#E0E2EC] rounded-2xl shadow-lg py-2 z-20 text-left text-[13px]">
-                            {service.workspaceItemType === 'store' ? (
-                              <>
-                                <button
-                                  onClick={() => runServiceAction(service, 'toggle')}
-                                  className="w-full px-4 py-2.5 text-[#1F1F1F] hover:bg-[#F0F4F9] transition-colors inline-flex items-center gap-2"
-                                >
-                                  {['suspended', 'inactive'].includes(String(service.status || '').toLowerCase())
-                                    ? <><Play className="w-4 h-4" /> Resume store</>
-                                    : <><Pause className="w-4 h-4" /> Stop store</>}
-                                </button>
-                                <button
-                                  onClick={() => runServiceAction(service, 'delete-store')}
-                                  className="w-full px-4 py-2.5 text-[#B3261E] hover:bg-[#FCE8E6] transition-colors inline-flex items-center gap-2"
-                                >
-                                  <Trash2 className="w-4 h-4" /> Delete store permanently
-                                </button>
-                              </>
-                            ) : service.workspaceItemType === 'droplet' ? (
-                              <button
-                                onClick={() => runServiceAction(service, 'rename-droplet')}
-                                className="w-full px-4 py-2.5 text-[#1F1F1F] hover:bg-[#F0F4F9] transition-colors inline-flex items-center gap-2"
-                              >
-                                <Pencil className="w-4 h-4" /> Rename in Workspace
-                              </button>
-                            ) : (
-                              <>
-                                <button
-                                  onClick={() => runServiceAction(service, 'toggle')}
-                                  className="w-full px-4 py-2.5 text-[#1F1F1F] hover:bg-[#F0F4F9] transition-colors inline-flex items-center gap-2"
-                                >
-                                  {['paused', 'suspended', 'inactive'].includes(String(service.status || '').toLowerCase())
-                                    ? <><Play className="w-4 h-4" /> Resume service</>
-                                    : <><Pause className="w-4 h-4" /> Stop service</>}
-                                </button>
-                                <button
-                                  onClick={() => runServiceAction(service, 'delete-marketplace')}
-                                  className="w-full px-4 py-2.5 text-[#B3261E] hover:bg-[#FCE8E6] transition-colors inline-flex items-center gap-2"
-                                >
-                                  <Trash2 className="w-4 h-4" /> Remove service
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        )}
+                      <td className="py-4 px-5 text-right pr-6">
+                        <WorkspaceRowMenu
+                          service={service}
+                          onNavigate={onNavigate}
+                          onOpenStoreDashboard={onOpenStoreDashboard}
+                          onToggle={(item) => runServiceAction(item, 'toggle')}
+                          onRequestDialog={requestActionDialog}
+                        />
                       </td>
                     </tr>
                   );
@@ -577,6 +787,20 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
           </table>
         </div>
       </div>
+      <WorkspaceActionDialog
+        dialog={actionDialog}
+        value={dialogValue}
+        setValue={setDialogValue}
+        busy={dialogBusy}
+        error={actionError}
+        onClose={() => {
+          if (!dialogBusy) {
+            setActionDialog(null);
+            setActionError('');
+          }
+        }}
+        onConfirm={handleActionDialogConfirm}
+      />
     </div>
   );
 }
