@@ -25,7 +25,6 @@ import HelpSupportView from '../../views/HelpSupportView';
 import CloudBillingView from './views/CloudBillingView';
 import WorkspaceView from '../../views/workspace/WorkspaceView';
 import WorkspaceServiceDetailView from '../../views/workspace/WorkspaceServiceDetailView';
-import WorkspaceActivateView from '../../views/workspace/WorkspaceActivateView';
 import WorkspaceBillingView from '../../views/workspace/WorkspaceBillingView';
 import DomainsView from './views/DomainsView';
 import WorkspaceOperationsView from '../../views/workspace/WorkspaceOperationsView';
@@ -350,19 +349,7 @@ export default function CloudDashboard({
             </div>
           ) : (activeNav === 'workspace' || activeNav.startsWith('workspace')) ? (
             <div className="max-w-[1500px] mx-auto">
-              {activeNav === 'workspace/activate' ? (
-                <WorkspaceActivateView
-                  onBack={() => {
-                    setActiveNav('workspace');
-                    try { window.history.pushState(null, '', '/workspace'); } catch (e) {}
-                  }}
-                  showToast={showToast}
-                  onNavigate={(target) => {
-                    setActiveNav(target);
-                    try { window.history.pushState(null, '', `/${target}`); } catch (e) {}
-                  }}
-                />
-              ) : activeNav === 'workspace/billing' ? (
+              {activeNav === 'workspace/billing' ? (
                 <WorkspaceBillingView
                   onBack={() => {
                     setActiveNav('workspace');
@@ -402,6 +389,8 @@ export default function CloudDashboard({
                 />
               ) : (
                 <WorkspaceView
+                  onOpenStoreDashboard={launchStoreConsole}
+                  showToast={showToast}
                   onNavigate={(target) => {
                     setActiveNav(target);
                     try { window.history.pushState(null, '', `/${target}`); } catch (e) {}

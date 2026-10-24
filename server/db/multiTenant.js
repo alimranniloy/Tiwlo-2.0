@@ -1,7 +1,7 @@
 import { readState, saveState, listState } from './stateDocuments.js';
 import { randomUUID } from 'node:crypto';
 import { normalizeSignupEmail, signupEmailKey, duplicateAccountError } from '../security/signupIdentity.js';
-import { isPgActive, queryPg } from './postgres.js';
+import { getPgPool, isPgActive, queryPg } from './postgres.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { getStoreSubdomainAvailability, isStoreSubdomainAvailable, normalizeStoreSubdomain } from './storeSubdomain.js';
 import { recordSecurityEvent } from './securityPersistence.js';
@@ -480,6 +480,67 @@ export const MasterDB = {
       s.ownerId === targetUserId ||
       (userTiwiId && s.tiwiId === userTiwiId)
     );
+  },
+
+  async setStoreStatusForUser(userId, tiwiId, status) {
+    if (!['active', 'suspended'].includes(String(status || '').toLowerCase())) {
+      throw new Error('Store status must be active or suspended.');
+    }
+    const master = await this.getMasterData();
+    const store = (master.stores || []).find(entry =>
+      String(entry.tiwiId) === String(tiwiId) && String(entry.ownerId) === String(userId)
+    );
+    if (!store) return null;
+    store.status = String(status).toLowerCase();
+    await this.saveMasterData(master);
+    return store;
+  },
+
+  async deleteStoreForUser(userId, tiwiId) {
+    if (!userId || !tiwiId) throw new Error('Store and account are required.');
+    const pool = getPgPool();
+    if (!pool) throw new Error('PostgreSQL pool not available');
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await client.query(
+        `SELECT data FROM system_state_documents
+         WHERE namespace = 'master' AND document_key = 'directory'
+         FOR UPDATE`
+      );
+      const directory = result.rows[0]?.data;
+      const store = directory?.stores?.find(entry =>
+        String(entry.tiwiId) === String(tiwiId) && String(entry.ownerId) === String(userId)
+      );
+      if (!store) {
+        await client.query('ROLLBACK');
+        return false;
+      }
+
+      directory.stores = directory.stores.filter(entry => String(entry.tiwiId) !== String(tiwiId));
+      directory.subscriptions = (directory.subscriptions || []).filter(
+        subscription => String(subscription.tiwiId) !== String(tiwiId)
+      );
+      await client.query(
+        `UPDATE system_state_documents
+         SET data = $1::jsonb, version = version + 1, updated_at = CURRENT_TIMESTAMP
+         WHERE namespace = 'master' AND document_key = 'directory'`,
+        [JSON.stringify(directory)]
+      );
+      await client.query(
+        "DELETE FROM system_state_documents WHERE namespace = 'tenant' AND document_key = $1",
+        [String(tiwiId)]
+      );
+      await client.query('DELETE FROM system_custom_domains WHERE tiwi_id = $1', [String(tiwiId)]);
+      await client.query('DELETE FROM system_stores WHERE tiwi_id = $1 AND owner_id = $2', [String(tiwiId), String(userId)]);
+      await client.query('COMMIT');
+      return true;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   },
 
   async getStoreSubdomainAvailability(candidate) {

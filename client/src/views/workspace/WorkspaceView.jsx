@@ -14,11 +14,17 @@ import {
   Activity,
   Layers,
   Bot,
-  MessageCircle
+  MessageCircle,
+  Store,
+  Server,
+  Play,
+  Pause,
+  Trash2,
+  Pencil
 } from 'lucide-react';
 import { WorkspaceAPI } from '../../api/workspaceApi';
 
-export default function WorkspaceView({ onNavigate }) {
+export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showToast }) {
   const [services, setServices] = useState([]);
   const [operations, setOperations] = useState([]);
   const [stats, setStats] = useState({ totalServices: 0, connectedServersCount: 0, allServicesHealthy: null });
@@ -29,6 +35,7 @@ export default function WorkspaceView({ onNavigate }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [sortOrder, setSortOrder] = useState('asc');
   const [activeMenuId, setActiveMenuId] = useState(null);
+  const [actionError, setActionError] = useState('');
 
   const loadWorkspace = async (isManualRefresh = false) => {
     if (isManualRefresh) setRefreshing(true);
@@ -87,8 +94,59 @@ export default function WorkspaceView({ onNavigate }) {
     );
   };
 
+  const runServiceAction = async (service, action) => {
+    setActionError('');
+    setActiveMenuId(null);
+    try {
+      if (action === 'toggle') {
+        const isPaused = ['paused', 'suspended', 'inactive'].includes(String(service.status || '').toLowerCase());
+        if (service.workspaceItemType === 'store') {
+          await WorkspaceAPI.setStoreStatus(service.storeId, isPaused ? 'active' : 'suspended');
+        } else {
+          await WorkspaceAPI.setWorkspaceServiceStatus(service.id, isPaused ? 'Active' : 'Paused');
+        }
+        showToast?.(`${service.name} ${isPaused ? 'resumed' : 'stopped'}.`);
+      } else if (action === 'delete-store') {
+        const confirmed = window.confirm(
+          `Permanently delete "${service.name}"? This removes its storefront subdomain and store records, including products, orders, customers, and settings. Uploaded media files may remain in shared storage. This cannot be undone.`
+        );
+        if (!confirmed) return;
+        await WorkspaceAPI.deleteStore(service.storeId);
+        showToast?.(`${service.name} and its store records were permanently deleted.`);
+      } else if (action === 'delete-marketplace') {
+        const confirmed = window.confirm(
+          `Remove "${service.name}" from your Workspace? This only removes this service activation; it does not delete the Marketplace product.`
+        );
+        if (!confirmed) return;
+        await WorkspaceAPI.deleteWorkspaceService(service.id);
+        showToast?.(`${service.name} was removed from Workspace.`);
+      } else if (action === 'rename-droplet') {
+        const name = window.prompt('Enter a new Workspace name for this droplet:', service.name);
+        if (name == null || !name.trim() || name.trim() === service.name) return;
+        await WorkspaceAPI.renameDroplet(service.dropletId, name.trim());
+        showToast?.(`Workspace name updated to "${name.trim()}".`);
+      }
+      setSelectedIds([]);
+      await loadWorkspace(true);
+    } catch (error) {
+      setActionError(error.message || 'The Workspace action could not be completed.');
+    }
+  };
+
   const renderServiceIcon = (iconType) => {
     switch (iconType) {
+      case 'store':
+        return (
+          <div className="w-10 h-10 rounded-xl bg-[#E8F0FE] text-[#0B57D0] flex items-center justify-center shrink-0">
+            <Store className="w-5 h-5 stroke-[2]" />
+          </div>
+        );
+      case 'cloud':
+        return (
+          <div className="w-10 h-10 rounded-xl bg-[#E8F0FE] text-[#0B57D0] flex items-center justify-center shrink-0">
+            <Server className="w-5 h-5 stroke-[2]" />
+          </div>
+        );
       case 'discord':
         return (
           <div className="w-10 h-10 rounded-xl bg-[#5865F2] text-white flex items-center justify-center shrink-0">
@@ -148,13 +206,13 @@ export default function WorkspaceView({ onNavigate }) {
 
         {/* Action Buttons (Modern Google Material 3 Pill Styling) */}
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* Primary: ACTIVATE SERVICE */}
+          {/* Primary: browse Marketplace */}
           <button
-            onClick={() => onNavigate?.('workspace/activate')}
+            onClick={() => onNavigate?.('marketplace')}
             className="inline-flex items-center gap-2 px-5 py-2.5 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-all shadow-xs hover:shadow cursor-pointer"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>Activate service</span>
+            <span>Add service</span>
           </button>
 
           {/* Secondary: REFRESH */}
@@ -187,15 +245,24 @@ export default function WorkspaceView({ onNavigate }) {
         </div>
       </div>
 
+      {actionError && (
+        <div role="alert" className="rounded-xl border border-[#F9DEDC] bg-[#FCE8E6] px-4 py-3 text-[13px] text-[#B3261E]">
+          {actionError}
+        </div>
+      )}
+
       {/* 2. Modern Google Summary Status Card */}
       <div className="bg-[#F8FAFD] border border-[#E0E2EC] rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[13px]">
         <div className="text-[#444746] flex items-center gap-3">
-          <span className="font-semibold text-[#1F1F1F] text-base">{stats.totalServices}</span> Marketplace services
+          <span className="font-semibold text-[#1F1F1F] text-base">{stats.totalServices}</span> Workspace resources
           <span className="text-[#C4C7C5]">•</span>
           <span className="font-semibold text-[#1F1F1F] text-base">{stats.connectedServersCount}</span> connected clusters
           <span className="text-[#C4C7C5]">•</span>
-          <span>Marketplace activations recorded in this account</span>
+          <span>Stores, cloud droplets, and Marketplace services</span>
         </div>
+        <p className="text-[11px] text-[#747775]">
+          Marketplace pause controls this Workspace activation; connected provider services may require separate setup.
+        </p>
 
       </div>
 
@@ -317,8 +384,14 @@ export default function WorkspaceView({ onNavigate }) {
                             : renderServiceIcon(service.iconType)}
                           <div>
                             <button
-                              onClick={() => onNavigate?.(`workspace/service/${service.id}`)}
-                              className="font-medium text-[#0B57D0] hover:underline text-left leading-tight cursor-pointer text-[14px]"
+                              disabled={service.workspaceItemType === 'store' &&
+                                ['paused', 'suspended', 'inactive'].includes(String(service.status || '').toLowerCase())}
+                              onClick={() => {
+                                if (service.workspaceItemType === 'store') onOpenStoreDashboard?.(service.store);
+                                else if (service.workspaceItemType === 'droplet') onNavigate?.('dashboard');
+                                else onNavigate?.(`workspace/service/${service.id}`);
+                              }}
+                              className="font-medium text-[#0B57D0] hover:underline text-left leading-tight cursor-pointer text-[14px] disabled:text-[#747775] disabled:no-underline disabled:cursor-not-allowed"
                             >
                               {service.name}
                             </button>
@@ -374,34 +447,48 @@ export default function WorkspaceView({ onNavigate }) {
                         {/* Modern Google Menu Dropdown */}
                         {activeMenuId === service.id && (
                           <div className="absolute right-6 top-10 w-48 bg-white border border-[#E0E2EC] rounded-2xl shadow-lg py-2 z-20 text-left text-[13px]">
-                            <button
-                              onClick={() => {
-                                setActiveMenuId(null);
-                                onNavigate?.(`workspace/service/${service.id}`);
-                              }}
-                              className="w-full px-4 py-2.5 text-[#1F1F1F] hover:bg-[#F0F4F9] transition-colors"
-                            >
-                              View details
-                            </button>
-                            <button
-                              onClick={() => {
-                                setActiveMenuId(null);
-                                onNavigate?.('workspace/billing');
-                              }}
-                              className="w-full px-4 py-2.5 text-[#1F1F1F] hover:bg-[#F0F4F9] transition-colors"
-                            >
-                              Manage billing
-                            </button>
-                            <div className="border-t border-[#E0E2EC] my-1" />
-                            <button
-                              onClick={() => {
-                                setActiveMenuId(null);
-                                onNavigate?.('workspace/operations');
-                              }}
-                              className="w-full px-4 py-2.5 text-[#1F1F1F] hover:bg-[#F0F4F9] transition-colors"
-                            >
-                              Audit logs
-                            </button>
+                            {service.workspaceItemType === 'store' ? (
+                              <>
+                                <button
+                                  onClick={() => runServiceAction(service, 'toggle')}
+                                  className="w-full px-4 py-2.5 text-[#1F1F1F] hover:bg-[#F0F4F9] transition-colors inline-flex items-center gap-2"
+                                >
+                                  {['suspended', 'inactive'].includes(String(service.status || '').toLowerCase())
+                                    ? <><Play className="w-4 h-4" /> Resume store</>
+                                    : <><Pause className="w-4 h-4" /> Stop store</>}
+                                </button>
+                                <button
+                                  onClick={() => runServiceAction(service, 'delete-store')}
+                                  className="w-full px-4 py-2.5 text-[#B3261E] hover:bg-[#FCE8E6] transition-colors inline-flex items-center gap-2"
+                                >
+                                  <Trash2 className="w-4 h-4" /> Delete store permanently
+                                </button>
+                              </>
+                            ) : service.workspaceItemType === 'droplet' ? (
+                              <button
+                                onClick={() => runServiceAction(service, 'rename-droplet')}
+                                className="w-full px-4 py-2.5 text-[#1F1F1F] hover:bg-[#F0F4F9] transition-colors inline-flex items-center gap-2"
+                              >
+                                <Pencil className="w-4 h-4" /> Rename in Workspace
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => runServiceAction(service, 'toggle')}
+                                  className="w-full px-4 py-2.5 text-[#1F1F1F] hover:bg-[#F0F4F9] transition-colors inline-flex items-center gap-2"
+                                >
+                                  {['paused', 'suspended', 'inactive'].includes(String(service.status || '').toLowerCase())
+                                    ? <><Play className="w-4 h-4" /> Resume service</>
+                                    : <><Pause className="w-4 h-4" /> Stop service</>}
+                                </button>
+                                <button
+                                  onClick={() => runServiceAction(service, 'delete-marketplace')}
+                                  className="w-full px-4 py-2.5 text-[#B3261E] hover:bg-[#FCE8E6] transition-colors inline-flex items-center gap-2"
+                                >
+                                  <Trash2 className="w-4 h-4" /> Remove service
+                                </button>
+                              </>
+                            )}
                           </div>
                         )}
                       </td>

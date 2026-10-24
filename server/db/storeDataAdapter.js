@@ -43,7 +43,8 @@ export async function resolveActiveStore(req, selectedTiwiId, masterDb = MasterD
   const stores = await masterDb.getUserStores(req.activeUser.id || accountTiwiId);
   return stores.find(store =>
     String(store.tiwiId) === String(selectedTiwiId) &&
-    String(store.ownerId) === String(req.activeUser.id)
+    String(store.ownerId) === String(req.activeUser.id) &&
+    !['suspended', 'inactive', 'deleted'].includes(String(store.status || '').toLowerCase())
   ) || null;
 }
 
@@ -64,7 +65,10 @@ export async function resolveStorefrontHost(hostname, masterDb = MasterDB) {
     .filter(Boolean)
     .map(String));
   const candidates = [
-    ...(directory.stores || []).filter(store => !bannedOwners.has(String(store.ownerId))),
+    ...(directory.stores || []).filter(store =>
+      !bannedOwners.has(String(store.ownerId)) &&
+      !['suspended', 'inactive', 'deleted'].includes(String(store.status || '').toLowerCase())
+    ),
     ...(directory.users || []).filter(user => !user.isBanned)
   ];
   const matches = candidates.filter(store => {

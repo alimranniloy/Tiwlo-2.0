@@ -41,3 +41,28 @@ test('droplet status and delete routes require authentication and owner identity
   assert.deepEqual(update.mock.calls[0].arguments, ['owner', 'droplet-1', 'active']);
   assert.deepEqual(remove.mock.calls[0].arguments, ['owner', 'droplet-1']);
 });
+
+test('droplet rename is owner-scoped and validates the display name', async t => {
+  const call = await createClient(t);
+  const rename = t.mock.method(CloudDB, 'renameDroplet', async (userId, id, name) => ({
+    id,
+    userId,
+    name
+  }));
+
+  assert.equal((await call('/api/cloud/droplets/droplet-1/name', {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: 'Renamed VM' })
+  })).status, 401);
+
+  const headers = { 'x-user-id': 'owner', 'content-type': 'application/json' };
+  assert.equal((await call('/api/cloud/droplets/droplet-1/name', {
+    method: 'PATCH', headers, body: JSON.stringify({ name: 'Renamed VM' })
+  })).status, 200);
+  assert.deepEqual(rename.mock.calls[0].arguments, ['owner', 'droplet-1', 'Renamed VM']);
+  assert.equal((await call('/api/cloud/droplets/droplet-1/name', {
+    method: 'PATCH', headers, body: JSON.stringify({ name: '   ' })
+  })).status, 400);
+  assert.equal(rename.mock.callCount(), 1);
+});

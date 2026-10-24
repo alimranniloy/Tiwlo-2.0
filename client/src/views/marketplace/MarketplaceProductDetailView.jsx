@@ -14,7 +14,9 @@ import { WorkspaceAPI } from '../../api/workspaceApi';
 
 export default function MarketplaceProductDetailView({ productId, onBack, onNavigate }) {
   const [product, setProduct] = useState(null);
+  const [serviceName, setServiceName] = useState('');
   const [loading, setLoading] = useState(true);
+  const [enabling, setEnabling] = useState(false);
   const [msg, setMsg] = useState(null);
 
   useEffect(() => {
@@ -24,6 +26,7 @@ export default function MarketplaceProductDetailView({ productId, onBack, onNavi
         const catalog = await WorkspaceAPI.getMarketplaceCatalog();
         const found = (catalog || []).find((p) => String(p.id) === String(productId));
         setProduct(found || null);
+        setServiceName(found?.name || '');
       } catch (err) {
         setMsg({ text: err.message, type: 'error' });
       } finally {
@@ -32,6 +35,25 @@ export default function MarketplaceProductDetailView({ productId, onBack, onNavi
     }
     if (productId) loadData();
   }, [productId]);
+
+  const handleEnable = async () => {
+    setMsg(null);
+    if (!serviceName.trim()) {
+      setMsg({ text: 'Enter a name for this Workspace service.', type: 'error' });
+      return;
+    }
+    setEnabling(true);
+    try {
+      await WorkspaceAPI.activateMarketplaceProduct(product.id, {
+        serviceName: serviceName.trim()
+      });
+      onNavigate?.('workspace');
+    } catch (error) {
+      setMsg({ text: error.message || 'Could not enable this product in Workspace.', type: 'error' });
+    } finally {
+      setEnabling(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -131,15 +153,26 @@ export default function MarketplaceProductDetailView({ productId, onBack, onNavi
               {product.description}
             </p>
 
-            <p className="mt-4 text-[12px] text-[#5F6368]">
-              Enable this product in Workspace to create a manageable service entry. Provider deployment or connection is separate.
+            <label htmlFor="marketplace-service-name" className="block mt-4 text-[12px] font-medium text-[#444746]">
+              Workspace service name
+            </label>
+            <input
+              id="marketplace-service-name"
+              value={serviceName}
+              onChange={(event) => setServiceName(event.target.value)}
+              maxLength={255}
+              className="mt-1.5 w-full rounded-xl border border-[#E0E2EC] px-3 py-2 text-[13px] text-[#1F1F1F] focus:border-[#0B57D0] focus:outline-none"
+            />
+            <p className="mt-2 text-[11px] text-[#5F6368]">
+              Enablement adds this product to your Workspace. Provider deployment or connection is separate.
             </p>
             <button
               type="button"
-              onClick={() => onNavigate?.('workspace/activate')}
-              className="mt-4 w-full px-4 py-2.5 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-colors cursor-pointer"
+              onClick={handleEnable}
+              disabled={enabling || !serviceName.trim()}
+              className="mt-4 w-full px-4 py-2.5 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-colors cursor-pointer disabled:opacity-60"
             >
-              Enable in Workspace
+              {enabling ? 'Enabling…' : 'Enable in Workspace'}
             </button>
           </div>
         </div>

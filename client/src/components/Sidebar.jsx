@@ -21,7 +21,8 @@ import {
   HelpCircle,
   ArrowLeft,
   Mail,
-  X
+  X,
+  BriefcaseBusiness
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -43,7 +44,7 @@ export default function Sidebar({
   const navItems = [
     { id: 'subscription', name: 'Upgrade & Plans', icon: Sparkles, isUpgrade: true },
     { id: 'ecommerce-dashboard', name: 'Store Dashboard', icon: LayoutDashboard },
-    { id: 'workspace', name: 'Workspace', icon: LayoutGrid },
+    { id: 'workspace', name: 'Workspace', icon: BriefcaseBusiness },
     { id: 'email', name: 'Tiwi Mail', icon: Mail, isNew: true },
     { id: 'pos', name: 'POS System', icon: Store, isNew: true },
     { id: 'products', name: 'Products', icon: Package },

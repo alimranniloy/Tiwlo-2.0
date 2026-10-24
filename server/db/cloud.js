@@ -19,6 +19,17 @@ export const CloudDB = {
     const { rows } = await queryPg('SELECT * FROM cloud_droplets WHERE id = $1', [id]);
     return mapDroplet(rows[0]);
   },
+  async renameDroplet(userId, id, name) {
+    const normalizedName = String(name || '').trim();
+    if (!normalizedName || normalizedName.length > 255) {
+      throw new Error('Droplet name must be between 1 and 255 characters.');
+    }
+    const { rows } = await queryPg(
+      'UPDATE cloud_droplets SET name = $1 WHERE id = $2 AND user_id = $3 RETURNING *',
+      [normalizedName, id, userId]
+    );
+    return mapDroplet(rows[0]);
+  },
   async createDroplet() { throw new Error('Cloud provisioning is not connected to a provider yet. No server was created.'); },
   async updateDropletStatus(_userId, _id, _status) { throw new Error('Cloud provider control is unavailable. Server state was not changed.'); },
   async deleteDroplet(_userId, _id) { throw new Error('Cloud provider control is unavailable. No server was deleted.'); },

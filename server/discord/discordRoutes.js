@@ -1,6 +1,8 @@
 import express from 'express';
 import { DiscordDB } from './discordDb.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
+import { MasterDB } from '../db/multiTenant.js';
+import { CloudDB } from '../db/cloud.js';
 
 const router = express.Router();
 
@@ -18,6 +20,47 @@ function requireDiscordAuth(req, res, next) {
     });
   }
   next();
+}
+
+function mapStoreWorkspaceService(store) {
+  return {
+    id: `store:${store.tiwiId}`,
+    workspaceItemType: 'store',
+    storeId: store.tiwiId,
+    store: {
+      id: store.id,
+      tiwiId: store.tiwiId,
+      storeName: store.storeName,
+      subdomain: store.subdomain,
+      currency: store.currency
+    },
+    name: store.storeName || 'Online Store',
+    productName: 'Online Store',
+    category: store.category || 'Commerce',
+    iconType: 'store',
+    status: store.status || 'active',
+    serverName: store.subdomain || '—',
+    plan: store.planId || 'free',
+    usageLabel: store.tiwiId,
+    renewalDate: '—'
+  };
+}
+
+function mapDropletWorkspaceService(droplet) {
+  return {
+    id: `droplet:${droplet.id}`,
+    workspaceItemType: 'droplet',
+    dropletId: droplet.id,
+    name: droplet.name || 'Cloud droplet',
+    productName: 'Cloud Droplet',
+    category: 'Infrastructure',
+    iconType: 'cloud',
+    status: droplet.status || 'unknown',
+    serverName: droplet.region || droplet.ip || '—',
+    plan: droplet.specs || '—',
+    usageLabel: [droplet.vcpus ? `${droplet.vcpus} vCPU` : '', droplet.memory, droplet.storage].filter(Boolean).join(' · ') || '—',
+    renewalDate: '—'
+  };
 }
 
 router.use(requireDiscordAuth);
@@ -367,7 +410,21 @@ router.get('/workspace', async (req, res) => {
   try {
     const userId = getAuthUserId(req);
     const { search, filter } = req.query || {};
-    const workspace = await DiscordDB.getWorkspace(userId, { search, filter });
+    const [workspace, stores, droplets] = await Promise.all([
+      DiscordDB.getWorkspace(userId, { search, filter }),
+      MasterDB.getUserStores(userId),
+      CloudDB.getDroplets(userId)
+    ]);
+    const query = String(search || '').trim().toLowerCase();
+    workspace.services = [
+      ...workspace.services,
+      ...stores.map(mapStoreWorkspaceService),
+      ...droplets.map(mapDropletWorkspaceService)
+    ].filter(service => !query || [
+      service.name, service.productName, service.category, service.serverName, service.status,
+      service.plan, service.usageLabel
+    ].some(value => String(value || '').toLowerCase().includes(query)));
+    workspace.totalServices = workspace.services.length;
     res.json({ success: true, workspace });
   } catch (err) {
     console.error('[Discord API] Workspace error:', err);
@@ -426,6 +483,16 @@ router.post('/workspace/refresh', async (req, res) => {
   try {
     const userId = getAuthUserId(req);
     const workspace = await DiscordDB.getWorkspace(userId);
+    const [stores, droplets] = await Promise.all([
+      MasterDB.getUserStores(userId),
+      CloudDB.getDroplets(userId)
+    ]);
+    workspace.services = [
+      ...workspace.services,
+      ...stores.map(mapStoreWorkspaceService),
+      ...droplets.map(mapDropletWorkspaceService)
+    ];
+    workspace.totalServices = workspace.services.length;
     res.json({ success: true, workspace });
   } catch (err) {
     console.error('[Discord API] Refresh workspace error:', err);

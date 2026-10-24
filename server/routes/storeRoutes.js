@@ -599,6 +599,39 @@ router.get('/stores/subdomain-availability', async (req, res) => {
   }
 });
 
+router.patch('/stores/:tiwiId/status', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const status = String(req.body?.status || '').toLowerCase();
+    if (!['active', 'suspended'].includes(status)) {
+      return res.status(400).json({ error: 'Store status must be active or suspended.' });
+    }
+    const store = await MasterDB.setStoreStatusForUser(userId, req.params.tiwiId, status);
+    if (!store) return res.status(404).json({ error: 'Store not found.' });
+    res.json({ success: true, store });
+  } catch (err) {
+    console.error('Error updating store status:', err);
+    res.status(err.statusCode || 500).json({ error: err.message || 'Failed to update store status.' });
+  }
+});
+
+router.delete('/stores/:tiwiId', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (req.body?.confirm !== true) {
+      return res.status(400).json({ error: 'Explicit confirmation is required to permanently delete a store.' });
+    }
+    const deleted = await MasterDB.deleteStoreForUser(userId, req.params.tiwiId);
+    if (!deleted) return res.status(404).json({ error: 'Store not found.' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error permanently deleting store:', err);
+    res.status(500).json({ error: 'Failed to permanently delete store.' });
+  }
+});
+
 router.post('/stores', async (req, res) => {
   try {
     const { storeName, subdomain, planId, category, currency, email, phone, description, billingDetails } = req.body;

@@ -32,7 +32,8 @@ test('storefront host resolution matches a unique registered tenant', async () =
     async getMasterData() {
       return {
         stores: [
-          { tiwiId: 'TIW-CHILD', ownerId: 'owner-1', storeName: 'Child Store', subdomain: 'child-store.tiwlo.com', currency: 'BDT (৳)' }
+          { tiwiId: 'TIW-CHILD', ownerId: 'owner-1', storeName: 'Child Store', subdomain: 'child-store.tiwlo.com', currency: 'BDT (৳)' },
+          { tiwiId: 'TIW-PAUSED', ownerId: 'owner-1', storeName: 'Paused Store', subdomain: 'paused-store.tiwlo.com', status: 'suspended' }
         ],
         users: [
           { tiwiId: 'TIW-BASE', id: 'owner-1', storeName: 'Base Store', subdomain: 'base-store' },
@@ -59,6 +60,7 @@ test('storefront host resolution matches a unique registered tenant', async () =
   assert.equal(await resolveStorefrontHost('child-store.other.com', masterDb), null);
   assert.equal(await resolveStorefrontHost('deep.child-store.tiwlo.com', masterDb), null);
   assert.equal(await resolveStorefrontHost('banned-store.tiwlo.com', masterDb), null);
+  assert.equal(await resolveStorefrontHost('paused-store.tiwlo.com', masterDb), null);
   assert.equal(await resolveStorefrontHost('auth.tiwlo.com', masterDb), null);
 
   const ambiguousMasterDb = {

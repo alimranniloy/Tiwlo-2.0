@@ -56,6 +56,50 @@ export const WorkspaceAPI = {
     });
   },
 
+  async setWorkspaceServiceStatus(id, status) {
+    return request(`/workspace/services/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+  },
+
+  async setStoreStatus(tiwiId, status) {
+    const response = await fetch(`/api/stores/${encodeURIComponent(tiwiId)}/status`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || 'Failed to update store status.');
+    return payload.store;
+  },
+
+  async deleteStore(tiwiId) {
+    const response = await fetch(`/api/stores/${encodeURIComponent(tiwiId)}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm: true })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || 'Failed to permanently delete store.');
+    return payload.success === true;
+  },
+
+  async renameDroplet(id, name) {
+    const response = await fetch(`/api/cloud/droplets/${encodeURIComponent(id)}/name`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || 'Failed to rename droplet.');
+    return payload;
+  },
+
   async getWorkspaceOperations() {
     const res = await request('/workspace/operations');
     return res.operations || [];

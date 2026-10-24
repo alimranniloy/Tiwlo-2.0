@@ -9,7 +9,11 @@ export default function WorkspaceBillingView({ onBack, onNavigate }) {
 
   useEffect(() => {
     WorkspaceAPI.getWorkspace()
-      .then((workspace) => setServices(workspace.services || []))
+      .then((workspace) => setServices(
+        (workspace.services || []).filter(service =>
+          !['store', 'droplet'].includes(service.workspaceItemType)
+        )
+      ))
       .catch((err) => setError(err.message || 'Could not load activated services.'))
       .finally(() => setLoading(false));
   }, []);
@@ -25,7 +29,7 @@ export default function WorkspaceBillingView({ onBack, onNavigate }) {
           <h1 className="text-xl sm:text-2xl font-normal text-[#1F1F1F] tracking-tight">Workspace Billing</h1>
           <p className="text-xs sm:text-sm text-[#444746] mt-1">Billing provider and payment details are not connected.</p>
         </div>
-        <button onClick={() => onNavigate?.('workspace/activate')} className="inline-flex items-center gap-1.5 px-5 py-2.5 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-colors cursor-pointer">
+        <button onClick={() => onNavigate?.('marketplace')} className="inline-flex items-center gap-1.5 px-5 py-2.5 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-colors cursor-pointer">
           <Plus className="w-4 h-4" /><span>Browse Marketplace</span>
         </button>
       </div>

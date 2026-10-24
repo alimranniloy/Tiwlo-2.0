@@ -49,6 +49,23 @@ router.post('/droplets', async (req, res) => {
   }
 });
 
+router.patch('/droplets/:id/name', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+    if (!name || name.length > 255) {
+      return res.status(400).json({ error: 'Droplet name must be between 1 and 255 characters.' });
+    }
+    const droplet = await CloudDB.renameDroplet(userId, req.params.id, name);
+    if (!droplet) return res.status(404).json({ error: 'Droplet not found' });
+    res.json(droplet);
+  } catch (err) {
+    console.error('Error renaming droplet:', err);
+    res.status(500).json({ error: 'Failed to rename droplet' });
+  }
+});
+
 router.patch('/droplets/:id/status', async (req, res) => {
   try {
     const userId = getReqUserId(req);

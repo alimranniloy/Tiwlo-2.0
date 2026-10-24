@@ -139,8 +139,14 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
               </div>
             )}
             <h1 className="text-2xl font-normal text-[#1F1F1F] tracking-tight">{service.name}</h1>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium bg-[#C4EED0] text-[#072711]">
-              <span className="w-2 h-2 rounded-full bg-[#137333]" />
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium ${
+              String(service.status).toLowerCase() === 'active'
+                ? 'bg-[#C4EED0] text-[#072711]'
+                : 'bg-[#F0F4F9] text-[#444746]'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${
+                String(service.status).toLowerCase() === 'active' ? 'bg-[#137333]' : 'bg-[#747775]'
+              }`} />
               {service.status || 'Status unavailable'}
             </span>
           </div>
