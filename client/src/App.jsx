@@ -826,7 +826,7 @@ export default function App() {
 
               if (isAuthHost) {
                 if (searchParams.get('mail_return') === '1') {
-                  window.location.replace(getMailUrl());
+                  redirectAfterAuthentication(getMailUrl());
                   return;
                 }
                 const safeRedirect = getSafeRedirectPath(searchParams.get('redirect'));
@@ -835,7 +835,7 @@ export default function App() {
                 const target = safeRedirect && !searchParams.has('dashboard')
                   ? safeRedirect
                   : (isSuper ? '/administrator' : null);
-                window.location.replace(
+                redirectAfterAuthentication(
                   safeReturnTo || (target ? getMainAppUrl(target) : getMainAppUrl('/dashboard'))
                 );
                 return;
@@ -1039,7 +1039,7 @@ export default function App() {
     };
   }, []);
 
-  const startWebSsoHandoff = async (returnTo) => {
+  async function startWebSsoHandoff(returnTo) {
     try {
       const token = localStorage.getItem('stockpro_session');
       if (!token) {
@@ -1063,9 +1063,9 @@ export default function App() {
       console.error('Web SSO handoff failed:', error);
       showToast('Signed in, but could not open the dashboard. Please try again.', 'error');
     }
-  };
+  }
 
-  const redirectAfterAuthentication = (target) => {
+  function redirectAfterAuthentication(target) {
     let destination;
     try {
       destination = new URL(target);
@@ -1084,7 +1084,7 @@ export default function App() {
       return;
     }
     window.location.replace(destination.toString());
-  };
+  }
 
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
