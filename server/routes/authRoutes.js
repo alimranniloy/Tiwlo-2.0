@@ -438,8 +438,6 @@ async function completeSocialLogin(provider, req, res) {
       maxAge: 15 * 60 * 1000
     });
     const loginUrl = new URL(getSocialLoginUrl(provider, { returnTo: savedState.returnTo }));
-    loginUrl.searchParams.set('social_challenge', mfaMode);
-    loginUrl.searchParams.set('social_email', maskSocialEmail(user.email));
     return res.redirect(loginUrl.toString());
   } catch (error) {
     if (error.code === 'ACCOUNT_DISABLED') {
@@ -488,6 +486,26 @@ router.get('/auth/social/profile-challenge', async (req, res) => {
   } catch (error) {
     console.error('[SocialAuth] Could not load required profile details:', error.message);
     return res.status(503).json({ error: 'Required profile details are temporarily unavailable.' });
+  }
+});
+
+router.get('/auth/social/mfa-challenge', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const tempToken = req.cookies?.tiwlo_oauth_mfa;
+  if (!tempToken) return res.status(401).json({ error: 'Social sign-in verification expired. Please sign in again.' });
+  try {
+    const challenge = await getOtpSession(tempToken);
+    if (!challenge || !['login_2fa', 'setup_2fa'].includes(challenge.type)) {
+      return res.status(401).json({ error: 'Social sign-in verification expired. Please sign in again.' });
+    }
+    return res.json({
+      success: true,
+      challenge: challenge.type === 'login_2fa' ? 'login' : 'setup',
+      emailMasked: maskSocialEmail(challenge.email)
+    });
+  } catch (error) {
+    console.error('[SocialAuth] Could not verify MFA challenge:', error.message);
+    return res.status(503).json({ error: 'Could not verify social sign-in. Please try again.' });
   }
 });
 

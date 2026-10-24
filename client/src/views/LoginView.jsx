@@ -21,7 +21,6 @@ export default function LoginView({
 }) {
   const [socialAuthInitial] = useState(() => {
     const searchParams = new URLSearchParams(window.location.search);
-    const challenge = searchParams.get('social_challenge');
     const socialError = searchParams.get('social_error');
     const [, reason] = (socialError || '').split(':');
     const messages = {
@@ -31,12 +30,12 @@ export default function LoginView({
       failed: 'Social sign-in could not be completed. Please try again.'
     };
     return {
-      challenge,
+      socialFlow: searchParams.get('social_flow') === '1',
       profileRequired: searchParams.get('social_profile') === 'required',
-      emailMasked: searchParams.get('social_email') || 'your verified email',
+      hasSocialError: Boolean(socialError),
       viewMode: searchParams.get('social_profile') === 'required'
         ? 'profile_complete'
-        : challenge === 'login' ? '2fa' : challenge === 'setup' ? 'setup_2fa' : 'login',
+        : 'login',
       errorMessage: socialError ? (messages[reason] || messages.failed) : ''
     };
   });
@@ -272,7 +271,7 @@ export default function LoginView({
   const [twoFactorData, setTwoFactorData] = useState({
     tempToken: '',
     email: '',
-    emailMasked: socialAuthInitial.challenge === 'login' ? socialAuthInitial.emailMasked : '',
+    emailMasked: '',
     code: ''
   });
 
@@ -280,7 +279,7 @@ export default function LoginView({
   const [setup2FAData, setSetup2FAData] = useState({
     tempToken: '',
     email: '',
-    emailMasked: socialAuthInitial.challenge === 'setup' ? socialAuthInitial.emailMasked : '',
+    emailMasked: '',
     code: ''
   });
   const [resendCountdown, setResendCountdown] = useState(0);
@@ -294,6 +293,34 @@ export default function LoginView({
     confirmNewPassword: ''
   });
   const [showNewPassword, setShowNewPassword] = useState(false);
+
+  useEffect(() => {
+    if (!socialAuthInitial.socialFlow || socialAuthInitial.profileRequired || socialAuthInitial.hasSocialError) {
+      return undefined;
+    }
+    let active = true;
+    fetch(`${API_BASE}/auth/social/mfa-challenge`, { credentials: 'include' })
+      .then(async response => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !['login', 'setup'].includes(result.challenge)) {
+          throw new Error(result.error || 'Social sign-in verification expired. Please sign in again.');
+        }
+        if (!active) return;
+        const challengeData = {
+          tempToken: '',
+          email: '',
+          emailMasked: result.emailMasked || 'your verified email',
+          code: ''
+        };
+        setViewMode(result.challenge === 'login' ? '2fa' : 'setup_2fa');
+        if (result.challenge === 'login') setTwoFactorData(challengeData);
+        else setSetup2FAData(challengeData);
+      })
+      .catch(error => {
+        if (active) setErrorMsg(error.message);
+      });
+    return () => { active = false; };
+  }, [socialAuthInitial.hasSocialError, socialAuthInitial.profileRequired, socialAuthInitial.socialFlow]);
 
   // Cooldown countdown timer for OTP resend
   useEffect(() => {

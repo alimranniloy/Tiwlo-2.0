@@ -583,9 +583,7 @@ export default function CreateAccountView({
           throw new Error(result.error || 'Could not save your profile. Please try again.');
         }
         const loginParams = new URLSearchParams({
-          social_flow: '1',
-          social_challenge: result.challenge,
-          social_email: result.emailMasked || ''
+          social_flow: '1'
         });
         const returnTo = new URLSearchParams(window.location.search).get('return_to');
         if (returnTo) loginParams.set('return_to', returnTo);

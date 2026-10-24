@@ -71,6 +71,52 @@ test('unverified social identity claims cannot initiate account or MFA flows', a
   });
 });
 
+test('social MFA state and displayed email come only from the server-side challenge', async (t) => {
+  const previousRustEnv = {
+    TIWLO_RUST_BACKEND_URL: process.env.TIWLO_RUST_BACKEND_URL,
+    TIWLO_INTERNAL_IDENTITY_SECRET: process.env.TIWLO_INTERNAL_IDENTITY_SECRET
+  };
+  process.env.TIWLO_RUST_BACKEND_URL = 'http://rust:7100';
+  process.env.TIWLO_INTERNAL_IDENTITY_SECRET = 'i'.repeat(32);
+  t.after(() => {
+    for (const [key, value] of Object.entries(previousRustEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+  const nativeFetch = globalThis.fetch;
+  t.mock.method(globalThis, 'fetch', async (url, ...args) => {
+    if (String(url).startsWith('http://127.0.0.1:')) return nativeFetch(url, ...args);
+    return new Response(JSON.stringify({
+      session: {
+        email: 'owner@example.com',
+        type: 'login_2fa',
+        attempts: 0,
+        max_attempts: 5,
+        expires_at: Date.now() + 60_000
+      }
+    }), { status: 200 });
+  });
+  await withServer(async base => {
+    const withoutCookie = await fetch(
+      `${base}/api/auth/social/mfa-challenge?social_challenge=login&social_email=attacker@example.com`
+    );
+    assert.equal(withoutCookie.status, 401);
+    assert.equal(withoutCookie.headers.get('cache-control'), 'no-store');
+
+    const withCookie = await fetch(
+      `${base}/api/auth/social/mfa-challenge?social_challenge=setup&social_email=attacker@example.com`,
+      { headers: { Cookie: 'tiwlo_oauth_mfa=valid-server-challenge' } }
+    );
+    assert.equal(withCookie.status, 200);
+    assert.deepEqual(await withCookie.json(), {
+      success: true,
+      challenge: 'login',
+      emailMasked: 'o***r@example.com'
+    });
+  });
+});
+
 test('OTP challenge tokens alone cannot change an account email', async (t) => {
   t.mock.method(getPgPool(), 'query', async () => { throw new Error('Unauthenticated request reached the database'); });
   t.mock.method(MasterDB, 'updateUser', async () => assert.fail('Account must not be mutated'));
