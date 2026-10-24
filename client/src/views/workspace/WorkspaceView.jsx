@@ -119,28 +119,28 @@ function WorkspaceRowMenu({ service, onNavigate, onOpenStoreDashboard, onToggle,
             role="menu"
             aria-label={`${service.name} actions`}
             style={{ top: position.top, left: position.left }}
-            className="fixed z-[81] w-64 max-w-[calc(100vw-24px)] rounded-2xl border border-[#E0E2EC] bg-white p-2 shadow-[0_18px_48px_rgba(31,41,55,0.18)]"
+            className="fixed z-[81] w-[280px] max-w-[calc(100vw-24px)] rounded-xl border border-[#E8EAED] bg-white p-2 shadow-[0_4px_12px_rgba(60,64,67,0.16)]"
           >
-            <div className="px-3 py-2.5">
-              <p className="truncate text-[13px] font-semibold text-[#1F1F1F]">{service.name}</p>
-              <p className="mt-0.5 text-[11px] text-[#747775]">
-                {service.workspaceItemType === 'store' ? 'Store' : service.workspaceItemType === 'droplet' ? 'Cloud droplet' : 'Marketplace service'}
+            <div className="px-3 py-3">
+              <p className="truncate text-sm font-medium text-[#202124]">{service.name}</p>
+              <p className="mt-1 text-xs text-[#5F6368]">
+                {service.workspaceItemType === 'store' ? 'Store' : service.workspaceItemType === 'droplet' ? 'Cloud droplet' : 'Marketplace service'} · Workspace
               </p>
             </div>
-            <div className="my-1 border-t border-[#F0F1F4]" />
+            <div className="my-1 border-t border-[#E8EAED]" />
             {menuItems.map(({ label, icon: Icon, destructive, onClick }) => (
               <button
                 key={label}
                 type="button"
                 role="menuitem"
                 onClick={onClick}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] transition-colors ${
+                className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition-colors ${
                   destructive
                     ? 'text-[#B3261E] hover:bg-[#FCE8E6]'
-                    : 'text-[#30343B] hover:bg-[#F3F6FB]'
+                    : 'text-[#3C4043] hover:bg-[#F1F3F4]'
                 }`}
               >
-                <Icon className="h-4 w-4 shrink-0" />
+                <Icon className="h-[18px] w-[18px] shrink-0 text-[#5F6368]" />
                 <span>{label}</span>
               </button>
             ))}
@@ -180,7 +180,7 @@ function WorkspaceActionDialog({ dialog, value, setValue, busy, error, onClose, 
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#111827]/45 p-4 backdrop-blur-[2px]"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#202124]/32 p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !busy) onClose();
       }}
@@ -189,18 +189,18 @@ function WorkspaceActionDialog({ dialog, value, setValue, busy, error, onClose, 
         role="dialog"
         aria-modal="true"
         aria-labelledby="workspace-action-title"
-        className="w-full max-w-md overflow-hidden rounded-3xl border border-white/70 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.28)]"
+        className="w-full max-w-[440px] overflow-hidden rounded-[28px] border border-[#E8EAED] bg-white shadow-[0_8px_24px_rgba(60,64,67,0.16)]"
       >
         <div className="flex items-start gap-4 px-6 pt-6">
-          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
-            isRename ? 'bg-[#E8F0FE] text-[#0B57D0]' : 'bg-[#FCE8E6] text-[#B3261E]'
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+            isRename ? 'bg-[#E8F0FE] text-[#1A73E8]' : 'bg-[#FCE8E6] text-[#B3261E]'
           }`}>
-            {isRename ? <Pencil className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
+            {isRename ? <Pencil className="h-[18px] w-[18px]" /> : <AlertTriangle className="h-[18px] w-[18px]" />}
           </div>
           <div className="min-w-0 flex-1">
-            <h2 id="workspace-action-title" className="text-lg font-semibold tracking-tight text-[#1F1F1F]">{title}</h2>
-            <p className="mt-1.5 text-[13px] leading-5 text-[#5F6368]">{description}</p>
-            <p className="mt-3 truncate rounded-xl bg-[#F8FAFD] px-3 py-2 text-[12px] font-medium text-[#30343B]">
+            <h2 id="workspace-action-title" className="text-[22px] font-normal leading-7 tracking-[-0.2px] text-[#202124]">{title}</h2>
+            <p className="mt-2 text-sm leading-5 text-[#5F6368]">{description}</p>
+            <p className="mt-4 truncate rounded-xl bg-[#F8F9FA] px-3 py-2.5 text-sm font-medium text-[#3C4043]">
               {dialog.service.name}
             </p>
           </div>
@@ -209,9 +209,9 @@ function WorkspaceActionDialog({ dialog, value, setValue, busy, error, onClose, 
             onClick={onClose}
             disabled={busy}
             aria-label="Close dialog"
-            className="rounded-full p-1.5 text-[#747775] transition hover:bg-[#F0F4F9] hover:text-[#1F1F1F] disabled:opacity-50"
+            className="rounded-full p-2 text-[#5F6368] transition hover:bg-[#F1F3F4] hover:text-[#202124] disabled:opacity-50"
           >
-            <X className="h-4 w-4" />
+            <X className="h-[18px] w-[18px]" />
           </button>
         </div>
 
@@ -223,37 +223,39 @@ function WorkspaceActionDialog({ dialog, value, setValue, busy, error, onClose, 
           className="px-6 pb-6 pt-5"
         >
           {isRename && (
-            <label className="block text-[12px] font-medium text-[#444746]">
+            <label className="block text-sm font-medium text-[#3C4043]">
               New Workspace name
               <input
                 autoFocus
                 value={value}
                 onChange={(event) => setValue(event.target.value)}
                 maxLength={80}
-                className="mt-1.5 w-full rounded-xl border border-[#DADCE0] bg-white px-3.5 py-2.5 text-[13px] text-[#1F1F1F] outline-none transition focus:border-[#0B57D0] focus:ring-2 focus:ring-[#0B57D0]/15"
+                className="mt-2 w-full rounded-xl border border-[#747775] bg-white px-4 py-3 text-sm text-[#202124] outline-none transition placeholder:text-[#80868B] hover:border-[#5F6368] focus:border-2 focus:border-[#1A73E8]"
                 placeholder="Enter a name"
               />
             </label>
           )}
           {error && (
-            <p role="alert" className="mt-3 rounded-xl border border-[#F9DEDC] bg-[#FCE8E6] px-3 py-2 text-[12px] text-[#B3261E]">
+            <p role="alert" className="mt-3 rounded-xl border border-[#F9DEDC] bg-[#FCE8E6] px-3 py-2.5 text-sm text-[#B3261E]">
               {error}
             </p>
           )}
-          <div className="mt-6 flex justify-end gap-2.5">
+          <div className="mt-7 flex justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
               disabled={busy}
-              className="rounded-full border border-[#DADCE0] px-4 py-2.5 text-[13px] font-medium text-[#444746] transition hover:bg-[#F8FAFD] disabled:opacity-50"
+              className="min-h-10 rounded-full px-5 text-sm font-medium text-[#1A73E8] transition hover:bg-[#F1F3F4] disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!canSubmit}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-[13px] font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                isRename ? 'bg-[#0B57D0] hover:bg-[#0842A0]' : 'bg-[#B3261E] hover:bg-[#8C1D18]'
+              className={`inline-flex min-h-10 items-center gap-2 rounded-full px-5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                isRename
+                  ? 'bg-[#1A73E8] text-white hover:bg-[#1765CC]'
+                  : 'bg-[#B3261E] text-white hover:bg-[#8C1D18]'
               }`}
             >
               {busy && <RotateCw className="h-3.5 w-3.5 animate-spin" />}
