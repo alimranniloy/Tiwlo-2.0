@@ -8,7 +8,8 @@ import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 
 const hosts = {
   dashboardHost: 'uids.tiwlo.com',
-  mailHost: 'tmail.tiwlo.com'
+  mailHost: 'tmail.tiwlo.com',
+  platformHost: 'tiwlo.com'
 };
 
 test('allows OneProfile and TMail HTTPS SSO return URLs', () => {
@@ -48,6 +49,25 @@ test('rejects non-HTTPS and untrusted SSO return URLs', () => {
     false
   );
   assert.equal(isAllowedWebSsoReturnUrl('/oneprofile', hosts), false);
+});
+
+test('allows platform app routes but rejects auth and API endpoints', () => {
+  assert.equal(
+    isAllowedWebSsoReturnUrl('https://tiwlo.com/dashboard', hosts),
+    true
+  );
+  assert.equal(
+    isAllowedWebSsoReturnUrl('https://tiwlo.com/products?sort=name', hosts),
+    true
+  );
+  assert.equal(
+    isAllowedWebSsoReturnUrl('https://tiwlo.com/login', hosts),
+    false
+  );
+  assert.equal(
+    isAllowedWebSsoReturnUrl('https://tiwlo.com/api/auth/sso/web-start', hosts),
+    false
+  );
 });
 
 test('exposes the configured dashboard host to the SSO allowlist', () => {

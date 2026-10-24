@@ -787,7 +787,14 @@ export default function App() {
           }
           localStorage.setItem('stockpro_session', consumed.sessionToken);
           localStorage.setItem('stockpro_user', JSON.stringify(consumed.user));
-          window.location.replace(getSafeReturnToTarget(returnTo) || getMainAppUrl('/'));
+          const cleanParams = new URLSearchParams(window.location.search);
+          cleanParams.delete('sso_token');
+          cleanParams.delete('sso_nonce');
+          const cleanQuery = cleanParams.toString();
+          window.location.replace(
+            getSafeReturnToTarget(returnTo) ||
+            `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ''}${window.location.hash}`
+          );
           return;
         } catch (error) {
           console.error('Web SSO consumption failed:', error);
@@ -829,7 +836,7 @@ export default function App() {
                   ? safeRedirect
                   : (isSuper ? '/administrator' : null);
                 window.location.replace(
-                  safeReturnTo || (target ? getMainAppUrl(target) : getMainAppUrl('/'))
+                  safeReturnTo || (target ? getMainAppUrl(target) : getMainAppUrl('/dashboard'))
                 );
                 return;
               }
@@ -1032,6 +1039,53 @@ export default function App() {
     };
   }, []);
 
+  const startWebSsoHandoff = async (returnTo) => {
+    try {
+      const token = localStorage.getItem('stockpro_session');
+      if (!token) {
+        throw new Error('Authenticated session token is missing.');
+      }
+      const response = await fetch(`${API_BASE}/auth/sso/web-start`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ return_to: returnTo })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || typeof result.redirectUrl !== 'string') {
+        throw new Error(result.error || 'Could not complete dashboard sign-in.');
+      }
+      window.location.replace(result.redirectUrl);
+    } catch (error) {
+      console.error('Web SSO handoff failed:', error);
+      showToast('Signed in, but could not open the dashboard. Please try again.', 'error');
+    }
+  };
+
+  const redirectAfterAuthentication = (target) => {
+    let destination;
+    try {
+      destination = new URL(target);
+    } catch {
+      window.location.replace(target);
+      return;
+    }
+
+    const webSsoOrigins = [
+      getMainAppUrl(),
+      getDashboardUrl(),
+      getMailUrl()
+    ].map(url => new URL(url).origin);
+    if (destination.protocol === 'https:' && webSsoOrigins.includes(destination.origin)) {
+      void startWebSsoHandoff(destination.toString());
+      return;
+    }
+    window.location.replace(destination.toString());
+  };
+
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
     if (isAuthSubdomain()) {
@@ -1047,20 +1101,22 @@ export default function App() {
       }
 
       if (safeReturnTo) {
-        window.location.replace(safeReturnTo);
+        redirectAfterAuthentication(safeReturnTo);
         return;
       }
 
-      let targetPath = socialFlow ? getDashboardUrl('/oneprofile') : '/';
+      let targetPath = socialFlow ? getDashboardUrl('/oneprofile') : '/dashboard';
       if (redirectUrl) {
         targetPath = redirectUrl;
       } else if (user?.role === 'super_admin' || user?.email === 'tiwloltd@gmail.com') {
         targetPath = '/administrator';
       }
 
-      const safeTarget = getSafeRedirectTarget(targetPath) ||
-        (socialFlow ? getDashboardUrl('/oneprofile') : '/dashboard');
-      window.location.replace(safeTarget.startsWith('http') ? safeTarget : getMainAppUrl(safeTarget));
+      const safeTarget = getSafeRedirectTarget(targetPath);
+      const destination = safeTarget
+        ? (safeTarget.startsWith('http') ? safeTarget : getMainAppUrl(safeTarget))
+        : (socialFlow ? getDashboardUrl('/oneprofile') : getMainAppUrl('/dashboard'));
+      redirectAfterAuthentication(destination);
       return;
     }
     if (user?.role === 'super_admin' || user?.email === 'tiwloltd@gmail.com') {
@@ -1086,7 +1142,8 @@ export default function App() {
         ? null
         : getSafeRedirectTarget(registerParams.get('redirect'));
       const target = safeReturnTo || requestedRedirect || (isSuper ? '/administrator' : '/dashboard');
-      window.location.replace(target.startsWith('http') ? target : getMainAppUrl(target));
+      const destination = target.startsWith('http') ? target : getMainAppUrl(target);
+      redirectAfterAuthentication(destination);
       return;
     }
     setDashboardLoading(true);

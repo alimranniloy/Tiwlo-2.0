@@ -1989,7 +1989,8 @@ router.get('/auth/sso/web-start', async (req, res) => {
     const returnTo = String(req.query.return_to || '').trim();
     const allowedReturn = isAllowedWebSsoReturnUrl(returnTo, {
       dashboardHost: PLATFORM_CONFIG.dashboardHost,
-      mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`
+      mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`,
+      platformHost: PLATFORM_CONFIG.primaryDomain
     });
     if (!allowedReturn) return res.status(400).json({ error: 'Invalid SSO return URL' });
 
@@ -2027,7 +2028,8 @@ router.post('/auth/sso/web-start', async (req, res) => {
     const returnTo = String(req.body?.return_to || '').trim();
     const allowedReturn = isAllowedWebSsoReturnUrl(returnTo, {
       dashboardHost: PLATFORM_CONFIG.dashboardHost,
-      mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`
+      mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`,
+      platformHost: PLATFORM_CONFIG.primaryDomain
     });
     if (!allowedReturn) return res.status(400).json({ error: 'Invalid SSO return URL' });
 
