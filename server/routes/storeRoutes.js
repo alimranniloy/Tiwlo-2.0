@@ -589,9 +589,19 @@ router.get('/stores', async (req, res) => {
   }
 });
 
+router.get('/stores/subdomain-availability', async (req, res) => {
+  try {
+    if (!getReqUserId(req)) return res.status(401).json({ error: 'Unauthorized' });
+    const result = await MasterDB.getStoreSubdomainAvailability(req.query.subdomain);
+    res.json(result);
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ error: err.message || 'Unable to check subdomain availability.' });
+  }
+});
+
 router.post('/stores', async (req, res) => {
   try {
-    const { storeName, subdomain, planId, category, currency, billingDetails } = req.body;
+    const { storeName, subdomain, planId, category, currency, email, phone, description, billingDetails } = req.body;
     const userId = getReqUserId(req);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     if (!storeName || !storeName.trim()) {
@@ -604,6 +614,9 @@ router.post('/stores', async (req, res) => {
       planId: planId || 'free',
       category,
       currency,
+      email,
+      phone,
+      description,
       billingDetails
     });
     res.json(store);

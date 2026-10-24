@@ -116,6 +116,9 @@ export const schema = buildSchema(`
     planId: String
     category: String
     currency: String
+    email: String
+    phone: String
+    description: String
     billingDetails: BillingDetailsInput
   }
 
@@ -594,6 +597,9 @@ export const rootValue = {
       planId: input.planId || 'free',
       category: input.category,
       currency: input.currency,
+      email: input.email,
+      phone: input.phone,
+      description: input.description,
       billingDetails: input.billingDetails
     });
   },

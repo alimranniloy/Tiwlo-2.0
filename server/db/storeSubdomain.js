@@ -17,11 +17,28 @@ function canonicalizeStoredSubdomain(value, domain) {
   return subdomain.includes('.') ? subdomain : `${subdomain}.${domain}`;
 }
 
+function invalidSubdomainError(message) {
+  const error = new Error(message);
+  error.statusCode = 400;
+  return error;
+}
+
 export function isStoreSubdomainAvailable(candidate, stores = [], users = [], domain = PLATFORM_CONFIG.storeDomain) {
   const target = canonicalizeStoredSubdomain(candidate, domain);
   return ![...stores, ...users].some(entry =>
     canonicalizeStoredSubdomain(entry.subdomain, domain) === target
   );
+}
+
+export function getStoreSubdomainAvailability(candidate, stores = [], users = [], domain = PLATFORM_CONFIG.storeDomain) {
+  if (!String(candidate || '').trim()) {
+    throw invalidSubdomainError('Enter a store subdomain to check availability.');
+  }
+  const subdomain = normalizeStoreSubdomain(candidate, 'store', domain);
+  return {
+    subdomain,
+    available: isStoreSubdomainAvailable(subdomain, stores, users, domain)
+  };
 }
 
 export function normalizeStoreSubdomain(input, storeName, domain = PLATFORM_CONFIG.storeDomain) {
@@ -37,14 +54,14 @@ export function normalizeStoreSubdomain(input, storeName, domain = PLATFORM_CONF
   if (candidate.endsWith(`.${storeDomain}`)) {
     label = candidate.slice(0, -(storeDomain.length + 1));
   } else if (candidate.includes('.')) {
-    throw new Error(`Use a subdomain of ${storeDomain}, such as shop.${storeDomain}.`);
+    throw invalidSubdomainError(`Use a subdomain of ${storeDomain}, such as shop.${storeDomain}.`);
   }
 
   if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)) {
-    throw new Error('The subdomain must be a single DNS label containing letters, numbers, or internal hyphens.');
+    throw invalidSubdomainError('The subdomain must be a single DNS label containing letters, numbers, or internal hyphens.');
   }
   if (RESERVED_STORE_SUBDOMAIN_LABELS.includes(label)) {
-    throw new Error('This subdomain is reserved for Tiwlo services.');
+    throw invalidSubdomainError('This subdomain is reserved for Tiwlo services.');
   }
 
   return `${label}.${storeDomain}`;

@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isStoreSubdomainAvailable, normalizeStoreSubdomain } from './storeSubdomain.js';
+import {
+  getStoreSubdomainAvailability,
+  isStoreSubdomainAvailable,
+  normalizeStoreSubdomain
+} from './storeSubdomain.js';
 
 const domain = 'stores.example.test';
 
@@ -35,4 +39,28 @@ test('checks normalized subdomains against both stores and account storefronts',
     [{ subdomain: 'other-shop.tiwlo.com' }],
     [{ subdomain: 'my-shop' }]
   ), true);
+});
+
+test('reports availability for a valid subdomain and rejects the platform root domain', () => {
+  assert.deepEqual(
+    getStoreSubdomainAvailability('new-shop', [], [], domain),
+    { subdomain: `new-shop.${domain}`, available: true }
+  );
+  assert.equal(
+    getStoreSubdomainAvailability(
+      'taken',
+      [{ subdomain: `taken.${domain}` }],
+      [],
+      domain
+    ).available,
+    false
+  );
+  assert.throws(
+    () => getStoreSubdomainAvailability('tiwlo.com', [], [], domain),
+    /Use a subdomain of/
+  );
+  assert.throws(
+    () => getStoreSubdomainAvailability('', [], [], domain),
+    /Enter a store subdomain/
+  );
 });

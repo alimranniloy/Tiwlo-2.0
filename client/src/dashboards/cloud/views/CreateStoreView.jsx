@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { getStoreHostname, STORE_DOMAIN } from '../../../config/platformConfig';
+import { STORE_DOMAIN } from '../../../config/platformConfig';
+import useStoreSubdomainAvailability, { normalizeStoreSubdomainInput } from '../hooks/useStoreSubdomainAvailability';
 import {
   Store,
   ArrowLeft,
@@ -29,11 +30,12 @@ export default function CreateStoreView({ onBack, onCreateStore }) {
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const subdomainAvailability = useStoreSubdomainAvailability(subdomain);
 
   const handleStoreNameChange = (val) => {
     setStoreName(val);
     const slug = val.toLowerCase().replace(/[^a-z0-9]/g, '');
-    setSubdomain(slug ? getStoreHostname(slug) : '');
+    setSubdomain(slug);
   };
 
   const handleSubmit = async (e) => {
@@ -44,13 +46,17 @@ export default function CreateStoreView({ onBack, onCreateStore }) {
       setErrorMsg('Store name is required.');
       return;
     }
+    if (subdomainAvailability.status !== 'available') {
+      setErrorMsg(subdomainAvailability.message || 'Choose a valid, available subdomain.');
+      return;
+    }
 
     try {
       setSubmitting(true);
       const created = await onCreateStore({
         storeName: storeName.trim(),
         category,
-        subdomain: subdomain.trim(),
+        subdomain: `${subdomain.trim()}.${STORE_DOMAIN}`,
         currency,
         email: businessEmail.trim(),
         phone: phone.trim(),
@@ -152,14 +158,32 @@ export default function CreateStoreView({ onBack, onCreateStore }) {
               <input
                 type="text"
                 value={subdomain}
-                onChange={(e) => setSubdomain(e.target.value)}
-                placeholder={`storename.${STORE_DOMAIN}`}
-                className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-800 bg-slate-50/50 dark:bg-gray-900 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-mono transition"
+                onChange={(e) => setSubdomain(normalizeStoreSubdomainInput(e.target.value))}
+                placeholder="storename"
+                aria-invalid={['invalid', 'unavailable', 'error'].includes(subdomainAvailability.status)}
+                className="w-full pl-9 pr-28 py-2.5 rounded-xl border border-slate-200 dark:border-gray-800 bg-slate-50/50 dark:bg-gray-900 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-mono transition"
               />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-slate-400 pointer-events-none">
+                .{STORE_DOMAIN}
+              </span>
             </div>
             <p className="text-[11px] text-slate-400 mt-1">
-              Enter a subdomain label or a full hostname under {STORE_DOMAIN}. Free SSL and CDN are automatically provisioned.
+              Choose a subdomain label. The .{STORE_DOMAIN} domain is fixed and cannot be changed.
             </p>
+            {subdomainAvailability.message && (
+              <p
+                role="status"
+                className={`text-[11px] mt-1 ${
+                  subdomainAvailability.status === 'available'
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : subdomainAvailability.status === 'checking'
+                      ? 'text-slate-400'
+                      : 'text-rose-600 dark:text-rose-400'
+                }`}
+              >
+                {subdomainAvailability.message}
+              </p>
+            )}
           </div>
 
           <div>
@@ -231,7 +255,7 @@ export default function CreateStoreView({ onBack, onCreateStore }) {
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || subdomainAvailability.status !== 'available'}
             className="py-2.5 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs sm:text-sm font-semibold transition shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
           >
             {submitting ? (

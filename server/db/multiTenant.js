@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { normalizeSignupEmail, signupEmailKey, duplicateAccountError } from '../security/signupIdentity.js';
 import { isPgActive, queryPg } from './postgres.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
-import { isStoreSubdomainAvailable, normalizeStoreSubdomain } from './storeSubdomain.js';
+import { getStoreSubdomainAvailability, isStoreSubdomainAvailable, normalizeStoreSubdomain } from './storeSubdomain.js';
 import { recordSecurityEvent } from './securityPersistence.js';
 import {
   createAuthSessionWithRust,
@@ -482,6 +482,11 @@ export const MasterDB = {
     );
   },
 
+  async getStoreSubdomainAvailability(candidate) {
+    const master = await this.getMasterData();
+    return getStoreSubdomainAvailability(candidate, master.stores || [], master.users || []);
+  },
+
   async createStoreForUser({
     userId,
     storeName,
@@ -489,6 +494,9 @@ export const MasterDB = {
     planId = 'free',
     category = 'General Retail',
     currency = 'USD ($)',
+    email = '',
+    phone = '',
+    description = '',
     billingDetails = {}
   }) {
     if (!storeName || !storeName.trim()) {
@@ -528,11 +536,14 @@ export const MasterDB = {
       planId,
       category: category || 'General Retail',
       currency: currency || 'USD ($)',
+      email: String(email || '').trim(),
+      phone: String(phone || '').trim(),
+      description: String(description || '').trim(),
       billingDetails: {
         address: billingDetails?.address || '',
         city: billingDetails?.city || 'Dhaka',
         country: billingDetails?.country || 'Bangladesh',
-        phone: billingDetails?.phone || '',
+        phone: billingDetails?.phone || phone || '',
         postalCode: billingDetails?.postalCode || ''
       },
       dbSchema: `store_${newTiwiId.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
