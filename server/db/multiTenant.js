@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { normalizeSignupEmail, signupEmailKey, duplicateAccountError } from '../security/signupIdentity.js';
 import { isPgActive, queryPg } from './postgres.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
+import { isStoreSubdomainAvailable, normalizeStoreSubdomain } from './storeSubdomain.js';
 import { recordSecurityEvent } from './securityPersistence.js';
 import {
   createAuthSessionWithRust,
@@ -512,12 +513,11 @@ export const MasterDB = {
     const nextSeq = Math.max(10001, ...existingNums) + 1;
     const newTiwiId = `TIW-${nextSeq}`;
 
-    const cleanSubdomain = subdomain?.trim().toLowerCase() || makeStoreSubdomain(storeName);
-    if (!cleanSubdomain.endsWith(`.${PLATFORM_CONFIG.storeDomain}`)) {
-      throw new Error(`Store subdomain must use .${PLATFORM_CONFIG.storeDomain}`);
-    }
-    if ((master.stores || []).some((store) => store.subdomain?.toLowerCase() === cleanSubdomain)) {
-      throw new Error('That store subdomain is already in use');
+    const cleanSubdomain = normalizeStoreSubdomain(subdomain, storeName);
+    if (!isStoreSubdomainAvailable(cleanSubdomain, master.stores, master.users)) {
+      const error = new Error(`The subdomain ${cleanSubdomain} is already in use. Choose a different store subdomain.`);
+      error.statusCode = 409;
+      throw error;
     }
     const newStore = {
       id: `store_${Date.now()}`,
@@ -544,7 +544,7 @@ export const MasterDB = {
     (await this.saveMasterData(master));
 
     // Provision isolated tenant database for this store
-    await TenantDB.provisionStore(newTiwiId, newStore.storeName, planId);
+    await TenantDB.provisionStore(newTiwiId, newStore.storeName, planId, cleanSubdomain, newStore.currency);
 
     return newStore;
   }
@@ -580,13 +580,21 @@ export const TenantDB = {
     await saveState('tenant', storeId, data);
   },
 
-  async provisionStore(tiwiId, storeName, planId = 'free') {
+  async provisionStore(tiwiId, storeName, planId = 'free', subdomain = null, currency = null) {
     const store = await this.getStoreDb(tiwiId);
     if (store.createdAt) return store;
     store.storeName = storeName;
     store.planId = planId;
     store.createdAt = new Date().toISOString();
-    store.store_settings = { ...store.store_settings, storeName, subdomain: makeStoreSubdomain(storeName) };
+    const configuredCurrency = String(currency || store.store_settings.currency || 'USD ($)');
+    const currencySymbol = configuredCurrency.match(/\(([^)]+)\)/)?.[1] || store.store_settings.currencySymbol || '$';
+    store.store_settings = {
+      ...store.store_settings,
+      storeName,
+      subdomain: subdomain || makeStoreSubdomain(storeName),
+      currency: configuredCurrency,
+      currencySymbol
+    };
     await this.saveStoreDb(tiwiId, store);
     return store;
   },

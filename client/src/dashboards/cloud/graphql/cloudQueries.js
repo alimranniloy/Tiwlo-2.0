@@ -2,7 +2,7 @@ import { applicationFetch as fetch } from '../../../api/graphqlTransport.js';
 // Real Enterprise GraphQL Client for Tiwlo Cloud Dashboard & Droplets
 const GRAPHQL_ENDPOINT = '/graphql';
 
-export async function fetchGraphQL(query, variables = {}) {
+export async function fetchGraphQL(query, variables = {}, { throwOnGraphQLErrors = false } = {}) {
   try {
     const res = await fetch(GRAPHQL_ENDPOINT, {
       method: 'POST',
@@ -19,9 +19,15 @@ export async function fetchGraphQL(query, variables = {}) {
     const json = await res.json();
     if (json.errors && json.errors.length > 0) {
       console.warn('GraphQL Query Warnings:', json.errors);
+      if (throwOnGraphQLErrors) {
+        const error = new Error(json.errors[0].message || 'GraphQL request failed');
+        error.graphQLError = true;
+        throw error;
+      }
     }
     return json.data;
   } catch (err) {
+    if (err.graphQLError) throw err;
     console.error('GraphQL request failed, attempting REST fallback:', err);
     return null;
   }
@@ -263,7 +269,7 @@ export async function createStoreGraphQL(userId, storeInput) {
     }
   `;
 
-  const data = await fetchGraphQL(mutation, { userId, input: storeInput });
+  const data = await fetchGraphQL(mutation, { userId, input: storeInput }, { throwOnGraphQLErrors: true });
   if (data?.createUserStore) {
     return data.createUserStore;
   }
@@ -278,7 +284,8 @@ export async function createStoreGraphQL(userId, storeInput) {
   if (res.ok) {
     return await res.json();
   }
-  throw new Error('Failed to create store');
+  const payload = await res.json().catch(() => ({}));
+  throw new Error(payload.error || 'Failed to create store');
 }
 
 // ==========================================

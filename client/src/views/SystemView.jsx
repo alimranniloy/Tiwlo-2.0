@@ -3,36 +3,24 @@ import React, { useState, useEffect } from 'react';
 import { SUPPORT_EMAIL } from '../config/platformConfig';
 import {
   Server,
-  Cpu,
-  Database,
-  Sliders,
-  ShieldAlert,
   Download,
   Trash2,
   RefreshCw,
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
-  HardDrive,
-  FileJson,
-  Building,
   Save,
   Activity,
   Search,
-  ArrowLeft,
-  Sparkles
+  ArrowLeft
 } from 'lucide-react';
 
 export default function SystemView({ showToast, onBackToDashboard }) {
   const [activeTab, setActiveTab] = useState('diagnostics'); // 'diagnostics' | 'settings' | 'backup' | 'audit'
-  const [systemInfo, setSystemInfo] = useState(null);
   const [settings, setSettings] = useState({
     companyName: 'Tiwlo Cloud Platform',
     storeEmail: SUPPORT_EMAIL,
     phone: '+1 (800) 555-TIWLO',
     currency: 'USD',
     currencySymbol: '$',
-    taxRate: 8.0,
+    taxRate: 0,
     lowStockThreshold: 50,
     warehouseName: 'Central Distribution Hub #1',
     warehouseLocation: 'Dhaka Logistics Hub, Sector 4'
@@ -45,13 +33,17 @@ export default function SystemView({ showToast, onBackToDashboard }) {
   const fetchSystemData = async () => {
     try {
       setLoading(true);
-      const [infoRes, setRes, actRes] = await Promise.all([
-        fetch('/api/system/info').then(r => r.json()),
+      const [setRes, actRes] = await Promise.all([
         fetch('/api/system/settings').then(r => r.json()),
         fetch('/api/activities').then(r => r.json())
       ]);
-      setSystemInfo(infoRes);
-      if (setRes) setSettings(setRes);
+      if (setRes) {
+        const symbolByCurrency = { USD: '$', BDT: '৳', EUR: '€', GBP: '£' };
+        setSettings({
+          ...setRes,
+          currencySymbol: symbolByCurrency[setRes.currency] || setRes.currencySymbol || '$'
+        });
+      }
       setActivities(actRes);
     } catch (err) {
       console.error(err);
@@ -210,122 +202,11 @@ export default function SystemView({ showToast, onBackToDashboard }) {
 
       {/* TAB 1: DIAGNOSTICS & TELEMETRY */}
       {activeTab === 'diagnostics' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-[#111827] p-5 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Node Engine</span>
-              <div className="text-xl font-mono font-bold text-slate-900 dark:text-white mt-1">
-                {systemInfo?.nodeVersion || 'v24.20.0'}
-              </div>
-              <div className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5 flex items-center space-x-1">
-                <CheckCircle2 className="w-3 h-3" />
-                <span>Runtime Healthy</span>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-[#111827] p-5 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Memory Footprint</span>
-              <div className="text-xl font-bold text-slate-900 dark:text-white mt-1">
-                {systemInfo?.memoryUsageMB || 58} MB
-              </div>
-              <div className="text-[11px] text-slate-400 mt-0.5">Resident Set (RSS)</div>
-            </div>
-
-            <div className="bg-white dark:bg-[#111827] p-5 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Server Uptime</span>
-              <div className="text-xl font-bold text-slate-900 dark:text-white mt-1">
-                {Math.round((systemInfo?.uptimeSeconds || 360) / 60)} mins
-              </div>
-              <div className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5 flex items-center space-x-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Active background server</span>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-[#111827] p-5 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total DB Records</span>
-              <div className="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">
-                {systemInfo?.totalDatabaseRecords || 55} entries
-              </div>
-              <div className="text-[11px] text-slate-400 mt-0.5">Across 8 JSON tables</div>
-            </div>
-          </div>
-
-          {/* Database Entities Breakdown Card */}
-          <div className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/80 dark:border-gray-800 p-6 shadow-xs">
-            <h3 className="font-bold text-slate-900 dark:text-white text-base mb-1">
-              Database Tables & Entity Distribution
-            </h3>
-            <p className="text-xs text-slate-400 mb-5">
-              Live count of entities managed in local disk JSON files under <code className="bg-slate-100 dark:bg-gray-800 px-1 py-0.5 rounded">server/data/</code>.
-            </p>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-gray-800/60 border border-slate-100 dark:border-gray-700/60">
-                <span className="text-xs text-slate-400 font-medium">Products</span>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-                  {systemInfo?.counts?.products || 10}
-                </p>
-                <span className="text-[10px] text-blue-500 font-mono">products.json</span>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-gray-800/60 border border-slate-100 dark:border-gray-700/60">
-                <span className="text-xs text-slate-400 font-medium">Categories</span>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-                  {systemInfo?.counts?.categories || 6}
-                </p>
-                <span className="text-[10px] text-emerald-500 font-mono">categories.json</span>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-gray-800/60 border border-slate-100 dark:border-gray-700/60">
-                <span className="text-xs text-slate-400 font-medium">Subcategories</span>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-                  {systemInfo?.counts?.subcategories || 11}
-                </p>
-                <span className="text-[10px] text-indigo-500 font-mono">subcategories.json</span>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-gray-800/60 border border-slate-100 dark:border-gray-700/60">
-                <span className="text-xs text-slate-400 font-medium">Purchase Orders</span>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-                  {systemInfo?.counts?.purchases || 4}
-                </p>
-                <span className="text-[10px] text-orange-500 font-mono">purchases.json</span>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-gray-800/60 border border-slate-100 dark:border-gray-700/60">
-                <span className="text-xs text-slate-400 font-medium">Sales Invoices</span>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-                  {systemInfo?.counts?.sales || 4}
-                </p>
-                <span className="text-[10px] text-purple-500 font-mono">sales.json</span>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-gray-800/60 border border-slate-100 dark:border-gray-700/60">
-                <span className="text-xs text-slate-400 font-medium">Customers</span>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-                  {systemInfo?.counts?.customers || 5}
-                </p>
-                <span className="text-[10px] text-pink-500 font-mono">customers.json</span>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-gray-800/60 border border-slate-100 dark:border-gray-700/60">
-                <span className="text-xs text-slate-400 font-medium">Suppliers</span>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-                  {systemInfo?.counts?.suppliers || 5}
-                </p>
-                <span className="text-[10px] text-cyan-500 font-mono">suppliers.json</span>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-gray-800/60 border border-slate-100 dark:border-gray-700/60">
-                <span className="text-xs text-slate-400 font-medium">Audit Activity Logs</span>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-                  {activities.length}
-                </p>
-                <span className="text-[10px] text-amber-500 font-mono">activities.json</span>
-              </div>
-            </div>
-          </div>
+        <div className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/80 dark:border-gray-800 p-6 shadow-xs">
+          <h3 className="font-bold text-slate-900 dark:text-white text-base mb-1">Diagnostic Details</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Infrastructure metrics and database record counts are not available in this workspace.
+          </p>
         </div>
       )}
 
@@ -377,7 +258,14 @@ export default function SystemView({ showToast, onBackToDashboard }) {
                 </label>
                 <select
                   value={settings.currencySymbol}
-                  onChange={(e) => setSettings({ ...settings, currencySymbol: e.target.value })}
+                  onChange={(e) => {
+                    const currencyBySymbol = { '$': 'USD', '৳': 'BDT', '€': 'EUR', '£': 'GBP' };
+                    setSettings({
+                      ...settings,
+                      currencySymbol: e.target.value,
+                      currency: currencyBySymbol[e.target.value] || 'USD'
+                    });
+                  }}
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white font-bold"
                 >
                   <option value="$">USD ($)</option>

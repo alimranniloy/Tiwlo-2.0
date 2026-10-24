@@ -52,7 +52,7 @@ export default function CategoriesView({
   const [subForm, setSubForm] = useState({ categoryId: '', name: '', description: '' });
 
   const totalProductsCount = products.length;
-  const totalUnits = categories.reduce((sum, c) => sum + (c.totalUnits || 0), 0);
+  const totalUnits = products.reduce((sum, product) => sum + (Number(product.stock) || 0), 0);
 
   // Filtered categories
   const filteredCategories = categories.filter(c =>
@@ -476,7 +476,13 @@ export default function CategoriesView({
       {activeTab === 'categories' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredCategories.map((cat) => {
-            const catSubs = subcategories.filter(s => s.categoryId === cat.id || s.categoryName === cat.name);
+            const catSubs = subcategories.filter(s =>
+              s.categoryId === cat.id || (s.categoryName || '').toLowerCase() === cat.name.toLowerCase()
+            );
+            const catProducts = products.filter(
+              product => (product.category || '').toLowerCase() === cat.name.toLowerCase()
+            );
+            const catUnits = catProducts.reduce((sum, product) => sum + (Number(product.stock) || 0), 0);
 
             return (
               <div
@@ -559,10 +565,10 @@ export default function CategoriesView({
                 <div className="mt-5 pt-3 border-t border-slate-100 dark:border-gray-800 flex items-center justify-between text-xs">
                   <div className="flex items-center space-x-1.5 text-slate-600 dark:text-slate-300 font-semibold">
                     <Package className="w-3.5 h-3.5 text-blue-500" />
-                    <span>{cat.productCount || 0} Products</span>
+                    <span>{catProducts.length} Products</span>
                   </div>
                   <div className="text-slate-500 dark:text-slate-400 text-[11px]">
-                    <span className="font-bold text-slate-800 dark:text-white">{cat.totalUnits || 0}</span> units in stock
+                    <span className="font-bold text-slate-800 dark:text-white">{catUnits}</span> units in stock
                   </div>
                 </div>
               </div>
@@ -589,6 +595,10 @@ export default function CategoriesView({
               <tbody className="divide-y divide-slate-100 dark:divide-gray-800 font-medium">
                 {filteredSubcategories.map((sub) => {
                   const parent = categories.find(c => c.id === sub.categoryId || c.name.toLowerCase() === sub.categoryName.toLowerCase());
+                  const linkedProducts = products.filter(product =>
+                    (product.subCategory || '').toLowerCase() === sub.name.toLowerCase() &&
+                    (product.category || '').toLowerCase() === (sub.categoryName || '').toLowerCase()
+                  );
 
                   return (
                     <tr
@@ -623,7 +633,7 @@ export default function CategoriesView({
 
                       <td className="py-3.5 px-4">
                         <span className="font-bold text-slate-800 dark:text-white bg-slate-100 dark:bg-gray-800 px-2 py-0.5 rounded-md">
-                          {sub.productCount || 0} items
+                          {linkedProducts.length} items
                         </span>
                       </td>
 
@@ -675,8 +685,11 @@ export default function CategoriesView({
 
           <div className="space-y-4">
             {categories.map((cat) => {
-              const catSubs = subcategories.filter(s => s.categoryId === cat.id || s.categoryName === cat.name);
+              const catSubs = subcategories.filter(s =>
+                s.categoryId === cat.id || (s.categoryName || '').toLowerCase() === cat.name.toLowerCase()
+              );
               const catProds = products.filter(p => (p.category || '').toLowerCase() === cat.name.toLowerCase());
+              const catUnits = catProds.reduce((sum, product) => sum + (Number(product.stock) || 0), 0);
 
               return (
                 <div
@@ -703,7 +716,7 @@ export default function CategoriesView({
                     </div>
 
                     <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                      Total stock: {cat.totalUnits || 0} units
+                      Total stock: {catUnits} units
                     </span>
                   </div>
 
@@ -767,7 +780,7 @@ export default function CategoriesView({
           <div>
             <h4 className="font-bold text-rose-900 dark:text-rose-200 text-sm">Delete Category?</h4>
             <p className="text-xs text-rose-700 dark:text-rose-300 mt-0.5">
-              Are you sure you want to delete <strong className="text-rose-950 dark:text-white">{deletingCat.name}</strong>? This will un-link associated subcategories.
+              Deleting <strong className="text-rose-950 dark:text-white">{deletingCat.name}</strong> will clear this category from {products.filter(p => (p.category || '').toLowerCase() === deletingCat.name.toLowerCase()).length} products, clear their subcategories, and remove {subcategories.filter(s => s.categoryId === deletingCat.id || (s.categoryName || '').toLowerCase() === deletingCat.name.toLowerCase()).length} subcategories. Product records and stock will be kept.
             </p>
           </div>
           <div className="flex items-center space-x-2 shrink-0">
@@ -796,7 +809,7 @@ export default function CategoriesView({
           <div>
             <h4 className="font-bold text-rose-900 dark:text-rose-200 text-sm">Delete Subcategory?</h4>
             <p className="text-xs text-rose-700 dark:text-rose-300 mt-0.5">
-              Are you sure you want to delete <strong className="text-rose-950 dark:text-white">{deletingSub.name}</strong>?
+              Deleting <strong className="text-rose-950 dark:text-white">{deletingSub.name}</strong> will clear it from {products.filter(p => (p.subCategory || '').toLowerCase() === deletingSub.name.toLowerCase() && (p.category || '').toLowerCase() === (deletingSub.categoryName || '').toLowerCase()).length} products. Product records and stock will be kept.
             </p>
           </div>
           <div className="flex items-center space-x-2 shrink-0">

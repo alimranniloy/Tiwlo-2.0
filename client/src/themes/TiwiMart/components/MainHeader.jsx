@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Heart, ShoppingBag, ShoppingCart, User, ChevronDown } from 'lucide-react';
+import { Search, Heart, ShoppingCart, ChevronDown } from 'lucide-react';
 import { useStoreSettings } from '../../../context/StoreSettingsContext';
 
 export default function MainHeader({
@@ -8,30 +8,35 @@ export default function MainHeader({
   selectedCategory,
   setSelectedCategory,
   categories = [],
-  cartCount = 3,
+  cartCount = 0,
   wishlistCount = 0,
   onOpenCart,
   onOpenWishlist,
-  onOpenAccount
+  onNavigateHome,
 }) {
   const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
   const { storeSettings } = useStoreSettings();
 
   const primaryColor = storeSettings?.themeColor || '#2563eb';
   const storeName = storeSettings?.storeName || 'TiwloMart';
-  const storeTagline = storeSettings?.storeTagline || 'Shop Global • Sell Global';
+  const storeTagline = storeSettings?.storeTagline || '';
   const storeLogo = storeSettings?.storeLogo;
 
   return (
     <div className="bg-white border-b border-slate-100 py-4 px-4 lg:px-8 sticky top-0 z-30 shadow-xs">
       <div className="max-w-[1440px] mx-auto flex items-center justify-between gap-4 lg:gap-8">
         {/* Brand Logo matching user configuration */}
-        <div className="flex items-center space-x-3 shrink-0 cursor-pointer select-none">
+        <button
+          type="button"
+          onClick={onNavigateHome}
+          className="flex items-center space-x-3 shrink-0 cursor-pointer select-none text-left"
+          aria-label={`${storeName} home`}
+        >
           <div className="flex items-center space-x-2.5">
             {storeLogo ? (
               <img
                 src={storeLogo}
-                alt={storeName}
+                alt=""
                 className="h-10 max-h-12 w-auto max-w-[170px] object-contain drop-shadow-xs"
               />
             ) : (
@@ -60,12 +65,12 @@ export default function MainHeader({
                   {storeName}
                 </span>
               </div>
-              <p className="text-[10px] font-medium text-slate-500 tracking-normal mt-0.5">
+              {storeTagline && <p className="text-[10px] font-medium text-slate-500 tracking-normal mt-0.5">
                 {storeTagline}
-              </p>
+              </p>}
             </div>
           </div>
-        </div>
+        </button>
 
         {/* Central Search Bar with Category Dropdown and Action Button */}
         <div className="flex-1 max-w-3xl hidden md:flex items-center">
@@ -77,7 +82,10 @@ export default function MainHeader({
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                onNavigateHome?.();
+              }}
               placeholder="Search for products, brands and sellers..."
               className="flex-1 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none"
             />
@@ -99,6 +107,7 @@ export default function MainHeader({
                     onClick={() => {
                       setSelectedCategory('All Categories');
                       setIsCatDropdownOpen(false);
+                      onNavigateHome?.();
                     }}
                     className="w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-blue-50 text-slate-700 hover:text-blue-600 transition"
                   >
@@ -110,6 +119,7 @@ export default function MainHeader({
                       onClick={() => {
                         setSelectedCategory(c.name);
                         setIsCatDropdownOpen(false);
+                        onNavigateHome?.();
                       }}
                       className="w-full text-left px-3.5 py-1.5 text-xs hover:bg-blue-50 text-slate-600 hover:text-blue-600 transition"
                     >
@@ -123,6 +133,7 @@ export default function MainHeader({
             {/* Dynamic Search Button */}
             <button
               type="button"
+              onClick={onNavigateHome}
               className="text-white px-5 py-3 flex items-center justify-center transition hover:opacity-90 cursor-pointer"
               style={{ backgroundColor: primaryColor }}
             >
@@ -167,23 +178,6 @@ export default function MainHeader({
             </span>
           </button>
 
-          {/* My Account */}
-          <button
-            onClick={onOpenAccount}
-            className="flex items-center space-x-2.5 pl-2 text-left hover:opacity-90 transition group cursor-pointer"
-          >
-            <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 border border-slate-200 group-hover:border-blue-300">
-              <User className="w-5 h-5 stroke-[1.8]" />
-            </div>
-            <div className="hidden lg:block leading-tight">
-              <p className="text-xs font-bold text-slate-900 group-hover:text-[#2563eb] transition">
-                My Account
-              </p>
-              <p className="text-[11px] text-slate-400 font-normal">
-                Welcome back!
-              </p>
-            </div>
-          </button>
         </div>
       </div>
 
@@ -193,11 +187,14 @@ export default function MainHeader({
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              onNavigateHome?.();
+            }}
             placeholder="Search products, brands..."
             className="flex-1 px-3 py-2 text-xs text-slate-800 outline-none"
           />
-          <button className="bg-[#2563eb] text-white px-3.5 py-2">
+          <button type="button" onClick={onNavigateHome} className="bg-[#2563eb] text-white px-3.5 py-2">
             <Search className="w-3.5 h-3.5" />
           </button>
         </div>

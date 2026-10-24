@@ -421,7 +421,7 @@ export default function WorkspaceView({ onNavigate }) {
           </div>
 
           <div className="flex items-center gap-4">
-            <span>1-{services.length} of {services.length}</span>
+            <span>{services.length === 0 ? '0-0 of 0' : `1-${services.length} of ${services.length}`}</span>
             <div className="flex items-center gap-1">
               <button
                 disabled

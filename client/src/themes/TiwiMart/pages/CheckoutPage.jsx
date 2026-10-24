@@ -1,19 +1,14 @@
 import { applicationFetch as fetch } from '../../../api/graphqlTransport.js';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  CreditCard,
   Banknote,
-  Smartphone,
-  Building,
   ShieldCheck,
   Lock,
   ArrowRight,
-  ArrowLeft,
-  Truck,
-  CheckCircle2,
   AlertCircle
 } from 'lucide-react';
 import { useStoreSettings } from '../../../context/StoreSettingsContext';
+import { formatStoreCurrency, getStoreTaxRate } from '../storefrontUtils';
 
 export default function CheckoutPage({
   cartItems = [],
@@ -28,33 +23,106 @@ export default function CheckoutPage({
     phone: '',
     email: '',
     address: '',
-    city: 'Dhaka',
-    country: 'Bangladesh',
+    city: '',
+    country: '',
     postalCode: '',
     notes: ''
   });
 
-  const [paymentMethod, setPaymentMethod] = useState('cod'); // 'cod', 'card', 'mobile', 'bank'
-  const [cardData, setCardData] = useState({ number: '', expiry: '', cvc: '', name: '' });
-  const [mobileNumber, setMobileNumber] = useState('');
+  const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [appliedPromotion, setAppliedPromotion] = useState(null);
+  const [promotionMessage, setPromotionMessage] = useState('');
+  const [isApplyingPromotion, setIsApplyingPromotion] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [shippingQuoteState, setShippingQuoteState] = useState(null);
 
-  const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const shipping = subtotal > 150 || subtotal === 0 ? 0 : 9.99;
-  const tax = subtotal * 0.08;
-  const total = subtotal + shipping + tax;
+  const subtotal = Number(cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0).toFixed(2));
+  const hasShippingZones = (storeSettings?.shippingZones || []).some(zone => zone?.enabled !== false);
+  const shippingSettingsKey = JSON.stringify([
+    storeSettings?.shippingFlatRate,
+    storeSettings?.freeShippingThreshold,
+    storeSettings?.shippingZones || []
+  ]);
+  const shippingQuoteKey = JSON.stringify([formData.country, subtotal, shippingSettingsKey]);
+  const currentShippingQuote = shippingQuoteState?.key === shippingQuoteKey ? shippingQuoteState : null;
+  const shippingQuote = currentShippingQuote?.quote || null;
+  const shippingQuoteError = currentShippingQuote?.error || '';
+  const isLoadingShippingQuote = !currentShippingQuote;
+  const shipping = shippingQuote?.amount ?? null;
+  const codAvailable = shippingQuote?.codEnabled !== false;
+  const taxRate = getStoreTaxRate(storeSettings || {});
+  const discount = appliedPromotion?.discountAmount || 0;
+  const discountedSubtotal = Math.max(0, subtotal - discount);
+  const tax = Number((discountedSubtotal * taxRate).toFixed(2));
+  const total = Number((discountedSubtotal + tax + (shipping || 0)).toFixed(2));
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/public/shipping/quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ country: formData.country, subtotal })
+    })
+      .then(async response => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Shipping quote failed with HTTP ${response.status}`);
+        if (!cancelled) setShippingQuoteState({ key: shippingQuoteKey, quote: result, error: '' });
+      })
+      .catch(error => {
+        if (!cancelled) setShippingQuoteState({
+          key: shippingQuoteKey,
+          quote: null,
+          error: error.message || 'Could not calculate shipping.'
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [shippingQuoteKey, formData.country, subtotal]);
 
   const handleChange = (e) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     if (errorMsg) setErrorMsg('');
   };
 
+  const handleApplyPromotion = async () => {
+    const code = promoCodeInput.trim();
+    if (!code) {
+      setPromotionMessage('Enter a promotion code first.');
+      return;
+    }
+    setIsApplyingPromotion(true);
+    setPromotionMessage('');
+    try {
+      const response = await fetch('/api/public/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, subtotal })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `Promotion validation failed with HTTP ${response.status}`);
+      setAppliedPromotion(result);
+      setPromotionMessage(`${result.discountPercent}% discount applied.`);
+    } catch (error) {
+      setAppliedPromotion(null);
+      setPromotionMessage(error.message || 'Could not validate this promotion code.');
+    } finally {
+      setIsApplyingPromotion(false);
+    }
+  };
+
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
 
-    if (!formData.fullName.trim() || !formData.phone.trim() || !formData.address.trim()) {
-      setErrorMsg('Please fill in your Full Name, Phone Number, and Delivery Address.');
+    if (isLoadingShippingQuote || !shippingQuote || shippingQuoteError ||
+        (hasShippingZones && (!shippingQuote?.available || shipping === null))) {
+      setErrorMsg(shippingQuoteError || 'Wait for a valid shipping quote for your delivery country.');
+      return;
+    }
+    if (!formData.fullName.trim() || !formData.phone.trim() ||
+        !formData.address.trim() || !formData.country.trim()) {
+      setErrorMsg('Please fill in your Full Name, Phone Number, Delivery Address, and Country.');
       showToast?.('Please complete required shipping fields', 'error');
       return;
     }
@@ -69,11 +137,16 @@ export default function CheckoutPage({
 
     try {
       const orderPayload = {
-        orderId: `ORD-${Date.now().toString().slice(-6)}`,
+        channel: 'storefront',
         customerName: formData.fullName,
         customerPhone: formData.phone,
         customerEmail: formData.email,
-        deliveryAddress: `${formData.address}, ${formData.city}, ${formData.country}`,
+        shippingAddress: {
+          street: formData.address,
+          city: formData.city,
+          country: formData.country,
+          postalCode: formData.postalCode
+        },
         items: cartItems.map(i => ({
           productId: i.id,
           name: i.name,
@@ -82,16 +155,13 @@ export default function CheckoutPage({
           image: i.image
         })),
         subtotal,
-        shipping,
+        shipping: shipping || 0,
         tax,
         totalAmount: total,
-        paymentMethod: paymentMethod === 'cod' ? 'Cash on Delivery (COD)'
-          : paymentMethod === 'card' ? 'Online Card Payment'
-          : paymentMethod === 'mobile' ? 'Mobile Banking (bKash/Nagad)' : 'Bank Transfer',
-        paymentStatus: paymentMethod === 'cod' ? 'Pending upon Delivery' : 'Paid Online (Verified)',
+        paymentMethod: 'Cash on Delivery (COD)',
+        promoCode: appliedPromotion?.code || '',
         status: 'Processing',
-        notes: formData.notes,
-        createdAt: new Date().toISOString()
+        notes: formData.notes
       };
 
       // Send to server sales API
@@ -101,28 +171,14 @@ export default function CheckoutPage({
         body: JSON.stringify(orderPayload)
       });
 
-      if (!res.ok) {
-        throw new Error('Failed to record order with backend');
-      }
-
-      const createdOrder = await res.json();
+      const createdOrder = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(createdOrder.error || `Failed to record order with HTTP ${res.status}`);
       showToast?.('Order placed successfully!', 'success');
       onOrderCompleted?.(createdOrder);
-      onNavigate?.('order-success', { orderId: createdOrder.id || orderPayload.orderId, order: orderPayload });
+      onNavigate?.('order-success', { orderId: createdOrder.id, order: createdOrder });
     } catch (err) {
-      console.warn('Backend order recording fallback:', err);
-      // Fallback in case of network glitch
-      const fallbackOrder = {
-        id: `ORD-${Date.now().toString().slice(-6)}`,
-        customerName: formData.fullName,
-        deliveryAddress: `${formData.address}, ${formData.city}`,
-        items: cartItems,
-        totalAmount: total,
-        paymentMethod: paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment',
-        createdAt: new Date().toISOString()
-      };
-      onOrderCompleted?.(fallbackOrder);
-      onNavigate?.('order-success', { orderId: fallbackOrder.id, order: fallbackOrder });
+      console.warn('Could not record storefront order:', err);
+      setErrorMsg(err.message || 'We could not record your order. Please try again or contact the store.');
     } finally {
       setIsSubmitting(false);
     }
@@ -146,10 +202,10 @@ export default function CheckoutPage({
         </div>
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-            Checkout & Secure Payment
+            Checkout
           </h1>
           <p className="text-xs text-slate-400">
-            Enterprise multi-vendor checkout with verified fraud protection
+            Review your delivery details and order estimate before placing the order.
           </p>
         </div>
       </div>
@@ -242,13 +298,14 @@ export default function CheckoutPage({
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Country</label>
+                <label className="block text-slate-700 font-bold mb-1">Country *</label>
                 <input
                   type="text"
                   name="country"
                   value={formData.country}
                   onChange={handleChange}
                   placeholder="Bangladesh"
+                  required
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 placeholder-slate-400 outline-none focus:border-[#2563eb]"
                 />
               </div>
@@ -267,7 +324,7 @@ export default function CheckoutPage({
             </div>
           </div>
 
-          {/* 2. Payment Method Card matching user request (COD + Online Payment) */}
+          {/* Payment methods are limited to configured, working options. */}
           <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs p-6 space-y-4">
             <div className="flex items-center space-x-2.5 pb-2 border-b border-slate-100">
               <div className="w-6 h-6 rounded-full bg-[#2563eb] text-white text-xs font-bold flex items-center justify-center">
@@ -277,136 +334,22 @@ export default function CheckoutPage({
                 Select Payment Method
               </h2>
             </div>
-
-            <div className="space-y-3 text-xs">
-              {/* Option 1: Cash on Delivery (COD) */}
-              <label
-                className={`flex items-start space-x-3 p-4 rounded-2xl border-2 cursor-pointer transition ${
-                  paymentMethod === 'cod'
-                    ? 'border-[#2563eb] bg-blue-50/40 shadow-xs'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="cod"
-                  checked={paymentMethod === 'cod'}
-                  onChange={() => setPaymentMethod('cod')}
-                  className="mt-1 text-[#2563eb] focus:ring-blue-500"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <Banknote className="w-4 h-4 text-emerald-600" />
-                    <span className="font-bold text-slate-900 text-sm">Cash on Delivery (COD)</span>
-                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-1.5 py-0.2 rounded-full">Popular</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Pay securely in cash directly to the courier agent when your package arrives at your doorstep.
-                  </p>
-                </div>
-              </label>
-
-              {/* Option 2: Online Card Payment */}
-              <label
-                className={`flex items-start space-x-3 p-4 rounded-2xl border-2 cursor-pointer transition ${
-                  paymentMethod === 'card'
-                    ? 'border-[#2563eb] bg-blue-50/40 shadow-xs'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="card"
-                  checked={paymentMethod === 'card'}
-                  onChange={() => setPaymentMethod('card')}
-                  className="mt-1 text-[#2563eb] focus:ring-blue-500"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <CreditCard className="w-4 h-4 text-[#2563eb]" />
-                    <span className="font-bold text-slate-900 text-sm">Online Card Payment</span>
-                    <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-1.5 py-0.2 rounded-full">Instant</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Visa, MasterCard, American Express, or UnionPay with 3D-Secure 2.0.
-                  </p>
-
-                  {paymentMethod === 'card' && (
-                    <div className="mt-3 pt-3 border-t border-blue-200/60 grid grid-cols-2 gap-2 text-xs">
-                      <div className="col-span-2">
-                        <input
-                          type="text"
-                          placeholder="Card Number (4444 5555 6666 7777)"
-                          value={cardData.number}
-                          onChange={(e) => setCardData({ ...cardData, number: e.target.value })}
-                          className="w-full px-3 py-2 rounded-lg border border-slate-300 text-slate-800 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <input
-                          type="text"
-                          placeholder="MM/YY"
-                          value={cardData.expiry}
-                          onChange={(e) => setCardData({ ...cardData, expiry: e.target.value })}
-                          className="w-full px-3 py-2 rounded-lg border border-slate-300 text-slate-800 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <input
-                          type="password"
-                          placeholder="CVC"
-                          maxLength={4}
-                          value={cardData.cvc}
-                          onChange={(e) => setCardData({ ...cardData, cvc: e.target.value })}
-                          className="w-full px-3 py-2 rounded-lg border border-slate-300 text-slate-800 outline-none"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </label>
-
-              {/* Option 3: Mobile Banking */}
-              <label
-                className={`flex items-start space-x-3 p-4 rounded-2xl border-2 cursor-pointer transition ${
-                  paymentMethod === 'mobile'
-                    ? 'border-[#2563eb] bg-blue-50/40 shadow-xs'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="mobile"
-                  checked={paymentMethod === 'mobile'}
-                  onChange={() => setPaymentMethod('mobile')}
-                  className="mt-1 text-[#2563eb] focus:ring-blue-500"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <Smartphone className="w-4 h-4 text-rose-500" />
-                    <span className="font-bold text-slate-900 text-sm">Mobile Banking (bKash / Nagad / Rocket)</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Instant 1-click mobile gateway verification with zero surcharge.
-                  </p>
-
-                  {paymentMethod === 'mobile' && (
-                    <div className="mt-3 pt-3 border-t border-blue-200/60 text-xs">
-                      <input
-                        type="tel"
-                        placeholder="Your bKash / Nagad Wallet Number (017...)"
-                        value={mobileNumber}
-                        onChange={(e) => setMobileNumber(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-300 text-slate-800 outline-none"
-                      />
-                    </div>
-                  )}
-                </div>
-              </label>
+            <div className={`flex items-start gap-3 rounded-2xl border-2 p-4 ${codAvailable ? 'border-[#2563eb] bg-blue-50/40' : 'border-rose-300 bg-rose-50'}`}>
+              <Banknote className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+              <div>
+                <p className="text-sm font-bold text-slate-900">
+                  Cash on Delivery (COD){!codAvailable ? ' — unavailable in this zone' : ''}
+                </p>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Payment is collected on delivery and remains pending until the store confirms receipt.
+                </p>
+              </div>
             </div>
+            <p className="text-[11px] text-slate-500">
+              {storeSettings?.paymentMethods?.length
+                ? 'This store has saved gateway settings, but secure online payment processing is not active yet. Online methods will appear only after transaction and callback verification are implemented.'
+                : 'Online card and mobile banking payments are not enabled because no gateway has been connected for this store.'}
+            </p>
           </div>
         </div>
 
@@ -436,38 +379,99 @@ export default function CheckoutPage({
                     </div>
                   </div>
                   <span className="font-bold text-slate-900 shrink-0">
-                    ${(item.price * item.quantity).toFixed(2)}
+                    {formatStoreCurrency(item.price * item.quantity, storeSettings)}
                   </span>
                 </div>
               ))}
             </div>
 
+            {storeSettings?.promoActive && (
+              <div className="space-y-2 border-y border-slate-100 py-4">
+                <label htmlFor="promotion-code" className="block text-xs font-semibold text-slate-700">
+                  Promotion code
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="promotion-code"
+                    value={promoCodeInput}
+                    onChange={event => setPromoCodeInput(event.target.value)}
+                    maxLength={32}
+                    autoComplete="off"
+                    placeholder="Enter code"
+                    className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-xs uppercase text-slate-800"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyPromotion}
+                    disabled={isApplyingPromotion}
+                    className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+                  >
+                    {isApplyingPromotion ? 'Checking...' : appliedPromotion ? 'Applied' : 'Apply'}
+                  </button>
+                </div>
+                {promotionMessage && (
+                  <p role="status" className={`text-[11px] ${appliedPromotion ? 'text-emerald-700' : 'text-rose-600'}`}>
+                    {promotionMessage}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Calculations */}
             <div className="space-y-2 pt-3 border-t border-slate-100 text-xs text-slate-600">
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span className="font-bold text-slate-900">${subtotal.toFixed(2)}</span>
+                <span className="font-bold text-slate-900">{formatStoreCurrency(subtotal, storeSettings)}</span>
               </div>
+              {discount > 0 && (
+                <div className="flex justify-between text-emerald-700">
+                  <span>Promotion ({appliedPromotion.code})</span>
+                  <span className="font-bold">-{formatStoreCurrency(discount, storeSettings)}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span>Shipping</span>
                 <span className="font-bold text-slate-900">
-                  {shipping === 0 ? <span className="text-emerald-600 font-bold">FREE</span> : `$${shipping.toFixed(2)}`}
+                  {isLoadingShippingQuote
+                    ? 'Calculating…'
+                    : shipping === null
+                      ? (shippingQuoteError ? 'Unavailable' : 'Not configured')
+                      : shipping === 0
+                        ? 'Free'
+                        : formatStoreCurrency(shipping, storeSettings)}
                 </span>
               </div>
+              {shippingQuoteError && (
+                <p role="alert" className="text-[10px] text-rose-600">{shippingQuoteError}</p>
+              )}
+              {shippingQuote?.minDeliveryDays != null && shippingQuote?.maxDeliveryDays != null && (
+                <div className="flex justify-between text-[10px]">
+                  <span>Estimated delivery</span>
+                  <span>{shippingQuote.minDeliveryDays}–{shippingQuote.maxDeliveryDays} days</span>
+                </div>
+              )}
               <div className="flex justify-between">
-                <span>Tax (8%)</span>
-                <span className="font-bold text-slate-900">${tax.toFixed(2)}</span>
+                <span>Estimated Tax ({(taxRate * 100).toLocaleString()}%)</span>
+                <span className="font-bold text-slate-900">{formatStoreCurrency(tax, storeSettings)}</span>
               </div>
               <div className="pt-3 border-t border-slate-100 flex justify-between text-base font-black text-slate-900">
                 <span>Total Due</span>
-                <span className="text-xl font-black" style={{ color: primaryColor }}>${total.toFixed(2)}</span>
+                <span className="text-xl font-black" style={{ color: primaryColor }}>{formatStoreCurrency(total, storeSettings)}</span>
               </div>
+              {shipping === null && (
+                <p className="text-[10px] text-slate-500">
+                  {hasShippingZones
+                    ? 'This store has no shipping zone for the selected country.'
+                    : 'Shipping is not configured and is not included in this estimate. Contact the store to confirm the charge.'}
+                </p>
+              )}
             </div>
 
             {/* Place Order CTA */}
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isLoadingShippingQuote || !shippingQuote || Boolean(shippingQuoteError) ||
+                (hasShippingZones && (shipping === null || !codAvailable))}
               className="w-full py-4 px-6 rounded-xl text-white font-extrabold text-xs flex items-center justify-center space-x-2 transition shadow-lg active:scale-98 disabled:opacity-50 cursor-pointer hover:opacity-90"
               style={{ backgroundColor: primaryColor }}
             >
@@ -483,7 +487,7 @@ export default function CheckoutPage({
 
             <div className="text-center text-[10px] text-slate-400 flex items-center justify-center space-x-1.5 pt-1">
               <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
-              <span>Full Tiwlo Buyer Protection & Delivery Guarantee</span>
+              <span>Order details are sent to the store for confirmation.</span>
             </div>
           </div>
         </div>

@@ -5,7 +5,6 @@ import {
   Moon,
   Sun,
   ChevronDown,
-  LogOut,
   Store,
   ShieldCheck,
   User,
@@ -29,11 +28,11 @@ export default function CloudHeader({
   searchQuery,
   setSearchQuery,
   currentUser,
-  onLogout,
   onOpenStore,
   onOpenCreateDroplet,
   onOpenSettings,
   onOpenBilling,
+  onSwitchStore,
   showToast,
   onToggleMobileMenu
 }) {
@@ -287,17 +286,17 @@ export default function CloudHeader({
                 </button>
               </div>
 
-              {/* Sign Out */}
+              {/* Store switching stays within the signed-in account. */}
               <div className="border-t border-slate-100 dark:border-gray-800 my-1 pt-1">
                 <button
                   onClick={() => {
                     setShowProfileMenu(false);
-                    onLogout?.();
+                    onSwitchStore?.();
                   }}
-                  className="w-full flex items-center px-4 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer"
+                  className="w-full flex items-center px-4 py-2 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition cursor-pointer"
                 >
-                  <LogOut className="w-4 h-4 mr-2.5" />
-                  <span>Sign Out / Switch Store</span>
+                  <Store className="w-4 h-4 mr-2.5" />
+                  <span>Switch Store</span>
                 </button>
               </div>
             </div>

@@ -1,21 +1,20 @@
 import React from 'react';
 import {
   BarChart3,
-  TrendingUp,
-  Activity,
-  ArrowUpRight,
-  ArrowDownRight,
   Flame,
   Clock,
-  Package,
-  Layers,
-  ArrowLeft,
-  Sparkles
+  ArrowLeft
 } from 'lucide-react';
 
-export default function AnalyticsView({ products = [], stats, onBackToDashboard }) {
+export default function AnalyticsView({ products = [], onBackToDashboard }) {
+  const totalUnits = products.reduce((sum, product) => sum + (Number(product.stock) || 0), 0);
+  const totalUnitsSold = products.reduce((sum, product) => sum + (Number(product.sold) || 0), 0);
+  const productsInStock = products.filter(product => Number(product.stock) > 0).length;
+  const trackedProducts = products.length;
+
   // Sort fast moving
   const fastMoving = [...products]
+    .filter(product => Number(product.sold) > 0)
     .sort((a, b) => (b.sold || 0) - (a.sold || 0))
     .slice(0, 5);
 
@@ -57,33 +56,27 @@ export default function AnalyticsView({ products = [], stats, onBackToDashboard 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-[#111827] p-5 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Turnover Velocity</span>
-          <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1">5.2x / yr</div>
-          <div className="text-[11px] text-emerald-600 flex items-center space-x-1 mt-0.5">
-            <ArrowUpRight className="w-3.5 h-3.5" />
-            <span>+14% vs benchmark</span>
-          </div>
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Products Tracked</span>
+          <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{trackedProducts}</div>
+          <div className="text-[11px] text-slate-400 mt-0.5">Current catalog</div>
         </div>
 
         <div className="bg-white dark:bg-[#111827] p-5 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Stock Out Risk</span>
-          <div className="text-2xl font-bold text-amber-500 mt-1">4.2%</div>
-          <div className="text-[11px] text-emerald-600 flex items-center space-x-1 mt-0.5">
-            <ArrowDownRight className="w-3.5 h-3.5" />
-            <span>-2.1% low risk</span>
-          </div>
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Units on Hand</span>
+          <div className="text-2xl font-bold text-amber-500 mt-1">{totalUnits}</div>
+          <div className="text-[11px] text-slate-400 mt-0.5">Across current products</div>
         </div>
 
         <div className="bg-white dark:bg-[#111827] p-5 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Gross Margin ROI</span>
-          <div className="text-2xl font-bold text-blue-600 mt-1">184%</div>
-          <div className="text-[11px] text-slate-400 mt-0.5">GMROI Health Score</div>
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Units Sold</span>
+          <div className="text-2xl font-bold text-blue-600 mt-1">{totalUnitsSold}</div>
+          <div className="text-[11px] text-slate-400 mt-0.5">Recorded product sales</div>
         </div>
 
         <div className="bg-white dark:bg-[#111827] p-5 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Fulfillment Efficiency</span>
-          <div className="text-2xl font-bold text-emerald-600 mt-1">99.4%</div>
-          <div className="text-[11px] text-slate-400 mt-0.5">Same-day dispatch</div>
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Products In Stock</span>
+          <div className="text-2xl font-bold text-emerald-600 mt-1">{productsInStock}</div>
+          <div className="text-[11px] text-slate-400 mt-0.5">Products with available units</div>
         </div>
       </div>
 
@@ -97,6 +90,9 @@ export default function AnalyticsView({ products = [], stats, onBackToDashboard 
           </div>
 
           <div className="space-y-3">
+            {fastMoving.length === 0 && (
+              <p className="text-xs text-slate-500 dark:text-slate-400">No recorded product sales yet.</p>
+            )}
             {fastMoving.map((p) => (
               <div key={p.id} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-gray-800/60">
                 <div className="flex items-center space-x-3">
@@ -119,10 +115,13 @@ export default function AnalyticsView({ products = [], stats, onBackToDashboard 
         <div className="bg-white dark:bg-[#111827] p-6 rounded-3xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
           <div className="flex items-center space-x-2 mb-4">
             <Clock className="w-5 h-5 text-indigo-500" />
-            <h3 className="font-bold text-slate-900 dark:text-white text-base">High Days of Inventory (Slow Movers)</h3>
+            <h3 className="font-bold text-slate-900 dark:text-white text-base">High Stock Items</h3>
           </div>
 
           <div className="space-y-3">
+            {slowMoving.length === 0 && (
+              <p className="text-xs text-slate-500 dark:text-slate-400">No products exceed the high-stock threshold.</p>
+            )}
             {slowMoving.map((p) => (
               <div key={p.id} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-gray-800/60">
                 <div className="flex items-center space-x-3">

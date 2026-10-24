@@ -48,7 +48,7 @@ export default function LoginView({
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(socialAuthInitial.errorMessage);
-  const [socialProviders, setSocialProviders] = useState({ google: false, github: false });
+  const [socialProviders, setSocialProviders] = useState({ google: false, github: false, loaded: false });
   const [socialProfile, setSocialProfile] = useState({
     name: '',
     email: '',
@@ -1146,9 +1146,9 @@ export default function LoginView({
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    disabled={!socialProviders.google}
+                    disabled={!socialProviders.loaded || !socialProviders.google}
                     onClick={() => startSocialLogin('google')}
-                    title={socialProviders.google ? 'Continue with Google' : 'Google sign-in is not configured.'}
+                    title={!socialProviders.loaded ? 'Checking sign-in availability…' : (socialProviders.google ? 'Continue with Google' : 'Google sign-in is not configured.')}
                     className="flex items-center justify-center space-x-2 py-2 px-3 rounded-full border border-[#747775]/40 text-[#1F1F1F] dark:text-[#E3E3E3] text-[13px] font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
@@ -1162,9 +1162,9 @@ export default function LoginView({
 
                   <button
                     type="button"
-                    disabled={!socialProviders.github}
+                    disabled={!socialProviders.loaded || !socialProviders.github}
                     onClick={() => startSocialLogin('github')}
-                    title={socialProviders.github ? 'Continue with GitHub' : 'GitHub sign-in is not configured.'}
+                    title={!socialProviders.loaded ? 'Checking sign-in availability…' : (socialProviders.github ? 'Continue with GitHub' : 'GitHub sign-in is not configured.')}
                     className="flex items-center justify-center space-x-2 py-2 px-3 rounded-full border border-[#747775]/40 text-[#1F1F1F] dark:text-[#E3E3E3] text-[13px] font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true">
@@ -1174,9 +1174,11 @@ export default function LoginView({
                   </button>
                 </div>
                 <p className="mt-2 text-center text-xs text-[#747775]" role="status">
-                  {socialProviders.google || socialProviders.github
-                    ? 'Continue securely with Google or GitHub. New accounts are created automatically.'
-                    : 'Google and GitHub sign-in are temporarily unavailable.'}
+                  {!socialProviders.loaded
+                    ? 'Checking social sign-in options…'
+                    : (socialProviders.google || socialProviders.github
+                      ? 'Continue securely with Google or GitHub. New accounts are created automatically.'
+                      : 'Google and GitHub sign-in are temporarily unavailable.')}
                 </p>
 
                 <div className="relative my-4 flex items-center justify-center">

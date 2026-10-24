@@ -24,11 +24,6 @@ import {
   X,
   RotateCcw,
   Tag,
-  Laptop,
-  Shirt,
-  Home,
-  Coffee,
-  Headphones,
   Sliders,
   Layers,
   Check,
@@ -81,6 +76,41 @@ export default function POSView({
   const [completedSale, setCompletedSale] = useState(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [currencyCode, setCurrencyCode] = useState('USD');
+  const [taxRate, setTaxRate] = useState(0);
+  const [settingsLoadError, setSettingsLoadError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/system/settings')
+      .then(async response => {
+        const settings = await response.json();
+        if (!response.ok) throw new Error(settings.error || 'Could not load checkout settings.');
+        const currency = ['USD', 'BDT', 'EUR', 'GBP'].includes(settings.currency)
+          ? settings.currency
+          : 'USD';
+        const rate = Number(settings.taxRate);
+        if (!Number.isFinite(rate) || rate < 0) {
+          throw new Error('The configured sales tax rate is invalid.');
+        }
+        if (active) {
+          setCurrencyCode(currency);
+          setTaxRate(rate);
+          setSettingsLoadError('');
+        }
+      })
+      .catch(error => {
+        console.error('Could not load POS currency and tax settings:', error);
+        if (active) setSettingsLoadError('Could not load the configured currency and tax rate. Default USD and 0% tax are shown.');
+      });
+    return () => { active = false; };
+  }, []);
+
+  const formatCurrency = (value) => new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currencyCode,
+    currencyDisplay: 'narrowSymbol'
+  }).format(Number(value) || 0);
 
   // Customer Management State
   const [selectedCustomer, setSelectedCustomer] = useState(null); // null = Walk-in Customer
@@ -308,32 +338,38 @@ export default function POSView({
       }
 
       QRCode.toDataURL(
-        `TIWLO-POS-VERIFIED|INV:${completedSale.invoiceNumber}|TOTAL:$${completedSale.totalAmount}|DATE:${completedSale.date}|CUSTOMER:${completedSale.customer?.name || 'Walk-in'}`,
+        `TIWLO-POS-VERIFIED|INV:${completedSale.invoiceNumber}|TOTAL:${formatCurrency(completedSale.totalAmount)}|DATE:${completedSale.date}|CUSTOMER:${completedSale.customer?.name || 'Walk-in'}`,
         { width: 90, margin: 1 }
       )
         .then((url) => setQrCodeDataUrl(url))
         .catch(() => {});
     }
-  }, [completedSale, posViewMode]);
+  }, [completedSale, posViewMode, currencyCode]);
 
   const showNotification = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(''), 2500);
   };
 
-  // Fixed list of categories matching screenshot
   const categoryChips = useMemo(() => {
-    const base = [
-      { id: 'All Products', name: 'All Products', count: products.length || 128, icon: LayoutGrid },
-      { id: 'Electronics', name: 'Electronics', count: products.filter(p => p.category?.toLowerCase() === 'electronics').length || 24, icon: Laptop },
-      { id: 'Clothing', name: 'Clothing', count: products.filter(p => p.category?.toLowerCase() === 'clothing').length || 18, icon: Shirt },
-      { id: 'Home & Living', name: 'Home & Living', count: products.filter(p => p.category?.toLowerCase() === 'home & living').length || 16, icon: Home },
-      { id: 'Food & Beverage', name: 'Food & Beverage', count: products.filter(p => p.category?.toLowerCase() === 'food & beverage').length || 32, icon: Coffee },
-      { id: 'Accessories', name: 'Accessories', count: products.filter(p => p.category?.toLowerCase() === 'accessories').length || 14, icon: Headphones },
-      { id: 'Others', name: 'Others', count: products.filter(p => !['electronics', 'clothing', 'home & living', 'food & beverage', 'accessories'].includes(p.category?.toLowerCase())).length || 6, icon: MoreHorizontal }
+    const productCategories = [...new Set([
+      ...categories.map(category => String(
+        typeof category === 'string'
+          ? category
+          : (category?.name || category?.categoryName || category?.label || '')
+      ).trim()),
+      ...products.map(product => String(product.category || '').trim())
+    ].filter(Boolean))];
+    return [
+      { id: 'All Products', name: 'All Products', count: products.length, icon: LayoutGrid },
+      ...productCategories.map(name => ({
+        id: name,
+        name,
+        count: products.filter(product => String(product.category || '').trim().toLowerCase() === name.toLowerCase()).length,
+        icon: Layers
+      }))
     ];
-    return base;
-  }, [products]);
+  }, [categories, products]);
 
   // Filtered products list
   const filteredProducts = useMemo(() => {
@@ -416,10 +452,9 @@ export default function POSView({
   }, [subtotal, discountApplied, discountType]);
 
   const tax = useMemo(() => {
-    // 5% Standard POS Tax with safe 2-decimal precision
     const taxableAmount = Math.max(0, subtotal - discountAmount);
-    return parseFloat((taxableAmount * 0.05).toFixed(2));
-  }, [subtotal, discountAmount]);
+    return parseFloat((taxableAmount * taxRate / 100).toFixed(2));
+  }, [subtotal, discountAmount, taxRate]);
 
   const grandTotal = useMemo(() => {
     return parseFloat(Math.max(0, subtotal - discountAmount + tax).toFixed(2));
@@ -513,7 +548,7 @@ export default function POSView({
       } else {
         const capped = Math.min(subtotal, val);
         setDiscountApplied(capped);
-        showNotification(`Fixed discount of $${capped.toFixed(2)} applied`);
+        showNotification(`Fixed discount of ${formatCurrency(capped)} applied`);
       }
     } else {
       setDiscountApplied(0);
@@ -708,19 +743,19 @@ export default function POSView({
     completedSale.items.forEach((item) => {
       const name = (item.name || item.productName).padEnd(28).slice(0, 28);
       const qty = String(item.quantity).padStart(4);
-      const unit = `$${parseFloat(item.price || item.unitPrice).toFixed(2)}`.padStart(8);
-      const total = `$${((parseFloat(item.price || item.unitPrice) || 0) * item.quantity).toFixed(2)}`.padStart(10);
+      const unit = formatCurrency(item.price || item.unitPrice).padStart(8);
+      const total = formatCurrency((parseFloat(item.price || item.unitPrice) || 0) * item.quantity).padStart(10);
       text += `${name} ${qty} ${unit} ${total}\n`;
     });
 
     text += `--------------------------------------------------------\n`;
-    text += `Subtotal                         : $${parseFloat(completedSale.subtotal).toFixed(2)}\n`;
+    text += `Subtotal                         : ${formatCurrency(completedSale.subtotal)}\n`;
     if (completedSale.discount > 0) {
-      text += `Discount                         : -$${parseFloat(completedSale.discount).toFixed(2)}\n`;
+      text += `Discount                         : -${formatCurrency(completedSale.discount)}\n`;
     }
-    text += `Tax (5%)                         : $${parseFloat(completedSale.tax).toFixed(2)}\n`;
+    text += `Tax (${taxRate}%)                         : ${formatCurrency(completedSale.tax)}\n`;
     text += `========================================================\n`;
-    text += `GRAND TOTAL                      : $${parseFloat(completedSale.totalAmount).toFixed(2)}\n`;
+    text += `GRAND TOTAL                      : ${formatCurrency(completedSale.totalAmount)}\n`;
     text += `Payment Method                   : ${completedSale.paymentMethod} (PAID)\n`;
     text += `========================================================\n\n`;
     text += `Terms & Conditions:\n`;
@@ -937,10 +972,10 @@ export default function POSView({
                           {it.quantity}
                         </td>
                         <td className="py-3 text-right font-mono text-slate-600 dark:text-slate-300">
-                          $ {price.toFixed(2)}
+                          {formatCurrency(price)}
                         </td>
                         <td className="py-3 text-right font-mono font-bold text-slate-900 dark:text-white">
-                          $ {lineTotal.toFixed(2)}
+                          {formatCurrency(lineTotal)}
                         </td>
                       </tr>
                     );
@@ -972,24 +1007,24 @@ export default function POSView({
               <div className="w-full sm:w-64 space-y-2 text-xs">
                 <div className="flex justify-between text-slate-600 dark:text-slate-400">
                   <span>Subtotal</span>
-                  <span className="font-mono font-semibold">$ {parseFloat(completedSale.subtotal).toFixed(2)}</span>
+                  <span className="font-mono font-semibold">{formatCurrency(completedSale.subtotal)}</span>
                 </div>
                 {completedSale.discount > 0 && (
                   <div className="flex justify-between text-emerald-600 font-medium">
                     <span>Discount</span>
-                    <span className="font-mono">- $ {parseFloat(completedSale.discount).toFixed(2)}</span>
+                    <span className="font-mono">- {formatCurrency(completedSale.discount)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                  <span>Tax (5%)</span>
-                  <span className="font-mono font-semibold">$ {parseFloat(completedSale.tax).toFixed(2)}</span>
+                  <span>Tax ({taxRate}%)</span>
+                  <span className="font-mono font-semibold">{formatCurrency(completedSale.tax)}</span>
                 </div>
                 <div className="pt-2 border-t-2 border-slate-900 dark:border-white flex justify-between items-center">
                   <span className="text-sm font-black text-slate-900 dark:text-white uppercase">
                     Grand Total
                   </span>
                   <span className="text-xl font-black text-blue-600 dark:text-blue-400 font-mono">
-                    $ {parseFloat(completedSale.totalAmount).toFixed(2)}
+                    {formatCurrency(completedSale.totalAmount)}
                   </span>
                 </div>
               </div>
@@ -1018,6 +1053,11 @@ export default function POSView({
         <div className="fixed top-18 right-6 z-50 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-2.5 rounded-2xl shadow-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600" />
           <span>{toastMessage}</span>
+        </div>
+      )}
+      {settingsLoadError && (
+        <div role="alert" className="mx-4 mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-900">
+          {settingsLoadError}
         </div>
       )}
 
@@ -1367,7 +1407,7 @@ export default function POSView({
                               {c.totalSpent > 0 && (
                                 <div className="text-[10px] font-mono text-slate-400 hidden sm:block">
                                   <p className="font-semibold text-slate-700 dark:text-slate-300">
-                                    ${parseFloat(c.totalSpent).toFixed(2)}
+                                    {formatCurrency(c.totalSpent)}
                                   </p>
                                   <p className="text-[9px]">{c.totalOrders || 0} orders</p>
                                 </div>
@@ -1638,7 +1678,7 @@ export default function POSView({
                         </div>
                         <div className="pt-0.5 flex items-center justify-between">
                           <span className="text-xs font-black text-slate-900 dark:text-white">
-                            $ {parseFloat(prod.price || 0).toFixed(2)}
+                            {formatCurrency(prod.price || 0)}
                           </span>
                           {/* Stock Status Indicator */}
                           <div className="flex items-center space-x-1">
@@ -1750,7 +1790,7 @@ export default function POSView({
                           </h4>
                           <p className="text-[9px] text-slate-400 truncate">{item.category}</p>
                           <p className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
-                            $ {parseFloat(item.price).toFixed(2)}
+                            {formatCurrency(item.price)}
                           </p>
                         </div>
                       </div>
@@ -1777,7 +1817,7 @@ export default function POSView({
                       {/* Right: Item Total & Delete */}
                       <div className="flex items-center space-x-2 shrink-0">
                         <span className="text-[11px] font-black text-slate-900 dark:text-white font-mono">
-                          $ {itemTotal.toFixed(2)}
+                          {formatCurrency(itemTotal)}
                         </span>
                         <button
                           onClick={() => removeFromCart(item.id)}
@@ -1838,7 +1878,7 @@ export default function POSView({
                         : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
                     }`}
                   >
-                    $ Fixed
+                    {currencyCode} Fixed
                   </button>
                 </div>
               </div>
@@ -1876,13 +1916,13 @@ export default function POSView({
                     type="number"
                     min="0"
                     max={discountType === 'percent' ? 100 : subtotal}
-                    placeholder={discountType === 'percent' ? 'Custom % (e.g. 12)' : 'Custom $ (e.g. 25)'}
+                    placeholder={discountType === 'percent' ? 'Custom % (e.g. 12)' : `Custom ${currencyCode} (e.g. 25)`}
                     value={discountInput}
                     onChange={(e) => setDiscountInput(e.target.value)}
                     className="w-full pl-2.5 pr-6 py-1 text-xs rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-slate-900 dark:text-white focus:outline-hidden"
                   />
                   <span className="absolute right-2.5 top-1 text-[11px] text-slate-400 font-bold font-mono">
-                    {discountType === 'percent' ? '%' : '$'}
+                    {discountType === 'percent' ? '%' : currencyCode}
                   </span>
                 </div>
                 <button
@@ -1912,9 +1952,9 @@ export default function POSView({
               {discountAmount > 0 && (
                 <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-lg text-[10px] font-bold border border-emerald-200/80">
                   <span>
-                    ✓ {discountType === 'percent' ? `${discountApplied}%` : `$${discountApplied.toFixed(2)}`} Applied
+                    ✓ {discountType === 'percent' ? `${discountApplied}%` : formatCurrency(discountApplied)} Applied
                   </span>
-                  <span className="font-mono font-black">- $ {discountAmount.toFixed(2)}</span>
+                  <span className="font-mono font-black">- {formatCurrency(discountAmount)}</span>
                 </div>
               )}
             </div>
@@ -1925,7 +1965,7 @@ export default function POSView({
               <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
                 <span className="text-[11px]">Subtotal</span>
                 <span className="font-bold text-slate-800 dark:text-white font-mono text-[11px]">
-                  $ {subtotal.toFixed(2)}
+                  {formatCurrency(subtotal)}
                 </span>
               </div>
 
@@ -1933,15 +1973,15 @@ export default function POSView({
               {discountAmount > 0 && (
                 <div className="flex items-center justify-between text-emerald-600 text-[11px] font-semibold">
                   <span>Discount</span>
-                  <span className="font-mono">- $ {discountAmount.toFixed(2)}</span>
+                  <span className="font-mono">- {formatCurrency(discountAmount)}</span>
                 </div>
               )}
 
-              {/* Tax (5%) */}
+              {/* Tax from configured system settings */}
               <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-                <span className="text-[11px]">Tax (5%)</span>
+                <span className="text-[11px]">Tax ({taxRate}%)</span>
                 <span className="font-bold text-slate-800 dark:text-white font-mono text-[11px]">
-                  $ {tax.toFixed(2)}
+                  {formatCurrency(tax)}
                 </span>
               </div>
 
@@ -1949,7 +1989,7 @@ export default function POSView({
               <div className="pt-2 border-t border-slate-200 dark:border-gray-700 flex items-center justify-between">
                 <span className="text-sm font-bold text-slate-900 dark:text-white">Total</span>
                 <span className="text-xl font-black text-blue-600 dark:text-blue-400 font-mono tracking-tight">
-                  $ {grandTotal.toFixed(2)}
+                  {formatCurrency(grandTotal)}
                 </span>
               </div>
             </div>
@@ -2031,7 +2071,7 @@ export default function POSView({
               </span>
             </div>
             <div>
-              <p className="text-xs font-bold leading-tight">${grandTotal.toFixed(2)}</p>
+              <p className="text-xs font-bold leading-tight">{formatCurrency(grandTotal)}</p>
               <p className="text-[10px] text-slate-400">Tap to scroll to Checkout</p>
             </div>
           </div>
@@ -2408,7 +2448,7 @@ export default function POSView({
 
                   <div>
                     <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
-                      Credit Limit ($ USD)
+                      Credit Limit ({currencyCode})
                       <span className="text-slate-400 font-normal ml-1">(Optional)</span>
                     </label>
                     <input

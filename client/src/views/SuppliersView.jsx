@@ -71,9 +71,18 @@ export default function SuppliersView({
     });
   };
 
-  const avgLeadTime = suppliers.length
-    ? Math.round(suppliers.reduce((sum, s) => sum + (s.leadTimeDays || 5), 0) / suppliers.length)
-    : 5;
+  const leadTimes = suppliers
+    .map(supplier => Number(supplier.leadTimeDays))
+    .filter(days => Number.isFinite(days) && days >= 0);
+  const avgLeadTime = leadTimes.length
+    ? Math.round(leadTimes.reduce((sum, days) => sum + days, 0) / leadTimes.length)
+    : null;
+  const ratings = suppliers
+    .map(supplier => Number(supplier.rating))
+    .filter(rating => Number.isFinite(rating) && rating > 0);
+  const averageRating = ratings.length
+    ? (ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length).toFixed(1)
+    : null;
 
   if (isAddModalOpen || editingSupplier) {
     return (
@@ -307,7 +316,7 @@ export default function SuppliersView({
         <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
           <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Average Lead Time</span>
           <div className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1.5">
-            {avgLeadTime} days
+            {avgLeadTime === null ? '—' : `${avgLeadTime} days`}
           </div>
           <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">PO to dock arrival</div>
         </div>
@@ -315,8 +324,12 @@ export default function SuppliersView({
         <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
           <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Partner Rating</span>
           <div className="text-xl sm:text-2xl font-bold text-amber-500 mt-1.5 flex items-center space-x-1">
-            <span>4.8</span>
-            <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
+            {averageRating ? (
+              <>
+                <span>{averageRating}</span>
+                <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
+              </>
+            ) : '—'}
           </div>
           <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">On-time delivery score</div>
         </div>
@@ -395,7 +408,7 @@ export default function SuppliersView({
                   <td className="py-3.5 px-4">
                     <div className="flex items-center space-x-1 text-amber-500 font-bold">
                       <Star className="w-3.5 h-3.5 fill-amber-500" />
-                      <span>{s.rating || '4.8'}</span>
+                      <span>{Number.isFinite(Number(s.rating)) && Number(s.rating) > 0 ? Number(s.rating).toFixed(1) : 'Not rated'}</span>
                     </div>
                   </td>
 

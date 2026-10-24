@@ -157,7 +157,9 @@ export default function CreateStoreView({ onBack, onCreateStore }) {
                 className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-800 bg-slate-50/50 dark:bg-gray-900 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-mono transition"
               />
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">Free SSL certificate and CDN proxy automatically provisioned.</p>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Enter a subdomain label or a full hostname under {STORE_DOMAIN}. Free SSL and CDN are automatically provisioned.
+            </p>
           </div>
 
           <div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   LayoutDashboard,
   Package,
@@ -11,7 +11,6 @@ import {
   FileText,
   BarChart3,
   Settings,
-  ChevronDown,
   Box,
   Server,
   Store,
@@ -33,40 +32,32 @@ export default function Sidebar({
   mobileOpen = false,
   setMobileOpen
 }) {
-  const [openSubmenu, setOpenSubmenu] = useState({});
-
-  const toggleSubmenu = (menu) => {
-    setOpenSubmenu(prev => ({ ...prev, [menu]: !prev[menu] }));
-  };
-
-  const handleNavClick = (tabId, hasSub = false) => {
+  const handleNavClick = (tabId) => {
     if (tabId === 'help-support') {
       window.dispatchEvent(new CustomEvent('tiwlo:open-support'));
-    }
-    if (hasSub) {
-      toggleSubmenu(tabId);
     }
     setActiveTab(tabId);
     setMobileOpen?.(false);
   };
 
   const navItems = [
-    { id: 'subscription', name: 'Upgrade & Plans', icon: Sparkles, hasSub: false, isUpgrade: true },
-    { id: 'ecommerce-dashboard', name: 'Store Dashboard', icon: LayoutDashboard, hasSub: false },
-    { id: 'workspace', name: 'Workspace', icon: LayoutGrid, hasSub: false },
-    { id: 'email', name: 'Tiwi Mail', icon: Mail, hasSub: false, isNew: true },
-    { id: 'pos', name: 'POS System', icon: Store, hasSub: false, isNew: true },
-    { id: 'products', name: 'Products', icon: Package, hasSub: false },
-    { id: 'categories', name: 'Categories & Subs', icon: Layers, hasSub: true },
-    { id: 'inventory', name: 'Inventory Control', icon: Boxes, hasSub: true },
-    { id: 'purchases', name: 'Purchases (PO)', icon: ShoppingCart, hasSub: true },
-    { id: 'sales', name: 'Sales & Orders', icon: Receipt, hasSub: true },
-    { id: 'customers', name: 'Customers', icon: Users, hasSub: false },
-    { id: 'suppliers', name: 'Suppliers', icon: Truck, hasSub: false },
-    { id: 'reports', name: 'Reports Ledger', icon: FileText, hasSub: false },
-    { id: 'analytics', name: 'Analytics', icon: BarChart3, hasSub: false },
-    { id: 'settings', name: 'Settings', icon: Server, hasSub: false },
-    { id: 'help-support', name: 'Help & Support', icon: HelpCircle, hasSub: false },
+    { id: 'subscription', name: 'Upgrade & Plans', icon: Sparkles, isUpgrade: true },
+    { id: 'ecommerce-dashboard', name: 'Store Dashboard', icon: LayoutDashboard },
+    { id: 'workspace', name: 'Workspace', icon: LayoutGrid },
+    { id: 'email', name: 'Tiwi Mail', icon: Mail, isNew: true },
+    { id: 'pos', name: 'POS System', icon: Store, isNew: true },
+    { id: 'products', name: 'Products', icon: Package },
+    { id: 'categories', name: 'Categories & Subs', icon: Layers },
+    { id: 'inventory', name: 'Inventory Control', icon: Boxes },
+    { id: 'purchases', name: 'Purchases (PO)', icon: ShoppingCart },
+    { id: 'sales', name: 'Sales & Orders', icon: Receipt },
+    { id: 'customers', name: 'Customers', icon: Users },
+    { id: 'suppliers', name: 'Suppliers', icon: Truck },
+    { id: 'reports', name: 'Reports Ledger', icon: FileText },
+    { id: 'analytics', name: 'Analytics', icon: BarChart3 },
+    { id: 'settings', name: 'Settings', icon: Server },
+    { id: 'store-settings', name: 'Storefront & Theme', icon: Settings },
+    { id: 'help-support', name: 'Help & Support', icon: HelpCircle },
   ];
 
   return (
@@ -194,32 +185,7 @@ export default function Sidebar({
                     </span>
                   )}
 
-                  {item.hasSub && (
-                    <ChevronDown
-                      className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
-                        openSubmenu[item.id] ? 'rotate-180 text-blue-500' : ''
-                      }`}
-                    />
-                  )}
                 </button>
-
-                {/* Submenu if opened */}
-                {item.hasSub && openSubmenu[item.id] && (
-                  <div className="pl-9 pr-2 py-1 space-y-1 text-xs">
-                    <button
-                      onClick={() => handleNavClick(item.id)}
-                      className="w-full text-left py-1.5 px-2 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50/50 dark:hover:bg-gray-800 transition text-[11px]"
-                    >
-                      Overview & All Records
-                    </button>
-                    <button
-                      onClick={() => handleNavClick(item.id)}
-                      className="w-full text-left py-1.5 px-2 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50/50 dark:hover:bg-gray-800 transition text-[11px]"
-                    >
-                      Quick Adjustments & Logs
-                    </button>
-                  </div>
-                )}
               </div>
             );
           })}

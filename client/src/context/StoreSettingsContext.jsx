@@ -1,12 +1,13 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { THEME_CONFIG, DEFAULT_HERO_BANNERS, applyThemeColor } from '../themes/themeConfig';
+import { isStorefrontSubdomainHost } from '../config/platformConfig';
 
 const StoreSettingsContext = createContext(null);
 
 const DEFAULT_SETTINGS = {
   storeName: 'Your Store',
-  storeTagline: 'Shop Global • Sell Global',
+  storeTagline: '',
   storeTitle: 'Your Store',
   storeDescription: '',
   storeLogo: null,
@@ -17,16 +18,31 @@ const DEFAULT_SETTINGS = {
   themeMode: 'light',
   contactEmail: '',
   contactPhone: '',
+  storeAddress: '',
+  storeCity: '',
+  storeCountry: '',
+  storePostalCode: '',
   currency: 'USD',
   currencySymbol: '$',
+  taxRate: 0,
+  shippingFlatRate: '',
+  freeShippingThreshold: '',
+  shippingZones: [],
+  promoActive: false,
+  promoCode: '',
+  promoDiscountPercent: 0,
+  paymentMethods: [],
   bannerSlidingSpeed: 5,
   heroBanners: [],
   availableThemes: THEME_CONFIG.availableThemes
 };
 
-export function StoreSettingsProvider({ children }) {
+export function StoreSettingsProvider({ children, initialSettings = null }) {
   // Do not globally cache tenant settings: the same web host serves many stores.
-  const [storeSettings, setStoreSettings] = useState(DEFAULT_SETTINGS);
+  const [storeSettings, setStoreSettings] = useState(() => ({
+    ...DEFAULT_SETTINGS,
+    ...(initialSettings || {})
+  }));
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -40,6 +56,10 @@ export function StoreSettingsProvider({ children }) {
 
   // 3. Fetch latest store settings from server
   const fetchSettings = async () => {
+    if (initialSettings) {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const res = await fetch('/api/store/settings');
@@ -64,6 +84,7 @@ export function StoreSettingsProvider({ children }) {
   // 4. Update settings
   const updateStoreSettings = async (partial) => {
     setSaving(true);
+    const previous = storeSettings;
     const updated = { ...storeSettings, ...partial };
     setStoreSettings(updated);
 
@@ -79,10 +100,15 @@ export function StoreSettingsProvider({ children }) {
         body: JSON.stringify(updated)
       });
       if (!res.ok) {
-        console.warn('Server store settings update returned non-OK status');
+        const result = await res.json().catch(() => ({}));
+        throw new Error(result.error || `Store settings update failed with HTTP ${res.status}.`);
       }
+      const savedSettings = await res.json();
+      setStoreSettings(current => ({ ...current, ...savedSettings }));
     } catch (err) {
+      setStoreSettings(previous);
       console.error('Failed to persist store settings to server', err);
+      throw err;
     } finally {
       setSaving(false);
     }
@@ -214,7 +240,10 @@ export function StoreSettingsProvider({ children }) {
   useEffect(() => {
     if (typeof document !== 'undefined') {
       const searchParams = new URLSearchParams(window.location.search);
-      const isStoreView = searchParams.get('view') === 'store' || window.location.hash === '#/store';
+      const isStoreView = searchParams.get('view') === 'store' ||
+        window.location.hash === '#/store' ||
+        isStorefrontSubdomainHost() ||
+        storeSettings?.isStorefront === true;
       if (isStoreView && storeSettings?.storeTitle) {
         document.title = storeSettings.storeTitle;
       }
@@ -222,14 +251,18 @@ export function StoreSettingsProvider({ children }) {
   }, [storeSettings?.storeTitle]);
 
   useEffect(() => {
-    if (typeof document !== 'undefined' && storeSettings?.storeFavicon) {
-      let link = document.querySelector("link[rel*='icon']");
+    if (typeof document === 'undefined') return;
+    let link = document.querySelector('link[data-store-favicon]');
+    if (storeSettings?.storeFavicon) {
       if (!link) {
         link = document.createElement('link');
-        link.rel = 'shortcut icon';
+        link.rel = 'icon';
+        link.dataset.storeFavicon = 'true';
         document.head.appendChild(link);
       }
       link.href = storeSettings.storeFavicon;
+    } else if (link) {
+      link.remove();
     }
   }, [storeSettings?.storeFavicon]);
 

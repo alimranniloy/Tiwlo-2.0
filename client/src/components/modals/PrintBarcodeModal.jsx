@@ -1,17 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Printer,
-  Download,
   Copy,
   Check,
   Barcode as BarcodeIcon,
-  QrCode as QrCodeIcon,
   Layers,
-  Settings2,
-  Sliders,
   Sparkles,
-  RefreshCw,
   Eye,
   Info
 } from 'lucide-react';
@@ -24,11 +19,9 @@ export default function PrintBarcodeModal({
   product = null,
   storeName = 'TIWLO INVENTORY'
 }) {
-  if (!isOpen || !product) return null;
-
   // Barcode configuration state
   const [format, setFormat] = useState('CODE128'); // CODE128, EAN13, UPC, CODE39, QRCODE
-  const [copies, setCopies] = useState(product.stock > 0 ? Math.min(product.stock, 24) : 10);
+  const [copies, setCopies] = useState(product?.stock > 0 ? Math.min(Number(product.stock), 24) : 10);
   const [sheetLayout, setSheetLayout] = useState('single'); // 'single' (thermal roll), 'a4-30', 'a4-24', 'a4-40'
 
   // Label display toggles
@@ -36,52 +29,67 @@ export default function PrintBarcodeModal({
   const [showProductName, setShowProductName] = useState(true);
   const [showPrice, setShowPrice] = useState(true);
   const [showCodeText, setShowCodeText] = useState(true);
-  const [currencySymbol, setCurrencySymbol] = useState('$');
+  const currencySymbol = product?.currencySymbol || '$';
 
   // Preview data
-  const [qrDataUrl, setQrDataUrl] = useState('');
-  const [barcodeError, setBarcodeError] = useState('');
+  const [preview, setPreview] = useState({ key: '', dataUrl: '', error: '' });
+  const [printError, setPrintError] = useState('');
   const [copied, setCopied] = useState(false);
-  const previewSvgRef = useRef(null);
 
-  const barcodeValue = product.barcode || product.sku || '123456789012';
+  const barcodeValue = String(product?.barcode || product?.sku || '123456789012');
+  const previewKey = JSON.stringify({
+    format,
+    barcodeValue,
+    showCodeText,
+    productName: product?.name,
+    productSku: product?.sku,
+    productBarcode: product?.barcode,
+    price: product?.price
+  });
+  const hasCurrentPreview = preview.key === previewKey;
+  const qrDataUrl = format === 'QRCODE' && hasCurrentPreview ? preview.dataUrl : '';
+  const barcodeDataUrl = format !== 'QRCODE' && hasCurrentPreview ? preview.dataUrl : '';
+  const barcodeError = (hasCurrentPreview ? preview.error : '') || printError;
 
   // Generate Single Barcode Preview for modal display
   useEffect(() => {
-    setBarcodeError('');
-    if (format === 'QRCODE') {
-      const qrPayload = JSON.stringify({
-        name: product.name,
-        sku: product.sku,
-        barcode: product.barcode,
-        price: product.price
-      });
-      QRCode.toDataURL(qrPayload, {
-        width: 140,
-        margin: 1,
-        color: { dark: '#000000', light: '#ffffff' }
-      })
-        .then(url => setQrDataUrl(url))
-        .catch(err => {
-          console.error('QR code generation error:', err);
-          setBarcodeError('Failed to generate QR code');
+    if (!isOpen || !product) return undefined;
+
+    let cancelled = false;
+    const generatePreview = async () => {
+      let dataUrl = '';
+      let error = '';
+      if (format === 'QRCODE') {
+        const qrPayload = JSON.stringify({
+          name: product.name,
+          sku: product.sku,
+          barcode: product.barcode,
+          price: product.price
         });
-    } else {
-      if (previewSvgRef.current) {
         try {
-          // Format validation check
+          dataUrl = await QRCode.toDataURL(qrPayload, {
+            width: 140,
+            margin: 1,
+            color: { dark: '#000000', light: '#ffffff' }
+          });
+        } catch (generationError) {
+          console.error('QR code generation error:', generationError);
+          error = 'Failed to generate QR code';
+        }
+      } else {
+        const canvas = document.createElement('canvas');
+        try {
           let validValue = barcodeValue;
           if (format === 'EAN13') {
-            // EAN13 requires exactly 12 or 13 digits
             validValue = barcodeValue.replace(/\D/g, '').padEnd(12, '0').slice(0, 12);
           } else if (format === 'UPC') {
             validValue = barcodeValue.replace(/\D/g, '').padEnd(11, '0').slice(0, 11);
           }
 
-          JsBarcode(previewSvgRef.current, validValue, {
-            format: format,
-            width: 1.8,
-            height: 48,
+          JsBarcode(canvas, validValue, {
+            format,
+            width: 2,
+            height: 80,
             displayValue: showCodeText,
             fontSize: 12,
             font: 'monospace',
@@ -89,14 +97,14 @@ export default function PrintBarcodeModal({
             background: '#ffffff',
             lineColor: '#000000'
           });
-        } catch (err) {
-          console.warn('Barcode render error:', err);
-          // Fallback to CODE128 if format failed (e.g. non-numeric in EAN)
+          dataUrl = canvas.toDataURL('image/png');
+        } catch (generationError) {
+          console.warn('Barcode render error:', generationError);
           try {
-            JsBarcode(previewSvgRef.current, barcodeValue, {
+            JsBarcode(canvas, barcodeValue, {
               format: 'CODE128',
               width: 1.8,
-              height: 48,
+              height: 80,
               displayValue: showCodeText,
               fontSize: 12,
               font: 'monospace',
@@ -104,29 +112,48 @@ export default function PrintBarcodeModal({
               background: '#ffffff',
               lineColor: '#000000'
             });
-            setBarcodeError(`Note: Auto-adjusted to Code 128 for non-numeric SKU`);
-          } catch (e2) {
-            setBarcodeError('Invalid barcode format for this SKU');
+            dataUrl = canvas.toDataURL('image/png');
+            error = 'The selected format did not match this code; Code 128 was used instead.';
+          } catch {
+            error = 'Invalid barcode format for this SKU';
           }
         }
       }
-    }
-  }, [format, barcodeValue, showCodeText, product]);
+
+      if (!cancelled) setPreview({ key: previewKey, dataUrl, error });
+    };
+    generatePreview();
+    return () => { cancelled = true; };
+  }, [isOpen, previewKey, product, format, barcodeValue, showCodeText]);
 
   // Handle native browser print
   const handlePrint = () => {
+    if (!hasCurrentPreview || !preview.dataUrl) {
+      setPrintError('Wait for the code preview to finish generating before printing.');
+      return;
+    }
+    setPrintError('');
     window.print();
   };
 
   // Copy Barcode SKU
-  const handleCopyBarcode = () => {
-    navigator.clipboard.writeText(barcodeValue);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyBarcode = async () => {
+    try {
+      await navigator.clipboard.writeText(barcodeValue);
+      setCopied(true);
+      setPrintError('');
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Could not copy barcode:', err);
+      setPrintError('Could not copy the code. Check clipboard permissions and try again.');
+    }
   };
 
+  if (!isOpen || !product) return null;
+
   // Generate array of items to print based on copies count
-  const printItems = Array.from({ length: Math.max(1, Math.min(copies, 200)) }, (_, i) => i);
+  const safeCopies = Math.max(1, Math.min(Number(copies) || 1, 200));
+  const printItems = Array.from({ length: safeCopies }, (_, i) => i);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
@@ -186,14 +213,14 @@ export default function PrintBarcodeModal({
                 <input
                   type="number"
                   min="1"
-                  max="500"
+                  max="200"
                   value={copies}
-                  onChange={(e) => setCopies(Math.max(1, parseInt(e.target.value) || 1))}
+                  onChange={(e) => setCopies(Math.max(1, Math.min(200, parseInt(e.target.value) || 1)))}
                   className="flex-1 text-center font-bold text-slate-900 dark:text-white bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl py-2 text-sm focus:ring-2 focus:ring-blue-500"
                 />
                 <button
                   type="button"
-                  onClick={() => setCopies(prev => Math.min(500, prev + 1))}
+                  onClick={() => setCopies(prev => Math.min(200, prev + 1))}
                   className="w-10 h-10 rounded-xl bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-gray-600 transition"
                 >
                   +
@@ -219,14 +246,14 @@ export default function PrintBarcodeModal({
                 {product.stock > 0 && (
                   <button
                     type="button"
-                    onClick={() => setCopies(product.stock)}
+                    onClick={() => setCopies(Math.min(200, Number(product.stock)))}
                     className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition ${
                       copies === product.stock
                         ? 'bg-emerald-600 text-white border-emerald-600'
                         : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100'
                     }`}
                   >
-                    Stock ({product.stock})
+                    Stock ({Math.min(200, Number(product.stock))})
                   </button>
                 )}
               </div>
@@ -393,7 +420,9 @@ export default function PrintBarcodeModal({
                         <div className="w-24 h-24 bg-slate-100 flex items-center justify-center text-xs">Generating...</div>
                       )
                     ) : (
-                      <svg ref={previewSvgRef} className="max-w-[220px] w-full" />
+                      barcodeDataUrl
+                        ? <img src={barcodeDataUrl} alt={`Barcode ${barcodeValue}`} className="max-w-[220px] w-full" />
+                        : <div className="h-16 w-full animate-pulse bg-slate-100" aria-label="Generating barcode" />
                     )}
                   </div>
 
@@ -429,20 +458,7 @@ export default function PrintBarcodeModal({
                           {format === 'QRCODE' ? (
                             qrDataUrl && <img src={qrDataUrl} alt="QR" className="w-12 h-12" />
                           ) : (
-                            /* Miniature barcode representation */
-                            <div className="flex flex-col items-center">
-                              <div className="flex items-center space-x-[1px] h-6">
-                                {[3,1,2,1,3,2,1,1,2,3,1,2,1,3,1,2,1,1,3,2].map((w, bi) => (
-                                  <div
-                                    key={bi}
-                                    className={`h-full bg-black ${w === 3 ? 'w-[2px]' : w === 2 ? 'w-[1.5px]' : 'w-[1px]'}`}
-                                  />
-                                ))}
-                              </div>
-                              {showCodeText && (
-                                <span className="text-[7px] font-mono mt-0.5 tracking-tight">{barcodeValue}</span>
-                              )}
-                            </div>
+                            barcodeDataUrl && <img src={barcodeDataUrl} alt={`Barcode ${barcodeValue}`} className="w-full max-w-[130px]" />
                           )}
                         </div>
 
@@ -533,15 +549,7 @@ export default function PrintBarcodeModal({
                   {format === 'QRCODE' ? (
                     qrDataUrl && <img src={qrDataUrl} alt="QR" className="w-[18mm] h-[18mm]" />
                   ) : (
-                    /* In print, render clean SVG */
-                    <div className="flex flex-col items-center">
-                      <div className="flex items-center space-x-[0.5mm] h-[12mm]">
-                        {[3,1,2,1,3,2,1,1,2,3,1,2,1,3,1,2,1,1,3,2,1,2,3,1].map((w, bi) => (
-                          <div key={bi} className={`h-full bg-black ${w === 3 ? 'w-[1.2mm]' : w === 2 ? 'w-[0.8mm]' : 'w-[0.4mm]'}`} />
-                        ))}
-                      </div>
-                      {showCodeText && <span className="text-[8px] font-mono mt-0.5">{barcodeValue}</span>}
-                    </div>
+                    barcodeDataUrl && <img src={barcodeDataUrl} alt={`Barcode ${barcodeValue}`} className="max-w-[45mm] max-h-[12mm]" />
                   )}
                 </div>
 
@@ -565,14 +573,7 @@ export default function PrintBarcodeModal({
                   {format === 'QRCODE' ? (
                     qrDataUrl && <img src={qrDataUrl} alt="QR" className="w-12 h-12" />
                   ) : (
-                    <div className="flex flex-col items-center">
-                      <div className="flex items-center space-x-[1px] h-6">
-                        {[3,1,2,1,3,2,1,1,2,3,1,2,1,3,1,2,1,1,3,2].map((w, bi) => (
-                          <div key={bi} className={`h-full bg-black ${w === 3 ? 'w-[2px]' : w === 2 ? 'w-[1.5px]' : 'w-[1px]'}`} />
-                        ))}
-                      </div>
-                      {showCodeText && <span className="text-[7px] font-mono mt-0.5">{barcodeValue}</span>}
-                    </div>
+                    barcodeDataUrl && <img src={barcodeDataUrl} alt={`Barcode ${barcodeValue}`} className="max-w-full max-h-8" />
                   )}
                 </div>
 

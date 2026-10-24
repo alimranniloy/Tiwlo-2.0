@@ -6,8 +6,15 @@ import {
   MapPin,
   LayoutDashboard,
   ArrowRight,
-  Sparkles
 } from 'lucide-react';
+import { STORE_DOMAIN, getStoreUrl } from '../../../config/platformConfig';
+
+function getStoreHost(subdomain) {
+  const value = String(subdomain || '').trim().replace(/^https?:\/\//i, '').split('/')[0].toLowerCase();
+  if (!value) return '';
+  if (value.endsWith(`.${STORE_DOMAIN}`) && /^[a-z0-9-]+(?:\.[a-z0-9-]+)*$/.test(value)) return value;
+  return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(value) ? `${value}.${STORE_DOMAIN}` : '';
+}
 
 export default function MyOnlineStoreView({
   currentUser,
@@ -59,7 +66,7 @@ export default function MyOnlineStoreView({
 
             {currentStore && (
               <button
-                onClick={onOpenStoreDashboard}
+                onClick={() => onOpenStoreDashboard?.(currentStore)}
                 className="px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/20 text-white text-xs font-semibold border border-white/25 backdrop-blur-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <span>Launch {currentStore.storeName || 'Store'}</span>
@@ -102,6 +109,7 @@ export default function MyOnlineStoreView({
         {stores.map((st, idx) => {
           const isActive = currentStore?.tiwiId === st.tiwiId;
           const billing = st.billingDetails || {};
+          const storeHost = getStoreHost(st.subdomain);
 
           return (
             <div
@@ -120,7 +128,7 @@ export default function MyOnlineStoreView({
                   </div>
                   {isActive && (
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
-                      Active Default
+                      Selected Store
                     </span>
                   )}
                 </div>
@@ -145,12 +153,12 @@ export default function MyOnlineStoreView({
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="text-slate-400 font-medium">Domain:</span>
                     <a
-                      href={st.subdomain ? `https://${st.subdomain}` : undefined}
+                      href={storeHost ? getStoreUrl(storeHost.slice(0, -(STORE_DOMAIN.length + 1))) : undefined}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-mono text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
                     >
-                      <span className="truncate max-w-[150px]">{st.subdomain || 'No domain assigned'}</span>
+                      <span className="truncate max-w-[150px]">{storeHost || 'No domain assigned'}</span>
                       <ExternalLink className="w-3 h-3 shrink-0" />
                     </a>
                   </div>
@@ -171,7 +179,7 @@ export default function MyOnlineStoreView({
                 <button
                   onClick={() => {
                     onSelectStore?.(st);
-                    onOpenStoreDashboard?.();
+                    onOpenStoreDashboard?.(st);
                   }}
                   className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold shadow-xs hover:shadow-md transition-all active:scale-98 cursor-pointer flex items-center justify-between"
                 >

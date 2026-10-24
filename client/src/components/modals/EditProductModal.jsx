@@ -26,7 +26,7 @@ export default function EditProductModal({
     category: 'Clothing',
     subCategory: '',
     stock: 0,
-    minStock: 30,
+    minStock: 20,
     price: 0,
     costPrice: 0,
     location: '',
@@ -38,6 +38,7 @@ export default function EditProductModal({
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [priceError, setPriceError] = useState('');
 
   useEffect(() => {
     if (product) {
@@ -52,7 +53,7 @@ export default function EditProductModal({
         category: product.category || 'Clothing',
         subCategory: product.subCategory || '',
         stock: product.stock !== undefined ? product.stock : 0,
-        minStock: product.minStock !== undefined ? product.minStock : 30,
+        minStock: product.minStock !== undefined ? product.minStock : 20,
         price: product.price !== undefined ? product.price : 0,
         costPrice: product.costPrice !== undefined ? product.costPrice : 0,
         location: product.location || '',
@@ -131,6 +132,11 @@ export default function EditProductModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!Number.isFinite(Number(formData.price)) || Number(formData.price) < 0) {
+      setPriceError('Selling price must be zero or greater.');
+      return;
+    }
+    setPriceError('');
     setLoading(true);
     const finalImages = formData.images && formData.images.length > 0
       ? formData.images
@@ -274,9 +280,9 @@ export default function EditProductModal({
                 </label>
                 <input
                   type="number"
-                  min="1"
+                  min="0"
                   value={formData.minStock}
-                  onChange={(e) => setFormData({ ...formData, minStock: parseInt(e.target.value) || 1 })}
+                  onChange={(e) => setFormData({ ...formData, minStock: e.target.value === '' ? '' : parseInt(e.target.value, 10) })}
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-800 dark:text-white font-semibold focus:outline-none"
                 />
               </div>
@@ -292,9 +298,14 @@ export default function EditProductModal({
                   step="0.01"
                   min="0"
                   value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-800 dark:text-white font-bold focus:outline-none"
+                  aria-invalid={!!priceError}
+                  onChange={(e) => {
+                    setFormData({ ...formData, price: e.target.value });
+                    if (Number(e.target.value) >= 0) setPriceError('');
+                  }}
+                  className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-800 border rounded-xl text-slate-800 dark:text-white font-bold focus:outline-none ${priceError ? 'border-rose-500' : 'border-slate-200 dark:border-gray-700'}`}
                 />
+                {priceError && <p role="alert" className="mt-1 text-rose-600">{priceError}</p>}
               </div>
               <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">

@@ -18,7 +18,6 @@ import {
   Plus,
   Trash2,
   Globe,
-  SlidersHorizontal,
   ChevronUp,
   ChevronDown,
   CheckCircle2,
@@ -28,6 +27,7 @@ import {
 } from 'lucide-react';
 import { StoreSettingsProvider, useStoreSettings } from '../context/StoreSettingsContext';
 import { THEME_COLOR_PRESETS, AVAILABLE_THEMES, THEME_CATEGORIES, DEFAULT_HERO_BANNERS } from '../themes/themeConfig';
+import { getStoreUrl } from '../config/platformConfig';
 
 function StoreSettingsContent({ showToast, onBackToDashboard }) {
   const {
@@ -54,6 +54,19 @@ function StoreSettingsContent({ showToast, onBackToDashboard }) {
   const [storeTagline, setStoreTagline] = useState(settings.storeTagline || 'Shop Global • Sell Global');
   const [storeTitle, setStoreTitle] = useState(settings.storeTitle || 'TiwloMart | Global Multi-Vendor eCommerce Marketplace');
   const [storeDescription, setStoreDescription] = useState(settings.storeDescription || 'Discover millions of quality products from verified global sellers with fast international shipping and secure checkout.');
+  const [storeAddress, setStoreAddress] = useState(settings.storeAddress || '');
+  const [storeCity, setStoreCity] = useState(settings.storeCity || '');
+  const [storeCountry, setStoreCountry] = useState(settings.storeCountry || '');
+  const [storePostalCode, setStorePostalCode] = useState(settings.storePostalCode || '');
+  const [contactEmail, setContactEmail] = useState(settings.contactEmail || '');
+  const [contactPhone, setContactPhone] = useState(settings.contactPhone || '');
+  const [taxRate, setTaxRate] = useState(settings.taxRate ?? 0);
+  const [shippingFlatRate, setShippingFlatRate] = useState(settings.shippingFlatRate ?? '');
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState(settings.freeShippingThreshold ?? '');
+  const [shippingZones, setShippingZones] = useState(settings.shippingZones || []);
+  const [promoActive, setPromoActive] = useState(settings.promoActive ?? false);
+  const [promoCode, setPromoCode] = useState(settings.promoCode || '');
+  const [promoDiscountPercent, setPromoDiscountPercent] = useState(settings.promoDiscountPercent ?? 0);
   const [selectedColor, setSelectedColor] = useState(settings.themeColor || '#2563eb');
   const [bannerSlidingSpeed, setBannerSlidingSpeed] = useState(settings.bannerSlidingSpeed || 5);
 
@@ -64,12 +77,37 @@ function StoreSettingsContent({ showToast, onBackToDashboard }) {
       if (storeSettings.storeTagline) setStoreTagline(storeSettings.storeTagline);
       if (storeSettings.storeTitle) setStoreTitle(storeSettings.storeTitle);
       if (storeSettings.storeDescription) setStoreDescription(storeSettings.storeDescription);
+      setStoreAddress(storeSettings.storeAddress || '');
+      setStoreCity(storeSettings.storeCity || '');
+      setStoreCountry(storeSettings.storeCountry || '');
+      setStorePostalCode(storeSettings.storePostalCode || '');
+      setContactEmail(storeSettings.contactEmail || '');
+      setContactPhone(storeSettings.contactPhone || '');
+      setTaxRate(storeSettings.taxRate ?? 0);
+      setShippingFlatRate(storeSettings.shippingFlatRate ?? '');
+      setFreeShippingThreshold(storeSettings.freeShippingThreshold ?? '');
+      setShippingZones(storeSettings.shippingZones || []);
+      setPromoActive(storeSettings.promoActive ?? false);
+      setPromoCode(storeSettings.promoCode || '');
+      setPromoDiscountPercent(storeSettings.promoDiscountPercent ?? 0);
       if (storeSettings.themeColor) setSelectedColor(storeSettings.themeColor);
       if (storeSettings.bannerSlidingSpeed) setBannerSlidingSpeed(storeSettings.bannerSlidingSpeed);
     }
   }, [storeSettings]);
 
   const safeColor = selectedColor || settings.themeColor || '#2563eb';
+  const liveStoreUrl = (() => {
+    const domain = String(import.meta.env.VITE_STORE_DOMAIN || import.meta.env.VITE_PRIMARY_DOMAIN || 'tiwlo.com')
+      .trim().toLowerCase().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+    const subdomain = String(settings.subdomain || '').trim().replace(/^https?:\/\//i, '').split('/')[0].toLowerCase();
+    if (!subdomain) return '/?view=store';
+    if (subdomain.endsWith(`.${domain}`) && /^[a-z0-9-]+(?:\.[a-z0-9-]+)*$/.test(subdomain)) {
+      return `https://${subdomain}`;
+    }
+    return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(subdomain)
+      ? getStoreUrl(subdomain)
+      : '/?view=store';
+  })();
 
   // Marketplace Theme Search & Filter
   const [themeSearch, setThemeSearch] = useState('');
@@ -94,6 +132,193 @@ function StoreSettingsContent({ showToast, onBackToDashboard }) {
   const [uploadingBannerImage, setUploadingBannerImage] = useState(false);
   const [isBannerDragging, setIsBannerDragging] = useState(false);
   const bannerFileInputRef = useRef(null);
+  const [paymentProviders, setPaymentProviders] = useState([]);
+  const [paymentCredentials, setPaymentCredentials] = useState({});
+  const [savingPaymentProvider, setSavingPaymentProvider] = useState('');
+  const [currencyConfiguration, setCurrencyConfiguration] = useState(null);
+  const [currencyRates, setCurrencyRates] = useState({ USD: 1 });
+  const [currencyMode, setCurrencyMode] = useState('api');
+  const [newCurrencyCode, setNewCurrencyCode] = useState('');
+  const [newCurrencyRate, setNewCurrencyRate] = useState('');
+  const [savingCurrencySettings, setSavingCurrencySettings] = useState(false);
+  const [refreshingCurrencyRates, setRefreshingCurrencyRates] = useState(false);
+  const [conversionAmount, setConversionAmount] = useState('1');
+  const [conversionTarget, setConversionTarget] = useState('BDT');
+  const [conversionPreview, setConversionPreview] = useState(null);
+  const [previewingConversion, setPreviewingConversion] = useState(false);
+  const commonCurrencyCodes = ['BDT', 'INR', 'EUR', 'GBP', 'JPY'];
+  const conversionCurrencies = Object.keys(currencyMode === 'api'
+    ? currencyConfiguration?.rates || {}
+    : currencyRates
+  ).filter(code => code !== 'USD').sort();
+  const selectedConversionCurrency = conversionCurrencies.includes(conversionTarget)
+    ? conversionTarget
+    : conversionCurrencies[0] || '';
+
+  const paymentCredentialLabels = {
+    appKey: 'bKash app key',
+    appSecret: 'bKash app secret',
+    username: 'bKash API username',
+    password: 'bKash API password',
+    merchantId: 'Nagad merchant ID',
+    merchantPrivateKey: 'Nagad merchant private key (PEM)',
+    nagadPublicKey: 'Nagad gateway public key (PEM)',
+    storeId: 'SSLCOMMERZ store ID',
+    storePassword: 'SSLCOMMERZ store password',
+    secretKey: 'Stripe secret key',
+    webhookSecret: 'Stripe webhook signing secret',
+    clientId: 'PayPal client ID',
+    clientSecret: 'PayPal client secret'
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/store/payment-providers')
+      .then(async response => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Payment settings request failed with HTTP ${response.status}`);
+        if (!cancelled) setPaymentProviders(result.providers || []);
+      })
+      .catch(error => {
+        if (!cancelled) showToast?.(error.message || 'Could not load payment provider settings.', 'error');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showToast]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/store/currency')
+      .then(async response => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Currency settings request failed with HTTP ${response.status}`);
+        if (cancelled) return;
+        setCurrencyConfiguration(result);
+        setCurrencyMode(result.mode);
+        setCurrencyRates(result.rates || { USD: 1 });
+      })
+      .catch(error => {
+        if (!cancelled) showToast?.(error.message || 'Could not load currency settings.', 'error');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showToast]);
+
+  const saveCurrencySettings = async () => {
+    setSavingCurrencySettings(true);
+    try {
+      const rates = Object.fromEntries(
+        Object.entries(currencyRates).map(([code, rate]) => [code, rate === '' ? '' : Number(rate)])
+      );
+      const response = await fetch('/api/store/currency', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'manual', rates })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Could not save manual currency rates.');
+      setCurrencyConfiguration(result);
+      setCurrencyRates(result.rates);
+      setCurrencyMode('manual');
+      showToast?.('Manual currency rates saved for this store.');
+    } catch (error) {
+      showToast?.(error.message || 'Could not save manual currency rates.', 'error');
+    } finally {
+      setSavingCurrencySettings(false);
+    }
+  };
+
+  const refreshCurrencyRates = async () => {
+    setRefreshingCurrencyRates(true);
+    try {
+      const response = await fetch('/api/store/currency/rates/refresh', { method: 'POST' });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Could not refresh market currency rates.');
+      setCurrencyConfiguration(result);
+      setCurrencyRates(result.rates || { USD: 1 });
+      setCurrencyMode('api');
+      showToast?.(`Reference FX rates refreshed (${result.observedAt}).`);
+    } catch (error) {
+      showToast?.(error.message || 'Could not refresh market currency rates.', 'error');
+    } finally {
+      setRefreshingCurrencyRates(false);
+    }
+  };
+
+  const switchToManualCurrencyRates = () => {
+    const currentRates = currencyRates || {};
+    const sourceRates = currencyConfiguration?.rates || {};
+    const initialRates = { USD: 1 };
+    for (const code of commonCurrencyCodes) {
+      const value = currentRates[code] ?? sourceRates[code];
+      if (value !== undefined) initialRates[code] = value;
+    }
+    setCurrencyRates(initialRates);
+    setCurrencyMode('manual');
+  };
+
+  const addManualCurrencyRate = () => {
+    const code = newCurrencyCode.trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(code) || code === 'USD' || !newCurrencyRate ||
+        !Number.isFinite(Number(newCurrencyRate)) || Number(newCurrencyRate) <= 0) {
+      showToast?.('Enter a three-letter currency code and a positive USD conversion rate.', 'error');
+      return;
+    }
+    setCurrencyRates(current => ({ ...current, [code]: Number(newCurrencyRate) }));
+    setNewCurrencyCode('');
+    setNewCurrencyRate('');
+  };
+
+  const previewCurrencyConversion = async () => {
+    setPreviewingConversion(true);
+    try {
+      const response = await fetch('/api/store/currency/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: conversionAmount,
+          toCurrency: selectedConversionCurrency
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Could not preview currency conversion.');
+      setConversionPreview(result);
+    } catch (error) {
+      setConversionPreview(null);
+      showToast?.(error.message || 'Could not preview currency conversion.', 'error');
+    } finally {
+      setPreviewingConversion(false);
+    }
+  };
+
+  const savePaymentProvider = async (provider) => {
+    setSavingPaymentProvider(provider.id);
+    try {
+      const response = await fetch(`/api/store/payment-providers/${provider.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled: provider.enabled,
+          mode: provider.mode,
+          feePercent: provider.feePercent,
+          feeFixed: provider.feeFixed,
+          feeMode: provider.feeMode,
+          credentials: paymentCredentials[provider.id] || {}
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `Could not save ${provider.name} settings.`);
+      setPaymentProviders(current => current.map(item => item.id === provider.id ? result.provider : item));
+      setPaymentCredentials(current => ({ ...current, [provider.id]: {} }));
+      showToast?.(`${provider.name} settings saved. Credentials are encrypted in PostgreSQL.`);
+    } catch (error) {
+      showToast?.(error.message || `Could not save ${provider.name} settings.`, 'error');
+    } finally {
+      setSavingPaymentProvider('');
+    }
+  };
 
   // =========================================================
   // ACTIONS: SAVE ALL SETTINGS
@@ -106,34 +331,55 @@ function StoreSettingsContent({ showToast, onBackToDashboard }) {
         storeTagline,
         storeTitle,
         storeDescription,
+        storeAddress,
+        storeCity,
+        storeCountry,
+        storePostalCode,
+        contactEmail,
+        contactPhone,
+        taxRate: Number(taxRate),
+        shippingFlatRate: shippingFlatRate === '' ? '' : Number(shippingFlatRate),
+        freeShippingThreshold: freeShippingThreshold === '' ? '' : Number(freeShippingThreshold),
+        shippingZones,
+        promoActive,
+        promoCode: promoCode.trim().toUpperCase(),
+        promoDiscountPercent: promoDiscountPercent === '' ? 0 : Number(promoDiscountPercent),
         themeColor: selectedColor,
         bannerSlidingSpeed: Number(bannerSlidingSpeed) || 5
       });
       showToast?.('Store settings saved successfully');
     } catch (err) {
-      showToast?.('Failed to save settings', 'error');
+      showToast?.(err.message || 'Failed to save settings', 'error');
     }
   };
 
   // =========================================================
   // ACTIONS: COLOR PRESETS & CUSTOM COLOR
   // =========================================================
-  const handleSelectPreset = (preset) => {
+  const handleSelectPreset = async (preset) => {
     setSelectedColor(preset.hex);
-    updateStoreSettings({
-      themeColor: preset.hex,
-      themeColorPreset: preset.id
-    });
-    showToast?.(`Applied ${preset.name}`);
+    try {
+      await updateStoreSettings({
+        themeColor: preset.hex,
+        themeColorPreset: preset.id
+      });
+      showToast?.(`Applied ${preset.name}`);
+    } catch {
+      showToast?.('Failed to save theme color.', 'error');
+    }
   };
 
-  const handleCustomColorChange = (e) => {
+  const handleCustomColorChange = async (e) => {
     const val = e.target.value;
     setSelectedColor(val);
-    updateStoreSettings({
-      themeColor: val,
-      themeColorPreset: 'custom'
-    });
+    try {
+      await updateStoreSettings({
+        themeColor: val,
+        themeColorPreset: 'custom'
+      });
+    } catch {
+      showToast?.('Failed to save theme color.', 'error');
+    }
   };
 
   // =========================================================
@@ -355,7 +601,7 @@ function StoreSettingsContent({ showToast, onBackToDashboard }) {
           <div className="flex items-center space-x-2 sm:space-x-2.5 w-full sm:w-auto">
             <button
               type="button"
-              onClick={() => window.open('/?view=store', '_blank')}
+              onClick={() => window.open(liveStoreUrl, '_blank', 'noopener,noreferrer')}
               className="flex-1 sm:flex-none justify-center px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/25 backdrop-blur-md text-white text-xs font-semibold flex items-center space-x-1.5 sm:space-x-2 transition cursor-pointer"
             >
               <ExternalLink className="w-3.5 h-3.5" />
@@ -594,7 +840,7 @@ function StoreSettingsContent({ showToast, onBackToDashboard }) {
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
-                          onClick={() => window.open('/?view=store', '_blank')}
+                          onClick={() => window.open(liveStoreUrl, '_blank', 'noopener,noreferrer')}
                           className="w-full py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center justify-center space-x-1.5 transition shadow-xs cursor-pointer"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
@@ -729,6 +975,575 @@ function StoreSettingsContent({ showToast, onBackToDashboard }) {
                   <p className="text-[11px] text-slate-400 mt-1">
                     Short description for social sharing, search engine snippets, and footer
                   </p>
+                </div>
+
+                <div className="border-t border-slate-100 dark:border-gray-700 pt-4 space-y-3">
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white">Store Address & Contact</h3>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Street address
+                    <input
+                      value={storeAddress}
+                      onChange={e => setStoreAddress(e.target.value)}
+                      maxLength={240}
+                      autoComplete="street-address"
+                      className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                    />
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {[
+                      ['City', storeCity, setStoreCity, 'address-level2'],
+                      ['Country', storeCountry, setStoreCountry, 'country-name'],
+                      ['Postal code', storePostalCode, setStorePostalCode, 'postal-code']
+                    ].map(([label, value, setter, autoComplete]) => (
+                      <label key={label} className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        {label}
+                        <input
+                          value={value}
+                          onChange={e => setter(e.target.value)}
+                          maxLength={100}
+                          autoComplete={autoComplete}
+                          className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Store contact email
+                      <input
+                        type="email"
+                        value={contactEmail}
+                        onChange={e => setContactEmail(e.target.value)}
+                        maxLength={254}
+                        autoComplete="email"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                      />
+                    </label>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Store contact phone
+                      <input
+                        type="tel"
+                        value={contactPhone}
+                        onChange={e => setContactPhone(e.target.value)}
+                        maxLength={40}
+                        autoComplete="tel"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-100 dark:border-gray-700 pt-4 space-y-3">
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white">Delivery & Tax</h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Set destination-based manual rates in your store currency. The server recalculates the selected zone and fee when the order is submitted.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {[
+                      ['Tax rate (%)', taxRate, setTaxRate],
+                      ['Flat shipping rate', shippingFlatRate, setShippingFlatRate],
+                      ['Free shipping threshold', freeShippingThreshold, setFreeShippingThreshold]
+                    ].map(([label, value, setter]) => (
+                      <label key={label} className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        {label}
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={value}
+                          onChange={e => setter(e.target.value)}
+                          className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800 dark:text-white">Destination shipping zones</h4>
+                        <p className="text-[10px] text-slate-500">Use country names separated by commas; use * for a fallback zone.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShippingZones(current => [...current, {
+                          id: `shipping-zone-${Date.now()}`,
+                          name: '',
+                          countries: '',
+                          rate: 0,
+                          freeShippingThreshold: '',
+                          minDeliveryDays: '',
+                          maxDeliveryDays: '',
+                          enabled: true,
+                          codEnabled: true
+                        }])}
+                        className="rounded-lg border border-blue-200 px-3 py-2 text-[11px] font-bold text-blue-700 dark:border-blue-800 dark:text-blue-300"
+                      >
+                        Add shipping zone
+                      </button>
+                    </div>
+                    {shippingZones.map((zone, index) => (
+                      <section key={zone.id || index} className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl border border-slate-200 p-3 dark:border-gray-700">
+                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                          Zone name
+                          <input
+                            value={zone.name || ''}
+                            maxLength={80}
+                            onChange={event => setShippingZones(current => current.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, name: event.target.value } : item
+                            ))}
+                            placeholder="Bangladesh / South Asia"
+                            className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                          />
+                        </label>
+                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                          Countries
+                          <input
+                            value={Array.isArray(zone.countries) ? zone.countries.join(', ') : zone.countries || ''}
+                            onChange={event => setShippingZones(current => current.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, countries: event.target.value } : item
+                            ))}
+                            placeholder="Bangladesh, India"
+                            className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                          />
+                        </label>
+                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                          Rate ({settings.currency || 'USD'})
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={zone.rate ?? 0}
+                            onChange={event => setShippingZones(current => current.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, rate: event.target.value } : item
+                            ))}
+                            className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                          />
+                        </label>
+                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                          Free shipping at subtotal
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={zone.freeShippingThreshold ?? ''}
+                            onChange={event => setShippingZones(current => current.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, freeShippingThreshold: event.target.value } : item
+                            ))}
+                            className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                          />
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            ['Min delivery days', 'minDeliveryDays'],
+                            ['Max delivery days', 'maxDeliveryDays']
+                          ].map(([label, key]) => (
+                            <label key={key} className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                              {label}
+                              <input
+                                type="number"
+                                min="0"
+                                max="365"
+                                step="1"
+                                value={zone[key] ?? ''}
+                                onChange={event => setShippingZones(current => current.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, [key]: event.target.value } : item
+                                ))}
+                                className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                              />
+                            </label>
+                          ))}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-4 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                          <label className="inline-flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={zone.enabled !== false}
+                              onChange={event => setShippingZones(current => current.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, enabled: event.target.checked } : item
+                              ))}
+                            />
+                            Zone enabled
+                          </label>
+                          <label className="inline-flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={zone.codEnabled !== false}
+                              onChange={event => setShippingZones(current => current.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, codEnabled: event.target.checked } : item
+                              ))}
+                            />
+                            Allow COD
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShippingZones(current => current.filter((_, itemIndex) => itemIndex !== index))}
+                            className="ml-auto text-rose-600"
+                          >
+                            Remove zone
+                          </button>
+                        </div>
+                      </section>
+                    ))}
+                  </div>
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800 p-3 text-[11px] text-amber-900 dark:text-amber-200">
+                    These are manual rate rules, not live courier quotes or bookings. Assign a courier and save tracking details in Sales &amp; Orders after dispatch.
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-100 dark:border-gray-700 pt-4 space-y-3">
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white">Store Promotion Code</h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Configure one active percentage-off code. The server validates it again when an order is placed.
+                  </p>
+                  <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={promoActive}
+                      onChange={event => setPromoActive(event.target.checked)}
+                      className="rounded border-slate-300"
+                    />
+                    Enable promotion code
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Promotion code
+                      <input
+                        type="text"
+                        value={promoCode}
+                        onChange={event => setPromoCode(event.target.value.toUpperCase())}
+                        maxLength={32}
+                        pattern="[A-Za-z0-9_-]+"
+                        placeholder="e.g. SAVE10"
+                        autoComplete="off"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                      />
+                    </label>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Discount percent
+                      <input
+                        type="number"
+                        value={promoDiscountPercent}
+                        onChange={event => setPromoDiscountPercent(event.target.value)}
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-100 dark:border-gray-700 pt-4 space-y-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-900 dark:text-white">Currency conversion rates</h3>
+                      <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                        Store price currency: <strong>{currencyConfiguration?.storeCurrency || settings.currency || 'USD'}</strong>.
+                        Rates are per 1 USD and saved separately for this store.
+                      </p>
+                    </div>
+                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${currencyConfiguration?.fresh ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300' : 'bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300'}`}>
+                      {currencyConfiguration?.fresh
+                        ? (currencyMode === 'api' ? `Reference rates · ${currencyConfiguration.observedAt || 'current'}` : 'Manual rates')
+                        : 'No usable rates'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={refreshCurrencyRates}
+                      disabled={refreshingCurrencyRates}
+                      className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-[11px] font-bold text-white disabled:opacity-60"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${refreshingCurrencyRates ? 'animate-spin' : ''}`} />
+                      {refreshingCurrencyRates ? 'Refreshing reference rates…' : 'Refresh market rates'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={switchToManualCurrencyRates}
+                      disabled={!currencyConfiguration}
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-bold text-slate-700 disabled:opacity-60 dark:border-gray-700 dark:text-slate-200"
+                    >
+                      Enter rates manually
+                    </button>
+                  </div>
+                  {currencyMode === 'api' && (
+                    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-gray-700">
+                      <table className="w-full text-left text-[11px]">
+                        <thead className="bg-slate-50 text-slate-500 dark:bg-gray-900">
+                          <tr>
+                            <th className="px-3 py-2">Reference</th>
+                            <th className="px-3 py-2">Per 1 USD</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {commonCurrencyCodes.map(code => (
+                            <tr key={code} className="border-t border-slate-100 dark:border-gray-700">
+                              <td className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-200">{code}</td>
+                              <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
+                                {currencyConfiguration?.rates?.[code] ?? 'Not available'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {currencyMode === 'manual' && (
+                    <div className="space-y-3">
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                        Enter how many units of each currency equal 1 USD. Verify these amounts with your bank or payment provider before enabling any live transactions.
+                      </p>
+                      <div className="space-y-2">
+                        {Object.entries(currencyRates)
+                          .filter(([code]) => code !== 'USD')
+                          .map(([code, rate]) => (
+                            <div key={code} className="grid grid-cols-[minmax(70px,0.5fr)_minmax(120px,1fr)_auto] items-center gap-2">
+                              <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200">1 USD = {code}</span>
+                              <input
+                                type="number"
+                                min="0.00000001"
+                                step="any"
+                                value={rate}
+                                onChange={event => setCurrencyRates(current => ({
+                                  ...current,
+                                  [code]: event.target.value
+                                }))}
+                                aria-label={`USD to ${code} exchange rate`}
+                                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setCurrencyRates(current => {
+                                  const next = { ...current };
+                                  delete next[code];
+                                  return next;
+                                })}
+                                className="px-2 text-[10px] font-semibold text-rose-600"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                      </div>
+                      <div className="grid grid-cols-[minmax(70px,0.5fr)_minmax(120px,1fr)_auto] gap-2">
+                        <input
+                          type="text"
+                          value={newCurrencyCode}
+                          onChange={event => setNewCurrencyCode(event.target.value.toUpperCase())}
+                          maxLength={3}
+                          placeholder="Code"
+                          aria-label="Currency ISO code"
+                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs uppercase dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                        />
+                        <input
+                          type="number"
+                          min="0.00000001"
+                          step="any"
+                          value={newCurrencyRate}
+                          onChange={event => setNewCurrencyRate(event.target.value)}
+                          placeholder="Units per 1 USD"
+                          aria-label="Manual currency rate"
+                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={addManualCurrencyRate}
+                          className="rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-bold dark:border-gray-700"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={saveCurrencySettings}
+                        disabled={savingCurrencySettings}
+                        className="rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-bold text-white disabled:opacity-60"
+                      >
+                        {savingCurrencySettings ? 'Saving…' : 'Save manual rates'}
+                      </button>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] items-end gap-2 rounded-xl border border-slate-200 p-3 dark:border-gray-700">
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      Amount in {currencyConfiguration?.storeCurrency || 'store currency'}
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={conversionAmount}
+                        onChange={event => setConversionAmount(event.target.value)}
+                        className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                      />
+                    </label>
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      Convert to currency
+                      <select
+                        value={selectedConversionCurrency}
+                        onChange={event => setConversionTarget(event.target.value)}
+                        className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                      >
+                        {!conversionCurrencies.length && <option value="">No rates available</option>}
+                        {conversionCurrencies.map(code => (
+                          <option key={code} value={code}>{code}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={previewCurrencyConversion}
+                      disabled={previewingConversion || !currencyConfiguration?.fresh || !selectedConversionCurrency}
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-bold disabled:opacity-60 dark:border-gray-700"
+                    >
+                      {previewingConversion ? 'Converting…' : 'Preview'}
+                    </button>
+                    {conversionPreview && (
+                      <p className="sm:col-span-3 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                        {conversionPreview.amount.toLocaleString()} {conversionPreview.toCurrency}
+                        {' '}· 1 {conversionPreview.fromCurrency} = {conversionPreview.exchangeRate.toPrecision(7)} {conversionPreview.toCurrency}
+                        {' '}· {conversionPreview.source}{conversionPreview.observedAt ? ` (${conversionPreview.observedAt})` : ''}
+                        {' '}· estimate only, no gateway payment is initiated
+                      </p>
+                    )}
+                  </div>
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] text-amber-900 dark:border-amber-800 dark:bg-amber-900/10 dark:text-amber-200">
+                    <p>
+                      <a href="https://frankfurter.dev" target="_blank" rel="noreferrer" className="font-bold underline">Frankfurter</a>
+                      {' '}provides daily blended reference rates from central-bank sources, not guaranteed gateway settlement or bank rates. Rates are cached server-side; stale API data is rejected. Online payments remain disabled until secure gateway sessions and verified callbacks are implemented.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-100 dark:border-gray-700 pt-4 space-y-4">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-900 dark:text-white">Store Payment Gateways</h3>
+                    <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                      Each store connects its own merchant account. Secrets are encrypted before saving and never returned to the browser. Configuration is stored, but online checkout is not activated until provider payment sessions and server-side verification are implemented.
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    {paymentProviders.map(provider => (
+                      <section key={provider.id} className="rounded-xl border border-slate-200 dark:border-gray-700 p-3 space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-900 dark:text-white">{provider.name}</h4>
+                            <p className="mt-0.5 text-[10px] text-slate-500">
+                              {provider.configured ? `Credentials saved · ${provider.mode} · checkout not active` : 'Merchant account not connected'}
+                              {' · '}Supported currencies: {provider.currencies.join(', ')}
+                            </p>
+                          </div>
+                          <label className="inline-flex items-center gap-2 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                            <input
+                              type="checkbox"
+                              checked={provider.enabled}
+                              onChange={event => setPaymentProviders(current => current.map(item =>
+                                item.id === provider.id ? { ...item, enabled: event.target.checked } : item
+                              ))}
+                            />
+                            Enable
+                          </label>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                            Environment
+                            <select
+                              value={provider.mode}
+                              onChange={event => setPaymentProviders(current => current.map(item =>
+                                item.id === provider.id ? { ...item, mode: event.target.value } : item
+                              ))}
+                              className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                            >
+                              <option value="sandbox">Sandbox / test</option>
+                              <option value="live">Live</option>
+                            </select>
+                          </label>
+                          <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                            Payment fee percent
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              value={provider.feePercent}
+                              onChange={event => setPaymentProviders(current => current.map(item =>
+                                item.id === provider.id ? { ...item, feePercent: event.target.value } : item
+                              ))}
+                              className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                            />
+                          </label>
+                          <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                            Fixed fee ({settings.currencySymbol || '$'} in store currency)
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={provider.feeFixed}
+                              onChange={event => setPaymentProviders(current => current.map(item =>
+                                item.id === provider.id ? { ...item, feeFixed: event.target.value } : item
+                              ))}
+                              className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                            />
+                          </label>
+                          <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                            Fee handling
+                            <select
+                              value={provider.feeMode}
+                              onChange={event => setPaymentProviders(current => current.map(item =>
+                                item.id === provider.id ? { ...item, feeMode: event.target.value } : item
+                              ))}
+                              className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                            >
+                              <option value="included">Store pays / included in price</option>
+                              <option value="customer">Add fee to customer total</option>
+                            </select>
+                          </label>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {provider.credentialFields.map(field => (
+                            <label key={field} className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                              {paymentCredentialLabels[field] || field}
+                              {field.toLowerCase().includes('privatekey') || field.toLowerCase().includes('publickey') ? (
+                                <textarea
+                                  rows="3"
+                                  value={paymentCredentials[provider.id]?.[field] || ''}
+                                  onChange={event => setPaymentCredentials(current => ({
+                                    ...current,
+                                    [provider.id]: { ...(current[provider.id] || {}), [field]: event.target.value }
+                                  }))}
+                                  placeholder={provider.configured ? 'Leave blank to keep saved credential' : 'Paste merchant PEM key'}
+                                  autoComplete="off"
+                                  className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 font-mono text-[10px] dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                                />
+                              ) : (
+                                <input
+                                  type="password"
+                                  value={paymentCredentials[provider.id]?.[field] || ''}
+                                  onChange={event => setPaymentCredentials(current => ({
+                                    ...current,
+                                    [provider.id]: { ...(current[provider.id] || {}), [field]: event.target.value }
+                                  }))}
+                                  placeholder={provider.configured ? 'Leave blank to keep saved credential' : 'Enter merchant credential'}
+                                  autoComplete="new-password"
+                                  className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                                />
+                              )}
+                            </label>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          disabled={savingPaymentProvider === provider.id}
+                          onClick={() => savePaymentProvider(provider)}
+                          className="rounded-lg bg-blue-600 px-3 py-2 text-[11px] font-bold text-white disabled:opacity-60"
+                        >
+                          {savingPaymentProvider === provider.id ? 'Saving securely...' : `Save ${provider.name}`}
+                        </button>
+                      </section>
+                    ))}
+                    {!paymentProviders.length && (
+                      <p className="text-[11px] text-slate-500">Loading gateway providers…</p>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1083,8 +1898,9 @@ function StoreSettingsContent({ showToast, onBackToDashboard }) {
                   onChange={(e) => {
                     const spd = Number(e.target.value);
                     setBannerSlidingSpeed(spd);
-                    updateStoreSettings({ bannerSlidingSpeed: spd });
-                    showToast?.(`Sliding speed set to ${spd}s`);
+                    updateStoreSettings({ bannerSlidingSpeed: spd })
+                      .then(() => showToast?.(`Sliding speed set to ${spd}s`))
+                      .catch(() => showToast?.('Failed to save banner speed.', 'error'));
                   }}
                   className="bg-transparent text-xs font-bold text-slate-800 dark:text-white outline-none cursor-pointer"
                 >
@@ -1403,4 +2219,3 @@ export default function StoreSettingsView(props) {
     </StoreSettingsProvider>
   );
 }
-

@@ -17,6 +17,7 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
   const [phone, setPhone] = useState('');
 
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   if (!isOpen) return null;
 
@@ -30,6 +31,7 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
     e.preventDefault();
     if (!storeName.trim()) return;
 
+    setError('');
     setLoading(true);
     try {
       await onCreateStore({
@@ -56,6 +58,7 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
       setPhone('');
     } catch (err) {
       console.error(err);
+      setError(err.message || 'The store could not be created. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -89,6 +92,11 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
 
         {/* Scrollable Form Body */}
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 flex-1">
+          {error && (
+            <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-medium text-rose-700">
+              {error}
+            </div>
+          )}
           {/* Section 1: Store Basics */}
           <div className="space-y-3.5">
             <div className="flex items-center justify-between">
@@ -128,6 +136,9 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50/60 dark:bg-gray-800/60 text-slate-900 dark:text-white text-xs font-mono focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition"
                   />
                 </div>
+                <p className="mt-1 text-[10px] text-slate-400">
+                  Use a label or a full hostname under {STORE_DOMAIN}.
+                </p>
               </div>
 
               <div>

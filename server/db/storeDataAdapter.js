@@ -1,5 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { MasterDB, TenantDB } from './multiTenant.js';
+import { PLATFORM_CONFIG } from '../config/platformConfig.js';
+import { RESERVED_STORE_SUBDOMAIN_LABELS } from './storeSubdomain.js';
 
 // Request-local tenant identity.  This prevents the data adapter from falling
 // back to the first store when a route omits an explicit tiwiId.
@@ -20,12 +22,66 @@ export const USERS_FILE = 'users';
 
 export function getActiveTiwiId(req) {
   if (!req) return null;
-  // Never let a client-selected header/query/body tenant override the tenant
-  // resolved from its verified session.
+  if (req.activeStore?.tiwiId) return req.activeStore.tiwiId;
   if (req.activeUser && (req.activeUser.tiwiId || req.activeUser.storeId)) {
     return req.activeUser.tiwiId || req.activeUser.storeId;
   }
   return null;
+}
+
+export async function resolveActiveStore(req, selectedTiwiId, masterDb = MasterDB) {
+  if (!req?.activeUser || !selectedTiwiId) return null;
+  const accountTiwiId = req.activeUser.tiwiId || req.activeUser.storeId;
+  if (accountTiwiId && String(accountTiwiId) === String(selectedTiwiId)) {
+    return {
+      tiwiId: accountTiwiId,
+      storeName: req.activeUser.storeName || req.activeUser.name || 'Your Store',
+      subdomain: req.activeUser.subdomain || '',
+      currency: req.activeUser.currency || ''
+    };
+  }
+  const stores = await masterDb.getUserStores(req.activeUser.id || accountTiwiId);
+  return stores.find(store =>
+    String(store.tiwiId) === String(selectedTiwiId) &&
+    String(store.ownerId) === String(req.activeUser.id)
+  ) || null;
+}
+
+export async function resolveStorefrontHost(hostname, masterDb = MasterDB) {
+  const host = String(hostname || '').trim().toLowerCase().replace(/\.$/, '');
+  const domain = PLATFORM_CONFIG.storeDomain;
+  const suffix = `.${domain}`;
+  if (!host.endsWith(suffix)) return null;
+
+  const label = host.slice(0, -suffix.length);
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)) return null;
+  if (RESERVED_STORE_SUBDOMAIN_LABELS.includes(label)) return null;
+
+  const directory = await masterDb.getMasterData();
+  const bannedOwners = new Set((directory.users || [])
+    .filter(user => user.isBanned)
+    .flatMap(user => [user.id, user.tiwiId, user.storeId])
+    .filter(Boolean)
+    .map(String));
+  const candidates = [
+    ...(directory.stores || []).filter(store => !bannedOwners.has(String(store.ownerId))),
+    ...(directory.users || []).filter(user => !user.isBanned)
+  ];
+  const matches = candidates.filter(store => {
+    const subdomain = String(store.subdomain || '').trim().toLowerCase().replace(/\.$/, '');
+    const canonicalSubdomain = subdomain.includes('.') ? subdomain : `${subdomain}.${domain}`;
+    return canonicalSubdomain === host && (store.tiwiId || store.storeId);
+  });
+  const tenantIds = new Set(matches.map(store => String(store.tiwiId || store.storeId)));
+  if (tenantIds.size !== 1) return null;
+
+  const match = matches[0];
+  return {
+    tiwiId: match.tiwiId || match.storeId,
+    storeName: match.storeName || match.name || 'Your Store',
+    subdomain: host,
+    currency: match.currency || ''
+  };
 }
 
 async function requestStore(tiwiId) {
@@ -50,6 +106,18 @@ export async function writeData(collection, data, tiwiId = null) {
   if (!target || !collections.has(collection)) throw new Error('A tenant and valid collection are required.');
   const store = await requestStore(target);
   store[collection] = data;
+  await TenantDB.saveStoreDb(target, store);
+}
+
+export async function writeTenantData(entries, tiwiId = null) {
+  const target = tiwiId || tenantContext.getStore()?.tiwiId;
+  if (!target || !entries || typeof entries !== 'object' || Array.isArray(entries)) {
+    throw new Error('A tenant and valid collection updates are required.');
+  }
+  const invalidCollection = Object.keys(entries).find(collection => !collections.has(collection));
+  if (invalidCollection) throw new Error('Unknown tenant collection.');
+  const store = await requestStore(target);
+  Object.assign(store, entries);
   await TenantDB.saveStoreDb(target, store);
 }
 

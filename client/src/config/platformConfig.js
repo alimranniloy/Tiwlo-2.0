@@ -35,6 +35,23 @@ export const NOREPLY_EMAIL = `${import.meta.env.VITE_NOREPLY_EMAIL_LOCAL_PART ||
 export const SECURITY_EMAIL = `${import.meta.env.VITE_SECURITY_EMAIL_LOCAL_PART || 'security'}@${PLATFORM_DOMAIN}`;
 
 export const getSubdomain = (label, domain = PLATFORM_DOMAIN) => `${label}.${domain}`;
+export const isStorefrontSubdomainHost = (hostname = typeof window === 'undefined' ? '' : window.location.hostname) => {
+  const host = String(hostname || '').toLowerCase().replace(/\.$/, '');
+  const suffix = `.${STORE_DOMAIN}`;
+  if (!host.endsWith(suffix)) return false;
+  const label = host.slice(0, -suffix.length);
+  const reservedLabels = [
+    WWW_SUBDOMAIN,
+    AUTH_SUBDOMAIN,
+    TPANEL_SUBDOMAIN,
+    DNS1_SUBDOMAIN,
+    DNS2_SUBDOMAIN,
+    MAIL_SUBDOMAIN,
+    DRIVE_SUBDOMAIN
+  ].map(value => String(value).toLowerCase());
+  return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label) &&
+    !reservedLabels.includes(label);
+};
 export const getPlatformUrl = (pathname = '') => {
   const cleanPath = String(pathname).replace(/^\/+/, '');
   return `https://${PLATFORM_DOMAIN}${cleanPath ? `/${cleanPath}` : ''}`;

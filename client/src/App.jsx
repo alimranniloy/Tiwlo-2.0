@@ -8,7 +8,12 @@ import CreateAccountView from './views/CreateAccountView';
 import { CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import TiwloPageLoader, { TiwloTopSyncBar } from './components/TiwloUniqueLoader';
 import { isAuthSubdomain, isDashboardSubdomain, isMailSubdomain, isTPanelSubdomain, getAuthUrl, getMainAppUrl, getMailUrl, getDashboardUrl, getTPanelUrl } from './utils/navigation';
-import { getPlatformUrl, PLATFORM_DOMAIN, FREE_SUBDOMAIN_DOMAIN } from './config/platformConfig';
+import {
+  getPlatformUrl,
+  PLATFORM_DOMAIN,
+  FREE_SUBDOMAIN_DOMAIN,
+  isStorefrontSubdomainHost
+} from './config/platformConfig';
 import { updateSeoMetadata } from './utils/seo';
 
 // Dedicated Dashboards (Code-Split via React.lazy)
@@ -72,6 +77,14 @@ const GenerateReportModal = lazy(() => import('./components/modals/GenerateRepor
 const PrintBarcodeModal = lazy(() => import('./components/modals/PrintBarcodeModal'));
 
 const API_BASE = '/api';
+
+const getSavedSelectedStore = () => {
+  try {
+    return JSON.parse(sessionStorage.getItem('tiwlo.selectedStore') || 'null');
+  } catch (e) {
+    return null;
+  }
+};
 
 // Return paths must remain on the first-party app and must not route back to auth.
 const getSafeRedirectTarget = (value) => {
@@ -420,6 +433,10 @@ export default function App() {
       if (searchParams.get('tab')) {
         return searchParams.get('tab');
       }
+
+      if (!pathname && isStorefrontSubdomainHost(hostname)) {
+        return 'store';
+      }
     } catch (e) {}
 
     // Check if real active session exists in storage when visiting root '/'
@@ -621,6 +638,11 @@ export default function App() {
 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [publicStoreSettings, setPublicStoreSettings] = useState(null);
+  const [publicStorefrontLoading, setPublicStorefrontLoading] = useState(
+    () => activeTab === 'store' && isStorefrontSubdomainHost()
+  );
+  const [publicStorefrontError, setPublicStorefrontError] = useState('');
   const [subcategories, setSubcategories] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -629,6 +651,36 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [dataLoadError, setDataLoadError] = useState('');
   const [manualReload, setManualReload] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== 'store' || !isStorefrontSubdomainHost()) return undefined;
+
+    let cancelled = false;
+    fetch(`${API_BASE}/public/storefront`)
+      .then(async response => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || `Storefront request failed with HTTP ${response.status}`);
+        if (!Array.isArray(data.products) || !Array.isArray(data.categories) ||
+            !data.settings || typeof data.settings !== 'object') {
+          throw new Error('The storefront returned an invalid response.');
+        }
+        return data;
+      })
+      .then(data => {
+        if (cancelled) return;
+        setProducts(data.products);
+        setCategories(data.categories);
+        setPublicStoreSettings(data.settings);
+      })
+      .catch(error => {
+        if (!cancelled) setPublicStorefrontError(error.message || 'Could not load this storefront.');
+      })
+      .finally(() => {
+        if (!cancelled) setPublicStorefrontLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [activeTab]);
 
   // Manual Reload Handler with smooth minimum duration
   const handleReloadData = async () => {
@@ -684,6 +736,8 @@ export default function App() {
       return null;
     }
   });
+  const [selectedStore, setSelectedStore] = useState(getSavedSelectedStore);
+  const [storeSelectionReady, setStoreSelectionReady] = useState(() => !getSavedSelectedStore()?.tiwiId);
 
   // Cross-subdomain auth shares a cookie scoped to the configured platform domain.
   const [authChecking, setAuthChecking] = useState(() => {
@@ -1152,6 +1206,16 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
+      await fetch(`${API_BASE}/stores/active`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tiwiId: '' })
+      });
+    } catch (err) {
+      console.error('Could not clear active store before logout:', err);
+    }
+    try {
       const token = localStorage.getItem('stockpro_session');
       const response = await fetch(`${API_BASE}/auth/logout`, {
         method: 'POST',
@@ -1170,6 +1234,8 @@ export default function App() {
     localStorage.removeItem('stockpro_session');
     localStorage.removeItem('stockpro_user');
     sessionStorage.clear();
+    setSelectedStore(null);
+    setStoreSelectionReady(true);
     setCurrentUser(null);
     showToast('Signed out successfully');
     setDashboardLoading(false);
@@ -1259,15 +1325,89 @@ export default function App() {
     }
   };
 
+  const handleStoreConsoleLaunch = async (store) => {
+    if (!store?.tiwiId) {
+      showToast('Select a store before opening its console.', 'error');
+      return;
+    }
+
+    setStoreSelectionReady(false);
+    try {
+      const response = await fetch(`${API_BASE}/stores/active`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tiwiId: store.tiwiId })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success || !result.store) {
+        throw new Error(result.error || 'Could not switch to the selected store.');
+      }
+      setSelectedStore(result.store);
+      sessionStorage.setItem('tiwlo.selectedStore', JSON.stringify(result.store));
+      setDashboardLoading(true);
+      handleTabChange('ecommerce-dashboard');
+    } catch (error) {
+      if (selectedStore?.tiwiId) {
+        sessionStorage.setItem('tiwlo.selectedStore', JSON.stringify(selectedStore));
+      } else {
+        sessionStorage.removeItem('tiwlo.selectedStore');
+      }
+      showToast(error.message || 'Could not switch to the selected store.', 'error');
+    } finally {
+      setStoreSelectionReady(true);
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const savedStore = getSavedSelectedStore();
+    if (!currentUser || !savedStore?.tiwiId) {
+      setSelectedStore(savedStore);
+      setStoreSelectionReady(true);
+      return () => { cancelled = true; };
+    }
+
+    setStoreSelectionReady(false);
+    (async () => {
+      try {
+        const response = await fetch(`${API_BASE}/stores/active`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tiwiId: savedStore.tiwiId })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success || !result.store) {
+          throw new Error(result.error || 'Saved store is unavailable.');
+        }
+        if (!cancelled) {
+          setSelectedStore(result.store);
+          sessionStorage.setItem('tiwlo.selectedStore', JSON.stringify(result.store));
+        }
+      } catch {
+        if (!cancelled) {
+          sessionStorage.removeItem('tiwlo.selectedStore');
+          setSelectedStore(null);
+        }
+      } finally {
+        if (!cancelled) setStoreSelectionReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [currentUser?.id]);
+
   // Only load data if active tab requires store data AND user has an authenticated session
   useEffect(() => {
     const hasSession = !!localStorage.getItem('stockpro_session') && !!localStorage.getItem('stockpro_user');
-    if (hasSession && DATA_TABS.has(activeTab)) {
+    if (isStorefrontSubdomainHost() && activeTab === 'store') {
+      setDashboardLoading(false);
+    } else if (hasSession && storeSelectionReady && DATA_TABS.has(activeTab)) {
       loadData(dashboardLoading);
-    } else {
+    } else if (!hasSession || !DATA_TABS.has(activeTab)) {
       setDashboardLoading(false);
     }
-  }, [activeTab]);
+  }, [activeTab, storeSelectionReady, selectedStore?.tiwiId]);
 
   // CRUD: Add Product
   const handleAddProduct = async (newProductData) => {
@@ -1760,18 +1900,27 @@ export default function App() {
           showToast={showToast}
         />
       ) : activeTab === 'store' ? (
-        <TiwiMart
-          products={products}
-          categories={categories}
-          suppliers={suppliers}
-          onOpenAdmin={() => {
-            setActiveTab('dashboard');
-            try {
-              window.history.pushState({}, '', window.location.pathname);
-            } catch (e) {}
-          }}
-          showToast={showToast}
-        />
+        isStorefrontSubdomainHost() && publicStorefrontLoading ? (
+          <div className="min-h-screen flex items-center justify-center text-slate-600">Loading storefront...</div>
+        ) : isStorefrontSubdomainHost() && publicStorefrontError ? (
+          <div className="min-h-screen flex items-center justify-center p-6 text-center text-rose-700" role="alert">
+            {publicStorefrontError}
+          </div>
+        ) : (
+          <TiwiMart
+            products={products}
+            categories={categories}
+            suppliers={suppliers}
+            storeSettings={publicStoreSettings}
+            onOpenAdmin={() => {
+              setActiveTab('dashboard');
+              try {
+                window.history.pushState({}, '', window.location.pathname);
+              } catch (e) {}
+            }}
+            showToast={showToast}
+          />
+        )
       ) : (activeTab === 'tiwi' || (typeof activeTab === 'string' && activeTab.startsWith('tiwi'))) ? (
         <TiwiSocialWeb
           currentUser={currentUser}
@@ -1810,7 +1959,7 @@ export default function App() {
         />
       ) : activeTab === 'pos' ? (
         <POSView
-          onBack={() => setActiveTab('dashboard')}
+          onBack={() => handleTabChange('dashboard')}
           products={products}
           categories={categories}
           customers={customers}
@@ -1831,7 +1980,7 @@ export default function App() {
           currentUser={currentUser}
           initialNav={activeTab === 'domains' ? 'domains' : activeTab.startsWith('workspace') ? activeTab : activeTab.startsWith('marketplace') ? activeTab : activeTab.startsWith('whatsapp-automation') ? 'whatsapp-automation' : 'dashboard'}
           onLogout={handleLogout}
-          onOpenStoreDashboard={() => handleTabChange('ecommerce-dashboard')}
+          onOpenStoreDashboard={handleStoreConsoleLaunch}
           onNavigateTab={handleTabChange}
           showToast={showToast}
         />
@@ -1897,7 +2046,7 @@ export default function App() {
                   onGenerateReport={() => handleTabChange('reports')}
                   onDeleteActivity={handleDeleteActivity}
                   onBackToCloud={() => handleTabChange('dashboard')}
-                  currentStore={currentUser}
+                  currentStore={selectedStore || currentUser}
                 />
               )}
 

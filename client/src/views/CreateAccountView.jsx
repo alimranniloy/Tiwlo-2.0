@@ -40,7 +40,7 @@ export default function CreateAccountView({
     new URLSearchParams(window.location.hash.slice(1)).get('social_profile_token') || ''
   );
   const [step, setStep] = useState(socialProfileMode ? 2 : 1);
-  const [socialProviders, setSocialProviders] = useState({ google: false, github: false });
+  const [socialProviders, setSocialProviders] = useState({ google: false, github: false, loaded: false });
 
   // Form State
   const [formData, setFormData] = useState({
@@ -1183,10 +1183,10 @@ export default function CreateAccountView({
                     <div className="grid grid-cols-2 gap-3">
                       <button
                         type="button"
-                        disabled={!socialProviders.google}
+                        disabled={!socialProviders.loaded || !socialProviders.google}
                         onClick={() => startSocialLogin('google')}
                         className="flex items-center justify-center gap-2.5 h-10 px-4 rounded-full border border-[#747775] text-[#1f1f1f] text-[13px] font-medium disabled:opacity-60 disabled:cursor-not-allowed"
-                        title={socialProviders.google ? 'Continue with Google' : 'Google sign-in is not configured.'}
+                        title={!socialProviders.loaded ? 'Checking sign-in availability...' : (socialProviders.google ? 'Continue with Google' : 'Google sign-in is not configured.')}
                       >
                         <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                           <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.66-5.17 3.66-9.12z"/>
@@ -1199,10 +1199,10 @@ export default function CreateAccountView({
 
                       <button
                         type="button"
-                        disabled={!socialProviders.github}
+                        disabled={!socialProviders.loaded || !socialProviders.github}
                         onClick={() => startSocialLogin('github')}
                         className="flex items-center justify-center gap-2.5 h-10 px-4 rounded-full border border-[#747775] text-[#1f1f1f] text-[13px] font-medium disabled:opacity-60 disabled:cursor-not-allowed"
-                        title={socialProviders.github ? 'Continue with GitHub' : 'GitHub sign-in is not configured.'}
+                        title={!socialProviders.loaded ? 'Checking sign-in availability...' : (socialProviders.github ? 'Continue with GitHub' : 'GitHub sign-in is not configured.')}
                       >
                         <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true">
                           <path d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.56.1.76-.24.76-.54v-2.1c-3.1.67-3.76-1.32-3.76-1.32-.51-1.29-1.24-1.63-1.24-1.63-1.02-.7.08-.69.08-.69 1.13.08 1.73 1.16 1.73 1.16 1 .1.76 2.01 3.44 1.54.1-.73.4-1.22.69-1.5-2.48-.28-5.09-1.24-5.09-5.53 0-1.22.44-2.22 1.16-3-.12-.28-.5-1.42.11-2.96 0 0 .95-.3 3.05 1.15a10.6 10.6 0 0 1 5.55 0c2.1-1.45 3.05-1.15 3.05-1.15.61 1.54.23 2.68.11 2.96.72.78 1.16 1.78 1.16 3 0 4.3-2.62 5.25-5.12 5.52.4.35.75 1.03.75 2.08v3.08c0 .3.2.65.77.54A11.1 11.1 0 0 0 12 .9Z"/>
@@ -1211,9 +1211,11 @@ export default function CreateAccountView({
                       </button>
                     </div>
                     <p className="mt-2 text-center text-xs text-[#747775]" role="status">
-                      {socialProviders.google || socialProviders.github
-                        ? 'Create your account with Google or GitHub. Existing accounts will be signed in.'
-                        : 'Google and GitHub sign-up are temporarily unavailable.'}
+                      {!socialProviders.loaded
+                        ? 'Checking social sign-in options...'
+                        : (socialProviders.google || socialProviders.github
+                          ? 'Create your account with Google or GitHub. Existing accounts will be signed in.'
+                          : 'Google and GitHub sign-up are temporarily unavailable.')}
                     </p>
 
                     {/* Google Minimal Divider */}

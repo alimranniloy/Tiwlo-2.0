@@ -4,23 +4,32 @@ import TopUtilityBar from './components/TopUtilityBar';
 import MainHeader from './components/MainHeader';
 import NavigationBar from './components/NavigationBar';
 import HeroSection from './components/HeroSection';
-import TrustBadgesBar from './components/TrustBadgesBar';
 import FeaturedCategoriesSection from './components/FeaturedCategoriesSection';
 import TodaysDealsSection from './components/TodaysDealsSection';
-import TopRatedSellersSection from './components/TopRatedSellersSection';
 import TiwiFooter from './components/TiwiFooter';
 import TiwiMobileNav from './components/TiwiMobileNav';
+import { getProductDiscount } from './storefrontUtils';
 
 // Dedicated Standalone Pages (ZERO POPUPS)
 import ProductDetailPage from './pages/ProductDetailPage';
 import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
 import OrderSuccessPage from './pages/OrderSuccessPage';
+import TrackOrderPage from './pages/TrackOrderPage';
+
+function readStoredItems(key) {
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(key) || '[]');
+    return Array.isArray(stored) ? stored : [];
+  } catch (error) {
+    console.error(`Could not restore storefront data for ${key}:`, error);
+    return [];
+  }
+}
 
 function TiwiMartContent({
   products = [],
   categories = [],
-  suppliers = [],
   onOpenAdmin,
   showToast
 }) {
@@ -41,6 +50,9 @@ function TiwiMartContent({
     }
     if (hash === '#/store/checkout' || search.get('page') === 'checkout') {
       return { page: 'checkout', params: {} };
+    }
+    if (hash === '#/store/track' || search.get('page') === 'track') {
+      return { page: 'track', params: {} };
     }
     if (hash.startsWith('#/store/order-success/')) {
       const orderId = hash.replace('#/store/order-success/', '').trim();
@@ -86,6 +98,8 @@ function TiwiMartContent({
       newHash = '#/store/cart';
     } else if (page === 'checkout') {
       newHash = '#/store/checkout';
+    } else if (page === 'track') {
+      newHash = '#/store/track';
     } else if (page === 'order-success') {
       newHash = `#/store/order-success/${params.orderId || 'success'}`;
       if (params.order) setLastPlacedOrder(params.order);
@@ -99,24 +113,54 @@ function TiwiMartContent({
   // -------------------------------------------------------------
   // CART STATE - 100% FRESH & EMPTY BY DEFAULT (ZERO PRE-ADDED ITEMS)
   // -------------------------------------------------------------
-  const [cartItems, setCartItems] = useState([]);
+  const storefrontStorageKey = `tiwlo-storefront:${window.location.hostname}`;
+  const [cartItems, setCartItems] = useState(() => readStoredItems(`${storefrontStorageKey}:cart`));
 
   // Wishlist state
-  const [wishlist, setWishlist] = useState([]);
+  const [wishlist, setWishlist] = useState(() => readStoredItems(`${storefrontStorageKey}:wishlist`));
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(`${storefrontStorageKey}:cart`, JSON.stringify(cartItems));
+    } catch (error) {
+      console.error('Could not save storefront cart:', error);
+    }
+  }, [cartItems, storefrontStorageKey]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(`${storefrontStorageKey}:wishlist`, JSON.stringify(wishlist));
+    } catch (error) {
+      console.error('Could not save storefront wishlist:', error);
+    }
+  }, [wishlist, storefrontStorageKey]);
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
   const [activeSpecialFilter, setActiveSpecialFilter] = useState('');
-  const [heroSearch, setHeroSearch] = useState('');
 
   // Cart Handlers
   const handleAddToCart = (product, qty = 1) => {
+    const availableStock = Number(product.stock);
+    if (Number.isFinite(availableStock) && availableStock <= 0) {
+      showToast?.(`${product.name} is out of stock.`, 'error');
+      return false;
+    }
+    if (Number.isFinite(availableStock) && qty > availableStock) {
+      showToast?.(`Only ${availableStock} units are currently available.`, 'error');
+    } else {
+      showToast?.(`Added ${qty}x "${product.name}" to cart!`, 'success');
+    }
     setCartItems(prev => {
       const existing = prev.find(item => item.id === product.id);
+      const requestedQuantity = (existing?.quantity || 0) + qty;
+      const quantity = Number.isFinite(availableStock)
+        ? Math.min(availableStock, requestedQuantity)
+        : requestedQuantity;
       if (existing) {
         return prev.map(item =>
-          item.id === product.id ? { ...item, quantity: item.quantity + qty } : item
+          item.id === product.id ? { ...item, quantity } : item
         );
       }
       return [
@@ -126,12 +170,12 @@ function TiwiMartContent({
           name: product.name,
           sku: product.sku,
           price: product.price,
-          quantity: qty,
+          quantity,
           image: product.image || product.images?.[0]
         }
       ];
     });
-    showToast?.(`Added ${qty}x "${product.name}" to cart!`, 'success');
+    return true;
   };
 
   const handleUpdateCartQty = (id, newQty) => {
@@ -139,7 +183,16 @@ function TiwiMartContent({
       handleRemoveCartItem(id);
       return;
     }
-    setCartItems(prev => prev.map(item => item.id === id ? { ...item, quantity: newQty } : item));
+    const product = products.find(item => item.id === id);
+    const stock = Number(product?.stock);
+    if (Number.isFinite(stock) && stock <= 0) {
+      showToast?.('This product is out of stock.', 'error');
+      handleRemoveCartItem(id);
+      return;
+    }
+    const quantity = Number.isFinite(stock) ? Math.min(newQty, stock) : newQty;
+    if (quantity < newQty) showToast?.(`Only ${quantity} units are currently available.`, 'error');
+    setCartItems(prev => prev.map(item => item.id === id ? { ...item, quantity } : item));
   };
 
   const handleRemoveCartItem = (id) => {
@@ -181,8 +234,14 @@ function TiwiMartContent({
       );
     }
 
+    if (activeSpecialFilter === 'hot-deals') {
+      list = list.filter(p => getProductDiscount(p));
+    } else if (activeSpecialFilter === 'wishlist') {
+      list = list.filter(product => wishlist.includes(product.id));
+    }
+
     return list;
-  }, [products, selectedCategory, searchQuery]);
+  }, [products, selectedCategory, searchQuery, activeSpecialFilter, wishlist]);
 
   // Current product object for ProductDetailPage
   const currentProduct = useMemo(() => {
@@ -196,8 +255,7 @@ function TiwiMartContent({
         {/* 1. Top Announcement & Utility Bar matching screenshot */}
         <TopUtilityBar
           onOpenAdmin={onOpenAdmin}
-          onTrackOrder={() => navigateTo('cart')}
-          onOpenAuth={(mode) => alert(`${mode === 'register' ? 'Registering' : 'Sign in'} customer account...`)}
+          onTrackOrder={() => navigateTo('track')}
         />
 
         {/* 2. Main Header (Logo, Search, Wishlist, Cart Count 0 Fresh, Account) */}
@@ -205,28 +263,37 @@ function TiwiMartContent({
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           selectedCategory={selectedCategory}
-          setSelectedCategory={setSelectedCategory}
+          setSelectedCategory={(category) => {
+            setSelectedCategory(category);
+            setActiveSpecialFilter('');
+          }}
           categories={categories}
           cartCount={cartItems.reduce((acc, item) => acc + item.quantity, 0)}
           wishlistCount={wishlist.length}
           onOpenCart={() => navigateTo('cart')}
-          onOpenWishlist={() => showToast?.(`Saved Items: ${wishlist.length}`)}
-          onOpenAccount={() => alert('Logged in as Verified Customer / Storefront Shopper')}
+          onOpenWishlist={() => {
+            setActiveSpecialFilter('wishlist');
+            setSelectedCategory('All Categories');
+            if (routeState.page !== 'home') navigateTo('home');
+          }}
+          onNavigateHome={() => {
+            if (routeState.page !== 'home') navigateTo('home');
+          }}
         />
 
         {/* 3. Sub-Navigation Menu */}
         <NavigationBar
+          categories={categories}
+          selectedCategory={selectedCategory}
           onSelectCategory={(cat) => {
             setSelectedCategory(cat);
+            setActiveSpecialFilter('');
             if (routeState.page !== 'home') navigateTo('home');
           }}
           onFilterSpecial={(filterId) => {
             setActiveSpecialFilter(filterId);
+            setSelectedCategory('All Categories');
             if (routeState.page !== 'home') navigateTo('home');
-            if (filterId === 'hot-deals') {
-              setSelectedCategory('All Categories');
-              showToast?.('Displaying all active Hot Deals!');
-            }
           }}
           activeFilter={activeSpecialFilter}
         />
@@ -255,12 +322,19 @@ function TiwiMartContent({
         {/* A. PRODUCT DETAILS PAGE */}
         {routeState.page === 'product' && (
           <ProductDetailPage
+            key={currentProduct?.id}
             product={currentProduct}
             products={products}
+            isWishlisted={wishlist.includes(currentProduct?.id)}
+            onToggleWishlist={handleToggleWishlist}
+            onSelectCategory={(category) => {
+              setSelectedCategory(category);
+              setActiveSpecialFilter('');
+              navigateTo('home');
+            }}
             onAddToCart={handleAddToCart}
             onBuyNow={() => navigateTo('checkout')}
             onNavigate={navigateTo}
-            showToast={showToast}
           />
         )}
 
@@ -289,6 +363,14 @@ function TiwiMartContent({
           />
         )}
 
+        {routeState.page === 'track' && (
+          <TrackOrderPage
+            onNavigate={navigateTo}
+            initialReference={routeState.params?.reference || ''}
+            initialPhone={routeState.params?.phone || ''}
+          />
+        )}
+
         {/* D. ORDER CONFIRMATION / SUCCESS PAGE */}
         {routeState.page === 'order-success' && (
           <OrderSuccessPage
@@ -302,38 +384,14 @@ function TiwiMartContent({
         {routeState.page === 'home' && (
           <>
             {/* 4. Hero Section: Left categories menu, Center Sliding Banner System, Right 3 Promo Cards */}
-            <HeroSection
-              categories={categories}
-              selectedCategory={selectedCategory}
-              onSelectCategory={(cat) => {
-                setSelectedCategory(cat);
-                showToast?.(`Filtered by category: ${cat}`);
-              }}
-              heroSearch={heroSearch}
-              setHeroSearch={setHeroSearch}
-              onHeroSearchSubmit={() => {
-                if (heroSearch) setSearchQuery(heroSearch);
-              }}
-              onShopFlashSale={() => {
-                setSelectedCategory('Electronics');
-                showToast?.('Viewing Flash Sale Tech & Gadgets');
-              }}
-              onExploreNewArrivals={() => {
-                setSelectedCategory('Electronics');
-                showToast?.('Viewing New Arrivals in Titanium Smartphones');
-              }}
-              onBecomeSeller={() => {
-                alert('Seller Central: Join thousands of merchants on TiwloMart!');
-              }}
-            />
-
-            {/* 5. Trust Badges (5 pillars matching screenshot) */}
-            <TrustBadgesBar />
+            <HeroSection />
 
             {/* 6. Featured Categories (8 items matching screenshot) */}
             <FeaturedCategoriesSection
+              categories={categories}
               onSelectCategory={(catName) => {
                 setSelectedCategory(catName);
+                setActiveSpecialFilter('');
                 showToast?.(`Filtered: ${catName}`);
               }}
               onViewAllCategories={() => {
@@ -343,28 +401,22 @@ function TiwiMartContent({
             />
 
             {/* 7. Today's Deals (Clicking any product navigates to dedicated Product Detail Page, ZERO popups!) */}
-            <TodaysDealsSection
-              products={filteredProducts.length > 0 ? filteredProducts : products}
-              wishlist={wishlist}
-              onToggleWishlist={handleToggleWishlist}
-              onAddToCart={handleAddToCart}
-              onViewProduct={(prod) => navigateTo('product', { id: prod.id })}
-              onViewAllDeals={() => {
-                setSelectedCategory('All Categories');
-                showToast?.('Showing all special deals');
-              }}
-            />
+            {filteredProducts.length ? (
+              <TodaysDealsSection
+                products={filteredProducts}
+                wishlist={wishlist}
+                onToggleWishlist={handleToggleWishlist}
+                onAddToCart={handleAddToCart}
+                onViewProduct={(prod) => navigateTo('product', { id: prod.id })}
+              />
+            ) : (
+              <p className="max-w-[1440px] mx-auto px-4 lg:px-8 py-8 text-sm text-slate-500">
+                {activeSpecialFilter === 'wishlist'
+                  ? 'Your wishlist is empty. Save a product with the heart button to see it here.'
+                  : 'No products match your search or category.'}
+              </p>
+            )}
 
-            {/* 8. Top Rated Sellers matching screenshot */}
-            <TopRatedSellersSection
-              sellers={suppliers}
-              onSelectSeller={(seller) => {
-                showToast?.(`Viewing verified store: ${seller.name} (${seller.shipsFrom})`);
-              }}
-              onViewAllSellers={() => {
-                showToast?.('Viewing all verified global multi-vendor sellers');
-              }}
-            />
           </>
         )}
       </div>
@@ -376,18 +428,30 @@ function TiwiMartContent({
       <TiwiMobileNav
         cartCount={cartItems.reduce((acc, item) => acc + item.quantity, 0)}
         wishlistCount={wishlist.length}
-        onOpenHome={() => navigateTo('home')}
+        onOpenHome={() => {
+          setActiveSpecialFilter('');
+          setSelectedCategory('All Categories');
+          navigateTo('home');
+        }}
         onOpenCategories={() => {
           if (routeState.page !== 'home') navigateTo('home');
-          const el = document.querySelector('section');
-          el?.scrollIntoView({ behavior: 'smooth' });
+          window.setTimeout(() => {
+            document.getElementById('store-categories')?.scrollIntoView({ behavior: 'smooth' });
+          }, 0);
         }}
         onOpenDeals={() => {
+          setActiveSpecialFilter('hot-deals');
+          setSelectedCategory('All Categories');
           if (routeState.page !== 'home') navigateTo('home');
-          const el = document.querySelectorAll('section')?.[3];
-          el?.scrollIntoView({ behavior: 'smooth' });
+          window.setTimeout(() => {
+            document.getElementById('store-products')?.scrollIntoView({ behavior: 'smooth' });
+          }, 0);
         }}
-        onOpenWishlist={() => showToast?.(`Saved Items: ${wishlist.length}`)}
+        onOpenWishlist={() => {
+          setActiveSpecialFilter('wishlist');
+          setSelectedCategory('All Categories');
+          if (routeState.page !== 'home') navigateTo('home');
+        }}
         onOpenCart={() => navigateTo('cart')}
         onOpenAdmin={onOpenAdmin}
       />
@@ -395,11 +459,10 @@ function TiwiMartContent({
   );
 }
 
-export default function TiwiMart(props) {
+export default function TiwiMart({ storeSettings, ...props }) {
   return (
-    <StoreSettingsProvider>
+    <StoreSettingsProvider initialSettings={storeSettings}>
       <TiwiMartContent {...props} />
     </StoreSettingsProvider>
   );
 }
-

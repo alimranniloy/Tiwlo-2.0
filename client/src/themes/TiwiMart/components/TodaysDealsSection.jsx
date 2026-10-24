@@ -1,23 +1,22 @@
 import React, { useRef } from 'react';
-import { ChevronLeft, ChevronRight, ArrowRight, Heart, Star, ShoppingBag } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Heart, Star, ShoppingBag } from 'lucide-react';
 import { useStoreSettings } from '../../../context/StoreSettingsContext';
+import { formatStoreCurrency, getProductDiscount } from '../storefrontUtils';
 
 export default function TodaysDealsSection({
   products = [],
   wishlist = [],
   onToggleWishlist,
   onAddToCart,
-  onViewProduct,
-  onViewAllDeals
+  onViewProduct
 }) {
   const scrollRef = useRef(null);
   const { storeSettings } = useStoreSettings();
   const primaryColor = storeSettings?.themeColor || '#2563eb';
 
-  // Filter or prioritize real deal products from the database
-  const dealProducts = products.filter(p => p.isDeal || p.discount || p.originalPrice)
-    .concat(products.filter(p => !p.isDeal && !p.discount && !p.originalPrice))
-    .slice(0, 8);
+  const dealProducts = products;
+
+  if (!dealProducts.length) return null;
 
   const scroll = (direction) => {
     if (scrollRef.current) {
@@ -28,17 +27,12 @@ export default function TodaysDealsSection({
   };
 
   return (
-    <section className="max-w-[1440px] mx-auto px-4 lg:px-8 py-5">
+    <section id="store-products" className="max-w-[1440px] mx-auto px-4 lg:px-8 py-5">
       {/* Header matching screenshot */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-baseline space-x-2.5">
           <div className="w-1.5 h-5 bg-[#ef4444] rounded-full self-center"></div>
-          <h2 className="text-[17px] font-bold text-slate-900 tracking-tight">
-            Today's Deals
-          </h2>
-          <span className="text-xs text-slate-400 font-medium hidden sm:inline">
-            Best deals, bigger savings
-          </span>
+          <h2 className="text-[17px] font-bold text-slate-900 tracking-tight">Store Products</h2>
         </div>
 
         <div className="flex items-center space-x-4">
@@ -60,14 +54,6 @@ export default function TodaysDealsSection({
             </button>
           </div>
 
-          <button
-            onClick={onViewAllDeals}
-            className="text-xs font-semibold flex items-center space-x-1 group transition cursor-pointer hover:opacity-80"
-            style={{ color: primaryColor }}
-          >
-            <span>View All Deals</span>
-            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-          </button>
         </div>
       </div>
 
@@ -77,15 +63,8 @@ export default function TodaysDealsSection({
         className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5 overflow-x-auto no-scrollbar scroll-smooth py-1"
       >
         {dealProducts.map((prod) => {
-          const discountVal = prod.discount || (
-            prod.originalPrice
-              ? Math.round(((prod.originalPrice - prod.price) / prod.originalPrice) * 100)
-              : 30
-          );
-          const origPrice = prod.originalPrice || (prod.price * 1.45).toFixed(2);
+          const discount = getProductDiscount(prod);
           const isWishlisted = wishlist.includes(prod.id);
-          const ratingVal = prod.rating || 4.8;
-          const reviewsVal = prod.reviews || '5.2K';
 
           return (
             <div
@@ -94,9 +73,11 @@ export default function TodaysDealsSection({
             >
               {/* Top row: Discount pill & Wishlist heart button */}
               <div className="flex items-center justify-between z-10">
-                <span className="bg-[#ef4444] text-white text-[10px] font-black px-1.5 py-0.5 rounded shadow-2xs">
-                  -{discountVal}%
-                </span>
+                {discount && (
+                  <span className="bg-[#ef4444] text-white text-[10px] font-black px-1.5 py-0.5 rounded shadow-2xs">
+                    -{discount.percent}%
+                  </span>
+                )}
 
                 <button
                   type="button"
@@ -139,27 +120,30 @@ export default function TodaysDealsSection({
                   {prod.name}
                 </h3>
 
-                {/* Rating & Review count */}
+                {prod.rating != null && (
                 <div className="flex items-center space-x-1.5 text-[11px]">
                   <div className="flex items-center text-amber-400">
                     <Star className="w-3 h-3 fill-amber-400 stroke-amber-400" />
                   </div>
                   <span className="font-bold text-slate-700 text-[10.5px]">
-                    {ratingVal}
+                    {prod.rating}
                   </span>
                   <span className="text-slate-400 text-[10px]">
-                    ({reviewsVal})
+                    {prod.reviews != null ? `(${prod.reviews})` : ''}
                   </span>
                 </div>
+                )}
 
                 {/* Price & Original Price */}
                 <div className="flex items-baseline space-x-2 pt-0.5">
                   <span className="text-[13.5px] font-black text-slate-900 tracking-tight">
-                    ${Number(prod.price).toFixed(2)}
+                    {formatStoreCurrency(prod.price, storeSettings)}
                   </span>
-                  <span className="text-[11px] text-slate-400 line-through font-normal">
-                    ${Number(origPrice).toFixed(2)}
-                  </span>
+                  {discount && (
+                    <span className="text-[11px] text-slate-400 line-through font-normal">
+                      {formatStoreCurrency(discount.originalPrice, storeSettings)}
+                    </span>
+                  )}
                 </div>
 
                 {/* Add to Cart Button - Directly adds item to cart without popups */}

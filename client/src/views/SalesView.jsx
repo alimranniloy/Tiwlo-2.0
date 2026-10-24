@@ -1,5 +1,6 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useState, useEffect } from 'react';
+import { formatStoreCurrency } from '../themes/TiwiMart/storefrontUtils';
 import {
   Receipt,
   Plus,
@@ -17,8 +18,21 @@ import {
   Download,
   Barcode,
   ArrowLeft,
-  Sparkles
+  Sparkles,
+  Truck,
+  Save,
+  MapPin
 } from 'lucide-react';
+
+const BANGLADESH_COURIER_SERVICES = Object.freeze([
+  'Pathao',
+  'Steadfast',
+  'RedX',
+  'eCourier',
+  'Paperfly',
+  'Sundarban Courier',
+  'Other'
+]);
 
 export default function SalesView({
   products = [],
@@ -28,9 +42,13 @@ export default function SalesView({
   onBackToDashboard
 }) {
   const [sales, setSales] = useState([]);
+  const [storeSettings, setStoreSettings] = useState({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [methodFilter, setMethodFilter] = useState('All');
+  const [managingOrder, setManagingOrder] = useState(null);
+  const [orderForm, setOrderForm] = useState(null);
+  const [savingOrder, setSavingOrder] = useState(false);
 
   // Modals
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
@@ -48,13 +66,28 @@ export default function SalesView({
   const loadSales = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/sales');
-      if (res.ok) {
-        const data = await res.json();
-        setSales(data);
+      const [salesResult, settingsResult] = await Promise.allSettled([
+        fetch('/api/sales'),
+        fetch('/api/store/settings')
+      ]);
+      if (salesResult.status === 'rejected') throw salesResult.reason;
+      const salesResponse = salesResult.value;
+      if (!salesResponse.ok) throw new Error('Could not load sales and orders.');
+      const data = await salesResponse.json();
+      if (!Array.isArray(data)) throw new Error('Sales and orders response was invalid.');
+      setSales(data);
+      if (settingsResult.status === 'fulfilled' && settingsResult.value.ok) {
+        setStoreSettings(await settingsResult.value.json());
+      } else {
+        const error = settingsResult.status === 'rejected'
+          ? settingsResult.reason
+          : new Error(`Could not load store settings (HTTP ${settingsResult.value.status}).`);
+        console.error(error);
+        showToast?.('Sales loaded, but store currency settings could not be loaded.', 'error');
       }
     } catch (err) {
       console.error(err);
+      showToast?.(err.message || 'Could not load sales and orders.', 'error');
     } finally {
       setLoading(false);
     }
@@ -117,8 +150,56 @@ export default function SalesView({
     }
   };
 
-  const totalRevenue = sales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
-  const avgOrder = sales.length > 0 ? totalRevenue / sales.length : 0;
+  const openOrderManager = sale => {
+    setManagingOrder(sale);
+    setOrderForm({
+      status: sale.status || 'Pending',
+      paymentStatus: sale.paymentStatus || 'Pending',
+      courierService: sale.courierService || '',
+      trackingNumber: sale.trackingNumber || '',
+      trackingUrl: sale.trackingUrl || ''
+    });
+  };
+
+  const saveOrderUpdates = async event => {
+    event.preventDefault();
+    if (!managingOrder || !orderForm) return;
+    setSavingOrder(true);
+    try {
+      const response = await fetch(`/api/sales/${encodeURIComponent(managingOrder.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderForm)
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `Order update failed with HTTP ${response.status}`);
+      setSales(current => current.map(sale => sale.id === result.id ? result : sale));
+      setManagingOrder(result);
+      setOrderForm({
+        status: result.status,
+        paymentStatus: result.paymentStatus || 'Pending',
+        courierService: result.courierService || '',
+        trackingNumber: result.trackingNumber || '',
+        trackingUrl: result.trackingUrl || ''
+      });
+      showToast?.('Order and tracking details updated.');
+      onRefreshData?.();
+    } catch (error) {
+      showToast?.(error.message || 'Could not update this order.', 'error');
+    } finally {
+      setSavingOrder(false);
+    }
+  };
+
+  const totalRevenue = sales
+    .filter(sale => sale.status === 'Completed' || sale.status === 'Delivered' || sale.paymentStatus === 'Paid')
+    .reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+  const completedSales = sales.filter(sale => sale.status === 'Completed' || sale.status === 'Delivered');
+  const avgOrder = completedSales.length > 0 ? totalRevenue / completedSales.length : 0;
+  const formatAmount = (amount, sale) => formatStoreCurrency(amount, {
+    ...storeSettings,
+    currency: sale?.currency || storeSettings.currency
+  });
 
   // Print Invoice handler
   const handlePrint = () => {
@@ -229,7 +310,7 @@ export default function SalesView({
                     />
 
                     <span className="w-20 font-bold text-right text-slate-800 dark:text-white">
-                      ${(item.quantity * item.unitPrice).toFixed(2)}
+                      {formatStoreCurrency(item.quantity * item.unitPrice, storeSettings)}
                     </span>
 
                     {saleItems.length > 1 && (
@@ -295,6 +376,98 @@ export default function SalesView({
     );
   }
 
+  if (managingOrder && orderForm) {
+    const updateField = event => setOrderForm(current => ({ ...current, [event.target.name]: event.target.value }));
+    return (
+      <div className="max-w-3xl mx-auto space-y-5">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setManagingOrder(null)} className="rounded-xl bg-slate-100 p-2 text-slate-600" aria-label="Back to orders">
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Manage order {managingOrder.invoiceNumber}</h1>
+            <p className="text-xs text-slate-500">{managingOrder.customerName} · {managingOrder.customerPhone || 'No phone number'}</p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+          <div className="flex items-start gap-2 rounded-xl bg-blue-50 p-3 text-xs text-blue-900">
+            <Truck className="h-4 w-4 shrink-0" />
+            <p>Bangladesh couriers are available for manual booking. Create the shipment in your courier account, then save its service, tracking number and public tracking URL here. International courier integrations can be offered later as marketplace plugins.</p>
+          </div>
+          {managingOrder.deliveryAddress && (
+            <div className="flex items-start gap-2 text-xs text-slate-600">
+              <MapPin className="h-4 w-4 shrink-0 text-slate-400" />
+              <span>{managingOrder.deliveryAddress}</span>
+            </div>
+          )}
+          <form onSubmit={saveOrderUpdates} className="grid sm:grid-cols-2 gap-3">
+            <label className="text-xs font-semibold text-slate-700">
+              Order status
+              <select name="status" value={orderForm.status} onChange={updateField} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5">
+                {['Pending', 'Confirmed', 'Processing', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled', 'Returned'].map(status => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs font-semibold text-slate-700">
+              Payment status
+              <select name="paymentStatus" value={orderForm.paymentStatus} onChange={updateField} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5">
+                {['Pending', 'Paid', 'Failed', 'Refunded'].map(status => <option key={status} value={status}>{status}</option>)}
+              </select>
+            </label>
+            <label className="text-xs font-semibold text-slate-700">
+              Courier service
+              <select name="courierService" value={orderForm.courierService} onChange={updateField} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5">
+                <option value="">Not assigned</option>
+                {BANGLADESH_COURIER_SERVICES.map(service => (
+                  <option key={service} value={service}>{service}</option>
+                ))}
+                {orderForm.courierService && !BANGLADESH_COURIER_SERVICES.includes(orderForm.courierService) && (
+                  <option value={orderForm.courierService}>{orderForm.courierService}</option>
+                )}
+              </select>
+            </label>
+            <label className="text-xs font-semibold text-slate-700">
+              Tracking number
+              <input name="trackingNumber" value={orderForm.trackingNumber} onChange={updateField} maxLength={120} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5" />
+            </label>
+            <label className="text-xs font-semibold text-slate-700 sm:col-span-2">
+              Courier tracking URL (HTTPS)
+              <input type="url" name="trackingUrl" value={orderForm.trackingUrl} onChange={updateField} maxLength={500} placeholder="https://courier.example/track/..." className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5" />
+            </label>
+            <button disabled={savingOrder} className="sm:col-span-2 inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-xs font-bold text-white disabled:opacity-60">
+              <Save className="h-4 w-4" />
+              {savingOrder ? 'Saving...' : 'Save order update'}
+            </button>
+          </form>
+          <div className="border-t border-slate-100 pt-4">
+            <h2 className="mb-3 text-xs font-bold text-slate-800">Status history</h2>
+            <ol className="space-y-2">
+              {(managingOrder.statusHistory || [{ status: managingOrder.status, at: managingOrder.date }]).map((entry, index) => (
+                <li key={`${entry.status}-${entry.at}-${index}`} className="flex justify-between gap-3 text-xs text-slate-600">
+                  <span>{entry.status}</span>
+                  <time dateTime={entry.at}>{entry.at ? new Date(entry.at).toLocaleString() : ''}</time>
+                </li>
+              ))}
+            </ol>
+          </div>
+          {managingOrder.trackingUrl && (
+            <a
+              href={managingOrder.trackingUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:underline"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Open courier tracking page
+            </a>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (viewingInvoice) {
     return (
       <div className="space-y-6 animate-in fade-in duration-200 max-w-xl mx-auto">
@@ -343,7 +516,7 @@ export default function SalesView({
                   <span className="font-semibold text-slate-800 dark:text-white">{item.productName}</span>
                   <span className="text-[11px] text-slate-400 ml-1.5">x{item.quantity}</span>
                 </div>
-                <span className="font-mono text-slate-800 dark:text-white">${item.total?.toFixed(2)}</span>
+                <span className="font-mono text-slate-800 dark:text-white">{formatAmount(item.total, viewingInvoice)}</span>
               </div>
             ))}
           </div>
@@ -351,21 +524,21 @@ export default function SalesView({
           <div className="border-t border-slate-200 dark:border-gray-800 pt-3 space-y-1 text-xs">
             <div className="flex justify-between text-slate-500">
               <span>Subtotal:</span>
-              <span>${viewingInvoice.subtotal?.toFixed(2)}</span>
+              <span>{formatAmount(viewingInvoice.subtotal, viewingInvoice)}</span>
             </div>
             {viewingInvoice.discount > 0 && (
               <div className="flex justify-between text-emerald-600">
                 <span>Discount:</span>
-                <span>-${viewingInvoice.discount?.toFixed(2)}</span>
+                <span>-{formatAmount(viewingInvoice.discount, viewingInvoice)}</span>
               </div>
             )}
             <div className="flex justify-between text-slate-500">
               <span>Estimated Tax:</span>
-              <span>${viewingInvoice.tax?.toFixed(2)}</span>
+              <span>{formatAmount(viewingInvoice.tax, viewingInvoice)}</span>
             </div>
             <div className="flex justify-between font-bold text-base text-slate-900 dark:text-white pt-2 border-t border-slate-100 dark:border-gray-800">
               <span>Total:</span>
-              <span className="text-blue-600 dark:text-blue-400">${viewingInvoice.totalAmount?.toFixed(2)}</span>
+              <span className="text-blue-600 dark:text-blue-400">{formatAmount(viewingInvoice.totalAmount, viewingInvoice)}</span>
             </div>
             <div className="text-[11px] text-slate-400 pt-1">
               Payment Method: {viewingInvoice.paymentMethod}
@@ -441,7 +614,7 @@ export default function SalesView({
         <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
           <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Sales Revenue</span>
           <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1.5">
-            ${Math.round(totalRevenue).toLocaleString()}
+            {formatAmount(totalRevenue)}
           </div>
           <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">From processed invoices</div>
         </div>
@@ -455,17 +628,17 @@ export default function SalesView({
         <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
           <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Avg. Order Value</span>
           <div className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1.5">
-            ${avgOrder.toFixed(2)}
+            {formatAmount(avgOrder)}
           </div>
           <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Per customer purchase</div>
         </div>
 
         <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Completed Orders</span>
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Pending Storefront Orders</span>
           <div className="text-xl sm:text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1.5">
-            {sales.filter(s => s.status === 'Completed').length}
+            {sales.filter(s => s.channel === 'storefront' && ['Pending', 'Confirmed', 'Processing'].includes(s.status)).length}
           </div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">100% fulfillment rate</div>
+          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Require confirmation or dispatch</div>
         </div>
       </div>
 
@@ -509,7 +682,7 @@ export default function SalesView({
                 <th className="py-3.5 px-4">Subtotal / Tax</th>
                 <th className="py-3.5 px-4">Total Amount</th>
                 <th className="py-3.5 px-4">Payment Method</th>
-                <th className="py-3.5 px-4">Status</th>
+                <th className="py-3.5 px-4">Order / Delivery</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -547,12 +720,12 @@ export default function SalesView({
                   </td>
 
                   <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">
-                    <div>${parseFloat(sale.subtotal || sale.totalAmount).toFixed(2)}</div>
-                    <div className="text-[10px] text-slate-400">Tax: ${parseFloat(sale.tax || 0).toFixed(2)}</div>
+                    <div>{formatAmount(parseFloat(sale.subtotal || sale.totalAmount), sale)}</div>
+                    <div className="text-[10px] text-slate-400">Tax: {formatAmount(parseFloat(sale.tax || 0), sale)}</div>
                   </td>
 
                   <td className="py-3.5 px-4 font-bold text-sm text-slate-900 dark:text-white">
-                    ${parseFloat(sale.totalAmount || 0).toFixed(2)}
+                    {formatAmount(parseFloat(sale.totalAmount || 0), sale)}
                   </td>
 
                   <td className="py-3.5 px-4">
@@ -562,20 +735,34 @@ export default function SalesView({
                   </td>
 
                   <td className="py-3.5 px-4">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">
-                      {sale.status || 'Completed'}
-                    </span>
+                    <div className="flex flex-col items-start gap-1">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+                        {sale.status || 'Completed'}
+                      </span>
+                      {sale.channel === 'storefront' && (
+                        <span className="text-[10px] text-slate-500">
+                          {sale.courierService ? `${sale.courierService}${sale.trackingNumber ? ` · ${sale.trackingNumber}` : ''}` : 'Courier not assigned'}
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   <td className="py-3.5 px-4 text-right">
-                    <button
-                      onClick={() => setViewingInvoice(sale)}
-                      className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-semibold hover:bg-blue-100 transition flex items-center space-x-1 ml-auto"
-                      title="View & Print Invoice Receipt"
-                    >
-                      <Printer className="w-3.5 h-3.5" />
-                      <span>Invoice</span>
-                    </button>
+                    <div className="flex justify-end gap-1.5">
+                      {sale.channel === 'storefront' && (
+                        <button onClick={() => openOrderManager(sale)} className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 transition">
+                          Manage
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setViewingInvoice(sale)}
+                        className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-semibold hover:bg-blue-100 transition flex items-center space-x-1"
+                        title="View & Print Invoice Receipt"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        <span>Invoice</span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

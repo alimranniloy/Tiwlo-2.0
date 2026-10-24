@@ -1,5 +1,8 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useState, useEffect } from 'react';
+import { getMinStock, getStockStatus, isLowStock } from '../../../shared/inventoryRules.js';
+import { StoreSettingsProvider, useStoreSettings } from '../context/StoreSettingsContext.jsx';
+import { formatStoreCurrency } from '../themes/TiwiMart/storefrontUtils.js';
 import {
   Boxes,
   TrendingUp,
@@ -21,12 +24,21 @@ import {
   Sparkles
 } from 'lucide-react';
 
-export default function InventoryView({
+export default function InventoryView(props) {
+  return (
+    <StoreSettingsProvider>
+      <InventoryViewContent {...props} />
+    </StoreSettingsProvider>
+  );
+}
+
+function InventoryViewContent({
   products = [],
   onQuickStockChange,
   showToast,
   onBackToDashboard
 }) {
+  const { storeSettings } = useStoreSettings();
   const [summary, setSummary] = useState(null);
   const [adjustments, setAdjustments] = useState([]);
   const [search, setSearch] = useState('');
@@ -89,9 +101,10 @@ export default function InventoryView({
       (p.sku || '').toLowerCase().includes(search.toLowerCase()) ||
       (p.location || '').toLowerCase().includes(search.toLowerCase());
 
-    const isLow = p.stock > 0 && p.stock < (p.minStock || 50);
-    const isOut = p.stock === 0;
-    const isHealthy = p.stock >= (p.minStock || 50);
+    const stockStatus = getStockStatus(p);
+    const isLow = isLowStock(p);
+    const isOut = stockStatus === 'Out of Stock';
+    const isHealthy = stockStatus === 'In Stock';
 
     let matchesStatus = true;
     if (statusFilter === 'Healthy') matchesStatus = isHealthy;
@@ -266,7 +279,7 @@ export default function InventoryView({
         <div className="bg-white dark:bg-[#111827] p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/70 dark:border-gray-800 shadow-xs">
           <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Retail Valuation</span>
           <div className="text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400 mt-1.5">
-            ${summary?.totalRetailValuation?.toLocaleString() || '0'}
+            {formatStoreCurrency(summary?.totalRetailValuation || 0, storeSettings)}
           </div>
           <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Potential sales value</div>
         </div>
@@ -274,7 +287,7 @@ export default function InventoryView({
         <div className="bg-white dark:bg-[#111827] p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/70 dark:border-gray-800 shadow-xs">
           <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Cost Valuation</span>
           <div className="text-lg sm:text-xl font-bold text-slate-700 dark:text-slate-300 mt-1.5">
-            ${summary?.totalCostValuation?.toLocaleString() || '0'}
+            {formatStoreCurrency(summary?.totalCostValuation || 0, storeSettings)}
           </div>
           <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Asset purchase cost</div>
         </div>
@@ -282,7 +295,7 @@ export default function InventoryView({
         <div className="bg-white dark:bg-[#111827] p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/70 dark:border-gray-800 shadow-xs">
           <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Gross Margin</span>
           <div className="text-lg sm:text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1.5">
-            ${summary?.potentialProfit?.toLocaleString() || '0'}
+            {formatStoreCurrency(summary?.potentialProfit || 0, storeSettings)}
             <span className="text-xs font-normal text-slate-400 ml-1">({summary?.marginPercent || 48}%)</span>
           </div>
           <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Unrealized profit</div>
@@ -368,8 +381,9 @@ export default function InventoryView({
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-gray-800 font-medium">
                 {filteredProducts.map((p) => {
-                  const isLow = p.stock > 0 && p.stock < (p.minStock || 50);
-                  const isOut = p.stock === 0;
+                  const stockStatus = getStockStatus(p);
+                  const isLow = stockStatus === 'Low Stock';
+                  const isOut = stockStatus === 'Out of Stock';
                   const itemValue = (p.stock || 0) * (p.costPrice || (p.price * 0.5));
 
                   return (
@@ -407,15 +421,15 @@ export default function InventoryView({
                       </td>
 
                       <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">
-                        {p.minStock || 30} units
+                        {getMinStock(p)} units
                       </td>
 
                       <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">
-                        ${parseFloat(p.costPrice || (p.price * 0.5)).toFixed(2)}
+                        {formatStoreCurrency(p.costPrice || (p.price * 0.5), storeSettings)}
                       </td>
 
                       <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
-                        ${Math.round(itemValue).toLocaleString()}
+                        {formatStoreCurrency(Math.round(itemValue), storeSettings)}
                       </td>
 
                       <td className="py-3.5 px-4">

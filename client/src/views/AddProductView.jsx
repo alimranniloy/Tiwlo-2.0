@@ -37,12 +37,14 @@ import {
 import JsBarcode from 'jsbarcode';
 import QRCode from 'qrcode';
 
+const EMPTY_CATEGORIES = [];
+
 export default function AddProductView({
   onBack,
   onSaveProduct,
   onAddCategory,
   onAddSubcategory,
-  categories = [],
+  categories = EMPTY_CATEGORIES,
   subcategories = [],
   onOpenPrintBarcode = null
 }) {
@@ -65,7 +67,7 @@ export default function AddProductView({
     location: 'Aisle 1, Shelf A',
     supplierName: '',
     status: 'In Stock',
-    description: '<p><strong>Premium quality</strong> product manufactured with durable materials. Designed for high performance and everyday reliability.</p><ul><li>High durability rating</li><li>Certified industry standard</li><li>1 Year manufacturer warranty</li></ul>',
+    description: '',
     image: '',
     images: []
   });
@@ -104,12 +106,16 @@ export default function AddProductView({
 
   // Initialize categories
   useEffect(() => {
-    if (categories && categories.length > 0) {
-      setLocalCategories(categories);
-      if (!formData.category) {
-        setFormData(prev => ({ ...prev, category: categories[0]?.name || 'Electronics' }));
-      }
-    }
+    const tenantCategories = categories || [];
+    setLocalCategories(tenantCategories);
+    setFormData(prev => {
+      const currentCategoryExists = tenantCategories.some(
+        category => (category.name || '').toLowerCase() === (prev.category || '').toLowerCase()
+      );
+      return currentCategoryExists
+        ? prev
+        : { ...prev, category: tenantCategories[0]?.name || '', subCategory: '' };
+    });
   }, [categories]);
 
   // Initialize subcategories
@@ -133,7 +139,7 @@ export default function AddProductView({
   }, []);
 
   // Update matching subcategories
-  const currentCategory = formData.category || localCategories[0]?.name || 'Clothing';
+  const currentCategory = formData.category || localCategories[0]?.name || '';
   const matchingSubcategories = localSubcategories.filter(s =>
     (s.categoryName || '').toLowerCase() === currentCategory.toLowerCase()
   );
@@ -193,39 +199,31 @@ export default function AddProductView({
   };
 
   // Handle Multi-file Upload
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
     setUploading(true);
     setUploadError('');
+    try {
+      const form = new FormData();
+      files.forEach(file => form.append('images', file));
+      const response = await fetch('/api/upload', { method: 'POST', body: form });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.message || result.error || 'Could not upload selected images.');
 
-    const newImgs = [];
-    let processed = 0;
-
-    files.forEach(file => {
-      if (!file.type.startsWith('image/')) {
-        processed++;
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        newImgs.push(event.target.result);
-        processed++;
-        if (processed === files.length) {
-          setFormData(prev => {
-            const combined = [...prev.images, ...newImgs];
-            return {
-              ...prev,
-              images: combined,
-              image: prev.image || combined[0]
-            };
-          });
-          setUploading(false);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+      const urls = result.urls || (result.url ? [result.url] : []);
+      if (!urls.length) throw new Error('No image was uploaded. Please try again.');
+      setFormData(prev => {
+        const combined = [...prev.images, ...urls];
+        return { ...prev, images: combined, image: prev.image || combined[0] };
+      });
+    } catch (error) {
+      setUploadError(error.message || 'Could not upload selected images.');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
   };
 
   // Preset demo images
@@ -307,27 +305,43 @@ export default function AddProductView({
           description: newTaxDesc.trim() || `${newTaxName.trim()} products and inventory`,
           color: '#3B82F6'
         };
-        const res = await fetch('/api/categories', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        if (res.ok) {
-          const created = await res.json();
-          setLocalCategories(prev => [created, ...prev]);
-          if (onAddCategory) onAddCategory(payload);
-          setFormData(prev => ({ ...prev, category: created.name, subCategory: '' }));
-          setTaxSuccessMsg(`Primary category "${created.name}" created and selected!`);
-          setTimeout(() => {
-            setIsAddingTaxonomy(false);
-            setNewTaxName('');
-            setNewTaxDesc('');
-            setTaxSuccessMsg('');
-          }, 1000);
-        } else {
-          const err = await res.json().catch(() => ({}));
-          alert(err.error || 'Failed to create category');
+        if (localCategories.some(category => category.name.toLowerCase() === payload.name.toLowerCase())) {
+          alert(`Category "${payload.name}" already exists.`);
+          return;
         }
+        let created;
+        if (onAddCategory) {
+          await onAddCategory(payload);
+          const categoriesResponse = await fetch('/api/categories');
+          if (!categoriesResponse.ok) return;
+          const tenantCategories = await categoriesResponse.json();
+          created = tenantCategories.find(category =>
+            category.name.toLowerCase() === payload.name.toLowerCase()
+          );
+          if (!created) return;
+          setLocalCategories(tenantCategories);
+        } else {
+          const response = await fetch('/api/categories', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            alert(err.error || 'Failed to create category');
+            return;
+          }
+          created = await response.json();
+          setLocalCategories(prev => [created, ...prev]);
+        }
+        setFormData(prev => ({ ...prev, category: created.name, subCategory: '' }));
+        setTaxSuccessMsg(`Primary category "${created.name}" created and selected!`);
+        setTimeout(() => {
+          setIsAddingTaxonomy(false);
+          setNewTaxName('');
+          setNewTaxDesc('');
+          setTaxSuccessMsg('');
+        }, 1000);
       } else {
         const parentCat = localCategories.find(c => c.id === newTaxParentCatId || c.name.toLowerCase() === (formData.category || '').toLowerCase()) || localCategories[0];
         if (!parentCat) {
@@ -341,31 +355,50 @@ export default function AddProductView({
           name: newTaxName.trim(),
           description: newTaxDesc.trim() || `${newTaxName.trim()} in ${parentCat.name}`
         };
-        const res = await fetch('/api/subcategories', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        if (res.ok) {
-          const created = await res.json();
-          setLocalSubcategories(prev => [created, ...prev]);
-          if (onAddSubcategory) onAddSubcategory(payload);
-          setFormData(prev => ({
-            ...prev,
-            category: parentCat.name,
-            subCategory: created.name
-          }));
-          setTaxSuccessMsg(`Subcategory "${created.name}" created under ${parentCat.name}!`);
-          setTimeout(() => {
-            setIsAddingTaxonomy(false);
-            setNewTaxName('');
-            setNewTaxDesc('');
-            setTaxSuccessMsg('');
-          }, 1000);
-        } else {
-          const err = await res.json().catch(() => ({}));
-          alert(err.error || 'Failed to create subcategory');
+        if (localSubcategories.some(subcategory =>
+          subcategory.categoryId === parentCat.id &&
+          subcategory.name.toLowerCase() === payload.name.toLowerCase()
+        )) {
+          alert(`Subcategory "${payload.name}" already exists under ${parentCat.name}.`);
+          return;
         }
+        let created;
+        if (onAddSubcategory) {
+          await onAddSubcategory(payload);
+          const subcategoriesResponse = await fetch(`/api/subcategories?categoryId=${encodeURIComponent(parentCat.id)}`);
+          if (!subcategoriesResponse.ok) return;
+          const tenantSubcategories = await subcategoriesResponse.json();
+          created = tenantSubcategories.find(subcategory =>
+            subcategory.name.toLowerCase() === payload.name.toLowerCase()
+          );
+          if (!created) return;
+          setLocalSubcategories(tenantSubcategories);
+        } else {
+          const response = await fetch('/api/subcategories', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            alert(err.error || 'Failed to create subcategory');
+            return;
+          }
+          created = await response.json();
+          setLocalSubcategories(prev => [created, ...prev]);
+        }
+        setFormData(prev => ({
+          ...prev,
+          category: parentCat.name,
+          subCategory: created.name
+        }));
+        setTaxSuccessMsg(`Subcategory "${created.name}" created under ${parentCat.name}!`);
+        setTimeout(() => {
+          setIsAddingTaxonomy(false);
+          setNewTaxName('');
+          setNewTaxDesc('');
+          setTaxSuccessMsg('');
+        }, 1000);
       }
     } catch (err) {
       console.error(err);
@@ -404,9 +437,9 @@ export default function AddProductView({
       if (!formData.sku.trim()) errs.sku = 'SKU code is required';
       if (!formData.category) errs.category = 'Category is required';
     } else if (step === 2) {
-      if (parseFloat(formData.price) < 0 || isNaN(formData.price)) errs.price = 'Valid selling price required';
-      if (parseFloat(formData.costPrice) < 0 || isNaN(formData.costPrice)) errs.costPrice = 'Valid cost price required';
-      if (parseInt(formData.stock) < 0 || isNaN(formData.stock)) errs.stock = 'Valid stock quantity required';
+      if (!Number.isFinite(Number(formData.price)) || Number(formData.price) < 0) errs.price = 'Selling price must be zero or greater';
+      if (!Number.isFinite(Number(formData.costPrice)) || Number(formData.costPrice) < 0) errs.costPrice = 'Valid cost price required';
+      if (!Number.isFinite(Number(formData.stock)) || Number(formData.stock) < 0) errs.stock = 'Valid stock quantity required';
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -426,24 +459,29 @@ export default function AddProductView({
 
   // Final Submit
   const handleFinalSubmit = async (shouldPrintBarcode = false) => {
+    if (uploading) return;
     if (!validateStep(1) || !validateStep(2)) {
       alert('Please fill in required fields in Step 1 and Step 2');
       return;
     }
+    if (!formData.image && formData.images.length === 0 &&
+      !window.confirm('This product has no image. Publish it without a product photo?')) return;
 
     setLoading(true);
     const finalImgs = formData.images && formData.images.length > 0
       ? formData.images
-      : (formData.image ? [formData.image] : [presetImages[0].url]);
+      : (formData.image ? [formData.image] : []);
 
     const payload = {
       ...formData,
-      image: formData.image || finalImgs[0],
+      image: formData.image || finalImgs[0] || '',
       images: finalImgs,
       price: parseFloat(formData.price) || 0,
       costPrice: parseFloat(formData.costPrice) || 0,
       stock: parseInt(formData.stock) || 0,
-      minStock: parseInt(formData.minStock) || 20
+      minStock: Number.isFinite(Number(formData.minStock)) && Number(formData.minStock) >= 0
+        ? Number(formData.minStock)
+        : 20
     };
 
     const saved = await onSaveProduct(payload);
@@ -936,8 +974,10 @@ export default function AddProductView({
                   min="0"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 text-sm font-bold text-emerald-600 dark:text-emerald-400 bg-slate-50/50 dark:bg-gray-900/50 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  aria-invalid={!!errors.price}
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm font-bold text-emerald-600 dark:text-emerald-400 bg-slate-50/50 dark:bg-gray-900/50 focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${errors.price ? 'border-rose-500' : 'border-slate-200 dark:border-gray-700'}`}
                 />
+                {errors.price && <p role="alert" className="text-xs text-rose-500">{errors.price}</p>}
               </div>
 
               {/* Profit Margin Preview Card */}
@@ -1062,10 +1102,11 @@ export default function AddProductView({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
                     className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition"
                   >
                     <Upload className="w-3.5 h-3.5" />
-                    <span>Upload Images</span>
+                    <span>{uploading ? 'Uploading...' : 'Upload Images'}</span>
                   </button>
                   <input
                     ref={fileInputRef}
@@ -1077,6 +1118,7 @@ export default function AddProductView({
                   />
                 </div>
               </div>
+              {uploadError && <p role="alert" className="text-xs text-rose-600">{uploadError}</p>}
 
               {/* Camera Live Modal Stream */}
               {showCamera && (
@@ -1496,7 +1538,7 @@ export default function AddProductView({
               <button
                 type="button"
                 onClick={() => handleFinalSubmit(false)}
-                disabled={loading}
+                disabled={loading || uploading}
                 className="flex items-center space-x-2 px-7 py-2.5 text-xs font-bold rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/25 transition active:scale-98 disabled:opacity-50"
               >
                 <Check className="w-4 h-4 stroke-[2.5]" />

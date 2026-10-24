@@ -1,5 +1,7 @@
 import React from 'react';
 import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react';
+import { useStoreSettings } from '../../../context/StoreSettingsContext';
+import { formatStoreCurrency, getShippingAmount, getStoreTaxRate } from '../storefrontUtils';
 
 export default function TiwiCartDrawer({
   isOpen,
@@ -9,11 +11,13 @@ export default function TiwiCartDrawer({
   onRemoveItem,
   onCheckout
 }) {
+  const { storeSettings } = useStoreSettings();
   if (!isOpen) return null;
 
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const shipping = subtotal > 150 ? 0 : 9.99;
-  const total = subtotal + (cartItems.length > 0 ? shipping : 0);
+  const shipping = getShippingAmount(subtotal, storeSettings || {});
+  const tax = subtotal * getStoreTaxRate(storeSettings || {});
+  const total = subtotal + tax + (shipping || 0);
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
@@ -47,7 +51,7 @@ export default function TiwiCartDrawer({
               <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
                 <ShoppingBag className="w-12 h-12 stroke-[1.2] mb-3 text-slate-300" />
                 <p className="font-bold text-slate-700 text-sm">Your cart is empty</p>
-                <p className="text-xs text-slate-400 mt-1">Discover millions of deals and add items</p>
+                <p className="text-xs text-slate-400 mt-1">Add items to your cart to continue.</p>
               </div>
             ) : (
               cartItems.map((item) => (
@@ -65,7 +69,7 @@ export default function TiwiCartDrawer({
                       {item.name}
                     </h4>
                     <p className="text-xs font-black text-[#2563eb] mt-0.5">
-                      ${Number(item.price).toFixed(2)}
+                      {formatStoreCurrency(item.price, storeSettings)}
                     </p>
                     <div className="flex items-center space-x-2 mt-2">
                       <button
@@ -102,17 +106,22 @@ export default function TiwiCartDrawer({
               <div className="space-y-1.5 text-xs text-slate-600">
                 <div className="flex justify-between">
                   <span>Subtotal</span>
-                  <span className="font-semibold text-slate-900">${subtotal.toFixed(2)}</span>
+                  <span className="font-semibold text-slate-900">{formatStoreCurrency(subtotal, storeSettings)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Estimated tax</span>
+                  <span className="font-semibold text-slate-900">{formatStoreCurrency(tax, storeSettings)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Shipping</span>
                   <span className="font-semibold text-slate-900">
-                    {shipping === 0 ? <span className="text-emerald-600 font-bold">FREE</span> : `$${shipping.toFixed(2)}`}
+                    {shipping === null ? 'Not configured' : shipping === 0 ? 'Free' : formatStoreCurrency(shipping, storeSettings)}
                   </span>
                 </div>
+                {shipping === null && <p className="text-[10px] text-slate-500">Shipping is not included in this estimate.</p>}
                 <div className="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-slate-200">
                   <span>Total</span>
-                  <span className="text-[#2563eb]">${total.toFixed(2)}</span>
+                  <span className="text-[#2563eb]">{formatStoreCurrency(total, storeSettings)}</span>
                 </div>
               </div>
 

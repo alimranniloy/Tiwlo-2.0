@@ -18,7 +18,7 @@ import { ensureCertificates } from './scripts/generate-cert.js';
 import { testPgConnection } from './db/postgres.js';
 import { streamStoredMedia } from './db/mediaStorage.js';
 import { MasterDB } from './db/multiTenant.js';
-import { tenantContext } from './db/storeDataAdapter.js';
+import { resolveActiveStore, tenantContext } from './db/storeDataAdapter.js';
 import { createGraphQLMiddleware } from './graphql/index.js';
 import { createApplicationGraphQL, protectAsyncRouter } from './graphql/applicationApi.js';
 import { InputSanitizer } from './security/cryptoSecurity.js';
@@ -227,10 +227,23 @@ app.use(async (req, res, next) => {
   return next();
 });
 
-// Bind every request to the authenticated user's tenant. Data-access helpers
-// use this context when a route does not pass tiwiId explicitly.
-app.use((req, res, next) => {
-  tenantContext.run({ tiwiId: req.activeUser?.tiwiId || req.activeUser?.storeId || null }, next);
+// A selected tenant is accepted only after checking it belongs to the
+// authenticated account; the cookie itself is not an authorization claim.
+app.use(async (req, res, next) => {
+  try {
+    const selectedTiwiId = req.cookies?.tiwlo_active_store;
+    if (selectedTiwiId && req.activeUser) {
+      req.activeStore = await resolveActiveStore(req, selectedTiwiId);
+      if (!req.activeStore) {
+        res.clearCookie('tiwlo_active_store', { path: '/', sameSite: 'lax', secure: req.secure || process.env.NODE_ENV === 'production' });
+      }
+    }
+    tenantContext.run({
+      tiwiId: req.activeStore?.tiwiId || req.activeUser?.tiwiId || req.activeUser?.storeId || null
+    }, next);
+  } catch (error) {
+    next(error);
+  }
 });
 
 // Run optional WAF/bot enforcement after session resolution so repeated

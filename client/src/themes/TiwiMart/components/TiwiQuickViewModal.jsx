@@ -1,21 +1,21 @@
 import React, { useState } from 'react';
-import { X, Star, ShoppingBag, ShieldCheck, Truck, RefreshCw, Check } from 'lucide-react';
+import { X, Star, ShoppingBag, Check } from 'lucide-react';
+import { useStoreSettings } from '../../../context/StoreSettingsContext';
+import { formatStoreCurrency, getProductDiscount, productDescriptionText } from '../storefrontUtils';
 
 export default function TiwiQuickViewModal({ product, isOpen, onClose, onAddToCart }) {
+  const { storeSettings } = useStoreSettings();
   const [added, setAdded] = useState(false);
-  const [qty, setQty] = useState(1);
 
   if (!isOpen || !product) return null;
 
   const handleAdd = () => {
-    onAddToCart?.({ ...product, quantity: qty });
+    onAddToCart?.(product);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };
 
-  const discount = product.discount || (
-    product.originalPrice ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : null
-  );
+  const discount = getProductDiscount(product);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
@@ -46,7 +46,7 @@ export default function TiwiQuickViewModal({ product, isOpen, onClose, onAddToCa
               </span>
               {discount && (
                 <span className="bg-[#ef4444] text-white text-[10px] font-black px-1.5 py-0.5 rounded">
-                  -{discount}%
+                  -{discount.percent}%
                 </span>
               )}
             </div>
@@ -56,36 +56,37 @@ export default function TiwiQuickViewModal({ product, isOpen, onClose, onAddToCa
             </h3>
 
             {/* Rating */}
-            <div className="flex items-center space-x-2 mt-1 text-xs text-slate-500">
+            {(product.rating != null || product.reviews != null) && <div className="flex items-center space-x-2 mt-1 text-xs text-slate-500">
+              {product.rating != null && (
               <div className="flex items-center text-amber-400">
                 <Star className="w-3.5 h-3.5 fill-amber-400 stroke-amber-400" />
               </div>
-              <span className="font-bold text-slate-800">{product.rating || 4.8}</span>
-              <span>({product.reviews || '4.5K'} reviews)</span>
-            </div>
+              )}
+              {product.rating != null && <span className="font-bold text-slate-800">{product.rating}</span>}
+              {product.reviews != null && <span>({product.reviews} reviews)</span>}
+            </div>}
 
             {/* Price */}
             <div className="flex items-baseline space-x-2.5 mt-3">
               <span className="text-2xl font-black text-slate-900">
-                ${Number(product.price).toFixed(2)}
+                {formatStoreCurrency(product.price, storeSettings)}
               </span>
-              {product.originalPrice && (
+              {discount && (
                 <span className="text-sm text-slate-400 line-through">
-                  ${Number(product.originalPrice).toFixed(2)}
+                  {formatStoreCurrency(discount.originalPrice, storeSettings)}
                 </span>
               )}
             </div>
 
             {/* Description */}
             <p className="text-xs text-slate-500 mt-2.5 leading-relaxed line-clamp-3">
-              {product.description || 'High performance quality product engineered with premium standards, backed by global warranty and genuine seller guarantee.'}
+              {productDescriptionText(product.description) || 'No product description has been provided.'}
             </p>
 
             {/* Meta */}
             <div className="mt-3 pt-3 border-t border-slate-100 space-y-1 text-[11px] text-slate-500">
               <p><span className="font-semibold text-slate-700">SKU:</span> {product.sku}</p>
-              <p><span className="font-semibold text-slate-700">Seller:</span> {product.supplierName || 'TechWorld Store'}</p>
-              <p><span className="font-semibold text-slate-700">Stock Status:</span> <span className="text-emerald-600 font-bold">{product.status || 'In Stock'} ({product.stock || 45} units)</span></p>
+              {product.stock != null && <p><span className="font-semibold text-slate-700">Stock Status:</span> <span className="text-slate-600 font-bold">{product.status || (Number(product.stock) > 0 ? 'In Stock' : 'Out of Stock')} ({Number(product.stock)} units)</span></p>}
             </div>
           </div>
 

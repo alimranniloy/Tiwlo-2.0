@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Package,
   Plus,
@@ -24,11 +24,24 @@ import {
   Image as ImageIcon,
   Printer
 } from 'lucide-react';
+import { getStockStatus, isLowStock } from '../../../shared/inventoryRules.js';
+import { StoreSettingsProvider, useStoreSettings } from '../context/StoreSettingsContext.jsx';
+import { formatStoreCurrency } from '../themes/TiwiMart/storefrontUtils.js';
 
-export default function ProductsView({
+const EMPTY_LIST = [];
+
+export default function ProductsView(props) {
+  return (
+    <StoreSettingsProvider>
+      <ProductsViewContent {...props} />
+    </StoreSettingsProvider>
+  );
+}
+
+function ProductsViewContent({
   products,
-  categories,
-  subcategories,
+  categories = EMPTY_LIST,
+  subcategories = EMPTY_LIST,
   onAddProduct,
   onEditProduct,
   onDeleteProduct,
@@ -37,6 +50,7 @@ export default function ProductsView({
   onOpenPrintBarcode,
   onBackToDashboard
 }) {
+  const { storeSettings } = useStoreSettings();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
   const [selectedSubcategory, setSelectedSubcategory] = useState('All Subcategories');
@@ -44,12 +58,31 @@ export default function ProductsView({
   const [sortBy, setSortBy] = useState('name');
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'grid'
 
+  useEffect(() => {
+    const categoryExists = selectedCategory === 'All Categories' ||
+      categories.some(category => category.name.toLowerCase() === selectedCategory.toLowerCase());
+    if (!categoryExists) {
+      setSelectedCategory('All Categories');
+      setSelectedSubcategory('All Subcategories');
+      return;
+    }
+    const subcategoryExists = selectedSubcategory === 'All Subcategories' ||
+      subcategories.some(subcategory =>
+        subcategory.name.toLowerCase() === selectedSubcategory.toLowerCase() &&
+        (selectedCategory === 'All Categories' ||
+          (subcategory.categoryName || '').toLowerCase() === selectedCategory.toLowerCase())
+      );
+    if (!subcategoryExists) setSelectedSubcategory('All Subcategories');
+  }, [categories, subcategories, selectedCategory, selectedSubcategory]);
+
   // Filter subcategories based on selected category
   const filteredSubcategories = useMemo(() => {
     if (selectedCategory === 'All Categories') return subcategories;
     const cat = categories.find(c => c.name.toLowerCase() === selectedCategory.toLowerCase());
     if (!cat) return subcategories;
-    return subcategories.filter(s => s.categoryId === cat.id || s.categoryName.toLowerCase() === cat.name.toLowerCase());
+    return subcategories.filter(s =>
+      s.categoryId === cat.id || (s.categoryName || '').toLowerCase() === cat.name.toLowerCase()
+    );
   }, [subcategories, categories, selectedCategory]);
 
   // Filtered & Sorted products
@@ -78,7 +111,7 @@ export default function ProductsView({
     }
 
     if (selectedStatus !== 'All Status') {
-      result = result.filter(p => (p.status || '').toLowerCase() === selectedStatus.toLowerCase());
+      result = result.filter(p => getStockStatus(p).toLowerCase() === selectedStatus.toLowerCase());
     }
 
     if (sortBy === 'name') {
@@ -98,9 +131,9 @@ export default function ProductsView({
 
   // Statistics
   const totalCount = products.length;
-  const inStockCount = products.filter(p => p.stock >= (p.minStock || 50)).length;
-  const lowStockCount = products.filter(p => p.stock > 0 && p.stock < (p.minStock || 50)).length;
-  const outOfStockCount = products.filter(p => p.stock === 0).length;
+  const inStockCount = products.filter(p => getStockStatus(p) === 'In Stock').length;
+  const lowStockCount = products.filter(isLowStock).length;
+  const outOfStockCount = products.filter(p => getStockStatus(p) === 'Out of Stock').length;
   const totalValue = products.reduce((acc, p) => acc + ((p.stock || 0) * (p.price || 0)), 0);
 
   // Export CSV
@@ -114,11 +147,11 @@ export default function ProductsView({
       `"${p.category || ''}"`,
       `"${p.subCategory || ''}"`,
       p.stock,
-      p.minStock || 30,
+      p.minStock ?? 20,
       p.price,
       p.costPrice || 0,
       `"${p.location || ''}"`,
-      p.status
+      getStockStatus(p)
     ]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
@@ -222,7 +255,7 @@ export default function ProductsView({
             <DollarSign className="w-4 h-4 text-indigo-500" />
           </div>
           <div className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-1.5">
-            ${Math.round(totalValue).toLocaleString()}
+            {formatStoreCurrency(Math.round(totalValue), storeSettings)}
           </div>
           <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">At retail price</div>
         </div>
@@ -362,8 +395,9 @@ export default function ProductsView({
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-gray-800 font-medium">
                 {displayedProducts.map((p) => {
-                  const isLow = p.stock > 0 && p.stock < (p.minStock || 50);
-                  const isOut = p.stock === 0;
+                  const status = getStockStatus(p);
+                  const isLow = status === 'Low Stock';
+                  const isOut = status === 'Out of Stock';
 
                   return (
                     <tr
@@ -443,11 +477,11 @@ export default function ProductsView({
                       <td className="py-3.5 px-4">
                         <div>
                           <p className="font-bold text-slate-900 dark:text-white">
-                            ${parseFloat(p.price || 0).toFixed(2)}
+                            {formatStoreCurrency(p.price || 0, storeSettings)}
                           </p>
                           {p.costPrice && (
                             <p className="text-[10px] text-slate-400">
-                              Cost: ${parseFloat(p.costPrice).toFixed(2)}
+                              Cost: {formatStoreCurrency(p.costPrice, storeSettings)}
                             </p>
                           )}
                         </div>
@@ -493,7 +527,7 @@ export default function ProductsView({
                               isOut ? 'bg-rose-500' : isLow ? 'bg-amber-500' : 'bg-emerald-500'
                             }`}
                           ></span>
-                          {p.status || (isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock')}
+                          {status}
                         </span>
                       </td>
 
@@ -541,8 +575,9 @@ export default function ProductsView({
         /* GRID CARDS VIEW */
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {displayedProducts.map((p) => {
-            const isLow = p.stock > 0 && p.stock < (p.minStock || 50);
-            const isOut = p.stock === 0;
+            const status = getStockStatus(p);
+            const isLow = status === 'Low Stock';
+            const isOut = status === 'Out of Stock';
 
             return (
               <div
@@ -628,7 +663,7 @@ export default function ProductsView({
                 <div className="mt-4 pt-3 border-t border-slate-100 dark:border-gray-800 flex items-center justify-between">
                   <div>
                     <span className="text-sm font-bold text-slate-900 dark:text-white">
-                      ${parseFloat(p.price || 0).toFixed(2)}
+                      {formatStoreCurrency(p.price || 0, storeSettings)}
                     </span>
                     <p className="text-[10px] text-slate-400 font-medium">Stock: {p.stock} units</p>
                   </div>

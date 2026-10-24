@@ -9,6 +9,10 @@ import {
   writeData,
   logActivity,
   getActiveTiwiId,
+  resolveActiveStore,
+  resolveStorefrontHost,
+  tenantContext,
+  writeTenantData,
   PRODUCTS_FILE,
   CATEGORIES_FILE,
   SUBCATEGORIES_FILE,
@@ -27,6 +31,43 @@ import {
 } from '../security/index.js';
 import { PaymentSecurity } from '../security/cryptoSecurity.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
+import { getMinStock, getStockStatus, isLowStock } from '../../shared/inventoryRules.js';
+import {
+  createStockAdjustment,
+  deleteCategoryReferences,
+  deleteSubcategoryReferences,
+  getCategoryMetrics,
+  renameCategoryReferences,
+  renameSubcategoryReferences,
+  validateStock,
+  validateSellingPrice
+} from './catalogHelpers.js';
+import {
+  canTransitionOrder,
+  normalizePhone,
+  validateOrderUpdate
+} from './orderHelpers.js';
+import { canTransitionPurchase, PURCHASE_STATUSES, receivePurchaseOrder } from './purchaseHelpers.js';
+import { calculatePromotionDiscount } from './promotionHelpers.js';
+import {
+  decryptPaymentCredentials,
+  encryptPaymentCredentials,
+  normalizePaymentProviderConfiguration,
+  PAYMENT_PROVIDER_DEFINITIONS,
+  toPublicPaymentProvider
+} from './paymentProviderHelpers.js';
+import {
+  normalizeStorefrontAddress,
+  normalizeShippingZones,
+  quoteShipping
+} from './shippingHelpers.js';
+import {
+  convertCurrencyAmount,
+  getFreshUsdRates,
+  normalizeCurrencyCode,
+  normalizeUsdRates,
+  validateMarketRateRows
+} from './currencyHelpers.js';
 
 const storage = createTemporaryFileStorage('store-upload');
 
@@ -36,12 +77,80 @@ const upload = multer({
 });
 
 const router = express.Router();
+const MARKET_RATE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+let marketUsdRateCache = null;
+let marketUsdRateRequest = null;
+const CURRENCY_SYMBOLS = Object.freeze({
+  BDT: '৳',
+  EUR: '€',
+  GBP: '£',
+  INR: '₹',
+  JPY: '¥',
+  USD: '$'
+});
+
+function getStoreCurrencySettings(currencyValue, fallbackSymbol = '') {
+  const currency = String(currencyValue || 'USD');
+  const code = currency.match(/[A-Z]{3}/i)?.[0]?.toUpperCase() || 'USD';
+  const currencySymbol = currency.match(/\(([^)]+)\)/)?.[1] || CURRENCY_SYMBOLS[code] || fallbackSymbol;
+  return { currency, currencySymbol };
+}
+
+async function getMarketUsdRates() {
+  const now = Date.now();
+  if (marketUsdRateCache &&
+      now - marketUsdRateCache.fetchedAt < MARKET_RATE_CACHE_TTL_MS &&
+      getFreshUsdRates(marketUsdRateCache, now)) {
+    return marketUsdRateCache;
+  }
+  if (marketUsdRateRequest) return marketUsdRateRequest;
+  const request = (async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    try {
+      const response = await fetch('https://api.frankfurter.dev/v2/rates?base=USD', {
+        headers: { Accept: 'application/json' },
+        signal: controller.signal
+      });
+      if (!response.ok) throw new Error(`Frankfurter returned HTTP ${response.status}.`);
+      const { rates, rateDates, observedAt } = validateMarketRateRows(await response.json());
+      marketUsdRateCache = {
+        rates,
+        rateDates,
+        observedAt,
+        fetchedAt: Date.now(),
+        source: 'Frankfurter blended central-bank reference rates'
+      };
+      return marketUsdRateCache;
+    } finally {
+      clearTimeout(timeout);
+    }
+  })();
+  marketUsdRateRequest = request;
+  try {
+    return await request;
+  } finally {
+    if (marketUsdRateRequest === request) marketUsdRateRequest = null;
+  }
+}
 
 // Store management and POS data are private to an authenticated tenant.
-router.use((req, res, next) => {
+router.use(async (req, res, next) => {
   // Never intercept auth or public endpoints
   if (req.path.startsWith('/auth') || req.path.startsWith('/public') || req.path.startsWith('/media')) {
     return next();
+  }
+  if (req.method === 'POST' && req.path === '/sales' && req.body?.channel === 'storefront') {
+    try {
+      const storefrontStore = await resolveStorefrontHost(req.hostname);
+      if (storefrontStore) {
+        req.storefrontStore = storefrontStore;
+        req.activeStore = storefrontStore;
+        return tenantContext.run({ tiwiId: storefrontStore.tiwiId }, next);
+      }
+    } catch (error) {
+      return next(error);
+    }
   }
   if (!req.activeUser) return res.status(401).json({ error: 'Authentication required' });
   next();
@@ -95,9 +204,380 @@ async function persistStoreImageUpload(req, purpose) {
   return getPublicMediaUrl(url);
 }
 
+router.get('/public/storefront', async (req, res) => {
+  try {
+    const store = await resolveStorefrontHost(req.hostname);
+    if (!store) return res.status(404).json({ error: 'Storefront not found.' });
+
+    const storefrontData = await tenantContext.run({ tiwiId: store.tiwiId }, async () => {
+      const [products, categories, storedSettings] = await Promise.all([
+        readData(PRODUCTS_FILE, [], store.tiwiId),
+        readData(CATEGORIES_FILE, [], store.tiwiId),
+        readData(STORE_SETTINGS_FILE, {}, store.tiwiId)
+      ]);
+      const settings = Object.fromEntries([
+        'storeName', 'storeTagline', 'storeTitle', 'storeDescription',
+        'storeLogo', 'storeFavicon', 'activeTheme', 'themeColor',
+        'themeColorPreset', 'themeMode', 'contactEmail', 'contactPhone',
+        'storeAddress', 'storeCity', 'storeCountry', 'storePostalCode',
+        'currency', 'currencySymbol', 'bannerSlidingSpeed', 'heroBanners',
+        'taxRate', 'shippingFlatRate', 'freeShippingThreshold', 'shippingZones',
+        'promoActive', 'promoCode', 'promoDiscountPercent'
+      ].filter(key => storedSettings?.[key] !== undefined)
+        .map(key => [key, storedSettings[key]]));
+      settings.paymentMethods = Object.entries(PAYMENT_PROVIDER_DEFINITIONS)
+        .map(([provider]) => toPublicPaymentProvider(
+          provider,
+          storedSettings?.paymentProviders?.[provider],
+          storedSettings?.paymentProviderCredentials?.[provider]
+        ))
+        .filter(method => method.enabled);
+      return {
+        settings: {
+          ...settings,
+          isStorefront: true,
+          ...getStoreCurrencySettings(store.currency || settings.currency, settings.currencySymbol),
+          storeName: settings.storeName || store.storeName
+        },
+        products: products.map(product => ({
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          originalPrice: product.originalPrice,
+          category: product.category,
+          description: product.description,
+          image: product.image,
+          images: product.images,
+          status: product.status,
+          stock: product.stock
+        })),
+        categories: categories.map(category => typeof category === 'string'
+          ? { id: category, name: category }
+          : {
+            id: category.id,
+            name: category.name,
+            description: category.description,
+            image: category.image
+          })
+      };
+    });
+
+    res.json({ store, ...storefrontData });
+  } catch (error) {
+    console.error('Failed to load public storefront:', error);
+    res.status(500).json({ error: 'Could not load this storefront.' });
+  }
+});
+
+router.get('/public/orders/track', async (req, res) => {
+  try {
+    const store = await resolveStorefrontHost(req.hostname);
+    if (!store) return res.status(404).json({ error: 'Storefront not found.' });
+    const reference = String(req.query?.reference || '').trim();
+    const phone = normalizePhone(req.query?.phone);
+    if (reference.length < 3 || reference.length > 120 || phone.length < 7 || phone.length > 15) {
+      return res.status(400).json({ error: 'Enter a valid order or tracking number and the phone used at checkout.' });
+    }
+
+    const order = await tenantContext.run({ tiwiId: store.tiwiId }, async () => {
+      const sales = await readData(SALES_FILE, [], store.tiwiId);
+      return sales.find(sale => {
+        if (sale.channel !== 'storefront' || normalizePhone(sale.customerPhone) !== phone) return false;
+        return String(sale.invoiceNumber || '').toLowerCase() === reference.toLowerCase() ||
+          String(sale.trackingNumber || '').toLowerCase() === reference.toLowerCase();
+      });
+    });
+    if (!order) return res.status(404).json({ error: 'No matching order was found. Check the number and checkout phone.' });
+
+    return res.json({
+      orderNumber: order.invoiceNumber,
+      status: order.status,
+      paymentStatus: order.paymentStatus || 'Pending',
+      courierService: order.courierService || '',
+      trackingNumber: order.trackingNumber || '',
+      trackingUrl: order.trackingUrl && !validateOrderUpdate({ trackingUrl: order.trackingUrl }) ? order.trackingUrl : '',
+      date: order.date,
+      updatedAt: order.updatedAt || order.date,
+      statusHistory: Array.isArray(order.statusHistory)
+        ? order.statusHistory.map(({ status, at }) => ({ status, at }))
+        : [{ status: order.status, at: order.date }]
+    });
+  } catch (error) {
+    console.error('Failed to track public order:', error);
+    return res.status(500).json({ error: 'Could not look up this order.' });
+  }
+});
+
+router.get('/store/payment-providers', async (req, res) => {
+  try {
+    const settings = await readData(STORE_SETTINGS_FILE, {});
+    const providers = Object.entries(PAYMENT_PROVIDER_DEFINITIONS).map(([provider, definition]) => ({
+      ...toPublicPaymentProvider(
+        provider,
+        settings.paymentProviders?.[provider],
+        settings.paymentProviderCredentials?.[provider]
+      ),
+      credentialFields: definition.credentialFields
+    }));
+    return res.json({ providers });
+  } catch (error) {
+    console.error('Could not load store payment provider settings:', error);
+    return res.status(500).json({ error: 'Could not load payment provider settings.' });
+  }
+});
+
+router.get('/store/currency', async (req, res) => {
+  try {
+    const settings = await readData(STORE_SETTINGS_FILE, {});
+    const exchange = settings.currencyExchange || {};
+    const mode = exchange.mode === 'api' ? 'api' : 'manual';
+    const allRates = normalizeUsdRates(exchange.rates || { USD: 1 });
+    const apiRates = mode === 'api'
+      ? getFreshUsdRates({
+        rates: allRates,
+        rateDates: exchange.rateDates,
+        observedAt: exchange.observedAt
+      })
+      : null;
+    const rates = mode === 'api' ? apiRates?.rates || { USD: 1 } : allRates;
+    return res.json({
+      mode,
+      rates,
+      observedAt: exchange.observedAt || null,
+      updatedAt: exchange.updatedAt || null,
+      source: mode === 'api' ? exchange.source || 'Frankfurter' : 'Manual merchant rates',
+      fresh: mode === 'manual' ? Object.keys(rates).length > 1 : Boolean(apiRates),
+      storeCurrency: getStoreCurrencySettings(
+        req.activeStore?.currency || settings.currency || req.activeUser?.currency || 'USD'
+      ).currency
+    });
+  } catch (error) {
+    console.error('Could not load store currency settings:', error);
+    return res.status(500).json({ error: 'Could not load currency settings.' });
+  }
+});
+
+router.put('/store/currency', async (req, res) => {
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    return res.status(400).json({ error: 'Currency settings must be provided as an object.' });
+  }
+  if (req.body.mode !== 'manual') {
+    return res.status(400).json({ error: 'Select manual rates here; use the market-rate refresh action for API rates.' });
+  }
+  try {
+    const rates = normalizeUsdRates(req.body.rates);
+    if (Object.keys(rates).length < 2) {
+      return res.status(400).json({ error: 'Add at least one non-USD conversion rate.' });
+    }
+    const settings = await readData(STORE_SETTINGS_FILE, {});
+    const now = new Date().toISOString();
+    settings.currencyExchange = {
+      mode: 'manual',
+      rates,
+      observedAt: now.slice(0, 10),
+      updatedAt: now,
+      source: 'Manual merchant rates'
+    };
+    await writeData(STORE_SETTINGS_FILE, settings);
+    return res.json({
+      mode: 'manual',
+      rates,
+      observedAt: settings.currencyExchange.observedAt,
+      updatedAt: now,
+      source: settings.currencyExchange.source,
+      fresh: true
+    });
+  } catch (error) {
+    if (error instanceof TypeError) return res.status(400).json({ error: error.message });
+    console.error('Could not save manual store currency rates:', error);
+    return res.status(500).json({ error: 'Could not save manual currency rates.' });
+  }
+});
+
+router.post('/store/currency/rates/refresh', async (req, res) => {
+  try {
+    const marketRates = await getMarketUsdRates();
+    const settings = await readData(STORE_SETTINGS_FILE, {});
+    const now = new Date().toISOString();
+    settings.currencyExchange = {
+      mode: 'api',
+      rates: marketRates.rates,
+      rateDates: marketRates.rateDates,
+      observedAt: marketRates.observedAt,
+      updatedAt: now,
+      source: marketRates.source
+    };
+    await writeData(STORE_SETTINGS_FILE, settings);
+    return res.json({
+      mode: 'api',
+      rates: marketRates.rates,
+      observedAt: marketRates.observedAt,
+      updatedAt: now,
+      source: marketRates.source,
+      fresh: true
+    });
+  } catch (error) {
+    console.error('Could not refresh market currency rates:', error);
+    return res.status(502).json({
+      error: 'Could not refresh market rates. Existing rates were not changed.',
+      details: error.name === 'AbortError' ? 'The rate source timed out.' : error.message
+    });
+  }
+});
+
+router.post('/store/currency/preview', async (req, res) => {
+  try {
+    const settings = await readData(STORE_SETTINGS_FILE, {});
+    const exchange = settings.currencyExchange || {};
+    const mode = exchange.mode === 'api' ? 'api' : 'manual';
+    let rates;
+    if (mode === 'api') {
+      const freshRates = getFreshUsdRates(exchange);
+      if (!freshRates) {
+        return res.status(409).json({ error: 'Market rates are missing or stale. Refresh them before converting an amount.' });
+      }
+      rates = freshRates.rates;
+    } else {
+      rates = normalizeUsdRates(exchange.rates || { USD: 1 });
+    }
+    const storeCurrency = getStoreCurrencySettings(
+      req.activeStore?.currency || settings.currency || req.activeUser?.currency || 'USD'
+    ).currency;
+    const fromCurrency = normalizeCurrencyCode(req.body?.fromCurrency) ||
+      String(storeCurrency).match(/[A-Z]{3}/i)?.[0]?.toUpperCase() || 'USD';
+    const conversion = convertCurrencyAmount(
+      req.body?.amount,
+      fromCurrency,
+      req.body?.toCurrency,
+      rates
+    );
+    return res.json({
+      ...conversion,
+      source: exchange.source || (mode === 'manual' ? 'Manual merchant rates' : 'Frankfurter'),
+      observedAt: exchange.observedAt || null,
+      gatewayCheckoutReady: false
+    });
+  } catch (error) {
+    if (error instanceof TypeError) return res.status(400).json({ error: error.message });
+    console.error('Could not convert store currency amount:', error);
+    return res.status(500).json({ error: 'Could not convert this amount.' });
+  }
+});
+
+router.put('/store/payment-providers/:provider', async (req, res) => {
+  const provider = String(req.params.provider || '').toLowerCase();
+  const definition = PAYMENT_PROVIDER_DEFINITIONS[provider];
+  if (!definition) return res.status(404).json({ error: 'Unsupported payment provider.' });
+  try {
+    const settings = await readData(STORE_SETTINGS_FILE, {});
+    const storedCredentials = settings.paymentProviderCredentials?.[provider];
+    const currentCredentials = storedCredentials
+      ? decryptPaymentCredentials(getActiveTiwiId(req), provider, {
+        ciphertext: Buffer.from(storedCredentials.ciphertext, 'base64'),
+        iv: Buffer.from(storedCredentials.iv, 'base64'),
+        authTag: Buffer.from(storedCredentials.authTag, 'base64')
+      })
+      : {};
+    const normalized = normalizePaymentProviderConfiguration(provider, req.body || {}, {
+      ...(settings.paymentProviders?.[provider] || {}),
+      credentials: currentCredentials
+    });
+    const encrypted = Object.keys(normalized.credentials).length
+      ? encryptPaymentCredentials(getActiveTiwiId(req), provider, normalized.credentials)
+      : null;
+    settings.paymentProviders ||= {};
+    settings.paymentProviders[provider] = normalized.config;
+    settings.paymentProviderCredentials ||= {};
+    if (encrypted) {
+      settings.paymentProviderCredentials[provider] = {
+        ciphertext: encrypted.ciphertext.toString('base64'),
+        iv: encrypted.iv.toString('base64'),
+        authTag: encrypted.authTag.toString('base64')
+      };
+    }
+    await writeData(STORE_SETTINGS_FILE, settings);
+    const safeProvider = {
+      ...toPublicPaymentProvider(provider, normalized.config, encrypted || storedCredentials),
+      credentialFields: definition.credentialFields
+    };
+    return res.json({ provider: safeProvider });
+  } catch (error) {
+    if (error instanceof TypeError) return res.status(400).json({ error: error.message });
+    console.error(`Could not save ${provider} merchant configuration:`, error);
+    return res.status(500).json({ error: 'Could not save this payment provider configuration.' });
+  }
+});
+
+router.post('/public/coupons/validate', async (req, res) => {
+  try {
+    const store = await resolveStorefrontHost(req.hostname);
+    if (!store) return res.status(404).json({ error: 'Storefront not found.' });
+    const subtotal = Number(req.body?.subtotal);
+    if (!Number.isFinite(subtotal) || subtotal < 0) {
+      return res.status(400).json({ error: 'Enter a valid order subtotal.' });
+    }
+    const settings = await readData(STORE_SETTINGS_FILE, {}, store.tiwiId);
+    const promotion = calculatePromotionDiscount(settings, req.body?.code, subtotal);
+    if (!promotion.valid) {
+      return res.status(400).json({ error: 'This promotion code is invalid or no longer active.' });
+    }
+    return res.json(promotion);
+  } catch (error) {
+    console.error('Failed to validate promotion code:', error);
+    return res.status(500).json({ error: 'Could not validate this promotion code.' });
+  }
+});
+
+router.post('/public/shipping/quote', async (req, res) => {
+  try {
+    const store = await resolveStorefrontHost(req.hostname);
+    if (!store) return res.status(404).json({ error: 'Storefront not found.' });
+    const subtotal = Number(req.body?.subtotal);
+    if (!Number.isFinite(subtotal) || subtotal < 0) {
+      return res.status(400).json({ error: 'Enter a valid order subtotal.' });
+    }
+    const settings = await readData(STORE_SETTINGS_FILE, {}, store.tiwiId);
+    const quote = quoteShipping(settings, req.body?.country, subtotal);
+    if (!quote.available) return res.status(422).json({ error: 'This store does not ship to the selected country.' });
+    return res.json({ ...quote, currency: settings.currency || 'USD' });
+  } catch (error) {
+    if (error instanceof TypeError) return res.status(400).json({ error: error.message });
+    console.error('Failed to calculate storefront shipping:', error);
+    return res.status(500).json({ error: 'Could not calculate shipping for this order.' });
+  }
+});
+
 // ==========================================
 // MULTI-STORE DIRECTORY ("YOUR STORE")
 // ==========================================
+router.post('/stores/active', async (req, res) => {
+  const userId = getReqUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+  const selectedTiwiId = String(req.body?.tiwiId || '').trim();
+  const cookieOptions = {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: req.secure || process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 30 * 24 * 60 * 60 * 1000
+  };
+  if (!selectedTiwiId) {
+    res.clearCookie('tiwlo_active_store', {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: cookieOptions.secure,
+      path: '/'
+    });
+    return res.json({ success: true, store: null });
+  }
+
+  const store = await resolveActiveStore(req, selectedTiwiId);
+  if (!store) return res.status(403).json({ error: 'You do not have access to that store.' });
+  res.cookie('tiwlo_active_store', store.tiwiId, cookieOptions);
+  return res.json({ success: true, store });
+});
+
 router.get('/stores', async (req, res) => {
   try {
     const userId = getReqUserId(req);
@@ -129,7 +609,7 @@ router.post('/stores', async (req, res) => {
     res.json(store);
   } catch (err) {
     console.error('Error creating store:', err);
-    res.status(500).json({ error: err.message || 'Failed to create store' });
+    res.status(err.statusCode || 500).json({ error: err.message || 'Failed to create store' });
   }
 });
 
@@ -149,7 +629,7 @@ router.get('/products', async (req, res) => {
   }
 
   if (status && status !== 'All Status') {
-    products = products.filter(p => (p.status || '').toLowerCase() === status.toLowerCase());
+    products = products.filter(p => getStockStatus(p).toLowerCase() === status.toLowerCase());
   }
 
   if (search) {
@@ -225,26 +705,33 @@ router.post('/products', contentSafetyMiddleware('public_product'), async (req, 
     return res.status(400).json({ error: 'A product with this SKU already exists' });
   }
 
-  const stockVal = parseInt(stock) || 0;
-  const minStockVal = parseInt(minStock) || 20;
-  const autoStatus = status || (stockVal === 0 ? 'Out of Stock' : (stockVal < minStockVal ? 'Low Stock' : 'In Stock'));
+  const { valid: stockIsValid, stock: stockVal } = validateStock(stock, 0);
+  if (!stockIsValid) {
+    return res.status(400).json({ error: 'Stock must be a valid non-negative whole number.' });
+  }
+  const minStockVal = minStock === undefined ? 20 : getMinStock({ minStock });
+  const autoStatus = getStockStatus({ stock: stockVal, minStock: minStockVal });
+  const { valid: priceIsValid, price: parsedPrice } = validateSellingPrice(price);
+  if (!priceIsValid) {
+    return res.status(400).json({ error: 'Selling price must be a valid non-negative amount' });
+  }
 
   const newProduct = {
     id: `prod-${Date.now()}`,
     name,
     sku,
     barcode: barcode || `BC-${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-    category: category || 'Electronics',
+    category: category || '',
     subCategory: subCategory || '',
     stock: stockVal,
     minStock: minStockVal,
-    price: parseFloat(price) || 0,
+    price: parsedPrice,
     costPrice: parseFloat(costPrice) || 0,
     status: autoStatus,
     location: location || 'Main Warehouse',
     supplierId: supplierId || '',
     supplierName: supplierName || '',
-    image: image || (Array.isArray(images) && images[0]) || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&q=80',
+    image: image || (Array.isArray(images) && images[0]) || '',
     images: Array.isArray(images) && images.length ? images : (image ? [image] : []),
     description: description || '',
     brand: brand || '',
@@ -272,6 +759,7 @@ router.put('/products/:id', contentSafetyMiddleware('public_product'), async (re
   }
 
   const existing = products[index];
+  const previousStock = Number(existing.stock) || 0;
   const {
     name,
     sku,
@@ -314,9 +802,17 @@ router.put('/products/:id', contentSafetyMiddleware('public_product'), async (re
     }
   }
 
-  const stockVal = stock !== undefined ? parseInt(stock) : existing.stock;
-  const minStockVal = minStock !== undefined ? parseInt(minStock) : (existing.minStock || 20);
-  const autoStatus = status || (stockVal === 0 ? 'Out of Stock' : (stockVal < minStockVal ? 'Low Stock' : 'In Stock'));
+  const { valid: stockIsValid, stock: stockVal } = validateStock(stock, existing.stock);
+  if (!stockIsValid) {
+    return res.status(400).json({ error: 'Stock must be a valid non-negative whole number.' });
+  }
+  const minStockVal = minStock !== undefined ? getMinStock({ minStock }) : getMinStock(existing);
+  const autoStatus = getStockStatus({ stock: stockVal, minStock: minStockVal });
+  const { valid: priceIsValid, price: validatedPrice } = validateSellingPrice(price);
+  if (price !== undefined && !priceIsValid) {
+    return res.status(400).json({ error: 'Selling price must be a valid non-negative amount' });
+  }
+  const parsedPrice = price !== undefined ? validatedPrice : existing.price;
 
   const updatedProduct = {
     ...existing,
@@ -327,7 +823,7 @@ router.put('/products/:id', contentSafetyMiddleware('public_product'), async (re
     subCategory: subCategory !== undefined ? subCategory : existing.subCategory,
     stock: stockVal,
     minStock: minStockVal,
-    price: price !== undefined ? parseFloat(price) : existing.price,
+    price: parsedPrice,
     costPrice: costPrice !== undefined ? parseFloat(costPrice) : existing.costPrice,
     status: autoStatus,
     location: location !== undefined ? location : existing.location,
@@ -343,6 +839,12 @@ router.put('/products/:id', contentSafetyMiddleware('public_product'), async (re
 
   products[index] = updatedProduct;
   (await writeData(PRODUCTS_FILE, products));
+
+  if (stock !== undefined && Number(stockVal) !== previousStock) {
+    const adjustments = await readData('inventory_adjustments', []);
+    adjustments.unshift(createStockAdjustment(updatedProduct, previousStock, Number(stockVal)));
+    await writeData('inventory_adjustments', adjustments.slice(0, 100));
+  }
 
   (await logActivity('product', 'Product updated', `${updatedProduct.name} (${updatedProduct.sku})`));
   res.json(updatedProduct);
@@ -370,14 +872,7 @@ router.delete('/products/:id', async (req, res) => {
 router.get('/categories', async (req, res) => {
   const categories = (await readData(CATEGORIES_FILE, []));
   const products = (await readData(PRODUCTS_FILE, []));
-
-  const enriched = categories.map(cat => {
-    const prods = products.filter(p => (p.category || '').toLowerCase() === cat.name.toLowerCase());
-    return {
-      ...cat,
-      itemCount: prods.length
-    };
-  });
+  const enriched = categories.map(cat => ({ ...cat, ...getCategoryMetrics(cat, products) }));
 
   res.json(enriched);
 });
@@ -390,7 +885,7 @@ router.post('/categories', async (req, res) => {
     return res.status(400).json({ error: 'Category name is required' });
   }
 
-  const existing = categories.find(c => c.name.toLowerCase() === name.trim().toLowerCase());
+  const existing = categories.find(c => (c.name || '').toLowerCase() === name.trim().toLowerCase());
   if (existing) {
     return res.status(400).json({ error: 'Category with this name already exists' });
   }
@@ -422,11 +917,17 @@ router.put('/categories/:id', async (req, res) => {
 
   const existing = categories[index];
   const { name, description, icon, color } = req.body;
+  const normalizedName = name !== undefined ? name.trim() : existing.name;
+  if (!normalizedName) return res.status(400).json({ error: 'Category name is required' });
+  const duplicate = categories.find(category =>
+    category.id !== id && (category.name || '').toLowerCase() === normalizedName.toLowerCase()
+  );
+  if (duplicate) return res.status(400).json({ error: 'Category with this name already exists' });
 
   const updated = {
     ...existing,
-    name: name !== undefined ? name.trim() : existing.name,
-    slug: name !== undefined ? name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') : existing.slug,
+    name: normalizedName,
+    slug: name !== undefined ? normalizedName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : existing.slug,
     description: description !== undefined ? description : existing.description,
     icon: icon !== undefined ? icon : existing.icon,
     color: color !== undefined ? color : existing.color,
@@ -434,6 +935,13 @@ router.put('/categories/:id', async (req, res) => {
   };
 
   categories[index] = updated;
+  if (updated.name !== existing.name) {
+    const products = await readData(PRODUCTS_FILE, []);
+    const subcategories = await readData(SUBCATEGORIES_FILE, []);
+    const references = renameCategoryReferences(products, subcategories, existing.name, updated.name);
+    await writeData(PRODUCTS_FILE, references.products);
+    await writeData(SUBCATEGORIES_FILE, references.subcategories);
+  }
   (await writeData(CATEGORIES_FILE, categories));
 
   (await logActivity('category', 'Category updated', updated.name));
@@ -442,12 +950,17 @@ router.put('/categories/:id', async (req, res) => {
 
 router.delete('/categories/:id', async (req, res) => {
   const categories = (await readData(CATEGORIES_FILE, []));
+  const products = (await readData(PRODUCTS_FILE, []));
+  const subcategories = (await readData(SUBCATEGORIES_FILE, []));
   const { id } = req.params;
   const index = categories.findIndex(c => c.id === id);
 
   if (index === -1) return res.status(404).json({ error: 'Category not found' });
 
   const [deleted] = categories.splice(index, 1);
+  const references = deleteCategoryReferences(products, subcategories, deleted);
+  await writeData(PRODUCTS_FILE, references.products);
+  await writeData(SUBCATEGORIES_FILE, references.subcategories);
   (await writeData(CATEGORIES_FILE, categories));
 
   (await logActivity('alert', 'Category deleted', deleted.name));
@@ -467,7 +980,10 @@ router.get('/subcategories', async (req, res) => {
   }
 
   const enriched = subcategories.map(sub => {
-    const prods = products.filter(p => (p.subCategory || '').toLowerCase() === sub.name.toLowerCase());
+    const prods = products.filter(p =>
+      (p.subCategory || '').toLowerCase() === sub.name.toLowerCase() &&
+      (p.category || '').toLowerCase() === (sub.categoryName || '').toLowerCase()
+    );
     return {
       ...sub,
       productCount: prods.length
@@ -535,6 +1051,13 @@ router.put('/subcategories/:id', async (req, res) => {
   };
 
   subcategories[index] = updated;
+  if (updated.name !== existing.name) {
+    const products = await readData(PRODUCTS_FILE, []);
+    await writeData(
+      PRODUCTS_FILE,
+      renameSubcategoryReferences(products, existing.name, updated.name, existing.categoryName)
+    );
+  }
   (await writeData(SUBCATEGORIES_FILE, subcategories));
 
   (await logActivity('category', 'Subcategory updated', updated.name));
@@ -543,12 +1066,14 @@ router.put('/subcategories/:id', async (req, res) => {
 
 router.delete('/subcategories/:id', async (req, res) => {
   const subcategories = (await readData(SUBCATEGORIES_FILE, []));
+  const products = (await readData(PRODUCTS_FILE, []));
   const { id } = req.params;
   const index = subcategories.findIndex(s => s.id === id);
 
   if (index === -1) return res.status(404).json({ error: 'Subcategory not found' });
 
   const [deleted] = subcategories.splice(index, 1);
+  await writeData(PRODUCTS_FILE, deleteSubcategoryReferences(products, deleted));
   (await writeData(SUBCATEGORIES_FILE, subcategories));
 
   (await logActivity('alert', 'Subcategory deleted', deleted.name));
@@ -560,13 +1085,13 @@ router.delete('/subcategories/:id', async (req, res) => {
 // ==========================================
 router.get('/inventory/summary', async (req, res) => {
   const products = (await readData(PRODUCTS_FILE, []));
-  const totalUnits = products.reduce((sum, p) => sum + (p.stock || 0), 0);
-  const totalRetailValuation = products.reduce((sum, p) => sum + ((p.stock || 0) * (p.price || 0)), 0);
-  const totalCostValuation = products.reduce((sum, p) => sum + ((p.stock || 0) * (p.costPrice || (p.price * 0.5))), 0);
+  const totalUnits = products.reduce((sum, p) => sum + (Number(p.stock) || 0), 0);
+  const totalRetailValuation = products.reduce((sum, p) => sum + ((Number(p.stock) || 0) * (Number(p.price) || 0)), 0);
+  const totalCostValuation = products.reduce((sum, p) => sum + ((Number(p.stock) || 0) * (Number(p.costPrice) || ((Number(p.price) || 0) * 0.5))), 0);
   const potentialProfit = totalRetailValuation - totalCostValuation;
 
-  const lowStock = products.filter(p => (p.stock || 0) > 0 && (p.stock || 0) < (p.minStock || 50));
-  const outOfStock = products.filter(p => (p.stock || 0) === 0);
+  const lowStock = products.filter(isLowStock);
+  const outOfStock = products.filter(p => getStockStatus(p) === 'Out of Stock');
 
   res.json({
     totalProducts: products.length,
@@ -608,8 +1133,7 @@ router.post('/inventory/adjustments', async (req, res) => {
   }
 
   product.stock = newStock;
-  const minStock = product.minStock || 50;
-  product.status = newStock === 0 ? 'Out of Stock' : (newStock < minStock ? 'Low Stock' : 'In Stock');
+  product.status = getStockStatus({ ...product, stock: newStock });
   product.updatedAt = new Date().toISOString();
 
   (await writeData(PRODUCTS_FILE, products));
@@ -649,7 +1173,7 @@ router.post('/purchases', async (req, res) => {
   const products = (await readData(PRODUCTS_FILE, []));
   const { supplierId, supplierName, items, notes, expectedDelivery } = req.body;
 
-  if (!items || !items.length) {
+  if (!Array.isArray(items) || !items.length) {
     return res.status(400).json({ error: 'At least one item is required for purchase order' });
   }
   if (items.some(item => !Number.isInteger(Number(item.quantity)) || Number(item.quantity) <= 0 || !Number.isFinite(Number(item.unitCost)) || Number(item.unitCost) < 0)) {
@@ -709,32 +1233,43 @@ router.put('/purchases/:id', async (req, res) => {
   const existing = purchases[index];
   const { status, paymentStatus, notes } = req.body;
 
-  if (status === 'Received' && existing.status !== 'Received') {
-    existing.receivedAt = new Date().toISOString();
-    if (Array.isArray(existing.items)) {
-      existing.items.forEach(item => {
-        const prod = products.find(p => p.id === item.productId);
-        if (prod) {
-          prod.stock = (prod.stock || 0) + (item.quantity || 0);
-          const minStock = prod.minStock || 50;
-          prod.status = prod.stock === 0 ? 'Out of Stock' : (prod.stock < minStock ? 'Low Stock' : 'In Stock');
-        }
-      });
-      (await writeData(PRODUCTS_FILE, products));
-    }
-    (await logActivity('stock', 'PO Items Restocked into Inventory', `${existing.poNumber} received - stocks updated.`));
+  if (status !== undefined && !PURCHASE_STATUSES.includes(status)) {
+    return res.status(400).json({ error: 'Select a valid purchase order status.' });
   }
-
+  const currentStatus = existing.status || 'Pending';
+  const nextStatus = status || currentStatus;
+  if (!canTransitionPurchase(currentStatus, nextStatus)) {
+    return res.status(409).json({ error: `Purchase order cannot move from ${currentStatus} to ${nextStatus}.` });
+  }
   const updated = {
     ...existing,
-    status: status || existing.status,
+    status: nextStatus,
     paymentStatus: paymentStatus || existing.paymentStatus,
     notes: notes !== undefined ? notes : existing.notes,
     updatedAt: new Date().toISOString()
   };
 
+  let didRestock = false;
+  if (nextStatus === 'Received' && currentStatus !== 'Received') {
+    const receipt = receivePurchaseOrder({ ...updated, status: currentStatus }, products, updated.updatedAt);
+    Object.assign(updated, receipt.purchase);
+    didRestock = receipt.restocked;
+    if (didRestock) {
+      receipt.products.forEach(product => {
+        product.status = getStockStatus(product);
+        product.updatedAt = updated.updatedAt;
+      });
+      products.splice(0, products.length, ...receipt.products);
+    }
+  }
+
   purchases[index] = updated;
-  (await writeData(PURCHASES_FILE, purchases));
+  if (didRestock) {
+    await writeTenantData({ products, purchases });
+    await logActivity('stock', 'PO Items Restocked into Inventory', `${updated.poNumber} received - stocks updated.`);
+  } else {
+    (await writeData(PURCHASES_FILE, purchases));
+  }
 
   (await logActivity('purchase', 'Purchase order updated', `${updated.poNumber} status: ${updated.status}`));
   res.json(updated);
@@ -788,14 +1323,53 @@ router.post('/sales', async (req, res) => {
   const products = (await readData(PRODUCTS_FILE, []));
   const customers = (await readData(CUSTOMERS_FILE, []));
   const tiwiId = getActiveTiwiId(req);
+  const isPublicStorefrontOrder = !!req.storefrontStore;
 
-  const { customerId, customerName, items, paymentMethod, discount, notes, paymentToken, paymentSignature, paymentTimestamp } = req.body;
+  const {
+    customerId,
+    customerName,
+    customerPhone,
+    customerEmail,
+    items,
+    paymentMethod,
+    discount,
+    notes,
+    paymentToken,
+    paymentSignature,
+    paymentTimestamp
+  } = req.body;
 
   if (!items || !items.length) {
     return res.status(400).json({ error: 'At least one item is required to create a sale' });
   }
 
-  if (paymentToken && paymentSignature && paymentTimestamp) {
+  let storefrontAddress = null;
+  if (isPublicStorefrontOrder) {
+    try {
+      storefrontAddress = normalizeStorefrontAddress(req.body?.shippingAddress);
+    } catch (error) {
+      if (error instanceof TypeError) return res.status(400).json({ error: error.message });
+      throw error;
+    }
+  }
+
+  if (isPublicStorefrontOrder &&
+      (!String(customerName || '').trim() || !String(customerPhone || '').trim())) {
+    return res.status(400).json({ error: 'Name, phone, and delivery address are required for storefront orders.' });
+  }
+  if (isPublicStorefrontOrder) {
+    const normalizedPhone = normalizePhone(customerPhone);
+    if (String(customerName).trim().length > 120 || normalizedPhone.length < 7 || normalizedPhone.length > 15 ||
+        (customerEmail && (String(customerEmail).length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)))) {
+      return res.status(400).json({ error: 'Enter valid customer contact details and a delivery address.' });
+    }
+  }
+
+  if (isPublicStorefrontOrder && paymentMethod !== 'Cash on Delivery (COD)') {
+    return res.status(400).json({ error: 'Online checkout is not available for this store yet. Select Cash on Delivery.' });
+  }
+
+  if (!isPublicStorefrontOrder && paymentToken && paymentSignature && paymentTimestamp) {
     const isTamperFree = PaymentSecurity.verifyPaymentIntegrity(
       tiwiId,
       paymentToken,
@@ -838,8 +1412,7 @@ router.post('/sales', async (req, res) => {
     prod.stock = Number(prod.stock || 0) - qty;
     prod.sold = Number(prod.sold || 0) + qty;
     prod.revenue = parseFloat((Number(prod.revenue || 0) + itemTotal).toFixed(2));
-    const minStock = Number(prod.minStock || 20);
-    prod.status = prod.stock === 0 ? 'Out of Stock' : (prod.stock < minStock ? 'Low Stock' : 'In Stock');
+    prod.status = getStockStatus(prod);
 
     enrichedItems.push({
       productId: item.productId || item.id,
@@ -847,24 +1420,48 @@ router.post('/sales', async (req, res) => {
       sku: prod ? prod.sku : (item.sku || 'SKU-000'),
       quantity: qty,
       unitPrice,
-      total: itemTotal
+      total: itemTotal,
+      image: prod.image || prod.images?.[0] || ''
     });
   }
 
-  (await writeData(PRODUCTS_FILE, products, tiwiId));
-
-  const storeSettings = (await readData(STORE_SETTINGS_FILE, {}, tiwiId));
-  const configuredTaxRate = Number(storeSettings?.taxRate);
-  const taxRate = Number.isFinite(configuredTaxRate) && configuredTaxRate >= 0 ? configuredTaxRate / 100 : 0.05;
   subtotal = parseFloat(Number(subtotal).toFixed(2));
-  const requestedDiscount = Number(discount);
+  const storeSettings = (await readData(STORE_SETTINGS_FILE, {}, tiwiId));
+  const shippingQuote = isPublicStorefrontOrder
+    ? quoteShipping(storeSettings, storefrontAddress.country, subtotal)
+    : null;
+  if (isPublicStorefrontOrder && !shippingQuote.available) {
+    return res.status(422).json({ error: 'This store does not ship to the selected country.' });
+  }
+  if (isPublicStorefrontOrder && shippingQuote.codEnabled === false) {
+    return res.status(400).json({ error: 'Cash on Delivery is unavailable for this delivery zone.' });
+  }
+  const configuredTaxRate = storeSettings?.taxRate != null && String(storeSettings.taxRate).trim() !== ''
+    ? Number(storeSettings.taxRate)
+    : NaN;
+  const taxRate = Number.isFinite(configuredTaxRate) && configuredTaxRate >= 0 ? configuredTaxRate / 100 : 0;
+  const promotion = isPublicStorefrontOrder
+    ? calculatePromotionDiscount(storeSettings, req.body?.promoCode, subtotal)
+    : null;
+  if (isPublicStorefrontOrder && req.body?.promoCode && !promotion.valid) {
+    return res.status(400).json({ error: 'This promotion code is invalid or no longer active.' });
+  }
+  const requestedDiscount = isPublicStorefrontOrder
+    ? promotion?.discountAmount || 0
+    : Number(discount);
   const discountAmount = Number.isFinite(requestedDiscount) ? Math.min(subtotal, Math.max(0, requestedDiscount)) : 0;
   const tax = parseFloat(Math.max(0, (subtotal - discountAmount) * taxRate).toFixed(2));
-  const totalAmount = parseFloat((subtotal - discountAmount + tax).toFixed(2));
+  let shipping = isPublicStorefrontOrder && Number.isFinite(shippingQuote.amount)
+    ? shippingQuote.amount
+    : 0;
+  shipping = parseFloat(shipping.toFixed(2));
+  const totalAmount = parseFloat((subtotal - discountAmount + tax + shipping).toFixed(2));
+  const storeCurrencyValue = req.activeStore?.currency || storeSettings?.currency || req.activeUser?.currency || 'USD';
+  const orderCurrency = String(storeCurrencyValue).match(/[A-Z]{3}/i)?.[0]?.toUpperCase() || 'USD';
 
   const invoiceNumber = `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-  if (customerId) {
+  if (customerId && !isPublicStorefrontOrder) {
     const custIndex = customers.findIndex(c => c.id === customerId);
     if (custIndex !== -1) {
       customers[custIndex].totalOrders = (customers[custIndex].totalOrders || 0) + 1;
@@ -876,26 +1473,132 @@ router.post('/sales', async (req, res) => {
   const newSale = {
     id: `inv-${Date.now()}`,
     invoiceNumber,
-    customerId: customerId || '',
+    customerId: isPublicStorefrontOrder ? '' : customerId || '',
     customerName: customerName || 'Walk-in Customer',
+    customerPhone: isPublicStorefrontOrder ? customerPhone || '' : undefined,
+    customerEmail: isPublicStorefrontOrder ? customerEmail || '' : undefined,
+    deliveryAddress: isPublicStorefrontOrder ? storefrontAddress.deliveryAddress : undefined,
+    shippingAddress: isPublicStorefrontOrder ? {
+      street: storefrontAddress.street,
+      city: storefrontAddress.city,
+      region: storefrontAddress.region,
+      postalCode: storefrontAddress.postalCode,
+      country: storefrontAddress.country
+    } : undefined,
     date: new Date().toISOString(),
     items: enrichedItems,
     subtotal,
     tax,
     discount: discountAmount,
+    promoCode: isPublicStorefrontOrder ? promotion?.code || '' : undefined,
+    shipping,
+    shippingZoneId: isPublicStorefrontOrder ? shippingQuote.zoneId : undefined,
+    shippingCountry: isPublicStorefrontOrder ? storefrontAddress.country : undefined,
+    shippingEstimateDays: isPublicStorefrontOrder && shippingQuote.zoneId
+      ? { min: shippingQuote.minDeliveryDays, max: shippingQuote.maxDeliveryDays }
+      : undefined,
+    currency: orderCurrency,
     totalAmount,
     paymentMethod: paymentMethod || 'Cash',
-    paymentToken: paymentToken || `pay_verified_${Date.now()}`,
-    status: 'Completed',
+    paymentToken: isPublicStorefrontOrder ? null : paymentToken || `pay_verified_${Date.now()}`,
+    channel: isPublicStorefrontOrder ? 'storefront' : 'pos',
+    paymentStatus: isPublicStorefrontOrder ? 'Pending' : 'Paid',
+    status: isPublicStorefrontOrder ? 'Pending' : 'Completed',
+    statusHistory: [{
+      status: isPublicStorefrontOrder ? 'Pending' : 'Completed',
+      at: new Date().toISOString()
+    }],
     notes: notes || 'Point of Sale Transaction'
   };
 
   sales.unshift(newSale);
-  (await writeData(SALES_FILE, sales, tiwiId));
+  await writeTenantData({ products, sales }, tiwiId);
 
-  (await logActivity('sale', 'New sale completed', `${invoiceNumber} • $${totalAmount.toFixed(2)} (${newSale.customerName})`, tiwiId));
+  (await logActivity(
+    'sale',
+    isPublicStorefrontOrder ? 'New storefront order received' : 'New sale completed',
+    `${invoiceNumber} • ${newSale.currency} ${totalAmount.toFixed(2)} (${newSale.customerName})`,
+    tiwiId
+  ));
 
   res.status(201).json(newSale);
+});
+
+router.patch('/sales/:id', async (req, res) => {
+  const sales = await readData(SALES_FILE, []);
+  const orderIndex = sales.findIndex(sale => sale.id === req.params.id);
+  if (orderIndex === -1) return res.status(404).json({ error: 'Order not found.' });
+  const order = sales[orderIndex];
+  if (order.channel !== 'storefront') {
+    return res.status(400).json({ error: 'Only storefront orders can be updated here.' });
+  }
+
+  const validationError = validateOrderUpdate(req.body);
+  if (validationError) return res.status(400).json({ error: validationError });
+  const hasUpdates = ['status', 'paymentStatus', 'courierService', 'trackingNumber', 'trackingUrl']
+    .some(key => Object.hasOwn(req.body || {}, key));
+  if (!hasUpdates) return res.status(400).json({ error: 'Provide an order status, payment status, courier, or tracking number to update.' });
+
+  const currentStatus = order.status || 'Pending';
+  const nextStatus = req.body.status || currentStatus;
+  if (!canTransitionOrder(currentStatus, nextStatus)) {
+    return res.status(409).json({ error: `Order cannot move from ${currentStatus} to ${nextStatus}.` });
+  }
+  const nextCourier = req.body.courierService === undefined
+    ? order.courierService || ''
+    : req.body.courierService.trim();
+  const nextTrackingNumber = req.body.trackingNumber === undefined
+    ? order.trackingNumber || ''
+    : req.body.trackingNumber.trim();
+  const nextTrackingUrl = req.body.trackingUrl === undefined
+    ? order.trackingUrl || ''
+    : req.body.trackingUrl.trim();
+  if (['Shipped', 'Out for Delivery'].includes(nextStatus) && (!nextCourier || !nextTrackingNumber)) {
+    return res.status(400).json({ error: 'Select a courier and enter its tracking number before marking the order shipped.' });
+  }
+
+  const updatedAt = new Date().toISOString();
+  const updatedOrder = {
+    ...order,
+    status: nextStatus,
+    paymentStatus: req.body.paymentStatus || order.paymentStatus || 'Pending',
+    courierService: nextCourier,
+    trackingNumber: nextTrackingNumber,
+    trackingUrl: nextTrackingUrl,
+    updatedAt,
+    statusHistory: nextStatus === currentStatus
+      ? (Array.isArray(order.statusHistory) ? order.statusHistory : [{ status: currentStatus, at: order.date }])
+      : [...(Array.isArray(order.statusHistory) ? order.statusHistory : [{ status: currentStatus, at: order.date }]), {
+        status: nextStatus,
+        at: updatedAt
+      }]
+  };
+  sales[orderIndex] = updatedOrder;
+
+  const updates = { sales };
+  if (nextStatus === 'Cancelled' && currentStatus !== 'Cancelled' && !order.stockRestocked) {
+    const products = await readData(PRODUCTS_FILE, []);
+    for (const item of order.items || []) {
+      const product = products.find(entry => entry.id === item.productId);
+      if (!product) continue;
+      product.stock = Number(product.stock || 0) + Number(item.quantity || 0);
+      product.sold = Math.max(0, Number(product.sold || 0) - Number(item.quantity || 0));
+      product.revenue = Math.max(0, Number((Number(product.revenue || 0) - Number(item.total || 0)).toFixed(2)));
+      product.status = getStockStatus(product);
+      product.updatedAt = updatedAt;
+    }
+    updates.products = products;
+    updatedOrder.stockRestocked = true;
+  }
+
+  await writeTenantData(updates);
+  await logActivity(
+    'sale',
+    `Order ${nextStatus.toLowerCase()}`,
+    `${order.invoiceNumber}${nextTrackingNumber ? ` • Tracking ${nextTrackingNumber}` : ''}`,
+    getActiveTiwiId(req)
+  );
+  return res.json(updatedOrder);
 });
 
 // ==========================================
@@ -1098,6 +1801,7 @@ router.get('/store/settings', async (req, res) => {
   const account = req.activeUser || {};
   const defaultSettings = {
     storeName: account.storeName || account.name || 'Your Store',
+    subdomain: req.activeStore?.subdomain || account.subdomain || '',
     storeTagline: 'Shop Global • Sell Global',
     storeLogo: null,
     activeTheme: 'TiwiMart',
@@ -1106,8 +1810,12 @@ router.get('/store/settings', async (req, res) => {
     themeMode: 'light',
     contactEmail: account.email || '',
     contactPhone: account.phone || '',
-    currency: 'USD',
-    currencySymbol: '$',
+    storeAddress: '',
+    storeCity: '',
+    storeCountry: '',
+    storePostalCode: '',
+    ...getStoreCurrencySettings(req.activeStore?.currency || account.currency || 'USD ($)'),
+    taxRate: 0,
     bannerSlidingSpeed: 5,
     availableThemes: [
       {
@@ -1125,19 +1833,87 @@ router.get('/store/settings', async (req, res) => {
     ]
   };
   const settings = (await readData(STORE_SETTINGS_FILE, defaultSettings));
-  res.json({ ...defaultSettings, ...settings });
+  const { paymentProviderCredentials, ...publicSettings } = settings;
+  res.json({
+    ...defaultSettings,
+    ...publicSettings,
+    ...getStoreCurrencySettings(
+      req.activeStore?.currency || settings.currency || defaultSettings.currency,
+      settings.currencySymbol
+    )
+  });
 });
 
 router.put('/store/settings', async (req, res) => {
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    return res.status(400).json({ error: 'Store settings must be provided as an object.' });
+  }
+  if (Object.hasOwn(req.body || {}, 'paymentProviderCredentials') ||
+      Object.hasOwn(req.body || {}, 'paymentProviders') ||
+      Object.hasOwn(req.body || {}, 'currencyExchange')) {
+    return res.status(400).json({ error: 'Use the dedicated payment or currency settings endpoint to update these values.' });
+  }
+  const numericSettings = ['taxRate', 'shippingFlatRate', 'freeShippingThreshold', 'promoDiscountPercent'];
+  for (const key of numericSettings) {
+    if (req.body?.[key] === undefined || req.body[key] === '') continue;
+    const value = Number(req.body[key]);
+    if (!Number.isFinite(value) || value < 0 || (['taxRate', 'promoDiscountPercent'].includes(key) && value > 100)) {
+      return res.status(400).json({ error: `${key} must be a valid non-negative number${['taxRate', 'promoDiscountPercent'].includes(key) ? ' no greater than 100' : ''}.` });
+    }
+  }
+  const stringLimits = {
+    storeName: 120,
+    storeAddress: 240,
+    storeCity: 100,
+    storeCountry: 100,
+    storePostalCode: 24,
+    contactEmail: 254,
+    contactPhone: 40,
+    promoCode: 32
+  };
+  for (const [key, maxLength] of Object.entries(stringLimits)) {
+    if (req.body?.[key] !== undefined &&
+        (typeof req.body[key] !== 'string' || req.body[key].length > maxLength)) {
+      return res.status(400).json({ error: `${key} must be text no longer than ${maxLength} characters.` });
+    }
+  }
+  if (req.body?.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(req.body.contactEmail)) {
+    return res.status(400).json({ error: 'Enter a valid store contact email.' });
+  }
+  if (req.body?.promoActive !== undefined && typeof req.body.promoActive !== 'boolean') {
+    return res.status(400).json({ error: 'promoActive must be true or false.' });
+  }
+  if (req.body?.promoCode !== undefined && req.body.promoCode && !/^[A-Za-z0-9_-]+$/.test(req.body.promoCode.trim())) {
+    return res.status(400).json({ error: 'Promotion code may contain only letters, numbers, hyphens, and underscores.' });
+  }
+  if (req.body?.promoActive === true && (!String(req.body.promoCode || '').trim() ||
+      !Number.isFinite(Number(req.body.promoDiscountPercent)) || Number(req.body.promoDiscountPercent) <= 0)) {
+    return res.status(400).json({ error: 'Set a promotion code and a discount greater than 0% before enabling it.' });
+  }
+
   const current = (await readData(STORE_SETTINGS_FILE, {}));
   const updated = {
     ...current,
     ...req.body,
+    paymentProviderCredentials: current.paymentProviderCredentials,
+    paymentProviders: current.paymentProviders,
+    currencyExchange: current.currencyExchange,
+    storeName: req.body?.storeName !== undefined ? req.body.storeName.trim() : current.storeName,
+    promoCode: req.body?.promoCode !== undefined ? req.body.promoCode.trim().toUpperCase() : current.promoCode,
     updatedAt: new Date().toISOString()
   };
+  if (Object.hasOwn(req.body || {}, 'shippingZones')) {
+    try {
+      updated.shippingZones = normalizeShippingZones(req.body.shippingZones);
+    } catch (error) {
+      if (error instanceof TypeError) return res.status(400).json({ error: error.message });
+      throw error;
+    }
+  }
   (await writeData(STORE_SETTINGS_FILE, updated));
   (await logActivity('settings', 'Store settings updated', `Store: ${updated.storeName || 'TiwloMart'} • Theme: ${updated.activeTheme || 'TiwiMart'}`));
-  res.json(updated);
+  const { paymentProviderCredentials, ...safeSettings } = updated;
+  res.json(safeSettings);
 });
 
 router.post('/store/upload-logo', upload.single('logo'), async (req, res) => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   ShoppingBag,
   Trash2,
@@ -8,10 +8,9 @@ import {
   ArrowLeft,
   ShieldCheck,
   Truck,
-  Tag,
-  Check
 } from 'lucide-react';
 import { useStoreSettings } from '../../../context/StoreSettingsContext';
+import { formatStoreCurrency, getShippingAmount, getStoreTaxRate } from '../storefrontUtils';
 
 export default function CartPage({
   cartItems = [],
@@ -19,31 +18,15 @@ export default function CartPage({
   onRemoveItem,
   onClearCart,
   onNavigate,
-  showToast
 }) {
   const { storeSettings } = useStoreSettings();
   const primaryColor = storeSettings?.themeColor || '#2563eb';
-  const [couponCode, setCouponCode] = useState('');
-  const [discountPercent, setDiscountPercent] = useState(0);
-  const [couponApplied, setCouponApplied] = useState(false);
 
   const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const discountAmount = subtotal * (discountPercent / 100);
-  const shipping = subtotal > 150 || subtotal === 0 ? 0 : 9.99;
-  const tax = (subtotal - discountAmount) * 0.08;
-  const total = subtotal - discountAmount + shipping + tax;
-
-  const handleApplyCoupon = (e) => {
-    e.preventDefault();
-    if (!couponCode.trim()) return;
-    if (couponCode.toUpperCase() === 'TIWLO10' || couponCode.toUpperCase() === 'SAVE10') {
-      setDiscountPercent(10);
-      setCouponApplied(true);
-      showToast?.('Coupon applied! 10% discount added to order.', 'success');
-    } else {
-      showToast?.('Invalid coupon code. Try: TIWLO10', 'error');
-    }
-  };
+  const shipping = getShippingAmount(subtotal, storeSettings || {});
+  const taxRate = getStoreTaxRate(storeSettings || {});
+  const tax = subtotal * taxRate;
+  const total = subtotal + tax + (shipping || 0);
 
   return (
     <div className="max-w-[1440px] mx-auto px-4 lg:px-8 py-5 space-y-6">
@@ -91,7 +74,7 @@ export default function CartPage({
           </div>
           <h2 className="text-xl font-bold text-slate-900">Your shopping cart is currently empty</h2>
           <p className="text-xs text-slate-500 leading-relaxed max-w-md mx-auto">
-            Discover thousands of authentic items from verified global sellers with flash deals and fast shipping.
+            Review the items and store-provided charges before continuing.
           </p>
           <div className="pt-3">
             <button
@@ -136,7 +119,7 @@ export default function CartPage({
                         SKU: {item.sku || 'N/A'} • Ships in 24h
                       </p>
                       <div className="text-xs font-black text-[#2563eb] mt-1 sm:hidden">
-                        ${Number(item.price).toFixed(2)}
+                        {formatStoreCurrency(item.price, storeSettings)}
                       </div>
                     </div>
                   </div>
@@ -145,10 +128,10 @@ export default function CartPage({
                   <div className="flex items-center justify-between sm:justify-end space-x-6 w-full sm:w-auto">
                     <div className="text-right hidden sm:block">
                       <p className="text-sm font-black text-slate-900">
-                        ${(item.price * item.quantity).toFixed(2)}
+                        {formatStoreCurrency(item.price * item.quantity, storeSettings)}
                       </p>
                       <p className="text-[10px] text-slate-400">
-                        ${Number(item.price).toFixed(2)} each
+                        {formatStoreCurrency(item.price, storeSettings)} each
                       </p>
                     </div>
 
@@ -194,7 +177,7 @@ export default function CartPage({
 
               <div className="flex items-center space-x-3 text-xs text-slate-500">
                 <Truck className="w-4 h-4 text-emerald-600" />
-                <span>{subtotal > 150 ? 'Eligible for Free Global Shipping!' : `Add $${(150 - subtotal).toFixed(2)} more for Free Shipping`}</span>
+                <span>{shipping === null ? 'Shipping charges have not been configured.' : shipping === 0 ? 'Free shipping applies to this order.' : `Shipping: ${formatStoreCurrency(shipping, storeSettings)}`}</span>
               </div>
             </div>
           </div>
@@ -209,54 +192,27 @@ export default function CartPage({
               <div className="space-y-2.5 text-xs text-slate-600">
                 <div className="flex justify-between">
                   <span>Subtotal</span>
-                  <span className="font-bold text-slate-900">${subtotal.toFixed(2)}</span>
+                  <span className="font-bold text-slate-900">{formatStoreCurrency(subtotal, storeSettings)}</span>
                 </div>
 
-                {discountPercent > 0 && (
-                  <div className="flex justify-between text-emerald-600 font-bold">
-                    <span>Discount ({discountPercent}%)</span>
-                    <span>-${discountAmount.toFixed(2)}</span>
-                  </div>
-                )}
-
                 <div className="flex justify-between">
-                  <span>Estimated Shipping</span>
+                  <span>Shipping</span>
                   <span className="font-bold text-slate-900">
-                    {shipping === 0 ? <span className="text-emerald-600 font-black">FREE</span> : `$${shipping.toFixed(2)}`}
+                    {shipping === null ? 'Not configured' : shipping === 0 ? 'Free' : formatStoreCurrency(shipping, storeSettings)}
                   </span>
                 </div>
 
                 <div className="flex justify-between">
-                  <span>Estimated Tax (8%)</span>
-                  <span className="font-bold text-slate-900">${tax.toFixed(2)}</span>
+                  <span>Estimated Tax ({(taxRate * 100).toLocaleString()}%)</span>
+                  <span className="font-bold text-slate-900">{formatStoreCurrency(tax, storeSettings)}</span>
                 </div>
 
                 <div className="pt-3 border-t border-slate-100 flex justify-between text-base font-black text-slate-900">
                   <span>Total Amount</span>
-                  <span className="text-xl font-black" style={{ color: primaryColor }}>${total.toFixed(2)}</span>
+                  <span className="text-xl font-black" style={{ color: primaryColor }}>{formatStoreCurrency(total, storeSettings)}</span>
                 </div>
+                {shipping === null && <p className="text-[10px] text-slate-500">Shipping is not included in this estimate; confirm the charge with the store.</p>}
               </div>
-
-              {/* Coupon Form */}
-              <form onSubmit={handleApplyCoupon} className="pt-2">
-                <div className="flex rounded-xl overflow-hidden border border-slate-200 shadow-2xs">
-                  <input
-                    type="text"
-                    value={couponCode}
-                    onChange={(e) => setCouponCode(e.target.value)}
-                    placeholder="Coupon code (e.g. TIWLO10)"
-                    disabled={couponApplied}
-                    className="flex-1 px-3 py-2 text-xs text-slate-800 placeholder-slate-400 outline-none bg-white"
-                  />
-                  <button
-                    type="submit"
-                    disabled={couponApplied}
-                    className="px-3.5 py-2 bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition disabled:bg-emerald-600"
-                  >
-                    {couponApplied ? 'Applied!' : 'Apply'}
-                  </button>
-                </div>
-              </form>
 
               {/* Big Checkout Button */}
               <button
@@ -271,7 +227,7 @@ export default function CartPage({
 
               <div className="pt-2 text-center text-[10px] text-slate-400 flex items-center justify-center space-x-1">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                <span>256-Bit Bank Grade SSL Encrypted Checkout</span>
+                <span>Continue to confirm your order details.</span>
               </div>
             </div>
           </div>

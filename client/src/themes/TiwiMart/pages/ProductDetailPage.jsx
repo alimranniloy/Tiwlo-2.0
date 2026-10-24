@@ -6,32 +6,30 @@ import {
   RotateCcw,
   CheckCircle2,
   Heart,
-  Share2,
   ShoppingBag,
   Zap,
   ChevronRight,
   ArrowLeft,
-  Store,
-  MapPin,
-  Clock,
   Package
 } from 'lucide-react';
 import { useStoreSettings } from '../../../context/StoreSettingsContext';
+import { formatStoreCurrency, getProductDiscount, productDescriptionText } from '../storefrontUtils';
 
 export default function ProductDetailPage({
   product,
   products = [],
   onAddToCart,
+  isWishlisted = false,
+  onToggleWishlist,
+  onSelectCategory,
   onBuyNow,
-  onNavigate,
-  showToast
+  onNavigate
 }) {
   const { storeSettings } = useStoreSettings();
   const primaryColor = storeSettings?.themeColor || '#2563eb';
   const [selectedImgIdx, setSelectedImgIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState('description');
-  const [isWishlisted, setIsWishlisted] = useState(false);
 
   if (!product) {
     return (
@@ -53,14 +51,8 @@ export default function ProductDetailPage({
     ? product.images
     : [product.image || '/default-product.svg'];
 
-  const discountVal = product.discount || (
-    product.originalPrice
-      ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
-      : null
-  );
-
-  const origPrice = product.originalPrice || (product.price * 1.35).toFixed(2);
-  const savings = (origPrice - product.price).toFixed(2);
+  const discount = getProductDiscount(product);
+  const description = productDescriptionText(product.description);
 
   // Related products from same category
   const relatedProducts = products
@@ -69,12 +61,10 @@ export default function ProductDetailPage({
 
   const handleAdd = () => {
     onAddToCart?.(product, quantity);
-    showToast?.(`Added ${quantity}x "${product.name}" to your cart!`, 'success');
   };
 
   const handleBuy = () => {
-    onAddToCart?.(product, quantity);
-    onBuyNow?.();
+    if (onAddToCart?.(product, quantity)) onBuyNow?.();
   };
 
   return (
@@ -90,7 +80,7 @@ export default function ProductDetailPage({
         </button>
         <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
         <button
-          onClick={() => onNavigate?.('category', { category: product.category })}
+          onClick={() => onSelectCategory?.(product.category)}
           className="hover:text-[#2563eb]"
         >
           {product.category || 'General'}
@@ -112,17 +102,17 @@ export default function ProductDetailPage({
           {/* LEFT COLUMN: Image Gallery */}
           <div className="lg:col-span-6 space-y-4">
             <div className="w-full h-80 md:h-[440px] rounded-2xl border border-slate-100 bg-[#FAFAFA] flex items-center justify-center p-6 relative overflow-hidden group">
-              {discountVal && (
+              {discount && (
                 <span className="absolute top-4 left-4 z-10 bg-[#ef4444] text-white text-xs font-black px-2.5 py-1 rounded-lg shadow-xs">
-                  -{discountVal}% OFF
+                  -{discount.percent}% OFF
                 </span>
               )}
 
               <button
                 onClick={() => {
-                  setIsWishlisted(!isWishlisted);
-                  showToast?.(isWishlisted ? 'Removed from wishlist' : 'Saved to wishlist!');
+                  onToggleWishlist?.(product.id);
                 }}
+                aria-label={isWishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
                 className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-white border border-slate-200 shadow-xs flex items-center justify-center text-slate-500 hover:text-rose-500 transition"
               >
                 <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
@@ -156,18 +146,18 @@ export default function ProductDetailPage({
             <div className="grid grid-cols-3 gap-3 pt-2 text-center text-[11px] text-slate-600">
               <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex flex-col items-center">
                 <Truck className="w-4 h-4 text-[#2563eb] mb-1" />
-                <span className="font-bold text-slate-800">Free Delivery</span>
-                <span className="text-[10px] text-slate-400">On orders over $150</span>
+                <span className="font-bold text-slate-800">Delivery</span>
+                <span className="text-[10px] text-slate-400">Confirm with the store</span>
               </div>
               <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex flex-col items-center">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 mb-1" />
-                <span className="font-bold text-slate-800">100% Authentic</span>
-                <span className="text-[10px] text-slate-400">Direct verified source</span>
+                <span className="font-bold text-slate-800">Product Information</span>
+                <span className="text-[10px] text-slate-400">See the description below</span>
               </div>
               <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex flex-col items-center">
                 <RotateCcw className="w-4 h-4 text-amber-500 mb-1" />
-                <span className="font-bold text-slate-800">30-Day Returns</span>
-                <span className="text-[10px] text-slate-400">Hassle-free guarantee</span>
+                <span className="font-bold text-slate-800">Returns</span>
+                <span className="text-[10px] text-slate-400">Confirm the return policy</span>
               </div>
             </div>
           </div>
@@ -179,10 +169,12 @@ export default function ProductDetailPage({
               <span className="px-3 py-1 rounded-full bg-blue-50 text-[#2563eb] font-bold text-xs">
                 {product.category || 'General'}
               </span>
+              {product.stock != null && (
               <div className="flex items-center space-x-1.5 text-xs text-emerald-600 font-bold">
                 <CheckCircle2 className="w-4 h-4" />
-                <span>{product.status || 'In Stock'} ({product.stock || 45} units available)</span>
+                <span>{product.status || (Number(product.stock) > 0 ? 'In Stock' : 'Out of Stock')} ({Number(product.stock)} units available)</span>
               </div>
+              )}
             </div>
 
             {/* Title */}
@@ -191,56 +183,36 @@ export default function ProductDetailPage({
             </h1>
 
             {/* Rating & Reviews */}
+            {(product.rating != null || product.reviews != null || product.sold != null) && (
             <div className="flex items-center space-x-3 text-xs text-slate-500">
+              {product.rating != null && (
               <div className="flex items-center space-x-1 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-md text-amber-700 font-bold">
                 <Star className="w-3.5 h-3.5 fill-amber-400 stroke-amber-400" />
-                <span>{product.rating || 4.8}</span>
+                <span>{product.rating}</span>
               </div>
-              <span>({product.reviews || '5.2K'} customer reviews)</span>
+              )}
+              {product.reviews != null && <span>({product.reviews} customer reviews)</span>}
               <span>•</span>
-              <span className="text-slate-600 font-medium">{product.sold || 320} items sold</span>
+              {product.sold != null && <span className="text-slate-600 font-medium">{product.sold} items sold</span>}
             </div>
+            )}
 
             {/* Price Box */}
             <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-100 space-y-1">
               <div className="flex items-baseline space-x-3">
                 <span className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
-                  ${Number(product.price).toFixed(2)}
+                  {formatStoreCurrency(product.price, storeSettings)}
                 </span>
-                <span className="text-base text-slate-400 line-through font-normal">
-                  ${Number(origPrice).toFixed(2)}
-                </span>
-                {discountVal && (
+                {discount && <span className="text-base text-slate-400 line-through font-normal">
+                  {formatStoreCurrency(discount.originalPrice, storeSettings)}
+                </span>}
+                {discount && (
                   <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                    Save ${savings} ({discountVal}%)
+                    Save {formatStoreCurrency(discount.savings, storeSettings)} ({discount.percent}%)
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-slate-400">All local taxes and export customs duties included.</p>
-            </div>
-
-            {/* Multi-Vendor Seller Info Card matching screenshot */}
-            <div className="p-3.5 rounded-2xl border border-slate-200/80 bg-white flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full bg-slate-900 text-white font-bold text-sm flex items-center justify-center">
-                  {(product.supplierName || 'TW').substring(0, 2).toUpperCase()}
-                </div>
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs font-bold text-slate-900">{product.supplierName || 'TechWorld Store'}</span>
-                    <span className="bg-blue-50 text-[#2563eb] text-[10px] font-bold px-1.5 py-0.2 rounded-full">Top Rated</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 font-medium">
-                    150K+ Followers • Ships from {product.supplierCountry || 'China'}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => showToast?.(`Viewing ${product.supplierName || 'TechWorld Store'} storefront catalog`)}
-                className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
-              >
-                Visit Store
-              </button>
+              <p className="text-[11px] text-slate-400">Taxes and delivery charges, if applicable, are confirmed at checkout.</p>
             </div>
 
             {/* Quantity Selector & Action Buttons */}
@@ -250,6 +222,7 @@ export default function ProductDetailPage({
                 <div className="flex items-center border border-slate-300 rounded-xl overflow-hidden bg-white shadow-2xs">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    disabled={quantity <= 1}
                     className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 font-bold transition"
                   >
                     -
@@ -257,11 +230,17 @@ export default function ProductDetailPage({
                   <input
                     type="number"
                     value={quantity}
-                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                    min="1"
+                    max={Number.isFinite(Number(product.stock)) ? product.stock : undefined}
+                    onChange={(e) => setQuantity(Math.min(
+                      Number.isFinite(Number(product.stock)) ? Math.max(1, Number(product.stock)) : Number.MAX_SAFE_INTEGER,
+                      Math.max(1, parseInt(e.target.value) || 1)
+                    ))}
                     className="w-12 text-center text-xs font-bold text-slate-800 outline-none"
                   />
                   <button
                     onClick={() => setQuantity(quantity + 1)}
+                    disabled={product.stock != null && quantity >= Number(product.stock)}
                     className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 font-bold transition"
                   >
                     +
@@ -274,6 +253,7 @@ export default function ProductDetailPage({
                 <button
                   type="button"
                   onClick={handleAdd}
+                  disabled={product.stock != null && Number(product.stock) <= 0}
                   className="py-3 px-6 rounded-xl border-2 text-xs font-extrabold flex items-center justify-center space-x-2 transition shadow-xs active:scale-98 cursor-pointer"
                   style={{
                     borderColor: primaryColor,
@@ -294,6 +274,7 @@ export default function ProductDetailPage({
                 <button
                   type="button"
                   onClick={handleBuy}
+                  disabled={product.stock != null && Number(product.stock) <= 0}
                   className="py-3 px-6 rounded-xl text-white text-xs font-extrabold flex items-center justify-center space-x-2 transition shadow-md active:scale-98 cursor-pointer hover:opacity-90"
                   style={{ backgroundColor: primaryColor }}
                 >
@@ -306,9 +287,7 @@ export default function ProductDetailPage({
             {/* Meta tags */}
             <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs text-slate-500">
               <p><span className="font-semibold text-slate-700">SKU:</span> {product.sku}</p>
-              <p><span className="font-semibold text-slate-700">Barcode:</span> {product.barcode || '890123405501'}</p>
-              <p><span className="font-semibold text-slate-700">Warranty:</span> 1 Year Manufacturer</p>
-              <p><span className="font-semibold text-slate-700">Handling:</span> Ships within 24 Hours</p>
+              {product.barcode && <p><span className="font-semibold text-slate-700">Barcode:</span> {product.barcode}</p>}
             </div>
           </div>
 
@@ -346,16 +325,7 @@ export default function ProductDetailPage({
           <div className="py-6 text-xs text-slate-600 leading-relaxed">
             {activeTab === 'description' && (
               <div className="space-y-3">
-                <p>
-                  {product.description ||
-                    `${product.name} is manufactured to enterprise industrial standards. Engineered for precision performance, high reliability, and seamless global compatibility. Each unit is inspected and tested through multi-point QA checks prior to packaging.`}
-                </p>
-                <ul className="list-disc pl-5 space-y-1.5 text-slate-600">
-                  <li>Genuine OEM certified parts and high-grade materials</li>
-                  <li>Energy efficient, certified with global safety standards (CE, FCC, RoHS)</li>
-                  <li>Multi-language user manual and rapid setup guide included</li>
-                  <li>Worldwide express courier dispatch with live tracking updates</li>
-                </ul>
+                <p>{description || 'No product description has been provided.'}</p>
               </div>
             )}
 
@@ -377,11 +347,7 @@ export default function ProductDetailPage({
                     </tr>
                     <tr className="border-b border-slate-100">
                       <td className="p-3 font-semibold text-slate-700">Inventory Status</td>
-                      <td className="p-3 text-slate-800">{product.status || 'In Stock'}</td>
-                    </tr>
-                    <tr className="border-b border-slate-100 bg-slate-50/50">
-                      <td className="p-3 font-semibold text-slate-700">Origin / Seller</td>
-                      <td className="p-3 text-slate-800">{product.supplierName || 'TechWorld Store'} ({product.supplierCountry || 'China'})</td>
+                      <td className="p-3 text-slate-800">{product.status || (product.stock != null ? (Number(product.stock) > 0 ? 'In Stock' : 'Out of Stock') : 'Not specified')}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -390,12 +356,7 @@ export default function ProductDetailPage({
 
             {activeTab === 'shipping' && (
               <div className="space-y-3">
-                <p>
-                  Orders are dispatched directly from the verified vendor logistics terminal within 24 hours of payment authorization.
-                </p>
-                <p>
-                  Estimated delivery timeframe: <strong>3 - 7 business days</strong> depending on delivery location. Full door-to-door tracking provided with automated SMS and email notifications.
-                </p>
+                <p>Delivery methods, charges, and estimated arrival times have not been provided by the store. Contact the store before ordering to confirm.</p>
               </div>
             )}
           </div>
@@ -429,9 +390,9 @@ export default function ProductDetailPage({
                     {rel.name}
                   </h4>
                   <div className="flex items-baseline space-x-2 mt-1">
-                    <span className="text-xs font-black text-slate-900">${Number(rel.price).toFixed(2)}</span>
-                    {rel.originalPrice && (
-                      <span className="text-[10px] text-slate-400 line-through">${Number(rel.originalPrice).toFixed(2)}</span>
+                    <span className="text-xs font-black text-slate-900">{formatStoreCurrency(rel.price, storeSettings)}</span>
+                    {getProductDiscount(rel) && (
+                      <span className="text-[10px] text-slate-400 line-through">{formatStoreCurrency(getProductDiscount(rel).originalPrice, storeSettings)}</span>
                     )}
                   </div>
                 </div>

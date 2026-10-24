@@ -31,6 +31,7 @@ import DomainsView from './views/DomainsView';
 import WorkspaceOperationsView from '../../views/workspace/WorkspaceOperationsView';
 import MarketplaceView from '../../views/marketplace/MarketplaceView';
 import MarketplaceProductDetailView from '../../views/marketplace/MarketplaceProductDetailView';
+import OneProfileSettingsView from '../../oneprofile/views/OneProfileSettingsView';
 
 // Real GraphQL / REST Client
 import {
@@ -66,6 +67,7 @@ export default function CloudDashboard({
 
   // Multi-Store States ("Your Store" Section)
   const [userStores, setUserStores] = useState([]);
+  const [profileUser, setProfileUser] = useState(currentUser);
   const [currentStore, setCurrentStore] = useState(() => {
     return {
       storeName: currentUser?.storeName || currentUser?.name || 'Tiwlo Store',
@@ -75,6 +77,7 @@ export default function CloudDashboard({
 
   useEffect(() => {
     if (currentUser) {
+      setProfileUser(currentUser);
       setCurrentStore(prev => ({
         ...prev,
         storeName: currentUser.storeName || currentUser.name || prev.storeName,
@@ -82,6 +85,16 @@ export default function CloudDashboard({
       }));
     }
   }, [currentUser]);
+
+  const launchStoreConsole = (store = currentStore) => {
+    if (store) {
+      setCurrentStore(store);
+      try {
+        window.sessionStorage.setItem('tiwlo.selectedStore', JSON.stringify(store));
+      } catch {}
+    }
+    onOpenStoreDashboard?.(store);
+  };
 
   const [initialDropletImage, setInitialDropletImage] = useState('Ubuntu 24.04 LTS');
 
@@ -106,9 +119,16 @@ export default function CloudDashboard({
 
       if (storesData && storesData.length > 0) {
         setUserStores(storesData);
-        if (!currentStore || !storesData.some(s => s.tiwiId === currentStore.tiwiId)) {
-          setCurrentStore(storesData[0]);
-        }
+        let preferredStore;
+        try {
+          const storedStore = JSON.parse(window.sessionStorage.getItem('tiwlo.selectedStore') || 'null');
+          preferredStore = storesData.find(store => store.tiwiId === storedStore?.tiwiId);
+        } catch {}
+        setCurrentStore(prev => (
+          preferredStore ||
+          storesData.find(store => store.tiwiId === prev?.tiwiId) ||
+          storesData[0]
+        ));
       }
     } catch (err) {
       setCloudError(err.message || 'Could not load cloud dashboard data.');
@@ -181,7 +201,8 @@ export default function CloudDashboard({
           setSearchQuery={setSearchQuery}
           currentUser={{ ...currentUser, storeName: currentStore?.storeName || currentUser?.storeName }}
           onLogout={onLogout}
-          onOpenStore={onOpenStoreDashboard}
+          onOpenStore={launchStoreConsole}
+          onSwitchStore={() => setActiveNav('my-online-store')}
           onOpenCreateDroplet={() => {
             setInitialDropletImage('Ubuntu 24.04 LTS');
             setActiveNav('create-droplet');
@@ -191,7 +212,7 @@ export default function CloudDashboard({
               setBillingInitialTab('overview');
               setActiveNav('billing');
             }
-            else if (tab === 'profile') onNavigateTab ? onNavigateTab('settings') : onOpenStoreDashboard();
+            else if (tab === 'profile') setActiveNav('profile-settings');
             else if (tab === 'security' || tab === 'settings') onNavigateTab ? onNavigateTab('settings') : onOpenStoreDashboard();
             else onOpenStoreDashboard();
           }}
@@ -217,7 +238,21 @@ export default function CloudDashboard({
               </button>
             </div>
           )}
-          {activeNav === 'domains' ? (
+          {activeNav === 'profile-settings' ? (
+            <div className="max-w-[1000px] mx-auto space-y-5">
+              <button
+                type="button"
+                onClick={() => setActiveNav('dashboard')}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Back to Cloud Dashboard
+              </button>
+              <OneProfileSettingsView
+                currentUser={profileUser}
+                onUserUpdated={setProfileUser}
+              />
+            </div>
+          ) : activeNav === 'domains' ? (
             <div className="max-w-[1500px] mx-auto"><DomainsView currentUser={currentUser} showToast={showToast} /></div>
           ) : activeNav === 'create-droplet' ? (
             <div className="max-w-[1500px] mx-auto">
@@ -277,7 +312,7 @@ export default function CloudDashboard({
                 userStores={userStores}
                 currentStore={currentStore}
                 onSelectStore={(st) => setCurrentStore(st)}
-                onOpenStoreDashboard={onOpenStoreDashboard}
+                onOpenStoreDashboard={launchStoreConsole}
                 onOpenCreateStore={() => setActiveNav('create-store')}
               />
             </div>
