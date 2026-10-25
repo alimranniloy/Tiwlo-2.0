@@ -23,13 +23,20 @@ import {
   CheckCircle2,
   Sparkles,
   Link as LinkIcon,
-  Clock
+  Clock,
+  CreditCard
 } from 'lucide-react';
 import { StoreSettingsProvider, useStoreSettings } from '../context/StoreSettingsContext';
 import { THEME_COLOR_PRESETS, AVAILABLE_THEMES, THEME_CATEGORIES, DEFAULT_HERO_BANNERS } from '../themes/themeConfig';
 import { getStoreUrl } from '../config/platformConfig';
 
-function StoreSettingsContent({ showToast, onBackToDashboard }) {
+function StoreSettingsContent({
+  showToast,
+  onBackToDashboard,
+  initialTab = 'theme',
+  onNavigateToPaymentShipping,
+  onNavigateToStoreSettings
+}) {
   const {
     storeSettings = {},
     saving,
@@ -47,7 +54,7 @@ function StoreSettingsContent({ showToast, onBackToDashboard }) {
   const settings = storeSettings || {};
 
   // Active navigation tab ('theme' | 'identity' | 'colors' | 'banners')
-  const [activeTab, setActiveTab] = useState('theme');
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   // Store Identity & SEO Form State
   const [storeName, setStoreName] = useState(settings.storeName || 'TiwloMart');
@@ -587,13 +594,15 @@ function StoreSettingsContent({ showToast, onBackToDashboard }) {
             </button>
             <div>
               <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-white flex items-center space-x-2">
-                <span>Store Settings</span>
+                <span>{activeTab === 'commerce' ? 'Payments & Shipping' : 'Store Settings'}</span>
                 <span className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-blue-100">
                   TiwiMart Engine
                 </span>
               </h1>
               <p className="text-[11px] sm:text-xs text-blue-100/80 mt-0.5">
-                Marketplace theme catalog, brand identity, favicon, colors, and sliding hero banners
+                {activeTab === 'commerce'
+                  ? 'Configure shipping zones, tax, currency rates, and payment gateways for this store'
+                  : 'Marketplace theme catalog, brand identity, favicon, colors, and sliding hero banners'}
               </p>
             </div>
           </div>
@@ -629,6 +638,17 @@ function StoreSettingsContent({ showToast, onBackToDashboard }) {
       {/* 4 NAVIGATION TABS                                         */}
       {/* ========================================================= */}
       <div className="flex items-center space-x-2 border-b border-slate-200 dark:border-gray-800 pb-3 overflow-x-auto no-scrollbar">
+        {activeTab === 'commerce' ? (
+          <button
+            type="button"
+            onClick={() => onNavigateToStoreSettings?.()}
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-gray-800"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back to Storefront & Theme</span>
+          </button>
+        ) : (
+          <>
         <button
           onClick={() => setActiveTab('theme')}
           className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
@@ -651,6 +671,21 @@ function StoreSettingsContent({ showToast, onBackToDashboard }) {
         >
           <Store className="w-4 h-4" />
           <span>Store Info & Logo</span>
+        </button>
+
+        <button
+          onClick={() => {
+            if (onNavigateToPaymentShipping) onNavigateToPaymentShipping();
+            else setActiveTab('commerce');
+          }}
+          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+            activeTab === 'commerce'
+              ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-800'
+          }`}
+        >
+          <CreditCard className="w-4 h-4" />
+          <span>Payments & Shipping</span>
         </button>
 
         <button
@@ -679,6 +714,8 @@ function StoreSettingsContent({ showToast, onBackToDashboard }) {
             {currentBanners.length}
           </span>
         </button>
+          </>
+        )}
       </div>
 
       {/* ========================================================= */}
@@ -893,22 +930,28 @@ function StoreSettingsContent({ showToast, onBackToDashboard }) {
       {/* ========================================================= */}
       {/* TAB 2: STORE INFO & LOGO (STORE IDENTITY & FAVICON)        */}
       {/* ========================================================= */}
-      {activeTab === 'identity' && (
+      {(activeTab === 'identity' || activeTab === 'commerce') && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column: Store Identity & Meta SEO (lg:col-span-7) */}
-          <div className="lg:col-span-7 space-y-6">
+          <div className={`${activeTab === 'commerce' ? 'lg:col-span-12' : 'lg:col-span-7'} space-y-6`}>
             <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200/90 dark:border-gray-700/80 p-6 shadow-xs space-y-5">
               <div className="border-b border-slate-100 dark:border-gray-700 pb-3">
                 <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
-                  <Store className="w-4 h-4 text-blue-500" />
-                  <span>Store Identity & Meta Information</span>
+                  {activeTab === 'commerce'
+                    ? <CreditCard className="w-4 h-4 text-blue-500" />
+                    : <Store className="w-4 h-4 text-blue-500" />}
+                  <span>{activeTab === 'commerce' ? 'Payments, Shipping & Tax' : 'Store Identity & Meta Information'}</span>
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Configure storefront name, branding tagline, browser title, and SEO description
+                  {activeTab === 'commerce'
+                    ? 'Configure delivery rates, destination zones, currency conversion, and merchant payment accounts'
+                    : 'Configure storefront name, branding tagline, browser title, and SEO description'}
                 </p>
               </div>
 
               <div className="space-y-4">
+                {activeTab === 'identity' && (
+                  <>
                 {/* Store Name */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -1033,7 +1076,9 @@ function StoreSettingsContent({ showToast, onBackToDashboard }) {
                   </div>
                 </div>
 
-                <div className="border-t border-slate-100 dark:border-gray-700 pt-4 space-y-3">
+                </>)}
+
+                <div className={`border-t border-slate-100 dark:border-gray-700 pt-4 space-y-3 ${activeTab === 'commerce' ? '' : 'hidden'}`}>
                   <h3 className="text-xs font-bold text-slate-900 dark:text-white">Delivery & Tax</h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     Set destination-based manual rates in your store currency. The server recalculates the selected zone and fee when the order is submitted.
@@ -1190,8 +1235,8 @@ function StoreSettingsContent({ showToast, onBackToDashboard }) {
                   </div>
                 </div>
 
-                <div className="border-t border-slate-100 dark:border-gray-700 pt-4 space-y-3">
-                  <h3 className="text-xs font-bold text-slate-900 dark:text-white">Store Promotion Code</h3>
+                <div className={`border-t border-slate-100 dark:border-gray-700 pt-4 space-y-3 ${activeTab === 'commerce' ? '' : 'hidden'}`}>
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white">Checkout Promotion Code</h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     Configure one active percentage-off code. The server validates it again when an order is placed.
                   </p>
@@ -1233,7 +1278,7 @@ function StoreSettingsContent({ showToast, onBackToDashboard }) {
                   </div>
                 </div>
 
-                <div className="border-t border-slate-100 dark:border-gray-700 pt-4 space-y-4">
+                <div className={`border-t border-slate-100 dark:border-gray-700 pt-4 space-y-4 ${activeTab === 'commerce' ? '' : 'hidden'}`}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <h3 className="text-xs font-bold text-slate-900 dark:text-white">Currency conversion rates</h3>
@@ -1414,7 +1459,7 @@ function StoreSettingsContent({ showToast, onBackToDashboard }) {
                   </div>
                 </div>
 
-                <div className="border-t border-slate-100 dark:border-gray-700 pt-4 space-y-4">
+                <div className={`border-t border-slate-100 dark:border-gray-700 pt-4 space-y-4 ${activeTab === 'commerce' ? '' : 'hidden'}`}>
                   <div>
                     <h3 className="text-xs font-bold text-slate-900 dark:text-white">Store Payment Gateways</h3>
                     <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
@@ -1555,14 +1600,14 @@ function StoreSettingsContent({ showToast, onBackToDashboard }) {
                   className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center space-x-2 transition shadow-sm cursor-pointer disabled:opacity-60"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  <span>{saving ? 'Saving...' : 'Save Identity Info'}</span>
+                  <span>{saving ? 'Saving...' : activeTab === 'commerce' ? 'Save Shipping & Tax' : 'Save Identity Info'}</span>
                 </button>
               </div>
             </div>
           </div>
 
           {/* Right Column: Logo & Favicon Assets (lg:col-span-5) */}
-          <div className="lg:col-span-5 space-y-6">
+          {activeTab === 'identity' && <div className="lg:col-span-5 space-y-6">
             {/* 1. STORE LOGO */}
             <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200/90 dark:border-gray-700/80 p-6 shadow-xs space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-gray-700 pb-3">
@@ -1735,7 +1780,7 @@ function StoreSettingsContent({ showToast, onBackToDashboard }) {
                 </div>
               </div>
             </div>
-          </div>
+          </div>}
         </div>
       )}
 

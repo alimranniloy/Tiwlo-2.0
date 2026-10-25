@@ -368,12 +368,14 @@ export default function App() {
         if (pathname === 'inventory') return 'inventory';
         if (pathname === 'purchases') return 'purchases';
         if (pathname === 'sales') return 'sales';
+        if (pathname === 'courier' || pathname === 'couriers') return 'courier';
         if (pathname === 'customers') return 'customers';
         if (pathname === 'suppliers') return 'suppliers';
         if (pathname === 'reports') return 'reports';
         if (pathname === 'analytics') return 'analytics';
         if (pathname === 'settings') return 'settings';
         if (pathname === 'store-settings') return 'store-settings';
+        if (pathname === 'payment-shipping' || pathname === 'payments-shipping') return 'payment-shipping';
         if (pathname === 'help-support/mobile' || pathname === 'mobile-help-support' || pathname === 'support/mobile') return 'mobile-help-support';
         if (pathname === 'help' || pathname === 'support' || pathname === 'help-support' || pathname.startsWith('help-support/')) return pathname;
         if (pathname === 'tickets' || pathname === 'support-tickets') return 'help-support/tickets';
@@ -2132,8 +2134,10 @@ export default function App() {
           )}
 
           {/* TAB: SALES */}
-          {activeTab === 'sales' && (
+          {(activeTab === 'sales' || activeTab === 'courier') && (
             <SalesView
+              key={activeTab}
+              courierMode={activeTab === 'courier'}
               products={products}
               customers={customers}
               showToast={showToast}
@@ -2194,8 +2198,12 @@ export default function App() {
           )}
 
           {/* TAB: STORE & THEME SETTINGS */}
-          {activeTab === 'store-settings' && (
+          {(activeTab === 'store-settings' || activeTab === 'payment-shipping') && (
             <StoreSettingsView
+              key={activeTab === 'payment-shipping' ? 'payment-shipping' : 'store-settings'}
+              initialTab={activeTab === 'payment-shipping' ? 'commerce' : 'theme'}
+              onNavigateToPaymentShipping={() => handleTabChange('payment-shipping')}
+              onNavigateToStoreSettings={() => handleTabChange('store-settings')}
               showToast={showToast}
               onBackToDashboard={() => setActiveTab('dashboard')}
             />

@@ -39,13 +39,15 @@ export default function SalesView({
   customers = [],
   showToast,
   onRefreshData,
-  onBackToDashboard
+  onBackToDashboard,
+  courierMode = false
 }) {
   const [sales, setSales] = useState([]);
   const [storeSettings, setStoreSettings] = useState({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [methodFilter, setMethodFilter] = useState('All');
+  const [courierFilter, setCourierFilter] = useState('all');
   const [managingOrder, setManagingOrder] = useState(null);
   const [orderForm, setOrderForm] = useState(null);
   const [savingOrder, setSavingOrder] = useState(false);
@@ -98,14 +100,21 @@ export default function SalesView({
   }, []);
 
   // Filtered sales
-  const filteredSales = sales.filter(s => {
+  const courierOrders = sales.filter(sale => sale.channel === 'storefront');
+  const filteredSales = (courierMode ? courierOrders : sales).filter(s => {
     const matchesSearch =
       (s.invoiceNumber || '').toLowerCase().includes(search.toLowerCase()) ||
       (s.customerName || '').toLowerCase().includes(search.toLowerCase()) ||
-      (s.paymentMethod || '').toLowerCase().includes(search.toLowerCase());
+      (s.paymentMethod || '').toLowerCase().includes(search.toLowerCase()) ||
+      (s.courierService || '').toLowerCase().includes(search.toLowerCase()) ||
+      (s.trackingNumber || '').toLowerCase().includes(search.toLowerCase());
 
     const matchesMethod = methodFilter === 'All' || s.paymentMethod === methodFilter;
-    return matchesSearch && matchesMethod;
+    const matchesCourier = courierFilter === 'all' ||
+      (courierFilter === 'needs-assignment' && !s.courierService && !['Delivered', 'Cancelled', 'Returned'].includes(s.status)) ||
+      (courierFilter === 'assigned' && Boolean(s.courierService)) ||
+      (courierFilter === 'tracking' && Boolean(s.trackingNumber || s.trackingUrl));
+    return matchesSearch && matchesMethod && matchesCourier;
   });
 
   // Add Item Row
@@ -585,16 +594,18 @@ export default function SalesView({
                 <Receipt className="w-5 h-5" />
               </span>
               <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
-                Sales & POS Invoicing Terminal
+                {courierMode ? 'Courier & Delivery Management' : 'Sales & POS Invoicing Terminal'}
               </h1>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 pl-1">
-              Track customer sales orders, POS receipts, tax calculations, and printable invoices.
+              {courierMode
+                ? 'Review storefront deliveries, assign a courier, and save shipment tracking details.'
+                : 'Track customer sales orders, POS receipts, tax calculations, and printable invoices.'}
             </p>
           </div>
         </div>
 
-        <button
+        {!courierMode && <button
           onClick={() => {
             setSaleCustomerId(customers[0]?.id || '');
             setSaleItems([
@@ -606,45 +617,63 @@ export default function SalesView({
         >
           <Plus className="w-4 h-4 stroke-[2.5]" />
           <span>New Sale / POS Order</span>
-        </button>
+        </button>}
       </div>
 
       {/* KPI Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
         <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Sales Revenue</span>
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{courierMode ? 'Storefront Deliveries' : 'Total Sales Revenue'}</span>
           <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1.5">
-            {formatAmount(totalRevenue)}
+            {courierMode ? courierOrders.length : formatAmount(totalRevenue)}
           </div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">From processed invoices</div>
+          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">{courierMode ? 'Orders placed through your storefront' : 'From processed invoices'}</div>
         </div>
 
         <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Invoices</span>
-          <div className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1.5">{sales.length}</div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Generated receipts</div>
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{courierMode ? 'Courier assigned' : 'Total Invoices'}</span>
+          <div className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1.5">{courierMode ? courierOrders.filter(sale => sale.courierService).length : sales.length}</div>
+          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">{courierMode ? 'Orders with a saved courier' : 'Generated receipts'}</div>
         </div>
 
         <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Avg. Order Value</span>
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{courierMode ? 'Tracking saved' : 'Avg. Order Value'}</span>
           <div className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1.5">
-            {formatAmount(avgOrder)}
+            {courierMode ? courierOrders.filter(sale => sale.trackingNumber || sale.trackingUrl).length : formatAmount(avgOrder)}
           </div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Per customer purchase</div>
+          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">{courierMode ? 'Tracking number or URL recorded' : 'Per customer purchase'}</div>
         </div>
 
         <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Pending Storefront Orders</span>
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{courierMode ? 'Needs courier' : 'Pending Storefront Orders'}</span>
           <div className="text-xl sm:text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1.5">
-            {sales.filter(s => s.channel === 'storefront' && ['Pending', 'Confirmed', 'Processing'].includes(s.status)).length}
+            {courierOrders.filter(s => !s.courierService && !['Delivered', 'Cancelled', 'Returned'].includes(s.status)).length}
           </div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Require confirmation or dispatch</div>
+          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">{courierMode ? 'Storefront orders not yet assigned' : 'Require confirmation or dispatch'}</div>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
       <div className="bg-white dark:bg-[#111827] p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        {courierMode && (
+          <p className="text-[11px] text-slate-500 sm:max-w-md">
+            Courier bookings are made in your courier account. Assign the service here, then save its tracking details. Live courier booking APIs are not connected.
+          </p>
+        )}
         <div className="flex items-center space-x-2 text-xs">
+          {courierMode ? (
+            <select
+              value={courierFilter}
+              onChange={event => setCourierFilter(event.target.value)}
+              aria-label="Filter courier orders"
+              className="w-full sm:w-auto px-3 py-1.5 bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-700 dark:text-slate-200 font-medium focus:outline-none"
+            >
+              <option value="all">All deliveries</option>
+              <option value="needs-assignment">Needs courier</option>
+              <option value="assigned">Courier assigned</option>
+              <option value="tracking">Tracking saved</option>
+            </select>
+          ) : (
           <select
             value={methodFilter}
             onChange={(e) => setMethodFilter(e.target.value)}
@@ -655,13 +684,14 @@ export default function SalesView({
             <option value="Credit Card">Credit Card</option>
             <option value="Mobile Banking / bKash">Mobile Banking / bKash</option>
           </select>
+          )}
         </div>
 
         <div className="relative w-full sm:w-72">
           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search invoice #, customer name..."
+            placeholder={courierMode ? 'Search order, customer, courier, tracking…' : 'Search invoice #, customer name...'}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none"
@@ -687,6 +717,15 @@ export default function SalesView({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-gray-800 font-medium">
+              {filteredSales.length === 0 && (
+                <tr>
+                  <td colSpan="9" className="px-4 py-12 text-center text-sm font-normal text-slate-500">
+                    {courierMode
+                      ? (courierFilter === 'needs-assignment' ? 'No deliveries need a courier right now.' : 'No storefront deliveries match this filter.')
+                      : 'No sales or orders match your search.'}
+                  </td>
+                </tr>
+              )}
               {filteredSales.map((sale) => (
                 <tr
                   key={sale.id}

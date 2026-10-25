@@ -22,7 +22,8 @@ import {
   ArrowLeft,
   Mail,
   X,
-  BriefcaseBusiness
+  BriefcaseBusiness,
+  CreditCard
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -42,23 +43,25 @@ export default function Sidebar({
   };
 
   const navItems = [
-    { id: 'subscription', name: 'Upgrade & Plans', icon: Sparkles, isUpgrade: true },
-    { id: 'ecommerce-dashboard', name: 'Store Dashboard', icon: LayoutDashboard },
-    { id: 'workspace', name: 'Workspace', icon: BriefcaseBusiness },
-    { id: 'email', name: 'Tiwi Mail', icon: Mail, isNew: true },
-    { id: 'pos', name: 'POS System', icon: Store, isNew: true },
-    { id: 'products', name: 'Products', icon: Package },
-    { id: 'categories', name: 'Categories & Subs', icon: Layers },
-    { id: 'inventory', name: 'Inventory Control', icon: Boxes },
-    { id: 'purchases', name: 'Purchases (PO)', icon: ShoppingCart },
-    { id: 'sales', name: 'Sales & Orders', icon: Receipt },
-    { id: 'customers', name: 'Customers', icon: Users },
-    { id: 'suppliers', name: 'Suppliers', icon: Truck },
-    { id: 'reports', name: 'Reports Ledger', icon: FileText },
-    { id: 'analytics', name: 'Analytics', icon: BarChart3 },
-    { id: 'settings', name: 'Settings', icon: Server },
-    { id: 'store-settings', name: 'Storefront & Theme', icon: Settings },
-    { id: 'help-support', name: 'Help & Support', icon: HelpCircle },
+    { id: 'subscription', name: 'Upgrade & Plans', icon: Sparkles, isUpgrade: true, section: 'Workspace' },
+    { id: 'ecommerce-dashboard', name: 'Store Dashboard', icon: LayoutDashboard, section: 'Workspace' },
+    { id: 'workspace', name: 'Workspace', icon: BriefcaseBusiness, section: 'Workspace' },
+    { id: 'email', name: 'Tiwi Mail', icon: Mail, isNew: true, section: 'Store management' },
+    { id: 'pos', name: 'POS System', icon: Store, isNew: true, section: 'Store management' },
+    { id: 'products', name: 'Products', icon: Package, section: 'Store management' },
+    { id: 'categories', name: 'Categories & Subs', icon: Layers, section: 'Store management' },
+    { id: 'inventory', name: 'Inventory Control', icon: Boxes, section: 'Store management' },
+    { id: 'purchases', name: 'Purchases (PO)', icon: ShoppingCart, section: 'Store management' },
+    { id: 'sales', name: 'Sales & Orders', icon: Receipt, section: 'Store management' },
+    { id: 'courier', name: 'Courier Management', icon: Truck, isCourier: true, section: 'Store management' },
+    { id: 'customers', name: 'Customers', icon: Users, section: 'Store management' },
+    { id: 'suppliers', name: 'Suppliers', icon: Truck, section: 'Store management' },
+    { id: 'reports', name: 'Reports Ledger', icon: FileText, section: 'Insights' },
+    { id: 'analytics', name: 'Analytics', icon: BarChart3, section: 'Insights' },
+    { id: 'settings', name: 'Settings', icon: Server, section: 'Settings & support' },
+    { id: 'store-settings', name: 'Storefront & Theme', icon: Settings, section: 'Settings & support' },
+    { id: 'payment-shipping', name: 'Payments & Shipping', icon: CreditCard, section: 'Settings & support' },
+    { id: 'help-support', name: 'Help & Support', icon: HelpCircle, section: 'Settings & support' },
   ];
 
   return (
@@ -148,12 +151,18 @@ export default function Sidebar({
 
         {/* Navigation Items */}
         <nav className="space-y-1">
-          {navItems.map((item) => {
+          {navItems.map((item, index) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id || (item.id === 'products' && activeTab === 'add-product');
+            const showSectionHeading = index === 0 || navItems[index - 1].section !== item.section;
 
             return (
               <div key={item.id}>
+                {showSectionHeading && (
+                  <p className={`px-3.5 ${index === 0 ? 'pt-1' : 'pt-4'} pb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500`}>
+                    {item.section}
+                  </p>
+                )}
                 <button
                   onClick={() => handleNavClick(item.id, item.hasSub)}
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
@@ -176,6 +185,12 @@ export default function Sidebar({
                   {item.isNew && (
                     <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-600 text-white shadow-xs">
                       POS
+                    </span>
+                  )}
+
+                  {item.isCourier && (
+                    <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                      Ship
                     </span>
                   )}
 
