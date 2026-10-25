@@ -6,11 +6,15 @@ export default function NavigationBar({
   categories = [],
   onSelectCategory,
   onFilterSpecial,
+  onOpenPage,
   activeFilter,
   selectedCategory = 'All Categories'
 }) {
   const { storeSettings } = useStoreSettings();
   const primaryColor = storeSettings?.themeColor || '#2563eb';
+  const headerPages = [...(storeSettings?.storePages || [])]
+    .filter(page => page.enabled !== false && ['header', 'both'].includes(page.placement))
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
 
   const navLinks = [
     { id: 'hot-deals', label: 'Deals' },
@@ -70,6 +74,16 @@ export default function NavigationBar({
             </button>
           );
         })}
+        {headerPages.map(page => (
+          <button
+            key={page.id}
+            type="button"
+            onClick={() => onOpenPage?.(page.slug)}
+            className="shrink-0 px-2.5 py-1 rounded-lg transition-colors hover:opacity-80"
+          >
+            {page.title}
+          </button>
+        ))}
         </div>
       </div>
     </nav>

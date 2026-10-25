@@ -23,7 +23,7 @@ const domainActionLimiter = rateLimit({
 });
 
 const getUserId = req => req.activeUser?.id;
-const getTiwiId = req => req.activeUser?.tiwiId || req.activeUser?.storeId;
+const getTiwiId = req => req.activeStore?.tiwiId || req.activeUser?.tiwiId || req.activeUser?.storeId;
 
 function sendDomainError(res, error) {
   if (error instanceof DomainServiceError) {

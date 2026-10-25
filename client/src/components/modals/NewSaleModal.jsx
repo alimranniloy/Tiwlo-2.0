@@ -1,28 +1,36 @@
 import React, { useState } from 'react';
 import { X, Check, ShoppingBag } from 'lucide-react';
+import { amountToCents } from '../../../../shared/accountingHelpers.mjs';
 
 export default function NewSaleModal({ isOpen, onClose, products, onRecordSale }) {
   const [selectedProductId, setSelectedProductId] = useState('');
   const [quantity, setQuantity] = useState(1);
-  const [customPrice, setCustomPrice] = useState('');
   const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
 
   const selectedProduct = products?.find((p) => p.id === selectedProductId);
-  const unitPrice = customPrice !== '' ? parseFloat(customPrice) : selectedProduct ? selectedProduct.price : 25.0;
-  const total = (unitPrice * quantity).toFixed(2);
+  const unitPriceCents = selectedProduct ? amountToCents(selectedProduct.price) : null;
+  const unitPrice = unitPriceCents === null ? 0 : unitPriceCents / 100;
+  const subtotalCents = unitPriceCents !== null && Number.isSafeInteger(unitPriceCents * quantity)
+    ? unitPriceCents * quantity
+    : null;
+  const subtotal = subtotalCents === null ? '—' : (subtotalCents / 100).toFixed(2);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!selectedProduct || subtotalCents === null || quantity > Number(selectedProduct.stock || 0)) return;
     setLoading(true);
-    await onRecordSale({
-      productId: selectedProductId || (products[0]?.id || null),
-      quantity,
-      totalAmount: parseFloat(total)
-    });
-    setLoading(false);
-    onClose();
+    try {
+      const sale = await onRecordSale({
+        customerName: 'Walk-in Customer',
+        items: [{ productId: selectedProduct.id, quantity }],
+        paymentMethod: 'Cash'
+      });
+      if (sale) onClose();
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -57,9 +65,9 @@ export default function NewSaleModal({ isOpen, onClose, products, onRecordSale }
               value={selectedProductId}
               onChange={(e) => {
                 setSelectedProductId(e.target.value);
-                const p = products.find((item) => item.id === e.target.value);
-                if (p) setCustomPrice(p.price);
+                setQuantity(1);
               }}
+              required
               className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/30"
             >
               <option value="">-- Choose from Inventory --</option>
@@ -79,34 +87,28 @@ export default function NewSaleModal({ isOpen, onClose, products, onRecordSale }
               <input
                 type="number"
                 min="1"
-                max={selectedProduct ? selectedProduct.stock : 9999}
+                max={selectedProduct ? selectedProduct.stock : 1}
                 value={quantity}
                 onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
                 className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white font-semibold focus:outline-none"
               />
             </div>
-            <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
-                Unit Price ($)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={customPrice}
-                onChange={(e) => setCustomPrice(e.target.value)}
-                placeholder="25.00"
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white font-semibold focus:outline-none"
-              />
+            <div className="flex flex-col justify-center">
+              <span className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">Catalog Unit Price</span>
+              <span className="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-gray-700 font-semibold text-slate-800 dark:text-white">
+                ${unitPrice.toFixed(2)}
+              </span>
             </div>
           </div>
 
           {/* Total Calculation Display */}
           <div className="p-3.5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-800/40 flex items-center justify-between">
-            <span className="font-semibold text-purple-900 dark:text-purple-300">Total Invoice:</span>
+            <span className="font-semibold text-purple-900 dark:text-purple-300">Items Subtotal:</span>
             <span className="text-base font-extrabold text-purple-700 dark:text-purple-400">
-              ${total}
+              ${subtotal}
             </span>
           </div>
+          <p className="text-[11px] text-slate-500">Final invoice totals, including store tax, are calculated and saved by the server.</p>
 
           <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100 dark:border-gray-700">
             <button
@@ -118,7 +120,7 @@ export default function NewSaleModal({ isOpen, onClose, products, onRecordSale }
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !selectedProduct || subtotalCents === null || quantity > Number(selectedProduct.stock || 0)}
               className="px-5 py-2 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-xl shadow-md shadow-purple-500/20 transition flex items-center space-x-1.5"
             >
               <Check className="w-3.5 h-3.5" />

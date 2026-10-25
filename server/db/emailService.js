@@ -424,6 +424,7 @@ export async function sendInvoiceEmail({
   date,
   amount,
   currency,
+  paymentStatus,
   planName,
   paymentMethod,
   storeName,
@@ -437,6 +438,7 @@ export async function sendInvoiceEmail({
     date,
     amount,
     currency,
+    paymentStatus,
     planName,
     paymentMethod,
     storeName,
@@ -446,9 +448,9 @@ export async function sendInvoiceEmail({
 
   return sendTiwloEmail({
     to,
-    subject: `Your Tiwlo receipt [${invoiceNumber || 'INV'}]`,
+    subject: `Your invoice [${invoiceNumber || 'INV'}]`,
     html,
-    text: `Your invoice ${invoiceNumber} for amount ${currency || '$'}${amount} has been issued.`,
+    text: `Your invoice ${invoiceNumber} for ${currency || 'USD'} ${amount} has been issued. Payment status: ${paymentStatus || 'Paid'}.`,
     type: 'invoice',
     metadata: { invoiceNumber, amount, planName }
   });

@@ -76,3 +76,43 @@ test('storefront host resolution matches a unique registered tenant', async () =
   };
   assert.equal(await resolveStorefrontHost('shared.tiwlo.com', ambiguousMasterDb), null);
 });
+
+test('storefront host resolution maps active custom domains to an eligible tenant', async () => {
+  const masterDb = {
+    async getMasterData() {
+      return {
+        stores: [
+          { tiwiId: 'TIW-CUSTOM', ownerId: 'owner-1', storeName: 'Custom Store', currency: 'EUR' },
+          { tiwiId: 'TIW-PAUSED-CUSTOM', ownerId: 'owner-1', storeName: 'Paused Store', status: 'suspended' }
+        ],
+        users: [
+          { id: 'owner-1', tiwiId: 'TIW-BASE', storeName: 'Base Store' },
+          { id: 'owner-2', tiwiId: 'TIW-BANNED', isBanned: true }
+        ]
+      };
+    }
+  };
+  const resolveCustomDomain = async hostname => ({
+    'shop.example.com': { tiwiId: 'TIW-CUSTOM' },
+    'base.example.com': { tiwiId: 'TIW-BASE' },
+    'paused.example.com': { tiwiId: 'TIW-PAUSED-CUSTOM' },
+    'banned.example.com': { tiwiId: 'TIW-BANNED' }
+  })[hostname] || null;
+
+  assert.deepEqual(
+    await resolveStorefrontHost('shop.example.com', masterDb, resolveCustomDomain),
+    {
+      tiwiId: 'TIW-CUSTOM',
+      storeName: 'Custom Store',
+      subdomain: 'shop.example.com',
+      currency: 'EUR'
+    }
+  );
+  assert.equal(
+    (await resolveStorefrontHost('base.example.com', masterDb, resolveCustomDomain)).tiwiId,
+    'TIW-BASE'
+  );
+  assert.equal(await resolveStorefrontHost('paused.example.com', masterDb, resolveCustomDomain), null);
+  assert.equal(await resolveStorefrontHost('banned.example.com', masterDb, resolveCustomDomain), null);
+  assert.equal(await resolveStorefrontHost('unknown.example.com', masterDb, resolveCustomDomain), null);
+});

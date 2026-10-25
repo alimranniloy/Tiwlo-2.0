@@ -1,30 +1,77 @@
-import React from 'react';
+import { applicationFetch as fetch } from '../../../api/graphqlTransport.js';
+import React, { useEffect, useState } from 'react';
 import { useStoreSettings } from '../../../context/StoreSettingsContext';
 import { formatStoreCurrency } from '../storefrontUtils';
-import { CheckCircle, Package, Home, FileText } from 'lucide-react';
+import { AlertCircle, CheckCircle, Package, Home } from 'lucide-react';
 
-export default function OrderSuccessPage({ order, onNavigate, onOpenAdmin }) {
+export default function OrderSuccessPage({
+  order,
+  orderId,
+  receiptToken,
+  paymentState,
+  onNavigate
+}) {
   const { storeSettings } = useStoreSettings();
-  const orderDetails = order || {};
+  const [receiptOrder, setReceiptOrder] = useState(null);
+  const [receiptError, setReceiptError] = useState('');
+  useEffect(() => {
+    if (!orderId || !receiptToken) return undefined;
+    let cancelled = false;
+    fetch(`/api/public/orders/${encodeURIComponent(orderId)}/receipt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: receiptToken })
+    })
+      .then(async response => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Receipt lookup failed with HTTP ${response.status}.`);
+        if (!cancelled) setReceiptOrder(result.order || null);
+      })
+      .catch(error => {
+        if (!cancelled) setReceiptError(error.message || 'Could not load the payment receipt.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [orderId, receiptToken]);
+
+  const orderDetails = receiptOrder || order || {};
+  const paymentFailed = paymentState === 'failed' || paymentState === 'cancelled';
+  const paymentPending = !paymentFailed &&
+    paymentState !== 'paid' &&
+    orderDetails.paymentStatus !== 'Paid' &&
+    (paymentState === 'pending' || (
+      Boolean(orderDetails.paymentMethod) &&
+      !String(orderDetails.paymentMethod).includes('COD')
+    ));
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-12 space-y-8">
       {/* Celebratory Header */}
       <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs p-8 text-center space-y-4">
-        <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto shadow-xs border border-emerald-200">
-          <CheckCircle className="w-10 h-10 stroke-[2.2]" />
+        <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto shadow-xs border ${paymentFailed ? 'bg-rose-50 text-rose-600 border-rose-200' : paymentPending ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
+          {paymentFailed ? <AlertCircle className="w-10 h-10 stroke-[2.2]" /> : <CheckCircle className="w-10 h-10 stroke-[2.2]" />}
         </div>
 
         <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
-            Order Submitted
+          <span className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full ${paymentFailed ? 'text-rose-600 bg-rose-50' : paymentPending ? 'text-amber-700 bg-amber-50' : 'text-emerald-600 bg-emerald-50'}`}>
+            {paymentFailed ? 'Payment Not Completed' : paymentPending ? 'Payment Pending' : 'Order Submitted'}
           </span>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-2">
-            Thank You. We Received Your Order.
+            {paymentFailed
+              ? 'Your order is awaiting payment.'
+              : paymentPending
+                ? 'We are confirming your payment.'
+                : 'Thank You. We Received Your Order.'}
           </h1>
           <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-            The store has received your order for confirmation. Available stock is reserved while the order is pending.
+            {paymentFailed
+              ? 'No payment was confirmed. Contact the store before placing another order.'
+              : paymentPending
+                ? 'Do not pay again yet. You can check the latest order status below or contact the store.'
+                : 'The store has received your order for confirmation. Available stock is reserved while the order is pending.'}
           </p>
+          {receiptError && <p role="alert" className="mt-2 text-xs text-rose-600">{receiptError}</p>}
         </div>
 
         {/* Order Meta Pills */}
@@ -122,15 +169,6 @@ export default function OrderSuccessPage({ order, onNavigate, onOpenAdmin }) {
             <span>Continue Shopping</span>
           </button>
 
-          {onOpenAdmin && (
-            <button
-              onClick={onOpenAdmin}
-              className="w-full sm:w-auto px-6 py-3 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center space-x-2 transition"
-            >
-              <FileText className="w-4 h-4 text-[#2563eb]" />
-              <span>View in StockPro Sales Ledger</span>
-            </button>
-          )}
         </div>
       </div>
     </div>

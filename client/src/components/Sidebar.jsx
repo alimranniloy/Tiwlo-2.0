@@ -24,7 +24,10 @@ import {
   X,
   BriefcaseBusiness,
   CreditCard,
-  Tag
+  Tag,
+  MessageSquareText,
+  UserRound,
+  Wallet
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -54,19 +57,48 @@ export default function Sidebar({
     { id: 'inventory', name: 'Inventory Control', icon: Boxes, section: 'Store management' },
     { id: 'purchases', name: 'Purchases (PO)', icon: ShoppingCart, section: 'Store management' },
     { id: 'sales', name: 'Sales & Orders', icon: Receipt, section: 'Store management' },
+    { id: 'store-reviews', name: 'Product Reviews', icon: MessageSquareText, section: 'Store management' },
     { id: 'courier', name: 'Courier', icon: Truck, isCourier: true, section: 'Store management' },
     { id: 'customers', name: 'Customers', icon: Users, section: 'Store management' },
     { id: 'suppliers', name: 'Suppliers', icon: Truck, section: 'Store management' },
+    { id: 'staff-management', name: 'Staff Management', icon: UserRound, section: 'People & payroll' },
+    { id: 'hr-management', name: 'HR & Company Finance', icon: Wallet, section: 'People & payroll' },
     { id: 'reports', name: 'Reports Ledger', icon: FileText, section: 'Insights' },
     { id: 'analytics', name: 'Analytics', icon: BarChart3, section: 'Insights' },
     { id: 'settings', name: 'Settings', icon: Server, section: 'Settings & support' },
     { id: 'store-settings', name: 'Storefront & Theme', icon: Settings, section: 'Settings & support' },
+    { id: 'store-pages', name: 'Pages & Menus', icon: FileText, section: 'Store settings' },
     { id: 'payments', name: 'Payments', icon: CreditCard, section: 'Store settings' },
     { id: 'shipping', name: 'Shipping', icon: Truck, section: 'Store settings' },
     { id: 'promotions', name: 'Promo Codes', icon: Tag, section: 'Marketing' },
     { id: 'help-support', name: 'Help & Support', icon: HelpCircle, section: 'Settings & support' },
   ];
-  const visibleNavItems = activeTab === 'ecommerce-dashboard'
+  const ecommerceTabs = new Set([
+    'ecommerce-dashboard',
+    'pos',
+    'products',
+    'add-product',
+    'categories',
+    'inventory',
+    'purchases',
+    'sales',
+    'store-reviews',
+    'courier',
+    'customers',
+    'suppliers',
+    'staff-management',
+    'hr-management',
+    'reports',
+    'analytics',
+    'store-settings',
+    'store-pages',
+    'store-identity',
+    'store-banners',
+    'payments',
+    'shipping',
+    'promotions'
+  ]);
+  const visibleNavItems = ecommerceTabs.has(activeTab)
     ? navItems.filter(item => item.id !== 'workspace' && item.id !== 'email')
     : navItems;
 
@@ -159,7 +191,9 @@ export default function Sidebar({
         <nav className="space-y-1">
           {visibleNavItems.map((item, index) => {
             const Icon = item.icon;
-            const isActive = activeTab === item.id || (item.id === 'products' && activeTab === 'add-product');
+            const isActive = activeTab === item.id ||
+              (item.id === 'products' && activeTab === 'add-product') ||
+              (item.id === 'store-settings' && ['store-identity', 'store-banners'].includes(activeTab));
             const showSectionHeading = index === 0 || visibleNavItems[index - 1].section !== item.section;
 
             return (

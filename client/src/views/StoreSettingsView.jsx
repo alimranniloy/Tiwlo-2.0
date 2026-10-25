@@ -21,8 +21,10 @@ import {
   ChevronUp,
   ChevronDown,
   CheckCircle2,
+  GripVertical,
   Sparkles,
   Link as LinkIcon,
+  FileText,
   Clock,
   CreditCard,
   Truck,
@@ -31,6 +33,15 @@ import {
 import { StoreSettingsProvider, useStoreSettings } from '../context/StoreSettingsContext';
 import { THEME_COLOR_PRESETS, AVAILABLE_THEMES, THEME_CATEGORIES, DEFAULT_HERO_BANNERS } from '../themes/themeConfig';
 import { getStoreUrl } from '../config/platformConfig';
+
+const toDateTimeLocal = value => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+};
+
+const toPromotionIsoDate = value => value ? new Date(value).toISOString() : '';
 
 function StoreSettingsContent({
   showToast,
@@ -76,11 +87,27 @@ function StoreSettingsContent({
   const [shippingFlatRate, setShippingFlatRate] = useState(settings.shippingFlatRate ?? '');
   const [freeShippingThreshold, setFreeShippingThreshold] = useState(settings.freeShippingThreshold ?? '');
   const [shippingZones, setShippingZones] = useState(settings.shippingZones || []);
+  const [refundRequestsEnabled, setRefundRequestsEnabled] = useState(settings.refundRequestsEnabled ?? true);
   const [promoActive, setPromoActive] = useState(settings.promoActive ?? false);
   const [promoCode, setPromoCode] = useState(settings.promoCode || '');
   const [promoDiscountPercent, setPromoDiscountPercent] = useState(settings.promoDiscountPercent ?? 0);
+  const [promoDiscountType, setPromoDiscountType] = useState(settings.promoDiscountType || 'percent');
+  const [promoMinimumSubtotal, setPromoMinimumSubtotal] = useState(settings.promoMinimumSubtotal ?? '');
+  const [promoMaximumDiscount, setPromoMaximumDiscount] = useState(settings.promoMaximumDiscount ?? '');
+  const [promoStartsAt, setPromoStartsAt] = useState('');
+  const [promoEndsAt, setPromoEndsAt] = useState('');
+  const [promoUsageLimit, setPromoUsageLimit] = useState(settings.promoUsageLimit ?? '');
+  const [promoPerCustomerLimit, setPromoPerCustomerLimit] = useState(settings.promoPerCustomerLimit ?? '');
+  const [promoAllowedCountries, setPromoAllowedCountries] = useState(settings.promoAllowedCountries || []);
+  const [promoCountrySearch, setPromoCountrySearch] = useState('');
   const [selectedColor, setSelectedColor] = useState(settings.themeColor || '#2563eb');
   const [bannerSlidingSpeed, setBannerSlidingSpeed] = useState(settings.bannerSlidingSpeed || 5);
+  const [storePages, setStorePages] = useState(settings.storePages || []);
+  const [pageDraft, setPageDraft] = useState(null);
+  const [uploadingPageImage, setUploadingPageImage] = useState(false);
+  const [draggedPageId, setDraggedPageId] = useState(null);
+  const [editingBannerId, setEditingBannerId] = useState(null);
+  const [bannerDraft, setBannerDraft] = useState(null);
 
   // Sync state when storeSettings updates asynchronously from server
   useEffect(() => {
@@ -99,11 +126,21 @@ function StoreSettingsContent({
       setShippingFlatRate(storeSettings.shippingFlatRate ?? '');
       setFreeShippingThreshold(storeSettings.freeShippingThreshold ?? '');
       setShippingZones(storeSettings.shippingZones || []);
+      setRefundRequestsEnabled(storeSettings.refundRequestsEnabled ?? true);
       setPromoActive(storeSettings.promoActive ?? false);
       setPromoCode(storeSettings.promoCode || '');
       setPromoDiscountPercent(storeSettings.promoDiscountPercent ?? 0);
+      setPromoDiscountType(storeSettings.promoDiscountType || 'percent');
+      setPromoMinimumSubtotal(storeSettings.promoMinimumSubtotal ?? '');
+      setPromoMaximumDiscount(storeSettings.promoMaximumDiscount ?? '');
+      setPromoStartsAt(toDateTimeLocal(storeSettings.promoStartsAt));
+      setPromoEndsAt(toDateTimeLocal(storeSettings.promoEndsAt));
+      setPromoUsageLimit(storeSettings.promoUsageLimit ?? '');
+      setPromoPerCustomerLimit(storeSettings.promoPerCustomerLimit ?? '');
+      setPromoAllowedCountries(Array.isArray(storeSettings.promoAllowedCountries) ? storeSettings.promoAllowedCountries : []);
       if (storeSettings.themeColor) setSelectedColor(storeSettings.themeColor);
       if (storeSettings.bannerSlidingSpeed) setBannerSlidingSpeed(storeSettings.bannerSlidingSpeed);
+      setStorePages(Array.isArray(storeSettings.storePages) ? storeSettings.storePages : []);
     }
   }, [storeSettings]);
 
@@ -158,6 +195,16 @@ function StoreSettingsContent({
   const [conversionTarget, setConversionTarget] = useState('BDT');
   const [conversionPreview, setConversionPreview] = useState(null);
   const [previewingConversion, setPreviewingConversion] = useState(false);
+  const [shippingCountries, setShippingCountries] = useState([]);
+  const [shippingCountryCode, setShippingCountryCode] = useState('');
+  const [shippingCountrySearch, setShippingCountrySearch] = useState('');
+  const [shippingCountryError, setShippingCountryError] = useState('');
+  const [shippingCitySearch, setShippingCitySearch] = useState({});
+  const [shippingCityResults, setShippingCityResults] = useState({});
+  const [loadingShippingCities, setLoadingShippingCities] = useState({});
+  const matchingShippingCountries = shippingCountries.filter(country =>
+    country.name.toLowerCase().includes(shippingCountrySearch.trim().toLowerCase())
+  );
   const commonCurrencyCodes = ['BDT', 'INR', 'EUR', 'GBP', 'JPY'];
   const conversionCurrencies = Object.keys(currencyMode === 'api'
     ? currencyConfiguration?.rates || {}
@@ -181,6 +228,78 @@ function StoreSettingsContent({
     webhookSecret: 'Stripe webhook signing secret',
     clientId: 'PayPal client ID',
     clientSecret: 'PayPal client secret'
+  };
+
+  useEffect(() => {
+    if (!['shipping', 'promotions'].includes(activeTab) || shippingCountries.length) return undefined;
+    let cancelled = false;
+    fetch('/api/public/shipping/countries')
+      .then(async response => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Country list failed with HTTP ${response.status}`);
+        if (!cancelled) setShippingCountries(result.countries || []);
+      })
+      .catch(error => {
+        if (!cancelled) setShippingCountryError(error.message || 'Could not load shipping countries.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, shippingCountries.length]);
+
+  const updateShippingZone = (zoneIndex, patch) => {
+    setShippingZones(current => current.map((zone, index) =>
+      index === zoneIndex ? { ...zone, ...patch } : zone
+    ));
+  };
+
+  const addShippingCountry = (zoneIndex) => {
+    const country = shippingCountries.find(item => item.code === shippingCountryCode);
+    if (!country) return;
+    setShippingZones(current => current.map((zone, index) => {
+      if (index !== zoneIndex) return zone;
+      const destinations = Array.isArray(zone.destinations) ? zone.destinations : [];
+      if (destinations.some(destination => destination.countryCode === country.code)) return zone;
+      return {
+        ...zone,
+        destinations: [...destinations, {
+          countryCode: country.code,
+          countryName: country.name,
+          cities: [],
+          enabled: true
+        }]
+      };
+    }));
+  };
+
+  const searchShippingCities = async (countryCode, searchKey) => {
+    const query = String(shippingCitySearch[searchKey] || '').trim();
+    if (query.length < 2) {
+      showToast?.('Enter at least two letters to search cities.', 'error');
+      return;
+    }
+    setLoadingShippingCities(current => ({ ...current, [searchKey]: true }));
+    try {
+      const response = await fetch(`/api/public/shipping/cities?countryCode=${encodeURIComponent(countryCode)}&q=${encodeURIComponent(query)}`);
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `City search failed with HTTP ${response.status}`);
+      setShippingCityResults(current => ({ ...current, [searchKey]: result.cities || [] }));
+    } catch (error) {
+      showToast?.(error.message || 'Could not search shipping cities.', 'error');
+    } finally {
+      setLoadingShippingCities(current => ({ ...current, [searchKey]: false }));
+    }
+  };
+
+  const addShippingCity = (zoneIndex, destinationIndex, city) => {
+    setShippingZones(current => current.map((zone, index) => index === zoneIndex
+      ? {
+        ...zone,
+        destinations: zone.destinations.map((destination, itemIndex) => itemIndex === destinationIndex
+          ? { ...destination, cities: [...new Set([...(destination.cities || []), city])] }
+          : destination)
+      }
+      : zone));
   };
 
   useEffect(() => {
@@ -353,9 +472,18 @@ function StoreSettingsContent({
         shippingFlatRate: shippingFlatRate === '' ? '' : Number(shippingFlatRate),
         freeShippingThreshold: freeShippingThreshold === '' ? '' : Number(freeShippingThreshold),
         shippingZones,
+        refundRequestsEnabled,
         promoActive,
         promoCode: promoCode.trim().toUpperCase(),
         promoDiscountPercent: promoDiscountPercent === '' ? 0 : Number(promoDiscountPercent),
+        promoDiscountType,
+        promoMinimumSubtotal: promoMinimumSubtotal === '' ? '' : Number(promoMinimumSubtotal),
+        promoMaximumDiscount: promoMaximumDiscount === '' ? '' : Number(promoMaximumDiscount),
+        promoStartsAt: toPromotionIsoDate(promoStartsAt),
+        promoEndsAt: toPromotionIsoDate(promoEndsAt),
+        promoUsageLimit: promoUsageLimit === '' ? 0 : Number(promoUsageLimit),
+        promoPerCustomerLimit: promoPerCustomerLimit === '' ? 0 : Number(promoPerCustomerLimit),
+        promoAllowedCountries,
         themeColor: selectedColor,
         bannerSlidingSpeed: Number(bannerSlidingSpeed) || 5
       });
@@ -538,7 +666,7 @@ function StoreSettingsContent({
   };
 
   const handleMoveBanner = async (index, direction) => {
-    const banners = [...(settings.heroBanners || DEFAULT_HERO_BANNERS)];
+    const banners = [...(Array.isArray(settings.heroBanners) ? settings.heroBanners : DEFAULT_HERO_BANNERS)];
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= banners.length) return;
     const temp = banners[index];
@@ -549,6 +677,100 @@ function StoreSettingsContent({
       showToast?.('Banner reordered');
     } catch (err) {
       showToast?.('Failed to reorder banners', 'error');
+    }
+  };
+
+  const createEmptyPageDraft = () => ({
+    id: `page-${Date.now()}`,
+    title: '',
+    slug: '',
+    content: '',
+    image: '',
+    placement: 'footer',
+    enabled: true
+  });
+
+  const uploadPageImage = async file => {
+    if (!file?.type?.startsWith('image/')) {
+      showToast?.('Choose a valid image file.', 'error');
+      return;
+    }
+    setUploadingPageImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('banner', file);
+      const response = await fetch('/api/store/upload-banner', { method: 'POST', body: formData });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.bannerUrl) {
+        throw new Error(result.error || `Image upload failed with HTTP ${response.status}.`);
+      }
+      setPageDraft(current => current ? { ...current, image: result.bannerUrl } : current);
+      showToast?.('Page image uploaded.');
+    } catch (error) {
+      showToast?.(error.message || 'Failed to upload page image.', 'error');
+    } finally {
+      setUploadingPageImage(false);
+    }
+  };
+
+  const savePageDraft = async () => {
+    const title = pageDraft?.title?.trim();
+    if (!title) {
+      showToast?.('Add a page title before saving.', 'error');
+      return;
+    }
+    const page = {
+      ...pageDraft,
+      title,
+      slug: (pageDraft.slug || title).trim().toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+      order: storePages.findIndex(existing => existing.id === pageDraft.id) < 0
+        ? storePages.length
+        : storePages.findIndex(existing => existing.id === pageDraft.id)
+    };
+
+    const updatedPages = storePages.some(existing => existing.id === page.id)
+      ? storePages.map(existing => existing.id === page.id ? page : existing)
+      : [...storePages, page];
+    try {
+      await updateStoreSettings({ storePages: updatedPages });
+      setStorePages(updatedPages);
+      setPageDraft(null);
+      showToast?.('Store page saved. Unsafe HTML is removed automatically.');
+    } catch (error) {
+      showToast?.(error.message || 'Failed to save store page.', 'error');
+    }
+  };
+
+  const moveStorePage = async (sourceId, targetId) => {
+    if (!sourceId || !targetId || sourceId === targetId) return;
+    const reordered = [...storePages];
+    const sourceIndex = reordered.findIndex(page => page.id === sourceId);
+    const targetIndex = reordered.findIndex(page => page.id === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    const [moved] = reordered.splice(sourceIndex, 1);
+    reordered.splice(targetIndex, 0, moved);
+    const ordered = reordered.map((page, order) => ({ ...page, order }));
+    try {
+      await updateStoreSettings({ storePages: ordered });
+      setStorePages(ordered);
+    } catch (error) {
+      showToast?.(error.message || 'Failed to reorder pages.', 'error');
+    }
+  };
+
+  const handleSaveBanner = async () => {
+    if (!bannerDraft?.title?.trim() || !bannerDraft?.image?.trim()) {
+      showToast?.('Banner title and image URL are required.', 'error');
+      return;
+    }
+    try {
+      await updateHeroBanner(editingBannerId, bannerDraft);
+      setEditingBannerId(null);
+      setBannerDraft(null);
+      showToast?.('Homepage hero banner updated.');
+    } catch (error) {
+      showToast?.(error.message || 'Failed to update banner.', 'error');
     }
   };
 
@@ -569,7 +791,7 @@ function StoreSettingsContent({
     return matchesCategory && matchesSearch;
   });
 
-  const currentBanners = Array.isArray(settings.heroBanners) && settings.heroBanners.length > 0
+  const currentBanners = Array.isArray(settings.heroBanners)
     ? settings.heroBanners
     : DEFAULT_HERO_BANNERS;
   const isCommerceSettings = ['commerce', 'payments', 'shipping', 'promotions'].includes(activeTab);
@@ -790,6 +1012,18 @@ function StoreSettingsContent({
           <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-bold">
             {currentBanners.length}
           </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('pages')}
+          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+            activeTab === 'pages'
+              ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-800'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>Pages & Menus</span>
         </button>
           </>
         </div>
@@ -1158,7 +1392,7 @@ function StoreSettingsContent({
                 <div className={`border-t border-slate-100 dark:border-gray-700 pt-4 space-y-3 ${activeTab === 'shipping' ? '' : 'hidden'}`}>
                   <h3 className="text-xs font-bold text-slate-900 dark:text-white">Delivery & Tax</h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Set destination-based manual rates in your store currency. The server recalculates the selected zone and fee when the order is submitted.
+                    Configure international destinations, per-country tax, parcel-weight rates, and delivery estimates. Checkout shows these saved estimates; it does not book a carrier.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {[
@@ -1183,7 +1417,7 @@ function StoreSettingsContent({
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <h4 className="text-xs font-bold text-slate-800 dark:text-white">Destination shipping zones</h4>
-                        <p className="text-[10px] text-slate-500">Use country names separated by commas; use * for a fallback zone.</p>
+                        <p className="text-[10px] text-slate-500">Create country/city zones and set the manual method and rates that apply to each destination.</p>
                       </div>
                       <button
                         type="button"
@@ -1191,7 +1425,11 @@ function StoreSettingsContent({
                           id: `shipping-zone-${Date.now()}`,
                           name: '',
                           countries: '',
+                          destinations: [],
+                          shippingMethod: 'Standard shipping',
                           rate: 0,
+                          perKgRate: '',
+                          taxRate: '',
                           freeShippingThreshold: '',
                           minDeliveryDays: '',
                           maxDeliveryDays: '',
@@ -1217,16 +1455,171 @@ function StoreSettingsContent({
                             className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                           />
                         </label>
+                        <div className="space-y-2 sm:col-span-2">
+                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                            Add destination country
+                            <input
+                              type="search"
+                              value={shippingCountrySearch}
+                              onChange={event => setShippingCountrySearch(event.target.value)}
+                              placeholder="Filter country list"
+                              className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                            />
+                            <div className="mt-1 flex gap-2">
+                              <select
+                                value={shippingCountryCode}
+                                onChange={event => setShippingCountryCode(event.target.value)}
+                                disabled={!shippingCountries.length}
+                                className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                              >
+                                <option value="">{shippingCountryError ? 'Country list unavailable' : 'Search/select a country'}</option>
+                                {matchingShippingCountries.map(country => (
+                                  <option key={country.code} value={country.code}>{country.name}</option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => addShippingCountry(index)}
+                                disabled={!shippingCountryCode || !shippingCountries.length}
+                                className="shrink-0 rounded-lg border border-blue-200 px-3 py-2 text-[11px] font-bold text-blue-700 disabled:opacity-50 dark:border-blue-800 dark:text-blue-300"
+                              >
+                                Add country
+                              </button>
+                            </div>
+                          </label>
+                          {shippingCountryError && <p role="alert" className="text-[10px] text-rose-600">{shippingCountryError}</p>}
+                          {Array.isArray(zone.countries) && zone.countries.length > 0 && (
+                            <p className="text-[10px] text-amber-700 dark:text-amber-300">
+                              Existing text destinations are retained: {zone.countries.join(', ')}
+                            </p>
+                          )}
+                          <div className="space-y-2">
+                            {(zone.destinations || []).map((destination, destinationIndex) => {
+                              const searchKey = `${zone.id || index}-${destination.countryCode}`;
+                              const cityResults = shippingCityResults[searchKey] || [];
+                              return (
+                                <section key={destination.countryCode} className="rounded-lg border border-slate-200 bg-slate-50/70 p-2.5 dark:border-gray-700 dark:bg-gray-900/50">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <label className="inline-flex min-w-0 flex-1 items-center gap-2 text-[11px] font-bold text-slate-700 dark:text-slate-200">
+                                      <input
+                                        type="checkbox"
+                                        checked={destination.enabled !== false}
+                                        onChange={event => setShippingZones(current => current.map((item, itemIndex) =>
+                                          itemIndex === index
+                                            ? {
+                                              ...item,
+                                              destinations: item.destinations.map((entry, entryIndex) =>
+                                                entryIndex === destinationIndex ? { ...entry, enabled: event.target.checked } : entry
+                                              )
+                                            }
+                                            : item
+                                        ))}
+                                      />
+                                      <span className="truncate">{destination.countryName} ({destination.countryCode})</span>
+                                    </label>
+                                    <span className="text-[10px] text-slate-500">
+                                      {destination.cities?.length ? `${destination.cities.length} selected cities` : 'All cities'}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setShippingZones(current => current.map((item, itemIndex) =>
+                                        itemIndex === index
+                                          ? { ...item, destinations: item.destinations.filter((_, entryIndex) => entryIndex !== destinationIndex) }
+                                          : item
+                                      ))}
+                                      className="text-[10px] font-semibold text-rose-600"
+                                    >
+                                      Remove country
+                                    </button>
+                                  </div>
+                                  {destination.cities?.length > 0 && (
+                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                      {destination.cities.map(city => (
+                                        <button
+                                          key={city}
+                                          type="button"
+                                          onClick={() => setShippingZones(current => current.map((item, itemIndex) =>
+                                            itemIndex === index
+                                              ? {
+                                                ...item,
+                                                destinations: item.destinations.map((entry, entryIndex) => entryIndex === destinationIndex
+                                                  ? { ...entry, cities: entry.cities.filter(value => value !== city) }
+                                                  : entry)
+                                              }
+                                              : item
+                                          ))}
+                                          className="rounded-full bg-white px-2 py-1 text-[10px] text-slate-600 dark:bg-gray-800 dark:text-slate-300"
+                                        >
+                                          {city} ×
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <div className="mt-2 flex gap-2">
+                                    <input
+                                      value={shippingCitySearch[searchKey] || ''}
+                                      onChange={event => setShippingCitySearch(current => ({ ...current, [searchKey]: event.target.value }))}
+                                      onKeyDown={event => {
+                                        if (event.key === 'Enter') {
+                                          event.preventDefault();
+                                          searchShippingCities(destination.countryCode, searchKey);
+                                        }
+                                      }}
+                                      placeholder="Search cities (leave empty for all)"
+                                      className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => searchShippingCities(destination.countryCode, searchKey)}
+                                      disabled={loadingShippingCities[searchKey]}
+                                      className="rounded-lg border border-slate-200 px-2.5 py-2 text-[10px] font-bold disabled:opacity-50 dark:border-gray-700"
+                                    >
+                                      {loadingShippingCities[searchKey] ? 'Searching…' : 'Search'}
+                                    </button>
+                                  </div>
+                                  {cityResults.length > 0 && (
+                                    <div className="mt-2 flex max-h-28 flex-wrap gap-1.5 overflow-y-auto">
+                                      {cityResults.map(city => (
+                                        <button
+                                          key={city}
+                                          type="button"
+                                          disabled={(destination.cities || []).includes(city)}
+                                          onClick={() => addShippingCity(index, destinationIndex, city)}
+                                          className="rounded-full border border-blue-200 bg-white px-2 py-1 text-[10px] font-semibold text-blue-700 disabled:opacity-40 dark:border-blue-800 dark:bg-gray-800 dark:text-blue-300"
+                                        >
+                                          {city} +
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </section>
+                              );
+                            })}
+                          </div>
+                          <p className="text-[10px] text-slate-500">
+                            City data: GeoNames Gazetteer (CC BY 4.0), about 171,000 populated places; this does not include every village, neighborhood, or postal locality.
+                          </p>
+                        </div>
                         <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                          Countries
-                          <input
-                            value={Array.isArray(zone.countries) ? zone.countries.join(', ') : zone.countries || ''}
-                            onChange={event => setShippingZones(current => current.map((item, itemIndex) =>
-                              itemIndex === index ? { ...item, countries: event.target.value } : item
-                            ))}
-                            placeholder="Bangladesh, India"
+                          Shipping method / service label
+                          <select
+                            value={['Standard shipping', 'Express courier', 'Air freight', 'Sea freight'].includes(zone.shippingMethod) ? zone.shippingMethod : 'Custom method'}
+                            onChange={event => updateShippingZone(index, { shippingMethod: event.target.value })}
                             className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                          />
+                          >
+                            {['Standard shipping', 'Express courier', 'Air freight', 'Sea freight', 'Custom method'].map(method => (
+                              <option key={method} value={method}>{method}</option>
+                            ))}
+                          </select>
+                          {!['Standard shipping', 'Express courier', 'Air freight', 'Sea freight'].includes(zone.shippingMethod) && (
+                            <input
+                              value={zone.shippingMethod === 'Custom method' ? '' : zone.shippingMethod || ''}
+                              onChange={event => updateShippingZone(index, { shippingMethod: event.target.value })}
+                              maxLength={80}
+                              placeholder="Enter custom service label"
+                              className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                            />
+                          )}
                         </label>
                         <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
                           Rate ({settings.currency || 'USD'})
@@ -1238,6 +1631,30 @@ function StoreSettingsContent({
                             onChange={event => setShippingZones(current => current.map((item, itemIndex) =>
                               itemIndex === index ? { ...item, rate: event.target.value } : item
                             ))}
+                            className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                          />
+                        </label>
+                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                          Additional rate per kg ({settings.currency || 'USD'})
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={zone.perKgRate ?? ''}
+                            onChange={event => updateShippingZone(index, { perKgRate: event.target.value })}
+                            className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                          />
+                        </label>
+                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                          Destination tax rate override (%)
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={zone.taxRate ?? ''}
+                            onChange={event => updateShippingZone(index, { taxRate: event.target.value })}
+                            placeholder={`Default ${taxRate}%`}
                             className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                           />
                         </label>
@@ -1308,15 +1725,17 @@ function StoreSettingsContent({
                     ))}
                   </div>
                   <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800 p-3 text-[11px] text-amber-900 dark:text-amber-200">
-                    These are manual rate rules, not live courier quotes or bookings. Assign a courier and save tracking details in Sales &amp; Orders after dispatch.
+                    These are your manual international shipping rules and service labels, not live courier quotes or bookings. Actual carrier availability, customs duties, and delivery times must be confirmed with your provider. Book shipments with the carrier, then save its tracking details in Courier.
                   </div>
                 </div>
 
                 <div className={`border-t border-slate-100 dark:border-gray-700 pt-4 space-y-3 ${activeTab === 'promotions' ? '' : 'hidden'}`}>
-                  <h3 className="text-xs font-bold text-slate-900 dark:text-white">Checkout Promotion Code</h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Configure one active percentage-off code. The server validates it again when an order is placed.
-                  </p>
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-900 dark:text-white">International promotion</h3>
+                    <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                      Set one checkout code with country eligibility, a minimum spend, redemption limits, and a scheduled campaign. Fixed discounts use your store currency ({settings.currency || 'USD'}).
+                    </p>
+                  </div>
                   <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
                     <input
                       type="checkbox"
@@ -1328,30 +1747,172 @@ function StoreSettingsContent({
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Promotion code
+                      Campaign code
                       <input
                         type="text"
                         value={promoCode}
                         onChange={event => setPromoCode(event.target.value.toUpperCase())}
                         maxLength={32}
-                        pattern="[A-Za-z0-9_-]+"
+                        pattern="[A-Za-z0-9_-]{1,32}"
                         placeholder="e.g. SAVE10"
                         autoComplete="off"
+                        aria-describedby="promo-code-help"
                         className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
                       />
+                      <span id="promo-code-help" className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-slate-400">
+                        Letters, numbers, hyphens, and underscores.
+                      </span>
                     </label>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Discount percent
+                      Discount type
+                      <select
+                        value={promoDiscountType}
+                        onChange={event => setPromoDiscountType(event.target.value)}
+                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                      >
+                        <option value="percent">Percentage off</option>
+                        <option value="fixed">Fixed amount off</option>
+                      </select>
+                    </label>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      {promoDiscountType === 'fixed' ? `Discount amount (${settings.currency || 'USD'})` : 'Discount percent'}
                       <input
                         type="number"
                         value={promoDiscountPercent}
                         onChange={event => setPromoDiscountPercent(event.target.value)}
                         min="0"
-                        max="100"
+                        max={promoDiscountType === 'percent' ? '100' : undefined}
                         step="0.01"
+                        required={promoActive}
+                        placeholder={promoDiscountType === 'fixed' ? 'e.g. 10.00' : 'e.g. 10'}
                         className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
                       />
                     </label>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Minimum order ({settings.currency || 'USD'})
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={promoMinimumSubtotal}
+                        onChange={event => setPromoMinimumSubtotal(event.target.value)}
+                        placeholder="No minimum"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                      />
+                    </label>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Maximum discount ({settings.currency || 'USD'})
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={promoMaximumDiscount}
+                        onChange={event => setPromoMaximumDiscount(event.target.value)}
+                        placeholder="No cap"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                      />
+                    </label>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Starts at (your local time)
+                      <input
+                        type="datetime-local"
+                        value={promoStartsAt}
+                        onChange={event => setPromoStartsAt(event.target.value)}
+                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                      />
+                    </label>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Ends at (your local time)
+                      <input
+                        type="datetime-local"
+                        value={promoEndsAt}
+                        min={promoStartsAt || undefined}
+                        onChange={event => setPromoEndsAt(event.target.value)}
+                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                      />
+                    </label>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Total redemptions
+                      <input
+                        type="number"
+                        min="0"
+                        max="1000000"
+                        step="1"
+                        value={promoUsageLimit}
+                        onChange={event => setPromoUsageLimit(event.target.value)}
+                        placeholder="Unlimited"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                      />
+                      <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-slate-400">Use 0 or leave blank for unlimited.</span>
+                    </label>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Uses per customer
+                      <input
+                        type="number"
+                        min="0"
+                        max="1000000"
+                        step="1"
+                        value={promoPerCustomerLimit}
+                        onChange={event => setPromoPerCustomerLimit(event.target.value)}
+                        placeholder="Unlimited"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                      />
+                      <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-slate-400">Matched by customer email or phone.</span>
+                    </label>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 p-3 dark:border-gray-700">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h4 className="text-xs font-semibold text-slate-800 dark:text-slate-100">Eligible delivery countries</h4>
+                        <p className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">
+                          Leave all countries unchecked to make this code available worldwide.
+                        </p>
+                      </div>
+                      {promoAllowedCountries.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setPromoAllowedCountries([])}
+                          className="text-[10px] font-semibold text-blue-700 hover:underline dark:text-blue-300"
+                        >
+                          Clear country limits
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="search"
+                      value={promoCountrySearch}
+                      onChange={event => setPromoCountrySearch(event.target.value)}
+                      placeholder="Search countries"
+                      aria-label="Search promotion countries"
+                      className="mt-3 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                    />
+                    {shippingCountryError && !shippingCountries.length ? (
+                      <p role="alert" className="mt-2 text-[11px] text-rose-600 dark:text-rose-300">{shippingCountryError}</p>
+                    ) : (
+                      <div className="mt-2 grid max-h-40 grid-cols-1 gap-1 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+                        {shippingCountries
+                          .filter(country => country.name.toLowerCase().includes(promoCountrySearch.trim().toLowerCase()))
+                          .map(country => (
+                            <label key={country.code} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-gray-700/60">
+                              <input
+                                type="checkbox"
+                                checked={promoAllowedCountries.includes(country.code)}
+                                onChange={event => setPromoAllowedCountries(current =>
+                                  event.target.checked
+                                    ? [...new Set([...current, country.code])]
+                                    : current.filter(code => code !== country.code)
+                                )}
+                              />
+                              <span>{country.name}</span>
+                            </label>
+                          ))}
+                        {!shippingCountries.length && !shippingCountryError && (
+                          <p className="py-2 text-[11px] text-slate-500">Loading country list…</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1531,16 +2092,32 @@ function StoreSettingsContent({
                   <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] text-amber-900 dark:border-amber-800 dark:bg-amber-900/10 dark:text-amber-200">
                     <p>
                       <a href="https://frankfurter.dev" target="_blank" rel="noreferrer" className="font-bold underline">Frankfurter</a>
-                      {' '}provides daily blended reference rates from central-bank sources, not guaranteed gateway settlement or bank rates. Rates are cached server-side; stale API data is rejected. Online payments remain disabled until secure gateway sessions and verified callbacks are implemented.
+                      {' '}provides daily blended reference rates from central-bank sources, not guaranteed gateway settlement or bank rates. Rates are cached server-side; stale API data is rejected. Online checkout uses each gateway's supported store currencies.
                     </p>
                   </div>
                 </div>
 
                 <div className={`border-t border-slate-100 dark:border-gray-700 pt-4 space-y-4 ${activeTab === 'payments' || activeTab === 'commerce' ? '' : 'hidden'}`}>
+                  <section className="rounded-xl border border-slate-200 p-3 dark:border-gray-700">
+                    <label className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={refundRequestsEnabled}
+                        onChange={event => setRefundRequestsEnabled(event.target.checked)}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        <span className="block text-xs font-bold text-slate-900 dark:text-white">Allow customer refund requests</span>
+                        <span className="mt-1 block text-[10px] text-slate-500 dark:text-slate-400">
+                          Customers can submit requests from their account. Turning this off hides the request action and rejects new requests; existing requests remain available in Sales &amp; Orders.
+                        </span>
+                      </span>
+                    </label>
+                  </section>
                   <div>
                     <h3 className="text-xs font-bold text-slate-900 dark:text-white">Store Payment Gateways</h3>
                     <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                      Each store connects its own merchant account. Secrets are encrypted before saving and never returned to the browser. Configuration is stored, but online checkout is not activated until provider payment sessions and server-side verification are implemented.
+                      Each store connects its own merchant account. Secrets are encrypted before saving and never returned to the browser. Paid status is recorded only after the provider verifies the transaction. Nagad online checkout is not available yet.
                     </p>
                   </div>
                   <div className="space-y-3">
@@ -1550,9 +2127,16 @@ function StoreSettingsContent({
                           <div>
                             <h4 className="text-xs font-bold text-slate-900 dark:text-white">{provider.name}</h4>
                             <p className="mt-0.5 text-[10px] text-slate-500">
-                              {provider.configured ? `Credentials saved · ${provider.mode} · checkout not active` : 'Merchant account not connected'}
+                              {provider.configured
+                                ? `${provider.enabled ? 'Enabled' : 'Disabled'} · ${provider.mode} · ${provider.checkoutReady ? 'checkout ready' : 'checkout unavailable'}`
+                                : 'Merchant account not connected'}
                               {' · '}Supported currencies: {provider.currencies.join(', ')}
                             </p>
+                            {provider.id === 'stripe' && provider.checkoutReady && (
+                              <p className="mt-1 text-[10px] text-slate-500">
+                                Configure Stripe webhook endpoint <code>https://&lt;store-domain&gt;/api/public/payments/stripe/webhook</code> for checkout.session.completed, checkout.session.async_payment_succeeded, refund.created, refund.updated, and refund.failed.
+                              </p>
+                            )}
                           </div>
                           <label className="inline-flex items-center gap-2 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
                             <input
@@ -2176,6 +2760,169 @@ function StoreSettingsContent({
                       </span>
                     </div>
                   )}
+
+                  {activeTab === 'pages' && (
+                    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,1fr)]">
+                      <section className="space-y-4">
+                        <div className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <h2 className="text-base font-bold text-slate-900 dark:text-white">Store pages & menus</h2>
+                              <p className="mt-1 max-w-xl text-xs text-slate-500 dark:text-slate-400">
+                                Create policy or information pages, add an optional image, and choose whether each page appears in the header or footer.
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setPageDraft(createEmptyPageDraft())}
+                              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-blue-700"
+                            >
+                              <Plus className="h-4 w-4" /> New page
+                            </button>
+                          </div>
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {[
+                              ['Privacy Policy', '<h1>Privacy Policy</h1><p>Last updated: [date]</p><h2>Information we collect</h2><p>Explain what customer information your store collects and why.</p><h2>How we use information</h2><p>Describe how order, contact, and delivery information is used.</p><h2>Sharing and retention</h2><p>Explain which service providers receive information and how long records are retained.</p><h2>Contact</h2><p>Contact us at [store contact email] with privacy questions.</p>'],
+                              ['Terms of Service', '<h1>Terms of Service</h1><p>Last updated: [date]</p><h2>Orders and payment</h2><p>Describe order acceptance, payment, and pricing terms.</p><h2>Shipping and returns</h2><p>Link or summarize your delivery, cancellation, and return policies.</p><h2>Contact</h2><p>Contact us at [store contact email].</p>'],
+                              ['Returns & Refunds', '<h1>Returns & Refunds</h1><p>Last updated: [date]</p><h2>Return eligibility</h2><p>Describe eligible items and the time window for return requests.</p><h2>How to request a return</h2><p>Explain how customers should contact your store and provide order details.</p><h2>Refund timing</h2><p>State how approved refunds are processed and typical timelines.</p>']
+                            ].map(([title, content]) => (
+                              <button
+                                key={title}
+                                type="button"
+                                onClick={() => setPageDraft({
+                                  ...createEmptyPageDraft(),
+                                  title,
+                                  slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+                                  content
+                                })}
+                                className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:border-blue-300 hover:text-blue-700 dark:border-gray-600 dark:text-slate-300"
+                              >
+                                Use {title} preset
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {pageDraft && (
+                          <div className="space-y-4 rounded-3xl border-2 border-blue-200 bg-white p-5 dark:border-blue-900 dark:bg-gray-800">
+                            <div className="flex items-center justify-between">
+                              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                                {storePages.some(page => page.id === pageDraft.id) ? 'Edit page' : 'Create page'}
+                              </h3>
+                              <button type="button" onClick={() => setPageDraft(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-700" aria-label="Close editor">
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                Page name
+                                <input value={pageDraft.title} onChange={event => setPageDraft({ ...pageDraft, title: event.target.value })} maxLength={120} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-white" placeholder="Privacy Policy" />
+                              </label>
+                              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                Page URL slug
+                                <input value={pageDraft.slug} onChange={event => setPageDraft({ ...pageDraft, slug: event.target.value })} maxLength={120} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-white" placeholder="privacy-policy" />
+                              </label>
+                              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                Menu placement
+                                <select value={pageDraft.placement || 'footer'} onChange={event => setPageDraft({ ...pageDraft, placement: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-white">
+                                  <option value="footer">Footer menu</option>
+                                  <option value="header">Header menu</option>
+                                  <option value="both">Header and footer</option>
+                                  <option value="hidden">No menu link (direct URL only)</option>
+                                </select>
+                              </label>
+                              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                Optional image URL
+                                <input value={pageDraft.image || ''} onChange={event => setPageDraft({ ...pageDraft, image: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-white" placeholder="https://… or /uploads/…" />
+                                <span className="mt-2 flex items-center gap-2">
+                                  <input type="file" accept="image/*" disabled={uploadingPageImage} onChange={event => {
+                                    if (event.target.files?.[0]) uploadPageImage(event.target.files[0]);
+                                    event.target.value = '';
+                                  }} className="max-w-full text-[10px] font-normal" />
+                                  {uploadingPageImage && <span className="text-[10px] text-blue-600">Uploading…</span>}
+                                </span>
+                              </label>
+                            </div>
+                            <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                              <input type="checkbox" checked={pageDraft.enabled !== false} onChange={event => setPageDraft({ ...pageDraft, enabled: event.target.checked })} />
+                              Publish this page
+                            </label>
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                              Page content (HTML allowed; scripts and unsafe attributes are removed on save)
+                              <textarea value={pageDraft.content || ''} onChange={event => setPageDraft({ ...pageDraft, content: event.target.value })} rows={12} maxLength={100000} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-xs dark:border-gray-600 dark:bg-gray-900 dark:text-white" placeholder="<h1>About our store</h1><p>Write your page content…</p>" />
+                            </label>
+                            <div className="flex justify-end gap-2">
+                              <button type="button" onClick={() => setPageDraft(null)} className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 dark:border-gray-600 dark:text-slate-300">Cancel</button>
+                              <button type="button" onClick={savePageDraft} disabled={saving} className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">{saving ? 'Saving…' : 'Save page'}</button>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="space-y-2">
+                          {storePages.map((page, index) => (
+                            <div
+                              key={page.id}
+                              draggable
+                              onDragStart={() => setDraggedPageId(page.id)}
+                              onDragOver={event => event.preventDefault()}
+                              onDrop={() => {
+                                moveStorePage(draggedPageId, page.id);
+                                setDraggedPageId(null);
+                              }}
+                              onDragEnd={() => setDraggedPageId(null)}
+                              className={`flex items-center gap-3 rounded-2xl border bg-white p-3 dark:border-gray-700 dark:bg-gray-800 ${draggedPageId === page.id ? 'opacity-50' : ''}`}
+                            >
+                              <GripVertical title="Drag to reorder" className="h-4 w-4 shrink-0 cursor-grab text-slate-400" />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="truncate text-sm font-bold text-slate-800 dark:text-white">{page.title}</p>
+                                  <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${page.enabled === false ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{page.enabled === false ? 'Draft' : 'Published'}</span>
+                                  <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[9px] font-semibold text-blue-700">{page.placement || 'footer'}</span>
+                                </div>
+                                <p className="truncate text-[11px] text-slate-500">#/store/page/{page.slug || page.id}</p>
+                              </div>
+                              <button type="button" onClick={() => setPageDraft({ ...page })} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50 dark:text-blue-300">Edit</button>
+                              <div className="flex flex-col">
+                                <button type="button" disabled={index === 0} onClick={() => moveStorePage(page.id, storePages[index - 1]?.id)} className="px-1 text-slate-400 disabled:opacity-30" aria-label={`Move ${page.title} up`}>▲</button>
+                                <button type="button" disabled={index === storePages.length - 1} onClick={() => moveStorePage(page.id, storePages[index + 1]?.id)} className="px-1 text-slate-400 disabled:opacity-30" aria-label={`Move ${page.title} down`}>▼</button>
+                              </div>
+                              <button type="button" onClick={async () => {
+                                if (!confirm(`Delete "${page.title}"?`)) return;
+                                const remaining = storePages.filter(item => item.id !== page.id).map((item, order) => ({ ...item, order }));
+                                try {
+                                  await updateStoreSettings({ storePages: remaining });
+                                  setStorePages(remaining);
+                                  showToast?.('Page deleted.');
+                                } catch (error) {
+                                  showToast?.(error.message || 'Failed to delete page.', 'error');
+                                }
+                              }} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" aria-label={`Delete ${page.title}`}>
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                              <span className="hidden text-[10px] text-slate-400 sm:inline">#{index + 1}</span>
+                            </div>
+                          ))}
+                          {storePages.length === 0 && !pageDraft && (
+                            <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-xs text-slate-500 dark:border-gray-700">
+                              No custom pages yet. Start with a policy preset or create a blank page.
+                            </div>
+                          )}
+                        </div>
+                      </section>
+
+                      <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white">Safe content preview</h3>
+                        <p className="mt-1 text-xs text-slate-500">Scripts are disabled in this isolated preview. Content is sanitized again by the server when saved.</p>
+                        {pageDraft?.image && <img src={pageDraft.image} alt="" className="mt-4 max-h-48 w-full rounded-xl object-cover" />}
+                        <iframe
+                          title="Custom page preview"
+                          sandbox=""
+                          srcDoc={`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font:16px/1.65 system-ui,sans-serif;color:#334155;padding:20px;overflow-wrap:anywhere}img{max-width:100%;height:auto}table{border-collapse:collapse}td,th{border:1px solid #cbd5e1;padding:8px}</style></head><body>${pageDraft?.content || '<p>Start writing page content to preview it here.</p>'}</body></html>`}
+                          className="mt-4 h-[420px] w-full rounded-xl border border-slate-200 bg-white dark:border-gray-700"
+                        />
+                      </section>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -2277,15 +3024,61 @@ function StoreSettingsContent({
                         </p>
                       )}
 
+                      <span className="inline-flex rounded-md bg-indigo-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                        Placement: Homepage hero slider
+                      </span>
+
                       <div className="flex items-center space-x-1.5 text-[10px] font-mono text-blue-600 dark:text-blue-400 truncate">
                         <LinkIcon className="w-3 h-3 shrink-0" />
                         <span className="truncate">{banner.link || '/?view=store'}</span>
                       </div>
+
+                      {editingBannerId === banner.id && bannerDraft && (
+                        <div className="mt-3 grid w-full gap-2 sm:grid-cols-2">
+                          {[
+                            ['title', 'Banner title'],
+                            ['subtitle', 'Subtitle'],
+                            ['image', 'Image URL'],
+                            ['link', 'Click-through URL']
+                          ].map(([key, label]) => (
+                            <label key={key} className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                              {label}
+                              <input
+                                value={bannerDraft[key] || ''}
+                                onChange={event => setBannerDraft({ ...bannerDraft, [key]: event.target.value })}
+                                className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                              />
+                            </label>
+                          ))}
+                          {bannerDraft.image && (
+                            <img src={bannerDraft.image} alt="Banner preview" className="col-span-full h-28 w-full rounded-lg object-cover" />
+                          )}
+                          <div className="col-span-full flex justify-end gap-2">
+                            <button type="button" onClick={() => { setEditingBannerId(null); setBannerDraft(null); }} className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold dark:border-gray-600">Cancel</button>
+                            <button type="button" onClick={handleSaveBanner} disabled={saving} className="rounded-lg bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-50">Save banner</button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   {/* Right: Actions */}
                   <div className="flex items-center space-x-2 shrink-0 self-end md:self-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingBannerId(banner.id);
+                        setBannerDraft({
+                          title: banner.title || '',
+                          subtitle: banner.subtitle || '',
+                          image: banner.image || '',
+                          link: banner.link || ''
+                        });
+                      }}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-gray-600 dark:text-slate-300 dark:hover:bg-gray-700"
+                    >
+                      Edit
+                    </button>
                     <button
                       type="button"
                       onClick={() => handleToggleBannerActive(banner)}

@@ -204,15 +204,20 @@ export async function beginDomainSslProvisioning({ id, userId }) {
   return serializeDomain(rows[0]);
 }
 
-export async function findActiveCustomDomain(domain) {
-  if (!isPgActive()) return false;
-  const normalized = String(domain || '').toLowerCase().replace(/\.$/, '');
+export async function resolveActiveCustomDomain(domain) {
+  if (!isPgActive()) return null;
+  const normalized = domainToASCII(String(domain || '').trim().toLowerCase().replace(/\.$/, ''));
+  if (!normalized) return null;
   const { rows } = await queryPg(
-    `SELECT 1 FROM system_custom_domains
+    `SELECT tiwi_id FROM system_custom_domains
      WHERE domain = $1 AND status = 'active' AND ssl_status = 'active' LIMIT 1`,
     [normalized]
   );
-  return rows.length > 0;
+  return rows[0] ? { domain: normalized, tiwiId: rows[0].tiwi_id } : null;
+}
+
+export async function findActiveCustomDomain(domain) {
+  return Boolean(await resolveActiveCustomDomain(domain));
 }
 
 export async function deletePendingUserDomain({ userId, id }) {

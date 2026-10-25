@@ -5,6 +5,9 @@ import { useStoreSettings } from '../../../context/StoreSettingsContext';
 export default function TiwiFooter() {
   const { storeSettings } = useStoreSettings();
   const storeName = storeSettings?.storeName || 'Your Store';
+  const footerPages = [...(storeSettings?.storePages || [])]
+    .filter(page => page.enabled !== false && ['footer', 'both'].includes(page.placement))
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
   const address = [
     storeSettings?.storeAddress,
     storeSettings?.storeCity,
@@ -29,6 +32,15 @@ export default function TiwiFooter() {
               <span className="inline-flex items-center gap-2">
                 <MapPin className="w-3.5 h-3.5" />{address}
               </span>
+            )}
+            {footerPages.length > 0 && (
+              <nav aria-label="Store pages" className="flex flex-wrap gap-x-5 gap-y-2">
+                {footerPages.map(page => (
+                  <a key={page.id} href={`#/store/page/${encodeURIComponent(page.slug)}`} className="hover:text-white">
+                    {page.title}
+                  </a>
+                ))}
+              </nav>
             )}
             {storeSettings.contactEmail && (
               <a href={`mailto:${storeSettings.contactEmail}`} className="inline-flex items-center gap-2 hover:text-white">

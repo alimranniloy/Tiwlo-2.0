@@ -25,6 +25,7 @@ import {
   Printer
 } from 'lucide-react';
 import { getStockStatus, isLowStock } from '../../../shared/inventoryRules.js';
+import { calculateInventoryValuation } from '../../../shared/accountingHelpers.mjs';
 import { StoreSettingsProvider, useStoreSettings } from '../context/StoreSettingsContext.jsx';
 import { formatStoreCurrency } from '../themes/TiwiMart/storefrontUtils.js';
 
@@ -134,7 +135,8 @@ function ProductsViewContent({
   const inStockCount = products.filter(p => getStockStatus(p) === 'In Stock').length;
   const lowStockCount = products.filter(isLowStock).length;
   const outOfStockCount = products.filter(p => getStockStatus(p) === 'Out of Stock').length;
-  const totalValue = products.reduce((acc, p) => acc + ((p.stock || 0) * (p.price || 0)), 0);
+  const inventoryValuation = calculateInventoryValuation(products);
+  const totalValue = inventoryValuation ? inventoryValuation.retailValueCents / 100 : null;
 
   // Export CSV
   const handleExportCSV = () => {
@@ -149,7 +151,7 @@ function ProductsViewContent({
       p.stock,
       p.minStock ?? 20,
       p.price,
-      p.costPrice || 0,
+      p.costPrice ?? '',
       `"${p.location || ''}"`,
       getStockStatus(p)
     ]);
@@ -255,7 +257,7 @@ function ProductsViewContent({
             <DollarSign className="w-4 h-4 text-indigo-500" />
           </div>
           <div className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-1.5">
-            {formatStoreCurrency(Math.round(totalValue), storeSettings)}
+            {totalValue === null ? 'Unavailable' : formatStoreCurrency(totalValue, storeSettings)}
           </div>
           <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">At retail price</div>
         </div>
@@ -479,7 +481,7 @@ function ProductsViewContent({
                           <p className="font-bold text-slate-900 dark:text-white">
                             {formatStoreCurrency(p.price || 0, storeSettings)}
                           </p>
-                          {p.costPrice && (
+                          {p.costPrice !== null && p.costPrice !== undefined && (
                             <p className="text-[10px] text-slate-400">
                               Cost: {formatStoreCurrency(p.costPrice, storeSettings)}
                             </p>

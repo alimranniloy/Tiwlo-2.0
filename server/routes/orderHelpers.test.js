@@ -18,9 +18,9 @@ test('order lifecycle allows valid forward progress and terminal states', () => 
   assert.equal(canTransitionOrder('Cancelled', 'Processing'), false);
 });
 
-test('order update validates payment, courier and tracking fields', () => {
+test('order update prevents direct payment status edits and validates courier and tracking fields', () => {
   assert.equal(validateOrderUpdate({ status: 'Unverified' }), 'Select a valid order status.');
-  assert.equal(validateOrderUpdate({ paymentStatus: 'Unverified' }), 'Select a valid payment status.');
+  assert.match(validateOrderUpdate({ paymentStatus: 'Paid' }), /cannot be edited directly/);
   assert.match(validateOrderUpdate({ trackingNumber: 'x'.repeat(121) }), /120 characters/);
   assert.match(validateOrderUpdate({ trackingUrl: 'javascript:alert(1)' }), /HTTPS/);
   assert.equal(validateOrderUpdate({ trackingUrl: 'https://courier.example/track/123' }), null);

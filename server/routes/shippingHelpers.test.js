@@ -48,6 +48,7 @@ test('builds one canonical destination for both the saved address and zone quote
     country: ' Bangladesh ',
     postalCode: '1207'
   });
+
   assert.equal(address.country, 'Bangladesh');
   assert.equal(address.deliveryAddress, '25 Main Road, Dhaka, 1207, Bangladesh');
   const zone = normalizeShippingZones([
@@ -66,4 +67,70 @@ test('builds one canonical destination for both the saved address and zone quote
     street: '25 Main Road',
     country: 'A'.repeat(101)
   }), /field lengths/);
+});
+
+test('quotes enabled country and city destinations with weight rates, tax overrides, and delivery labels', () => {
+  const zones = normalizeShippingZones([{
+    id: 'south-asia-express',
+    name: 'South Asia Express',
+    destinations: [{
+      countryCode: 'BD',
+      countryName: 'Bangladesh',
+      cities: ['Dhaka', 'Chattogram']
+    }],
+    shippingMethod: 'Express courier',
+    rate: 100,
+    perKgRate: 40,
+    taxRate: 5,
+    minDeliveryDays: 2,
+    maxDeliveryDays: 5
+  }]);
+  const settings = { shippingZones: zones, taxRate: 15 };
+  const quote = quoteShipping(settings, 'Bangladesh', 500, {
+    countryCode: 'BD',
+    city: 'Dhaka',
+    weightKg: 2.5
+  });
+  assert.equal(quote.available, true);
+  assert.equal(quote.amount, 200);
+  assert.equal(quote.shippingMethod, 'Express courier');
+  assert.equal(quote.taxRate, 5);
+  assert.equal(quote.weightKg, 2.5);
+  assert.equal(quote.minDeliveryDays, 2);
+  assert.equal(quote.maxDeliveryDays, 5);
+  assert.equal(quoteShipping(settings, 'Bangladesh', 500, {
+    countryCode: 'BD',
+    city: 'Sylhet',
+    weightKg: 1
+  }).available, false);
+  assert.equal(quoteShipping(settings, 'Bangladesh', 500, {
+    countryCode: 'BD',
+    city: 'Dhaka',
+    weightKg: 1,
+    weightComplete: false
+  }).available, false);
+});
+
+test('disables one country destination without letting a fallback zone override it', () => {
+  const zones = normalizeShippingZones([
+    {
+      id: 'local',
+      name: 'Bangladesh',
+      destinations: [{
+        countryCode: 'BD',
+        countryName: 'Bangladesh',
+        enabled: false
+      }],
+      rate: 20
+    },
+    { id: 'fallback', name: 'International', countries: ['*'], rate: 500 }
+  ]);
+  assert.equal(quoteShipping({ shippingZones: zones }, 'Bangladesh', 100, {
+    countryCode: 'BD',
+    city: 'Dhaka'
+  }).available, false);
+  assert.equal(quoteShipping({ shippingZones: zones }, 'India', 100, {
+    countryCode: 'IN',
+    city: 'Mumbai'
+  }).zoneId, 'fallback');
 });

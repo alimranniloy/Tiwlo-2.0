@@ -1,5 +1,6 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { amountToCents, calculatePercentageCents } from '../../../shared/accountingHelpers.mjs';
 import {
   ArrowLeft,
   Search,
@@ -16,8 +17,8 @@ import {
   CheckCircle2,
   CreditCard,
   DollarSign,
+  Clock,
   Smartphone,
-  MoreHorizontal,
   ShieldCheck,
   Printer,
   Sparkles,
@@ -68,7 +69,10 @@ export default function POSView({
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Products');
-  const [paymentMethod, setPaymentMethod] = useState('cash'); // 'cash' | 'card' | 'upi' | 'more'
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [paidAmountInput, setPaidAmountInput] = useState('');
+  const [paidMethod, setPaidMethod] = useState('Cash');
+  const [paymentReference, setPaymentReference] = useState('');
   const [discountInput, setDiscountInput] = useState('');
   const [discountApplied, setDiscountApplied] = useState(0);
   const [discountType, setDiscountType] = useState('percent'); // 'percent' or 'fixed'
@@ -79,16 +83,16 @@ export default function POSView({
   const [currencyCode, setCurrencyCode] = useState('USD');
   const [taxRate, setTaxRate] = useState(0);
   const [settingsLoadError, setSettingsLoadError] = useState('');
+  const [settingsLoading, setSettingsLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
-    fetch('/api/system/settings')
+    fetch('/api/store/settings')
       .then(async response => {
         const settings = await response.json();
         if (!response.ok) throw new Error(settings.error || 'Could not load checkout settings.');
-        const currency = ['USD', 'BDT', 'EUR', 'GBP'].includes(settings.currency)
-          ? settings.currency
-          : 'USD';
+        const currencyMatch = String(settings.currency || '').match(/[A-Z]{3}/i);
+        const currency = currencyMatch?.[0]?.toUpperCase() || 'USD';
         const rate = Number(settings.taxRate);
         if (!Number.isFinite(rate) || rate < 0) {
           throw new Error('The configured sales tax rate is invalid.');
@@ -97,11 +101,15 @@ export default function POSView({
           setCurrencyCode(currency);
           setTaxRate(rate);
           setSettingsLoadError('');
+          setSettingsLoading(false);
         }
       })
       .catch(error => {
         console.error('Could not load POS currency and tax settings:', error);
-        if (active) setSettingsLoadError('Could not load the configured currency and tax rate. Default USD and 0% tax are shown.');
+        if (active) {
+          setSettingsLoadError('Store tax and currency settings are unavailable. Sales are disabled until the correct settings load.');
+          setSettingsLoading(false);
+        }
       });
     return () => { active = false; };
   }, []);
@@ -338,7 +346,7 @@ export default function POSView({
       }
 
       QRCode.toDataURL(
-        `TIWLO-POS-VERIFIED|INV:${completedSale.invoiceNumber}|TOTAL:${formatCurrency(completedSale.totalAmount)}|DATE:${completedSale.date}|CUSTOMER:${completedSale.customer?.name || 'Walk-in'}`,
+        `TIWLO-POS-INVOICE|INV:${completedSale.invoiceNumber}|TOTAL:${formatCurrency(completedSale.totalAmount)}|DATE:${completedSale.date}|CUSTOMER:${completedSale.customer?.name || 'Walk-in'}`,
         { width: 90, margin: 1 }
       )
         .then((url) => setQrCodeDataUrl(url))
@@ -440,25 +448,38 @@ export default function POSView({
   }, [unifiedCustomerList, customerSearchQuery]);
 
   // Cart Calculations
-  const subtotal = useMemo(() => {
-    return parseFloat(cart.reduce((acc, item) => acc + (parseFloat(item.price) || 0) * item.quantity, 0).toFixed(2));
-  }, [cart]);
-
-  const discountAmount = useMemo(() => {
-    if (discountType === 'percent') {
-      return parseFloat(((subtotal * discountApplied) / 100).toFixed(2));
+  const subtotalCents = useMemo(() => {
+    let total = 0;
+    for (const item of cart) {
+      const unitPriceCents = amountToCents(item.price);
+      const quantity = Number(item.quantity);
+      const nextTotal = total + unitPriceCents * quantity;
+      if (unitPriceCents === null || !Number.isSafeInteger(quantity) || quantity <= 0 ||
+          !Number.isSafeInteger(nextTotal)) return null;
+      total = nextTotal;
     }
-    return parseFloat(Math.min(subtotal, discountApplied).toFixed(2));
-  }, [subtotal, discountApplied, discountType]);
+    return total;
+  }, [cart]);
+  const subtotal = subtotalCents === null ? 0 : subtotalCents / 100;
 
-  const tax = useMemo(() => {
-    const taxableAmount = Math.max(0, subtotal - discountAmount);
-    return parseFloat((taxableAmount * taxRate / 100).toFixed(2));
-  }, [subtotal, discountAmount, taxRate]);
+  const discountCents = useMemo(() => {
+    if (subtotalCents === null) return null;
+    const requestedCents = discountType === 'percent'
+      ? calculatePercentageCents(subtotalCents, discountApplied)
+      : amountToCents(discountApplied);
+    return requestedCents === null ? null : Math.min(subtotalCents, requestedCents);
+  }, [subtotalCents, discountApplied, discountType]);
+  const discountAmount = discountCents === null ? 0 : discountCents / 100;
 
-  const grandTotal = useMemo(() => {
-    return parseFloat(Math.max(0, subtotal - discountAmount + tax).toFixed(2));
-  }, [subtotal, discountAmount, tax]);
+  const taxCents = subtotalCents === null || discountCents === null
+    ? null
+    : calculatePercentageCents(subtotalCents - discountCents, taxRate);
+  const tax = taxCents === null ? 0 : taxCents / 100;
+
+  const grandTotalCents = taxCents === null
+    ? null
+    : subtotalCents - discountCents + taxCents;
+  const grandTotal = grandTotalCents === null ? 0 : grandTotalCents / 100;
 
   // Cart operations
   const addToCart = (product) => {
@@ -634,6 +655,27 @@ export default function POSView({
   // Checkout & Sale Completion
   const handleCompleteSale = async () => {
     if (cart.length === 0) return;
+    if (grandTotalCents === null || !Number.isSafeInteger(grandTotalCents)) {
+      showNotification('Sale amounts are invalid or too large to calculate safely.');
+      return;
+    }
+    if (paymentMethod === 'due' && !selectedCustomer) {
+      showNotification('Select a customer before recording a credit sale.');
+      return;
+    }
+    const isPartialExternalPayment = paymentMethod === 'due' &&
+      Number(paidAmountInput) > 0 && paidMethod !== 'Cash';
+    if (((paymentMethod === 'card' || paymentMethod === 'upi') || isPartialExternalPayment) &&
+        !paymentReference.trim()) {
+      showNotification('Enter the approved external transaction reference before recording this payment.');
+      return;
+    }
+    const paidAmount = paymentMethod === 'due'
+      ? Math.min(grandTotal, Math.max(0, Number(paidAmountInput) || 0))
+      : grandTotal;
+    const recordedPaymentMethod = paymentMethod === 'due' ? paidMethod
+      : paymentMethod === 'card' ? 'Card (external terminal)'
+        : paymentMethod === 'upi' ? 'UPI (external wallet)' : 'Cash';
     setIsCompletingSale(true);
 
     const salePayload = {
@@ -653,7 +695,10 @@ export default function POSView({
       discount: discountAmount,
       tax,
       totalAmount: grandTotal,
-      paymentMethod: paymentMethod.toUpperCase(),
+      paidAmount,
+      paymentMethod: paymentMethod === 'due' ? 'Credit / Due' : paymentMethod.toUpperCase(),
+      paidMethod: recordedPaymentMethod,
+      paymentReference: paymentReference.trim(),
       sessionId,
       cashier: cashierName
     };
@@ -675,6 +720,10 @@ export default function POSView({
     }
 
     setIsCompletingSale(false);
+    if (!result) {
+      showNotification('Sale was not saved. Check the error and try again.');
+      return;
+    }
 
     const invoiceData = {
       id: result?.id || `inv-${Date.now()}`,
@@ -693,12 +742,23 @@ export default function POSView({
         taxId: selectedCustomer?.taxId || '',
         paymentTerms: selectedCustomer?.paymentTerms || 'Immediate'
       },
-      items: [...cart],
-      subtotal,
-      discount: discountAmount,
-      tax,
-      totalAmount: grandTotal,
-      paymentMethod: paymentMethod.toUpperCase(),
+      items: (result.items || cart).map(item => ({
+        ...item,
+        name: item.name || item.productName,
+        price: item.price ?? item.unitPrice,
+        category: item.category || cart.find(cartItem => cartItem.id === item.productId)?.category
+      })),
+      subtotal: result.subtotal ?? subtotal,
+      discount: result.discount ?? discountAmount,
+      tax: result.tax ?? tax,
+      totalAmount: result.totalAmount ?? grandTotal,
+      paymentMethod: paymentMethod === 'due' ? 'Credit / Due' : paymentMethod.toUpperCase(),
+      paidAmount: result?.paidAmount ?? paidAmount,
+      dueAmount: result?.dueAmount ?? Math.max(0, grandTotal - paidAmount),
+      paymentStatus: result?.paymentStatus || (paidAmount >= Number(result.totalAmount ?? grandTotal) ? 'Paid' : paidAmount > 0 ? 'Partial' : 'Unpaid'),
+      paymentReference: result?.payments?.[0]?.reference || paymentReference.trim(),
+      payments: result?.payments || [],
+      paymentVerifiedByGateway: Boolean(result?.paymentGateway?.status === 'paid'),
       cashier: cashierName,
       sessionId
     };
@@ -711,6 +771,10 @@ export default function POSView({
   const handleCloseInvoiceAndNewSale = () => {
     clearCart();
     setSelectedCustomer(null);
+    setPaidAmountInput('');
+    setPaidMethod('Cash');
+    setPaymentMethod('cash');
+    setPaymentReference('');
     setCompletedSale(null);
     setPosViewMode('cashier');
   };
@@ -756,7 +820,10 @@ export default function POSView({
     text += `Tax (${taxRate}%)                         : ${formatCurrency(completedSale.tax)}\n`;
     text += `========================================================\n`;
     text += `GRAND TOTAL                      : ${formatCurrency(completedSale.totalAmount)}\n`;
-    text += `Payment Method                   : ${completedSale.paymentMethod} (PAID)\n`;
+    text += `Payment Method                   : ${completedSale.paymentMethod}\n`;
+    text += `Payment Status                   : ${completedSale.paymentStatus}\n`;
+    text += `Amount Paid                      : ${formatCurrency(completedSale.paidAmount || 0)}\n`;
+    text += `Outstanding Due                  : ${formatCurrency(completedSale.dueAmount || 0)}\n`;
     text += `========================================================\n\n`;
     text += `Terms & Conditions:\n`;
     text += `1. Goods once sold can be returned or exchanged within 7 days.\n`;
@@ -880,8 +947,12 @@ export default function POSView({
               </div>
 
               <div className="text-left sm:text-right space-y-1">
-                <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                  PAID IN FULL
+                <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${
+                  completedSale.paymentStatus === 'Paid'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                    : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800'
+                }`}>
+                  {completedSale.paymentStatus || 'Unpaid'}
                 </span>
                 <p className="text-xs font-bold text-slate-900 dark:text-white pt-1">
                   Invoice #{completedSale.invoiceNumber}
@@ -936,7 +1007,19 @@ export default function POSView({
                 </p>
                 <p className="text-xs text-slate-500">Cashier: {completedSale.cashier}</p>
                 <p className="text-xs text-slate-500 font-mono">Register: {completedSale.sessionId}</p>
-                <p className="text-xs text-emerald-600 font-semibold">Payment Status: Settled & Confirmed</p>
+                {completedSale.payments?.[0] && (
+                  <p className="text-xs text-slate-600">
+                    Collected via {completedSale.payments[0].method}
+                    {completedSale.payments[0].reference ? ` · Ref ${completedSale.payments[0].reference}` : ''}
+                  </p>
+                )}
+                <p className="text-xs text-slate-600">
+                  Payment Status: {completedSale.paymentStatus}
+                  {completedSale.dueAmount > 0 ? ` · Due ${formatCurrency(completedSale.dueAmount)}` : ''}
+                </p>
+                {completedSale.payments?.some(payment => payment.verificationStatus === 'merchant_recorded') && !completedSale.paymentVerifiedByGateway && (
+                  <p className="text-[10px] font-semibold text-amber-700">External terminal payment recorded by cashier; not gateway-verified by Tiwlo.</p>
+                )}
               </div>
             </div>
 
@@ -1026,6 +1109,12 @@ export default function POSView({
                   <span className="text-xl font-black text-blue-600 dark:text-blue-400 font-mono">
                     {formatCurrency(completedSale.totalAmount)}
                   </span>
+                </div>
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                  <span>Paid</span><span className="font-mono">{formatCurrency(completedSale.paidAmount || 0)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-rose-600">
+                  <span>Due</span><span className="font-mono">{formatCurrency(completedSale.dueAmount || 0)}</span>
                 </div>
               </div>
             </div>
@@ -1997,7 +2086,7 @@ export default function POSView({
             {/* Complete Sale Button */}
             <button
               onClick={handleCompleteSale}
-              disabled={isCompletingSale || cart.length === 0}
+              disabled={isCompletingSale || settingsLoading || Boolean(settingsLoadError) || cart.length === 0 || grandTotalCents === null || (paymentMethod === 'due' && (!selectedCustomer || (Number(paidAmountInput) > 0 && paidMethod !== 'Cash' && !paymentReference.trim()))) || ((paymentMethod === 'card' || paymentMethod === 'upi') && !paymentReference.trim())}
               className={`w-full py-3 px-3 rounded-xl text-white font-bold text-xs flex items-center justify-center space-x-2 transition shadow-md shadow-blue-500/20 shrink-0 ${
                 cart.length === 0
                   ? 'bg-slate-200 dark:bg-gray-700 text-slate-400 cursor-not-allowed shadow-none'
@@ -2015,7 +2104,7 @@ export default function POSView({
                 { id: 'cash', label: 'Cash', icon: DollarSign },
                 { id: 'card', label: 'Card', icon: CreditCard },
                 { id: 'upi', label: 'UPI/Wallet', icon: Smartphone },
-                { id: 'more', label: 'More', icon: MoreHorizontal }
+                { id: 'due', label: 'Credit / Due', icon: Clock }
               ].map((m) => {
                 const Icon = m.icon;
                 const isSelected = paymentMethod === m.id;
@@ -2023,7 +2112,11 @@ export default function POSView({
                 return (
                   <button
                     key={m.id}
-                    onClick={() => setPaymentMethod(m.id)}
+                    onClick={() => {
+                      setPaymentMethod(m.id);
+                      setPaymentReference('');
+                      if (m.id === 'due') setPaidAmountInput('');
+                    }}
                     className={`p-1.5 rounded-lg text-center text-[10px] font-bold transition flex flex-col items-center justify-center space-y-0.5 cursor-pointer ${
                       isSelected
                         ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
@@ -2036,6 +2129,56 @@ export default function POSView({
                 );
               })}
             </div>
+            {paymentMethod === 'due' && (
+              <div className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+                <label htmlFor="pos-paid-amount" className="text-[10px] font-bold text-amber-900">Amount collected now (optional)</label>
+                <input
+                  id="pos-paid-amount"
+                  type="number"
+                  min="0"
+                  max={grandTotal}
+                  step="0.01"
+                  value={paidAmountInput}
+                  onChange={event => setPaidAmountInput(event.target.value)}
+                  placeholder="0.00"
+                  className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm"
+                />
+                {Number(paidAmountInput) > 0 && (
+                  <select value={paidMethod} onChange={event => {
+                    setPaidMethod(event.target.value);
+                    setPaymentReference('');
+                  }} className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs">
+                    <option>Cash</option><option>Card (external terminal)</option><option>UPI (external wallet)</option>
+                  </select>
+                )}
+                {Number(paidAmountInput) > 0 && paidMethod !== 'Cash' && (
+                  <>
+                    <input required maxLength={120} value={paymentReference} onChange={event => setPaymentReference(event.target.value)} placeholder="Approved external transaction reference" className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs" />
+                    <p className="text-[10px] text-amber-800">External terminal only; Tiwlo does not charge or verify it.</p>
+                  </>
+                )}
+                <p className="text-[10px] text-amber-800">Customer due: {formatCurrency(Math.max(0, grandTotal - Math.min(grandTotal, Number(paidAmountInput) || 0)))}. Choose a customer above before completing.</p>
+              </div>
+            )}
+            {(paymentMethod === 'card' || paymentMethod === 'upi') && (
+              <div className="space-y-1 rounded-lg border border-blue-200 bg-blue-50 p-2.5">
+                <label htmlFor="pos-payment-reference" className="text-[10px] font-bold text-blue-900">
+                  {paymentMethod === 'card' ? 'External card terminal' : 'External UPI / wallet'} transaction reference *
+                </label>
+                <input
+                  id="pos-payment-reference"
+                  required
+                  maxLength={120}
+                  value={paymentReference}
+                  onChange={event => setPaymentReference(event.target.value)}
+                  placeholder="Enter the approved transaction reference"
+                  className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm"
+                />
+                <p className="text-[10px] text-blue-800">Tiwlo does not charge the card or call a payment gateway from POS. Confirm the payment on your external terminal first; this only records your confirmation.</p>
+              </div>
+            )}
+
+            {settingsLoadError && <p role="alert" className="rounded-lg bg-rose-50 p-2 text-[10px] font-semibold text-rose-700">{settingsLoadError}</p>}
 
             {/* Trust Footer with Fluid Wave Accent */}
             <div className="relative overflow-hidden rounded-xl bg-slate-50/80 dark:bg-gray-900/50 p-2.5 border border-slate-200/60 dark:border-gray-700/60 shrink-0">

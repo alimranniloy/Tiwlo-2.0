@@ -1,8 +1,8 @@
 import React from 'react';
-import { Package, HelpCircle, ArrowLeft } from 'lucide-react';
+import { Package, HelpCircle } from 'lucide-react';
 import { useStoreSettings } from '../../../context/StoreSettingsContext';
 
-export default function TopUtilityBar({ onOpenAdmin, onTrackOrder }) {
+export default function TopUtilityBar({ onTrackOrder }) {
   const { storeSettings } = useStoreSettings();
 
   return (
@@ -11,16 +11,6 @@ export default function TopUtilityBar({ onOpenAdmin, onTrackOrder }) {
         {/* Left tagline */}
         <div className="flex items-center space-x-3">
           <span className="text-slate-300 font-normal tracking-wide">Storefront</span>
-          {onOpenAdmin && (
-            <button
-              onClick={onOpenAdmin}
-              className="hidden sm:inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 transition text-[10px] font-semibold"
-              title="Return to Tiwlo Management Dashboard"
-            >
-              <ArrowLeft className="w-3 h-3" />
-              <span>Tiwlo Admin</span>
-            </button>
-          )}
         </div>
 
         {/* Right utility links */}

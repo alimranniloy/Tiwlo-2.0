@@ -26,8 +26,11 @@ const CategoriesView = lazy(() => import('./views/CategoriesView'));
 const InventoryView = lazy(() => import('./views/InventoryView'));
 const PurchasesView = lazy(() => import('./views/PurchasesView'));
 const SalesView = lazy(() => import('./views/SalesView'));
+const StoreReviewsView = lazy(() => import('./views/StoreReviewsView'));
 const CustomersView = lazy(() => import('./views/CustomersView'));
 const SuppliersView = lazy(() => import('./views/SuppliersView'));
+const StaffManagementView = lazy(() => import('./views/StaffManagementView'));
+const HRManagementView = lazy(() => import('./views/HRManagementView'));
 const ReportsView = lazy(() => import('./views/ReportsView'));
 const AnalyticsView = lazy(() => import('./views/AnalyticsView'));
 const SystemView = lazy(() => import('./views/SystemView'));
@@ -371,10 +374,16 @@ export default function App() {
         if (pathname === 'courier' || pathname === 'couriers') return 'courier';
         if (pathname === 'customers') return 'customers';
         if (pathname === 'suppliers') return 'suppliers';
+        if (pathname === 'staff' || pathname === 'staff-management') return 'staff-management';
+        if (pathname === 'hr' || pathname === 'hr-management') return 'hr-management';
         if (pathname === 'reports') return 'reports';
         if (pathname === 'analytics') return 'analytics';
         if (pathname === 'settings') return 'settings';
         if (pathname === 'store-settings') return 'store-settings';
+        if (pathname === 'store-identity') return 'store-identity';
+        if (pathname === 'store-banners') return 'store-banners';
+        if (pathname === 'store-pages' || pathname === 'store-settings/pages') return 'store-pages';
+        if (pathname === 'store-reviews' || pathname === 'reviews') return 'store-reviews';
         if (pathname === 'payments' || pathname === 'payment-shipping' || pathname === 'payments-shipping') return 'payments';
         if (pathname === 'shipping' || pathname === 'shipping-settings') return 'shipping';
         if (pathname === 'promotions' || pathname === 'promo-codes' || pathname === 'marketing/promotions') return 'promotions';
@@ -1423,10 +1432,14 @@ export default function App() {
       });
       if (res.ok) {
         const created = await res.json();
-        setProducts((prev) => [created, ...prev]);
-        showToast(`Product "${created.name}" added to inventory successfully!`);
+        const { initialPurchase, ...product } = created;
+        setProducts((prev) => [product, ...prev]);
+        showToast(`Product "${product.name}" added to inventory successfully!`);
+        if (initialPurchase) {
+          showToast(`Opening stock invoice ${initialPurchase.poNumber} recorded. Supplier due: ${initialPurchase.dueAmount.toFixed(2)}.`);
+        }
         loadData();
-        return created;
+        return product;
       } else {
         const err = await res.json().catch(() => ({}));
         showToast(err.error || 'Failed to add product', 'error');
@@ -1636,11 +1649,17 @@ export default function App() {
         body: JSON.stringify(supData),
       });
       if (res.ok) {
-        showToast(`Supplier "${supData.companyName}" added!`);
+        const supplier = await res.json();
+        showToast(`Supplier "${supplier.companyName}" added!`);
         loadData();
+        return supplier;
       }
+      const error = await res.json().catch(() => ({}));
+      showToast(error.error || 'Failed to add supplier', 'error');
+      return null;
     } catch (err) {
       showToast('Error connecting to server', 'error');
+      return null;
     }
   };
 
@@ -2051,6 +2070,10 @@ export default function App() {
                   onDeleteActivity={handleDeleteActivity}
                   onBackToCloud={() => handleTabChange('dashboard')}
                   currentStore={selectedStore || currentUser}
+                  products={products}
+                  categories={categories}
+                  inventoryLoading={loading}
+                  onVisitSite={handleVisitSite}
                 />
               )}
 
@@ -2091,6 +2114,8 @@ export default function App() {
               onAddSubcategory={handleAddSubcategory}
               categories={categories}
               subcategories={subcategories}
+              suppliers={suppliers}
+              onAddSupplier={handleAddSupplier}
               onOpenPrintBarcode={(p) => {
                 setSelectedPrintBarcodeProduct(p);
                 setIsPrintBarcodeModalOpen(true);
@@ -2129,6 +2154,7 @@ export default function App() {
             <PurchasesView
               products={products}
               suppliers={suppliers}
+              onAddSupplier={handleAddSupplier}
               showToast={showToast}
               onRefreshData={loadData}
               onBackToDashboard={() => setActiveTab('dashboard')}
@@ -2146,6 +2172,10 @@ export default function App() {
               onRefreshData={loadData}
               onBackToDashboard={() => setActiveTab('dashboard')}
             />
+          )}
+
+          {activeTab === 'store-reviews' && (
+            <StoreReviewsView showToast={showToast} />
           )}
 
           {/* TAB: CUSTOMERS */}
@@ -2169,6 +2199,14 @@ export default function App() {
               onDeleteSupplier={handleDeleteSupplier}
               onBackToDashboard={() => setActiveTab('dashboard')}
             />
+          )}
+
+          {activeTab === 'staff-management' && (
+            <StaffManagementView showToast={showToast} />
+          )}
+
+          {activeTab === 'hr-management' && (
+            <HRManagementView showToast={showToast} />
           )}
 
           {/* TAB: REPORTS */}
@@ -2200,10 +2238,18 @@ export default function App() {
           )}
 
           {/* TAB: STORE & THEME SETTINGS */}
-          {(['store-settings', 'payments', 'shipping', 'promotions'].includes(activeTab)) && (
+          {(['store-settings', 'store-identity', 'store-banners', 'store-pages', 'payments', 'shipping', 'promotions'].includes(activeTab)) && (
             <StoreSettingsView
               key={activeTab}
-              initialTab={activeTab === 'store-settings' ? 'theme' : activeTab}
+              initialTab={activeTab === 'store-settings'
+                ? 'theme'
+                : activeTab === 'store-identity'
+                  ? 'identity'
+                  : activeTab === 'store-banners'
+                    ? 'banners'
+                    : activeTab === 'store-pages'
+                      ? 'pages'
+                    : activeTab}
               onNavigateToPaymentShipping={() => handleTabChange('payments')}
               onNavigateToPayments={() => handleTabChange('payments')}
               onNavigateToShipping={() => handleTabChange('shipping')}

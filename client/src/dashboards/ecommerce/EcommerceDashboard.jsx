@@ -9,6 +9,7 @@ import QuickActions from './components/QuickActions';
 import RecentActivity from './components/RecentActivity';
 import RecentProductsTable from './components/RecentProductsTable';
 import BottomBanners from './components/BottomBanners';
+import StoreSetupChecklist from './components/StoreSetupChecklist';
 
 export default function EcommerceDashboard({
   stats,
@@ -33,7 +34,11 @@ export default function EcommerceDashboard({
   onGenerateReport,
   onDeleteActivity,
   onBackToCloud,
-  currentStore
+  currentStore,
+  products,
+  categories,
+  inventoryLoading,
+  onVisitSite
 }) {
   return (
     <div className="space-y-7 animate-in fade-in duration-150">
@@ -76,6 +81,14 @@ export default function EcommerceDashboard({
           </button>
         )}
       </div>
+
+      <StoreSetupChecklist
+        products={products}
+        categories={categories}
+        inventoryLoading={inventoryLoading}
+        onNavigateTab={onNavigateTab}
+        onVisitSite={onVisitSite}
+      />
 
       <GreetingBar />
       <StatCards stats={stats} />

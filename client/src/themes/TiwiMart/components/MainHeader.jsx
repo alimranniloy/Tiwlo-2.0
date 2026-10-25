@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Heart, ShoppingCart, ChevronDown } from 'lucide-react';
+import { Search, Heart, ShoppingCart, ChevronDown, UserRound } from 'lucide-react';
 import { useStoreSettings } from '../../../context/StoreSettingsContext';
 
 export default function MainHeader({
@@ -11,6 +11,7 @@ export default function MainHeader({
   cartCount = 0,
   wishlistCount = 0,
   onOpenCart,
+  onOpenAccount,
   onOpenWishlist,
   onNavigateHome,
 }) {
@@ -144,6 +145,16 @@ export default function MainHeader({
 
         {/* Right Header Navigation Icons */}
         <div className="flex items-center space-x-4 lg:space-x-7 shrink-0">
+          <button
+            type="button"
+            onClick={onOpenAccount}
+            className="flex items-center gap-1.5 text-slate-700 transition hover:text-[#2563eb] group"
+            aria-label="Customer account"
+          >
+            <UserRound className="h-5 w-5 text-slate-600 group-hover:text-[#2563eb]" />
+            <span className="hidden sm:inline text-xs font-medium">Account</span>
+          </button>
+
           {/* Wishlist */}
           <button
             onClick={onOpenWishlist}

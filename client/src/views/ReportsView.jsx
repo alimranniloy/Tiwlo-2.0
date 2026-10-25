@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { amountToCents, calculateInventoryValuation } from '../../../shared/accountingHelpers.mjs';
+import { useStoreSettings } from '../context/StoreSettingsContext.jsx';
+import { formatStoreCurrency } from '../themes/TiwiMart/storefrontUtils.js';
 import {
   FileText,
   Download,
@@ -24,13 +27,27 @@ export default function ReportsView({
 }) {
   const [reportType, setReportType] = useState('inventory-valuation');
   const [timeRange, setTimeRange] = useState('This Month');
+  const { storeSettings } = useStoreSettings();
+  const currencyCode = String(storeSettings.currency || 'USD').match(/[A-Z]{3}/i)?.[0]?.toUpperCase() || 'USD';
 
-  // Compute live calculations
-  const totalUnits = products.reduce((acc, p) => acc + (p.stock || 0), 0);
-  const totalRetailVal = products.reduce((acc, p) => acc + ((p.stock || 0) * (p.price || 0)), 0);
-  const getCostPrice = (product) => product.costPrice ?? (Number(product.price || 0) * 0.5);
-  const totalCostVal = products.reduce((acc, p) => acc + ((p.stock || 0) * getCostPrice(p)), 0);
-  const totalGrossMargin = totalRetailVal - totalCostVal;
+  const valuation = calculateInventoryValuation(products);
+  const totalUnits = valuation?.totalUnits ?? 0;
+  const totalRetailVal = valuation ? valuation.retailValueCents / 100 : null;
+  const totalCostVal = valuation?.costValueCents == null ? null : valuation.costValueCents / 100;
+  const totalGrossMargin = valuation?.potentialProfitCents == null ? null : valuation.potentialProfitCents / 100;
+  const getCostPrice = product => product.costPrice == null ? null : amountToCents(product.costPrice);
+  const getRetailPrice = product => amountToCents(product.price ?? 0);
+  const getInventoryLine = product => {
+    const stock = Number(product.stock) || 0;
+    const costCents = getCostPrice(product);
+    const retailCents = getRetailPrice(product);
+    return {
+      costCents,
+      costValueCents: costCents === null ? null : stock * costCents,
+      retailCents,
+      retailValueCents: retailCents === null ? null : stock * retailCents
+    };
+  };
 
   const lowStockProducts = products.filter(p => p.stock < (p.minStock || 50));
 
@@ -41,38 +58,45 @@ export default function ReportsView({
     let filename = '';
 
     if (reportType === 'inventory-valuation') {
-      headers = ['Product Name', 'SKU', 'Category', 'Stock Units', 'Unit Cost ($)', 'Retail Price ($)', 'Total Cost Valuation ($)', 'Total Retail Valuation ($)', 'Margin ($)'];
-      rows = products.map(p => [
-        `"${p.name}"`,
-        p.sku,
-        `"${p.category}"`,
-        p.stock,
-        getCostPrice(p),
-        p.price,
-        ((p.stock || 0) * getCostPrice(p)).toFixed(2),
-        ((p.stock || 0) * (p.price || 0)).toFixed(2),
-        (((p.stock || 0) * (p.price || 0)) - ((p.stock || 0) * getCostPrice(p))).toFixed(2)
-      ]);
+      headers = ['Product Name', 'SKU', 'Category', 'Stock Units', `Unit Cost (${currencyCode})`, `Retail Price (${currencyCode})`, `Total Cost Valuation (${currencyCode})`, `Total Retail Valuation (${currencyCode})`, `Margin (${currencyCode})`];
+      rows = products.map(p => {
+        const line = getInventoryLine(p);
+        const margin = line.costValueCents === null || line.retailValueCents === null
+          ? ''
+          : ((line.retailValueCents - line.costValueCents) / 100).toFixed(2);
+        return [
+          `"${String(p.name || '').replaceAll('"', '""')}"`,
+          p.sku,
+          `"${String(p.category || '').replaceAll('"', '""')}"`,
+          p.stock,
+          line.costCents === null ? '' : (line.costCents / 100).toFixed(2),
+          line.retailCents === null ? '' : (line.retailCents / 100).toFixed(2),
+          line.costValueCents === null ? '' : (line.costValueCents / 100).toFixed(2),
+          line.retailValueCents === null ? '' : (line.retailValueCents / 100).toFixed(2),
+          margin
+        ];
+      });
       filename = `stockpro_inventory_valuation_report.csv`;
     } else if (reportType === 'low-stock-reorder') {
       headers = ['Product Name', 'SKU', 'Category', 'Current Stock', 'Min Stock Point', 'Suggested Reorder Qty', 'Supplier'];
       rows = lowStockProducts.map(p => [
-        `"${p.name}"`,
+        `"${String(p.name || '').replaceAll('"', '""')}"`,
         p.sku,
-        `"${p.category}"`,
+        `"${String(p.category || '').replaceAll('"', '""')}"`,
         p.stock,
         p.minStock || 30,
         Math.max(50, ((p.minStock || 30) * 2) - p.stock),
-        `"${p.supplierName || 'Primary Supplier'}"`
+        `"${String(p.supplierName || 'Not assigned').replaceAll('"', '""')}"`
       ]);
       filename = `stockpro_low_stock_reorder_sheet.csv`;
     } else {
-      headers = ['Category', 'Product Count', 'Total Stock Units', 'Estimated Valuation ($)'];
+      headers = ['Category', 'Product Count', 'Total Stock Units', `Retail Valuation (${currencyCode})`];
       rows = categories.map(c => {
-        const catProds = products.filter(p => p.category.toLowerCase() === c.name.toLowerCase());
+        const catProds = products.filter(p => String(p.category || '').toLowerCase() === String(c.name || '').toLowerCase());
         const units = catProds.reduce((sum, p) => sum + (p.stock || 0), 0);
-        const val = catProds.reduce((sum, p) => sum + ((p.stock || 0) * (p.price || 0)), 0);
-        return [`"${c.name}"`, catProds.length, units, val.toFixed(2)];
+        const categoryValuation = calculateInventoryValuation(catProds);
+        const val = categoryValuation ? (categoryValuation.retailValueCents / 100).toFixed(2) : '';
+        return [`"${String(c.name || '').replaceAll('"', '""')}"`, catProds.length, units, val];
       });
       filename = `stockpro_category_performance_report.csv`;
     }
@@ -199,17 +223,20 @@ export default function ReportsView({
             </div>
             <div className="bg-white dark:bg-[#111827] p-4 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
               <span className="text-xs text-slate-400 font-medium">Total Retail Valuation</span>
-              <p className="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">${Math.round(totalRetailVal).toLocaleString()}</p>
+              <p className="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">{totalRetailVal === null ? 'Unavailable' : formatStoreCurrency(totalRetailVal, storeSettings)}</p>
             </div>
             <div className="bg-white dark:bg-[#111827] p-4 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-              <span className="text-xs text-slate-400 font-medium">Total Cost Valuation</span>
-              <p className="text-xl font-bold text-slate-700 dark:text-slate-300 mt-1">${Math.round(totalCostVal).toLocaleString()}</p>
+              <span className="text-xs text-slate-400 font-medium">Recorded Cost Valuation</span>
+              <p className="text-xl font-bold text-slate-700 dark:text-slate-300 mt-1">{totalCostVal === null ? 'Incomplete' : formatStoreCurrency(totalCostVal, storeSettings)}</p>
             </div>
             <div className="bg-white dark:bg-[#111827] p-4 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-              <span className="text-xs text-slate-400 font-medium">Projected Gross Profit</span>
-              <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">${Math.round(totalGrossMargin).toLocaleString()}</p>
+              <span className="text-xs text-slate-400 font-medium">Estimated Gross Margin</span>
+              <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{totalGrossMargin === null ? '—' : formatStoreCurrency(totalGrossMargin, storeSettings)}</p>
             </div>
           </div>
+          {valuation?.unvaluedProductCount > 0 && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+            {valuation.unvaluedProductCount} stocked product(s) have no valid cost price, so total cost and margin cannot be calculated reliably.
+          </p>}
 
           <div className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/80 dark:border-gray-800 overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
@@ -221,17 +248,17 @@ export default function ReportsView({
                   <th className="py-3.5 px-4">Stock Units</th>
                   <th className="py-3.5 px-4">Unit Cost</th>
                   <th className="py-3.5 px-4">Retail Price</th>
-                  <th className="py-3.5 px-4">Total Cost ($)</th>
-                  <th className="py-3.5 px-4">Total Retail ($)</th>
+                  <th className="py-3.5 px-4">Total Cost ({currencyCode})</th>
+                  <th className="py-3.5 px-4">Total Retail ({currencyCode})</th>
                   <th className="py-3.5 px-4 text-right">Potential Profit</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-gray-800 font-medium">
                 {products.map((p) => {
-                  const unitCost = p.costPrice || (p.price * 0.5);
-                  const totalCost = (p.stock || 0) * unitCost;
-                  const totalRetail = (p.stock || 0) * (p.price || 0);
-                  const margin = totalRetail - totalCost;
+                  const line = getInventoryLine(p);
+                  const totalCost = line.costValueCents === null ? null : line.costValueCents / 100;
+                  const totalRetail = line.retailValueCents === null ? null : line.retailValueCents / 100;
+                  const margin = totalCost === null || totalRetail === null ? null : totalRetail - totalCost;
 
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/70 dark:hover:bg-gray-800/40">
@@ -241,12 +268,12 @@ export default function ReportsView({
                       </td>
                       <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">{p.category}</td>
                       <td className="py-3.5 px-4 font-bold text-slate-800 dark:text-white">{p.stock}</td>
-                      <td className="py-3.5 px-4 text-slate-500">${unitCost.toFixed(2)}</td>
-                      <td className="py-3.5 px-4 text-slate-900 dark:text-white">${parseFloat(p.price || 0).toFixed(2)}</td>
-                      <td className="py-3.5 px-4 text-slate-700 dark:text-slate-300">${totalCost.toFixed(2)}</td>
-                      <td className="py-3.5 px-4 font-bold text-blue-600 dark:text-blue-400">${totalRetail.toFixed(2)}</td>
+                      <td className="py-3.5 px-4 text-slate-500">{line.costCents === null ? 'Not recorded' : formatStoreCurrency(line.costCents / 100, storeSettings)}</td>
+                      <td className="py-3.5 px-4 text-slate-900 dark:text-white">{line.retailCents === null ? 'Invalid price' : formatStoreCurrency(line.retailCents / 100, storeSettings)}</td>
+                      <td className="py-3.5 px-4 text-slate-700 dark:text-slate-300">{totalCost === null ? '—' : formatStoreCurrency(totalCost, storeSettings)}</td>
+                      <td className="py-3.5 px-4 font-bold text-blue-600 dark:text-blue-400">{totalRetail === null ? '—' : formatStoreCurrency(totalRetail, storeSettings)}</td>
                       <td className="py-3.5 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">
-                        +${margin.toFixed(2)}
+                        {margin === null ? '—' : formatStoreCurrency(margin, storeSettings)}
                       </td>
                     </tr>
                   );
@@ -313,14 +340,14 @@ export default function ReportsView({
                 <th className="py-3.5 px-4">Active SKUs</th>
                 <th className="py-3.5 px-4">Total Stock Volume</th>
                 <th className="py-3.5 px-4">Stock Share (%)</th>
-                <th className="py-3.5 px-4 text-right">Retail Value ($)</th>
+                <th className="py-3.5 px-4 text-right">Retail Value ({currencyCode})</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-gray-800 font-medium">
               {categories.map((c) => {
-                const prods = products.filter(p => p.category.toLowerCase() === c.name.toLowerCase());
+                const prods = products.filter(p => String(p.category || '').toLowerCase() === String(c.name || '').toLowerCase());
                 const units = prods.reduce((sum, p) => sum + (p.stock || 0), 0);
-                const val = prods.reduce((sum, p) => sum + ((p.stock || 0) * (p.price || 0)), 0);
+                const categoryValuation = calculateInventoryValuation(prods);
                 const percent = totalUnits > 0 ? Math.round((units / totalUnits) * 100) : 0;
 
                 return (
@@ -340,7 +367,7 @@ export default function ReportsView({
                       </div>
                     </td>
                     <td className="py-3.5 px-4 text-right font-bold text-blue-600 dark:text-blue-400">
-                      ${Math.round(val).toLocaleString()}
+                      {categoryValuation ? formatStoreCurrency(categoryValuation.retailValueCents / 100, storeSettings) : 'Unavailable'}
                     </td>
                   </tr>
                 );

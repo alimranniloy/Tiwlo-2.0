@@ -53,7 +53,11 @@ test('encrypts credentials per store and provider and never exposes secrets publ
       feeFixed: 1
     }, encrypted);
     assert.equal(publicConfig.enabled, true);
+    assert.equal(publicConfig.checkoutReady, true);
     assert.equal(JSON.stringify(publicConfig).includes('sk_test_private_value'), false);
+    const deferredNagad = toPublicPaymentProvider('nagad', { enabled: true }, null);
+    assert.equal(deferredNagad.checkoutReady, false);
+    assert.equal(deferredNagad.enabled, false);
   } finally {
     if (oldSecret === undefined) delete process.env.SECURITY_SECRET;
     else process.env.SECURITY_SECRET = oldSecret;

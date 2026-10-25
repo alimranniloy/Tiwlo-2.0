@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { StoreSettingsProvider } from '../../context/StoreSettingsContext';
+import { StoreSettingsProvider, useStoreSettings } from '../../context/StoreSettingsContext';
 import TopUtilityBar from './components/TopUtilityBar';
 import MainHeader from './components/MainHeader';
 import NavigationBar from './components/NavigationBar';
@@ -16,6 +16,7 @@ import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
 import OrderSuccessPage from './pages/OrderSuccessPage';
 import TrackOrderPage from './pages/TrackOrderPage';
+import CustomerAccountPage from './pages/CustomerAccountPage';
 
 function readStoredItems(key) {
   try {
@@ -30,15 +31,25 @@ function readStoredItems(key) {
 function TiwiMartContent({
   products = [],
   categories = [],
-  onOpenAdmin,
   showToast
 }) {
+  const { storeSettings } = useStoreSettings();
   // -------------------------------------------------------------
   // FLASH / HASH ROUTING ENGINE FOR DEDICATED PAGES (ZERO POPUPS)
   // -------------------------------------------------------------
   const parseCurrentRoute = () => {
     const hash = window.location.hash || '';
     const search = new URLSearchParams(window.location.search);
+    const customPageMatch = hash.match(/^#\/store\/page\/([^/?]+)/);
+    if (customPageMatch) {
+      let slug = customPageMatch[1];
+      try {
+        slug = decodeURIComponent(slug);
+      } catch (error) {
+        console.warn('Could not decode storefront page URL:', error);
+      }
+      return { page: 'custom-page', params: { slug } };
+    }
 
     // Hash pattern: #/store/product/:id
     if (hash.startsWith('#/store/product/')) {
@@ -51,12 +62,37 @@ function TiwiMartContent({
     if (hash === '#/store/checkout' || search.get('page') === 'checkout') {
       return { page: 'checkout', params: {} };
     }
-    if (hash === '#/store/track' || search.get('page') === 'track') {
-      return { page: 'track', params: {} };
+    const trackMatch = hash.match(/^#\/store\/track(?:\?(.*))?$/);
+    if (trackMatch || search.get('page') === 'track') {
+      const trackParams = new URLSearchParams(trackMatch?.[1] || '');
+      return {
+        page: 'track',
+        params: {
+          reference: trackParams.get('reference') || search.get('reference') || '',
+          phone: trackParams.get('phone') || search.get('phone') || ''
+        }
+      };
     }
-    if (hash.startsWith('#/store/order-success/')) {
-      const orderId = hash.replace('#/store/order-success/', '').trim();
-      return { page: 'order-success', params: { orderId } };
+    if (hash === '#/store/account' || search.get('page') === 'account') {
+      return { page: 'account', params: {} };
+    }
+    const orderSuccessMatch = hash.match(/^#\/store\/order-success\/([^?]+)(?:\?(.*))?$/);
+    if (orderSuccessMatch) {
+      const successParams = new URLSearchParams(orderSuccessMatch[2] || '');
+      let orderId = orderSuccessMatch[1];
+      try {
+        orderId = decodeURIComponent(orderId);
+      } catch (error) {
+        console.warn('Could not decode order confirmation URL:', error);
+      }
+      return {
+        page: 'order-success',
+        params: {
+          orderId,
+          receiptToken: successParams.get('receipt') || '',
+          paymentState: successParams.get('payment') || ''
+        }
+      };
     }
     if (search.get('view') === 'product' && search.get('id')) {
       return { page: 'product', params: { id: search.get('id') } };
@@ -99,10 +135,23 @@ function TiwiMartContent({
     } else if (page === 'checkout') {
       newHash = '#/store/checkout';
     } else if (page === 'track') {
-      newHash = '#/store/track';
+      const trackParams = new URLSearchParams();
+      if (params.reference) trackParams.set('reference', params.reference);
+      if (params.phone) trackParams.set('phone', params.phone);
+      const query = trackParams.toString();
+      newHash = `#/store/track${query ? `?${query}` : ''}`;
+    } else if (page === 'account') {
+      newHash = '#/store/account';
     } else if (page === 'order-success') {
       newHash = `#/store/order-success/${params.orderId || 'success'}`;
+      const successParams = new URLSearchParams();
+      if (params.receiptToken) successParams.set('receipt', params.receiptToken);
+      if (params.paymentState) successParams.set('payment', params.paymentState);
+      const successQuery = successParams.toString();
+      if (successQuery) newHash += `?${successQuery}`;
       if (params.order) setLastPlacedOrder(params.order);
+    } else if (page === 'custom-page' && params.slug) {
+      newHash = `#/store/page/${encodeURIComponent(params.slug)}`;
     }
 
     window.location.hash = newHash;
@@ -254,7 +303,6 @@ function TiwiMartContent({
       <div>
         {/* 1. Top Announcement & Utility Bar matching screenshot */}
         <TopUtilityBar
-          onOpenAdmin={onOpenAdmin}
           onTrackOrder={() => navigateTo('track')}
         />
 
@@ -271,6 +319,7 @@ function TiwiMartContent({
           cartCount={cartItems.reduce((acc, item) => acc + item.quantity, 0)}
           wishlistCount={wishlist.length}
           onOpenCart={() => navigateTo('cart')}
+          onOpenAccount={() => navigateTo('account')}
           onOpenWishlist={() => {
             setActiveSpecialFilter('wishlist');
             setSelectedCategory('All Categories');
@@ -295,6 +344,7 @@ function TiwiMartContent({
             setSelectedCategory('All Categories');
             if (routeState.page !== 'home') navigateTo('home');
           }}
+          onOpenPage={slug => navigateTo('custom-page', { slug })}
           activeFilter={activeSpecialFilter}
         />
 
@@ -365,20 +415,51 @@ function TiwiMartContent({
 
         {routeState.page === 'track' && (
           <TrackOrderPage
+            key={`${routeState.params?.reference || ''}:${routeState.params?.phone || ''}`}
             onNavigate={navigateTo}
             initialReference={routeState.params?.reference || ''}
             initialPhone={routeState.params?.phone || ''}
           />
         )}
 
+        {routeState.page === 'account' && (
+          <CustomerAccountPage onNavigate={navigateTo} showToast={showToast} />
+        )}
+
         {/* D. ORDER CONFIRMATION / SUCCESS PAGE */}
         {routeState.page === 'order-success' && (
           <OrderSuccessPage
+            key={routeState.params?.orderId || 'order-success'}
             order={lastPlacedOrder}
+            orderId={routeState.params?.orderId}
+            receiptToken={routeState.params?.receiptToken}
+            paymentState={routeState.params?.paymentState}
             onNavigate={navigateTo}
-            onOpenAdmin={onOpenAdmin}
           />
         )}
+
+        {routeState.page === 'custom-page' && (() => {
+          const page = (storeSettings?.storePages || []).find(item =>
+            item.enabled !== false && item.slug === routeState.params?.slug
+          );
+          return page ? (
+            <main className="mx-auto w-full max-w-5xl px-4 py-10">
+              <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
+                {page.image && <img src={page.image} alt="" className="mb-8 max-h-[420px] w-full rounded-2xl object-cover" />}
+                <h1 className="mb-6 text-3xl font-black text-slate-900">{page.title}</h1>
+                <div
+                  className="prose prose-slate max-w-none break-words"
+                  dangerouslySetInnerHTML={{ __html: page.content || '' }}
+                />
+              </article>
+            </main>
+          ) : (
+            <main className="mx-auto w-full max-w-3xl px-4 py-16 text-center">
+              <h1 className="text-2xl font-bold text-slate-900">Page not found</h1>
+              <button type="button" onClick={() => navigateTo('home')} className="mt-4 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Back to store</button>
+            </main>
+          );
+        })()}
 
         {/* E. STOREFRONT HOME PAGE */}
         {routeState.page === 'home' && (
@@ -453,7 +534,6 @@ function TiwiMartContent({
           if (routeState.page !== 'home') navigateTo('home');
         }}
         onOpenCart={() => navigateTo('cart')}
-        onOpenAdmin={onOpenAdmin}
       />
     </div>
   );

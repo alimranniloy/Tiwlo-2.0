@@ -46,6 +46,8 @@ export default function AddProductView({
   onAddSubcategory,
   categories = EMPTY_CATEGORIES,
   subcategories = [],
+  suppliers = EMPTY_CATEGORIES,
+  onAddSupplier,
   onOpenPrintBarcode = null
 }) {
   const [currentStep, setCurrentStep] = useState(1);
@@ -64,8 +66,14 @@ export default function AddProductView({
     minStock: 20,
     price: 39.99,
     costPrice: 19.50,
+    shippingWeightKg: '',
     location: 'Aisle 1, Shelf A',
     supplierName: '',
+    supplierId: '',
+    stockSource: '',
+    initialPaidAmount: '0',
+    initialPaymentMethod: 'Cash',
+    initialPaymentReference: '',
     status: 'In Stock',
     description: '',
     image: '',
@@ -97,6 +105,9 @@ export default function AddProductView({
   const [newTaxParentCatId, setNewTaxParentCatId] = useState('');
   const [savingTaxonomy, setSavingTaxonomy] = useState(false);
   const [taxSuccessMsg, setTaxSuccessMsg] = useState('');
+  const [showSupplierForm, setShowSupplierForm] = useState(false);
+  const [supplierDraft, setSupplierDraft] = useState({ companyName: '', contactPerson: '', phone: '', email: '', address: '' });
+  const [savingSupplier, setSavingSupplier] = useState(false);
   const [localCategories, setLocalCategories] = useState(categories);
   const [localSubcategories, setLocalSubcategories] = useState(subcategories);
 
@@ -452,6 +463,31 @@ export default function AddProductView({
     }
   };
 
+  const saveInlineSupplier = async event => {
+    event.preventDefault();
+    if (!supplierDraft.companyName.trim() || !onAddSupplier) return;
+    setSavingSupplier(true);
+    try {
+      const supplier = await onAddSupplier({
+        ...supplierDraft,
+        companyName: supplierDraft.companyName.trim()
+      });
+      if (!supplier?.id) throw new Error('Supplier was not saved. Please try again.');
+      setFormData(current => ({
+        ...current,
+        supplierId: supplier.id,
+        supplierName: supplier.companyName,
+        stockSource: 'supplier'
+      }));
+      setSupplierDraft({ companyName: '', contactPerson: '', phone: '', email: '', address: '' });
+      setShowSupplierForm(false);
+    } catch (error) {
+      setErrors(current => ({ ...current, supplier: error.message || 'Could not save supplier.' }));
+    } finally {
+      setSavingSupplier(false);
+    }
+  };
+
   const handlePrevStep = () => {
     setCurrentStep(prev => Math.max(1, prev - 1));
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -478,6 +514,8 @@ export default function AddProductView({
       images: finalImgs,
       price: parseFloat(formData.price) || 0,
       costPrice: parseFloat(formData.costPrice) || 0,
+      initialPaidAmount: parseFloat(formData.initialPaidAmount) || 0,
+      shippingWeightKg: formData.shippingWeightKg === '' ? null : Number(formData.shippingWeightKg),
       stock: parseInt(formData.stock) || 0,
       minStock: Number.isFinite(Number(formData.minStock)) && Number(formData.minStock) >= 0
         ? Number(formData.minStock)
@@ -995,6 +1033,23 @@ export default function AddProductView({
                 </div>
               </div>
 
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                  Shipping weight (kg)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100000"
+                  step="0.001"
+                  value={formData.shippingWeightKg}
+                  onChange={(e) => setFormData({ ...formData, shippingWeightKg: e.target.value })}
+                  placeholder="e.g. 0.5"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 text-sm font-semibold bg-slate-50/50 dark:bg-gray-900/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                />
+                <p className="text-[10px] text-slate-400">Required to calculate weight-based international rates.</p>
+              </div>
+
               {/* Initial Stock */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
@@ -1054,18 +1109,113 @@ export default function AddProductView({
                 </select>
               </div>
 
-              {/* Supplier Reference */}
-              <div className="md:col-span-2 space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                  Primary Supplier / Vendor
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Apex Global Logistics / TechCorp Supply"
-                  value={formData.supplierName}
-                  onChange={(e) => setFormData({ ...formData, supplierName: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 text-sm bg-slate-50/50 dark:bg-gray-900/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
-                />
+              <div className="md:col-span-2 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <label htmlFor="product-supplier" className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Opening stock source
+                  </label>
+                  <button type="button" onClick={() => setShowSupplierForm(current => !current)} className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-2.5 py-1.5 text-[11px] font-bold text-blue-700 hover:bg-blue-50">
+                    <Plus className="h-3.5 w-3.5" /> Add supplier
+                  </button>
+                </div>
+                <select
+                  id="product-supplier"
+                  value={formData.stockSource === 'own' ? 'own' : formData.supplierId}
+                  onChange={event => {
+                    if (event.target.value === 'own') {
+                      setFormData(current => ({
+                        ...current,
+                        supplierId: '',
+                        supplierName: '',
+                        stockSource: 'own',
+                        initialPaidAmount: '0',
+                        initialPaymentMethod: 'Cash',
+                        initialPaymentReference: ''
+                      }));
+                      setErrors(current => ({ ...current, supplier: '' }));
+                      return;
+                    }
+                    const supplier = suppliers.find(item => item.id === event.target.value);
+                    setFormData(current => ({
+                      ...current,
+                      supplierId: supplier?.id || '',
+                      supplierName: supplier?.companyName || '',
+                      stockSource: supplier ? 'supplier' : 'own',
+                      initialPaidAmount: supplier ? current.initialPaidAmount : '0'
+                    }));
+                    setErrors(current => ({ ...current, supplier: '' }));
+                  }}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm text-slate-900 dark:border-gray-700 dark:bg-gray-900/50 dark:text-white"
+                >
+                  <option value="">Choose stock source</option>
+                  <option value="own">Own stock / already held</option>
+                  {suppliers.filter(supplier => supplier.status !== 'Inactive').map(supplier => <option key={supplier.id} value={supplier.id}>{supplier.companyName}</option>)}
+                </select>
+                <p className="text-[10px] text-slate-500">One product setup flow: choose the actual supplier or “Own stock / already held”. Supplier opening stock creates a received purchase invoice; later stock is added through Purchases.</p>
+                {formData.supplierId && Number(formData.stock) > 0 && (
+                  <div className="grid max-w-xl gap-3 sm:grid-cols-2">
+                    <label className="block text-[10px] font-bold text-slate-600">
+                      Amount already paid to this supplier
+                      <input
+                        type="number"
+                        min="0"
+                        max={Math.max(0, Number(formData.stock || 0) * Number(formData.costPrice || 0))}
+                        step="0.01"
+                        value={formData.initialPaidAmount}
+                        onChange={event => setFormData(current => ({ ...current, initialPaidAmount: event.target.value }))}
+                        className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
+                      />
+                      <span className="mt-1 block font-normal text-slate-500">Remaining opening invoice amount becomes supplier due.</span>
+                    </label>
+                    {Number(formData.initialPaidAmount) > 0 && <>
+                      <label className="block text-[10px] font-bold text-slate-600">
+                        Initial payment method
+                        <select
+                          value={formData.initialPaymentMethod}
+                          onChange={event => setFormData(current => ({ ...current, initialPaymentMethod: event.target.value }))}
+                          className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
+                        >
+                          <option>Cash</option><option>Bank transfer</option><option>Mobile payment</option><option>Card</option>
+                        </select>
+                      </label>
+                      <label className="block text-[10px] font-bold text-slate-600 sm:col-span-2">
+                        Transaction reference{formData.initialPaymentMethod === 'Cash' ? ' (optional)' : ' *'}
+                        <input
+                          required={formData.initialPaymentMethod !== 'Cash'}
+                          maxLength={120}
+                          value={formData.initialPaymentReference}
+                          onChange={event => setFormData(current => ({ ...current, initialPaymentReference: event.target.value }))}
+                          placeholder="Bank/mobile transaction ID"
+                          className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
+                        />
+                      </label>
+                    </>}
+                  </div>
+                )}
+                {errors.supplier && <p role="alert" className="text-[11px] text-rose-600">{errors.supplier}</p>}
+                {showSupplierForm && (
+                  <form onSubmit={saveInlineSupplier} className="grid gap-2 rounded-xl border border-blue-100 bg-blue-50/60 p-3 sm:grid-cols-2">
+                    <label className="text-[10px] font-bold text-slate-600 sm:col-span-2">Supplier name *
+                      <input required maxLength={120} value={supplierDraft.companyName} onChange={event => setSupplierDraft(current => ({ ...current, companyName: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs" />
+                    </label>
+                    <label className="text-[10px] font-bold text-slate-600">Contact person
+                      <input maxLength={120} value={supplierDraft.contactPerson} onChange={event => setSupplierDraft(current => ({ ...current, contactPerson: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs" />
+                    </label>
+                    <label className="text-[10px] font-bold text-slate-600">Phone
+                      <input maxLength={40} value={supplierDraft.phone} onChange={event => setSupplierDraft(current => ({ ...current, phone: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs" />
+                    </label>
+                    <label className="text-[10px] font-bold text-slate-600">Email
+                      <input type="email" maxLength={254} value={supplierDraft.email} onChange={event => setSupplierDraft(current => ({ ...current, email: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs" />
+                    </label>
+                    <label className="text-[10px] font-bold text-slate-600">Address
+                      <input maxLength={240} value={supplierDraft.address} onChange={event => setSupplierDraft(current => ({ ...current, address: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs" />
+                    </label>
+                    <div className="sm:col-span-2 flex justify-end gap-2">
+                      <button type="button" onClick={() => setShowSupplierForm(false)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-bold">Cancel</button>
+                      <button type="submit" disabled={savingSupplier} className="rounded-lg bg-blue-600 px-3 py-1.5 text-[10px] font-bold text-white disabled:opacity-50">{savingSupplier ? 'Saving…' : 'Save and select supplier'}</button>
+                    </div>
+                  </form>
+                )}
               </div>
             </div>
           </div>

@@ -14,7 +14,11 @@ import {
   updatePasswordAndRevokeSessionsWithRust
 } from '../security/rustAuthSessionClient.js';
 
-const TENANT_ARRAY_FIELDS = ['products', 'categories', 'subcategories', 'customers', 'suppliers', 'purchases', 'sales', 'inventory_adjustments', 'activities'];
+const TENANT_ARRAY_FIELDS = [
+  'products', 'categories', 'subcategories', 'customers', 'suppliers', 'purchases', 'sales',
+  'inventory_adjustments', 'activities', 'store_customer_accounts', 'store_customer_sessions',
+  'store_reviews', 'staff', 'staff_transactions', 'payroll_records', 'finance_ledger'
+];
 function validateTenantStore(store, storeId) {
   if (!store || typeof store !== 'object' || Array.isArray(store) ||
       (store.tiwiId && String(store.tiwiId) !== storeId)) {
@@ -28,6 +32,10 @@ function validateTenantStore(store, storeId) {
   if (store.store_settings !== undefined &&
       (!store.store_settings || typeof store.store_settings !== 'object' || Array.isArray(store.store_settings))) {
     throw new Error('Persisted tenant store settings have an invalid format.');
+  }
+  if (store.finance_settings !== undefined &&
+      (!store.finance_settings || typeof store.finance_settings !== 'object' || Array.isArray(store.finance_settings))) {
+    throw new Error('Persisted tenant finance settings have an invalid format.');
   }
 }
 
@@ -48,6 +56,17 @@ function createEmptyTenantStore(tiwiId) {
     purchases: [],
     sales: [],
     inventory_adjustments: [],
+    store_customer_accounts: [],
+    store_customer_sessions: [],
+    store_reviews: [],
+    staff: [],
+    staff_transactions: [],
+    payroll_records: [],
+    finance_ledger: [],
+    finance_settings: {
+      openingBalanceCents: null,
+      openingBalanceAt: null
+    },
     activities: [],
     store_settings: {
       storeName: 'Tiwlo Store',

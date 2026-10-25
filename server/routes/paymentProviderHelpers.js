@@ -33,6 +33,8 @@ export const PAYMENT_PROVIDER_DEFINITIONS = Object.freeze({
   }
 });
 
+export const CHECKOUT_READY_PROVIDERS = new Set(['bkash', 'sslcommerz', 'stripe', 'paypal']);
+
 const ENCRYPTION_CONTEXT = Buffer.from('tiwlo-store-payment-credentials-v1');
 
 function getEncryptionKey() {
@@ -150,7 +152,7 @@ export function toPublicPaymentProvider(provider, config = {}, credentialRecord 
     currencies: definition.currencies,
     enabled: config.enabled === true && Boolean(credentialRecord),
     configured: Boolean(credentialRecord),
-    checkoutReady: false,
+    checkoutReady: CHECKOUT_READY_PROVIDERS.has(definition.id),
     mode: config.mode === 'live' ? 'live' : 'sandbox',
     feePercent: Number(config.feePercent) || 0,
     feeFixed: Number(config.feeFixed) || 0,

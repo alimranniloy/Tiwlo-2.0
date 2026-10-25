@@ -22,6 +22,7 @@ import {
 export default function PurchasesView({
   products = [],
   suppliers = [],
+  onAddSupplier,
   showToast,
   onRefreshData,
   onBackToDashboard
@@ -39,6 +40,14 @@ export default function PurchasesView({
   const [poSupplierId, setPoSupplierId] = useState('');
   const [poNotes, setPoNotes] = useState('');
   const [poExpectedDate, setPoExpectedDate] = useState('');
+  const [supplierPaymentAmount, setSupplierPaymentAmount] = useState('');
+  const [supplierPaymentMethod, setSupplierPaymentMethod] = useState('Cash');
+  const [supplierPaymentReference, setSupplierPaymentReference] = useState('');
+  const [returnForm, setReturnForm] = useState({ productId: '', quantity: '1', reason: '' });
+  const [savingSupplierReturn, setSavingSupplierReturn] = useState(false);
+  const [showInlineSupplierForm, setShowInlineSupplierForm] = useState(false);
+  const [supplierDraft, setSupplierDraft] = useState({ companyName: '', contactPerson: '', phone: '', email: '' });
+  const [savingSupplier, setSavingSupplier] = useState(false);
   const [poItems, setPoItems] = useState([
     { productId: products[0]?.id || '', quantity: 20, unitCost: 15.0 }
   ]);
@@ -79,10 +88,12 @@ export default function PurchasesView({
       const res = await fetch(`/api/purchases/${po.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'Received', paymentStatus: 'Paid' })
+        body: JSON.stringify({ status: 'Received' })
       });
       if (res.ok) {
-        showToast && showToast(`Purchase Order ${po.poNumber} received! Inventory stock incremented.`);
+        const updated = await res.json();
+        showToast && showToast(`Purchase Order ${po.poNumber} received. Inventory updated; supplier balance is recorded separately.`);
+        if (viewingPO?.id === updated.id) setViewingPO(updated);
         loadPurchases();
         onRefreshData && onRefreshData();
       } else {
@@ -90,6 +101,56 @@ export default function PurchasesView({
       }
     } catch (err) {
       showToast && showToast('Error connecting to server', 'error');
+    }
+  };
+
+  const handleSupplierPayment = async event => {
+    event.preventDefault();
+    if (!viewingPO || !supplierPaymentAmount) return;
+    try {
+      const response = await fetch(`/api/purchases/${viewingPO.id}/payments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: supplierPaymentAmount,
+          method: supplierPaymentMethod,
+          reference: supplierPaymentReference
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Could not record supplier payment.');
+      setViewingPO(result.purchase);
+      setSupplierPaymentAmount('');
+      setSupplierPaymentReference('');
+      showToast?.(`Payment ${Number(result.payment.amount).toFixed(2)} recorded against ${viewingPO.poNumber}.`);
+      loadPurchases();
+      onRefreshData?.();
+    } catch (error) {
+      showToast?.(error.message || 'Could not record supplier payment.', 'error');
+    }
+  };
+
+  const handleSupplierReturn = async event => {
+    event.preventDefault();
+    if (!viewingPO) return;
+    setSavingSupplierReturn(true);
+    try {
+      const response = await fetch(`/api/purchases/${viewingPO.id}/returns`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(returnForm)
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Could not record supplier return.');
+      setViewingPO(result.purchase);
+      setReturnForm({ productId: '', quantity: '1', reason: '' });
+      showToast?.(`Supplier return ${result.supplierReturn.returnNumber} recorded. Stock and supplier balance updated.`);
+      loadPurchases();
+      onRefreshData?.();
+    } catch (error) {
+      showToast?.(error.message || 'Could not record supplier return.', 'error');
+    } finally {
+      setSavingSupplierReturn(false);
     }
   };
 
@@ -117,9 +178,11 @@ export default function PurchasesView({
   // Submit New PO
   const handleCreatePO = async (e) => {
     e.preventDefault();
-    if (!poSupplierId && suppliers.length > 0) return;
-
-    const supplierObj = suppliers.find(s => s.id === poSupplierId) || suppliers[0];
+    const supplierObj = suppliers.find(s => s.id === poSupplierId && s.status !== 'Inactive');
+    if (!supplierObj) {
+      showToast?.('Add or select an active supplier before creating a purchase order.', 'error');
+      return;
+    }
 
     try {
       const res = await fetch('/api/purchases', {
@@ -147,7 +210,31 @@ export default function PurchasesView({
     }
   };
 
+  const handleSaveInlineSupplier = async () => {
+    if (!onAddSupplier || !supplierDraft.companyName.trim()) {
+      showToast?.('Enter a supplier name before saving.', 'error');
+      return;
+    }
+    setSavingSupplier(true);
+    try {
+      const supplier = await onAddSupplier({ ...supplierDraft, companyName: supplierDraft.companyName.trim() });
+      if (!supplier?.id) throw new Error('Supplier was not saved. Please try again.');
+      setPoSupplierId(supplier.id);
+      setSupplierDraft({ companyName: '', contactPerson: '', phone: '', email: '' });
+      setShowInlineSupplierForm(false);
+    } catch (error) {
+      showToast?.(error.message || 'Could not save supplier.', 'error');
+    } finally {
+      setSavingSupplier(false);
+    }
+  };
+
   const totalSpend = purchases.reduce((sum, p) => sum + (p.totalAmount || 0), 0);
+  const supplierDueTotal = purchases.reduce((sum, purchase) => sum + Number(
+    purchase.dueAmount ?? (purchase.status === 'Received'
+      ? Math.max(0, Number(purchase.totalAmount || 0) - Number(purchase.paidAmount || 0) - Number(purchase.supplierCreditAmount || 0))
+      : 0)
+  ), 0);
   const pendingCount = purchases.filter(p => p.status === 'Pending' || p.status === 'Ordered').length;
 
   if (isNewPOOpen) {
@@ -171,20 +258,26 @@ export default function PurchasesView({
           <form onSubmit={handleCreatePO} className="space-y-4 text-xs">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
-                  Select Supplier *
-                </label>
-                <select
-                  value={poSupplierId}
-                  onChange={(e) => setPoSupplierId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white"
-                >
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.companyName}
-                    </option>
-                  ))}
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <label htmlFor="purchase-supplier" className="block font-semibold text-slate-700 dark:text-slate-200">Select Supplier *</label>
+                  <button type="button" onClick={() => setShowInlineSupplierForm(current => !current)} className="text-[11px] font-bold text-blue-600 hover:underline">+ Add supplier</button>
+                </div>
+                <select id="purchase-supplier" required value={poSupplierId} onChange={(e) => setPoSupplierId(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white">
+                  <option value="">Select supplier</option>
+                  {suppliers.filter(s => s.status !== 'Inactive').map((s) => <option key={s.id} value={s.id}>{s.companyName}</option>)}
                 </select>
+                {showInlineSupplierForm && (
+                  <div className="mt-2 grid gap-2 rounded-xl border border-blue-100 bg-blue-50/60 p-3 sm:grid-cols-2">
+                    <input required maxLength={120} value={supplierDraft.companyName} onChange={event => setSupplierDraft(current => ({ ...current, companyName: event.target.value }))} placeholder="Supplier name *" className="rounded-lg border border-slate-200 bg-white px-3 py-2" />
+                    <input maxLength={120} value={supplierDraft.contactPerson} onChange={event => setSupplierDraft(current => ({ ...current, contactPerson: event.target.value }))} placeholder="Contact person" className="rounded-lg border border-slate-200 bg-white px-3 py-2" />
+                    <input maxLength={40} value={supplierDraft.phone} onChange={event => setSupplierDraft(current => ({ ...current, phone: event.target.value }))} placeholder="Phone" className="rounded-lg border border-slate-200 bg-white px-3 py-2" />
+                    <input type="email" maxLength={254} value={supplierDraft.email} onChange={event => setSupplierDraft(current => ({ ...current, email: event.target.value }))} placeholder="Email" className="rounded-lg border border-slate-200 bg-white px-3 py-2" />
+                    <div className="sm:col-span-2 flex justify-end gap-2">
+                      <button type="button" onClick={() => setShowInlineSupplierForm(false)} className="rounded-lg border bg-white px-3 py-1.5 text-[11px] font-bold">Cancel</button>
+                      <button type="button" onClick={handleSaveInlineSupplier} disabled={savingSupplier} className="rounded-lg bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-50">{savingSupplier ? 'Saving…' : 'Save and select'}</button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -300,6 +393,7 @@ export default function PurchasesView({
               </button>
               <button
                 type="submit"
+                disabled={!suppliers.some(s => s.id === poSupplierId && s.status !== 'Inactive') || products.length === 0}
                 className="px-5 py-2 font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition cursor-pointer"
               >
                 Issue Purchase Order
@@ -359,6 +453,58 @@ export default function PurchasesView({
             <span>Total PO Amount:</span>
             <span className="text-blue-600 dark:text-blue-400">${viewingPO.totalAmount?.toFixed(2)}</span>
           </div>
+          <div className="grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-4 dark:bg-gray-800/60 sm:grid-cols-5">
+            <div><span className="text-[10px] text-slate-500">Paid</span><p className="font-bold">{Number(viewingPO.paidAmount || 0).toFixed(2)}</p></div>
+            <div><span className="text-[10px] text-slate-500">Supplier due</span><p className="font-bold text-rose-600">{Number(viewingPO.dueAmount ?? (viewingPO.status === 'Received' ? Math.max(0, Number(viewingPO.totalAmount || 0) - Number(viewingPO.paidAmount || 0)) : 0)).toFixed(2)}</p></div>
+            <div><span className="text-[10px] text-slate-500">Return credits</span><p className="font-bold">{Number(viewingPO.supplierCreditAmount || 0).toFixed(2)}</p></div>
+            <div><span className="text-[10px] text-slate-500">Available supplier credit</span><p className="font-bold">{Number(viewingPO.supplierCreditBalance || 0).toFixed(2)}</p></div>
+            <div><span className="text-[10px] text-slate-500">Payment status</span><p className="font-bold">{viewingPO.paymentStatus || 'Unpaid'}</p></div>
+          </div>
+          {viewingPO.status === 'Received' && Number(viewingPO.dueAmount ?? Math.max(0, Number(viewingPO.totalAmount || 0) - Number(viewingPO.paidAmount || 0))) > 0 && (
+            <form onSubmit={handleSupplierPayment} className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-900 dark:bg-amber-950/20">
+              <h4 className="font-bold text-slate-800 dark:text-white">Record supplier payment</h4>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <input required type="number" min="0.01" max={Number(viewingPO.dueAmount ?? Math.max(0, Number(viewingPO.totalAmount || 0) - Number(viewingPO.paidAmount || 0)))} step="0.01" value={supplierPaymentAmount} onChange={event => setSupplierPaymentAmount(event.target.value)} placeholder="Amount" className="rounded-lg border border-slate-200 bg-white px-3 py-2" />
+                <select value={supplierPaymentMethod} onChange={event => setSupplierPaymentMethod(event.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                  <option>Cash</option><option>Bank transfer</option><option>Card</option><option>Mobile payment</option>
+                </select>
+                <input required={supplierPaymentMethod !== 'Cash'} value={supplierPaymentReference} onChange={event => setSupplierPaymentReference(event.target.value)} maxLength={120} placeholder={supplierPaymentMethod === 'Cash' ? 'Optional note / receipt no.' : 'Required transaction reference'} className="rounded-lg border border-slate-200 bg-white px-3 py-2" />
+              </div>
+              <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 font-bold text-white">Save payment</button>
+              <p className="text-[10px] text-slate-500">The payment is saved as a dated record; receipt alone never marks this invoice paid.</p>
+            </form>
+          )}
+          {Array.isArray(viewingPO.payments) && viewingPO.payments.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="font-bold">Payment history</h4>
+              {viewingPO.payments.map(payment => <div key={payment.id} className="flex justify-between rounded-lg border border-slate-100 px-3 py-2"><span>{new Date(payment.createdAt).toLocaleString()} · {payment.method}{payment.reference ? ` · ${payment.reference}` : ''}</span><strong>{Number(payment.amount).toFixed(2)}</strong></div>)}
+            </div>
+          )}
+          {viewingPO.status === 'Received' && (
+            <form onSubmit={handleSupplierReturn} className="space-y-3 rounded-xl border border-rose-200 bg-rose-50/70 p-4 dark:border-rose-900 dark:bg-rose-950/20">
+              <h4 className="font-bold text-slate-800 dark:text-white">Return damaged goods to supplier</h4>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <select required value={returnForm.productId} onChange={event => setReturnForm(current => ({ ...current, productId: event.target.value }))} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                  <option value="">Choose purchased product</option>
+                  {viewingPO.items?.map(item => {
+                    const alreadyReturned = (viewingPO.supplierReturns || []).flatMap(entry => entry.items || []).filter(returnItem => returnItem.productId === item.productId).reduce((sum, returnItem) => sum + Number(returnItem.quantity || 0), 0);
+                    const purchasedQuantity = viewingPO.items.filter(line => line.productId === item.productId).reduce((sum, line) => sum + Number(line.quantity || 0), 0);
+                    return purchasedQuantity > alreadyReturned ? <option key={item.productId} value={item.productId}>{item.productName} · remaining {purchasedQuantity - alreadyReturned}</option> : null;
+                  })}
+                </select>
+                <input required type="number" min="1" step="1" value={returnForm.quantity} onChange={event => setReturnForm(current => ({ ...current, quantity: event.target.value }))} placeholder="Quantity" className="rounded-lg border border-slate-200 bg-white px-3 py-2" />
+                <input required maxLength={500} value={returnForm.reason} onChange={event => setReturnForm(current => ({ ...current, reason: event.target.value }))} placeholder="Reason (e.g. damaged)" className="rounded-lg border border-slate-200 bg-white px-3 py-2" />
+              </div>
+              <button type="submit" disabled={savingSupplierReturn} className="rounded-lg bg-rose-600 px-4 py-2 font-bold text-white disabled:opacity-50">{savingSupplierReturn ? 'Saving…' : 'Record return and supplier credit'}</button>
+              <p className="text-[10px] text-slate-500">This reduces stock and the supplier balance; it will not silently create negative stock. Record lost or damaged stock separately in Inventory Control.</p>
+            </form>
+          )}
+          {Array.isArray(viewingPO.supplierReturns) && viewingPO.supplierReturns.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="font-bold">Supplier return history</h4>
+              {viewingPO.supplierReturns.map(vendorReturn => <div key={vendorReturn.id} className="flex justify-between rounded-lg border border-slate-100 px-3 py-2"><span>{vendorReturn.returnNumber} · {vendorReturn.reason}</span><strong>Credit {Number(vendorReturn.creditAmount).toFixed(2)}</strong></div>)}
+            </div>
+          )}
 
           <div className="flex justify-end pt-4">
             <button
@@ -405,7 +551,7 @@ export default function PurchasesView({
         <div className="flex items-center space-x-2.5 shrink-0 w-full sm:w-auto">
           <button
             onClick={() => {
-              setPoSupplierId(suppliers[0]?.id || '');
+              setPoSupplierId(suppliers.find(supplier => supplier.status !== 'Inactive')?.id || '');
               setPoItems([{ productId: products[0]?.id || '', quantity: 25, unitCost: 20.0 }]);
               setIsNewPOOpen(true);
             }}
@@ -418,7 +564,7 @@ export default function PurchasesView({
       </div>
 
       {/* KPI Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-4">
         <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
           <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Purchase Orders</span>
           <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1.5">{purchases.length}</div>
@@ -445,6 +591,13 @@ export default function PurchasesView({
             ${Math.round(totalSpend).toLocaleString()}
           </div>
           <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Across all vendor POs</div>
+        </div>
+        <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-rose-200 dark:border-rose-900 shadow-xs">
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Supplier Due</span>
+          <div className="text-xl sm:text-2xl font-bold text-rose-600 dark:text-rose-400 mt-1.5">
+            ${supplierDueTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Received stock, less payments and returns</div>
         </div>
       </div>
 

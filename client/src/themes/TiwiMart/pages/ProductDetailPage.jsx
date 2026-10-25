@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { applicationFetch as fetch } from '../../../api/graphqlTransport.js';
+import React, { useEffect, useState } from 'react';
 import {
   Star,
   ShieldCheck,
@@ -10,7 +11,8 @@ import {
   Zap,
   ChevronRight,
   ArrowLeft,
-  Package
+  Package,
+  MessageSquare
 } from 'lucide-react';
 import { useStoreSettings } from '../../../context/StoreSettingsContext';
 import { formatStoreCurrency, getProductDiscount, productDescriptionText } from '../storefrontUtils';
@@ -30,6 +32,72 @@ export default function ProductDetailPage({
   const [selectedImgIdx, setSelectedImgIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState('description');
+  const [reviews, setReviews] = useState([]);
+  const [customerOrders, setCustomerOrders] = useState([]);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewTitle, setReviewTitle] = useState('');
+  const [reviewBody, setReviewBody] = useState('');
+  const [reviewOrderId, setReviewOrderId] = useState('');
+  const [reviewError, setReviewError] = useState('');
+  const [reviewBusy, setReviewBusy] = useState(false);
+
+  useEffect(() => {
+    if (!product?.id) return undefined;
+    let active = true;
+    const loadReviews = async () => {
+      try {
+        const response = await fetch(`/api/public/reviews/${encodeURIComponent(product.id)}`);
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Review request failed with HTTP ${response.status}.`);
+        if (active) setReviews(Array.isArray(result.reviews) ? result.reviews : []);
+      } catch (error) {
+        if (active) setReviewError(error.message || 'Could not load reviews.');
+      }
+    };
+    const loadCustomerOrders = async () => {
+      try {
+        const response = await fetch('/api/public/customer-auth/me');
+        if (response.status === 401) return;
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Account lookup failed with HTTP ${response.status}.`);
+        if (active) setCustomerOrders(result.orders || []);
+      } catch (error) {
+        if (active) setReviewError(error.message || 'Could not load purchase verification.');
+      }
+    };
+    loadReviews();
+    loadCustomerOrders();
+    return () => { active = false; };
+  }, [product?.id]);
+
+  const submitReview = async event => {
+    event.preventDefault();
+    setReviewBusy(true);
+    setReviewError('');
+    try {
+      const response = await fetch('/api/public/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: product.id,
+          orderId: reviewOrderId,
+          rating: reviewRating,
+          title: reviewTitle,
+          body: reviewBody
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `Review submission failed with HTTP ${response.status}.`);
+      setReviewTitle('');
+      setReviewBody('');
+      setReviewOrderId('');
+      setReviewError('Thanks! Your review is submitted and awaiting store moderation.');
+    } catch (error) {
+      setReviewError(error.message || 'Could not submit your review.');
+    } finally {
+      setReviewBusy(false);
+    }
+  };
 
   if (!product) {
     return (
@@ -320,6 +388,14 @@ export default function ProductDetailPage({
             >
               Shipping & Multi-Vendor Policy
             </button>
+            <button
+              onClick={() => setActiveTab('reviews')}
+              className={`text-xs font-bold pb-2 transition ${
+                activeTab === 'reviews' ? 'text-[#2563eb] border-b-2 border-[#2563eb]' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Reviews ({reviews.length})
+            </button>
           </div>
 
           <div className="py-6 text-xs text-slate-600 leading-relaxed">
@@ -356,7 +432,63 @@ export default function ProductDetailPage({
 
             {activeTab === 'shipping' && (
               <div className="space-y-3">
-                <p>Delivery methods, charges, and estimated arrival times have not been provided by the store. Contact the store before ordering to confirm.</p>
+                <p>Delivery methods and estimated arrival times are shown at checkout based on your destination.</p>
+                {(storeSettings?.storePages || []).filter(page => page.enabled !== false && /return|refund/i.test(page.title)).map(page => (
+                  <a key={page.id} href={`#/store/page/${encodeURIComponent(page.slug)}`} className="block font-semibold text-blue-700 hover:underline">
+                    Read {page.title}
+                  </a>
+                ))}
+              </div>
+            )}
+            {activeTab === 'reviews' && (
+              <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
+                <section className="space-y-3">
+                  {reviewError && <p role="status" className="rounded-lg bg-blue-50 p-3 text-xs text-blue-800">{reviewError}</p>}
+                  {reviews.map(review => (
+                    <article key={review.id} className="rounded-xl border border-slate-200 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="font-bold text-slate-800">{review.title || 'Customer review'}</h3>
+                        <span className="flex items-center gap-1 text-amber-600"><Star className="h-3.5 w-3.5 fill-current" />{review.rating}/5</span>
+                      </div>
+                      <p className="mt-2 whitespace-pre-wrap text-slate-600">{review.body}</p>
+                      <p className="mt-2 text-[10px] text-slate-400">{review.customerName || 'Verified buyer'} · {review.createdAt ? new Date(review.createdAt).toLocaleDateString() : ''}</p>
+                      {review.merchantReply && <p className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600"><strong>Store reply:</strong> {review.merchantReply}</p>}
+                    </article>
+                  ))}
+                  {reviews.length === 0 && <p className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-xs text-slate-500">No approved reviews yet.</p>}
+                </section>
+                <form onSubmit={submitReview} className="h-fit space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <h3 className="flex items-center gap-2 font-bold text-slate-800"><MessageSquare className="h-4 w-4 text-blue-600" />Review a delivered purchase</h3>
+                  {customerOrders.length ? (
+                    <>
+                      <label className="block text-[11px] font-semibold text-slate-600">Delivered order
+                        <select required value={reviewOrderId} onChange={event => setReviewOrderId(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
+                          <option value="">Choose order</option>
+                          {customerOrders.filter(order =>
+                            order.status === 'Delivered' &&
+                            (order.items || []).some(item => String(item.productId || item.id) === String(product.id))
+                          ).map(order => <option key={order.id} value={order.id}>{order.invoiceNumber}</option>)}
+                        </select>
+                      </label>
+                      <label className="block text-[11px] font-semibold text-slate-600">Rating
+                        <select value={reviewRating} onChange={event => setReviewRating(Number(event.target.value))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2">
+                          {[5, 4, 3, 2, 1].map(value => <option key={value} value={value}>{value} star{value === 1 ? '' : 's'}</option>)}
+                        </select>
+                      </label>
+                      <input value={reviewTitle} onChange={event => setReviewTitle(event.target.value)} maxLength={120} placeholder="Review title (optional)" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs" />
+                      <textarea required minLength={10} maxLength={3000} value={reviewBody} onChange={event => setReviewBody(event.target.value)} rows={5} placeholder="Share your experience (10–3000 characters)" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs" />
+                      <button disabled={reviewBusy || !customerOrders.some(order =>
+                        order.status === 'Delivered' &&
+                        (order.items || []).some(item => String(item.productId || item.id) === String(product.id))
+                      )} className="w-full rounded-lg bg-blue-600 px-3 py-2.5 text-xs font-bold text-white disabled:opacity-50">{reviewBusy ? 'Submitting…' : 'Submit for moderation'}</button>
+                    </>
+                  ) : (
+                    <div className="space-y-2 text-xs text-slate-500">
+                      <p>Sign in with the email used for this store order. Only delivered purchases can be reviewed.</p>
+                      <button type="button" onClick={() => onNavigate?.('account')} className="font-bold text-blue-700">Open customer account</button>
+                    </div>
+                  )}
+                </form>
               </div>
             )}
           </div>

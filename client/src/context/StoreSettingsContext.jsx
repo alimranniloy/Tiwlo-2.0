@@ -33,7 +33,8 @@ const DEFAULT_SETTINGS = {
   promoDiscountPercent: 0,
   paymentMethods: [],
   bannerSlidingSpeed: 5,
-  heroBanners: [],
+  heroBanners: DEFAULT_HERO_BANNERS,
+  storePages: [],
   availableThemes: THEME_CONFIG.availableThemes
 };
 
@@ -203,7 +204,9 @@ export function StoreSettingsProvider({ children, initialSettings = null }) {
 
   // 9. Banner Management Helpers
   const addHeroBanner = async (bannerData) => {
-    const currentBanners = storeSettings?.heroBanners || DEFAULT_HERO_BANNERS;
+    const currentBanners = Array.isArray(storeSettings?.heroBanners)
+      ? storeSettings.heroBanners
+      : DEFAULT_HERO_BANNERS;
     const newBanner = {
       id: `banner-${Date.now()}`,
       title: bannerData.title || 'Special Promotion',
@@ -218,14 +221,18 @@ export function StoreSettingsProvider({ children, initialSettings = null }) {
   };
 
   const updateHeroBanner = async (bannerId, partial) => {
-    const currentBanners = storeSettings?.heroBanners || DEFAULT_HERO_BANNERS;
+    const currentBanners = Array.isArray(storeSettings?.heroBanners)
+      ? storeSettings.heroBanners
+      : DEFAULT_HERO_BANNERS;
     const updatedBanners = currentBanners.map(b => b.id === bannerId ? { ...b, ...partial } : b);
     await updateStoreSettings({ heroBanners: updatedBanners });
     return updatedBanners;
   };
 
   const deleteHeroBanner = async (bannerId) => {
-    const currentBanners = storeSettings?.heroBanners || DEFAULT_HERO_BANNERS;
+    const currentBanners = Array.isArray(storeSettings?.heroBanners)
+      ? storeSettings.heroBanners
+      : DEFAULT_HERO_BANNERS;
     const updatedBanners = currentBanners.filter(b => b.id !== bannerId);
     await updateStoreSettings({ heroBanners: updatedBanners });
     return updatedBanners;

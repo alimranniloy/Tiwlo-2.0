@@ -13,6 +13,7 @@ export const PAYMENT_STATUSES = Object.freeze([
   'Pending',
   'Paid',
   'Failed',
+  'Partially Refunded',
   'Refunded'
 ]);
 
@@ -37,11 +38,11 @@ export function canTransitionOrder(currentStatus, nextStatus) {
 }
 
 export function validateOrderUpdate(input = {}) {
+  if (Object.hasOwn(input, 'paymentStatus')) {
+    return 'Payment status cannot be edited directly. Verify the payment or record an eligible COD collection instead.';
+  }
   if (input.status !== undefined && !ORDER_STATUSES.includes(input.status)) {
     return 'Select a valid order status.';
-  }
-  if (input.paymentStatus !== undefined && !PAYMENT_STATUSES.includes(input.paymentStatus)) {
-    return 'Select a valid payment status.';
   }
   if (input.courierService !== undefined &&
       (typeof input.courierService !== 'string' || input.courierService.length > 80)) {

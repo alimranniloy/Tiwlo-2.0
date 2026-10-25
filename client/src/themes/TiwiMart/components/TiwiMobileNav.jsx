@@ -1,16 +1,14 @@
 import React from 'react';
-import { Home, LayoutGrid, Flame, Heart, ShoppingBag, ArrowLeft } from 'lucide-react';
+import { Home, LayoutGrid, Flame, Heart, ShoppingBag } from 'lucide-react';
 
 export default function TiwiMobileNav({
-  activeTab,
   cartCount = 0,
   wishlistCount = 0,
   onOpenHome,
   onOpenCategories,
   onOpenDeals,
   onOpenWishlist,
-  onOpenCart,
-  onOpenAdmin
+  onOpenCart
 }) {
   return (
     <div className="lg:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-200 py-2 px-3 z-40 shadow-lg">
@@ -64,17 +62,6 @@ export default function TiwiMobileNav({
           )}
           <span className="text-[10px] font-medium mt-0.5">Cart</span>
         </button>
-
-        {onOpenAdmin && (
-          <button
-            onClick={onOpenAdmin}
-            className="flex flex-col items-center text-blue-600"
-            title="Tiwlo Admin"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span className="text-[10px] font-bold mt-0.5">Admin</span>
-          </button>
-        )}
       </div>
     </div>
   );

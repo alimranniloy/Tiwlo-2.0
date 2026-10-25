@@ -1,5 +1,6 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useState, useEffect } from 'react';
+import { amountToCents } from '../../../shared/accountingHelpers.mjs';
 import { getMinStock, getStockStatus, isLowStock } from '../../../shared/inventoryRules.js';
 import { StoreSettingsProvider, useStoreSettings } from '../context/StoreSettingsContext.jsx';
 import { formatStoreCurrency } from '../themes/TiwiMart/storefrontUtils.js';
@@ -40,7 +41,9 @@ function InventoryViewContent({
 }) {
   const { storeSettings } = useStoreSettings();
   const [summary, setSummary] = useState(null);
+  const [summaryError, setSummaryError] = useState('');
   const [adjustments, setAdjustments] = useState([]);
+  const [adjustmentsError, setAdjustmentsError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [activeTab, setActiveTab] = useState('stock-list'); // 'stock-list' | 'adjustments' | 'valuation'
@@ -55,15 +58,31 @@ function InventoryViewContent({
   });
 
   const fetchInventoryData = async () => {
-    try {
-      const [sumRes, adjRes] = await Promise.all([
-        fetch('/api/inventory/summary').then(r => r.json()),
-        fetch('/api/inventory/adjustments').then(r => r.json())
-      ]);
-      setSummary(sumRes);
-      setAdjustments(adjRes);
-    } catch (err) {
-      console.error(err);
+    const loadJson = async (url, fallbackMessage) => {
+      const response = await fetch(url);
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || fallbackMessage);
+      return result;
+    };
+    const [summaryResult, adjustmentsResult] = await Promise.allSettled([
+      loadJson('/api/inventory/summary', 'Could not load inventory valuation.'),
+      loadJson('/api/inventory/adjustments', 'Could not load stock adjustments.')
+    ]);
+    if (summaryResult.status === 'fulfilled') {
+      setSummary(summaryResult.value);
+      setSummaryError('');
+    } else {
+      console.error(summaryResult.reason);
+      setSummary(null);
+      setSummaryError(summaryResult.reason.message || 'Could not load inventory valuation.');
+    }
+    if (adjustmentsResult.status === 'fulfilled') {
+      setAdjustments(adjustmentsResult.value);
+      setAdjustmentsError('');
+    } else {
+      console.error(adjustmentsResult.reason);
+      setAdjustments([]);
+      setAdjustmentsError(adjustmentsResult.reason.message || 'Could not load stock adjustments.');
     }
   };
 
@@ -90,6 +109,7 @@ function InventoryViewContent({
         showToast && showToast('Failed to adjust stock', 'error');
       }
     } catch (err) {
+      console.error(err);
       showToast && showToast('Error connecting to server', 'error');
     }
   };
@@ -267,6 +287,8 @@ function InventoryViewContent({
       </div>
 
       {/* KPI Stats */}
+      {summaryError && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{summaryError}</p>}
+      {adjustmentsError && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{adjustmentsError}</p>}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5">
         <div className="bg-white dark:bg-[#111827] p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/70 dark:border-gray-800 shadow-xs">
           <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Units</span>
@@ -279,7 +301,7 @@ function InventoryViewContent({
         <div className="bg-white dark:bg-[#111827] p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/70 dark:border-gray-800 shadow-xs">
           <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Retail Valuation</span>
           <div className="text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400 mt-1.5">
-            {formatStoreCurrency(summary?.totalRetailValuation || 0, storeSettings)}
+            {summary ? formatStoreCurrency(summary.totalRetailValuation, storeSettings) : 'Unavailable'}
           </div>
           <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Potential sales value</div>
         </div>
@@ -287,24 +309,36 @@ function InventoryViewContent({
         <div className="bg-white dark:bg-[#111827] p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/70 dark:border-gray-800 shadow-xs">
           <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Cost Valuation</span>
           <div className="text-lg sm:text-xl font-bold text-slate-700 dark:text-slate-300 mt-1.5">
-            {formatStoreCurrency(summary?.totalCostValuation || 0, storeSettings)}
+            {!summary
+              ? 'Unavailable'
+              : summary.costValuationComplete === false
+              ? 'Incomplete'
+              : formatStoreCurrency(summary.totalCostValuation, storeSettings)}
           </div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Asset purchase cost</div>
+          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">
+            {!summary
+              ? 'Valuation data could not be loaded'
+              : summary.costValuationComplete === false
+              ? `${summary.unvaluedProductCount} stocked product(s) need a cost price`
+              : 'Recorded asset purchase cost'}
+          </div>
         </div>
 
         <div className="bg-white dark:bg-[#111827] p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/70 dark:border-gray-800 shadow-xs">
           <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Gross Margin</span>
           <div className="text-lg sm:text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1.5">
-            {formatStoreCurrency(summary?.potentialProfit || 0, storeSettings)}
-            <span className="text-xs font-normal text-slate-400 ml-1">({summary?.marginPercent || 48}%)</span>
+            {!summary || summary.potentialProfit == null
+              ? '—'
+              : formatStoreCurrency(summary.potentialProfit, storeSettings)}
+            {summary?.marginPercent != null && <span className="text-xs font-normal text-slate-400 ml-1">({summary.marginPercent}%)</span>}
           </div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Unrealized profit</div>
+          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Estimated margin on recorded costs only</div>
         </div>
 
         <div className="bg-white dark:bg-[#111827] p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/70 dark:border-gray-800 shadow-xs col-span-2 sm:col-span-1">
           <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Attention Needed</span>
           <div className="text-lg sm:text-xl font-bold text-rose-600 dark:text-rose-400 mt-1.5">
-            {(summary?.lowStockCount || 0) + (summary?.outOfStockCount || 0)} items
+            {summary ? (summary.lowStockCount || 0) + (summary.outOfStockCount || 0) : 'Unavailable'}
           </div>
           <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Low or out of stock</div>
         </div>
@@ -384,7 +418,10 @@ function InventoryViewContent({
                   const stockStatus = getStockStatus(p);
                   const isLow = stockStatus === 'Low Stock';
                   const isOut = stockStatus === 'Out of Stock';
-                  const itemValue = (p.stock || 0) * (p.costPrice || (p.price * 0.5));
+                  const stock = Number(p.stock) || 0;
+                  const unitCostCents = amountToCents(p.costPrice);
+                  const itemValueCents = unitCostCents === null ? null : stock * unitCostCents;
+                  const itemValue = Number.isSafeInteger(itemValueCents) ? itemValueCents / 100 : null;
 
                   return (
                     <tr
@@ -425,11 +462,11 @@ function InventoryViewContent({
                       </td>
 
                       <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">
-                        {formatStoreCurrency(p.costPrice || (p.price * 0.5), storeSettings)}
+                        {unitCostCents === null ? 'Not recorded' : formatStoreCurrency(unitCostCents / 100, storeSettings)}
                       </td>
 
                       <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
-                        {formatStoreCurrency(Math.round(itemValue), storeSettings)}
+                        {itemValue === null ? '—' : formatStoreCurrency(itemValue, storeSettings)}
                       </td>
 
                       <td className="py-3.5 px-4">

@@ -29,6 +29,7 @@ export default function EditProductModal({
     minStock: 20,
     price: 0,
     costPrice: 0,
+    shippingWeightKg: '',
     location: '',
     supplierName: '',
     image: '',
@@ -56,6 +57,7 @@ export default function EditProductModal({
         minStock: product.minStock !== undefined ? product.minStock : 20,
         price: product.price !== undefined ? product.price : 0,
         costPrice: product.costPrice !== undefined ? product.costPrice : 0,
+        shippingWeightKg: product.shippingWeightKg ?? '',
         location: product.location || '',
         supplierName: product.supplierName || '',
         image: product.image || (existingImages[0] || ''),
@@ -144,6 +146,7 @@ export default function EditProductModal({
 
     await onUpdateProduct(product.id, {
       ...formData,
+      shippingWeightKg: formData.shippingWeightKg === '' ? null : Number(formData.shippingWeightKg),
       images: finalImages,
       image: finalImages[0] || ''
     });
@@ -188,6 +191,22 @@ export default function EditProductModal({
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-800 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                Shipping weight (kg)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="100000"
+                step="0.001"
+                value={formData.shippingWeightKg}
+                onChange={(e) => setFormData({ ...formData, shippingWeightKg: e.target.value })}
+                placeholder="Required for weight-based rates"
+                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-800 dark:text-white"
               />
             </div>
 
