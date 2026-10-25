@@ -375,7 +375,9 @@ export default function App() {
         if (pathname === 'analytics') return 'analytics';
         if (pathname === 'settings') return 'settings';
         if (pathname === 'store-settings') return 'store-settings';
-        if (pathname === 'payment-shipping' || pathname === 'payments-shipping') return 'payment-shipping';
+        if (pathname === 'payments' || pathname === 'payment-shipping' || pathname === 'payments-shipping') return 'payments';
+        if (pathname === 'shipping' || pathname === 'shipping-settings') return 'shipping';
+        if (pathname === 'promotions' || pathname === 'promo-codes' || pathname === 'marketing/promotions') return 'promotions';
         if (pathname === 'help-support/mobile' || pathname === 'mobile-help-support' || pathname === 'support/mobile') return 'mobile-help-support';
         if (pathname === 'help' || pathname === 'support' || pathname === 'help-support' || pathname.startsWith('help-support/')) return pathname;
         if (pathname === 'tickets' || pathname === 'support-tickets') return 'help-support/tickets';
@@ -2198,11 +2200,14 @@ export default function App() {
           )}
 
           {/* TAB: STORE & THEME SETTINGS */}
-          {(activeTab === 'store-settings' || activeTab === 'payment-shipping') && (
+          {(['store-settings', 'payments', 'shipping', 'promotions'].includes(activeTab)) && (
             <StoreSettingsView
-              key={activeTab === 'payment-shipping' ? 'payment-shipping' : 'store-settings'}
-              initialTab={activeTab === 'payment-shipping' ? 'commerce' : 'theme'}
-              onNavigateToPaymentShipping={() => handleTabChange('payment-shipping')}
+              key={activeTab}
+              initialTab={activeTab === 'store-settings' ? 'theme' : activeTab}
+              onNavigateToPaymentShipping={() => handleTabChange('payments')}
+              onNavigateToPayments={() => handleTabChange('payments')}
+              onNavigateToShipping={() => handleTabChange('shipping')}
+              onNavigateToPromotions={() => handleTabChange('promotions')}
               onNavigateToStoreSettings={() => handleTabChange('store-settings')}
               showToast={showToast}
               onBackToDashboard={() => setActiveTab('dashboard')}

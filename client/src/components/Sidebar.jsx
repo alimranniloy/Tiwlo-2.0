@@ -23,7 +23,8 @@ import {
   Mail,
   X,
   BriefcaseBusiness,
-  CreditCard
+  CreditCard,
+  Tag
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -53,16 +54,21 @@ export default function Sidebar({
     { id: 'inventory', name: 'Inventory Control', icon: Boxes, section: 'Store management' },
     { id: 'purchases', name: 'Purchases (PO)', icon: ShoppingCart, section: 'Store management' },
     { id: 'sales', name: 'Sales & Orders', icon: Receipt, section: 'Store management' },
-    { id: 'courier', name: 'Courier Management', icon: Truck, isCourier: true, section: 'Store management' },
+    { id: 'courier', name: 'Courier', icon: Truck, isCourier: true, section: 'Store management' },
     { id: 'customers', name: 'Customers', icon: Users, section: 'Store management' },
     { id: 'suppliers', name: 'Suppliers', icon: Truck, section: 'Store management' },
     { id: 'reports', name: 'Reports Ledger', icon: FileText, section: 'Insights' },
     { id: 'analytics', name: 'Analytics', icon: BarChart3, section: 'Insights' },
     { id: 'settings', name: 'Settings', icon: Server, section: 'Settings & support' },
     { id: 'store-settings', name: 'Storefront & Theme', icon: Settings, section: 'Settings & support' },
-    { id: 'payment-shipping', name: 'Payments & Shipping', icon: CreditCard, section: 'Settings & support' },
+    { id: 'payments', name: 'Payments', icon: CreditCard, section: 'Store settings' },
+    { id: 'shipping', name: 'Shipping', icon: Truck, section: 'Store settings' },
+    { id: 'promotions', name: 'Promo Codes', icon: Tag, section: 'Marketing' },
     { id: 'help-support', name: 'Help & Support', icon: HelpCircle, section: 'Settings & support' },
   ];
+  const visibleNavItems = activeTab === 'ecommerce-dashboard'
+    ? navItems.filter(item => item.id !== 'workspace' && item.id !== 'email')
+    : navItems;
 
   return (
     <>
@@ -151,10 +157,10 @@ export default function Sidebar({
 
         {/* Navigation Items */}
         <nav className="space-y-1">
-          {navItems.map((item, index) => {
+          {visibleNavItems.map((item, index) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id || (item.id === 'products' && activeTab === 'add-product');
-            const showSectionHeading = index === 0 || navItems[index - 1].section !== item.section;
+            const showSectionHeading = index === 0 || visibleNavItems[index - 1].section !== item.section;
 
             return (
               <div key={item.id}>
@@ -171,7 +177,7 @@ export default function Sidebar({
                       : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-gray-800/60'
                   }`}
                 >
-                  <div className="flex items-center space-x-3">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
                     <Icon
                       className={`w-[18px] h-[18px] ${
                         isActive
@@ -179,7 +185,7 @@ export default function Sidebar({
                           : 'text-slate-400 dark:text-slate-500'
                       }`}
                     />
-                    <span>{item.name}</span>
+                    <span className="truncate">{item.name}</span>
                   </div>
 
                   {item.isNew && (

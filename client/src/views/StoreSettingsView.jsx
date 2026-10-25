@@ -24,7 +24,9 @@ import {
   Sparkles,
   Link as LinkIcon,
   Clock,
-  CreditCard
+  CreditCard,
+  Truck,
+  Tag
 } from 'lucide-react';
 import { StoreSettingsProvider, useStoreSettings } from '../context/StoreSettingsContext';
 import { THEME_COLOR_PRESETS, AVAILABLE_THEMES, THEME_CATEGORIES, DEFAULT_HERO_BANNERS } from '../themes/themeConfig';
@@ -35,6 +37,9 @@ function StoreSettingsContent({
   onBackToDashboard,
   initialTab = 'theme',
   onNavigateToPaymentShipping,
+  onNavigateToPayments,
+  onNavigateToShipping,
+  onNavigateToPromotions,
   onNavigateToStoreSettings
 }) {
   const {
@@ -53,8 +58,8 @@ function StoreSettingsContent({
 
   const settings = storeSettings || {};
 
-  // Active navigation tab ('theme' | 'identity' | 'colors' | 'banners')
-  const [activeTab, setActiveTab] = useState(initialTab);
+  // Active navigation tab ('theme' | 'identity' | 'payments' | 'shipping' | 'promotions' | 'colors' | 'banners')
+  const [activeTab, setActiveTab] = useState(initialTab === 'commerce' ? 'payments' : initialTab);
 
   // Store Identity & SEO Form State
   const [storeName, setStoreName] = useState(settings.storeName || 'TiwloMart');
@@ -567,6 +572,25 @@ function StoreSettingsContent({
   const currentBanners = Array.isArray(settings.heroBanners) && settings.heroBanners.length > 0
     ? settings.heroBanners
     : DEFAULT_HERO_BANNERS;
+  const isCommerceSettings = ['commerce', 'payments', 'shipping', 'promotions'].includes(activeTab);
+  const commercePage = {
+    commerce: {
+      title: 'Payments',
+      description: 'Manage payment providers and store currency settings.'
+    },
+    payments: {
+      title: 'Payments',
+      description: 'Manage payment providers and store currency settings.'
+    },
+    shipping: {
+      title: 'Shipping',
+      description: 'Set delivery rates, shipping zones, tax, and delivery estimates.'
+    },
+    promotions: {
+      title: 'Promo Codes',
+      description: 'Create and manage the promotion code customers can use at checkout.'
+    }
+  }[activeTab] || null;
 
   return (
     <div className="space-y-6 pb-20 max-w-7xl mx-auto">
@@ -594,14 +618,14 @@ function StoreSettingsContent({
             </button>
             <div>
               <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-white flex items-center space-x-2">
-                <span>{activeTab === 'commerce' ? 'Payments & Shipping' : 'Store Settings'}</span>
+                <span>{isCommerceSettings ? commercePage.title : 'Store Settings'}</span>
                 <span className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-blue-100">
                   TiwiMart Engine
                 </span>
               </h1>
               <p className="text-[11px] sm:text-xs text-blue-100/80 mt-0.5">
-                {activeTab === 'commerce'
-                  ? 'Configure shipping zones, tax, currency rates, and payment gateways for this store'
+                {isCommerceSettings
+                  ? commercePage.description
                   : 'Marketplace theme catalog, brand identity, favicon, colors, and sliding hero banners'}
               </p>
             </div>
@@ -637,17 +661,69 @@ function StoreSettingsContent({
       {/* ========================================================= */}
       {/* 4 NAVIGATION TABS                                         */}
       {/* ========================================================= */}
-      <div className="flex items-center space-x-2 border-b border-slate-200 dark:border-gray-800 pb-3 overflow-x-auto no-scrollbar">
-        {activeTab === 'commerce' ? (
-          <button
-            type="button"
-            onClick={() => onNavigateToStoreSettings?.()}
-            className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-gray-800"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Back to Storefront & Theme</span>
-          </button>
-        ) : (
+      {isCommerceSettings ? (
+        <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-xs dark:border-gray-700 dark:bg-gray-800 sm:grid-cols-4">
+          {[
+            {
+              id: 'payments',
+              label: 'Payments',
+              description: 'Gateways & currency',
+              icon: CreditCard,
+              onClick: () => {
+                if (onNavigateToPayments) onNavigateToPayments();
+                else if (onNavigateToPaymentShipping) onNavigateToPaymentShipping();
+                else setActiveTab('payments');
+              }
+            },
+            {
+              id: 'shipping',
+              label: 'Shipping',
+              description: 'Rates, zones & tax',
+              icon: Truck,
+              onClick: () => onNavigateToShipping ? onNavigateToShipping() : setActiveTab('shipping')
+            },
+            {
+              id: 'promotions',
+              label: 'Promo Codes',
+              description: 'Checkout discounts',
+              icon: Tag,
+              onClick: () => onNavigateToPromotions ? onNavigateToPromotions() : setActiveTab('promotions')
+            },
+            {
+              id: 'store-settings',
+              label: 'Storefront & Theme',
+              description: 'Brand & appearance',
+              icon: ArrowLeft,
+              onClick: () => onNavigateToStoreSettings?.()
+            }
+          ].map(item => {
+            const Icon = item.icon;
+            const selected = item.id === activeTab || (item.id === 'payments' && activeTab === 'commerce');
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={item.onClick}
+                aria-current={selected ? 'page' : undefined}
+                className={`flex min-w-0 items-center gap-2.5 rounded-xl px-3 py-3 text-left transition ${
+                  selected
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-gray-700/70'
+                }`}
+              >
+                <Icon className={`h-4 w-4 shrink-0 ${selected ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
+                <span className="min-w-0">
+                  <span className="block truncate text-xs font-bold">{item.label}</span>
+                  <span className={`mt-0.5 block truncate text-[10px] ${selected ? 'text-blue-100' : 'text-slate-400 dark:text-slate-500'}`}>
+                    {item.description}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex items-center space-x-2 border-b border-slate-200 dark:border-gray-800 pb-3 overflow-x-auto no-scrollbar">
           <>
         <button
           onClick={() => setActiveTab('theme')}
@@ -675,17 +751,18 @@ function StoreSettingsContent({
 
         <button
           onClick={() => {
-            if (onNavigateToPaymentShipping) onNavigateToPaymentShipping();
-            else setActiveTab('commerce');
+            if (onNavigateToPayments) onNavigateToPayments();
+            else if (onNavigateToPaymentShipping) onNavigateToPaymentShipping();
+            else setActiveTab('payments');
           }}
           className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-            activeTab === 'commerce'
+            activeTab === 'payments'
               ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-800'
           }`}
         >
           <CreditCard className="w-4 h-4" />
-          <span>Payments & Shipping</span>
+          <span>Payments</span>
         </button>
 
         <button
@@ -715,8 +792,8 @@ function StoreSettingsContent({
           </span>
         </button>
           </>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ========================================================= */}
       {/* TAB 1: CHOOSE THEME (STOREFRONT THEMES)                   */}
@@ -930,21 +1007,21 @@ function StoreSettingsContent({
       {/* ========================================================= */}
       {/* TAB 2: STORE INFO & LOGO (STORE IDENTITY & FAVICON)        */}
       {/* ========================================================= */}
-      {(activeTab === 'identity' || activeTab === 'commerce') && (
+      {(activeTab === 'identity' || isCommerceSettings) && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column: Store Identity & Meta SEO (lg:col-span-7) */}
-          <div className={`${activeTab === 'commerce' ? 'lg:col-span-12' : 'lg:col-span-7'} space-y-6`}>
+          <div className={`${isCommerceSettings ? 'lg:col-span-12' : 'lg:col-span-7'} space-y-6`}>
             <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200/90 dark:border-gray-700/80 p-6 shadow-xs space-y-5">
               <div className="border-b border-slate-100 dark:border-gray-700 pb-3">
                 <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
-                  {activeTab === 'commerce'
+                  {isCommerceSettings
                     ? <CreditCard className="w-4 h-4 text-blue-500" />
                     : <Store className="w-4 h-4 text-blue-500" />}
-                  <span>{activeTab === 'commerce' ? 'Payments, Shipping & Tax' : 'Store Identity & Meta Information'}</span>
+                  <span>{isCommerceSettings ? commercePage.title : 'Store Identity & Meta Information'}</span>
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  {activeTab === 'commerce'
-                    ? 'Configure delivery rates, destination zones, currency conversion, and merchant payment accounts'
+                  {isCommerceSettings
+                    ? commercePage.description
                     : 'Configure storefront name, branding tagline, browser title, and SEO description'}
                 </p>
               </div>
@@ -1078,7 +1155,7 @@ function StoreSettingsContent({
 
                 </>)}
 
-                <div className={`border-t border-slate-100 dark:border-gray-700 pt-4 space-y-3 ${activeTab === 'commerce' ? '' : 'hidden'}`}>
+                <div className={`border-t border-slate-100 dark:border-gray-700 pt-4 space-y-3 ${activeTab === 'shipping' ? '' : 'hidden'}`}>
                   <h3 className="text-xs font-bold text-slate-900 dark:text-white">Delivery & Tax</h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     Set destination-based manual rates in your store currency. The server recalculates the selected zone and fee when the order is submitted.
@@ -1235,7 +1312,7 @@ function StoreSettingsContent({
                   </div>
                 </div>
 
-                <div className={`border-t border-slate-100 dark:border-gray-700 pt-4 space-y-3 ${activeTab === 'commerce' ? '' : 'hidden'}`}>
+                <div className={`border-t border-slate-100 dark:border-gray-700 pt-4 space-y-3 ${activeTab === 'promotions' ? '' : 'hidden'}`}>
                   <h3 className="text-xs font-bold text-slate-900 dark:text-white">Checkout Promotion Code</h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     Configure one active percentage-off code. The server validates it again when an order is placed.
@@ -1278,7 +1355,7 @@ function StoreSettingsContent({
                   </div>
                 </div>
 
-                <div className={`border-t border-slate-100 dark:border-gray-700 pt-4 space-y-4 ${activeTab === 'commerce' ? '' : 'hidden'}`}>
+                <div className={`border-t border-slate-100 dark:border-gray-700 pt-4 space-y-4 ${activeTab === 'payments' || activeTab === 'commerce' ? '' : 'hidden'}`}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <h3 className="text-xs font-bold text-slate-900 dark:text-white">Currency conversion rates</h3>
@@ -1459,7 +1536,7 @@ function StoreSettingsContent({
                   </div>
                 </div>
 
-                <div className={`border-t border-slate-100 dark:border-gray-700 pt-4 space-y-4 ${activeTab === 'commerce' ? '' : 'hidden'}`}>
+                <div className={`border-t border-slate-100 dark:border-gray-700 pt-4 space-y-4 ${activeTab === 'payments' || activeTab === 'commerce' ? '' : 'hidden'}`}>
                   <div>
                     <h3 className="text-xs font-bold text-slate-900 dark:text-white">Store Payment Gateways</h3>
                     <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
@@ -1600,7 +1677,7 @@ function StoreSettingsContent({
                   className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center space-x-2 transition shadow-sm cursor-pointer disabled:opacity-60"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  <span>{saving ? 'Saving...' : activeTab === 'commerce' ? 'Save Shipping & Tax' : 'Save Identity Info'}</span>
+                  <span>{saving ? 'Saving...' : isCommerceSettings ? `Save ${commercePage.title}` : 'Save Identity Info'}</span>
                 </button>
               </div>
             </div>
