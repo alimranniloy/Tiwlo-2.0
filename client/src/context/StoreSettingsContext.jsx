@@ -259,19 +259,13 @@ export function StoreSettingsProvider({ children, initialSettings = null }) {
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
-    let link = document.querySelector('link[data-store-favicon]');
-    if (storeSettings?.storeFavicon) {
-      if (!link) {
-        link = document.createElement('link');
-        link.rel = 'icon';
-        link.dataset.storeFavicon = 'true';
-        document.head.appendChild(link);
-      }
-      link.href = storeSettings.storeFavicon;
-    } else if (link) {
-      link.remove();
-    }
-  }, [storeSettings?.storeFavicon]);
+    const link = document.querySelector('link[data-store-favicon]');
+    if (!link) return;
+    const isStoreView = isStorefrontSubdomainHost() || storeSettings?.isStorefront === true;
+    link.href = isStoreView && storeSettings?.storeFavicon
+      ? storeSettings.storeFavicon
+      : '/favicon.png';
+  }, [storeSettings?.isStorefront, storeSettings?.storeFavicon]);
 
   return (
     <StoreSettingsContext.Provider
