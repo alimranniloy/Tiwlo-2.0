@@ -69,6 +69,7 @@ export default function AdminSidebar({
     {
       title: 'SYSTEM',
       items: [
+        { id: 'platform-payments', label: 'Payment Gateways', icon: CreditCard },
         { id: 'users', label: 'Users', icon: UserCheck },
         { id: 'roles', label: 'Roles & Permissions', icon: ShieldAlert },
         { id: 'logs', label: 'Logs', icon: FileText },

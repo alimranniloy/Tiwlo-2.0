@@ -414,6 +414,10 @@ export default function App() {
           return 'discord';
         }
 
+        if (pathname === 'billing' || pathname.startsWith('billing/') || pathname === 'cloud/billing' || pathname.startsWith('cloud/billing/')) {
+          return 'billing';
+        }
+
         if (pathname === 'studio' || pathname.startsWith('studio/')) {
           return 'studio';
         }
@@ -432,6 +436,9 @@ export default function App() {
 
       if (searchParams.get('mode') === 'mobile_app' || searchParams.get('source') === 'tiwi_mobile_app' || searchParams.get('sso_token')) {
         return 'mobile-help-support';
+      }
+      if (searchParams.get('tab') === 'billing' || searchParams.get('view') === 'billing') {
+        return 'billing';
       }
       if (searchParams.get('tab') === 'tiwi' || searchParams.get('view') === 'tiwi' || searchParams.get('view') === 'social') {
         return 'tiwi';
@@ -619,6 +626,14 @@ export default function App() {
       setActiveTab('subdomain');
       if (!window.location.pathname.startsWith('/subdomain') && !window.location.pathname.startsWith('/uidis')) {
         window.history.pushState(null, '', '/subdomain');
+      }
+      return;
+    }
+
+    if (tabId === 'billing' || (typeof tabId === 'string' && (tabId.startsWith('billing') || tabId.startsWith('cloud/billing')))) {
+      setActiveTab('billing');
+      if (!window.location.pathname.startsWith('/billing')) {
+        window.history.pushState(null, '', '/billing');
       }
       return;
     }
@@ -2016,10 +2031,10 @@ export default function App() {
           showToast={showToast}
           onBackToApp={() => handleTabChange('dashboard')}
         />
-      ) : (activeTab === 'dashboard' || activeTab === 'domains' || activeTab === 'workspace' || activeTab.startsWith('workspace') || activeTab === 'marketplace' || activeTab.startsWith('marketplace') || activeTab === 'whatsapp-automation' || activeTab.startsWith('whatsapp-automation')) ? (
+      ) : (activeTab === 'dashboard' || activeTab === 'billing' || activeTab.startsWith('billing') || activeTab === 'domains' || activeTab === 'workspace' || activeTab.startsWith('workspace') || activeTab === 'marketplace' || activeTab.startsWith('marketplace') || activeTab === 'whatsapp-automation' || activeTab.startsWith('whatsapp-automation')) ? (
         <CloudDashboard
           currentUser={currentUser}
-          initialNav={activeTab === 'domains' ? 'domains' : activeTab.startsWith('workspace') ? activeTab : activeTab.startsWith('marketplace') ? activeTab : activeTab.startsWith('whatsapp-automation') ? 'whatsapp-automation' : 'dashboard'}
+          initialNav={activeTab === 'billing' || activeTab.startsWith('billing') ? 'billing' : activeTab === 'domains' ? 'domains' : activeTab.startsWith('workspace') ? activeTab : activeTab.startsWith('marketplace') ? activeTab : activeTab.startsWith('whatsapp-automation') ? 'whatsapp-automation' : 'dashboard'}
           onLogout={handleLogout}
           onOpenStoreDashboard={handleStoreConsoleLaunch}
           onNavigateTab={handleTabChange}

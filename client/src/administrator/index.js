@@ -12,3 +12,4 @@ export { default as SystemInfoCard } from './SystemInfoCard';
 export { default as AdminSubView } from './AdminSubView';
 export { default as AdminCustomersView } from './AdminCustomersView';
 export { default as AdminUsersView } from './AdminUsersView';
+export { default as AdminPlatformPaymentsView } from './AdminPlatformPaymentsView';

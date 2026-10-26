@@ -788,4 +788,180 @@ router.get('/servers', requireAdmin, async (req, res) => {
   });
 });
 
+// ==========================================
+// PLATFORM PAYMENT GATEWAYS CONFIGURATION
+// bKash, Nagad, SSLCommerz, PayPal, Stripe
+// ==========================================
+
+export const DEFAULT_PLATFORM_GATEWAYS = Object.freeze({
+  bkash: {
+    id: 'bkash',
+    name: 'bKash Merchant Checkout',
+    enabled: false,
+    mode: 'sandbox',
+    appKey: '',
+    appSecret: '',
+    username: '',
+    password: '',
+    currencies: ['BDT']
+  },
+  nagad: {
+    id: 'nagad',
+    name: 'Nagad Direct Payment',
+    enabled: false,
+    mode: 'sandbox',
+    merchantId: '',
+    merchantPrivateKey: '',
+    nagadPublicKey: '',
+    currencies: ['BDT']
+  },
+  sslcommerz: {
+    id: 'sslcommerz',
+    name: 'SSLCOMMERZ Hosted Gateway',
+    enabled: false,
+    mode: 'sandbox',
+    storeId: '',
+    storePassword: '',
+    currencies: ['BDT', 'USD']
+  },
+  paypal: {
+    id: 'paypal',
+    name: 'PayPal Global Gateway',
+    enabled: false,
+    mode: 'sandbox',
+    clientId: '',
+    clientSecret: '',
+    currencies: ['USD', 'EUR', 'GBP']
+  },
+  stripe: {
+    id: 'stripe',
+    name: 'Stripe Payments',
+    enabled: false,
+    mode: 'test',
+    publishableKey: '',
+    secretKey: '',
+    webhookSecret: '',
+    currencies: ['USD', 'EUR', 'GBP']
+  }
+});
+
+export async function getPlatformPaymentGatewaysRaw() {
+  try {
+    await queryPg(
+      `INSERT INTO system_settings (setting_key, settings)
+       VALUES ('platform_payment_gateways', $1::jsonb)
+       ON CONFLICT (setting_key) DO NOTHING`,
+      [JSON.stringify(DEFAULT_PLATFORM_GATEWAYS)]
+    );
+    const result = await queryPg(
+      "SELECT settings FROM system_settings WHERE setting_key = 'platform_payment_gateways'"
+    );
+    return { ...DEFAULT_PLATFORM_GATEWAYS, ...(result.rows[0]?.settings || {}) };
+  } catch (err) {
+    console.error('[Platform Gateways] Error reading gateways from DB:', err.message);
+    return DEFAULT_PLATFORM_GATEWAYS;
+  }
+}
+
+export async function savePlatformPaymentGatewaysRaw(newSettings) {
+  const result = await queryPg(
+    `INSERT INTO system_settings (setting_key, settings, updated_at)
+     VALUES ('platform_payment_gateways', $1::jsonb, CURRENT_TIMESTAMP)
+     ON CONFLICT (setting_key) DO UPDATE
+     SET settings = EXCLUDED.settings, updated_at = CURRENT_TIMESTAMP
+     RETURNING settings`,
+    [JSON.stringify(newSettings)]
+  );
+  return result.rows[0]?.settings || newSettings;
+}
+
+function maskCredential(val) {
+  if (!val || typeof val !== 'string') return '';
+  if (val.length <= 8) return '••••••••';
+  return val.slice(0, 4) + '••••••••' + val.slice(-4);
+}
+
+// GET /api/admin/payment-gateways
+router.get('/payment-gateways', requireAdmin, async (req, res) => {
+  try {
+    const raw = await getPlatformPaymentGatewaysRaw();
+    const masked = {};
+    for (const [key, gw] of Object.entries(raw)) {
+      masked[key] = {
+        ...gw,
+        appSecret: gw.appSecret ? maskCredential(gw.appSecret) : '',
+        password: gw.password ? maskCredential(gw.password) : '',
+        merchantPrivateKey: gw.merchantPrivateKey ? maskCredential(gw.merchantPrivateKey) : '',
+        storePassword: gw.storePassword ? maskCredential(gw.storePassword) : '',
+        clientSecret: gw.clientSecret ? maskCredential(gw.clientSecret) : '',
+        secretKey: gw.secretKey ? maskCredential(gw.secretKey) : '',
+        webhookSecret: gw.webhookSecret ? maskCredential(gw.webhookSecret) : '',
+        hasAppSecret: Boolean(gw.appSecret),
+        hasPassword: Boolean(gw.password),
+        hasMerchantPrivateKey: Boolean(gw.merchantPrivateKey),
+        hasStorePassword: Boolean(gw.storePassword),
+        hasClientSecret: Boolean(gw.clientSecret),
+        hasSecretKey: Boolean(gw.secretKey),
+        hasWebhookSecret: Boolean(gw.webhookSecret)
+      };
+    }
+    res.json({ success: true, gateways: masked });
+  } catch (error) {
+    console.error('[Admin Gateways Error]', error.message);
+    res.status(500).json({ error: 'Failed to retrieve payment gateways.' });
+  }
+});
+
+// POST /api/admin/payment-gateways
+router.post('/payment-gateways', requireAdmin, async (req, res) => {
+  try {
+    const incoming = req.body?.gateways;
+    if (!incoming || typeof incoming !== 'object') {
+      return res.status(400).json({ error: 'Invalid gateways configuration payload.' });
+    }
+
+    const current = await getPlatformPaymentGatewaysRaw();
+    const updated = { ...current };
+
+    const secretFields = [
+      'appSecret',
+      'password',
+      'merchantPrivateKey',
+      'storePassword',
+      'clientSecret',
+      'secretKey',
+      'webhookSecret'
+    ];
+
+    for (const id of ['bkash', 'nagad', 'sslcommerz', 'paypal', 'stripe']) {
+      if (incoming[id]) {
+        const item = incoming[id];
+        const prev = current[id] || {};
+        const merged = { ...prev, ...item };
+
+        for (const sec of secretFields) {
+          if (item[sec] !== undefined) {
+            const val = String(item[sec]).trim();
+            if (!val || val.includes('••••')) {
+              merged[sec] = prev[sec] || '';
+            } else {
+              merged[sec] = val;
+            }
+          }
+        }
+        merged.enabled = Boolean(item.enabled);
+        merged.mode = item.mode === 'live' ? 'live' : (id === 'stripe' ? (item.mode === 'live' ? 'live' : 'test') : 'sandbox');
+        updated[id] = merged;
+      }
+    }
+
+    await savePlatformPaymentGatewaysRaw(updated);
+    res.json({ success: true, message: 'Platform payment gateways updated successfully.' });
+  } catch (error) {
+    console.error('[Admin Gateways Save Error]', error.message);
+    res.status(500).json({ error: 'Failed to save payment gateway settings.' });
+  }
+});
+
 export default router;
+

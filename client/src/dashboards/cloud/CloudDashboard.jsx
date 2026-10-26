@@ -218,6 +218,11 @@ export default function CloudDashboard({
           onOpenBilling={(tab = 'overview') => {
             setBillingInitialTab(tab);
             setActiveNav('billing');
+            try {
+              if (window.location.pathname !== '/billing') {
+                window.history.pushState(null, '', '/billing');
+              }
+            } catch (e) {}
           }}
           showToast={showToast}
           onToggleMobileMenu={() => setMobileNavOpen(true)}
@@ -344,7 +349,12 @@ export default function CloudDashboard({
                 currentUser={currentUser}
                 initialTab={billingInitialTab}
                 showToast={showToast}
-                onBack={() => setActiveNav('dashboard')}
+                onBack={() => {
+                  setActiveNav('dashboard');
+                  try {
+                    window.history.pushState(null, '', '/');
+                  } catch (e) {}
+                }}
               />
             </div>
           ) : (activeNav === 'workspace' || activeNav.startsWith('workspace')) ? (

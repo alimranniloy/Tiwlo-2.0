@@ -15,6 +15,7 @@ import AdminCustomersView from './AdminCustomersView';
 import AdminUsersView from './AdminUsersView';
 import AdminGoogleDrivePage from './AdminGoogleDrivePage';
 import AdminSocialLoginSettings from './AdminSocialLoginSettings';
+import AdminPlatformPaymentsView from './AdminPlatformPaymentsView';
 import { Calendar, Sparkles } from 'lucide-react';
 import { useTheme } from '../config/themeConfig';
 
@@ -41,6 +42,7 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
     if (pathname === 'administrator/users' || pathname === 'admin/users') return 'users';
     if (pathname === 'administrator/orders' || pathname === 'admin/orders') return 'orders';
     if (pathname === 'administrator/servers' || pathname === 'admin/servers') return 'servers';
+    if (pathname === 'administrator/platform-payments' || pathname === 'admin/platform-payments' || pathname === 'administrator/payments' || pathname === 'admin/payments') return 'platform-payments';
     if (pathname.startsWith('administrator/')) return pathname.replace('administrator/', '');
     if (pathname.startsWith('admin/')) return pathname.replace('admin/', '');
     return 'dashboard';
@@ -157,6 +159,11 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
             <AdminGoogleDrivePage showToast={showToast} />
           ) : activeView === 'social-login' ? (
             <AdminSocialLoginSettings
+              onBackToDashboard={() => handleNavigate('dashboard')}
+              showToast={showToast}
+            />
+          ) : (activeView === 'platform-payments' || activeView === 'payment-gateways') ? (
+            <AdminPlatformPaymentsView
               onBackToDashboard={() => handleNavigate('dashboard')}
               showToast={showToast}
             />

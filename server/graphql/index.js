@@ -1,6 +1,7 @@
 import { buildSchema, execute } from 'graphql';
 import { MasterDB, TenantDB } from '../db/multiTenant.js';
 import { CloudDB } from '../db/cloud.js';
+import { BillingDB } from '../db/billing.js';
 import { DiscordDB } from '../discord/discordDb.js';
 import { prepareGraphQLQuery } from './queryLimits.js';
 
@@ -314,6 +315,8 @@ export const schema = buildSchema(`
     discordMarketplace(category: String, search: String): [DiscordMarketplaceProduct]
     discordWorkspace(userId: String!, search: String): DiscordWorkspaceData
     discordWorkspaceOperations(userId: String!): [DiscordWorkspaceOperation]
+    cloudBillingAccount(userId: String): CloudBillingAccount
+    cloudPaymentGateways: [CloudBillingPaymentGateway]!
   }
 
   type Mutation {
@@ -462,10 +465,73 @@ export const schema = buildSchema(`
     guildId: String
     botId: String
   }
+
+  type CloudBillingPaymentGateway {
+    id: String!
+    name: String!
+    enabled: Boolean!
+    mode: String!
+    currencies: [String]!
+  }
+
+  type CloudBillingInvoice {
+    id: ID!
+    amount: Float!
+    currency: String!
+    status: String!
+    description: String!
+    createdAt: String!
+    paidAt: String
+  }
+
+  type CloudBillingCostBreakdown {
+    service: String!
+    amount: Float!
+    percentage: Float!
+  }
+
+  type CloudBillingAccount {
+    userId: ID
+    billingAccountId: String!
+    billingAccountName: String!
+    currency: String!
+    credits: Float!
+    promotionalCredits: Float!
+    status: String!
+    hasVerifiedGateway: Boolean!
+    paymentGatewayStatusMessage: String!
+    billingEnabled: Boolean!
+    configuredGateways: [CloudBillingPaymentGateway]!
+    invoices: [CloudBillingInvoice]!
+    costBreakdown: [CloudBillingCostBreakdown]!
+    monthToDateSpent: Float
+    projectedCost: Float
+  }
 `);
 
 // Root Resolvers mapping directly to the Multi-Tenant Database
 export const rootValue = {
+  async cloudBillingAccount({ userId }, context) {
+    const effectiveUserId = userId || context?.activeUser?.id || context?.user?.id;
+    if (!effectiveUserId) return null;
+    const account = await BillingDB.getBillingAccount(effectiveUserId);
+    return {
+      ...account,
+      costBreakdown: [
+        { service: 'Compute Engine (Droplets)', amount: 0.00, percentage: 0.0 },
+        { service: 'Cloud Block Storage', amount: 0.00, percentage: 0.0 },
+        { service: 'PostgreSQL Database', amount: 0.00, percentage: 0.0 },
+        { service: 'Network Bandwidth', amount: 0.00, percentage: 0.0 },
+        { service: 'DNS & SSL Certificates', amount: 0.00, percentage: 0.0 }
+      ]
+    };
+  },
+
+  async cloudPaymentGateways() {
+    const info = await BillingDB.getPlatformGateways();
+    return info.activeGateways;
+  },
+
   async products({ tiwiId, category, search }) {
     let prods = await TenantDB.getProducts(tiwiId);
     if (category && category !== 'All Categories') {

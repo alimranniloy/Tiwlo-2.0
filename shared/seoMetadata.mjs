@@ -114,6 +114,16 @@ export function getSeoMetadata({
       indexable: true,
       canonicalHost: platformDomain
     };
+  } else if (path === '/billing' || path.startsWith('/billing/') || path === '/cloud/billing' || path.startsWith('/cloud/billing/')) {
+    page = {
+      title: 'Tiwlo Cloud Billing | Billing Account & Resource Costs',
+      description: 'Manage Tiwlo Cloud billing accounts, available credits, payment gateways, cost breakdown, and invoice statements.',
+      image: '/seo/tiwlo-cloud-og.png',
+      imageAlt: 'Tiwlo Cloud billing console',
+      siteName: 'Tiwlo Cloud',
+      indexable: false,
+      canonicalHost: platformDomain
+    };
   } else if (path === '/tpanel' || path.startsWith('/tpanel/')) {
     page = {
       title: 'Tiwlo Cloud | Server & Infrastructure Management',

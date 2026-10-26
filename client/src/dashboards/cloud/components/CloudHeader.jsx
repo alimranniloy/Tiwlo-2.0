@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Search,
   Bell,
@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { resolveAvatarUrl } from '../../../utils/mediaUtils';
 import { useTheme } from '../../../config/themeConfig';
+import { getCloudBillingData } from '../graphql/cloudQueries';
 
 export default function CloudHeader({
   searchQuery,
@@ -34,6 +35,25 @@ export default function CloudHeader({
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [copiedTiwiId, setCopiedTiwiId] = useState(false);
+
+  const [headerCredits, setHeaderCredits] = useState(
+    Number.isFinite(currentUser?.credits) && currentUser.credits >= 0 ? currentUser.credits : null
+  );
+
+  useEffect(() => {
+    const userId = currentUser?.id || currentUser?.tiwiId;
+    if (!userId) return;
+    let active = true;
+    getCloudBillingData(userId)
+      .then(res => {
+        if (active && res?.account) {
+          const creds = Number.isFinite(res.account.credits) ? res.account.credits : 0;
+          setHeaderCredits(creds);
+        }
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [currentUser?.id, currentUser?.tiwiId, currentUser?.credits]);
 
   const tiwiId = currentUser?.tiwiId || currentUser?.storeId || '';
   const displayName = currentUser?.name || currentUser?.storeName || 'Tiwlo Store';
@@ -98,10 +118,13 @@ export default function CloudHeader({
             <img src="/tiwlo-icon-dark.png" alt="Tiwlo" className="w-3.5 h-3.5 object-contain hidden dark:block" />
           </div>
 
-          {/* Do not use login-session credits here; billing balance is server-verified. */}
+          {/* Display live verified credit balance instead of static Cloud Billing text */}
           <div className="flex items-center gap-1.5 text-xs font-medium">
+            <span className="font-bold text-[#1A73E8] dark:text-[#8AB4F8] font-mono">
+              ${(headerCredits !== null ? headerCredits : (currentUser?.credits || 0)).toFixed(2)}
+            </span>
             <span className="text-[11px] text-[#5F6368] dark:text-[#9AA0A6] hidden sm:inline font-normal">
-              Cloud Billing
+              Credit
             </span>
           </div>
 

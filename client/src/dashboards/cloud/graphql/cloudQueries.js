@@ -293,6 +293,60 @@ export async function createStoreGraphQL(userId, storeInput) {
 // ==========================================
 
 export async function getCloudBillingData(userId = null) {
+  try {
+    const query = `
+      query GetBillingAccount($userId: String) {
+        cloudBillingAccount(userId: $userId) {
+          userId
+          billingAccountId
+          billingAccountName
+          currency
+          credits
+          promotionalCredits
+          status
+          hasVerifiedGateway
+          paymentGatewayStatusMessage
+          billingEnabled
+          monthToDateSpent
+          projectedCost
+          configuredGateways {
+            id
+            name
+            enabled
+            mode
+            currencies
+          }
+          invoices {
+            id
+            amount
+            currency
+            status
+            description
+            createdAt
+            paidAt
+          }
+          costBreakdown {
+            service
+            amount
+            percentage
+          }
+        }
+      }
+    `;
+    const res = await fetch('/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ query, variables: { userId } })
+    });
+    const json = await res.json();
+    if (json?.data?.cloudBillingAccount) {
+      return { success: true, account: json.data.cloudBillingAccount };
+    }
+  } catch (e) {
+    console.warn('GraphQL billing query fallback to REST:', e);
+  }
+
   const res = await fetch(`/api/cloud/billing?userId=${encodeURIComponent(userId)}`, {
     credentials: 'include'
   });
