@@ -103,6 +103,7 @@ router.get('/billing', async (req, res) => {
     const userId = getReqUserId(req);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     const account = await BillingDB.getBillingAccount(userId);
+    if (!account) return res.status(404).json({ error: 'Billing account is unavailable for this user.' });
     res.json({ success: true, account });
   } catch (err) {
     console.error('Error fetching billing account:', err);
@@ -114,16 +115,21 @@ router.post('/billing/credits/add', async (req, res) => {
   if (!getReqUserId(req)) return res.status(401).json({ error: 'Unauthorized' });
   return res.status(503).json({
     success: false,
-    error: 'Cloud credit purchases are unavailable until a verified payment gateway is configured.'
+    error: 'Credit checkout is not integrated. No payment was processed.'
   });
 });
 
 router.post('/billing/vouchers/redeem', async (req, res) => {
-  if (!getReqUserId(req)) return res.status(401).json({ error: 'Unauthorized' });
-  return res.status(503).json({
-    success: false,
-    error: 'Cloud vouchers are unavailable until a verified voucher program is configured.'
-  });
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const result = await BillingDB.redeemVoucher(userId, req.body?.code);
+    if (!result.success) return res.status(400).json(result);
+    return res.json(result);
+  } catch (err) {
+    console.error('Error redeeming cloud voucher:', err);
+    return res.status(500).json({ success: false, error: 'Could not redeem voucher.' });
+  }
 });
 
 router.post('/billing/deduct', async (req, res) => {

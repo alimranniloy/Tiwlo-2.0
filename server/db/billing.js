@@ -1,10 +1,8 @@
-import { readState, saveState } from './stateDocuments.js';
-import { MasterDB } from './multiTenant.js';
+import { randomUUID } from 'node:crypto';
+import { readState } from './stateDocuments.js';
+import { queryPg } from './postgres.js';
 import { CloudDB } from './cloud.js';
 import { getPlatformPaymentGatewaysRaw } from '../administrator/adminRoutes.js';
-
-async function readBillingDb() { return readState('billing', 'accounts', { accounts: [] }); }
-async function writeBillingDb(data) { await saveState('billing', 'accounts', data); }
 
 export const BillingDB = {
   init() { /* PostgreSQL schema is initialized by server startup. */ },
@@ -12,147 +10,168 @@ export const BillingDB = {
   async getPlatformGateways() {
     const raw = await getPlatformPaymentGatewaysRaw();
     const activeGateways = [];
-    for (const [id, gw] of Object.entries(raw)) {
-      if (gw.enabled) {
-        let isReady = false;
-        if (id === 'bkash' && gw.appKey && gw.appSecret && gw.username && gw.password) isReady = true;
-        else if (id === 'nagad' && gw.merchantId && gw.merchantPrivateKey) isReady = true;
-        else if (id === 'sslcommerz' && gw.storeId && gw.storePassword) isReady = true;
-        else if (id === 'paypal' && gw.clientId && gw.clientSecret) isReady = true;
-        else if (id === 'stripe' && gw.publishableKey && gw.secretKey) isReady = true;
+    for (const [id, gateway] of Object.entries(raw)) {
+      if (!gateway.enabled) continue;
 
-        if (isReady) {
-          activeGateways.push({
-            id: gw.id,
-            name: gw.name,
-            mode: gw.mode,
-            enabled: true,
-            currencies: gw.currencies || ['USD']
-          });
-        }
+      const credentialsPresent = id === 'bkash'
+        ? gateway.appKey && gateway.appSecret && gateway.username && gateway.password
+        : id === 'nagad'
+          ? gateway.merchantId && gateway.merchantPrivateKey
+          : id === 'sslcommerz'
+            ? gateway.storeId && gateway.storePassword
+            : id === 'paypal'
+              ? gateway.clientId && gateway.clientSecret
+              : id === 'stripe'
+                ? gateway.publishableKey && gateway.secretKey
+                : false;
+
+      if (credentialsPresent) {
+        activeGateways.push({
+          id: gateway.id || id,
+          name: gateway.name,
+          mode: gateway.mode,
+          enabled: true,
+          currencies: Array.isArray(gateway.currencies) ? gateway.currencies : ['USD']
+        });
       }
     }
+
     return {
-      allGateways: raw,
       activeGateways,
-      hasVerifiedGateway: activeGateways.length > 0
+      hasConfiguredGateway: activeGateways.length > 0
     };
   },
 
   async getBillingAccount(userId) {
     if (!userId) return null;
-    const [db, gatewayInfo, masterUser, droplets] = await Promise.all([
-      readBillingDb(),
-      this.getPlatformGateways(),
-      MasterDB.getUser(userId).catch(() => null),
-      CloudDB.getDroplets(userId).catch(() => [])
-    ]);
 
-    const accounts = Array.isArray(db.accounts) ? db.accounts : [];
-    const account = accounts.find(
-      (a) => a.userId === userId || a.tiwiId === userId
+    // Only a real authenticated system user may have a billing account.
+    const { rows: users } = await queryPg(
+      'SELECT id, tiwi_id, name, store_name FROM system_users WHERE id = $1 LIMIT 1',
+      [userId]
     );
+    const user = users[0];
+    if (!user) return null;
 
-    const verifiedCredits = Number.isSafeInteger(masterUser?.credits) && masterUser.credits >= 0
-      ? masterUser.credits
-      : (Number.isSafeInteger(account?.verifiedCredits) && account.verifiedCredits >= 0 ? account.verifiedCredits : 0);
+    const [legacyData, gatewayInfo, droplets] = await Promise.all([
+      readState('billing', 'accounts', { accounts: [] }),
+      this.getPlatformGateways(),
+      CloudDB.getDroplets(user.id)
+    ]);
+    const legacyAccounts = Array.isArray(legacyData.accounts) ? legacyData.accounts : [];
+    const legacyAccount = legacyAccounts.find(row =>
+      row.userId === user.id || (user.tiwi_id && row.tiwiId === user.tiwi_id)
+    );
+    const legacyCredits = Number(legacyAccount?.verifiedCredits);
+    const initialCredits = Number.isFinite(legacyCredits) && legacyCredits >= 0 ? legacyCredits : 0;
 
-    const promotionalCredits = Number.isSafeInteger(account?.verifiedPromotionalCredits) && account.verifiedPromotionalCredits > 0
-      ? account.verifiedPromotionalCredits
-      : 0;
+    const billingRows = await queryPg(`
+        INSERT INTO cloud_billing_accounts (id, user_id, credits, monthly_spend, currency)
+        VALUES ($1, $2, $3, 0, 'USD')
+        ON CONFLICT (user_id) DO UPDATE SET user_id = EXCLUDED.user_id
+        RETURNING id, user_id, credits, monthly_spend, currency, updated_at
+      `, [randomUUID(), user.id, initialCredits]);
+    const billingRow = billingRows.rows[0];
+    if (!billingRow) throw new Error('Billing account could not be loaded from PostgreSQL.');
 
-    const shortId = String(userId).replace(/[^a-zA-Z0-9]/g, '').slice(0, 10).toUpperCase() || 'A24B39C72E';
-    const billingAccountId = `01${shortId.slice(0, 4)}-${shortId.slice(4, 10) || '39C72E'}-F890`;
+    const credits = billingRow.credits === null ? Number.NaN : Number(billingRow.credits);
+    if (!Number.isFinite(credits) || credits < 0) {
+      throw new Error('Billing account contains an invalid PostgreSQL balance.');
+    }
+    const invoices = (Array.isArray(legacyAccount?.invoices) ? legacyAccount.invoices : [])
+      .filter(invoice =>
+        (invoice?.paymentVerified === true || invoice?.grantVerified === true) &&
+        invoice.id && Number.isFinite(Number(invoice.amount)) && invoice.createdAt
+      )
+      .map(invoice => ({
+        id: String(invoice.id),
+        amount: Number(invoice.amount),
+        currency: String(invoice.currency || billingRow.currency || 'USD'),
+        status: String(invoice.status || 'Verified'),
+        description: String(invoice.description || ''),
+        createdAt: String(invoice.createdAt),
+        paidAt: invoice.paidAt ? String(invoice.paidAt) : null
+      }));
 
     return {
-      userId,
-      billingAccountId,
-      billingAccountName: `Tiwlo Cloud (${masterUser?.name || 'Primary Account'})`,
-      currency: 'USD',
-      status: gatewayInfo.hasVerifiedGateway ? 'ACTIVE' : 'UNCONFIGURED',
-      hasVerifiedGateway: gatewayInfo.hasVerifiedGateway,
-      paymentGatewayStatusMessage: gatewayInfo.hasVerifiedGateway
-        ? `${gatewayInfo.activeGateways.length} verified payment gateway(s) active`
-        : 'No verified payment gateway configured',
-      credits: verifiedCredits,
-      promotionalCredits,
+      userId: user.id,
+      billingAccountId: billingRow.id,
+      billingAccountName: user.store_name || user.name || 'Cloud Billing Account',
+      currency: billingRow.currency || 'USD',
+      status: gatewayInfo.hasConfiguredGateway ? 'CONFIGURED' : 'UNCONFIGURED',
+      hasConfiguredGateway: gatewayInfo.hasConfiguredGateway,
+      paymentGatewayStatusMessage: gatewayInfo.hasConfiguredGateway
+        ? `${gatewayInfo.activeGateways.length} platform gateway(s) have credentials configured`
+        : 'No platform payment gateway configured',
+      credits,
+      promotionalCredits: Number.isFinite(Number(legacyAccount?.verifiedPromotionalCredits))
+        ? Number(legacyAccount.verifiedPromotionalCredits)
+        : null,
       paymentMethods: gatewayInfo.activeGateways,
       configuredGateways: gatewayInfo.activeGateways,
-      invoices: (Array.isArray(account?.invoices) ? account.invoices : []).filter(invoice =>
-        invoice?.paymentVerified === true || invoice?.grantVerified === true
-      ),
-      budgets: Array.isArray(account?.budgets) ? account.budgets : [],
-      monthToDateSpent: 0.00,
-      projectedCost: 0.00,
-      billingEnabled: gatewayInfo.hasVerifiedGateway,
-      usageMeteringEnabled: true,
+      invoices,
+      budgets: [],
+      monthToDateSpent: null,
+      projectedCost: null,
+      billingEnabled: false,
+      usageMeteringEnabled: false,
       droplets
     };
   },
 
   async addCredits() {
-    throw new Error('Cloud credit purchases are unavailable until a verified payment gateway is configured.');
+    throw new Error('Credit checkout is not connected. No payment or credits were processed.');
   },
 
-  async redeemVoucher() {
-    throw new Error('Cloud vouchers are unavailable until a verified voucher program is configured.');
-  },
-
-  async deductCredits(userId, amount, serviceName = 'Cloud Resource', description = 'Usage deduction') {
-    const db = await readBillingDb();
-    const accounts = Array.isArray(db.accounts) ? db.accounts : [];
-    const account = accounts.find(a => a.userId === userId || a.tiwiId === userId);
-    if (account?.billingEnabled !== true || account?.usageMeteringEnabled !== true) {
-      return { success: false, error: 'Cloud credit billing is not configured.' };
+  async redeemVoucher(userId, rawCode) {
+    const code = typeof rawCode === 'string' ? rawCode.trim().toUpperCase() : '';
+    if (!userId) return { success: false, error: 'Authentication required.' };
+    if (!code || code.length > 64) return { success: false, error: 'Enter a valid voucher code.' };
+    if (!await this.getBillingAccount(userId)) {
+      return { success: false, error: 'Billing account is unavailable for this user.' };
     }
 
-    const deductAmount = Number(amount);
-    const availableCredits = Number.isSafeInteger(account.verifiedCredits) && account.verifiedCredits > 0
-      ? account.verifiedCredits
-      : 0;
-    if (!Number.isSafeInteger(deductAmount) || deductAmount <= 0) {
-      return { success: false, error: 'Credit deduction must be a positive whole number.' };
+    const { rows } = await queryPg(`
+      WITH claimed_voucher AS (
+        UPDATE cloud_vouchers
+        SET is_redeemed = TRUE, redeemed_by = $2, redeemed_at = CURRENT_TIMESTAMP
+        WHERE UPPER(BTRIM(code)) = $1 AND is_redeemed = FALSE
+        RETURNING id, amount
+      ), updated_account AS (
+        INSERT INTO cloud_billing_accounts (id, user_id, credits, monthly_spend, currency)
+        SELECT $3, $2, amount, 0, 'USD' FROM claimed_voucher
+        ON CONFLICT (user_id) DO UPDATE SET
+          credits = COALESCE(cloud_billing_accounts.credits, 0) + EXCLUDED.credits,
+          updated_at = CURRENT_TIMESTAMP
+        RETURNING credits
+      )
+      SELECT claimed_voucher.id, claimed_voucher.amount, updated_account.credits
+      FROM claimed_voucher CROSS JOIN updated_account
+    `, [code, userId, randomUUID()]);
+
+    if (!rows[0]) {
+      return { success: false, error: 'Voucher code is invalid or has already been redeemed.' };
     }
-    if (availableCredits < deductAmount) {
-      return {
-        success: false,
-        error: `Insufficient verified credits balance. Required: ${deductAmount}, Available: ${availableCredits}`
-      };
-    }
-
-    account.verifiedCredits = availableCredits - deductAmount;
-    account.credits = account.verifiedCredits;
-    account.updatedAt = new Date().toISOString();
-
-    try {
-      await MasterDB.updateUser(userId, { credits: account.verifiedCredits });
-    } catch (err) {
-      console.warn('Failed to sync deduction to MasterDB:', err);
-    }
-
-    await writeBillingDb(db);
-
     return {
       success: true,
-      deducted: deductAmount,
-      remainingBalance: account.verifiedCredits
+      voucherId: rows[0].id,
+      addedCredits: Number(rows[0].amount),
+      balance: Number(rows[0].credits)
+    };
+  },
+
+  async deductCredits() {
+    return {
+      success: false,
+      error: 'Cloud usage metering is not connected. No credits were deducted.'
     };
   },
 
   async createBudget() {
-    throw new Error('Cloud usage metering is unavailable; billing alerts cannot be configured.');
+    throw new Error('Cloud usage metering is not connected. No budget alert was saved.');
   },
 
-  async deleteBudget(userId, budgetId) {
-    let db = await readBillingDb();
-    const accounts = Array.isArray(db.accounts) ? db.accounts : [];
-    const account = accounts.find((a) => a.userId === userId || a.tiwiId === userId);
-    if (!account) return false;
-
-    account.budgets = (account.budgets || []).filter((b) => b.id !== budgetId);
-    account.updatedAt = new Date().toISOString();
-
-    (await writeBillingDb(db));
-    return true;
+  async deleteBudget() {
+    return false;
   }
 };

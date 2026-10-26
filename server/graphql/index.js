@@ -496,9 +496,9 @@ export const schema = buildSchema(`
     billingAccountName: String!
     currency: String!
     credits: Float!
-    promotionalCredits: Float!
+    promotionalCredits: Float
     status: String!
-    hasVerifiedGateway: Boolean!
+    hasConfiguredGateway: Boolean!
     paymentGatewayStatusMessage: String!
     billingEnabled: Boolean!
     configuredGateways: [CloudBillingPaymentGateway]!
@@ -511,20 +511,12 @@ export const schema = buildSchema(`
 
 // Root Resolvers mapping directly to the Multi-Tenant Database
 export const rootValue = {
-  async cloudBillingAccount({ userId }, context) {
-    const effectiveUserId = userId || context?.activeUser?.id || context?.user?.id;
+  async cloudBillingAccount(_args, context) {
+    const effectiveUserId = context?.activeUser?.id;
     if (!effectiveUserId) return null;
     const account = await BillingDB.getBillingAccount(effectiveUserId);
-    return {
-      ...account,
-      costBreakdown: [
-        { service: 'Compute Engine (Droplets)', amount: 0.00, percentage: 0.0 },
-        { service: 'Cloud Block Storage', amount: 0.00, percentage: 0.0 },
-        { service: 'PostgreSQL Database', amount: 0.00, percentage: 0.0 },
-        { service: 'Network Bandwidth', amount: 0.00, percentage: 0.0 },
-        { service: 'DNS & SSL Certificates', amount: 0.00, percentage: 0.0 }
-      ]
-    };
+    if (!account) return null;
+    return { ...account, costBreakdown: [] };
   },
 
   async cloudPaymentGateways() {

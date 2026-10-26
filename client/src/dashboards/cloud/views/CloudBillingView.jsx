@@ -18,23 +18,20 @@ import {
   Lock, 
   Sparkles,
   Server,
-  Zap,
   ChevronRight,
-  ShieldCheck,
   TrendingUp,
   Activity,
-  Layers,
-  Bell,
   Sliders,
-  DollarSign,
   Plus
 } from 'lucide-react';
-import { getCloudBillingData } from '../graphql/cloudQueries';
+import { getCloudBillingData, redeemCloudVoucher } from '../graphql/cloudQueries';
 
 export default function CloudBillingView({ currentUser, initialTab = 'overview', onBack, showToast }) {
   const userId = currentUser?.id || currentUser?.tiwiId || null;
   const [activeTab, setActiveTab] = useState(initialTab || 'overview');
   const [copiedId, setCopiedId] = useState(false);
+  const [voucherCode, setVoucherCode] = useState('');
+  const [isRedeemingVoucher, setIsRedeemingVoucher] = useState(false);
 
   const [billingState, setBillingState] = useState({
     userId: null,
@@ -43,48 +40,30 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
     error: ''
   });
 
-  // Credit top-up states
-  const [selectedCreditAmount, setSelectedCreditAmount] = useState(50);
-  const [customCreditAmount, setCustomCreditAmount] = useState('');
-  const [selectedGatewayId, setSelectedGatewayId] = useState('');
-  const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
-  const [promoCodeInput, setPromoCodeInput] = useState('');
-  const [isApplyingPromo, setIsApplyingPromo] = useState(false);
-
-  // Budget & Alert state
-  const [monthlyBudgetLimit, setMonthlyBudgetLimit] = useState('50.00');
-  const [budgetAlertEmail, setBudgetAlertEmail] = useState(currentUser?.email || '');
-  const [budgetSaved, setBudgetSaved] = useState(false);
-
-  // Auto-recharge state
-  const [autoRechargeEnabled, setAutoRechargeEnabled] = useState(false);
-  const [autoRechargeThreshold, setAutoRechargeThreshold] = useState('10.00');
-  const [autoRechargeAmount, setAutoRechargeAmount] = useState('50.00');
-
-  const loadBilling = () => {
+  const loadBilling = async () => {
+    if (!userId) {
+      setBillingState({ userId: null, loading: false, account: null, error: 'Sign in to view your cloud billing account.' });
+      return;
+    }
     setBillingState(prev => ({ ...prev, loading: true }));
-    getCloudBillingData(userId)
-      .then(result => {
-        const account = result?.account || null;
-        setBillingState({
-          userId,
-          loading: false,
-          account,
-          error: account ? '' : 'Billing account information is currently unavailable.'
-        });
-        if (account?.configuredGateways?.length > 0) {
-          setSelectedGatewayId(account.configuredGateways[0].id);
-        }
-      })
-      .catch(error => {
-        console.error('Error loading Cloud Billing data:', error);
-        setBillingState({
-          userId,
-          loading: false,
-          account: null,
-          error: 'Could not connect to billing ledger. Please try again.'
-        });
+    try {
+      const result = await getCloudBillingData(userId);
+      const account = result?.account || null;
+      setBillingState({
+        userId,
+        loading: false,
+        account,
+        error: account ? '' : 'Billing account information is currently unavailable.'
       });
+    } catch (error) {
+      console.error('Error loading Cloud Billing data:', error);
+      setBillingState({
+        userId,
+        loading: false,
+        account: null,
+        error: error.message || 'Could not connect to billing ledger. Please try again.'
+      });
+    }
   };
 
   useEffect(() => {
@@ -95,12 +74,52 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
   const account = hasCurrentUserData ? billingState.account : null;
   const loading = !hasCurrentUserData || billingState.loading;
 
-  const credits = Number.isFinite(account?.credits) && account.credits >= 0 ? account.credits : 0;
-  const promotionalCredits = Number.isFinite(account?.promotionalCredits) ? account.promotionalCredits : 0;
-  const hasVerifiedGateway = account?.hasVerifiedGateway === true;
+  const credits = Number.isFinite(account?.credits) && account.credits >= 0 ? account.credits : null;
+  const promotionalCredits = Number.isFinite(account?.promotionalCredits) ? account.promotionalCredits : null;
+  const hasConfiguredGateway = account?.hasConfiguredGateway === true;
   const configuredGateways = Array.isArray(account?.configuredGateways) ? account.configuredGateways : [];
-  const billingAccountId = account?.billingAccountId || 'TIW-01A24B-39C72E';
-  const billingAccountName = account?.billingAccountName || 'Tiwlo Cloud Enterprise Account';
+  const billingAccountId = account?.billingAccountId || '';
+  const billingAccountName = account?.billingAccountName || '';
+  const costServices = Array.isArray(account?.costBreakdown) ? account.costBreakdown : [];
+  const formatMoney = (amount, currency = account?.currency || 'USD') => {
+    if (!Number.isFinite(amount)) return 'Unavailable';
+    try {
+      return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount);
+    } catch {
+      return `${amount.toFixed(2)} ${currency}`;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-[#131314] flex items-center justify-center text-sm text-[#5F6368] dark:text-[#9AA0A6]">
+        Loading billing account…
+      </div>
+    );
+  }
+
+  if (!account) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-[#131314] flex items-center justify-center px-4">
+        <div className="max-w-md w-full rounded-2xl border border-[#EDF0F5] dark:border-[#2C2D31] p-6 text-center">
+          <AlertCircle className="w-8 h-8 mx-auto mb-3 text-[#B06000]" />
+          <h1 className="text-base font-semibold text-[#1F1F1F] dark:text-white">Billing unavailable</h1>
+          <p className="mt-2 text-sm text-[#5F6368] dark:text-[#9AA0A6]">
+            {billingState.error || 'Sign in to view your cloud billing account.'}
+          </p>
+          {userId && (
+            <button
+              type="button"
+              onClick={loadBilling}
+              className="mt-4 px-4 py-2 rounded-full bg-[#0B57D0] text-white text-sm font-medium"
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const copyAccountId = () => {
     navigator.clipboard?.writeText(billingAccountId);
@@ -109,43 +128,21 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
     setTimeout(() => setCopiedId(false), 2000);
   };
 
-  const handlePurchaseAttempt = () => {
-    if (!hasVerifiedGateway) {
-      showToast?.('Please add a payment method before purchasing credits.', 'error');
-      return;
+  const handleRedeemVoucher = async (event) => {
+    event.preventDefault();
+    const code = voucherCode.trim();
+    if (!code || isRedeemingVoucher) return;
+    setIsRedeemingVoucher(true);
+    try {
+      const result = await redeemCloudVoucher(code);
+      setVoucherCode('');
+      showToast?.(`Voucher applied: ${formatMoney(Number(result.addedCredits))} added to your balance.`, 'success');
+      await loadBilling();
+    } catch (error) {
+      showToast?.(error.message || 'Could not redeem voucher.', 'error');
+    } finally {
+      setIsRedeemingVoucher(false);
     }
-    const finalAmount = customCreditAmount ? parseFloat(customCreditAmount) : selectedCreditAmount;
-    if (!finalAmount || finalAmount <= 0) {
-      showToast?.('Please enter a valid credit amount.', 'error');
-      return;
-    }
-    setIsProcessingCheckout(true);
-    setTimeout(() => {
-      setIsProcessingCheckout(false);
-      showToast?.(`Connecting to secure ${selectedGatewayId.toUpperCase()} payment gateway for $${finalAmount.toFixed(2)}...`, 'info');
-    }, 800);
-  };
-
-  const handleApplyPromo = (e) => {
-    e.preventDefault();
-    if (!promoCodeInput.trim()) return;
-    setIsApplyingPromo(true);
-    setTimeout(() => {
-      setIsApplyingPromo(false);
-      if (!hasVerifiedGateway) {
-        showToast?.('Promotional credit redemption requires an active billing account.', 'error');
-      } else {
-        showToast?.('Promotional voucher successfully applied to balance.', 'success');
-      }
-      setPromoCodeInput('');
-    }, 700);
-  };
-
-  const handleSaveBudget = (e) => {
-    e.preventDefault();
-    setBudgetSaved(true);
-    showToast?.('Cloud spending budget and notification alerts updated.', 'success');
-    setTimeout(() => setBudgetSaved(false), 2500);
   };
 
   const navTabs = [
@@ -157,16 +154,8 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
     { id: 'settings', label: 'Account Settings', icon: Settings }
   ];
 
-  const costServices = [
-    { name: 'Compute Engine (Droplets)', cost: 0.00, usage: '0 vCPU-hours', icon: Server, color: 'text-[#0B57D0] bg-[#E8F0FE]' },
-    { name: 'Cloud NVMe Storage & Volumes', cost: 0.00, usage: '0 GB-months', icon: Layers, color: 'text-[#7C3AED] bg-[#F3E8FF]' },
-    { name: 'Managed Database Clusters', cost: 0.00, usage: '0 Active Instances', icon: Zap, color: 'text-[#D97706] bg-[#FEF3C7]' },
-    { name: 'Global Edge Network & CDN', cost: 0.00, usage: '0 GiB Egress', icon: Activity, color: 'text-[#059669] bg-[#D1FAE5]' },
-    { name: 'DNS Zones & TLS Certificates', cost: 0.00, usage: 'Active Apex Zone', icon: ShieldCheck, color: 'text-[#0284C7] bg-[#E0F2FE]' }
-  ];
-
   return (
-    <div className="min-h-screen bg-[#F8FAFD] dark:bg-[#131314] text-[#1F1F1F] dark:text-[#E3E3E3] font-sans antialiased pb-20 select-none transition-colors duration-200">
+    <div className="min-h-screen bg-white dark:bg-[#131314] text-[#1F1F1F] dark:text-[#E3E3E3] font-sans antialiased pb-20 select-none transition-colors duration-200">
       
       {/* Top Clean Console Bar (Google Cloud & Apple macOS Flat Clean Header) */}
       <header className="sticky top-0 z-40 bg-white dark:bg-[#1E1F22] border-b border-[#EDF0F5] dark:border-[#2C2D31] px-4 sm:px-8 py-3.5 transition-colors">
@@ -198,12 +187,12 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 
                 {/* Clean Status Chip */}
                 <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium ${
-                  hasVerifiedGateway
+                  hasConfiguredGateway
                     ? 'bg-[#E6F4EA] text-[#137333] dark:bg-[#137333]/20 dark:text-[#81C995]'
                     : 'bg-[#FEF7E0] text-[#B06000] dark:bg-[#B06000]/20 dark:text-[#FDD663]'
                 }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${hasVerifiedGateway ? 'bg-[#188038]' : 'bg-[#F29900]'}`} />
-                  <span>{hasVerifiedGateway ? 'Active' : 'Unconfigured'}</span>
+                  <span className={`w-1.5 h-1.5 rounded-full ${hasConfiguredGateway ? 'bg-[#188038]' : 'bg-[#F29900]'}`} />
+                  <span>{hasConfiguredGateway ? 'Gateway configured' : 'Unconfigured'}</span>
                 </div>
               </div>
             </div>
@@ -288,17 +277,16 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 </div>
                 {/* Clean Currency Display */}
                 <div className="flex items-baseline gap-1 mt-2">
-                  <span className="text-xl font-normal text-[#5F6368] dark:text-[#9AA0A6]">$</span>
                   <span className="text-3xl sm:text-4xl font-semibold text-[#1F1F1F] dark:text-white tracking-tight">
-                    {credits.toFixed(2)}
+                    {credits === null ? 'Unavailable' : formatMoney(credits)}
                   </span>
                   <span className="text-[11px] font-medium text-[#0B57D0] dark:text-[#8AB4F8] ml-1 bg-[#E8F0FE] dark:bg-[#0B57D0]/20 px-2 py-0.5 rounded-full">
-                    USD
+                    {account.currency}
                   </span>
                 </div>
                 <div className="mt-3 pt-3 border-t border-[#F0F2F5] dark:border-[#2C2D31] flex items-center justify-between text-xs">
                   <span className="text-[#5F6368] dark:text-[#9AA0A6]">
-                    Promo: <span className="font-medium text-[#1F1F1F] dark:text-white">${promotionalCredits.toFixed(2)}</span>
+                    Promo: <span className="font-medium text-[#1F1F1F] dark:text-white">{promotionalCredits === null ? 'Unavailable' : formatMoney(promotionalCredits)}</span>
                   </span>
                   <button
                     type="button"
@@ -320,18 +308,17 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                   </div>
                 </div>
                 <div className="flex items-baseline gap-1 mt-2">
-                  <span className="text-xl font-normal text-[#5F6368] dark:text-[#9AA0A6]">$</span>
                   <span className="text-3xl sm:text-4xl font-semibold text-[#1F1F1F] dark:text-white tracking-tight">
-                    {(account?.monthToDateSpent || 0).toFixed(2)}
+                    {formatMoney(account?.monthToDateSpent)}
                   </span>
                   <span className="text-[11px] font-medium text-[#5F6368] dark:text-[#9AA0A6] ml-1">
-                    USD
+                    {account.currency}
                   </span>
                 </div>
                 <div className="mt-3 pt-3 border-t border-[#F0F2F5] dark:border-[#2C2D31] flex items-center justify-between text-xs text-[#5F6368] dark:text-[#9AA0A6]">
                   <span>Billing Period</span>
                   <span className="inline-flex items-center gap-1 text-[#137333] dark:text-[#81C995] font-medium">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#188038]" /> Live Cycle
+                    <span>{account?.usageMeteringEnabled ? 'Metering active' : 'Metering unavailable'}</span>
                   </span>
                 </div>
               </div>
@@ -345,23 +332,19 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                   </div>
                 </div>
                 <div className="flex items-baseline gap-1 mt-2">
-                  <span className="text-xl font-normal text-[#5F6368] dark:text-[#9AA0A6]">$</span>
                   <span className="text-3xl sm:text-4xl font-semibold text-[#1F1F1F] dark:text-white tracking-tight">
-                    {(account?.projectedCost || 0).toFixed(2)}
-                  </span>
-                  <span className="text-[11px] font-medium text-[#5F6368] dark:text-[#9AA0A6] ml-1">
-                    USD
+                    {formatMoney(account?.projectedCost)}
                   </span>
                 </div>
                 <div className="mt-3 pt-3 border-t border-[#F0F2F5] dark:border-[#2C2D31] text-xs text-[#5F6368] dark:text-[#9AA0A6]">
-                  Estimated usage forecast
+                  {Number.isFinite(account?.projectedCost) ? 'Estimated usage forecast' : 'Usage forecasting is not connected'}
                 </div>
               </div>
 
               {/* Card 4: Active Workloads */}
               <div className="p-6 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31]">
                 <div className="flex items-center justify-between text-xs text-[#5F6368] dark:text-[#9AA0A6]">
-                  <span className="font-medium">Active Cloud Workloads</span>
+                  <span className="font-medium">Cloud Droplets</span>
                   <div className="w-7 h-7 rounded-full bg-[#E0F2FE] text-[#0284C7] flex items-center justify-center">
                     <Server className="w-4 h-4" />
                   </div>
@@ -371,11 +354,11 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                     {account?.droplets?.length || 0}
                   </span>
                   <span className="text-xs font-normal text-[#5F6368] dark:text-[#9AA0A6] ml-1">
-                    instances running
+                    droplets in this account
                   </span>
                 </div>
                 <div className="mt-3 pt-3 border-t border-[#F0F2F5] dark:border-[#2C2D31] text-xs text-[#5F6368] dark:text-[#9AA0A6]">
-                  Compute droplets & containers
+                  Registered cloud droplets
                 </div>
               </div>
 
@@ -419,13 +402,13 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                   className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#F0F4F9] hover:bg-[#E9EEF6] dark:bg-[#2C2D31] text-[#444746] dark:text-[#C4C7C5] text-xs font-medium transition cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>Download Statements</span>
+                  <span>Invoices</span>
                 </button>
               </div>
             </div>
 
             {/* User-Perspective Status Card (NO "Configure in Admin" wording!) */}
-            {!hasVerifiedGateway && (
+            {!hasConfiguredGateway && (
               <div className="p-5 sm:p-6 rounded-2xl bg-[#FEF7E0] dark:bg-[#B06000]/15 border border-[#FEEFC3] dark:border-[#B06000]/30">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div className="flex items-start gap-3">
@@ -434,10 +417,10 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                     </div>
                     <div>
                       <h3 className="text-sm font-semibold text-[#B06000] dark:text-[#FDD663]">
-                        No verified payment gateway configured
+                        No platform payment gateway configured
                       </h3>
                       <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] mt-0.5 max-w-2xl leading-relaxed">
-                        To enable automated monthly settlement and credit top-ups, a payment channel must be connected. Until verified, credit top-ups remain paused.
+                        No platform payment gateway is configured. Cloud credit checkout is also not connected.
                       </p>
                     </div>
                   </div>
@@ -477,31 +460,23 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 </div>
 
                 <div className="divide-y divide-[#F0F2F5] dark:divide-[#2C2D31]">
-                  {costServices.map((svc, idx) => {
-                    const SvcIcon = svc.icon;
-                    return (
-                      <div key={idx} className="py-3.5 flex items-center justify-between gap-4 text-xs">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className={`w-8 h-8 rounded-full ${svc.color} flex items-center justify-center shrink-0`}>
-                            <SvcIcon className="w-4 h-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-[#1F1F1F] dark:text-white truncate">
-                              {svc.name}
-                            </p>
-                            <p className="text-[11px] text-[#5F6368] dark:text-[#9AA0A6]">
-                              {svc.usage}
-                            </p>
-                          </div>
+                  {costServices.length ? costServices.map((service) => (
+                    <div key={service.service} className="py-3.5 flex items-center justify-between gap-4 text-xs">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-full bg-[#E8F0FE] text-[#0B57D0] flex items-center justify-center shrink-0">
+                          <Activity className="w-4 h-4" />
                         </div>
-                        <div className="text-right">
-                          <span className="font-semibold text-[#1F1F1F] dark:text-white text-sm">
-                            ${svc.cost.toFixed(2)}
-                          </span>
-                        </div>
+                        <p className="font-semibold text-[#1F1F1F] dark:text-white truncate">{service.service}</p>
                       </div>
-                    );
-                  })}
+                      <span className="font-semibold text-[#1F1F1F] dark:text-white text-sm">
+                        {formatMoney(Number(service.amount))}
+                      </span>
+                    </div>
+                  )) : (
+                    <p className="py-6 text-center text-xs text-[#5F6368] dark:text-[#9AA0A6]">
+                      Usage metering is not connected. No service charges are reported.
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -524,15 +499,15 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                     </button>
                   </div>
 
-                  {hasVerifiedGateway ? (
+                  {hasConfiguredGateway ? (
                     <div className="space-y-3">
                       <div className="p-3.5 rounded-xl bg-[#E6F4EA] text-xs">
                         <div className="flex items-center gap-2 text-[#137333] font-semibold mb-1">
                           <CheckCircle2 className="w-4 h-4" />
-                          <span>Payment Gateways Active</span>
+                    <span>Payment Gateway Configured</span>
                         </div>
                         <p className="text-[11px] text-[#137333]/90">
-                          {configuredGateways.length} channel(s) available for checkout.
+                          {configuredGateways.length} platform gateway(s) have credentials. Cloud checkout is not connected.
                         </p>
                       </div>
 
@@ -562,7 +537,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                         <span>Payment Gateway Required</span>
                       </div>
                       <p className="text-[11px] text-[#5F6368] dark:text-[#9AA0A6] leading-relaxed">
-                        Automatic billing and top-up require an active payment channel.
+                        Cloud checkout is not connected, and no platform payment gateway is configured.
                       </p>
                       <button
                         type="button"
@@ -580,19 +555,19 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                   <h4 className="font-semibold text-[#1F1F1F] dark:text-white">Account Details</h4>
                   <div className="flex justify-between py-1.5 border-b border-[#F0F2F5] dark:border-[#2C2D31]">
                     <span className="text-[#5F6368] dark:text-[#9AA0A6]">Account Type</span>
-                    <span className="font-medium text-[#1F1F1F] dark:text-white">Enterprise Cloud</span>
+                    <span className="font-medium text-[#1F1F1F] dark:text-white">Cloud</span>
                   </div>
                   <div className="flex justify-between py-1.5 border-b border-[#F0F2F5] dark:border-[#2C2D31]">
                     <span className="text-[#5F6368] dark:text-[#9AA0A6]">Currency</span>
-                    <span className="font-medium text-[#1F1F1F] dark:text-white">USD ($)</span>
+                    <span className="font-medium text-[#1F1F1F] dark:text-white">{account.currency}</span>
                   </div>
                   <div className="flex justify-between py-1.5 border-b border-[#F0F2F5] dark:border-[#2C2D31]">
                     <span className="text-[#5F6368] dark:text-[#9AA0A6]">Billing Owner</span>
-                    <span className="font-medium text-[#1F1F1F] dark:text-white truncate max-w-[150px]">{currentUser?.email || 'Owner'}</span>
+                    <span className="font-medium text-[#1F1F1F] dark:text-white truncate max-w-[150px]">{currentUser?.email || '—'}</span>
                   </div>
                   <div className="flex justify-between py-1.5">
                     <span className="text-[#5F6368] dark:text-[#9AA0A6]">Ledger Status</span>
-                    <span className="font-medium text-[#137333] dark:text-[#81C995]">Active</span>
+                    <span className="font-medium text-[#1F1F1F] dark:text-white">PostgreSQL connected</span>
                   </div>
                 </div>
 
@@ -615,26 +590,24 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 <div>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E8F0FE] text-[#0B57D0] text-xs font-semibold mb-2">
                     <Coins className="w-3.5 h-3.5" />
-                    <span>Real-time Ledger Balance</span>
+                    <span>PostgreSQL Billing Balance</span>
                   </div>
                   <div className="flex items-baseline gap-1 mt-1">
-                    <span className="text-2xl font-light text-[#5F6368] dark:text-[#9AA0A6]">$</span>
                     <span className="text-3xl sm:text-4xl font-semibold text-[#1F1F1F] dark:text-white tracking-tight">
-                      {credits.toFixed(2)}
+                      {credits === null ? 'Unavailable' : formatMoney(credits)}
                     </span>
                     <span className="text-xs font-normal text-[#5F6368] dark:text-[#9AA0A6] ml-2">
                       Available Cloud Credits
                     </span>
                   </div>
                   <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] mt-1.5 max-w-xl">
-                    Cloud credits are automatically drawn down as your compute droplets, block storage, and database instances run.
+                    Cloud usage metering is not connected, so this balance will not be deducted automatically.
                   </p>
                 </div>
 
                 <div className="p-4 rounded-xl bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs space-y-1.5 sm:text-right shrink-0">
-                  <div className="text-[#5F6368] dark:text-[#9AA0A6]">Purchased balance: <span className="font-semibold text-[#1F1F1F] dark:text-white">${credits.toFixed(2)}</span></div>
-                  <div className="text-[#5F6368] dark:text-[#9AA0A6]">Promotional grants: <span className="font-semibold text-[#1F1F1F] dark:text-white">${promotionalCredits.toFixed(2)}</span></div>
-                  <div className="text-[#5F6368] dark:text-[#9AA0A6]">Credit expiration: <span className="font-semibold text-[#137333] dark:text-[#81C995]">Never</span></div>
+                  <div className="text-[#5F6368] dark:text-[#9AA0A6]">Currency: <span className="font-semibold text-[#1F1F1F] dark:text-white">{account.currency}</span></div>
+                  <div className="text-[#5F6368] dark:text-[#9AA0A6]">Promotional balance: <span className="font-semibold text-[#1F1F1F] dark:text-white">{promotionalCredits === null ? 'Unavailable' : formatMoney(promotionalCredits)}</span></div>
                 </div>
               </div>
             </div>
@@ -646,144 +619,46 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                   Add Cloud Credits
                 </h3>
                 <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] mt-0.5">
-                  Select a credit bundle or enter a custom amount to recharge your account.
+                  Credit purchase status for this account.
                 </p>
               </div>
 
-              {!hasVerifiedGateway ? (
-                <div className="p-5 rounded-xl bg-[#FEF7E0] dark:bg-[#B06000]/15 border border-[#FEEFC3] dark:border-[#B06000]/30 space-y-3">
-                  <div className="flex items-center gap-2 text-[#B06000] dark:text-[#FDD663] text-sm font-semibold">
-                    <AlertCircle className="w-5 h-5 shrink-0" />
-                    <span>No verified payment gateway configured</span>
-                  </div>
-                  <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] leading-relaxed max-w-2xl">
-                    Credit purchases and checkouts are currently unavailable until a verified payment gateway (bKash, Nagad, SSLCOMMERZ, PayPal, or Stripe) is connected to this platform.
-                  </p>
-                  <div className="pt-1 flex items-center gap-3">
-                    <button
-                      type="button"
-                      disabled
-                      className="px-4 py-2 rounded-full bg-[#E0E2EC] dark:bg-[#3C4043] text-[#74777F] dark:text-[#8E919A] text-xs font-medium cursor-not-allowed flex items-center gap-1.5"
-                    >
-                      <Lock className="w-3.5 h-3.5" />
-                      <span>Checkout Disabled</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('payment-methods')}
-                      className="text-xs font-semibold text-[#0B57D0] dark:text-[#8AB4F8] hover:underline"
-                    >
-                      View Payment Gateways &gt;
-                    </button>
-                  </div>
+              <div className="p-5 rounded-xl bg-[#FEF7E0] dark:bg-[#B06000]/15 border border-[#FEEFC3] dark:border-[#B06000]/30">
+                <div className="flex items-center gap-2 text-[#B06000] dark:text-[#FDD663] text-sm font-semibold">
+                  <Lock className="w-5 h-5 shrink-0" />
+                  <span>Credit checkout unavailable</span>
                 </div>
-              ) : (
-                <div className="space-y-6">
-                  {/* Package Selector */}
-                  <div>
-                    <label className="block text-xs font-semibold text-[#5F6368] dark:text-[#9AA0A6] mb-3">
-                      Select Package:
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {[25, 50, 100, 250].map(amt => (
-                        <button
-                          key={amt}
-                          type="button"
-                          onClick={() => {
-                            setSelectedCreditAmount(amt);
-                            setCustomCreditAmount('');
-                          }}
-                          className={`p-4 rounded-xl border text-center transition cursor-pointer ${
-                            selectedCreditAmount === amt && !customCreditAmount
-                              ? 'bg-[#E8F0FE] border-[#0B57D0] text-[#0B57D0] font-semibold'
-                              : 'bg-[#F8FAFD] dark:bg-[#2C2D31] border-[#E0E2EC] dark:border-[#3C4043] text-[#1F1F1F] dark:text-white hover:bg-[#F0F4F9]'
-                          }`}
-                        >
-                          <div className="text-xl font-semibold">${amt}</div>
-                          <div className="text-[11px] opacity-75 mt-0.5">{amt * 100} credits</div>
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="mt-3">
-                      <input
-                        type="number"
-                        placeholder="Or enter custom amount in USD..."
-                        value={customCreditAmount}
-                        onChange={(e) => setCustomCreditAmount(e.target.value)}
-                        className="w-full sm:w-72 px-4 py-2 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs outline-none focus:border-[#0B57D0]"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Payment Gateway Selector */}
-                  <div>
-                    <label className="block text-xs font-semibold text-[#5F6368] dark:text-[#9AA0A6] mb-2.5">
-                      Choose Payment Method:
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {configuredGateways.map(gw => (
-                        <button
-                          key={gw.id}
-                          type="button"
-                          onClick={() => setSelectedGatewayId(gw.id)}
-                          className={`p-3.5 rounded-xl border text-left transition cursor-pointer flex items-center justify-between ${
-                            selectedGatewayId === gw.id
-                              ? 'bg-[#E8F0FE] border-[#0B57D0] text-[#0B57D0] font-semibold'
-                              : 'bg-[#F8FAFD] dark:bg-[#2C2D31] border-[#E0E2EC] dark:border-[#3C4043] text-[#1F1F1F] dark:text-white hover:bg-[#F0F4F9]'
-                          }`}
-                        >
-                          <div>
-                            <div className="text-xs font-semibold">{gw.name}</div>
-                            <div className="text-[10px] text-[#5F6368] dark:text-[#9AA0A6] uppercase mt-0.5">
-                              {gw.currencies?.join(', ')} • {gw.mode}
-                            </div>
-                          </div>
-                          {selectedGatewayId === gw.id && (
-                            <CheckCircle2 className="w-4 h-4 text-[#0B57D0]" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="pt-2">
-                    <button
-                      type="button"
-                      onClick={handlePurchaseAttempt}
-                      disabled={isProcessingCheckout}
-                      className="px-6 py-2.5 rounded-full bg-[#0B57D0] hover:bg-[#0842A0] text-white text-xs font-medium transition cursor-pointer disabled:opacity-50"
-                    >
-                      {isProcessingCheckout ? 'Connecting Gateway...' : 'Proceed to Checkout'}
-                    </button>
-                  </div>
-                </div>
-              )}
+                <p className="mt-2 text-xs text-[#5F6368] dark:text-[#9AA0A6] leading-relaxed">
+                  Payment gateways may be configured, but cloud credit checkout is not connected. No payment will be submitted and no credits will be added.
+                </p>
+              </div>
             </div>
 
             {/* Promo Voucher Box — PURE WHITE */}
             <div className="p-6 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31]">
               <h3 className="text-sm font-semibold text-[#1F1F1F] dark:text-white mb-1 flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-[#0B57D0]" />
-                <span>Promotional Voucher Code</span>
+                <span>Redeem Cloud Voucher</span>
               </h3>
               <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] mb-3">
-                Have a grant voucher code or promotional credit? Enter it below.
+                Enter a valid unused voucher to add its recorded amount to this account.
               </p>
-              <form onSubmit={handleApplyPromo} className="flex gap-2 max-w-md">
+              <form onSubmit={handleRedeemVoucher} className="flex gap-2 max-w-md">
                 <input
                   type="text"
-                  placeholder="TIWLO-PROMO-XXXX"
-                  value={promoCodeInput}
-                  onChange={(e) => setPromoCodeInput(e.target.value)}
+                  value={voucherCode}
+                  onChange={(event) => setVoucherCode(event.target.value)}
+                  maxLength={64}
+                  autoComplete="off"
+                  placeholder="Voucher code"
                   className="flex-1 px-4 py-2 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs font-mono outline-none focus:border-[#0B57D0] uppercase"
                 />
                 <button
                   type="submit"
-                  disabled={isApplyingPromo || !promoCodeInput.trim()}
+                  disabled={isRedeemingVoucher || !voucherCode.trim()}
                   className="px-5 py-2 rounded-full bg-[#0B57D0] hover:bg-[#0842A0] text-white text-xs font-medium disabled:opacity-40 transition cursor-pointer"
                 >
-                  {isApplyingPromo ? 'Validating...' : 'Apply Code'}
+                  {isRedeemingVoucher ? 'Redeeming…' : 'Redeem'}
                 </button>
               </form>
             </div>
@@ -793,31 +668,8 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
               <h3 className="text-sm font-semibold text-[#1F1F1F] dark:text-white mb-4">
                 Credit Ledger History
               </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-[#EDF0F5] dark:border-[#2C2D31] text-[#5F6368] dark:text-[#9AA0A6] uppercase text-[10px] tracking-wider font-semibold">
-                      <th className="py-2.5 px-3">Date</th>
-                      <th className="py-2.5 px-3">Description</th>
-                      <th className="py-2.5 px-3">Type</th>
-                      <th className="py-2.5 px-3">Amount</th>
-                      <th className="py-2.5 px-3 text-right">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#F0F2F5] dark:divide-[#2C2D31]">
-                    <tr>
-                      <td className="py-3 px-3 text-[#5F6368] dark:text-[#9AA0A6]">Today</td>
-                      <td className="py-3 px-3 font-medium text-[#1F1F1F] dark:text-white">Opening Verified Ledger Balance</td>
-                      <td className="py-3 px-3 text-[#5F6368]">Credit Balance</td>
-                      <td className="py-3 px-3 font-semibold text-[#137333] dark:text-[#81C995]">+${credits.toFixed(2)}</td>
-                      <td className="py-3 px-3 text-right">
-                        <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#E6F4EA] text-[#137333] text-[10px] font-semibold">
-                          Settled
-                        </span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div className="py-10 text-center rounded-xl bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs text-[#5F6368] dark:text-[#9AA0A6]">
+                No credit transactions are available in the ledger.
               </div>
             </div>
 
@@ -834,10 +686,10 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 Connected Payment Methods & Gateways
               </h2>
               <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] mb-6">
-                Active payment channels connected to this Tiwlo Cloud instance.
+                Platform gateway credentials configured for cloud billing.
               </p>
 
-              {hasVerifiedGateway ? (
+              {hasConfiguredGateway ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {configuredGateways.map(gw => (
                     <div key={gw.id} className="p-4 rounded-xl border border-[#EDF0F5] dark:border-[#2C2D31] bg-[#F8FAFD] dark:bg-[#2C2D31] flex items-center justify-between">
@@ -862,10 +714,10 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 <div className="p-6 rounded-2xl bg-[#FEF7E0] dark:bg-[#B06000]/15 border border-[#FEEFC3] dark:border-[#B06000]/30 space-y-3 max-w-xl">
                   <div className="flex items-center gap-2 text-[#B06000] dark:text-[#FDD663] text-sm font-semibold">
                     <ShieldAlert className="w-5 h-5 shrink-0" />
-                    <span>No verified payment gateway configured</span>
+                    <span>No platform payment gateway configured</span>
                   </div>
                   <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] leading-relaxed">
-                    Automatic billing and online credit top-ups are paused. A verified gateway (bKash, Nagad, SSLCOMMERZ, PayPal, or Stripe) needs to be activated for this platform.
+                    A platform payment gateway is not configured. Cloud credit checkout remains unavailable even when gateway credentials are configured.
                   </p>
                   <div>
                     <a
@@ -880,65 +732,11 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
               )}
             </div>
 
-            {/* Auto-Recharge Rule Card */}
-            <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31] space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-[#1F1F1F] dark:text-white">
-                    Auto-Recharge Rule
-                  </h3>
-                  <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] mt-0.5">
-                    Prevent droplets and database instances from shutting down due to zero balance.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setAutoRechargeEnabled(!autoRechargeEnabled)}
-                  className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${
-                    autoRechargeEnabled ? 'bg-[#0B57D0]' : 'bg-[#E0E2EC] dark:bg-[#3C4043]'
-                  }`}
-                >
-                  <span
-                    className={`block w-5 h-5 rounded-full bg-white shadow-xs transition-transform transform ${
-                      autoRechargeEnabled ? 'translate-x-5' : 'translate-x-0.5'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {autoRechargeEnabled && (
-                <div className="pt-3 border-t border-[#F0F2F5] dark:border-[#2C2D31] grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                  <div>
-                    <label className="block text-[#5F6368] dark:text-[#9AA0A6] mb-1 font-medium">
-                      When balance drops below:
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#5F6368]">$</span>
-                      <input
-                        type="number"
-                        value={autoRechargeThreshold}
-                        onChange={(e) => setAutoRechargeThreshold(e.target.value)}
-                        className="w-full pl-7 pr-3 py-2 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs font-mono outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[#5F6368] dark:text-[#9AA0A6] mb-1 font-medium">
-                      Automatically recharge with:
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#5F6368]">$</span>
-                      <input
-                        type="number"
-                        value={autoRechargeAmount}
-                        onChange={(e) => setAutoRechargeAmount(e.target.value)}
-                        className="w-full pl-7 pr-3 py-2 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs font-mono outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
+            <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31]">
+              <h3 className="text-sm font-semibold text-[#1F1F1F] dark:text-white">Auto-recharge unavailable</h3>
+              <p className="mt-1 text-xs text-[#5F6368] dark:text-[#9AA0A6]">
+                Automatic payments are not connected. No recharge rules have been saved.
+              </p>
             </div>
           </div>
         )}
@@ -972,22 +770,28 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                       <th className="py-3 px-3">Service</th>
                       <th className="py-3 px-3">Usage Metric</th>
                       <th className="py-3 px-3">Rate Model</th>
-                      <th className="py-3 px-3 text-right">Incurred Cost (USD)</th>
+                      <th className="py-3 px-3 text-right">Incurred Cost ({account.currency})</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#F0F2F5] dark:divide-[#2C2D31]">
-                    {costServices.map((svc, idx) => (
-                      <tr key={idx} className="hover:bg-[#F8FAFD] dark:hover:bg-[#2C2D31]/40">
-                        <td className="py-3.5 px-3 font-semibold text-[#1F1F1F] dark:text-white">{svc.name}</td>
-                        <td className="py-3.5 px-3 text-[#5F6368] dark:text-[#9AA0A6] font-mono">{svc.usage}</td>
-                        <td className="py-3.5 px-3 text-[#5F6368]">Pay-as-you-go</td>
-                        <td className="py-3.5 px-3 text-right font-semibold text-[#1F1F1F] dark:text-white">${svc.cost.toFixed(2)}</td>
+                    {costServices.length ? costServices.map((service) => (
+                      <tr key={service.service} className="hover:bg-[#F8FAFD] dark:hover:bg-[#2C2D31]/40">
+                        <td className="py-3.5 px-3 font-semibold text-[#1F1F1F] dark:text-white">{service.service}</td>
+                        <td className="py-3.5 px-3 text-[#5F6368] dark:text-[#9AA0A6]">{service.percentage}% of recorded usage</td>
+                        <td className="py-3.5 px-3 text-[#5F6368]">{account.currency}</td>
+                        <td className="py-3.5 px-3 text-right font-semibold text-[#1F1F1F] dark:text-white">{formatMoney(Number(service.amount))}</td>
                       </tr>
-                    ))}
+                    )) : (
+                      <tr>
+                        <td colSpan={4} className="py-8 px-3 text-center text-[#5F6368] dark:text-[#9AA0A6]">
+                          Usage metering is not connected. No service costs are available.
+                        </td>
+                      </tr>
+                    )}
                     <tr className="border-t-2 border-[#EDF0F5] dark:border-[#2C2D31] font-semibold">
                       <td className="py-4 px-3 text-sm text-[#1F1F1F] dark:text-white">Total Incurred Cost</td>
                       <td className="py-4 px-3" colSpan={2}></td>
-                      <td className="py-4 px-3 text-right text-sm text-[#0B57D0] dark:text-[#8AB4F8]">${(account?.monthToDateSpent || 0).toFixed(2)}</td>
+                      <td className="py-4 px-3 text-right text-sm text-[#0B57D0] dark:text-[#8AB4F8]">{formatMoney(account?.monthToDateSpent)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -995,66 +799,11 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
             </div>
 
             {/* Cloud Spending Budget & Alert Thresholds — PURE WHITE */}
-            <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31] space-y-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-[#E8F0FE] text-[#0B57D0] flex items-center justify-center">
-                  <Bell className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-[#1F1F1F] dark:text-white">
-                    Cloud Spending Budget & Alerts
-                  </h3>
-                  <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] mt-0.5">
-                    Receive automatic email alerts when your monthly infrastructure bill crosses specific percentages.
-                  </p>
-                </div>
-              </div>
-
-              <form onSubmit={handleSaveBudget} className="space-y-4 pt-2">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                  <div>
-                    <label className="block text-[#5F6368] dark:text-[#9AA0A6] font-medium mb-1.5">
-                      Monthly Spending Target ($ USD):
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5F6368]">$</span>
-                      <input
-                        type="number"
-                        value={monthlyBudgetLimit}
-                        onChange={(e) => setMonthlyBudgetLimit(e.target.value)}
-                        className="w-full pl-8 pr-3 py-2 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs font-mono outline-none focus:border-[#0B57D0]"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[#5F6368] dark:text-[#9AA0A6] font-medium mb-1.5">
-                      Notification Alert Email:
-                    </label>
-                    <input
-                      type="email"
-                      value={budgetAlertEmail}
-                      onChange={(e) => setBudgetAlertEmail(e.target.value)}
-                      className="w-full px-3.5 py-2 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs outline-none focus:border-[#0B57D0]"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-2 flex items-center gap-3">
-                  <button
-                    type="submit"
-                    className="px-5 py-2 rounded-full bg-[#0B57D0] hover:bg-[#0842A0] text-white text-xs font-medium transition cursor-pointer"
-                  >
-                    Save Budget Settings
-                  </button>
-                  {budgetSaved && (
-                    <span className="text-xs text-[#137333] flex items-center gap-1">
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Saved!</span>
-                    </span>
-                  )}
-                </div>
-              </form>
+            <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31]">
+              <h3 className="text-sm font-semibold text-[#1F1F1F] dark:text-white">Budget alerts unavailable</h3>
+              <p className="mt-1 text-xs text-[#5F6368] dark:text-[#9AA0A6]">
+                Usage metering and alert delivery are not connected. No budget or notification settings have been saved.
+              </p>
             </div>
 
           </div>
@@ -1072,7 +821,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                     Invoices & Billing Documents
                   </h2>
                   <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] mt-0.5">
-                    Official VAT statements and paid invoices.
+                    Invoices recorded for this billing account.
                   </p>
                 </div>
               </div>
@@ -1087,29 +836,19 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                         <th className="py-3 px-3">Date</th>
                         <th className="py-3 px-3">Amount</th>
                         <th className="py-3 px-3">Status</th>
-                        <th className="py-3 px-3 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#F0F2F5] dark:divide-[#2C2D31]">
                       {account.invoices.map(inv => (
                         <tr key={inv.id}>
                           <td className="py-3.5 px-3 font-mono font-medium">{inv.id}</td>
-                          <td className="py-3.5 px-3">{inv.description || 'Monthly Cloud Statement'}</td>
+                          <td className="py-3.5 px-3">{inv.description || '—'}</td>
                           <td className="py-3.5 px-3 text-[#5F6368]">{inv.createdAt}</td>
-                          <td className="py-3.5 px-3 font-semibold">${inv.amount?.toFixed(2) || '0.00'}</td>
+                          <td className="py-3.5 px-3 font-semibold">{formatMoney(inv.amount, inv.currency)}</td>
                           <td className="py-3.5 px-3">
-                            <span className="px-2.5 py-0.5 rounded-full bg-[#E6F4EA] text-[#137333] text-[10px] font-semibold">
-                              {inv.status || 'Paid'}
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${inv.status?.toLowerCase() === 'paid' ? 'bg-[#E6F4EA] text-[#137333]' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200'}`}>
+                              {inv.status || 'Unknown'}
                             </span>
-                          </td>
-                          <td className="py-3.5 px-3 text-right">
-                            <button
-                              type="button"
-                              className="text-xs text-[#0B57D0] dark:text-[#8AB4F8] font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer"
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                              <span>PDF</span>
-                            </button>
                           </td>
                         </tr>
                       ))}
@@ -1120,7 +859,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 <div className="py-12 text-center rounded-xl bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs text-[#5F6368] dark:text-[#9AA0A6]">
                   <Receipt className="w-8 h-8 mx-auto mb-2 opacity-40 text-[#0B57D0]" />
                   <p className="font-semibold text-[#1F1F1F] dark:text-white">No invoices yet</p>
-                  <p className="mt-0.5">Invoices are automatically compiled at the close of each monthly billing cycle.</p>
+                  <p className="mt-0.5">Invoices will appear here when recorded in the billing database.</p>
                 </div>
               )}
             </div>
@@ -1166,18 +905,18 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                     Operating Currency
                   </label>
                   <div className="font-medium text-[#1F1F1F] dark:text-white">
-                    USD ($)
+                    {account.currency}
                   </div>
                 </div>
 
                 <div className="p-4 rounded-xl bg-[#F8FAFD] dark:bg-[#2C2D31] border border-[#EDF0F5] dark:border-[#383A3F]">
                   <label className="block text-[11px] font-semibold text-[#5F6368] dark:text-[#9AA0A6] mb-1">
-                    Gateway Verification Status
+                    Platform Gateway Credentials
                   </label>
                   <div className="font-medium flex items-center gap-1.5 mt-0.5">
-                    <span className={`w-2 h-2 rounded-full ${hasVerifiedGateway ? 'bg-[#188038]' : 'bg-[#F29900]'}`} />
-                    <span className={hasVerifiedGateway ? 'text-[#137333] dark:text-[#81C995]' : 'text-[#B06000] dark:text-[#FDD663]'}>
-                      {hasVerifiedGateway ? 'Verified & Active' : 'Gateway Config Required'}
+                    <span className={`w-2 h-2 rounded-full ${hasConfiguredGateway ? 'bg-[#188038]' : 'bg-[#F29900]'}`} />
+                    <span className={hasConfiguredGateway ? 'text-[#137333] dark:text-[#81C995]' : 'text-[#B06000] dark:text-[#FDD663]'}>
+                      {hasConfiguredGateway ? 'Credentials configured' : 'Not configured'}
                     </span>
                   </div>
                 </div>

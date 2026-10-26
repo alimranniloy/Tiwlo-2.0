@@ -293,10 +293,13 @@ export async function createStoreGraphQL(userId, storeInput) {
 // ==========================================
 
 export async function getCloudBillingData(userId = null) {
+  if (!userId) {
+    throw new Error('Sign in to view your cloud billing account.');
+  }
   try {
     const query = `
-      query GetBillingAccount($userId: String) {
-        cloudBillingAccount(userId: $userId) {
+      query GetBillingAccount {
+        cloudBillingAccount {
           userId
           billingAccountId
           billingAccountName
@@ -304,7 +307,7 @@ export async function getCloudBillingData(userId = null) {
           credits
           promotionalCredits
           status
-          hasVerifiedGateway
+          hasConfiguredGateway
           paymentGatewayStatusMessage
           billingEnabled
           monthToDateSpent
@@ -337,9 +340,12 @@ export async function getCloudBillingData(userId = null) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ query, variables: { userId } })
+      body: JSON.stringify({ query })
     });
     const json = await res.json();
+    if (Array.isArray(json?.errors) && json.errors.length > 0) {
+      throw new Error(json.errors[0]?.message || 'GraphQL billing query failed.');
+    }
     if (json?.data?.cloudBillingAccount) {
       return { success: true, account: json.data.cloudBillingAccount };
     }
@@ -347,11 +353,12 @@ export async function getCloudBillingData(userId = null) {
     console.warn('GraphQL billing query fallback to REST:', e);
   }
 
-  const res = await fetch(`/api/cloud/billing?userId=${encodeURIComponent(userId)}`, {
+  const res = await fetch('/api/cloud/billing', {
     credentials: 'include'
   });
   if (!res.ok) {
-    throw new Error('Failed to load billing account data');
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.error || `Failed to load billing account (${res.status}).`);
   }
   return await res.json();
 }
@@ -366,6 +373,20 @@ export async function deductCloudCredits(userId, amount, service, description) {
   const data = await res.json();
   if (!res.ok || !data.success) {
     throw new Error(data.error || 'Failed to deduct credits');
+  }
+  return data;
+}
+
+export async function redeemCloudVoucher(code) {
+  const res = await fetch('/api/cloud/billing/vouchers/redeem', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ code })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Could not redeem voucher.');
   }
   return data;
 }

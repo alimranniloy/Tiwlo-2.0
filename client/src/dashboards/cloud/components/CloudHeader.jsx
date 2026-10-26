@@ -13,6 +13,7 @@ import {
   Copy,
   Check,
   Menu,
+  LogOut,
 } from 'lucide-react';
 import { resolveAvatarUrl } from '../../../utils/mediaUtils';
 import { useTheme } from '../../../config/themeConfig';
@@ -27,6 +28,7 @@ export default function CloudHeader({
   onOpenSettings,
   onOpenBilling,
   onSwitchStore,
+  onLogout,
   showToast,
   onToggleMobileMenu
 }) {
@@ -36,24 +38,23 @@ export default function CloudHeader({
   const [showNotifications, setShowNotifications] = useState(false);
   const [copiedTiwiId, setCopiedTiwiId] = useState(false);
 
-  const [headerCredits, setHeaderCredits] = useState(
-    Number.isFinite(currentUser?.credits) && currentUser.credits >= 0 ? currentUser.credits : null
-  );
+  const [headerCredits, setHeaderCredits] = useState(null);
 
   useEffect(() => {
     const userId = currentUser?.id || currentUser?.tiwiId;
+    setHeaderCredits(null);
     if (!userId) return;
     let active = true;
     getCloudBillingData(userId)
       .then(res => {
         if (active && res?.account) {
-          const creds = Number.isFinite(res.account.credits) ? res.account.credits : 0;
-          setHeaderCredits(creds);
+          const creds = Number(res.account.credits);
+          setHeaderCredits(Number.isFinite(creds) && creds >= 0 ? creds : null);
         }
       })
       .catch(() => {});
     return () => { active = false; };
-  }, [currentUser?.id, currentUser?.tiwiId, currentUser?.credits]);
+  }, [currentUser?.id, currentUser?.tiwiId]);
 
   const tiwiId = currentUser?.tiwiId || currentUser?.storeId || '';
   const displayName = currentUser?.name || currentUser?.storeName || 'Tiwlo Store';
@@ -69,7 +70,7 @@ export default function CloudHeader({
   };
 
   return (
-    <header className="h-16 px-3 sm:px-6 lg:px-8 bg-white border-b border-[#E0E2EC] flex items-center justify-between sticky top-0 z-30 font-sans">
+    <header className="h-16 px-3 sm:px-6 lg:px-8 bg-white border-b border-[#E0E2EC] flex items-center justify-between sticky top-0 z-50 font-sans">
       {/* Left: Hamburger menu on mobile & Search Bar */}
       <div className="flex items-center flex-1 max-w-xs sm:max-w-md min-w-0 mr-2 sm:mr-4">
         {/* Mobile Hamburger Button */}
@@ -121,7 +122,7 @@ export default function CloudHeader({
           {/* Clean Google Material Style live credit balance */}
           <div className="flex items-center gap-1.5 text-xs">
             <span className="font-semibold text-[#0B57D0] dark:text-[#8AB4F8]">
-              ${(headerCredits !== null ? headerCredits : (currentUser?.credits || 0)).toFixed(2)}
+              {headerCredits === null ? '—' : `$${headerCredits.toFixed(2)}`}
             </span>
             <span className="text-[11px] text-[#444746] dark:text-[#9AA0A6] hidden sm:inline font-normal">
               Credits
@@ -303,6 +304,16 @@ export default function CloudHeader({
                 >
                   <Store className="w-4 h-4 mr-2.5" />
                   <span>Switch Store</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setShowProfileMenu(false);
+                    onLogout?.();
+                  }}
+                  className="w-full flex items-center px-4 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4 mr-2.5" />
+                  <span>Log Out</span>
                 </button>
               </div>
             </div>
