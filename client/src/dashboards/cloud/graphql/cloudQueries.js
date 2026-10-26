@@ -303,6 +303,8 @@ export async function getCloudBillingData(userId = null) {
           userId
           billingAccountId
           billingAccountName
+          accountType
+          companyName
           currency
           billingAddress {
             address

@@ -713,6 +713,9 @@ export async function initPgSchema() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
 
+      ALTER TABLE cloud_billing_accounts ADD COLUMN IF NOT EXISTS account_type VARCHAR(32);
+      ALTER TABLE cloud_billing_accounts ADD COLUMN IF NOT EXISTS business_name VARCHAR(255);
+
       CREATE TABLE IF NOT EXISTS whatsapp_auth_state (
         state_key TEXT PRIMARY KEY,
         data JSONB NOT NULL,

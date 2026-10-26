@@ -47,7 +47,7 @@ export const BillingDB = {
 
     // Only a real authenticated system user may have a billing account.
     const { rows: users } = await queryPg(
-      'SELECT id, tiwi_id, name, store_name, address, city, country, phone, postal_code FROM system_users WHERE id = $1 LIMIT 1',
+      'SELECT id, tiwi_id, name, store_name, account_type, business_name, address, city, country, phone, postal_code FROM system_users WHERE id = $1 LIMIT 1',
       [userId]
     );
     const user = users[0];
@@ -66,11 +66,13 @@ export const BillingDB = {
     const initialCredits = Number.isFinite(legacyCredits) && legacyCredits >= 0 ? legacyCredits : 0;
 
     const billingRows = await queryPg(`
-        INSERT INTO cloud_billing_accounts (id, user_id, credits, monthly_spend, currency)
-        VALUES ($1, $2, $3, 0, 'USD')
-        ON CONFLICT (user_id) DO UPDATE SET user_id = EXCLUDED.user_id
-        RETURNING id, user_id, credits, monthly_spend, currency, updated_at
-      `, [randomUUID(), user.id, initialCredits]);
+        INSERT INTO cloud_billing_accounts (id, user_id, credits, monthly_spend, currency, account_type, business_name)
+        VALUES ($1, $2, $3, 0, 'USD', $4, $5)
+        ON CONFLICT (user_id) DO UPDATE SET
+          account_type = COALESCE(cloud_billing_accounts.account_type, EXCLUDED.account_type),
+          business_name = COALESCE(cloud_billing_accounts.business_name, EXCLUDED.business_name)
+        RETURNING id, user_id, credits, monthly_spend, currency, account_type, business_name, updated_at
+      `, [randomUUID(), user.id, initialCredits, user.account_type || 'personal', user.business_name || '']);
     const billingRow = billingRows.rows[0];
     if (!billingRow) throw new Error('Billing account could not be loaded from PostgreSQL.');
 
@@ -97,6 +99,8 @@ export const BillingDB = {
       userId: user.id,
       billingAccountId: billingRow.id,
       billingAccountName: user.store_name || user.name || 'Cloud Billing Account',
+      accountType: billingRow.account_type || user.account_type || 'personal',
+      companyName: billingRow.business_name || user.business_name || '',
       currency: billingRow.currency || 'USD',
       billingAddress: {
         address: user.address || '',
@@ -147,6 +151,20 @@ export const BillingDB = {
       phone: rows[0].phone || '',
       postalCode: rows[0].postal_code || ''
     };
+  },
+
+  async updateBillingProfile(userId, accountType, companyName) {
+    if (!userId) throw new Error('Authentication required.');
+    const { rows } = await queryPg(`
+      UPDATE cloud_billing_accounts
+      SET account_type = $2,
+          business_name = CASE WHEN $2 = 'business' THEN $3 ELSE business_name END,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE user_id = $1
+      RETURNING account_type, business_name
+    `, [userId, accountType, companyName]);
+    if (!rows[0]) return null;
+    return { accountType: rows[0].account_type, companyName: rows[0].business_name || '' };
   },
 
   async addCredits() {

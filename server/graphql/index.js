@@ -502,6 +502,8 @@ export const schema = buildSchema(`
     userId: ID
     billingAccountId: String!
     billingAccountName: String!
+    accountType: String!
+    companyName: String!
     currency: String!
     billingAddress: CloudBillingAddress!
     credits: Float!

@@ -142,6 +142,28 @@ router.put('/billing/address', async (req, res) => {
   }
 });
 
+router.put('/billing/profile', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+    const accountType = typeof req.body?.accountType === 'string' ? req.body.accountType.trim().toLowerCase() : '';
+    const companyName = typeof req.body?.companyName === 'string' ? req.body.companyName.trim() : '';
+    if (!['personal', 'business'].includes(accountType)) {
+      return res.status(422).json({ error: 'Choose a personal or business billing profile.' });
+    }
+    if (accountType === 'business' && !companyName) {
+      return res.status(422).json({ error: 'Company name is required for a business billing profile.' });
+    }
+    if (companyName.length > 255) return res.status(422).json({ error: 'Company name must be 255 characters or fewer.' });
+    const profile = await BillingDB.updateBillingProfile(userId, accountType, companyName);
+    if (!profile) return res.status(404).json({ error: 'Billing profile was not found.' });
+    return res.json({ success: true, profile });
+  } catch (err) {
+    console.error('Error updating cloud billing profile:', err);
+    return res.status(500).json({ error: 'Could not update billing profile.' });
+  }
+});
+
 router.post('/billing/credits/add', async (req, res) => {
   if (!getReqUserId(req)) return res.status(401).json({ error: 'Unauthorized' });
   return res.status(503).json({

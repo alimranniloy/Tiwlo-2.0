@@ -30,6 +30,9 @@ import {
   Phone
 } from 'lucide-react';
 import { getCloudBillingData, redeemCloudVoucher } from '../graphql/cloudQueries';
+import { COUNTRY_OPTIONS } from '../../../utils/accountFormOptions';
+
+const FORM_FIELD = 'mt-1.5 w-full rounded-xl border border-[#DADCE0] bg-white px-3.5 py-2.5 text-sm font-normal text-[#202124] outline-none transition placeholder:text-[#80868B] focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white dark:focus:ring-[#174EA6]/40';
 
 export default function CloudBillingView({ currentUser, initialTab = 'overview', onBack, showToast }) {
   const userId = currentUser?.id || currentUser?.tiwiId || null;
@@ -41,9 +44,24 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
   const [isSavingBillingAddress, setIsSavingBillingAddress] = useState(false);
   const [billingAddressError, setBillingAddressError] = useState('');
   const [billingAddressSaved, setBillingAddressSaved] = useState(false);
+  const [countryOptions, setCountryOptions] = useState([]);
+  const [phoneDialCode, setPhoneDialCode] = useState('+880');
+  const [phoneNationalNumber, setPhoneNationalNumber] = useState('');
+  const [billingAccountType, setBillingAccountType] = useState('personal');
+  const [billingCompanyName, setBillingCompanyName] = useState('');
+  const [isSavingBillingProfile, setIsSavingBillingProfile] = useState(false);
+  const [billingProfileError, setBillingProfileError] = useState('');
+  const [billingProfileSaved, setBillingProfileSaved] = useState(false);
   const [billingAddressForm, setBillingAddressForm] = useState({
     address: '', city: '', country: '', phone: '', postalCode: ''
   });
+
+  useEffect(() => {
+    fetch('/api/public/shipping/countries')
+      .then(response => response.ok ? response.json() : Promise.reject())
+      .then(data => setCountryOptions(Array.isArray(data.countries) ? data.countries : []))
+      .catch(() => setCountryOptions(COUNTRY_OPTIONS.map(({ code, name }) => ({ code, name }))));
+  }, []);
 
   const [billingState, setBillingState] = useState({
     userId: null,
@@ -62,14 +80,21 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
       const result = await getCloudBillingData(userId);
       const account = result?.account || null;
       if (account?.billingAddress) {
+        const storedPhone = account.billingAddress.phone || '';
+        const dialCodes = [...new Set(COUNTRY_OPTIONS.map(option => option.dial))].sort((a, b) => b.length - a.length);
+        const matchedDialCode = dialCodes.find(dial => storedPhone.trim().startsWith(dial)) || '+880';
         setBillingAddressForm({
           address: account.billingAddress.address || '',
           city: account.billingAddress.city || '',
           country: account.billingAddress.country || '',
-          phone: account.billingAddress.phone || '',
+          phone: storedPhone,
           postalCode: account.billingAddress.postalCode || ''
         });
+        setPhoneDialCode(matchedDialCode);
+        setPhoneNationalNumber(storedPhone.trim().startsWith(matchedDialCode) ? storedPhone.trim().slice(matchedDialCode.length).trim() : storedPhone);
       }
+      setBillingAccountType(account?.accountType === 'business' ? 'business' : 'personal');
+      setBillingCompanyName(account?.companyName || '');
       setBillingState({
         userId,
         loading: false,
@@ -176,7 +201,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ billingAddress: billingAddressForm })
+        body: JSON.stringify({ billingAddress: { ...billingAddressForm, phone: [phoneDialCode, phoneNationalNumber.trim()].filter(Boolean).join(' ') } })
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.success) {
@@ -195,6 +220,30 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
       setBillingAddressError(error.message || 'Could not save billing address.');
     } finally {
       setIsSavingBillingAddress(false);
+    }
+  };
+
+  const handleSaveBillingProfile = async (event) => {
+    event.preventDefault();
+    setBillingProfileError('');
+    setBillingProfileSaved(false);
+    setIsSavingBillingProfile(true);
+    try {
+      const response = await fetch('/api/cloud/billing/profile', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountType: billingAccountType, companyName: billingCompanyName })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.error || 'Could not save billing profile.');
+      setBillingState(previous => ({ ...previous, account: previous.account ? { ...previous.account, ...data.profile } : previous.account }));
+      setBillingProfileSaved(true);
+      showToast?.('Billing profile updated.', 'success');
+    } catch (error) {
+      setBillingProfileError(error.message || 'Could not save billing profile.');
+    } finally {
+      setIsSavingBillingProfile(false);
     }
   };
 
@@ -294,7 +343,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-150 select-none cursor-pointer whitespace-nowrap ${
                       isSelected
-                        ? 'bg-white dark:bg-[#1E1F22] text-[#0B57D0] dark:text-[#8AB4F8] shadow-2xs font-semibold'
+                        ? 'bg-white dark:bg-[#1E1F22] text-[#0B57D0] dark:text-[#8AB4F8] font-semibold'
                         : 'text-[#444746] dark:text-[#C4C7C5] hover:text-[#1F1F1F] dark:hover:text-white'
                     }`}
                   >
@@ -935,8 +984,31 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
               </span>
             </div>
 
+            <section className="rounded-2xl border border-[#E5EAF2] bg-white dark:border-[#2C2D31] dark:bg-[#1E1F22]">
+              <div className="border-b border-[#EDF0F5] px-5 py-4 sm:px-6 dark:border-[#2C2D31]">
+                <h3 className="text-base font-semibold text-[#202124] dark:text-white">Billing profile</h3>
+                <p className="mt-1 text-sm text-[#5F6368] dark:text-[#9AA0A6]">Choose how your billing details appear on invoices.</p>
+              </div>
+              <form onSubmit={handleSaveBillingProfile} className="space-y-4 p-5 sm:p-6">
+                {billingProfileError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-medium text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300">{billingProfileError}</div>}
+                {billingProfileSaved && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-medium text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300">Billing profile saved.</div>}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[{ value: 'personal', title: 'Personal', detail: 'For individual use' }, { value: 'business', title: 'Business', detail: 'For a company or organization' }].map(option => (
+                    <label key={option.value} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${billingAccountType === option.value ? 'border-[#1A73E8] bg-[#F5F8FE] dark:bg-[#172033]' : 'border-[#DADCE0] dark:border-[#3C4043]'}`}>
+                      <input type="radio" name="billingAccountType" value={option.value} checked={billingAccountType === option.value} onChange={() => { setBillingAccountType(option.value); setBillingProfileError(''); }} className="mt-0.5 accent-[#1A73E8]" />
+                      <span><span className="block text-sm font-semibold text-[#202124] dark:text-white">{option.title}</span><span className="mt-1 block text-xs text-[#5F6368] dark:text-[#9AA0A6]">{option.detail}</span></span>
+                    </label>
+                  ))}
+                </div>
+                {billingAccountType === 'business' && <label className="block max-w-xl text-xs font-semibold text-[#3C4043] dark:text-[#C4C7C5]">Company name <span className="text-rose-500">*</span><input required maxLength={255} value={billingCompanyName} onChange={event => setBillingCompanyName(event.target.value)} placeholder="Registered company name" className={FORM_FIELD} /></label>}
+                <div className="flex justify-end border-t border-[#EDF0F5] pt-4 dark:border-[#2C2D31]">
+                  <button type="submit" disabled={isSavingBillingProfile} className="rounded-full bg-[#1A73E8] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#1765CC] disabled:cursor-wait disabled:opacity-60">{isSavingBillingProfile ? 'Saving…' : 'Save billing profile'}</button>
+                </div>
+              </form>
+            </section>
+
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.8fr)]">
-              <section className="overflow-hidden rounded-3xl border border-[#E5EAF2] bg-white shadow-[0_12px_36px_rgba(30,64,120,0.06)] dark:border-[#2C2D31] dark:bg-[#1E1F22]">
+              <section className="overflow-hidden rounded-2xl border border-[#E5EAF2] bg-white dark:border-[#2C2D31] dark:bg-[#1E1F22]">
                 <div className="flex flex-col gap-4 border-b border-[#EDF0F5] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7 dark:border-[#2C2D31]">
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#E8F0FE] text-[#0B57D0] dark:bg-[#0B57D0]/20 dark:text-[#8AB4F8]"><MapPin className="h-5 w-5" /></div>
@@ -971,13 +1043,22 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                           <input required maxLength={100} value={billingAddressForm.city} onChange={event => setBillingAddressForm(current => ({ ...current, city: event.target.value }))} placeholder="City" className="mt-1.5 w-full rounded-xl border border-[#DADCE0] bg-white px-3.5 py-2.5 text-sm font-normal text-[#202124] outline-none transition placeholder:text-[#80868B] focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white dark:focus:ring-[#174EA6]/40" />
                         </label>
                         <label className="block text-xs font-semibold text-[#3C4043] dark:text-[#C4C7C5]">Country <span className="text-rose-500">*</span>
-                          <input required maxLength={100} value={billingAddressForm.country} onChange={event => setBillingAddressForm(current => ({ ...current, country: event.target.value }))} placeholder="Country" className="mt-1.5 w-full rounded-xl border border-[#DADCE0] bg-white px-3.5 py-2.5 text-sm font-normal text-[#202124] outline-none transition placeholder:text-[#80868B] focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white dark:focus:ring-[#174EA6]/40" />
+                          <select required value={billingAddressForm.country} onChange={event => setBillingAddressForm(current => ({ ...current, country: event.target.value }))} className={FORM_FIELD}>
+                            <option value="">Choose a country</option>
+                            {billingAddressForm.country && !countryOptions.some(option => option.name === billingAddressForm.country) && <option value={billingAddressForm.country}>{billingAddressForm.country}</option>}
+                            {countryOptions.map(option => <option key={option.code} value={option.name}>{option.name}</option>)}
+                          </select>
                         </label>
                         <label className="block text-xs font-semibold text-[#3C4043] dark:text-[#C4C7C5]">Postal code
                           <input maxLength={32} value={billingAddressForm.postalCode} onChange={event => setBillingAddressForm(current => ({ ...current, postalCode: event.target.value }))} placeholder="Postal code" className="mt-1.5 w-full rounded-xl border border-[#DADCE0] bg-white px-3.5 py-2.5 text-sm font-normal text-[#202124] outline-none transition placeholder:text-[#80868B] focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white dark:focus:ring-[#174EA6]/40" />
                         </label>
                         <label className="block text-xs font-semibold text-[#3C4043] dark:text-[#C4C7C5]">Contact phone
-                          <input type="tel" maxLength={32} value={billingAddressForm.phone} onChange={event => setBillingAddressForm(current => ({ ...current, phone: event.target.value }))} placeholder="Phone number" className="mt-1.5 w-full rounded-xl border border-[#DADCE0] bg-white px-3.5 py-2.5 text-sm font-normal text-[#202124] outline-none transition placeholder:text-[#80868B] focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white dark:focus:ring-[#174EA6]/40" />
+                          <span className="mt-1.5 flex gap-2">
+                            <select aria-label="Phone country calling code" value={phoneDialCode} onChange={event => setPhoneDialCode(event.target.value)} className="w-[42%] min-w-0 rounded-xl border border-[#DADCE0] bg-white px-3 py-2.5 text-sm font-normal text-[#202124] outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white">
+                              {[...new Map(COUNTRY_OPTIONS.map(option => [option.dial, option])).values()].map(option => <option key={option.dial} value={option.dial}>{option.dial} · {option.name}</option>)}
+                            </select>
+                            <input type="tel" maxLength={24} value={phoneNationalNumber} onChange={event => setPhoneNationalNumber(event.target.value)} placeholder="Phone number" className="min-w-0 flex-1 rounded-xl border border-[#DADCE0] bg-white px-3.5 py-2.5 text-sm font-normal text-[#202124] outline-none transition placeholder:text-[#80868B] focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white dark:focus:ring-[#174EA6]/40" />
+                          </span>
                         </label>
                       </div>
                       <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#EDF0F5] pt-4 dark:border-[#2C2D31]">
@@ -986,7 +1067,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                           setBillingAddressError('');
                           setIsEditingBillingAddress(false);
                         }} className="inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-xs font-semibold text-[#5F6368] transition hover:bg-[#F1F3F4] disabled:opacity-50 dark:text-[#C4C7C5] dark:hover:bg-[#2C2D31]"><X className="h-4 w-4" /> Cancel</button>
-                        <button type="submit" disabled={isSavingBillingAddress} className="inline-flex items-center gap-2 rounded-full bg-[#1A73E8] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1765CC] disabled:cursor-wait disabled:opacity-60">
+                        <button type="submit" disabled={isSavingBillingAddress} className="inline-flex items-center gap-2 rounded-full bg-[#1A73E8] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#1765CC] disabled:cursor-wait disabled:opacity-60">
                           <Save className="h-4 w-4" /> {isSavingBillingAddress ? 'Saving?' : 'Save address'}
                         </button>
                       </div>
@@ -1016,7 +1097,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
               </section>
 
               <aside className="space-y-4">
-                <div className="rounded-3xl border border-[#E5EAF2] bg-white p-5 shadow-[0_12px_36px_rgba(30,64,120,0.06)] sm:p-6 dark:border-[#2C2D31] dark:bg-[#1E1F22]">
+                <div className="rounded-2xl border border-[#E5EAF2] bg-white p-5 sm:p-6 dark:border-[#2C2D31] dark:bg-[#1E1F22]">
                   <div className="mb-4 flex items-center gap-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#E8F0FE] text-[#0B57D0] dark:bg-[#0B57D0]/20 dark:text-[#8AB4F8]"><CreditCard className="h-4 w-4" /></div>
                     <div><h3 className="text-sm font-semibold text-[#202124] dark:text-white">Account details</h3><p className="text-[11px] text-[#5F6368] dark:text-[#9AA0A6]">Live account information</p></div>
