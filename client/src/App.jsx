@@ -2,10 +2,11 @@ import { applicationFetch as fetch } from './api/graphqlTransport.js';
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
+import ToastNotification from './components/ToastNotification';
 import LandingPage from './landing/LandingPage';
 import LoginView from './views/LoginView';
 import CreateAccountView from './views/CreateAccountView';
-import { CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import TiwloPageLoader, { TiwloTopSyncBar } from './components/TiwloUniqueLoader';
 import { isAuthSubdomain, isDashboardSubdomain, isMailSubdomain, isTPanelSubdomain, getAuthUrl, getMainAppUrl, getMailUrl, getDashboardUrl, getTPanelUrl } from './utils/navigation';
 import {
@@ -1797,16 +1798,7 @@ export default function App() {
       )}
 
       {/* Toast Notification Banner */}
-      {toast && (
-        <div className="fixed top-5 right-5 z-50 flex items-center space-x-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 dark:border-slate-200 animate-in slide-in-from-top-3 fade-in duration-200 text-xs font-semibold">
-          {toast.type === 'error' ? (
-            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-          ) : (
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          )}
-          <span>{toast.message}</span>
-        </div>
-      )}
+      <ToastNotification message={toast?.message} type={toast?.type} />
 
       {/* DEDICATED AUTHENTICATION, LANDING & ONBOARDING VIEWS */}
       <Suspense fallback={<TiwloTopSyncBar active={true} />}>

@@ -2,6 +2,7 @@ import { applicationFetch as fetch } from '../../api/graphqlTransport.js';
 import React, { useState, useEffect, useRef } from 'react';
 import { getAuthUrl } from '../../utils/navigation';
 import { ADMIN_EMAIL, DNS_TTL, SERVER_IPV4, STORE_DOMAIN } from '../../config/platformConfig';
+import ToastNotification from '../../components/ToastNotification';
 import {
   LayoutDashboard,
   Globe,
@@ -28,13 +29,11 @@ import {
   Layers,
   HelpCircle,
   Headphones,
-  CheckCircle2,
   X,
   RefreshCw,
   Server,
   Cpu,
   Activity,
-  AlertCircle,
   Terminal,
   Trash2,
   Lock,
@@ -619,17 +618,7 @@ export default function TPanelDashboard({ currentUser, onLogout }) {
   return (
     <div className={`min-h-screen ${isDarkMode ? 'dark bg-[#121824] text-slate-100' : 'bg-[#F8F9FA] text-[#202124]'} font-sans antialiased flex flex-col`}>
       {/* Toast Alert */}
-      {toastMessage && (
-        <div className={`fixed top-4 right-4 z-50 flex items-center gap-2.5 px-4 py-3 rounded-lg shadow-lg border text-xs font-semibold animate-in slide-in-from-top-3 ${
-          toastMessage.type === 'error'
-            ? 'bg-rose-600 text-white border-rose-700'
-            : 'bg-[#1A73E8] text-white border-blue-600'
-        }`}>
-          {toastMessage.type === 'error' ? <AlertCircle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
-          <span>{toastMessage.msg}</span>
-          <button onClick={() => setToastMessage(null)} className="ml-2 hover:opacity-80"><X className="w-3.5 h-3.5" /></button>
-        </div>
-      )}
+      <ToastNotification message={toastMessage?.msg} type={toastMessage?.type} />
 
       {/* ===================== GOOGLE CLOUD STYLE TOP HEADER ===================== */}
       <header className={`h-12 px-4 border-b flex items-center justify-between sticky top-0 z-40 transition-colors ${

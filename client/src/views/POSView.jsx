@@ -1,5 +1,6 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import ToastNotification from '../components/ToastNotification';
 import { amountToCents, calculatePercentageCents } from '../../../shared/accountingHelpers.mjs';
 import {
   ArrowLeft,
@@ -14,7 +15,6 @@ import {
   Plus,
   Minus,
   Trash2,
-  CheckCircle2,
   CreditCard,
   DollarSign,
   Clock,
@@ -1138,12 +1138,7 @@ export default function POSView({
   return (
     <div className="min-h-screen bg-[#F6F8FB] dark:bg-[#0B0F17] font-sans antialiased text-slate-800 dark:text-slate-100 flex flex-col relative">
       {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed top-18 right-6 z-50 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-2.5 rounded-2xl shadow-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
+      <ToastNotification message={toastMessage} />
       {settingsLoadError && (
         <div role="alert" className="mx-4 mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-900">
           {settingsLoadError}

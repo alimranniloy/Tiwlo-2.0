@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { EmailAPI } from '../api/emailApi';
 import { isMailSubdomain } from '../../utils/navigation';
+import ToastNotification from '../../components/ToastNotification';
 
 const EmailContext = createContext(null);
 const VALID_FOLDERS = new Set(['inbox', 'sent', 'drafts', 'junk', 'trash', 'archive', 'flagged']);
@@ -552,10 +553,7 @@ export function EmailProvider({ children, initialUser = null, onNavigateHome = n
     >
       {children}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-[#201F1E] dark:bg-[#292827] text-white px-4 py-3 rounded-lg shadow-xl text-[13px] font-medium border border-black/10 dark:border-white/10 animate-fadeIn">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#0078D4]" />
-          <span>{toastMessage.message}</span>
-        </div>
+        <ToastNotification message={toastMessage.message} type={toastMessage.type} />
       )}
     </EmailContext.Provider>
   );

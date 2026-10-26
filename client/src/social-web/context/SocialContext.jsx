@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { TiwiSocialAPI } from '../api/tiwiSocialApi';
+import ToastNotification from '../../components/ToastNotification';
 
 const SocialContext = createContext(null);
 
@@ -152,10 +153,7 @@ export function SocialProvider({ children, initialUser = null }) {
     >
       {children}
       {toastMessage && (
-        <div className="fixed bottom-6 left-6 z-50 flex items-center gap-3 bg-[#202124] text-white px-4 py-3 rounded-md shadow-lg text-sm font-medium border border-[#3c4043]">
-          <span className="w-2 h-2 rounded-full bg-[#1a73e8]" />
-          {toastMessage.message}
-        </div>
+        <ToastNotification message={toastMessage.message} type={toastMessage.type} />
       )}
     </SocialContext.Provider>
   );
