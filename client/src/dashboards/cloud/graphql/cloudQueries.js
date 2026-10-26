@@ -302,60 +302,6 @@ export async function getCloudBillingData(userId = null) {
   return await res.json();
 }
 
-export async function addCloudCredits(userId, bundleAmount, paymentMethod = 'Online Payment') {
-  const res = await fetch('/api/cloud/billing/credits/add', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ userId, bundleAmount, paymentMethod })
-  });
-  const data = await res.json();
-  if (!res.ok || !data.success) {
-    throw new Error(data.error || 'Failed to add cloud credits');
-  }
-  return data;
-}
-
-export async function redeemCloudVoucher(userId, code) {
-  const res = await fetch('/api/cloud/billing/vouchers/redeem', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ userId, code })
-  });
-  const data = await res.json();
-  if (!res.ok || !data.success) {
-    throw new Error(data.error || 'Failed to redeem voucher');
-  }
-  return data;
-}
-
-export async function createCloudBudget(userId, budgetInput) {
-  const res = await fetch('/api/cloud/billing/budgets', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ userId, ...budgetInput })
-  });
-  const data = await res.json();
-  if (!res.ok || !data.success) {
-    throw new Error(data.error || 'Failed to create budget');
-  }
-  return data;
-}
-
-export async function deleteCloudBudget(userId, budgetId) {
-  const res = await fetch(`/api/cloud/billing/budgets/${budgetId}?userId=${encodeURIComponent(userId)}`, {
-    method: 'DELETE',
-    credentials: 'include'
-  });
-  const data = await res.json();
-  if (!res.ok || !data.success) {
-    throw new Error(data.error || 'Failed to delete budget');
-  }
-  return data;
-}
-
 export async function deductCloudCredits(userId, amount, service, description) {
   const res = await fetch('/api/cloud/billing/deduct', {
     method: 'POST',

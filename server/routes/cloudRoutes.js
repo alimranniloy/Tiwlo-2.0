@@ -111,32 +111,19 @@ router.get('/billing', async (req, res) => {
 });
 
 router.post('/billing/credits/add', async (req, res) => {
-  try {
-    const userId = getReqUserId(req);
-    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-    const { bundleAmount, paymentMethod } = req.body;
-    const result = await BillingDB.addCredits(userId, bundleAmount, paymentMethod);
-    res.json(result);
-  } catch (err) {
-    console.error('Error adding cloud credits:', err);
-    res.status(500).json({ error: 'Failed to add cloud credits' });
-  }
+  if (!getReqUserId(req)) return res.status(401).json({ error: 'Unauthorized' });
+  return res.status(503).json({
+    success: false,
+    error: 'Cloud credit purchases are unavailable until a verified payment gateway is configured.'
+  });
 });
 
 router.post('/billing/vouchers/redeem', async (req, res) => {
-  try {
-    const userId = getReqUserId(req);
-    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-    const { code } = req.body;
-    const result = await BillingDB.redeemVoucher(userId, code);
-    if (!result.success) {
-      return res.status(400).json(result);
-    }
-    res.json(result);
-  } catch (err) {
-    console.error('Error redeeming voucher:', err);
-    res.status(500).json({ error: 'Failed to redeem voucher' });
-  }
+  if (!getReqUserId(req)) return res.status(401).json({ error: 'Unauthorized' });
+  return res.status(503).json({
+    success: false,
+    error: 'Cloud vouchers are unavailable until a verified voucher program is configured.'
+  });
 });
 
 router.post('/billing/deduct', async (req, res) => {
@@ -156,15 +143,11 @@ router.post('/billing/deduct', async (req, res) => {
 });
 
 router.post('/billing/budgets', async (req, res) => {
-  try {
-    const userId = getReqUserId(req);
-    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-    const budget = await BillingDB.createBudget(userId, req.body);
-    res.json({ success: true, budget });
-  } catch (err) {
-    console.error('Error creating budget:', err);
-    res.status(500).json({ error: 'Failed to create budget' });
-  }
+  if (!getReqUserId(req)) return res.status(401).json({ error: 'Unauthorized' });
+  return res.status(503).json({
+    success: false,
+    error: 'Cloud usage metering is unavailable; billing alerts cannot be configured.'
+  });
 });
 
 router.delete('/billing/budgets/:id', async (req, res) => {

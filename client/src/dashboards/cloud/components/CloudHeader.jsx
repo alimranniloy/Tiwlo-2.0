@@ -10,16 +10,9 @@ import {
   User,
   Settings,
   Server,
-  Key,
   Copy,
   Check,
-  Plus,
-  Sparkles,
-  Zap,
   Menu,
-  ExternalLink,
-  Database,
-  Globe
 } from 'lucide-react';
 import { resolveAvatarUrl } from '../../../utils/mediaUtils';
 import { useTheme } from '../../../config/themeConfig';
@@ -40,7 +33,6 @@ export default function CloudHeader({
   const toggleDarkMode = toggleTheme;
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showCredits, setShowCredits] = useState(false);
   const [copiedTiwiId, setCopiedTiwiId] = useState(false);
 
   const tiwiId = currentUser?.tiwiId || currentUser?.storeId || '';
@@ -106,20 +98,13 @@ export default function CloudHeader({
             <img src="/tiwlo-icon-dark.png" alt="Tiwlo" className="w-3.5 h-3.5 object-contain hidden dark:block" />
           </div>
 
-          {/* Balance & Label */}
+          {/* Do not use login-session credits here; billing balance is server-verified. */}
           <div className="flex items-center gap-1.5 text-xs font-medium">
-            <span className="font-semibold text-[#202124] dark:text-[#F1F3F4] tracking-tight">
-              {currentUser?.credits !== undefined ? currentUser.credits : 0}
-            </span>
             <span className="text-[11px] text-[#5F6368] dark:text-[#9AA0A6] hidden sm:inline font-normal">
-              Credits
+              Cloud Billing
             </span>
           </div>
 
-          {/* Tiwlo Blue "+" Add Action Circle */}
-          <div className="w-4 h-4 rounded-full bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-150 flex items-center justify-center shrink-0">
-            <Plus className="w-2.5 h-2.5" />
-          </div>
         </button>
 
         {/* Notification Bell with Red Badge */}
@@ -127,7 +112,6 @@ export default function CloudHeader({
           <button
             onClick={() => {
               setShowNotifications(!showNotifications);
-              setShowCredits(false);
               setShowProfileMenu(false);
             }}
             className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-gray-800 transition cursor-pointer relative"

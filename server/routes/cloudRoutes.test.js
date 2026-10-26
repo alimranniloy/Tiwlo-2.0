@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import express from 'express';
 import { CloudDB } from '../db/cloud.js';
+import { BillingDB } from '../db/billing.js';
 import cloudRoutes from './cloudRoutes.js';
 
 async function createClient(t) {
@@ -65,4 +66,34 @@ test('droplet rename is owner-scoped and validates the display name', async t =>
     method: 'PATCH', headers, body: JSON.stringify({ name: '   ' })
   })).status, 400);
   assert.equal(rename.mock.callCount(), 1);
+});
+
+test('cloud credit top-ups and vouchers never succeed without verified billing integration', async t => {
+  const call = await createClient(t);
+  const addCredits = t.mock.method(BillingDB, 'addCredits');
+  const redeemVoucher = t.mock.method(BillingDB, 'redeemVoucher');
+  const headers = { 'x-user-id': 'owner', 'content-type': 'application/json' };
+
+  assert.equal((await call('/api/cloud/billing/credits/add', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ bundleAmount: 50, paymentMethod: 'Visa ending in 4242' })
+  })).status, 503);
+  assert.equal((await call('/api/cloud/billing/vouchers/redeem', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ code: 'WELCOME2026' })
+  })).status, 503);
+  assert.equal((await call('/api/cloud/billing/budgets', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ name: 'Monthly cap', targetAmount: 50 })
+  })).status, 503);
+  assert.equal((await call('/api/cloud/billing/credits/add', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ bundleAmount: 50 })
+  })).status, 401);
+  assert.equal(addCredits.mock.callCount(), 0);
+  assert.equal(redeemVoucher.mock.callCount(), 0);
 });
