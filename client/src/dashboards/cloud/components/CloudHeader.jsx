@@ -109,7 +109,7 @@ export default function CloudHeader({
             else if (onOpenSettings) onOpenSettings('billing');
             else showToast?.('Opening Tiwlo Cloud Billing Console...');
           }}
-          className="group flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-full border transition-all duration-200 cursor-pointer select-none active:scale-[0.98] bg-white dark:bg-[#202124] hover:bg-[#F8F9FA] dark:hover:bg-[#303134] border-[#DADCE0] dark:border-[#5F6368] text-[#3C4043] dark:text-[#E8EAED] shadow-2xs hover:shadow-xs"
+          className="group flex items-center gap-2 px-3 py-1.5 rounded-2xl border transition-all duration-200 cursor-pointer select-none active:scale-95 bg-black/[0.03] dark:bg-white/[0.06] hover:bg-black/[0.06] dark:hover:bg-white/[0.1] border-black/[0.06] dark:border-white/[0.08] backdrop-blur-xl shadow-xs"
           title="Tiwlo Cloud Credits & Billing Account"
         >
           {/* Official Tiwlo Icon */}
@@ -119,15 +119,14 @@ export default function CloudHeader({
           </div>
 
           {/* Display live verified credit balance instead of static Cloud Billing text */}
-          <div className="flex items-center gap-1.5 text-xs font-medium">
-            <span className="font-bold text-[#1A73E8] dark:text-[#8AB4F8] font-mono">
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className="font-extrabold text-neutral-900 dark:text-white font-mono">
               ${(headerCredits !== null ? headerCredits : (currentUser?.credits || 0)).toFixed(2)}
             </span>
-            <span className="text-[11px] text-[#5F6368] dark:text-[#9AA0A6] hidden sm:inline font-normal">
+            <span className="text-[11px] text-neutral-400 dark:text-neutral-500 hidden sm:inline font-medium">
               Credit
             </span>
           </div>
-
         </button>
 
         {/* Notification Bell with Red Badge */}
