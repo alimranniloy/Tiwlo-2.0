@@ -111,6 +111,37 @@ router.get('/billing', async (req, res) => {
   }
 });
 
+router.put('/billing/address', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+
+    const input = req.body?.billingAddress || {};
+    const billingAddress = {
+      address: typeof input.address === 'string' ? input.address.trim() : '',
+      city: typeof input.city === 'string' ? input.city.trim() : '',
+      country: typeof input.country === 'string' ? input.country.trim() : '',
+      phone: typeof input.phone === 'string' ? input.phone.trim() : '',
+      postalCode: typeof input.postalCode === 'string' ? input.postalCode.trim() : ''
+    };
+    if (!billingAddress.address || !billingAddress.city || !billingAddress.country) {
+      return res.status(422).json({ error: 'Street address, city, and country are required.' });
+    }
+    if (billingAddress.address.length > 2000 || billingAddress.city.length > 100 ||
+        billingAddress.country.length > 100 || billingAddress.phone.length > 32 ||
+        billingAddress.postalCode.length > 32) {
+      return res.status(422).json({ error: 'One or more billing address fields are too long.' });
+    }
+
+    const saved = await BillingDB.updateBillingAddress(userId, billingAddress);
+    if (!saved) return res.status(404).json({ error: 'Billing account user was not found.' });
+    return res.json({ success: true, billingAddress: saved });
+  } catch (err) {
+    console.error('Error updating cloud billing address:', err);
+    return res.status(500).json({ error: 'Could not update billing address.' });
+  }
+});
+
 router.post('/billing/credits/add', async (req, res) => {
   if (!getReqUserId(req)) return res.status(401).json({ error: 'Unauthorized' });
   return res.status(503).json({

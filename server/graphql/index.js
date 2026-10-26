@@ -490,11 +490,20 @@ export const schema = buildSchema(`
     percentage: Float!
   }
 
+  type CloudBillingAddress {
+    address: String!
+    city: String!
+    country: String!
+    phone: String!
+    postalCode: String!
+  }
+
   type CloudBillingAccount {
     userId: ID
     billingAccountId: String!
     billingAccountName: String!
     currency: String!
+    billingAddress: CloudBillingAddress!
     credits: Float!
     promotionalCredits: Float
     status: String!

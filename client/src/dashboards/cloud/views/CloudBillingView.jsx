@@ -22,7 +22,12 @@ import {
   TrendingUp,
   Activity,
   Sliders,
-  Plus
+  Plus,
+  MapPin,
+  Pencil,
+  Save,
+  X,
+  Phone
 } from 'lucide-react';
 import { getCloudBillingData, redeemCloudVoucher } from '../graphql/cloudQueries';
 
@@ -32,6 +37,13 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
   const [copiedId, setCopiedId] = useState(false);
   const [voucherCode, setVoucherCode] = useState('');
   const [isRedeemingVoucher, setIsRedeemingVoucher] = useState(false);
+  const [isEditingBillingAddress, setIsEditingBillingAddress] = useState(false);
+  const [isSavingBillingAddress, setIsSavingBillingAddress] = useState(false);
+  const [billingAddressError, setBillingAddressError] = useState('');
+  const [billingAddressSaved, setBillingAddressSaved] = useState(false);
+  const [billingAddressForm, setBillingAddressForm] = useState({
+    address: '', city: '', country: '', phone: '', postalCode: ''
+  });
 
   const [billingState, setBillingState] = useState({
     userId: null,
@@ -49,6 +61,15 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
     try {
       const result = await getCloudBillingData(userId);
       const account = result?.account || null;
+      if (account?.billingAddress) {
+        setBillingAddressForm({
+          address: account.billingAddress.address || '',
+          city: account.billingAddress.city || '',
+          country: account.billingAddress.country || '',
+          phone: account.billingAddress.phone || '',
+          postalCode: account.billingAddress.postalCode || ''
+        });
+      }
       setBillingState({
         userId,
         loading: false,
@@ -142,6 +163,38 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
       showToast?.(error.message || 'Could not redeem voucher.', 'error');
     } finally {
       setIsRedeemingVoucher(false);
+    }
+  };
+
+  const handleSaveBillingAddress = async (event) => {
+    event.preventDefault();
+    setBillingAddressError('');
+    setBillingAddressSaved(false);
+    setIsSavingBillingAddress(true);
+    try {
+      const response = await fetch('/api/cloud/billing/address', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ billingAddress: billingAddressForm })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Could not save billing address.');
+      }
+      const savedAddress = data.billingAddress;
+      setBillingAddressForm(savedAddress);
+      setBillingState(previous => ({
+        ...previous,
+        account: previous.account ? { ...previous.account, billingAddress: savedAddress } : previous.account
+      }));
+      setIsEditingBillingAddress(false);
+      setBillingAddressSaved(true);
+      showToast?.('Billing address updated.', 'success');
+    } catch (error) {
+      setBillingAddressError(error.message || 'Could not save billing address.');
+    } finally {
+      setIsSavingBillingAddress(false);
     }
   };
 
@@ -566,8 +619,8 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                     <span className="font-medium text-[#1F1F1F] dark:text-white truncate max-w-[150px]">{currentUser?.email || '—'}</span>
                   </div>
                   <div className="flex justify-between py-1.5">
-                    <span className="text-[#5F6368] dark:text-[#9AA0A6]">Ledger Status</span>
-                    <span className="font-medium text-[#1F1F1F] dark:text-white">PostgreSQL connected</span>
+                    <span className="text-[#5F6368] dark:text-[#9AA0A6]">Account owner</span>
+                    <span className="font-medium text-[#1F1F1F] dark:text-white">{currentUser?.email || '—'}</span>
                   </div>
                 </div>
 
@@ -590,7 +643,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 <div>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E8F0FE] text-[#0B57D0] text-xs font-semibold mb-2">
                     <Coins className="w-3.5 h-3.5" />
-                    <span>PostgreSQL Billing Balance</span>
+                    <span>Account Credit Balance</span>
                   </div>
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-3xl sm:text-4xl font-semibold text-[#1F1F1F] dark:text-white tracking-tight">
@@ -871,56 +924,115 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
         {/* ========================================================= */}
         {activeTab === 'settings' && (
           <div className="space-y-6">
-            <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31] space-y-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-base font-semibold text-[#1F1F1F] dark:text-white">
-                  Billing Account Preferences
-                </h2>
-                <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] mt-0.5">
-                  Manage account ownership, currency preferences, and ledger configurations.
-                </p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0B57D0] dark:text-[#8AB4F8]">Account</p>
+                <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[#1F1F1F] dark:text-white">Billing account settings</h2>
+                <p className="mt-1 text-sm text-[#5F6368] dark:text-[#9AA0A6]">Manage the real contact and address details attached to your billing account.</p>
               </div>
+              <span className="inline-flex w-fit items-center gap-2 rounded-full border border-[#DCE7F8] bg-[#F5F8FE] px-3 py-1.5 text-xs font-medium text-[#345B9A] dark:border-[#334155] dark:bg-[#1E293B] dark:text-[#BFDBFE]">
+                <span className="h-2 w-2 rounded-full bg-[#188038]" /> Account loaded
+              </span>
+            </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl text-xs">
-                <div className="p-4 rounded-xl bg-[#F8FAFD] dark:bg-[#2C2D31] border border-[#EDF0F5] dark:border-[#383A3F]">
-                  <label className="block text-[11px] font-semibold text-[#5F6368] dark:text-[#9AA0A6] mb-1">
-                    Billing Account ID
-                  </label>
-                  <div className="font-mono font-medium text-[#1F1F1F] dark:text-white">
-                    {billingAccountId}
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.8fr)]">
+              <section className="overflow-hidden rounded-3xl border border-[#E5EAF2] bg-white shadow-[0_12px_36px_rgba(30,64,120,0.06)] dark:border-[#2C2D31] dark:bg-[#1E1F22]">
+                <div className="flex flex-col gap-4 border-b border-[#EDF0F5] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7 dark:border-[#2C2D31]">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#E8F0FE] text-[#0B57D0] dark:bg-[#0B57D0]/20 dark:text-[#8AB4F8]"><MapPin className="h-5 w-5" /></div>
+                    <div>
+                      <h3 className="text-base font-semibold text-[#1F1F1F] dark:text-white">Billing address</h3>
+                      <p className="mt-0.5 text-xs text-[#5F6368] dark:text-[#9AA0A6]">Used for account billing and invoice contact details.</p>
+                    </div>
                   </div>
+                  {!isEditingBillingAddress && (
+                    <button type="button" onClick={() => {
+                      setBillingAddressForm({ ...account.billingAddress });
+                      setBillingAddressError('');
+                      setBillingAddressSaved(false);
+                      setIsEditingBillingAddress(true);
+                    }} className="inline-flex items-center justify-center gap-2 rounded-full border border-[#D8E2F1] px-4 py-2 text-xs font-semibold text-[#0B57D0] transition hover:bg-[#F5F8FE] dark:border-[#3C4043] dark:text-[#8AB4F8] dark:hover:bg-[#2C2D31]">
+                      <Pencil className="h-3.5 w-3.5" /> Edit address
+                    </button>
+                  )}
                 </div>
 
-                <div className="p-4 rounded-xl bg-[#F8FAFD] dark:bg-[#2C2D31] border border-[#EDF0F5] dark:border-[#383A3F]">
-                  <label className="block text-[11px] font-semibold text-[#5F6368] dark:text-[#9AA0A6] mb-1">
-                    Billing Account Name
-                  </label>
-                  <div className="font-medium text-[#1F1F1F] dark:text-white">
-                    {billingAccountName}
-                  </div>
-                </div>
+                <div className="p-5 sm:p-7">
+                  {billingAddressError && <div role="alert" className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-medium text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300">{billingAddressError}</div>}
+                  {billingAddressSaved && <div role="status" className="mb-4 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-medium text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300"><Check className="h-4 w-4" /> Address saved to your account.</div>}
 
-                <div className="p-4 rounded-xl bg-[#F8FAFD] dark:bg-[#2C2D31] border border-[#EDF0F5] dark:border-[#383A3F]">
-                  <label className="block text-[11px] font-semibold text-[#5F6368] dark:text-[#9AA0A6] mb-1">
-                    Operating Currency
-                  </label>
-                  <div className="font-medium text-[#1F1F1F] dark:text-white">
-                    {account.currency}
-                  </div>
+                  {isEditingBillingAddress ? (
+                    <form onSubmit={handleSaveBillingAddress} className="space-y-4">
+                      <label className="block text-xs font-semibold text-[#3C4043] dark:text-[#C4C7C5]">Street address <span className="text-rose-500">*</span>
+                        <textarea required maxLength={2000} rows={3} value={billingAddressForm.address} onChange={event => setBillingAddressForm(current => ({ ...current, address: event.target.value }))} placeholder="House, road, area or building" className="mt-1.5 w-full resize-y rounded-2xl border border-[#DADCE0] bg-white px-4 py-3 text-sm font-normal text-[#202124] outline-none transition placeholder:text-[#80868B] focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white dark:focus:ring-[#174EA6]/40" />
+                      </label>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <label className="block text-xs font-semibold text-[#3C4043] dark:text-[#C4C7C5]">City <span className="text-rose-500">*</span>
+                          <input required maxLength={100} value={billingAddressForm.city} onChange={event => setBillingAddressForm(current => ({ ...current, city: event.target.value }))} placeholder="City" className="mt-1.5 w-full rounded-xl border border-[#DADCE0] bg-white px-3.5 py-2.5 text-sm font-normal text-[#202124] outline-none transition placeholder:text-[#80868B] focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white dark:focus:ring-[#174EA6]/40" />
+                        </label>
+                        <label className="block text-xs font-semibold text-[#3C4043] dark:text-[#C4C7C5]">Country <span className="text-rose-500">*</span>
+                          <input required maxLength={100} value={billingAddressForm.country} onChange={event => setBillingAddressForm(current => ({ ...current, country: event.target.value }))} placeholder="Country" className="mt-1.5 w-full rounded-xl border border-[#DADCE0] bg-white px-3.5 py-2.5 text-sm font-normal text-[#202124] outline-none transition placeholder:text-[#80868B] focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white dark:focus:ring-[#174EA6]/40" />
+                        </label>
+                        <label className="block text-xs font-semibold text-[#3C4043] dark:text-[#C4C7C5]">Postal code
+                          <input maxLength={32} value={billingAddressForm.postalCode} onChange={event => setBillingAddressForm(current => ({ ...current, postalCode: event.target.value }))} placeholder="Postal code" className="mt-1.5 w-full rounded-xl border border-[#DADCE0] bg-white px-3.5 py-2.5 text-sm font-normal text-[#202124] outline-none transition placeholder:text-[#80868B] focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white dark:focus:ring-[#174EA6]/40" />
+                        </label>
+                        <label className="block text-xs font-semibold text-[#3C4043] dark:text-[#C4C7C5]">Contact phone
+                          <input type="tel" maxLength={32} value={billingAddressForm.phone} onChange={event => setBillingAddressForm(current => ({ ...current, phone: event.target.value }))} placeholder="Phone number" className="mt-1.5 w-full rounded-xl border border-[#DADCE0] bg-white px-3.5 py-2.5 text-sm font-normal text-[#202124] outline-none transition placeholder:text-[#80868B] focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white dark:focus:ring-[#174EA6]/40" />
+                        </label>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#EDF0F5] pt-4 dark:border-[#2C2D31]">
+                        <button type="button" disabled={isSavingBillingAddress} onClick={() => {
+                          setBillingAddressForm({ ...account.billingAddress });
+                          setBillingAddressError('');
+                          setIsEditingBillingAddress(false);
+                        }} className="inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-xs font-semibold text-[#5F6368] transition hover:bg-[#F1F3F4] disabled:opacity-50 dark:text-[#C4C7C5] dark:hover:bg-[#2C2D31]"><X className="h-4 w-4" /> Cancel</button>
+                        <button type="submit" disabled={isSavingBillingAddress} className="inline-flex items-center gap-2 rounded-full bg-[#1A73E8] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1765CC] disabled:cursor-wait disabled:opacity-60">
+                          <Save className="h-4 w-4" /> {isSavingBillingAddress ? 'Saving?' : 'Save address'}
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="rounded-2xl bg-[#F8FAFD] p-5 dark:bg-[#202124]">
+                      {account.billingAddress?.address || account.billingAddress?.city || account.billingAddress?.country ? (
+                        <div className="flex gap-3">
+                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#1A73E8]" />
+                          <div className="space-y-1 text-sm text-[#3C4043] dark:text-[#E3E3E3]">
+                            <p className="font-semibold text-[#202124] dark:text-white">{account.billingAddress.address}</p>
+                            <p>{[account.billingAddress.city, account.billingAddress.postalCode].filter(Boolean).join(' ')}</p>
+                            <p>{account.billingAddress.country}</p>
+                            {account.billingAddress.phone && <p className="flex items-center gap-2 pt-2 text-xs text-[#5F6368] dark:text-[#9AA0A6]"><Phone className="h-3.5 w-3.5" />{account.billingAddress.phone}</p>}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="py-3 text-center">
+                          <MapPin className="mx-auto h-6 w-6 text-[#80868B]" />
+                          <p className="mt-2 text-sm font-medium text-[#3C4043] dark:text-[#E3E3E3]">No billing address saved</p>
+                          <p className="mt-1 text-xs text-[#5F6368] dark:text-[#9AA0A6]">Add the address from your account registration or update it here.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
+              </section>
 
-                <div className="p-4 rounded-xl bg-[#F8FAFD] dark:bg-[#2C2D31] border border-[#EDF0F5] dark:border-[#383A3F]">
-                  <label className="block text-[11px] font-semibold text-[#5F6368] dark:text-[#9AA0A6] mb-1">
-                    Platform Gateway Credentials
-                  </label>
-                  <div className="font-medium flex items-center gap-1.5 mt-0.5">
-                    <span className={`w-2 h-2 rounded-full ${hasConfiguredGateway ? 'bg-[#188038]' : 'bg-[#F29900]'}`} />
-                    <span className={hasConfiguredGateway ? 'text-[#137333] dark:text-[#81C995]' : 'text-[#B06000] dark:text-[#FDD663]'}>
-                      {hasConfiguredGateway ? 'Credentials configured' : 'Not configured'}
-                    </span>
+              <aside className="space-y-4">
+                <div className="rounded-3xl border border-[#E5EAF2] bg-white p-5 shadow-[0_12px_36px_rgba(30,64,120,0.06)] sm:p-6 dark:border-[#2C2D31] dark:bg-[#1E1F22]">
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#E8F0FE] text-[#0B57D0] dark:bg-[#0B57D0]/20 dark:text-[#8AB4F8]"><CreditCard className="h-4 w-4" /></div>
+                    <div><h3 className="text-sm font-semibold text-[#202124] dark:text-white">Account details</h3><p className="text-[11px] text-[#5F6368] dark:text-[#9AA0A6]">Live account information</p></div>
                   </div>
+                  <dl className="space-y-3 text-xs">
+                    <div className="flex items-start justify-between gap-3 border-b border-[#F0F2F5] pb-3 dark:border-[#2C2D31]"><dt className="text-[#5F6368] dark:text-[#9AA0A6]">Account name</dt><dd className="max-w-[60%] text-right font-medium text-[#202124] dark:text-white">{billingAccountName}</dd></div>
+                    <div className="flex items-start justify-between gap-3 border-b border-[#F0F2F5] pb-3 dark:border-[#2C2D31]"><dt className="text-[#5F6368] dark:text-[#9AA0A6]">Account ID</dt><dd className="max-w-[60%] break-all text-right font-mono text-[10px] font-medium text-[#202124] dark:text-white">{billingAccountId}</dd></div>
+                    <div className="flex items-center justify-between gap-3"><dt className="text-[#5F6368] dark:text-[#9AA0A6]">Currency</dt><dd className="font-medium text-[#202124] dark:text-white">{account.currency}</dd></div>
+                  </dl>
                 </div>
-              </div>
+                <div className="rounded-3xl border border-[#E5EAF2] bg-[#F5F8FE] p-5 dark:border-[#26364E] dark:bg-[#172033]">
+                  <h3 className="text-xs font-semibold text-[#1F1F1F] dark:text-white">Account contact</h3>
+                  <p className="mt-1 break-all text-sm text-[#3C4043] dark:text-[#DADCE0]">{currentUser?.email || 'Email unavailable'}</p>
+                  <p className="mt-2 text-xs leading-relaxed text-[#5F6368] dark:text-[#9AA0A6]">Your billing address is saved to your account profile and can be changed whenever your details change.</p>
+                </div>
+              </aside>
             </div>
           </div>
         )}

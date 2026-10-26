@@ -47,7 +47,7 @@ export const BillingDB = {
 
     // Only a real authenticated system user may have a billing account.
     const { rows: users } = await queryPg(
-      'SELECT id, tiwi_id, name, store_name FROM system_users WHERE id = $1 LIMIT 1',
+      'SELECT id, tiwi_id, name, store_name, address, city, country, phone, postal_code FROM system_users WHERE id = $1 LIMIT 1',
       [userId]
     );
     const user = users[0];
@@ -98,6 +98,13 @@ export const BillingDB = {
       billingAccountId: billingRow.id,
       billingAccountName: user.store_name || user.name || 'Cloud Billing Account',
       currency: billingRow.currency || 'USD',
+      billingAddress: {
+        address: user.address || '',
+        city: user.city || '',
+        country: user.country || '',
+        phone: user.phone || '',
+        postalCode: user.postal_code || ''
+      },
       status: gatewayInfo.hasConfiguredGateway ? 'CONFIGURED' : 'UNCONFIGURED',
       hasConfiguredGateway: gatewayInfo.hasConfiguredGateway,
       paymentGatewayStatusMessage: gatewayInfo.hasConfiguredGateway
@@ -116,6 +123,29 @@ export const BillingDB = {
       billingEnabled: false,
       usageMeteringEnabled: false,
       droplets
+    };
+  },
+
+  async updateBillingAddress(userId, address) {
+    if (!userId) throw new Error('Authentication required.');
+    const { rows } = await queryPg(`
+      UPDATE system_users
+      SET address = $2,
+          city = $3,
+          country = $4,
+          phone = $5,
+          postal_code = $6,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+      RETURNING address, city, country, phone, postal_code
+    `, [userId, address.address, address.city, address.country, address.phone, address.postalCode]);
+    if (!rows[0]) return null;
+    return {
+      address: rows[0].address || '',
+      city: rows[0].city || '',
+      country: rows[0].country || '',
+      phone: rows[0].phone || '',
+      postalCode: rows[0].postal_code || ''
     };
   },
 

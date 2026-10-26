@@ -304,6 +304,13 @@ export async function getCloudBillingData(userId = null) {
           billingAccountId
           billingAccountName
           currency
+          billingAddress {
+            address
+            city
+            country
+            phone
+            postalCode
+          }
           credits
           promotionalCredits
           status
