@@ -15,18 +15,15 @@ import {
   ShieldAlert, 
   ExternalLink, 
   Download, 
-  Plus, 
   Lock, 
   Sparkles,
   Server,
   Zap,
   ChevronRight,
-  Wallet,
   ShieldCheck,
   TrendingUp,
   Activity,
-  Calendar,
-  Info
+  Layers
 } from 'lucide-react';
 import { getCloudBillingData } from '../graphql/cloudQueries';
 
@@ -83,11 +80,9 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
   const hasCurrentUserData = billingState.userId === userId;
   const account = hasCurrentUserData ? billingState.account : null;
   const loading = !hasCurrentUserData || billingState.loading;
-  const loadError = hasCurrentUserData ? billingState.error : '';
 
   const credits = Number.isFinite(account?.credits) && account.credits >= 0 ? account.credits : 0;
   const promotionalCredits = Number.isFinite(account?.promotionalCredits) ? account.promotionalCredits : 0;
-  const totalCredits = credits + promotionalCredits;
   const hasVerifiedGateway = account?.hasVerifiedGateway === true;
   const configuredGateways = Array.isArray(account?.configuredGateways) ? account.configuredGateways : [];
   const billingAccountId = account?.billingAccountId || 'TIW-01A24B-39C72E';
