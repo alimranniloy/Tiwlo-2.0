@@ -62,6 +62,9 @@ const DiscordBotManager = lazy(() => import('./discord-web'));
 // uids.app Subdomain Landing Page (/subdomain, /uidis, /uids)
 const SubdomainLanding = lazy(() => import('./subdomain'));
 
+// Tiwlo Studio Music Level & Distribution Landing Page (/studio)
+const TiwloStudioLanding = lazy(() => import('./studio/landing-page'));
+
 // UIDis.app / OneProfile Identity & Website Dashboard (/oneprofile, /one-profile)
 const OneProfileDashboard = lazy(() => import('./oneprofile'));
 
@@ -410,6 +413,10 @@ export default function App() {
           return 'discord';
         }
 
+        if (pathname === 'studio' || pathname.startsWith('studio/')) {
+          return 'studio';
+        }
+
         if (pathname === 'subdomain' || pathname.startsWith('subdomain/') || pathname === 'subdomains' || pathname === 'uidis' || pathname === 'uidis.app' || pathname.startsWith('uidis/') || pathname === 'uids' || pathname === 'uids.app' || pathname.startsWith('uids/')) {
           return 'subdomain';
         }
@@ -427,6 +434,9 @@ export default function App() {
       }
       if (searchParams.get('tab') === 'tiwi' || searchParams.get('view') === 'tiwi' || searchParams.get('view') === 'social') {
         return 'tiwi';
+      }
+      if (searchParams.get('tab') === 'studio' || searchParams.get('view') === 'studio') {
+        return 'studio';
       }
       if (searchParams.get('tab') === 'subdomain' || searchParams.get('view') === 'subdomain' || searchParams.get('view') === 'uidis') {
         return 'subdomain';
@@ -608,6 +618,14 @@ export default function App() {
       setActiveTab('subdomain');
       if (!window.location.pathname.startsWith('/subdomain') && !window.location.pathname.startsWith('/uidis')) {
         window.history.pushState(null, '', '/subdomain');
+      }
+      return;
+    }
+
+    if (tabId === 'studio' || (typeof tabId === 'string' && tabId.startsWith('studio'))) {
+      setActiveTab('studio');
+      if (!window.location.pathname.startsWith('/studio')) {
+        window.history.pushState(null, '', '/studio');
       }
       return;
     }
@@ -1965,6 +1983,14 @@ export default function App() {
         <DiscordBotManager
           currentUser={currentUser}
           onNavigateHome={() => handleTabChange('dashboard')}
+        />
+      ) : (activeTab === 'studio' || (typeof activeTab === 'string' && activeTab.startsWith('studio'))) ? (
+        <TiwloStudioLanding
+          onNavigateAuth={(mode) => {
+            if (mode === 'signup') handleTabChange('create-account');
+            else handleTabChange('login');
+          }}
+          onNavigateTab={handleTabChange}
         />
       ) : (activeTab === 'subdomain' || (typeof activeTab === 'string' && (activeTab.startsWith('subdomain') || activeTab.startsWith('uidis') || activeTab.startsWith('uids')))) ? (
         <SubdomainLanding

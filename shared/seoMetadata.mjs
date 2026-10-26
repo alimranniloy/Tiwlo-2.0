@@ -104,6 +104,16 @@ export function getSeoMetadata({
       indexable: false,
       canonicalHost: platformDomain
     };
+  } else if (path === '/studio' || path.startsWith('/studio/')) {
+    page = {
+      title: 'Tiwlo Studio | Music Level & Global Distribution Platform',
+      description: 'Your Music. Our Platform. Create, grow, and get your music heard worldwide on 200+ platforms with 100% rights ownership.',
+      image: '/seo/tiwlo-studio-og.png',
+      imageAlt: 'Tiwlo Studio music distribution and level platform',
+      siteName: 'Tiwlo Studio',
+      indexable: true,
+      canonicalHost: platformDomain
+    };
   } else if (path === '/tpanel' || path.startsWith('/tpanel/')) {
     page = {
       title: 'Tiwlo Cloud | Server & Infrastructure Management',
