@@ -1,6 +1,7 @@
 import express from 'express';
 import { registrationGuards } from '../plugins/security/index.js';
 import { isDuplicateAccountError, isDuplicateBrowserError } from '../security/signupIdentity.js';
+import { recordDuplicateSignupSignal } from '../security/signupBrowser.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -645,9 +646,13 @@ router.post('/register', ...registrationGuards, async (req, res) => {
     });
   } catch (err) {
     if (isDuplicateBrowserError(err)) {
+      recordDuplicateSignupSignal(req, 'browser_claim_already_used')
+        .catch(error => console.warn('[Social Register] Could not record duplicate browser signal:', error.message));
       return res.status(409).json({ error: 'This browser already created an account. Please sign in or contact support for help with a shared device.' });
     }
     if (isDuplicateAccountError(err)) {
+      recordDuplicateSignupSignal(req, 'email_insert_conflict')
+        .catch(error => console.warn('[Social Register] Could not record duplicate email signal:', error.message));
       return res.status(409).json({ error: 'An account already uses this email. Please sign in or recover your existing account.' });
     }
     res.status(400).json({ error: 'Registration failed. Check your details or try again later.' });

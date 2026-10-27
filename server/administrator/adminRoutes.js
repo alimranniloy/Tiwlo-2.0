@@ -4,6 +4,7 @@ import { sendAccountDisabledEmail, sendAccountRestoredEmail } from '../db/emailS
 import { RestoreSessions } from '../db/restoreSessions.js';
 import { queryPg } from '../db/postgres.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
+import { requireRecentReauth } from '../security/recentReauth.js';
 import {
   formatPeriodLabel,
   formatTrend,
@@ -36,7 +37,7 @@ router.get('/storage/google-drive', requireAdmin, async (req, res) => {
   }
 });
 
-router.post('/storage/google-drive', requireAdmin, async (req, res) => {
+router.post('/storage/google-drive', requireAdmin, requireRecentReauth, async (req, res) => {
   try {
     const account = await addGoogleDriveServiceAccount(
       req.body?.credentials,
@@ -53,7 +54,7 @@ router.post('/storage/google-drive', requireAdmin, async (req, res) => {
   }
 });
 
-router.post('/storage/google-drive/:id/activate', requireAdmin, async (req, res) => {
+router.post('/storage/google-drive/:id/activate', requireAdmin, requireRecentReauth, async (req, res) => {
   try {
     const sync = await getStorageSyncStatus();
     if (sync.status === 'running') return res.status(409).json({ error: 'Storage transfer is running; wait for it to finish.' });
@@ -68,7 +69,7 @@ router.post('/storage/google-drive/:id/activate', requireAdmin, async (req, res)
   }
 });
 
-router.post('/storage/sync/:direction', requireAdmin, async (req, res) => {
+router.post('/storage/sync/:direction', requireAdmin, requireRecentReauth, async (req, res) => {
   try {
     const { direction } = req.params;
     const state = await getStorageSyncStatus();
@@ -546,7 +547,7 @@ router.get('/users', requireAdmin, async (req, res) => {
 });
 
 // POST /api/admin/users/:id/ban - Ban / Suspend / Unban user with instant session termination
-router.post('/users/:id/ban', requireAdmin, async (req, res) => {
+router.post('/users/:id/ban', requireAdmin, requireRecentReauth, async (req, res) => {
   try {
     const { id } = req.params;
     const { isBanned, reason } = req.body;
@@ -635,7 +636,7 @@ router.post('/users/:id/ban', requireAdmin, async (req, res) => {
 });
 
 // PUT /api/admin/users/:id - Edit user profile and plan details
-router.put('/users/:id', requireAdmin, async (req, res) => {
+router.put('/users/:id', requireAdmin, requireRecentReauth, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, email, role, planId, phone, address } = req.body;
@@ -692,7 +693,7 @@ router.put('/users/:id', requireAdmin, async (req, res) => {
 });
 
 // DELETE /api/admin/users/:id - Delete user from system
-router.delete('/users/:id', requireAdmin, async (req, res) => {
+router.delete('/users/:id', requireAdmin, requireRecentReauth, async (req, res) => {
   try {
     const { id } = req.params;
     const targetUser = await MasterDB.findUserByIdentifier(id);
@@ -913,7 +914,7 @@ router.get('/payment-gateways', requireAdmin, async (req, res) => {
 });
 
 // POST /api/admin/payment-gateways
-router.post('/payment-gateways', requireAdmin, async (req, res) => {
+router.post('/payment-gateways', requireAdmin, requireRecentReauth, async (req, res) => {
   try {
     const incoming = req.body?.gateways;
     if (!incoming || typeof incoming !== 'object') {

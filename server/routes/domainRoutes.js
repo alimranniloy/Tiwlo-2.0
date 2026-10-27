@@ -1,5 +1,6 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
+import { requireRecentReauth } from '../security/recentReauth.js';
 import { provisionCustomDomain } from '../dns/sslManager.js';
 import {
   beginDomainSslProvisioning,
@@ -46,7 +47,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/', domainActionLimiter, async (req, res) => {
+router.post('/', domainActionLimiter, requireRecentReauth, async (req, res) => {
   try {
     const domain = await createUserDomain({
       userId: getUserId(req),
@@ -72,7 +73,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/:id/verify', domainActionLimiter, async (req, res) => {
+router.post('/:id/verify', domainActionLimiter, requireRecentReauth, async (req, res) => {
   try {
     const domain = await verifyUserDomain({ userId: getUserId(req), id: req.params.id });
     const dns = await verifyDomainAddress(domain.domain);
@@ -86,7 +87,7 @@ router.post('/:id/verify', domainActionLimiter, async (req, res) => {
   }
 });
 
-router.post('/:id/provision', domainActionLimiter, async (req, res) => {
+router.post('/:id/provision', domainActionLimiter, requireRecentReauth, async (req, res) => {
   let domain;
   let provisioningStarted = false;
   try {
@@ -141,7 +142,7 @@ router.post('/:id/provision', domainActionLimiter, async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireRecentReauth, async (req, res) => {
   try {
     await deletePendingUserDomain({ userId: getUserId(req), id: req.params.id });
     res.status(204).end();

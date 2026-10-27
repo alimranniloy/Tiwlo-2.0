@@ -37,6 +37,7 @@ import {
   scanAndSanitizeImage
 } from '../security/index.js';
 import { PaymentSecurity } from '../security/cryptoSecurity.js';
+import { requireRecentReauth } from '../security/recentReauth.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { getMinStock, getStockStatus, isLowStock } from '../../shared/inventoryRules.js';
 import {
@@ -1652,7 +1653,7 @@ router.post('/store/currency/preview', async (req, res) => {
   }
 });
 
-router.put('/store/payment-providers/:provider', async (req, res) => {
+router.put('/store/payment-providers/:provider', requireRecentReauth, async (req, res) => {
   const provider = String(req.params.provider || '').toLowerCase();
   const definition = PAYMENT_PROVIDER_DEFINITIONS[provider];
   if (!definition) return res.status(404).json({ error: 'Unsupported payment provider.' });
@@ -2003,8 +2004,17 @@ router.post('/products', contentSafetyMiddleware('public_product'), async (req, 
     }
   }
 
-  if (!name || !sku) {
+  const normalizedName = typeof name === 'string' ? name.trim() : '';
+  const normalizedSku = typeof sku === 'string' ? sku.trim() : '';
+  const normalizedBarcode = typeof barcode === 'string' ? barcode.trim() : '';
+  if (barcode !== undefined && typeof barcode !== 'string') {
+    return res.status(400).json({ error: 'Barcode must be text.' });
+  }
+  if (!normalizedName || !normalizedSku) {
     return res.status(400).json({ error: 'Name and SKU are required' });
+  }
+  if (normalizedName.length > 180 || normalizedSku.length > 80 || normalizedBarcode.length > 100) {
+    return res.status(400).json({ error: 'Product name, SKU, or barcode is longer than the allowed limit.' });
   }
   const selectedSupplier = supplierId
     ? suppliers.find(supplier => supplier.id === supplierId && supplier.status !== 'Inactive')
@@ -2015,9 +2025,12 @@ router.post('/products', contentSafetyMiddleware('public_product'), async (req, 
   if (supplierName && !selectedSupplier) {
     return res.status(400).json({ error: 'Supplier names must reference an existing supplier record. Select or add the supplier first.' });
   }
-  const existingSku = products.find(p => p.sku.toLowerCase() === sku.toLowerCase());
+  const existingSku = products.find(p => String(p?.sku || '').trim().toLowerCase() === normalizedSku.toLowerCase());
   if (existingSku) {
     return res.status(400).json({ error: 'A product with this SKU already exists' });
+  }
+  if (normalizedBarcode && products.some(p => String(p?.barcode || '').trim().toLowerCase() === normalizedBarcode.toLowerCase())) {
+    return res.status(400).json({ error: 'A product with this barcode already exists' });
   }
 
   const { valid: stockIsValid, stock: stockVal } = validateStock(stock, 0);
@@ -2095,10 +2108,10 @@ router.post('/products', contentSafetyMiddleware('public_product'), async (req, 
   }
 
   const newProduct = {
-    id: `prod-${Date.now()}`,
-    name,
-    sku,
-    barcode: barcode || `BC-${Math.floor(1000000000 + Math.random() * 9000000000)}`,
+    id: `prod-${randomUUID()}`,
+    name: normalizedName,
+    sku: normalizedSku,
+    barcode: normalizedBarcode || `BC-${randomUUID().slice(0, 12).toUpperCase()}`,
     category: category || '',
     subCategory: subCategory || '',
     stock: stockVal,
@@ -2221,11 +2234,24 @@ router.put('/products/:id', contentSafetyMiddleware('public_product'), async (re
     }
   }
 
-  if (sku && sku.toLowerCase() !== existing.sku.toLowerCase()) {
-    const existingSku = products.find(p => p.sku.toLowerCase() === sku.toLowerCase() && p.id !== id);
+  const normalizedSku = sku === undefined ? String(existing.sku || '').trim() : typeof sku === 'string' ? sku.trim() : '';
+  const normalizedBarcode = barcode === undefined ? String(existing.barcode || '').trim() : typeof barcode === 'string' ? barcode.trim() : '';
+  const normalizedName = name === undefined ? String(existing.name || '').trim() : typeof name === 'string' ? name.trim() : '';
+  if (barcode !== undefined && typeof barcode !== 'string') {
+    return res.status(400).json({ error: 'Barcode must be text.' });
+  }
+  if (!normalizedName || !normalizedSku || normalizedName.length > 180 || normalizedSku.length > 80 || normalizedBarcode.length > 100) {
+    return res.status(400).json({ error: 'Product name, SKU, or barcode is invalid or longer than the allowed limit.' });
+  }
+  if (normalizedSku.toLowerCase() !== String(existing.sku || '').trim().toLowerCase()) {
+    const existingSku = products.find(p => String(p?.sku || '').trim().toLowerCase() === normalizedSku.toLowerCase() && p.id !== id);
     if (existingSku) {
       return res.status(400).json({ error: 'A product with this SKU already exists' });
     }
+  }
+  if (normalizedBarcode.toLowerCase() !== String(existing.barcode || '').trim().toLowerCase() &&
+      normalizedBarcode && products.some(p => p.id !== id && String(p?.barcode || '').trim().toLowerCase() === normalizedBarcode.toLowerCase())) {
+    return res.status(400).json({ error: 'A product with this barcode already exists' });
   }
 
   const { valid: stockIsValid, stock: stockVal } = validateStock(stock, existing.stock);
@@ -2257,9 +2283,9 @@ router.put('/products/:id', contentSafetyMiddleware('public_product'), async (re
 
   const updatedProduct = {
     ...existing,
-    name: name !== undefined ? name : existing.name,
-    sku: sku !== undefined ? sku : existing.sku,
-    barcode: barcode !== undefined ? barcode : existing.barcode,
+    name: normalizedName,
+    sku: normalizedSku,
+    barcode: normalizedBarcode,
     category: category !== undefined ? category : existing.category,
     subCategory: subCategory !== undefined ? subCategory : existing.subCategory,
     stock: stockVal,
@@ -3753,7 +3779,7 @@ router.get('/staff', async (req, res) => {
   })));
 });
 
-router.post('/staff', async (req, res) => {
+router.post('/staff', requireRecentReauth, async (req, res) => {
   const staff = await readData(STAFF_FILE, []);
   const { name, phone, email, address, jobTitle, department, startDate, salaryFrequency } = req.body || {};
   const normalizedName = typeof name === 'string' ? name.trim() : '';
@@ -3801,7 +3827,7 @@ router.post('/staff', async (req, res) => {
   res.status(201).json(person);
 });
 
-router.put('/staff/:id', async (req, res) => {
+router.put('/staff/:id', requireRecentReauth, async (req, res) => {
   const staff = await readData(STAFF_FILE, []);
   const index = staff.findIndex(person => person.id === req.params.id);
   if (index < 0) return res.status(404).json({ error: 'Staff member not found.' });

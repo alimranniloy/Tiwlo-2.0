@@ -1,5 +1,5 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { hashSecuritySubject } from '../db/securityPersistence.js';
+import { hashSecuritySubject, recordSecurityEvent } from '../db/securityPersistence.js';
 import { normalizeSignupEmail } from './signupIdentity.js';
 
 export const SIGNUP_BROWSER_COOKIE = 'tiwlo_signup_browser';
@@ -16,6 +16,21 @@ export function verifySignupBrowser(value, now = Date.now()) {
   if (Number(expires) <= now || Number(expires) > now + lifetime) return null;
   const expected = hashSecuritySubject(`signup-browser:${id}.${expires}`);
   return timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expected, 'hex')) ? id : null;
+}
+
+export function recordDuplicateSignupSignal(req, reason) {
+  return recordSecurityEvent({
+    eventType: 'security.signup_duplicate_signal',
+    severity: 'warning',
+    subject: normalizeSignupEmail(req.body?.email),
+    ip: req.ip || req.socket?.remoteAddress,
+    userAgent: req.get?.('user-agent'),
+    details: {
+      reason: String(reason || 'duplicate_signup').slice(0, 64),
+      route: String(req.path || '').slice(0, 100),
+      browserKey: req.signupBrowserKey || ''
+    }
+  });
 }
 
 // This cookie is a rate-limit signal, never proof of a person's identity.

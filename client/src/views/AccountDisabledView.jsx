@@ -25,6 +25,7 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isReviewing, setIsReviewing] = useState(false);
+  const [isAppealSubmitted, setIsAppealSubmitted] = useState(false);
   const [reviewStepText, setReviewStepText] = useState('');
   const [isRestored, setIsRestored] = useState(false);
   const [restoredData, setRestoredData] = useState(null);
@@ -72,17 +73,17 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
   }, [name, email]);
 
   const reason = useMemo(() => {
-    return resolvedProfile?.banReason || 'Your account was disabled due to a violation of platform policies.';
+    return resolvedProfile?.banReason || 'Your account access is currently restricted pending a security review.';
   }, [resolvedProfile]);
 
-  // Initial welcome message from Security Specialist
+  // Explain the restriction and how to request a human review.
   useEffect(() => {
     if (showAiModal && messages.length === 0) {
       setMessages([
         {
           id: 'init_msg_1',
           sender: 'specialist',
-          text: `Welcome to the Tiwlo Account Integrity & Compliance Investigation Board. I have opened your security review case file for ${email || 'your merchant account'}.\n\nYour account access has been suspended under security record: "${reason}".\n\nTo begin your formal case review, please explain the nature of your recent activities or submit your appeal statement below.`,
+          text: `Your account is currently disabled. Reason on file: "${reason}".\n\nYou can submit an appeal here. The account security team will review it; this chat does not automatically restore access. Please describe why you believe the restriction should be reviewed.`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
@@ -96,7 +97,7 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
   // Send appeal statement to verification agent
   const handleSendMessage = async (textToSend = null) => {
     const text = (textToSend || inputText).trim();
-    if (!text || isReviewing || isRestored) return;
+    if (!text || isReviewing || isRestored || isAppealSubmitted) return;
 
     const userMsg = {
       id: `usr_${Date.now()}`,
@@ -109,47 +110,19 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
     setInputText('');
     setIsReviewing(true);
 
-    // Multi-stage realistic review steps
-    setReviewStepText('Connecting with Security Review Specialist...');
-    const t1 = setTimeout(() => {
-      setReviewStepText('Auditing security logs & account flags...');
-    }, 2200);
-
-    const t2 = setTimeout(() => {
-      setReviewStepText('Evaluating statement against platform safety rules...');
-    }, 4500);
-
-    const t3 = setTimeout(() => {
-      setReviewStepText('Security Specialist is drafting decision...');
-    }, 6200);
+    setReviewStepText('Submitting your appeal for review...');
 
     try {
-      const historyPayload = messages.map(m => ({
-        sender: m.sender,
-        text: m.text
-      }));
-
-      const startTime = Date.now();
       const res = await fetch(`${API_BASE}/support/appeal-chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email,
-          message: text,
-          conversationHistory: historyPayload
+          message: text
         })
       });
 
       const data = await res.json();
-
-      // Ensure minimum realistic delay (at least 6.5s)
-      const elapsed = Date.now() - startTime;
-      const remainingDelay = Math.max(0, 6800 - elapsed);
-      await new Promise(r => setTimeout(r, remainingDelay));
-
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
 
       if (res.ok) {
         const specialistMsg = {
@@ -164,6 +137,8 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
         if (data.restored) {
           setIsRestored(true);
           setRestoredData(data);
+        } else if (data.decision === 'REVIEW_REQUIRED') {
+          setIsAppealSubmitted(true);
         }
       } else {
         setMessages(prev => [...prev, {
@@ -174,9 +149,6 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
         }]);
       }
     } catch (err) {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
       setMessages(prev => [...prev, {
         id: `err_${Date.now()}`,
         sender: 'specialist',
@@ -289,7 +261,7 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
 
           {/* Body Description */}
           <p className="text-[14px] text-[#5f6368] leading-[22px] mb-5">
-            It looks like this account was used in a way that violated Tiwlo's Terms of Service and acceptable use policies.
+            Account access is restricted. If you think this happened by mistake, submit an appeal for review by our account security team.
           </p>
 
           {/* Reason Notice Box */}
@@ -302,7 +274,7 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
                 {reason}
               </span>
               <span className="text-[11px] text-[#70757a] block pt-1">
-                If you believe this was in error, our Security Review Team can examine your account immediately.
+                If you believe this restriction is incorrect, you can request a review below.
               </span>
             </div>
           )}
@@ -314,7 +286,7 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
               onClick={() => setShowAiModal(true)}
               className="w-full h-10 px-8 bg-[#1a73e8] hover:bg-[#1b66c9] active:bg-[#1756a9] text-white rounded-full text-[14px] font-medium shadow-xs cursor-pointer inline-flex items-center justify-center gap-2 transition-all"
             >
-              <span>Try to restore</span>
+              <span>Submit an appeal</span>
               <ArrowRight className="w-4 h-4" />
             </button>
 
@@ -380,14 +352,8 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-medium text-sm text-[#202124]">Account Security Specialist</h3>
-                    <span className="flex h-2 w-2 relative">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-[#5f6368]">Tiwlo Integrity & Compliance Team</p>
+                  <h3 className="font-medium text-sm text-[#202124]">Account appeal</h3>
+                  <p className="text-[11px] text-[#5f6368]">Reviewed by the Tiwlo account security team</p>
                 </div>
               </div>
               <button
@@ -425,7 +391,7 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
                 </div>
               ))}
 
-              {/* Realistic Multi-Stage Review Indicator */}
+              {/* Appeal submission status */}
               {isReviewing && (
                 <div className="flex justify-start">
                   <div className="bg-[#f1f3f4] border border-[#e8eaed] rounded-2xl rounded-bl-none px-4 py-3 text-xs flex items-center gap-2.5 text-[#3c4043] animate-pulse">
@@ -435,15 +401,15 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
                 </div>
               )}
 
-              {/* If Account Successfully Restored by Specialist */}
+              {/* Active account status notice */}
               {isRestored && (
                 <div className="p-4 rounded-xl bg-[#e6f4ea] border border-[#ceead6] text-center space-y-2 mt-2">
                   <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center">
                     <ShieldCheck className="w-6 h-6" />
                   </div>
-                  <h4 className="font-semibold text-xs text-[#137333]">Account Successfully Restored!</h4>
+                  <h4 className="font-semibold text-xs text-[#137333]">This account is active</h4>
                   <p className="text-[11px] text-[#0d652d]">
-                    Your appeal has been approved. A security confirmation has been dispatched to <strong>{email}</strong>.
+                    This account is already active. Sign in to continue.
                   </p>
                   <button
                     type="button"
@@ -463,7 +429,7 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
             </div>
 
             {/* Quick Prompt Chips (If not restored yet) */}
-            {!isRestored && messages.length <= 3 && (
+            {!isRestored && !isAppealSubmitted && messages.length <= 3 && (
               <div className="px-4 py-2 bg-[#f8f9fa] border-t border-[#e8eaed] flex flex-wrap gap-1.5">
                 {quickPrompts.map((prompt, idx) => (
                   <button
@@ -480,7 +446,7 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
 
             {/* Input Bar */}
             <div className="p-3 border-t border-[#dadce0] bg-white">
-              {!isRestored ? (
+              {!isRestored && !isAppealSubmitted ? (
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -493,17 +459,21 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     placeholder="Type your explanation or question..."
-                    disabled={isReviewing}
+                    disabled={isReviewing || isAppealSubmitted}
                     className="flex-1 text-xs px-3.5 py-2.5 bg-[#f1f3f4] rounded-full border border-transparent focus:border-blue-500 focus:bg-white focus:outline-none transition-all placeholder-[#70757a]"
                   />
                   <button
                     type="submit"
-                    disabled={!inputText.trim() || isReviewing}
+                    disabled={!inputText.trim() || isReviewing || isAppealSubmitted}
                     className="w-9 h-9 rounded-full bg-[#1a73e8] hover:bg-[#1b66c9] disabled:bg-slate-200 text-white flex items-center justify-center transition-all cursor-pointer disabled:cursor-not-allowed shrink-0"
                   >
                     <Send className="w-4 h-4" />
                   </button>
                 </form>
+              ) : isAppealSubmitted ? (
+                <p className="text-center text-xs text-[#5f6368] py-2">
+                  Appeal received. The account security team will review your case.
+                </p>
               ) : (
                 <button
                   type="button"

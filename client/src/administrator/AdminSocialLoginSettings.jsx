@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Check, Copy, KeyRound, Save, ShieldCheck } from 'lucide-react';
+import { requestSensitiveActionGrant } from '../security/reauth.js';
 
 const API_BASE = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
   ? 'http://localhost:5000/api'
@@ -66,13 +67,18 @@ export default function AdminSocialLoginSettings({ onBackToDashboard, showToast 
     setError('');
     try {
       const token = localStorage.getItem('stockpro_session');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      };
+      headers['x-tiwlo-reauth-grant'] = await requestSensitiveActionGrant(
+        headers,
+        API_BASE.replace(/\/api\/?$/, '')
+      );
       const response = await fetch(`${API_BASE}/admin/social-login/${provider}`, {
         method: 'PUT',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
+        headers,
         body: JSON.stringify(drafts[provider])
       });
       const result = await response.json().catch(() => ({}));

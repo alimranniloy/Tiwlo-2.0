@@ -91,7 +91,11 @@ export async function recordViolation({
   }
 
   name = name || (email ? email.split('@')[0] : 'User');
-  const shouldImmediatelyDisable = isCritical || category === 'WEAPONS_AND_CONTRABAND';
+  // Keyword/content classifiers can be noisy. They may block content and add
+  // strikes, but a category label by itself is not sufficient for an immediate
+  // permanent account disable. Trusted high-confidence callers must explicitly
+  // set isCritical; ordinary automated scanners never do.
+  const shouldImmediatelyDisable = isCritical === true;
   const { rows: stateRows } = await queryPg(
     `INSERT INTO system_account_security
        (user_id, strikes, cooldown_until, permanently_disabled, last_reason, updated_at)

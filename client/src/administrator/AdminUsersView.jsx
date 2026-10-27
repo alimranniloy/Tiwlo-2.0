@@ -1,4 +1,5 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
+import { requestSensitiveActionGrant } from '../security/reauth.js';
 import React, { useCallback, useState, useEffect } from 'react';
 import {
   Search,
@@ -85,12 +86,11 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
     try {
       setActionLoading(true);
       const token = localStorage.getItem('stockpro_session');
+      const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+      headers['x-tiwlo-reauth-grant'] = await requestSensitiveActionGrant(headers, API_BASE.replace(/\/api\/?$/, ''));
       const res = await fetch(`${API_BASE}/admin/users/${user.id}/ban`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
+        headers,
         credentials: 'include',
         body: JSON.stringify({ isBanned: isBanning, reason })
       });
@@ -120,12 +120,11 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
     try {
       setActionLoading(true);
       const token = localStorage.getItem('stockpro_session');
+      const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+      headers['x-tiwlo-reauth-grant'] = await requestSensitiveActionGrant(headers, API_BASE.replace(/\/api\/?$/, ''));
       const res = await fetch(`${API_BASE}/admin/users/${editUserTarget.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
+        headers,
         credentials: 'include',
         body: JSON.stringify(isSuperAdminActor
           ? editFormData
@@ -155,10 +154,12 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
     try {
       setActionLoading(true);
       const token = localStorage.getItem('stockpro_session');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      headers['x-tiwlo-reauth-grant'] = await requestSensitiveActionGrant(headers, API_BASE.replace(/\/api\/?$/, ''));
       const res = await fetch(`${API_BASE}/admin/users/${deleteUserTarget.id}`, {
         method: 'DELETE',
         credentials: 'include',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        headers
       });
 
       const data = await res.json();

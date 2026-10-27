@@ -5,13 +5,13 @@ import { fileURLToPath } from 'url';
 import { getAgentByTier, getOnlineSpecialists, generateTicketSerial } from './agentsPool.js';
 import { TiwiAI } from './tiwiAi.js';
 import { SystemBrain } from './brain.js';
-import { sendAccountRestoredEmail } from '../../db/emailService.js';
 import { processSecurityAppeal } from './verificationAgent.js';
 import { RestoreSessions } from '../../db/restoreSessions.js';
 
 import { SupportDB } from '../../db/supportDb.js';
 import { MasterDB } from '../../db/multiTenant.js';
 import { PLATFORM_CONFIG } from '../../config/platformConfig.js';
+import { securityLimiters } from '../../plugins/security/index.js';
 
 const router = express.Router();
 
@@ -502,9 +502,9 @@ router.get('/brain-status', async (req, res) => {
 });
 
 // 10. Account Security Verification & Resolution Pipeline
-router.post('/appeal-chat', async (req, res) => {
+router.post('/appeal-chat', securityLimiters.otpRequestIp, securityLimiters.otpRequestAccount, async (req, res) => {
   try {
-    let { email, message, conversationHistory = [] } = req.body;
+    let { email, message } = req.body;
     if (!message?.trim()) {
       return res.status(400).json({ error: 'Message is required' });
     }
@@ -525,28 +525,8 @@ router.post('/appeal-chat', async (req, res) => {
       });
     }
 
-    // Process via Verification Team Agent (Deep Reasoning & Autonomous Action)
-    const result = await processSecurityAppeal({ email, message, conversationHistory });
-
-    if (result.restored && !result.alreadyActive && result.user) {
-      // Create cryptographically unique Security Checkup session token
-      const checkup = RestoreSessions.createSecurityCheckupSession({
-        email: result.user.email
-      });
-
-      // Dispatch Account Restored Email with tokenized security checkup link
-      sendAccountRestoredEmail({
-        to: result.user.email,
-        name: result.user.name,
-        checkupUrl: checkup.url
-      }).catch(err => console.error('[Restore Email Dispatch Error]', err.message));
-
-      return res.json({
-        ...result,
-        checkupToken: checkup.token,
-        checkupUrl: checkup.url
-      });
-    }
+    // Appeals are recorded for human review; this endpoint cannot restore accounts.
+    const result = await processSecurityAppeal({ email, message });
 
     res.json(result);
   } catch (err) {
@@ -556,7 +536,7 @@ router.post('/appeal-chat', async (req, res) => {
 });
 
 // 11. Cryptographic Restore & Security Checkup Token Verification Endpoint
-router.post('/verify-restore-token', (req, res) => {
+router.post('/verify-restore-token', async (req, res) => {
   try {
     const { token } = req.body;
     const verification = RestoreSessions.verifySession(token);
@@ -566,7 +546,7 @@ router.post('/verify-restore-token', (req, res) => {
 
     let userDetails = null;
     try {
-      const found = MasterDB.getUserByEmail(verification.session.email) || MasterDB.getUserById(verification.session.userId);
+      const found = await MasterDB.findUserByIdentifier(verification.session.userId || verification.session.email);
       if (found) {
         userDetails = {
           id: found.id,

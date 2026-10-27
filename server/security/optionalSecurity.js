@@ -1,24 +1,13 @@
-import { createHash } from 'node:crypto';
 import { createClient } from 'redis';
 import { RedisStore } from 'rate-limit-redis';
+import { getOperationAST, parse } from 'graphql';
 import { queryPg } from '../db/postgres.js';
-import { recordSecurityEvent } from '../db/securityPersistence.js';
-import { MasterDB } from '../db/multiTenant.js';
+import { hashSecuritySubject, recordSecurityEvent } from '../db/securityPersistence.js';
 
 let redisClient = null;
-const riskCounters = new Map();
+const DASHBOARD_MUTATIONS_PER_WINDOW = 300;
 const AUTOMATION_PATTERN = /(curl|wget|python-requests|scrapy|selenium|headlesschrome|phantomjs|nikto|sqlmap|爬虫)/i;
 const SENSITIVE_PATH_PATTERN = /^\/(?:api\/)?(?:auth|subdomains|domains|graphql)(?:\/|$)/i;
-
-function requestFingerprint(req) {
-  return createHash('sha256')
-    .update([
-      req.ip || req.socket?.remoteAddress || 'unknown',
-      req.get?.('user-agent') || 'unknown',
-      req.activeUser?.id || 'anonymous'
-    ].join('|'))
-    .digest('hex');
-}
 
 function isSuspiciousRequest(req) {
   if (!SENSITIVE_PATH_PATTERN.test(req.path || req.originalUrl || '')) return false;
@@ -26,48 +15,80 @@ function isSuspiciousRequest(req) {
   return !userAgent || AUTOMATION_PATTERN.test(userAgent);
 }
 
-async function enforceRepeatedAbuse(req) {
+function isDashboardWrite(req) {
+  const method = String(req.method || '').toUpperCase();
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return false;
+  if (!/^\/(?:api\/)?graphql\/?$/i.test(req.path || '')) return true;
+  if (typeof req.body?.query !== 'string') return false;
+  try {
+    return getOperationAST(parse(req.body.query), req.body.operationName)?.operation === 'mutation';
+  } catch {
+    return false;
+  }
+}
+
+async function recordDashboardActivity(req) {
   const userId = req.activeUser?.id;
-  if (!userId || process.env.LOCAL_SECURITY_ENFORCE !== 'true') return;
+  const method = String(req.method || '').toUpperCase();
+  if (!userId || !isDashboardWrite(req)) return 0;
 
-  const key = `user:${userId}`;
-  const now = Date.now();
-  const windowMs = Number(process.env.LOCAL_SECURITY_WINDOW_MS || 24 * 60 * 60 * 1000);
-  const previous = riskCounters.get(key);
-  const current = previous && previous.expiresAt > now
-    ? { count: previous.count + 1, expiresAt: previous.expiresAt }
-    : { count: 1, expiresAt: now + windowMs };
-  riskCounters.set(key, current);
-  if (current.count < 5) return;
-
-  const reason = 'Repeated automated requests on protected endpoints';
-  await queryPg(
-    `INSERT INTO system_account_security
-      (user_id, strikes, permanently_disabled, last_reason, updated_at)
-     VALUES ($1, 1, TRUE, $2, CURRENT_TIMESTAMP)
-     ON CONFLICT (user_id) DO UPDATE SET
-       strikes = system_account_security.strikes + 1,
-       permanently_disabled = TRUE,
-       last_reason = EXCLUDED.last_reason,
-       updated_at = CURRENT_TIMESTAMP`,
-    [userId, reason]
+  const keyHash = hashSecuritySubject(`dashboard-write:${userId}`);
+  const { rows } = await queryPg(
+    `INSERT INTO system_security_rate_limits
+       (policy_id, key_hash, hit_count, window_started_at, expires_at, updated_at)
+     VALUES ('dashboard_user_write_5m', $1, 1, CURRENT_TIMESTAMP,
+       CURRENT_TIMESTAMP + INTERVAL '5 minutes', CURRENT_TIMESTAMP)
+     ON CONFLICT (policy_id, key_hash) DO UPDATE SET
+       hit_count = CASE
+         WHEN system_security_rate_limits.expires_at <= CURRENT_TIMESTAMP THEN 1
+         ELSE LEAST(system_security_rate_limits.hit_count + 1, 2147483647)
+       END,
+       window_started_at = CASE
+         WHEN system_security_rate_limits.expires_at <= CURRENT_TIMESTAMP THEN CURRENT_TIMESTAMP
+         ELSE system_security_rate_limits.window_started_at
+       END,
+       expires_at = CASE
+         WHEN system_security_rate_limits.expires_at <= CURRENT_TIMESTAMP
+           THEN CURRENT_TIMESTAMP + INTERVAL '5 minutes'
+         ELSE system_security_rate_limits.expires_at
+       END,
+       updated_at = CURRENT_TIMESTAMP
+     RETURNING hit_count, expires_at`,
+    [keyHash]
   );
-  await queryPg(
-    `UPDATE system_users
-     SET is_banned = TRUE, ban_reason = $2, updated_at = CURRENT_TIMESTAMP
-     WHERE id = $1 AND is_banned = FALSE`,
-    [userId, reason]
-  );
-  await MasterDB.revokeUserSessions(userId);
+  const hitCount = Number(rows[0]?.hit_count) || 0;
+  if (hitCount === DASHBOARD_MUTATIONS_PER_WINDOW + 1) {
+    await recordSecurityEvent({
+      eventType: 'security.dashboard_mutation_rate_limited',
+      severity: 'high',
+      userId,
+      ip: req.ip,
+      userAgent: req.get?.('user-agent'),
+      details: {
+        mutationRequestsInFiveMinutes: hitCount,
+        resource: String(req.baseUrl || req.path || '/api').slice(0, 120),
+        automationSignal: isSuspiciousRequest(req)
+      }
+    });
+  }
+  if (hitCount > DASHBOARD_MUTATIONS_PER_WINDOW) {
+    return Math.max(1, Math.ceil((new Date(rows[0].expires_at).getTime() - Date.now()) / 1000));
+  }
+  if (hitCount !== 60) return 0;
   await recordSecurityEvent({
-    eventType: 'security.account_disabled_automated_abuse',
-    severity: 'critical',
+    eventType: 'security.dashboard_activity_burst',
+    severity: 'warning',
     userId,
     ip: req.ip,
     userAgent: req.get?.('user-agent'),
-    details: { riskCount: current.count, windowMs }
+    details: {
+      writeRequestsInFiveMinutes: 60,
+      method,
+      resource: String(req.baseUrl || req.path || '/api').slice(0, 120),
+      automationSignal: isSuspiciousRequest(req)
+    }
   });
-  riskCounters.delete(key);
+  return 0;
 }
 
 export async function initializeOptionalSecurity() {
@@ -94,28 +115,32 @@ export function getRateLimitStore(prefix = 'tiwlo') {
 
 export async function optionalSecurityMiddleware(req, res, next) {
   if (!req.path.startsWith('/api') && !req.path.startsWith('/graphql')) return next();
+  try {
+    const retryAfterSeconds = await recordDashboardActivity(req);
+    if (retryAfterSeconds) {
+      res.setHeader('Retry-After', String(retryAfterSeconds));
+      return res.status(429).json({
+        error: 'Too many dashboard changes in a short period. Try again after the cooldown.',
+        code: 'DASHBOARD_MUTATION_RATE_LIMITED',
+        retryAfterSeconds
+      });
+    }
+  } catch (error) {
+    console.error('[Security] Could not record dashboard activity:', error.message);
+  }
   if (!isSuspiciousRequest(req)) return next();
 
-  const fingerprint = requestFingerprint(req);
-  recordSecurityEvent({
+  // A User-Agent string is trivial to spoof and must never be enough to ban an
+  // account. Persist the observation for administrator review; rate limiting
+  // and authentication middleware remain responsible for request enforcement.
+  await recordSecurityEvent({
     eventType: 'security.local_automation_signal',
     severity: 'warning',
     userId: req.activeUser?.id || null,
     ip: req.ip,
     userAgent: req.get?.('user-agent'),
-    details: { fingerprint, path: req.path }
+    details: { path: req.path, method: req.method }
   }).catch(error => console.error('[Security] Could not record automation signal:', error.message));
-
-  try {
-    await enforceRepeatedAbuse(req);
-  } catch (error) {
-    console.error('[Security] Local abuse enforcement failed:', error.message);
-    return next(error);
-  }
-
-  if (process.env.LOCAL_SECURITY_ENFORCE === 'true') {
-    return res.status(403).json({ error: 'Request blocked by local security policy.' });
-  }
   return next();
 }
 

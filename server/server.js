@@ -155,14 +155,14 @@ app.use(cors({
 }));
 
 app.use(express.json({
-  limit: '50mb',
+  limit: '5mb',
   verify: (req, res, buffer) => {
     if (req.originalUrl?.split('?')[0] === '/api/public/payments/stripe/webhook') {
       req.rawBody = Buffer.from(buffer);
     }
   }
 }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100kb', parameterLimit: 500 }));
 
 app.post('/internal/email/inbound', express.raw({
   type: 'message/rfc822',
@@ -253,8 +253,8 @@ app.use(async (req, res, next) => {
   }
 });
 
-// Run optional WAF/bot enforcement after session resolution so repeated
-// authenticated abuse can trigger the existing account-disable policy.
+// Record suspicious automation and authenticated dashboard write activity
+// after session resolution so administrators can review durable security events.
 app.use(optionalSecurityMiddleware);
 
 // Enterprise GraphQL Endpoint

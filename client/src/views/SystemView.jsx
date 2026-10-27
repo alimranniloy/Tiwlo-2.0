@@ -1,4 +1,5 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
+import { requestSensitiveActionGrant } from '../security/reauth.js';
 import React, { useState, useEffect } from 'react';
 import { SUPPORT_EMAIL } from '../config/platformConfig';
 import {
@@ -61,9 +62,11 @@ export default function SystemView({ showToast, onBackToDashboard }) {
     e.preventDefault();
     try {
       setSavingSettings(true);
+      const headers = { 'Content-Type': 'application/json' };
+      headers['x-tiwlo-reauth-grant'] = await requestSensitiveActionGrant(headers);
       const res = await fetch('/api/system/settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(settings)
       });
       if (res.ok) {
@@ -81,7 +84,10 @@ export default function SystemView({ showToast, onBackToDashboard }) {
   // Download Full Database Backup JSON
   const handleExportBackup = async () => {
     try {
-      const res = await fetch('/api/system/backup');
+      const headers = {};
+      headers['x-tiwlo-reauth-grant'] = await requestSensitiveActionGrant(headers);
+      const res = await globalThis.fetch('/api/system/backup', { credentials: 'include', headers });
+      if (!res.ok) throw new Error('Backup export could not be verified.');
       const data = await res.json();
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);

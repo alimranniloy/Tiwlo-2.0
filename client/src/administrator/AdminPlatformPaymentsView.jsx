@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { requestSensitiveActionGrant } from '../security/reauth.js';
 import { 
   CreditCard, 
   ArrowLeft, 
@@ -118,12 +119,14 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
     setSaving(true);
     try {
       const token = localStorage.getItem('stockpro_session');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
+      headers['x-tiwlo-reauth-grant'] = await requestSensitiveActionGrant(headers, API_BASE.replace(/\/api\/?$/, ''));
       const res = await fetch(`${API_BASE}/admin/payment-gateways`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
+        headers,
         credentials: 'include',
         body: JSON.stringify({ gateways })
       });

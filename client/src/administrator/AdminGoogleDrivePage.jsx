@@ -1,4 +1,5 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
+import { requestSensitiveActionGrant } from '../security/reauth.js';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
@@ -17,6 +18,15 @@ const API_BASE = window.location.origin.includes('localhost') || window.location
 function getAuthHeaders() {
   const token = localStorage.getItem('stockpro_session');
   return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function getSensitiveHeaders(extra = {}) {
+  const headers = { ...getAuthHeaders(), ...extra };
+  headers['x-tiwlo-reauth-grant'] = await requestSensitiveActionGrant(
+    headers,
+    API_BASE.replace(/\/api\/?$/, '')
+  );
+  return headers;
 }
 
 function formatDate(value) {
@@ -119,10 +129,7 @@ export default function AdminGoogleDrivePage({ showToast }) {
       const response = await fetch(`${API_BASE}/admin/storage/google-drive`, {
         method: 'POST',
         credentials: 'include',
-        headers: {
-          ...getAuthHeaders(),
-          'Content-Type': 'application/json'
-        },
+        headers: await getSensitiveHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ credentials, name: displayName, rootFolderId })
       });
       const result = await response.json();
@@ -149,7 +156,7 @@ export default function AdminGoogleDrivePage({ showToast }) {
       const response = await fetch(`${API_BASE}/admin/storage/google-drive/${encodeURIComponent(accountId)}/activate`, {
         method: 'POST',
         credentials: 'include',
-        headers: getAuthHeaders()
+        headers: await getSensitiveHeaders()
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not verify and activate this account.');
@@ -167,7 +174,7 @@ export default function AdminGoogleDrivePage({ showToast }) {
       const response = await fetch(`${API_BASE}/admin/storage/sync/${direction}`, {
         method: 'POST',
         credentials: 'include',
-        headers: getAuthHeaders()
+        headers: await getSensitiveHeaders()
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not start media sync.');

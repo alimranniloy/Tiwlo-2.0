@@ -7,8 +7,8 @@ These controls reject duplicate mailboxes and throttle abuse; they do not automa
 ban existing users based on a fingerprint, phone typed into a form, or IP address.
 
 - Both `/api/auth/register` and `/api/social/register` use the same persisted limits:
-  network 5/hour, 10/day and 30/month; canonical mailbox 5/hour; signed browser
-  5/day and 10/month. Limits count attempts, including invalid submissions.
+  network 5/hour, 10/day and 30/month; canonical mailbox 3/hour; signed browser
+  2/day and 5/month. Limits count attempts, including invalid submissions.
 - Browser cookies are random, signed, HttpOnly, Secure in production and expire
   after 180 days. IP changes do not reset this signal. Clearing cookies does;
   no hidden fingerprint or browser-storage resurrection is used.
@@ -17,6 +17,9 @@ ban existing users based on a fingerprint, phone typed into a form, or IP addres
   emails cannot create multiple accounts using that same signature. Shared-device
   users receive a support message, not a ban. This restriction only covers cookies
   issued by this version; a missing/cleared/expired cookie is a new browser signal.
+- Duplicate email and browser-claim attempts are written to durable security events.
+  Events retain a keyed browser signal and network metadata for administrator review;
+  they do not silently merge or permanently disable accounts.
 - Consumer Gmail dot/plus aliases and `googlemail.com` map to the same signup key.
   Custom-domain dot/plus addresses remain distinct. The submitted address is retained
   for delivery. Login identifiers are not silently merged.

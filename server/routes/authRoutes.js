@@ -41,6 +41,9 @@ import {
 import { recordSecurityEvent } from '../db/securityPersistence.js';
 import { securityLimiters, registrationGuards } from '../plugins/security/index.js';
 import { normalizeSignupEmail, isDuplicateAccountError, isDuplicateBrowserError } from '../security/signupIdentity.js';
+import { recordDuplicateSignupSignal } from '../security/signupBrowser.js';
+import { recordSuccessfulLoginDevice } from '../security/loginRisk.js';
+import { requireRecentReauth } from '../security/recentReauth.js';
 import { getPgPool, queryPg } from '../db/postgres.js';
 import {
   findOrCreateSocialUser,
@@ -844,6 +847,8 @@ router.post('/auth/register', ...registrationGuards, async (req, res) => {
     const existing = await MasterDB.findUserByIdentifier(normalizedEmail);
 
     if (existing || emailTaken) {
+      recordDuplicateSignupSignal(req, 'email_already_registered')
+        .catch(error => console.warn('[Register] Could not record duplicate email signal:', error.message));
       return res.status(409).json({ error: 'That email is already in use. Please sign in or use another email.' });
     }
 
@@ -990,9 +995,13 @@ router.post('/auth/register', ...registrationGuards, async (req, res) => {
     });
   } catch (err) {
     if (isDuplicateBrowserError(err)) {
+      recordDuplicateSignupSignal(req, 'browser_claim_already_used')
+        .catch(error => console.warn('[Register] Could not record duplicate browser signal:', error.message));
       return res.status(409).json({ error: 'This browser already created an account. Please sign in or contact support for help with a shared device.' });
     }
     if (isDuplicateAccountError(err)) {
+      recordDuplicateSignupSignal(req, 'email_insert_conflict')
+        .catch(error => console.warn('[Register] Could not record duplicate email signal:', error.message));
       return res.status(409).json({ error: 'An account already uses this email. Please sign in or recover your existing account.' });
     }
     console.error('Registration error:', err);
@@ -1001,7 +1010,7 @@ router.post('/auth/register', ...registrationGuards, async (req, res) => {
 });
 
 // Login
-router.post('/auth/login', securityLimiters.login, async (req, res) => {
+router.post('/auth/login', securityLimiters.login, securityLimiters.otpRequestIp, securityLimiters.otpRequestAccount, async (req, res) => {
   try {
     const { identifier, password } = req.body;
     if (!identifier || !password) {
@@ -1184,6 +1193,54 @@ router.post('/auth/login', securityLimiters.login, async (req, res) => {
   }
 });
 
+router.post('/auth/reauth/request', securityLimiters.sensitiveReauth, securityLimiters.otpRequestIp, securityLimiters.otpRequestAccount, async (req, res) => {
+  const user = req.activeUser;
+  if (!user?.id || !user.email || user.emailVerified !== true) {
+    return res.status(401).json({ error: 'Sign in with a verified account before confirming a sensitive change.' });
+  }
+  try {
+    const challenge = await generateSecureOtp(user.email, 'sensitive_action', 10);
+    const delivery = await sendTwoFactorOtpEmail({
+      to: user.email,
+      name: user.name || user.storeName,
+      code: challenge.code
+    }).catch(error => ({ success: false, error: error.message }));
+    if (!delivery?.success) {
+      await deleteOtpSession(challenge.token);
+      return res.status(503).json({ error: 'Could not send the confirmation code. Try again shortly.' });
+    }
+    return res.json({
+      success: true,
+      tempToken: challenge.token,
+      emailMasked: maskEmail(user.email),
+      expiresInSeconds: 600,
+      message: 'A confirmation code was sent to your verified email.'
+    });
+  } catch (error) {
+    console.error('[RecentReauth] Could not start email verification:', error.message);
+    return res.status(503).json({ error: 'Could not start verification. Try again shortly.' });
+  }
+});
+
+router.post('/auth/reauth/verify', async (req, res) => {
+  const user = req.activeUser;
+  const { tempToken, otpCode } = req.body || {};
+  if (!user?.id || !user.email || !tempToken || !otpCode) {
+    return res.status(400).json({ error: 'Sign in and enter the email confirmation code.' });
+  }
+  try {
+    const verification = await verifySecureOtp(tempToken, otpCode, 'sensitive_action');
+    if (!verification.valid || String(verification.email || '').toLowerCase() !== String(user.email).toLowerCase()) {
+      return res.status(400).json({ error: verification.error || 'The code is invalid or has expired.' });
+    }
+    const grant = await createSecureGrant(user.email, 'sensitive_action_grant', 5);
+    return res.json({ success: true, grant, expiresInSeconds: 300 });
+  } catch (error) {
+    console.error('[RecentReauth] Could not verify email code:', error.message);
+    return res.status(503).json({ error: 'Could not verify the code. Try again shortly.' });
+  }
+});
+
 // Verify 2FA
 router.post('/auth/verify-2fa', async (req, res) => {
   try {
@@ -1208,6 +1265,9 @@ router.post('/auth/verify-2fa', async (req, res) => {
     const tiwiId = user.tiwiId || user.storeId;
 
     const { sessionToken } = verification;
+    await recordSuccessfulLoginDevice(user, req).catch(error => {
+      console.warn('[Login Risk] Could not record trusted device:', error.message);
+    });
     setSessionCookie(res, req, sessionToken);
     clearOAuthMfaCookie(res, req);
 
@@ -1256,7 +1316,7 @@ router.post('/auth/verify-2fa', async (req, res) => {
 });
 
 // Resend 2FA
-router.post('/auth/resend-2fa', async (req, res) => {
+router.post('/auth/resend-2fa', securityLimiters.otpRequestIp, securityLimiters.otpRequestAccount, async (req, res) => {
   try {
     const tempToken = req.body?.tempToken || req.cookies?.tiwlo_oauth_mfa;
     if (!tempToken) {
@@ -1306,7 +1366,7 @@ router.post('/auth/resend-2fa', async (req, res) => {
 });
 
 // Resend 2FA Setup Code
-router.post('/auth/resend-setup-2fa', async (req, res) => {
+router.post('/auth/resend-setup-2fa', securityLimiters.otpRequestIp, securityLimiters.otpRequestAccount, async (req, res) => {
   try {
     const tempToken = req.body?.tempToken || req.cookies?.tiwlo_oauth_mfa;
     if (!tempToken) {
@@ -1378,6 +1438,9 @@ router.post('/auth/setup-2fa', async (req, res) => {
     const tiwiId = user.tiwiId || user.storeId;
 
     const { sessionToken } = await MasterDB.createSession(user.id, tiwiId, user.email, req);
+    await recordSuccessfulLoginDevice(user, req).catch(error => {
+      console.warn('[Login Risk] Could not record trusted device:', error.message);
+    });
     setSessionCookie(res, req, sessionToken);
     clearOAuthMfaCookie(res, req);
 
@@ -1579,7 +1642,7 @@ router.post('/auth/change-email', authorizeEmailCorrection, async (req, res) => 
 });
 
 // Resend Email Verification
-router.post('/auth/resend-email-verification', async (req, res) => {
+router.post('/auth/resend-email-verification', securityLimiters.otpRequestIp, securityLimiters.otpRequestAccount, async (req, res) => {
   try {
     const { tempToken } = req.body;
     if (!tempToken) {
@@ -1625,7 +1688,7 @@ router.post('/auth/resend-email-verification', async (req, res) => {
 });
 
 // Forgot Password Request
-router.post('/auth/forgot-password/request', async (req, res) => {
+router.post('/auth/forgot-password/request', securityLimiters.otpRequestIp, securityLimiters.otpRequestAccount, async (req, res) => {
   try {
     const { identifier } = req.body;
     if (!identifier || !identifier.trim()) {
@@ -2189,6 +2252,9 @@ router.post('/auth/sso/consume-handshake', async (req, res) => {
 
     const tiwiId = user.tiwiId || user.storeId || null;
     const { sessionToken } = await MasterDB.createSession(user.id, tiwiId, user.email, req);
+    await recordSuccessfulLoginDevice(user, req).catch(error => {
+      console.warn('[Login Risk] Could not record trusted device:', error.message);
+    });
 
     setSessionCookie(res, req, sessionToken);
 

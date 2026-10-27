@@ -107,21 +107,21 @@ export const securityLimiters = {
   registrationEmail: createLimiter({
     policyId: 'auth_registration_mailbox',
     windowMs: hour,
-    limit: 5,
+    limit: 3,
     getIdentity: (req) => signupEmailKey(req.body?.email),
     error: 'Too many signup attempts for this email. Please sign in or try again later.'
   }),
   registrationBrowser: createLimiter({
     policyId: 'auth_registration_browser',
     windowMs: day,
-    limit: 5,
+    limit: 2,
     getIdentity: (req) => req.signupBrowserId,
     error: 'Too many account creation attempts in this browser. Please try again tomorrow.'
   }),
   registrationBrowserMonthly: createLimiter({
     policyId: 'auth_registration_browser_monthly',
     windowMs: month,
-    limit: 10,
+    limit: 5,
     getIdentity: (req) => req.signupBrowserId,
     error: 'This browser has reached its monthly signup limit. Please use your existing account.'
   }),
@@ -130,6 +130,28 @@ export const securityLimiters = {
     windowMs: 15 * 60 * 1000,
     limit: 30,
     error: 'Too many sign-in requests. Please wait and try again.'
+  }),
+  sensitiveReauth: createLimiter({
+    policyId: 'sensitive_action_reauth_account',
+    windowMs: hour,
+    limit: 5,
+    getIdentity: (req) => req.activeUser?.id ? `user:${req.activeUser.id}` : getClientNetwork(req),
+    error: 'Too many sensitive-action verification requests. Try again later.'
+  }),
+  otpRequestIp: createLimiter({
+    policyId: 'auth_otp_request_ip_hourly',
+    windowMs: hour,
+    limit: 10,
+    error: 'Too many verification-code requests from this network. Try again later.'
+  }),
+  otpRequestAccount: createLimiter({
+    policyId: 'auth_otp_request_account_hourly',
+    windowMs: hour,
+    limit: 5,
+    getIdentity: (req) => req.activeUser?.id
+      ? `user:${req.activeUser.id}`
+      : signupEmailKey(req.body?.email || req.body?.identifier) || getClientNetwork(req),
+    error: 'Too many verification-code requests for this account. Try again later.'
   }),
   registration: createLimiter({
     policyId: 'auth_registration_ip',
@@ -198,6 +220,6 @@ export const registrationGuards = [
 export default {
   id: 'security',
   name: 'Tiwlo Security Controls',
-  version: '1.1.0',
-  description: 'Persistent abuse throttles and security-event auditing for authentication and Tiwlo Mail.'
+  version: '1.2.0',
+  description: 'Persistent signup throttles, duplicate-account signals, and security-event auditing.'
 };

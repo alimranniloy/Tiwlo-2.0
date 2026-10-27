@@ -1,4 +1,5 @@
 import { PLATFORM_DOMAIN } from '../config/platformConfig';
+import { requestSensitiveActionGrant } from '../security/reauth';
 
 const manifests = new Map();
 const nativeFetch = (resource, options) => globalThis.fetch(resource, options);
@@ -39,6 +40,20 @@ export async function applicationFetch(resource, options = {}) {
       (options.body != null && typeof options.body !== 'string')) return nativeFetch(resource, options);
   const method = (options.method || 'GET').toUpperCase();
   if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return nativeFetch(resource, options);
+  const sensitiveAction = method === 'POST' && /^\/api\/(?:domains\/?|admin\/payment-gateways)$/.test(url.pathname) ||
+    (method === 'POST' || method === 'PUT' || method === 'DELETE') && /^\/api\/(?:domains\/[^/]+(?:\/provision)?|staff(?:\/[^/]+)?|store\/payment-providers\/[^/]+|admin\/users\/[^/]+(?:\/ban)?)$/.test(url.pathname) ||
+    (method === 'PUT' || method === 'DELETE') && /^\/api\/admin\/users\/[^/]+$/.test(url.pathname) ||
+    method === 'POST' && /^\/api\/subdomains\/(?:claim|[^/]+\/records)$/.test(url.pathname) ||
+    (method === 'PATCH' || method === 'DELETE') && /^\/api\/subdomains\/[^/]+\/records(?:\/[^/]+)?$/.test(url.pathname) ||
+    method === 'POST' && /^\/api\/domains\/[^/]+\/verify$/.test(url.pathname) ||
+    method === 'PUT' && /^\/api\/(?:system\/settings|admin\/social-login\/[^/]+)$/.test(url.pathname) ||
+    method === 'POST' && /^\/api\/admin\/storage\/(?:google-drive(?:\/[^/]+\/activate)?|sync\/[^/]+)$/.test(url.pathname) ||
+    method === 'GET' && /^\/api\/system\/backup$/.test(url.pathname);
+  const actionHeaders = new Headers(options.headers);
+  if (sensitiveAction && !actionHeaders.has('x-tiwlo-reauth-grant')) {
+    const grant = await requestSensitiveActionGrant(actionHeaders, url.origin);
+    actionHeaders.set('x-tiwlo-reauth-grant', grant);
+  }
   const manifest = await operations(url.origin);
   let selected;
   let params;
@@ -49,7 +64,7 @@ export async function applicationFetch(resource, options = {}) {
   }
   if (!selected) throw new Error(`No GraphQL operation is registered for ${method} ${url.pathname}`);
   const input = { params, query: Object.fromEntries(url.searchParams), body: typeof options.body === 'string' ? JSON.parse(options.body) : {} };
-  const headers = new Headers(options.headers);
+  const headers = actionHeaders;
   headers.set('Content-Type', 'application/json');
   const response = await nativeFetch(`${url.origin}/api/graphql`, {
     ...options, method: 'POST', headers, credentials: options.credentials || 'include',

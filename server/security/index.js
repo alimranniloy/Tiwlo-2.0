@@ -90,8 +90,7 @@ export function contentSafetyMiddleware(context = 'public_feed') {
           category: safetyResult.category,
           policyName: safetyResult.policyName,
           reason: safetyResult.reason,
-          contentType: context.replace('_', ' ').toUpperCase(),
-          isCritical: safetyResult.category === 'WEAPONS_AND_CONTRABAND'
+          contentType: context.replace('_', ' ').toUpperCase()
         });
 
         return res.status(400).json({

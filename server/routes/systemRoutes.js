@@ -20,6 +20,7 @@ import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { MasterDB } from '../db/multiTenant.js';
 import { findActiveCustomDomain } from '../domains/domainService.js';
 import { listSecurityEvents } from '../db/securityPersistence.js';
+import { requireRecentReauth } from '../security/recentReauth.js';
 import {
   getSocialProviderStatuses,
   saveSocialProviderSettings
@@ -156,7 +157,7 @@ router.get('/system/settings', async (req, res) => {
   }
 });
 
-router.put('/system/settings', requireAdmin, async (req, res) => {
+router.put('/system/settings', requireAdmin, requireRecentReauth, async (req, res) => {
   try {
     const current = await MasterDB.getSystemSettings(defaultSystemSettings);
     const updated = {
@@ -182,7 +183,7 @@ router.get('/admin/social-login', requireAdmin, async (_req, res) => {
   }
 });
 
-router.put('/admin/social-login/:provider', requireAdmin, async (req, res) => {
+router.put('/admin/social-login/:provider', requireAdmin, requireRecentReauth, async (req, res) => {
   try {
     const { clientId, clientSecret, enabled } = req.body || {};
     await saveSocialProviderSettings(req.params.provider, { clientId, clientSecret, enabled });
@@ -237,7 +238,7 @@ router.get('/system/info', async (req, res) => {
 });
 
 // System Backup (Admin Only)
-router.get('/system/backup', requireAdmin, async (req, res) => {
+router.get('/system/backup', requireAdmin, requireRecentReauth, async (req, res) => {
   try {
     const fullBackup = {
       exportDate: new Date().toISOString(),

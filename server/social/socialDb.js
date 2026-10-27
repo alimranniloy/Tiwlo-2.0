@@ -5,6 +5,7 @@ import {
   verifyPasswordWithRust
 } from '../security/rustAuthSessionClient.js';
 import { isPgActive, queryPg } from '../db/postgres.js';
+import { duplicateAccountError } from '../security/signupIdentity.js';
 import {
   completeMfaLoginWithRust,
   generateSecureOtp,
@@ -638,7 +639,7 @@ export const SocialDB = {
     // 1. Strict Email Uniqueness Check
     const emailTaken = await this.isEmailTaken(cleanEmail);
     if (emailTaken) {
-      throw new Error('That email is taken. Try another.');
+      throw duplicateAccountError();
     }
 
     // 2. Strict Handle Format & Uniqueness Check

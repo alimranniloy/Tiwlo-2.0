@@ -1,4 +1,5 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
+import { requestSensitiveActionGrant } from '../security/reauth.js';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Search,
@@ -54,12 +55,14 @@ export default function AdminCustomersView({ onBackToDashboard, showToast }) {
     try {
       setActionLoading(true);
       const token = localStorage.getItem('stockpro_session');
+      const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+      headers['x-tiwlo-reauth-grant'] = await requestSensitiveActionGrant(
+        headers,
+        API_BASE.replace(/\/api\/?$/, '') || window.location.origin
+      );
       const res = await fetch(`${API_BASE}/admin/users/${customer.id}/ban`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
+        headers,
         credentials: 'include',
         body: JSON.stringify({ isBanned: isBanning, reason: reasonText })
       });
