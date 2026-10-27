@@ -69,6 +69,9 @@ const TiwloStudioLanding = lazy(() => import('./studio/landing-page'));
 // UIDis.app / OneProfile Identity & Website Dashboard (/oneprofile, /one-profile)
 const OneProfileDashboard = lazy(() => import('./oneprofile'));
 
+// Identity Verification Flow Mobile Experience (/verification)
+const VerificationFlow = lazy(() => import('./verification'));
+
 // Live Support AI Widget
 const LiveSupportWidget = lazy(() => import('./support/ai/LiveSupportWidget'));
 
@@ -433,6 +436,10 @@ export default function App() {
           return 'oneprofile';
         }
 
+        if (pathname === 'verification' || pathname.startsWith('verification/')) {
+          return 'verification';
+        }
+
         // Unrecognized route -> 404
         return 'not-found';
       }
@@ -448,6 +455,9 @@ export default function App() {
       }
       if (searchParams.get('tab') === 'studio' || searchParams.get('view') === 'studio') {
         return 'studio';
+      }
+      if (searchParams.get('tab') === 'verification' || searchParams.get('view') === 'verification') {
+        return 'verification';
       }
       if (searchParams.get('tab') === 'subdomain' || searchParams.get('view') === 'subdomain' || searchParams.get('view') === 'uidis') {
         return 'subdomain';
@@ -2004,6 +2014,13 @@ export default function App() {
           setCurrentUser={setCurrentUser}
           onNavigateTab={handleTabChange}
         />
+      ) : (activeTab === 'verification' || (typeof activeTab === 'string' && activeTab.startsWith('verification'))) ? (
+        <Suspense fallback={<TiwloPageLoader text="Loading Identity Verification..." />}>
+          <VerificationFlow
+            onComplete={() => handleTabChange('dashboard')}
+            onCancel={() => handleTabChange('dashboard')}
+          />
+        </Suspense>
       ) : activeTab === 'pos' ? (
         <POSView
           onBack={() => handleTabChange('dashboard')}
