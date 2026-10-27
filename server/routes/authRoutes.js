@@ -459,11 +459,16 @@ async function completeSocialLogin(provider, req, res) {
       mfaMode === 'login' ? 'login_2fa' : 'setup_2fa',
       mfaMode === 'login' ? 10 : 15
     );
-    await sendTwoFactorOtpEmail({
+    const emailResult = await sendTwoFactorOtpEmail({
       to: user.email,
       name: user.name || user.storeName,
       code: otp.code
-    });
+    }).catch(error => ({ success: false, status: 'failed', error: error.message }));
+    if (!emailResult?.success) {
+      await deleteOtpSession(otp.token);
+      clearOAuthMfaCookie(res, req);
+      return res.redirect(getSocialLoginUrl(provider, { returnTo: savedState.returnTo, error: 'email' }));
+    }
     setSocialMfaCookie(res, req, otp.token);
     const loginUrl = new URL(getSocialLoginUrl(provider, { returnTo: savedState.returnTo }));
     return res.redirect(loginUrl.toString());
@@ -691,21 +696,25 @@ router.post('/auth/social/complete-profile', async (req, res) => {
       mfaMode === 'login' ? 'login_2fa' : 'setup_2fa',
       mfaMode === 'login' ? 10 : 15
     );
-    await sendTwoFactorOtpEmail({
+    const emailResult = await sendTwoFactorOtpEmail({
       to: user.email,
       name: user.name || user.storeName,
       code: otp.code
-    });
+    }).catch(error => ({ success: false, status: 'failed', error: error.message }));
     res.clearCookie('tiwlo_social_profile', {
       ...getSocialProfileChallengeCookieOptions(req),
       maxAge: undefined
     });
     setSocialMfaCookie(res, req, otp.token);
+    const emailDelivered = emailResult?.success === true;
     return res.json({
       success: true,
       challenge: mfaMode,
       emailMasked: maskSocialEmail(user.email),
-      message: 'Profile saved. A verification code has been sent to your email.'
+      deliveryStatus: emailDelivered ? emailResult.status : 'failed',
+      message: emailDelivered
+        ? 'Profile saved. A verification code has been sent to your email.'
+        : 'Profile saved, but the verification email could not be delivered. Use Resend code to try again.'
     });
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
@@ -950,7 +959,7 @@ router.post('/auth/register', ...registrationGuards, async (req, res) => {
       to: newUser.email,
       name: newUser.name || newUser.storeName,
       code: verifyOtp.code
-    }).catch(e => ({ success: false, delivered: false, error: e.message }));
+    }).catch(e => ({ success: false, delivered: false, status: 'failed', error: e.message }));
 
     return res.status(201).json({
       success: true,
@@ -974,8 +983,10 @@ router.post('/auth/register', ...registrationGuards, async (req, res) => {
         subdomain: newUser.subdomain
       },
       delivered: emailResult?.delivered || false,
-      deliveryStatus: emailResult?.status || 'queued_in_outbox',
-      message: `Store "${newUser.storeName}" created! A 6-digit verification code was sent to ${masked}. Please verify your email to activate your store.`
+      deliveryStatus: emailResult?.status || 'failed',
+      message: emailResult?.success
+        ? `Store "${newUser.storeName}" created! A 6-digit verification code was sent to ${masked}. Please verify your email to activate your store.`
+        : `Store "${newUser.storeName}" created, but we could not deliver a verification code to ${masked}. Use Resend code to try again.`
     });
   } catch (err) {
     if (isDuplicateBrowserError(err)) {
@@ -1095,6 +1106,10 @@ router.post('/auth/login', securityLimiters.login, async (req, res) => {
         name: user.name || user.storeName,
         code: otpResult.code
       }).catch(err => ({ success: false, delivered: false, error: err.message }));
+      if (!emailResult?.success) {
+        await deleteOtpSession(otpResult.token);
+        return res.status(503).json({ error: 'We could not send your email verification code. Please try signing in again shortly.' });
+      }
 
       (await logActivity('auth', `Email Verification Required`, `Target: ${cleanId} • Code dispatched to ${masked}`));
 
@@ -1118,7 +1133,11 @@ router.post('/auth/login', securityLimiters.login, async (req, res) => {
         to: user.email,
         name: user.name || user.storeName,
         code: otpResult.code
-      });
+      }).catch(error => ({ success: false, delivered: false, error: error.message }));
+      if (!emailResult?.success) {
+        await deleteOtpSession(otpResult.token);
+        return res.status(503).json({ error: 'We could not send your 2-Step Verification code. Please try signing in again shortly.' });
+      }
 
       (await logActivity('auth', `2FA Setup Challenge Initiated`, `Target: ${cleanId} • Status: ${emailResult?.status}`));
 
@@ -1141,7 +1160,11 @@ router.post('/auth/login', securityLimiters.login, async (req, res) => {
       to: user.email,
       name: user.name || user.storeName,
       code: otpResult.code
-    });
+    }).catch(error => ({ success: false, delivered: false, error: error.message }));
+    if (!emailResult?.success) {
+      await deleteOtpSession(otpResult.token);
+      return res.status(503).json({ error: 'We could not send your 2-Step Verification code. Please try signing in again shortly.' });
+    }
 
     (await logActivity('auth', `2FA Challenge Initiated`, `Target: ${cleanId} • Status: ${emailResult?.status}`));
 
@@ -1262,7 +1285,7 @@ router.post('/auth/resend-2fa', async (req, res) => {
       to: user.email,
       name: user.name || user.storeName,
       code: newOtp.code
-    });
+    }).catch(error => ({ success: false, delivered: false, status: 'failed', error: error.message }));
 
     (await logActivity('auth', '2FA Code Resent', `Target: ${user.email} • Status: ${emailResult?.status}`));
 
@@ -1272,7 +1295,9 @@ router.post('/auth/resend-2fa', async (req, res) => {
       emailMasked: masked,
       delivered: emailResult?.delivered || false,
       deliveryStatus: emailResult?.status,
-      message: `A fresh 6-digit code has been sent to ${masked}`
+      message: emailResult?.success
+        ? `A fresh 6-digit code has been sent to ${masked}`
+        : `We could not deliver a new code to ${masked}. Please try again shortly.`
     });
   } catch (err) {
     console.error('Resend 2FA error:', err);
@@ -1310,7 +1335,7 @@ router.post('/auth/resend-setup-2fa', async (req, res) => {
       to: user.email,
       name: user.name || user.storeName,
       code: newOtp.code
-    });
+    }).catch(error => ({ success: false, delivered: false, status: 'failed', error: error.message }));
 
     (await logActivity('auth', '2FA Setup Code Resent', `Target: ${user.email} • Status: ${emailResult?.status}`));
 
@@ -1320,7 +1345,9 @@ router.post('/auth/resend-setup-2fa', async (req, res) => {
       emailMasked: masked,
       delivered: emailResult?.delivered || false,
       deliveryStatus: emailResult?.status,
-      message: `A fresh 6-digit confirmation code has been sent to ${masked}`
+      message: emailResult?.success
+        ? `A fresh 6-digit confirmation code has been sent to ${masked}`
+        : `We could not deliver a new confirmation code to ${masked}. Please try again shortly.`
     });
   } catch (err) {
     console.error('Resend 2FA setup error:', err);
@@ -1395,51 +1422,6 @@ router.post('/auth/setup-2fa', async (req, res) => {
   } catch (err) {
     console.error('Setup 2FA error:', err);
     res.status(500).json({ error: 'Failed to complete 2-Step Verification setup' });
-  }
-});
-
-// Resend Setup 2FA
-router.post('/auth/resend-setup-2fa', async (req, res) => {
-  try {
-    const tempToken = req.body?.tempToken || req.cookies?.tiwlo_oauth_mfa;
-    if (!tempToken) {
-      return res.status(400).json({ error: 'Temporary verification token is required.' });
-    }
-
-    const session = await getOtpSession(tempToken);
-    if (!session) {
-      return res.status(404).json({ error: 'Verification session expired. Please sign in again.' });
-    }
-
-    const user = await MasterDB.findUserByIdentifier(session.email);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found.' });
-    }
-
-    await deleteOtpSession(tempToken);
-    const newOtp = await generateSecureOtp(user.email, 'setup_2fa', 15);
-    if (req.cookies?.tiwlo_oauth_mfa) {
-      setSocialMfaCookie(res, req, newOtp.token);
-    }
-    const masked = maskEmail(user.email);
-
-    const emailResult = await sendTwoFactorOtpEmail({
-      to: user.email,
-      name: user.name || user.storeName,
-      code: newOtp.code
-    }).catch(e => ({ success: false, delivered: false, error: e.message }));
-
-    return res.json({
-      success: true,
-      newTempToken: newOtp.token,
-      emailMasked: masked,
-      delivered: emailResult?.delivered || false,
-      deliveryStatus: emailResult?.status || 'queued_in_outbox',
-      message: `A fresh 6-digit confirmation code has been sent to ${masked}`
-    });
-  } catch (err) {
-    console.error('Resend setup 2FA error:', err);
-    res.status(500).json({ error: 'Failed to resend confirmation code' });
   }
 });
 
@@ -1572,7 +1554,7 @@ router.post('/auth/change-email', authorizeEmailCorrection, async (req, res) => 
       to: cleanNewEmail,
       name: user.name || user.storeName,
       code: newOtp.code
-    }).catch(err => ({ success: false, delivered: false, error: err.message }));
+    }).catch(err => ({ success: false, delivered: false, status: 'failed', error: err.message }));
 
     (await logActivity('auth', 'User Updated Email Address', `Old: ${session.email} • New: ${cleanNewEmail}`, user.tiwiId));
 
@@ -1582,8 +1564,10 @@ router.post('/auth/change-email', authorizeEmailCorrection, async (req, res) => 
       email: cleanNewEmail,
       emailMasked: masked,
       delivered: emailResult?.delivered || false,
-      deliveryStatus: emailResult?.status || 'queued_in_outbox',
-      message: `Email address changed to ${cleanNewEmail}. Verification passcode sent.`
+      deliveryStatus: emailResult?.status || 'failed',
+      message: emailResult?.success
+        ? `Email address changed to ${cleanNewEmail}. Verification passcode sent.`
+        : `Email address changed to ${cleanNewEmail}, but the verification code could not be delivered. Use Resend code to try again.`
     });
   } catch (err) {
     if (isDuplicateAccountError(err)) {
@@ -1621,7 +1605,7 @@ router.post('/auth/resend-email-verification', async (req, res) => {
       to: user.email,
       name: user.name || user.storeName,
       code: newOtp.code
-    }).catch(err => ({ success: false, delivered: false, error: err.message }));
+    }).catch(err => ({ success: false, delivered: false, status: 'failed', error: err.message }));
 
     return res.json({
       success: true,
@@ -1629,8 +1613,10 @@ router.post('/auth/resend-email-verification', async (req, res) => {
       email: user.email,
       emailMasked: masked,
       delivered: emailResult?.delivered || false,
-      deliveryStatus: emailResult?.status || 'queued_in_outbox',
-      message: `A fresh 6-digit verification code has been dispatched to ${masked}`
+      deliveryStatus: emailResult?.status || 'failed',
+      message: emailResult?.success
+        ? `A fresh 6-digit verification code has been dispatched to ${masked}`
+        : `We could not deliver a verification code to ${masked}. Please try again shortly.`
     });
   } catch (err) {
     console.error('Resend verification error:', err);
@@ -1662,7 +1648,12 @@ router.post('/auth/forgot-password/request', async (req, res) => {
       to: user.email,
       name: user.name || user.storeName,
       code: otp.code
-    });
+    }).catch(error => ({ success: false, delivered: false, status: 'failed', error: error.message }));
+
+    if (!emailResult?.success) {
+      await deleteOtpSession(otp.token);
+      return res.status(503).json({ error: 'We could not deliver a recovery code. Please try again shortly.' });
+    }
 
     (await logActivity('auth', 'Password Recovery Dispatched', `Target: ${user.email} • Status: ${emailResult?.status}`));
 

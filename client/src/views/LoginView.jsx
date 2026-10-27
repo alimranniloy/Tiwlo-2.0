@@ -1,5 +1,5 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getDashboardUrl } from '../utils/navigation';
 import { COUNTRY_OPTIONS, MONTH_OPTIONS, getDaysInBirthMonth } from '../utils/accountFormOptions';
 import {
@@ -27,6 +27,7 @@ export default function LoginView({
       cancelled: 'Sign-in was cancelled.',
       unavailable: 'This social sign-in provider is not configured.',
       disabled: 'This Tiwlo account has been disabled.',
+      email: 'We could not send your verification code. Please try signing in again or contact support.',
       failed: 'Social sign-in could not be completed. Please try again.'
     };
     return {
@@ -231,7 +232,7 @@ export default function LoginView({
       if (!response.ok || !result.success) {
         throw new Error(result.error || 'Could not save your required profile details.');
       }
-      setResendCountdown(60);
+      setResendCountdown(result.deliveryStatus === 'failed' ? 0 : 60);
       if (result.challenge === 'login') {
         setTwoFactorData({
           tempToken: '',
@@ -249,7 +250,8 @@ export default function LoginView({
         });
         setViewMode('setup_2fa');
       }
-      showToast?.(result.message);
+      if (result.deliveryStatus === 'failed') setErrorMsg(result.message);
+      else showToast?.(result.message);
     } catch (error) {
       setErrorMsg(error.message || 'Could not save your required profile details.');
     } finally {
@@ -283,6 +285,8 @@ export default function LoginView({
     code: ''
   });
   const [resendCountdown, setResendCountdown] = useState(0);
+  const mfaSubmitting = useRef(false);
+  const setupMfaSubmitting = useRef(false);
 
   // 3. Forgot Password State
   const [resetData, setResetData] = useState({
@@ -313,6 +317,7 @@ export default function LoginView({
           code: ''
         };
         setViewMode(result.challenge === 'login' ? '2fa' : 'setup_2fa');
+        setResendCountdown(60);
         if (result.challenge === 'login') setTwoFactorData(challengeData);
         else setSetup2FAData(challengeData);
       })
@@ -540,8 +545,9 @@ export default function LoginView({
         }));
         setIsChangingEmail(false);
         setNewEmailInput('');
-        setResendCountdown(60);
-        showToast?.(data.message || 'Email updated. Verification code sent.');
+        setResendCountdown(data.deliveryStatus === 'failed' ? 0 : 60);
+        if (data.deliveryStatus === 'failed') setErrorMsg(data.message);
+        else showToast?.(data.message || 'Email updated. Verification code sent.');
       } else {
         setErrorMsg(data?.error || 'Failed to update email address.');
       }
@@ -576,8 +582,9 @@ export default function LoginView({
           emailMasked: data.emailMasked || prev.emailMasked,
           code: ''
         }));
-        setResendCountdown(60);
-        showToast?.(data.message || 'A fresh verification code has been dispatched to your email.');
+        setResendCountdown(data.deliveryStatus === 'failed' ? 15 : 60);
+        if (data.deliveryStatus === 'failed') setErrorMsg(data.message);
+        else showToast?.(data.message || 'A fresh verification code has been dispatched to your email.');
       } else {
         setErrorMsg(data?.error || 'Failed to resend verification code.');
       }
@@ -592,6 +599,7 @@ export default function LoginView({
   // Step 3: Verify 2FA Code
   const handleVerify2FA = async (e) => {
     e.preventDefault();
+    if (mfaSubmitting.current) return;
     const cleanCode = twoFactorData.code.trim();
     if (!cleanCode || cleanCode.length !== 6) {
       setErrorMsg('Enter the 6-digit verification code.');
@@ -599,6 +607,7 @@ export default function LoginView({
     }
 
     try {
+      mfaSubmitting.current = true;
       setLoading(true);
       setErrorMsg('');
 
@@ -626,6 +635,7 @@ export default function LoginView({
       console.error('2FA verification error:', err);
       setErrorMsg('Network connection error. Please try again.');
     } finally {
+      mfaSubmitting.current = false;
       setLoading(false);
     }
   };
@@ -653,8 +663,9 @@ export default function LoginView({
           emailMasked: data.emailMasked || prev.emailMasked,
           code: ''
         }));
-        setResendCountdown(60);
-        showToast?.(data.message || 'A fresh verification code has been dispatched to your email.');
+        setResendCountdown(data.deliveryStatus === 'failed' ? 15 : 60);
+        if (data.deliveryStatus === 'failed') setErrorMsg(data.message);
+        else showToast?.(data.message || 'A fresh verification code has been dispatched to your email.');
       } else {
         setErrorMsg(data?.error || 'Failed to resend code. Please try again.');
       }
@@ -669,6 +680,7 @@ export default function LoginView({
   // Step 3c: Verify 2FA Setup
   const handleVerifySetup2FA = async (e) => {
     e.preventDefault();
+    if (setupMfaSubmitting.current) return;
     const cleanCode = setup2FAData.code.trim();
     if (!cleanCode || cleanCode.length !== 6) {
       setErrorMsg('Enter the 6-digit confirmation code.');
@@ -676,6 +688,7 @@ export default function LoginView({
     }
 
     try {
+      setupMfaSubmitting.current = true;
       setLoading(true);
       setErrorMsg('');
 
@@ -703,6 +716,7 @@ export default function LoginView({
       console.error('Setup 2FA error:', err);
       setErrorMsg('Network connection error. Please try again.');
     } finally {
+      setupMfaSubmitting.current = false;
       setLoading(false);
     }
   };
@@ -730,8 +744,9 @@ export default function LoginView({
           emailMasked: data.emailMasked || prev.emailMasked,
           code: ''
         }));
-        setResendCountdown(60);
-        showToast?.(data.message || 'A fresh confirmation code has been dispatched.');
+        setResendCountdown(data.deliveryStatus === 'failed' ? 15 : 60);
+        if (data.deliveryStatus === 'failed') setErrorMsg(data.message);
+        else showToast?.(data.message || 'A fresh confirmation code has been dispatched.');
       } else {
         setErrorMsg(data?.error || 'Failed to resend confirmation code.');
       }

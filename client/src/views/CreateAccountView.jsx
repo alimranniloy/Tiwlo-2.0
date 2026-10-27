@@ -810,9 +810,10 @@ export default function CreateAccountView({
             emailMasked: data.emailMasked || formData.email,
             code: ''
           });
-          setResendCountdown(60);
+          setResendCountdown(data.deliveryStatus === 'failed' ? 0 : 60);
           setStep(4);
-          showToast?.(data.message || 'Please verify your email address to continue.');
+          if (data.deliveryStatus === 'failed') setErrorMsg(data.message);
+          else showToast?.(data.message || 'Please verify your email address to continue.');
           return;
         }
 
@@ -929,8 +930,9 @@ export default function CreateAccountView({
           emailMasked: data.emailMasked || prev.emailMasked,
           code: ''
         }));
-        setResendCountdown(60);
-        showToast?.(data.message || 'A fresh verification code has been dispatched.');
+        setResendCountdown(data.deliveryStatus === 'failed' ? 15 : 60);
+        if (data.deliveryStatus === 'failed') setErrorMsg(data.message);
+        else showToast?.(data.message || 'A fresh verification code has been dispatched.');
       } else {
         setErrorMsg(data?.error || 'Failed to resend verification code.');
       }
@@ -1017,8 +1019,9 @@ export default function CreateAccountView({
           emailMasked: data.emailMasked || prev.emailMasked,
           code: ''
         }));
-        setResendCountdown(60);
-        showToast?.(data.message || 'A fresh confirmation code has been sent.');
+        setResendCountdown(data.deliveryStatus === 'failed' ? 15 : 60);
+        if (data.deliveryStatus === 'failed') setErrorMsg(data.message);
+        else showToast?.(data.message || 'A fresh confirmation code has been sent.');
       } else {
         setErrorMsg(data?.error || 'Failed to resend confirmation code.');
       }
