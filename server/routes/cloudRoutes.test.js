@@ -105,8 +105,9 @@ test('credit checkout cancellation requires authentication and is scoped to the 
   const call = await createClient(t);
   const cancel = t.mock.method(BillingDB, 'cancelCreditTopup', async (userId, id) => {
     if (userId !== 'owner' || id !== 'topup-1') return null;
-    return { id, status: 'cancelled', cancel_reason: 'user', expires_at: '2026-03-16T12:00:00.000Z' };
+    return { id, status: 'cancelled', cancel_reason: 'user', expires_at: '2026-03-16T12:00:00.000Z', cancelledNow: true };
   });
+  const notify = t.mock.method(BillingDB, 'sendCreditTopupCancellationEmail', async () => true);
 
   assert.equal((await call('/api/cloud/billing/credits/topup-1/cancel', { method: 'POST' })).status, 401);
   assert.equal((await call('/api/cloud/billing/credits/topup-1/cancel', {
@@ -118,7 +119,10 @@ test('credit checkout cancellation requires authentication and is scoped to the 
     headers: { 'x-user-id': 'owner' }
   });
   assert.equal(response.status, 200);
-  assert.equal((await response.json()).status, 'cancelled');
+  const result = await response.json();
+  assert.equal(result.status, 'cancelled');
+  assert.equal(result.notificationSent, true);
+  assert.deepEqual(notify.mock.calls[0].arguments, ['owner', 'topup-1']);
   assert.deepEqual(cancel.mock.calls.map(({ arguments: args }) => args), [
     ['other', 'topup-1'],
     ['owner', 'topup-1']

@@ -6,12 +6,21 @@ import { getPlatformPaymentGatewaysRaw } from '../administrator/adminRoutes.js';
 import { createHostedPayment, verifyHostedPaymentReturn, verifyStripeWebhook } from '../routes/storePaymentGatewayService.js';
 import { convertCurrencyAmount } from '../routes/currencyHelpers.js';
 import { getMarketUsdRates } from '../routes/marketCurrencyRates.js';
-import { sendCloudPaymentStartedEmail } from './emailService.js';
+import {
+  sendCloudPaymentCancelledEmail,
+  sendCloudPaymentReminderEmail,
+  sendCloudPaymentStartedEmail
+} from './emailService.js';
 
 const CHECKOUT_CURRENCIES = Object.freeze({ stripe: 'USD', paypal: 'USD', bkash: 'BDT', sslcommerz: 'BDT' });
 const CHECKOUT_PROVIDERS = new Set(Object.keys(CHECKOUT_CURRENCIES));
 const TERMINAL_TOPUP_STATUSES = new Set(['failed', 'cancelled']);
 let topupExpiryTimer = null;
+const invoiceUrlForTopup = topup => {
+  const origin = new URL(topup.return_origin).origin;
+  return `${origin}/billing/invoices/${encodeURIComponent(topup.id)}`;
+};
+
 function parseCreditAmount(amount) {
   const parsedAmount = Number(amount);
   if (!Number.isFinite(parsedAmount) || parsedAmount < 5 || parsedAmount > 10000 || Math.round(parsedAmount * 100) !== parsedAmount * 100) {
@@ -57,6 +66,9 @@ export const BillingDB = {
       this.expirePendingCreditTopups().catch(error => {
         console.error('[Cloud Billing] Pending top-up expiry job failed:', error.message);
       });
+      this.sendPendingCreditTopupReminders().catch(error => {
+        console.error('[Cloud Billing] Pending top-up reminder job failed:', error.message);
+      });
     };
     expire();
     topupExpiryTimer = setInterval(expire, 60_000);
@@ -74,6 +86,75 @@ export const BillingDB = {
     return rows.length;
   },
 
+  async sendPendingCreditTopupReminders() {
+    const { rows } = await queryPg(`
+      WITH due AS (
+        SELECT id
+        FROM cloud_credit_topups
+        WHERE status = 'pending'
+          AND expires_at > CURRENT_TIMESTAMP
+          AND expires_at <= CURRENT_TIMESTAMP + INTERVAL '6 hours'
+          AND reminder_sent_at IS NULL
+          AND (reminder_claimed_at IS NULL OR reminder_claimed_at < CURRENT_TIMESTAMP - INTERVAL '15 minutes')
+        ORDER BY expires_at
+        LIMIT 100
+        FOR UPDATE SKIP LOCKED
+      ), claimed AS (
+        UPDATE cloud_credit_topups topup
+        SET reminder_claimed_at = CURRENT_TIMESTAMP
+        FROM due
+        WHERE topup.id = due.id AND topup.status = 'pending' AND topup.reminder_sent_at IS NULL
+        RETURNING topup.id, topup.user_id, topup.provider, topup.amount,
+                  topup.currency, topup.provider_amount, topup.provider_currency,
+                  topup.expires_at, topup.return_origin, topup.reminder_claimed_at
+      )
+      SELECT claimed.*, users.email, users.name, users.store_name
+      FROM claimed
+      JOIN system_users users ON users.id = claimed.user_id
+      WHERE users.email_verified = TRUE AND users.email IS NOT NULL AND BTRIM(users.email) <> ''
+    `);
+
+    let sent = 0;
+    for (const topup of rows) {
+      try {
+        const delivery = await sendCloudPaymentReminderEmail({
+          to: topup.email,
+          name: topup.store_name || topup.name || 'Tiwlo Cloud customer',
+          provider: topup.provider,
+          amount: Number(topup.provider_amount ?? topup.amount),
+          currency: topup.provider_currency || topup.currency,
+          creditAmount: Number(topup.amount),
+          reference: topup.id,
+          invoiceUrl: invoiceUrlForTopup(topup),
+          expiresAt: topup.expires_at
+        });
+        if (!delivery.success) {
+          console.error(`[Cloud Billing] Checkout reminder could not be sent for ${topup.id}:`, delivery.error || 'mail transport failed');
+          await queryPg(`
+            UPDATE cloud_credit_topups
+            SET reminder_claimed_at = NULL
+            WHERE id = $1 AND reminder_claimed_at = $2 AND reminder_sent_at IS NULL
+          `, [topup.id, topup.reminder_claimed_at]);
+          continue;
+        }
+        await queryPg(`
+          UPDATE cloud_credit_topups
+          SET reminder_sent_at = CURRENT_TIMESTAMP, reminder_claimed_at = NULL
+          WHERE id = $1 AND reminder_claimed_at = $2 AND reminder_sent_at IS NULL
+        `, [topup.id, topup.reminder_claimed_at]);
+        sent += 1;
+      } catch (error) {
+        console.error(`[Cloud Billing] Checkout reminder failed for ${topup.id}:`, error.message);
+        await queryPg(`
+          UPDATE cloud_credit_topups
+          SET reminder_claimed_at = NULL
+          WHERE id = $1 AND reminder_claimed_at = $2 AND reminder_sent_at IS NULL
+        `, [topup.id, topup.reminder_claimed_at]);
+      }
+    }
+    return sent;
+  },
+
   async cancelCreditTopup(userId, id) {
     if (!userId || !id) return null;
     const { rows } = await queryPg(`
@@ -85,12 +166,40 @@ export const BillingDB = {
       WHERE id = $2 AND user_id = $1 AND status = 'pending'
       RETURNING id, status, cancel_reason, expires_at
     `, [userId, id]);
-    if (rows[0]) return rows[0];
+    if (rows[0]) return { ...rows[0], cancelledNow: true };
     const existing = await queryPg(`
       SELECT id, status, cancel_reason, expires_at
       FROM cloud_credit_topups WHERE id = $2 AND user_id = $1 LIMIT 1
     `, [userId, id]);
-    return existing.rows[0] || null;
+    return existing.rows[0] ? { ...existing.rows[0], cancelledNow: false } : null;
+  },
+
+  async sendCreditTopupCancellationEmail(userId, id) {
+    const { rows } = await queryPg(`
+      SELECT topup.id, topup.provider, topup.amount, topup.currency,
+             topup.provider_amount, topup.provider_currency, topup.return_origin,
+             users.email, users.email_verified, users.name, users.store_name
+      FROM cloud_credit_topups topup
+      JOIN system_users users ON users.id = topup.user_id
+      WHERE topup.id = $1 AND topup.user_id = $2
+        AND topup.status = 'cancelled' AND topup.cancel_reason = 'user'
+      LIMIT 1
+    `, [id, userId]);
+    const topup = rows[0];
+    if (!topup?.email || topup.email_verified !== true) return false;
+    const delivery = await sendCloudPaymentCancelledEmail({
+      to: topup.email,
+      name: topup.store_name || topup.name || 'Tiwlo Cloud customer',
+      provider: topup.provider,
+      amount: Number(topup.provider_amount ?? topup.amount),
+      currency: topup.provider_currency || topup.currency,
+      reference: topup.id,
+      invoiceUrl: invoiceUrlForTopup(topup)
+    });
+    if (!delivery.success) {
+      console.error(`[Cloud Billing] Checkout cancellation email could not be sent for ${id}:`, delivery.error || 'mail transport failed');
+    }
+    return delivery.success === true;
   },
 
   async setCreditTopupTerminalStatus(id, status) {

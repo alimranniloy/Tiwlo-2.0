@@ -740,6 +740,8 @@ export async function initPgSchema() {
         expires_at TIMESTAMP WITH TIME ZONE,
         cancelled_at TIMESTAMP WITH TIME ZONE,
         cancel_reason VARCHAR(32),
+        reminder_claimed_at TIMESTAMP WITH TIME ZONE,
+        reminder_sent_at TIMESTAMP WITH TIME ZONE,
         created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
         paid_at TIMESTAMP WITH TIME ZONE,
@@ -748,6 +750,8 @@ export async function initPgSchema() {
       ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE;
       ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP WITH TIME ZONE;
       ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS cancel_reason VARCHAR(32);
+      ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS reminder_claimed_at TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMP WITH TIME ZONE;
       UPDATE cloud_credit_topups
       SET expires_at = created_at + INTERVAL '24 hours'
       WHERE expires_at IS NULL;

@@ -252,11 +252,21 @@ router.post('/billing/credits/:id/cancel', async (req, res) => {
     if (topup.status === 'processing') {
       return res.status(409).json({ success: false, status: topup.status, error: 'Payment verification is already in progress.' });
     }
+    let notificationSent = null;
+    if (topup.cancelledNow && topup.cancel_reason === 'user') {
+      try {
+        notificationSent = await BillingDB.sendCreditTopupCancellationEmail(userId, req.params.id);
+      } catch (error) {
+        console.error(`[Cloud Billing] Checkout cancellation email failed for ${req.params.id}:`, error.message);
+        notificationSent = false;
+      }
+    }
     return res.json({
       success: true,
       status: topup.status,
       expiresAt: topup.expires_at ? new Date(topup.expires_at).toISOString() : null,
-      cancelReason: topup.cancel_reason || null
+      cancelReason: topup.cancel_reason || null,
+      notificationSent
     });
   } catch (error) {
     console.error('[Cloud Billing] Could not cancel credit checkout:', error.message);

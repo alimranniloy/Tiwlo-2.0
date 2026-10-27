@@ -44,6 +44,8 @@ import {
   renderPasswordResetEmail,
   renderLoginAlertEmail,
   renderCloudPaymentStartedEmail,
+  renderCloudPaymentReminderEmail,
+  renderCloudPaymentCancelledEmail,
   renderInvoiceEmail,
   renderAccountDisabledEmail,
   renderAccountRestoredEmail,
@@ -489,6 +491,66 @@ export async function sendCloudPaymentStartedEmail({
     text: `A secure ${String(provider || '').toUpperCase()} checkout session was created for ${currency} ${Number(amount).toFixed(2)} (${creditCurrency} ${Number(creditAmount).toFixed(2)} in Cloud credits). Reference: ${reference}. This Tiwlo billing session expires at ${new Date(expiresAt).toUTCString()}. This email is not a payment receipt.`,
     type: 'cloud_payment_started',
     metadata: { reference, provider, amount, currency, expiresAt }
+  });
+}
+
+export async function sendCloudPaymentReminderEmail({
+  to,
+  name,
+  provider,
+  amount,
+  currency,
+  creditAmount,
+  reference,
+  invoiceUrl,
+  expiresAt
+}) {
+  const html = renderCloudPaymentReminderEmail({
+    to,
+    name,
+    provider,
+    amount,
+    currency,
+    creditAmount,
+    reference,
+    invoiceUrl,
+    expiresAt
+  });
+  return sendTiwloEmail({
+    to,
+    subject: 'Your Tiwlo Cloud checkout expires in 6 hours',
+    html,
+    text: `Your ${String(provider || '').toUpperCase()} Tiwlo Cloud checkout for ${currency} ${Number(amount).toFixed(2)} has not received verified confirmation and expires at ${new Date(expiresAt).toUTCString()}. Review invoice ${reference}: ${invoiceUrl}. If you already paid, wait for the provider confirmation.`,
+    type: 'cloud_payment_reminder',
+    metadata: { reference, provider, amount, currency, expiresAt }
+  });
+}
+
+export async function sendCloudPaymentCancelledEmail({
+  to,
+  name,
+  provider,
+  amount,
+  currency,
+  reference,
+  invoiceUrl
+}) {
+  const html = renderCloudPaymentCancelledEmail({
+    to,
+    name,
+    provider,
+    amount,
+    currency,
+    reference,
+    invoiceUrl
+  });
+  return sendTiwloEmail({
+    to,
+    subject: 'Your Tiwlo Cloud checkout was cancelled',
+    html,
+    text: `Your Tiwlo Cloud billing session ${reference} for ${currency} ${Number(amount).toFixed(2)} was cancelled. If payment was completed, its verified confirmation will still be applied. View billing: ${invoiceUrl}`,
+    type: 'cloud_payment_cancelled',
+    metadata: { reference, provider, amount, currency }
   });
 }
 

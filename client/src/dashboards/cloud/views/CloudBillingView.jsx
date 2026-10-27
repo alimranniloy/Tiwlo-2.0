@@ -144,9 +144,12 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok || !result.success) throw new Error(result.error || 'Could not cancel this checkout.');
-      showToast?.(result.cancelReason === 'expired' ? 'Checkout expired.'
-        : result.status === 'cancelled' ? 'Checkout cancelled.'
-          : `Checkout status: ${result.status}.`, 'success');
+      showToast?.(result.notificationSent === false
+        ? 'Checkout cancelled, but the confirmation email could not be sent.'
+        : result.cancelReason === 'expired' ? 'Checkout expired.'
+          : result.status === 'cancelled' && result.notificationSent === true ? 'Checkout cancelled. Confirmation email sent.'
+            : result.status === 'cancelled' ? 'Checkout was already cancelled.'
+            : `Checkout status: ${result.status}.`, result.notificationSent === false ? 'error' : 'success');
       await loadBilling();
     } catch (error) {
       showToast?.(error.message || 'Could not cancel this checkout.', 'error');
