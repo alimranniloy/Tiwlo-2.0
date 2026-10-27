@@ -19,6 +19,12 @@ function gatewayBase(provider, mode) {
   throw new TypeError('This payment provider is not available for online checkout.');
 }
 
+function bkashV12Base(mode) {
+  return mode === 'live'
+    ? 'https://tokenized.pay.bka.sh/v1.2.0-beta/tokenized/checkout'
+    : 'https://tokenized.sandbox.bka.sh/v1.2.0-beta/tokenized/checkout';
+}
+
 async function requestJson(url, options = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
@@ -58,33 +64,48 @@ function gatewayResponseDetail(result = {}) {
 async function getBkashToken(tiwiId, credentials, mode) {
   const cacheKey = `${tiwiId}:${mode || 'sandbox'}:${credentials.appKey}`;
   const cached = bkashTokens.get(cacheKey);
-  if (cached?.token && cached.expiresAt > Date.now() + 60000) return cached.token;
+  if (cached?.tokenData && cached.expiresAt > Date.now() + 60000) return cached.tokenData;
   if (cached?.pending) return cached.pending;
 
-  const pending = requestJson(`${gatewayBase('bkash', mode)}/auth/grant-token`, {
-    method: 'POST',
-    headers: {
-      ...jsonHeaders(),
-      username: credentials.username,
-      password: credentials.password
-    },
-    body: JSON.stringify({
-      app_key: credentials.appKey,
-      app_secret: credentials.appSecret
-    })
-  }).then(result => {
-    if (!result.id_token) {
+  const pending = (async () => {
+    const apiVersions = [
+      { version: 'v2', url: `${gatewayBase('bkash', mode)}/auth/grant-token` },
+      { version: 'v1.2.0-beta', url: `${bkashV12Base(mode)}/token/grant` }
+    ];
+    const failures = [];
+    for (const api of apiVersions) {
+      let result;
+      try {
+        result = await requestJson(api.url, {
+          method: 'POST',
+          headers: {
+            ...jsonHeaders(),
+            username: credentials.username,
+            password: credentials.password
+          },
+          body: JSON.stringify({ app_key: credentials.appKey, app_secret: credentials.appSecret })
+        });
+      } catch (error) {
+        failures.push(`${api.version}: ${error.message}`);
+        if (api.version === 'v2' && /HTTP (?:401|403|404|405)|9999/i.test(error.message)) continue;
+        throw error;
+      }
+
+      if (result.id_token) {
+        const tokenData = { token: result.id_token, apiVersion: api.version };
+        bkashTokens.set(cacheKey, {
+          tokenData,
+          expiresAt: Date.now() + Math.max(60, Number(result.expires_in) || 3600) * 1000
+        });
+        return tokenData;
+      }
+
       const { code, message } = gatewayResponseDetail(result);
-      const status = code ? ` (${code})` : '';
-      const detail = message ? `: ${message}` : '';
-      throw new Error(`bKash rejected the token request${status}${detail}. Confirm the API credentials belong to the selected ${mode === 'live' ? 'live' : 'sandbox'} environment.`);
+      failures.push(`${api.version}${code ? ` (${code})` : ''}${message ? `: ${message}` : ': no id_token returned'}`);
+      if (api.version !== 'v2') break;
     }
-    bkashTokens.set(cacheKey, {
-      token: result.id_token,
-      expiresAt: Date.now() + Math.max(60, Number(result.expires_in) || 3600) * 1000
-    });
-    return result.id_token;
-  }).catch(error => {
+    throw new Error(`bKash rejected token grant on its supported API versions (${failures.join('; ')}). Verify the live merchant credentials are enabled for Tokenized Checkout.`);
+  })().catch(error => {
     bkashTokens.delete(cacheKey);
     throw error;
   });
@@ -93,11 +114,14 @@ async function getBkashToken(tiwiId, credentials, mode) {
 }
 
 async function createBkashCheckout({ tiwiId, credentials, mode, order, callbackUrl }) {
-  const token = await getBkashToken(tiwiId, credentials, mode);
-  const result = await requestJson(`${gatewayBase('bkash', mode)}/payment/create`, {
+  const tokenData = await getBkashToken(tiwiId, credentials, mode);
+  const isV12 = tokenData.apiVersion === 'v1.2.0-beta';
+  const base = isV12 ? bkashV12Base(mode) : gatewayBase('bkash', mode);
+  const result = await requestJson(`${base}/${isV12 ? 'create' : 'payment/create'}`, {
     method: 'POST',
-    headers: { ...jsonHeaders(), Authorization: token, 'X-App-Key': credentials.appKey },
+    headers: { ...jsonHeaders(), Authorization: tokenData.token, 'X-App-Key': credentials.appKey },
     body: JSON.stringify({
+      ...(isV12 ? { mode: '0011' } : {}),
       payerReference: order.id,
       callbackURL: callbackUrl,
       amount: Number(order.paymentGateway.amount).toFixed(2),
@@ -106,10 +130,12 @@ async function createBkashCheckout({ tiwiId, credentials, mode, order, callbackU
       merchantInvoiceNumber: order.invoiceNumber
     })
   });
-  if (!result.paymentId || !result.bKashURL) {
+  const paymentId = result.paymentID || result.paymentId;
+  const checkoutUrl = result.bKashURL || result.bkashURL;
+  if (!paymentId || !checkoutUrl) {
     throw new Error('bKash did not return a checkout payment link.');
   }
-  return { checkoutUrl: result.bKashURL, providerPaymentId: result.paymentId };
+  return { checkoutUrl, providerPaymentId: paymentId };
 }
 
 async function createStripeCheckout({ credentials, order, successUrl, cancelUrl }) {
@@ -287,10 +313,12 @@ async function executeBkashReturn({ tiwiId, credentials, mode, order, query }) {
       paymentId !== order.paymentGateway.providerPaymentId) {
     return { paid: false, rawStatus: String(query.status || 'cancelled') };
   }
-  const token = await getBkashToken(tiwiId, credentials, mode);
-  const result = await requestJson(`${gatewayBase('bkash', mode)}/payment/execute`, {
+  const tokenData = await getBkashToken(tiwiId, credentials, mode);
+  const isV12 = tokenData.apiVersion === 'v1.2.0-beta';
+  const base = isV12 ? bkashV12Base(mode) : gatewayBase('bkash', mode);
+  const result = await requestJson(`${base}/${isV12 ? 'execute' : 'payment/execute'}`, {
     method: 'POST',
-    headers: { ...jsonHeaders(), Authorization: token, 'X-App-Key': credentials.appKey },
+    headers: { ...jsonHeaders(), Authorization: tokenData.token, 'X-App-Key': credentials.appKey },
     body: JSON.stringify({ paymentID: paymentId })
   });
   if (result.transactionStatus !== 'Completed' ||
@@ -302,7 +330,7 @@ async function executeBkashReturn({ tiwiId, credentials, mode, order, query }) {
   return {
     paid: true,
     rawStatus: result.transactionStatus,
-    transactionId: result.trxId,
+    transactionId: result.trxID || result.trxId,
     providerPaymentId: paymentId,
     amount: Number(result.amount),
     currency: result.currency
@@ -431,31 +459,36 @@ async function refundBkash({ tiwiId, credentials, mode, order, refund }) {
   if (existingRefunds.length >= 10) {
     throw new TypeError('bKash allows up to 10 refund attempts per original payment.');
   }
-  const token = await getBkashToken(tiwiId, credentials, mode);
+  const tokenData = await getBkashToken(tiwiId, credentials, mode);
+  const isV12 = tokenData.apiVersion === 'v1.2.0-beta';
+  const base = isV12 ? bkashV12Base(mode) : gatewayBase('bkash', mode);
   const result = await requestJson(
-    `${gatewayBase('bkash', mode)}/refund/payment/transaction`,
+    `${base}/${isV12 ? 'payment/refund' : 'refund/payment/transaction'}`,
     {
       method: 'POST',
-      headers: { ...jsonHeaders(), Authorization: token, 'X-App-Key': credentials.appKey },
+      headers: { ...jsonHeaders(), Authorization: tokenData.token, 'X-App-Key': credentials.appKey },
       body: JSON.stringify({
-        paymentId,
-        trxId: transactionId,
-        refundAmount: Number(refund.amount).toFixed(2),
+        ...(isV12 ? { paymentID: paymentId, trxID: transactionId, amount: Number(refund.amount).toFixed(2) } : {
+          paymentId, trxId: transactionId, refundAmount: Number(refund.amount).toFixed(2)
+        }),
         sku: String(order.invoiceNumber).slice(0, 255),
         reason: String(refund.reason || 'Customer refund').slice(0, 255)
       })
     }
   );
-  if (result.refundTransactionStatus !== 'Completed' ||
-      String(result.originalTrxId) !== String(transactionId) ||
+  const refundStatus = result.refundTransactionStatus || result.transactionStatus;
+  const originalTransactionId = result.originalTrxId || result.originalTrxID;
+  const refundTransactionId = result.refundTrxId || result.refundTrxID;
+  if (refundStatus !== 'Completed' ||
+      String(originalTransactionId) !== String(transactionId) ||
       Math.abs(Number(result.refundAmount) - Number(refund.amount)) > 0.005 ||
       String(result.currency).toUpperCase() !== String(order.currency).toUpperCase() ||
-      !result.refundTrxId) {
+      !refundTransactionId) {
     throw new Error('bKash did not confirm the requested refund amount.');
   }
   return {
     status: 'succeeded',
-    providerRefundId: result.refundTrxId,
+    providerRefundId: refundTransactionId,
     amount: Number(result.refundAmount),
     currency: result.currency
   };
