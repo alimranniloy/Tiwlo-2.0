@@ -40,6 +40,9 @@ class PipelineConfig:
 
     models_dir: str = "./models"
     ctx_id: int = 0  # GPU device (-1 for CPU)
+    detector: str = "auto"
+    recognizer: str = "auto"
+    demographics_model: str = "auto"
     det_thresh: float = 0.5
     det_size: tuple[int, int] = (640, 640)
     max_faces: int = 0
