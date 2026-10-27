@@ -210,7 +210,7 @@ class FacePipeline:
 
             # Liveness
             if self._liveness is not None:
-                result.is_live, result.liveness_score = self._liveness.check(face.aligned)
+                result.is_live, result.liveness_score = self._liveness.check(image, face.bbox)
 
             # Demographics
             if self._demographics is not None:

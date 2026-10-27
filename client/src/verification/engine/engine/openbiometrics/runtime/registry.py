@@ -7,6 +7,7 @@ used across the engine. Ensures models are available before inference.
 from __future__ import annotations
 
 import logging
+import hashlib
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,6 +37,7 @@ class ModelInfo:
     tier: str = ModelTier.COMMUNITY
     license: str = "MIT"
     role: str = ""  # functional role: detector, recognizer, demographics, liveness, etc.
+    sha256: str | None = None
 
 
 # Model catalog — covers current and planned models.
@@ -75,12 +77,16 @@ _MODEL_CATALOG: dict[str, ModelInfo] = {
     "antispoofing": ModelInfo(
         name="antispoofing",
         filename="antispoofing.onnx",
-        url="https://huggingface.co/openbiometrics/models/resolve/main/antispoofing.onnx",
+        url=(
+            "https://huggingface.co/garciafido/minifasnet-v2-anti-spoofing-onnx/"
+            "resolve/d29c87568ca9b5662da803b10f217c4db20b142b/minifasnet_v2.onnx"
+        ),
         description="MiniFASNet passive liveness / anti-spoofing",
-        size_mb=2.0,
+        size_mb=1.7,
         tier=ModelTier.COMMUNITY,
         license="Apache-2.0",
         role="liveness",
+        sha256="d7b3cd9ba8a7ceb13baa8c4720902e27ca3112eff52f926c08804af6b6eecc7b",
     ),
     "yolov8n": ModelInfo(
         name="yolov8n",
@@ -235,6 +241,13 @@ class ModelRegistry:
         try:
             logger.info("Downloading %s -> %s", url, dest)
             urllib.request.urlretrieve(url, str(tmp))
+            if info.sha256:
+                digest = hashlib.sha256(tmp.read_bytes()).hexdigest()
+                if digest != info.sha256:
+                    raise ValueError(
+                        f"SHA-256 mismatch for model '{info.name}': expected "
+                        f"{info.sha256}, received {digest}"
+                    )
             tmp.rename(dest)
             logger.info("Download complete: %s (%.1f MB)", dest.name, dest.stat().st_size / 1e6)
         except Exception as exc:
