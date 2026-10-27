@@ -43,6 +43,7 @@ import {
   renderSignupVerificationEmail,
   renderPasswordResetEmail,
   renderLoginAlertEmail,
+  renderCloudPaymentStartedEmail,
   renderInvoiceEmail,
   renderAccountDisabledEmail,
   renderAccountRestoredEmail,
@@ -453,6 +454,41 @@ export async function sendInvoiceEmail({
     text: `Your invoice ${invoiceNumber} for ${currency || 'USD'} ${amount} has been issued. Payment status: ${paymentStatus || 'Paid'}.`,
     type: 'invoice',
     metadata: { invoiceNumber, amount, planName }
+  });
+}
+
+export async function sendCloudPaymentStartedEmail({
+  to,
+  name,
+  provider,
+  amount,
+  currency,
+  creditAmount,
+  creditCurrency,
+  reference,
+  checkoutUrl,
+  expiresAt
+}) {
+  const html = renderCloudPaymentStartedEmail({
+    to,
+    name,
+    provider,
+    amount,
+    currency,
+    creditAmount,
+    creditCurrency,
+    reference,
+    checkoutUrl,
+    expiresAt
+  });
+
+  return sendTiwloEmail({
+    to,
+    subject: 'Continue your Tiwlo Cloud checkout',
+    html,
+    text: `A secure ${String(provider || '').toUpperCase()} checkout session was created for ${currency} ${Number(amount).toFixed(2)} (${creditCurrency} ${Number(creditAmount).toFixed(2)} in Cloud credits). Reference: ${reference}. This Tiwlo billing session expires at ${new Date(expiresAt).toUTCString()}. This email is not a payment receipt.`,
+    type: 'cloud_payment_started',
+    metadata: { reference, provider, amount, currency, expiresAt }
   });
 }
 

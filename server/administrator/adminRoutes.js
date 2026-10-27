@@ -797,7 +797,7 @@ router.get('/servers', requireAdmin, async (req, res) => {
 export const DEFAULT_PLATFORM_GATEWAYS = Object.freeze({
   bkash: {
     id: 'bkash',
-    name: 'bKash Merchant Checkout',
+    name: 'bKash Regular Checkout (URL)',
     enabled: false,
     mode: 'sandbox',
     appKey: '',

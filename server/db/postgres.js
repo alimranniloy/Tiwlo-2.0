@@ -737,13 +737,24 @@ export async function initPgSchema() {
         return_origin TEXT NOT NULL DEFAULT 'https://uids.app',
         return_token_hash CHAR(64) NOT NULL,
         status VARCHAR(24) NOT NULL DEFAULT 'pending',
+        expires_at TIMESTAMP WITH TIME ZONE,
+        cancelled_at TIMESTAMP WITH TIME ZONE,
+        cancel_reason VARCHAR(32),
         created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
         paid_at TIMESTAMP WITH TIME ZONE,
         UNIQUE (provider, provider_payment_id)
       );
+      ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS cancel_reason VARCHAR(32);
+      UPDATE cloud_credit_topups
+      SET expires_at = created_at + INTERVAL '24 hours'
+      WHERE expires_at IS NULL;
       CREATE INDEX IF NOT EXISTS cloud_credit_topups_user_created_idx
         ON cloud_credit_topups(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS cloud_credit_topups_pending_expiry_idx
+        ON cloud_credit_topups(expires_at) WHERE status = 'pending';
       ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS return_origin TEXT NOT NULL DEFAULT 'https://uids.app';
       ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS provider_amount NUMERIC(12, 2);
       ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS provider_currency VARCHAR(3);

@@ -229,7 +229,6 @@ router.post('/billing/credits/add', creditCheckoutLimiter, async (req, res) => {
       amount: req.body?.amount,
       origin: dashboardOrigin(req),
       returnOrigin: userReturnOrigin(req),
-      customerEmail: req.activeUser?.email || req.user?.email,
       expectedPaymentAmount: req.body?.expectedPaymentAmount,
       expectedRateDate: req.body?.expectedRateDate
     });
@@ -241,25 +240,76 @@ router.post('/billing/credits/add', creditCheckoutLimiter, async (req, res) => {
   }
 });
 
+router.post('/billing/credits/:id/cancel', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ success: false, error: 'Authentication required.' });
+    const topup = await BillingDB.cancelCreditTopup(userId, req.params.id);
+    if (!topup) return res.status(404).json({ success: false, error: 'Credit checkout not found.' });
+    if (topup.status === 'paid') {
+      return res.status(409).json({ success: false, status: topup.status, error: 'This payment was already completed.' });
+    }
+    if (topup.status === 'processing') {
+      return res.status(409).json({ success: false, status: topup.status, error: 'Payment verification is already in progress.' });
+    }
+    return res.json({
+      success: true,
+      status: topup.status,
+      expiresAt: topup.expires_at ? new Date(topup.expires_at).toISOString() : null,
+      cancelReason: topup.cancel_reason || null
+    });
+  } catch (error) {
+    console.error('[Cloud Billing] Could not cancel credit checkout:', error.message);
+    return res.status(500).json({ success: false, error: 'Could not cancel this checkout.' });
+  }
+});
+
+function getTerminalTopupStatus(rawStatus) {
+  const status = String(rawStatus || '').trim().toLowerCase().replace(/\s+/g, '_');
+  if (['cancel', 'cancelled', 'canceled', 'expired', 'checkout.session.expired'].includes(status)) return 'cancelled';
+  if (['fail', 'failed', 'failure', 'declined', 'checkout.session.async_payment_failed'].includes(status)) return 'failed';
+  return null;
+}
+
+function getCreditReturnResult(topup) {
+  if (topup?.status === 'paid') return 'success';
+  if (['pending', 'processing'].includes(topup?.status)) return 'pending';
+  if (topup?.status === 'failed') return 'failed';
+  return 'cancelled';
+}
+
 async function handleCreditTopupReturn(req, res, { ipn = false } = {}) {
   const provider = String(req.params.provider || '').toLowerCase();
   const resultHint = String(req.query?.result || '').toLowerCase();
+  let returnOrigin = new URL(PLATFORM_CONFIG.dashboardUrl).origin;
   try {
     const topup = await BillingDB.getCreditTopupForReturn(
       String(req.query?.orderId || ''), provider, req.query?.returnToken
     );
     if (!topup) return ipn ? res.status(404).json({ error: 'Credit top-up not found.' }) : redirectCreditResult(res, 'invalid');
+    returnOrigin = topup.return_origin;
     if (topup.status === 'paid') return ipn ? res.json({ received: true, completed: true }) : redirectCreditResult(res, 'success', topup.return_origin);
-    if (resultHint === 'cancelled' || resultHint === 'failed') {
-      return ipn ? res.json({ received: true, completed: false }) : redirectCreditResult(res, 'cancelled', topup.return_origin);
+    const hintedTerminalStatus = getTerminalTopupStatus(resultHint);
+    if (hintedTerminalStatus) {
+      const terminal = await BillingDB.setCreditTopupTerminalStatus(topup.id, hintedTerminalStatus);
+      const result = getCreditReturnResult(terminal);
+      return ipn ? res.json({ received: true, completed: result === 'success', status: result }) : redirectCreditResult(res, result, topup.return_origin);
     }
     const verified = await BillingDB.verifyAndCompleteCreditTopup(topup, { query: req.query, body: req.body });
+    if (!verified.success) {
+      const terminalStatus = getTerminalTopupStatus(verified.status);
+      if (terminalStatus) {
+        const terminal = await BillingDB.setCreditTopupTerminalStatus(topup.id, terminalStatus);
+        const result = getCreditReturnResult(terminal);
+        return ipn ? res.json({ received: true, completed: result === 'success', status: result }) : redirectCreditResult(res, result, topup.return_origin);
+      }
+    }
     return ipn
       ? res.json({ received: true, completed: verified.success })
-      : redirectCreditResult(res, verified.success ? 'success' : 'pending', topup.return_origin);
+      : redirectCreditResult(res, verified.success ? 'success' : getCreditReturnResult({ status: verified.status }), topup.return_origin);
   } catch (error) {
     console.error('[Cloud Billing] Credit checkout verification failed:', error.message);
-    return ipn ? res.status(400).json({ error: 'Credit payment could not be verified.' }) : redirectCreditResult(res, 'pending');
+    return ipn ? res.status(400).json({ error: 'Credit payment could not be verified.' }) : redirectCreditResult(res, 'pending', returnOrigin);
   }
 }
 
@@ -281,6 +331,10 @@ router.post('/billing/credits/stripe/webhook', async (req, res) => {
       rawBody: req.rawBody,
       signature: req.get('stripe-signature')
     });
+    if (!verified.success) {
+      const terminalStatus = getTerminalTopupStatus(verified.status);
+      if (terminalStatus) await BillingDB.setCreditTopupTerminalStatus(topup.id, terminalStatus);
+    }
     return res.json({ received: true, completed: verified.success });
   } catch (error) {
     console.error('[Cloud Billing] Stripe credit webhook rejected:', error.message);

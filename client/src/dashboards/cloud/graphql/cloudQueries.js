@@ -343,6 +343,7 @@ export async function getCloudBillingData(userId = null) {
             description
             createdAt
             paidAt
+            expiresAt
           }
           costBreakdown {
             service

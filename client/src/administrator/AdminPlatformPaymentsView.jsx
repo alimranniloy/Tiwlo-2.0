@@ -25,7 +25,7 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
   const [gateways, setGateways] = useState({
     bkash: {
       id: 'bkash',
-      name: 'bKash Merchant Checkout',
+      name: 'bKash Regular Checkout (URL)',
       enabled: false,
       mode: 'sandbox',
       appKey: '',
@@ -145,7 +145,7 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
   };
 
   const gatewayList = [
-    { id: 'bkash', name: 'bKash', badge: 'Merchant Tokenized', color: '#E2136E' },
+    { id: 'bkash', name: 'bKash', badge: 'Regular Checkout (URL)', color: '#E2136E' },
     { id: 'nagad', name: 'Nagad', badge: 'Direct Checkout', color: '#F7941D' },
     { id: 'sslcommerz', name: 'SSLCOMMERZ', badge: 'Multi-card Hosted', color: '#006699' },
     { id: 'paypal', name: 'PayPal', badge: 'Global Wallet', color: '#003087' },

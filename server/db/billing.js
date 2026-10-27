@@ -6,9 +6,12 @@ import { getPlatformPaymentGatewaysRaw } from '../administrator/adminRoutes.js';
 import { createHostedPayment, verifyHostedPaymentReturn, verifyStripeWebhook } from '../routes/storePaymentGatewayService.js';
 import { convertCurrencyAmount } from '../routes/currencyHelpers.js';
 import { getMarketUsdRates } from '../routes/marketCurrencyRates.js';
+import { sendCloudPaymentStartedEmail } from './emailService.js';
 
 const CHECKOUT_CURRENCIES = Object.freeze({ stripe: 'USD', paypal: 'USD', bkash: 'BDT', sslcommerz: 'BDT' });
 const CHECKOUT_PROVIDERS = new Set(Object.keys(CHECKOUT_CURRENCIES));
+const TERMINAL_TOPUP_STATUSES = new Set(['failed', 'cancelled']);
+let topupExpiryTimer = null;
 function parseCreditAmount(amount) {
   const parsedAmount = Number(amount);
   if (!Number.isFinite(parsedAmount) || parsedAmount < 5 || parsedAmount > 10000 || Math.round(parsedAmount * 100) !== parsedAmount * 100) {
@@ -18,10 +21,13 @@ function parseCreditAmount(amount) {
 }
 const toInvoice = row => ({
   id: String(row.id), amount: Number(row.amount), currency: String(row.currency || 'USD'),
-  status: row.status === 'paid' ? 'Paid' : ['pending', 'processing'].includes(row.status) ? 'Pending' : row.status === 'cancelled' ? 'Cancelled' : 'Failed',
+  status: row.status === 'paid' ? 'Paid' : ['pending', 'processing'].includes(row.status) ? 'Pending'
+    : row.status === 'cancelled' && row.cancel_reason === 'expired' ? 'Expired'
+      : row.status === 'cancelled' ? 'Cancelled' : 'Failed',
   description: `${String(row.provider || '').toUpperCase()} Cloud credit top-up`,
   createdAt: new Date(row.created_at).toISOString(),
-  paidAt: row.paid_at ? new Date(row.paid_at).toISOString() : null
+  paidAt: row.paid_at ? new Date(row.paid_at).toISOString() : null,
+  expiresAt: row.expires_at ? new Date(row.expires_at).toISOString() : null
 });
 
 async function getCheckoutGateway(provider) {
@@ -44,6 +50,67 @@ async function getCheckoutGateway(provider) {
 
 export const BillingDB = {
   init() { /* PostgreSQL schema is initialized by server startup. */ },
+
+  startPendingTopupExpiry() {
+    if (topupExpiryTimer) return;
+    const expire = () => {
+      this.expirePendingCreditTopups().catch(error => {
+        console.error('[Cloud Billing] Pending top-up expiry job failed:', error.message);
+      });
+    };
+    expire();
+    topupExpiryTimer = setInterval(expire, 60_000);
+    topupExpiryTimer.unref?.();
+  },
+
+  async expirePendingCreditTopups() {
+    const { rows } = await queryPg(`
+      UPDATE cloud_credit_topups
+      SET status = 'cancelled', cancel_reason = 'expired',
+          cancelled_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+      WHERE status = 'pending' AND expires_at <= CURRENT_TIMESTAMP
+      RETURNING id
+    `);
+    return rows.length;
+  },
+
+  async cancelCreditTopup(userId, id) {
+    if (!userId || !id) return null;
+    const { rows } = await queryPg(`
+      UPDATE cloud_credit_topups
+      SET status = 'cancelled',
+          cancel_reason = CASE WHEN expires_at <= CURRENT_TIMESTAMP THEN 'expired' ELSE 'user' END,
+          cancelled_at = CURRENT_TIMESTAMP,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2 AND user_id = $1 AND status = 'pending'
+      RETURNING id, status, cancel_reason, expires_at
+    `, [userId, id]);
+    if (rows[0]) return rows[0];
+    const existing = await queryPg(`
+      SELECT id, status, cancel_reason, expires_at
+      FROM cloud_credit_topups WHERE id = $2 AND user_id = $1 LIMIT 1
+    `, [userId, id]);
+    return existing.rows[0] || null;
+  },
+
+  async setCreditTopupTerminalStatus(id, status) {
+    if (!TERMINAL_TOPUP_STATUSES.has(status)) throw new TypeError('Invalid terminal credit top-up status.');
+    const reason = status === 'cancelled' ? 'provider' : null;
+    const { rows } = await queryPg(`
+      UPDATE cloud_credit_topups
+      SET status = $2, cancel_reason = $3,
+          cancelled_at = CASE WHEN $2 = 'cancelled' THEN CURRENT_TIMESTAMP ELSE cancelled_at END,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1 AND status = 'pending'
+      RETURNING id, status, cancel_reason, expires_at
+    `, [id, status, reason]);
+    if (rows[0]) return rows[0];
+    const existing = await queryPg(`
+      SELECT id, status, cancel_reason, expires_at
+      FROM cloud_credit_topups WHERE id = $1 LIMIT 1
+    `, [id]);
+    return existing.rows[0] || null;
+  },
 
   async getCreditQuote({ provider, amount }) {
     const creditAmount = parseCreditAmount(amount);
@@ -139,8 +206,9 @@ export const BillingDB = {
     if (!Number.isFinite(credits) || credits < 0) {
       throw new Error('Billing account contains an invalid PostgreSQL balance.');
     }
+    await this.expirePendingCreditTopups();
     const { rows: topups } = await queryPg(`
-      SELECT id, amount, currency, provider, status, created_at, paid_at
+      SELECT id, amount, currency, provider, status, cancel_reason, expires_at, created_at, paid_at
       FROM cloud_credit_topups WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50
     `, [user.id]);
     const legacyInvoices = (Array.isArray(legacyAccount?.invoices) ? legacyAccount.invoices : [])
@@ -197,7 +265,7 @@ export const BillingDB = {
     };
   },
 
-  async createCreditCheckout({ userId, provider, amount, origin, returnOrigin, customerEmail, expectedPaymentAmount, expectedRateDate }) {
+  async createCreditCheckout({ userId, provider, amount, origin, returnOrigin, expectedPaymentAmount, expectedRateDate }) {
     const parsedAmount = parseCreditAmount(amount);
     const gateway = await getCheckoutGateway(provider);
     const checkoutCurrency = CHECKOUT_CURRENCIES[provider];
@@ -216,26 +284,38 @@ export const BillingDB = {
     if (provider === 'sslcommerz' && !billingAccount.billingAddress.phone.trim()) {
       throw new TypeError('Add a phone number to your billing address before using SSLCOMMERZ.');
     }
+    const { rows: accountUsers } = await queryPg(
+      'SELECT email, email_verified FROM system_users WHERE id = $1 LIMIT 1',
+      [userId]
+    );
+    const accountUser = accountUsers[0];
+    if (!accountUser?.email || accountUser.email_verified !== true) {
+      throw new TypeError('Verify the email address on your Tiwlo account before starting a Cloud checkout.');
+    }
 
     const id = `ctu-${randomUUID()}`;
     const invoiceNumber = id;
     const returnToken = randomBytes(32).toString('base64url');
     const returnTokenHash = createHash('sha256').update(returnToken).digest('hex');
     const mode = gateway.mode || (provider === 'stripe' ? 'test' : 'sandbox');
-    await queryPg(`
+    const insertedTopups = await queryPg(`
       INSERT INTO cloud_credit_topups
         (id, user_id, provider, mode, amount, currency, provider_amount, provider_currency,
-         exchange_rate, rate_date, rate_source, return_origin, return_token_hash, status)
-      VALUES ($1, $2, $3, $4, $5, 'USD', $6, $7, $8, $9, $10, $11, $12, 'pending')
+         exchange_rate, rate_date, rate_source, return_origin, return_token_hash, status, expires_at)
+      VALUES ($1, $2, $3, $4, $5, 'USD', $6, $7, $8, $9, $10, $11, $12, 'pending',
+              CURRENT_TIMESTAMP + INTERVAL '24 hours')
+      RETURNING expires_at
     `, [id, userId, provider, mode, parsedAmount, providerAmount, checkoutCurrency,
       exchangeRate, rateDate, rateSnapshot?.source || null, returnOrigin, returnTokenHash]);
+    const expiresAt = insertedTopups.rows[0]?.expires_at;
+    if (!expiresAt) throw new Error('Checkout expiration could not be recorded.');
 
     const callbackUrl = `${origin}/api/cloud/billing/credits/return/${provider}?orderId=${encodeURIComponent(id)}&returnToken=${encodeURIComponent(returnToken)}`;
     const order = {
       id,
       invoiceNumber,
       currency: checkoutCurrency,
-      customerEmail: typeof customerEmail === 'string' ? customerEmail.slice(0, 320) : '',
+      customerEmail: accountUser.email,
       customerName: billingAccount.billingAccountName,
       customerPhone: billingAccount.billingAddress.phone,
       deliveryAddress: billingAccount.billingAddress.address,
@@ -259,11 +339,34 @@ export const BillingDB = {
         SET provider_payment_id = $2, updated_at = CURRENT_TIMESTAMP
         WHERE id = $1 AND status = 'pending'
       `, [id, checkout.providerPaymentId]);
+      let notificationSent = false;
+      try {
+        const notification = await sendCloudPaymentStartedEmail({
+          to: accountUser.email,
+          name: billingAccount.billingAccountName,
+          provider,
+          amount: providerAmount,
+          currency: checkoutCurrency,
+          creditAmount: parsedAmount,
+          creditCurrency: 'USD',
+          reference: id,
+          checkoutUrl: checkout.checkoutUrl,
+          expiresAt
+        });
+        notificationSent = notification.success === true;
+        if (!notificationSent) {
+          console.error(`[Cloud Billing] Checkout email could not be sent for ${id}:`, notification.error || 'mail transport failed');
+        }
+      } catch (error) {
+        console.error(`[Cloud Billing] Checkout email failed for ${id}:`, error.message);
+      }
       return {
         checkoutUrl: checkout.checkoutUrl, topupId: id,
         creditAmount: parsedAmount, creditCurrency: 'USD',
         paymentAmount: providerAmount, paymentCurrency: checkoutCurrency,
-        exchangeRate, rateDate, rateSource: rateSnapshot?.source || null
+        exchangeRate, rateDate, rateSource: rateSnapshot?.source || null,
+        expiresAt: new Date(expiresAt).toISOString(),
+        notificationSent
       };
     } catch (error) {
       await queryPg(`UPDATE cloud_credit_topups SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
@@ -275,7 +378,8 @@ export const BillingDB = {
     const { rows } = await queryPg(`
       SELECT id, user_id, provider, mode, amount, currency, provider_amount, provider_currency,
              exchange_rate, rate_date, rate_source, provider_payment_id,
-             transaction_id, return_origin, return_token_hash, status, created_at, paid_at
+             transaction_id, return_origin, return_token_hash, status, cancel_reason,
+             expires_at, created_at, paid_at
       FROM cloud_credit_topups WHERE id = $1 AND provider = $2 LIMIT 1
     `, [id, provider]);
     const topup = rows[0];
@@ -290,14 +394,15 @@ export const BillingDB = {
     const { rows } = await queryPg(`
       SELECT id, user_id, provider, mode, amount, currency, provider_amount, provider_currency,
              exchange_rate, rate_date, rate_source, provider_payment_id,
-             transaction_id, return_origin, return_token_hash, status, created_at, paid_at
+             transaction_id, return_origin, return_token_hash, status, cancel_reason,
+             expires_at, created_at, paid_at
       FROM cloud_credit_topups WHERE id = $1 AND provider = $2 LIMIT 1
     `, [id, provider]);
     return rows[0] || null;
   },
 
   async verifyAndCompleteCreditTopup(topup, { query = {}, body = {}, rawBody, signature } = {}) {
-    if (!topup?.id || topup.status !== 'pending' || !topup.provider_payment_id) {
+    if (!topup?.id || !['pending', 'cancelled', 'failed'].includes(topup.status) || !topup.provider_payment_id) {
       return { success: topup?.status === 'paid', status: topup?.status || 'missing' };
     }
     const gateway = await getCheckoutGateway(topup.provider);
@@ -324,33 +429,34 @@ export const BillingDB = {
     }
 
     const { rows } = await queryPg(`
-      WITH claimed AS (
-        UPDATE cloud_credit_topups topup
-        SET status = 'processing', updated_at = CURRENT_TIMESTAMP
-        WHERE topup.id = $1 AND topup.status = 'pending'
-          AND topup.provider_payment_id = $2 AND topup.amount = $3 AND topup.currency = $4
-          AND EXISTS (SELECT 1 FROM cloud_billing_accounts account WHERE account.user_id = topup.user_id)
-        RETURNING topup.user_id, topup.amount
-      ), credited AS (
-        UPDATE cloud_billing_accounts account
-        SET credits = COALESCE(account.credits, 0) + claimed.amount,
-            updated_at = CURRENT_TIMESTAMP
-        FROM claimed WHERE account.user_id = claimed.user_id
-        RETURNING account.user_id, account.credits
-      ), settled AS (
+      WITH settled AS (
         UPDATE cloud_credit_topups topup
         SET status = 'paid', transaction_id = $5, paid_at = CURRENT_TIMESTAMP,
-            updated_at = CURRENT_TIMESTAMP
-        FROM credited WHERE topup.id = $1
+            cancel_reason = NULL, cancelled_at = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE topup.id = $1 AND topup.status IN ('pending', 'cancelled', 'failed')
+          AND topup.provider_payment_id = $2 AND topup.amount = $3 AND topup.currency = $4
+          AND EXISTS (SELECT 1 FROM cloud_billing_accounts account WHERE account.user_id = topup.user_id)
         RETURNING topup.id, topup.user_id, topup.amount, topup.currency,
                   topup.provider, topup.status, topup.created_at, topup.paid_at
+      ), credited AS (
+        UPDATE cloud_billing_accounts account
+        SET credits = COALESCE(account.credits, 0) + settled.amount,
+            updated_at = CURRENT_TIMESTAMP
+        FROM settled WHERE account.user_id = settled.user_id
+        RETURNING account.user_id, account.credits
       )
       SELECT settled.*, credited.credits AS balance
       FROM settled JOIN credited ON credited.user_id = settled.user_id
     `, [topup.id, topup.provider_payment_id, Number(topup.amount), String(topup.currency), String(verification.transactionId || '').slice(0, 255)]);
-    return rows[0]
-      ? { success: true, status: 'paid', balance: Number(rows[0].balance), invoice: toInvoice(rows[0]) }
-      : { success: topup.status === 'paid', status: topup.status };
+    if (rows[0]) {
+      return { success: true, status: 'paid', balance: Number(rows[0].balance), invoice: toInvoice(rows[0]) };
+    }
+    const { rows: currentRows } = await queryPg(
+      'SELECT status FROM cloud_credit_topups WHERE id = $1 LIMIT 1',
+      [topup.id]
+    );
+    const currentStatus = currentRows[0]?.status || topup.status;
+    return { success: currentStatus === 'paid', status: currentStatus };
   },
 
   async updateBillingAddress(userId, address) {

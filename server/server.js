@@ -16,6 +16,7 @@ import { getSeoMetadata } from '../shared/seoMetadata.mjs';
 
 import { ensureCertificates } from './scripts/generate-cert.js';
 import { testPgConnection } from './db/postgres.js';
+import { BillingDB } from './db/billing.js';
 import { streamStoredMedia } from './db/mediaStorage.js';
 import { MasterDB } from './db/multiTenant.js';
 import { resolveActiveStore, tenantContext } from './db/storeDataAdapter.js';
@@ -529,6 +530,7 @@ async function startServer() {
   }
   const { runMigration } = await import('./db/migrate.js');
   await runMigration();
+  BillingDB.startPendingTopupExpiry();
   if (postgresReady) {
     const { bootstrapGoogleDriveServiceAccountFromEnv } = await import('./administrator/googleDriveStorage.js');
     await bootstrapGoogleDriveServiceAccountFromEnv();

@@ -15,6 +15,7 @@ export { renderSignupVerificationEmail } from './signupVerification.js';
 export { renderPasswordResetEmail } from './passwordReset.js';
 export { renderLoginAlertEmail } from './loginAlert.js';
 export { renderInvoiceEmail } from './invoice.js';
+export { renderCloudPaymentStartedEmail } from './cloudPaymentStarted.js';
 export { renderAccountDisabledEmail } from './accountDisabled.js';
 export { renderAccountRestoredEmail } from './accountRestored.js';
 export { renderContentRemovedEmail } from './contentRemoved.js';

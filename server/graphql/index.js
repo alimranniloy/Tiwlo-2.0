@@ -482,6 +482,7 @@ export const schema = buildSchema(`
     description: String!
     createdAt: String!
     paidAt: String
+    expiresAt: String
   }
 
   type CloudBillingCostBreakdown {

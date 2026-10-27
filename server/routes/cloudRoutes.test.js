@@ -71,7 +71,10 @@ test('droplet rename is owner-scoped and validates the display name', async t =>
 test('cloud credit top-ups and vouchers never succeed without verified billing integration', async t => {
   const call = await createClient(t);
   const addCredits = t.mock.method(BillingDB, 'addCredits');
-  const redeemVoucher = t.mock.method(BillingDB, 'redeemVoucher');
+  const redeemVoucher = t.mock.method(BillingDB, 'redeemVoucher', async () => ({
+    success: false,
+    error: 'Voucher code is invalid or has already been redeemed.'
+  }));
   const headers = { 'x-user-id': 'owner', 'content-type': 'application/json' };
 
   assert.equal((await call('/api/cloud/billing/credits/add', {
@@ -83,7 +86,7 @@ test('cloud credit top-ups and vouchers never succeed without verified billing i
     method: 'POST',
     headers,
     body: JSON.stringify({ code: 'WELCOME2026' })
-  })).status, 503);
+  })).status, 400);
   assert.equal((await call('/api/cloud/billing/budgets', {
     method: 'POST',
     headers,
@@ -95,5 +98,74 @@ test('cloud credit top-ups and vouchers never succeed without verified billing i
     body: JSON.stringify({ bundleAmount: 50 })
   })).status, 401);
   assert.equal(addCredits.mock.callCount(), 0);
-  assert.equal(redeemVoucher.mock.callCount(), 0);
+  assert.equal(redeemVoucher.mock.callCount(), 1);
+});
+
+test('credit checkout cancellation requires authentication and is scoped to the current account', async t => {
+  const call = await createClient(t);
+  const cancel = t.mock.method(BillingDB, 'cancelCreditTopup', async (userId, id) => {
+    if (userId !== 'owner' || id !== 'topup-1') return null;
+    return { id, status: 'cancelled', cancel_reason: 'user', expires_at: '2026-03-16T12:00:00.000Z' };
+  });
+
+  assert.equal((await call('/api/cloud/billing/credits/topup-1/cancel', { method: 'POST' })).status, 401);
+  assert.equal((await call('/api/cloud/billing/credits/topup-1/cancel', {
+    method: 'POST',
+    headers: { 'x-user-id': 'other' }
+  })).status, 404);
+  const response = await call('/api/cloud/billing/credits/topup-1/cancel', {
+    method: 'POST',
+    headers: { 'x-user-id': 'owner' }
+  });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).status, 'cancelled');
+  assert.deepEqual(cancel.mock.calls.map(({ arguments: args }) => args), [
+    ['other', 'topup-1'],
+    ['owner', 'topup-1']
+  ]);
+});
+
+test('provider cancellation and failure returns persist the corresponding terminal state', async t => {
+  const call = await createClient(t);
+  const lookup = t.mock.method(BillingDB, 'getCreditTopupForReturn', async id => ({
+    id,
+    status: 'pending',
+    return_origin: 'https://uids.app'
+  }));
+  const setTerminal = t.mock.method(BillingDB, 'setCreditTopupTerminalStatus', async (id, status) => ({
+    id,
+    status,
+    cancel_reason: status === 'cancelled' ? 'provider' : null
+  }));
+
+  const cancelled = await call('/api/cloud/billing/credits/return/stripe?orderId=topup-1&returnToken=secret&result=cancelled', { redirect: 'manual' });
+  const failed = await call('/api/cloud/billing/credits/return/stripe?orderId=topup-2&returnToken=secret&result=failed', { redirect: 'manual' });
+  assert.equal(cancelled.status, 303);
+  assert.match(cancelled.headers.get('location'), /cloud_credit_payment=cancelled/);
+  assert.equal(failed.status, 303);
+  assert.match(failed.headers.get('location'), /cloud_credit_payment=failed/);
+  assert.deepEqual(setTerminal.mock.calls.map(({ arguments: args }) => args), [
+    ['topup-1', 'cancelled'],
+    ['topup-2', 'failed']
+  ]);
+  assert.equal(lookup.mock.callCount(), 2);
+});
+
+test('late verified payment is still settled after a checkout was cancelled', async t => {
+  const call = await createClient(t);
+  const lookup = t.mock.method(BillingDB, 'getCreditTopupForReturn', async id => ({
+    id,
+    status: 'cancelled',
+    return_origin: 'https://uids.app'
+  }));
+  const verify = t.mock.method(BillingDB, 'verifyAndCompleteCreditTopup', async () => ({
+    success: true,
+    status: 'paid'
+  }));
+
+  const response = await call('/api/cloud/billing/credits/return/stripe?orderId=topup-1&returnToken=secret', { redirect: 'manual' });
+  assert.equal(response.status, 303);
+  assert.match(response.headers.get('location'), /cloud_credit_payment=success/);
+  assert.equal(lookup.mock.callCount(), 1);
+  assert.equal(verify.mock.calls[0].arguments[0].status, 'cancelled');
 });

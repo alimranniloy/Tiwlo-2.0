@@ -32,17 +32,24 @@ import {
 import { getCloudBillingData, redeemCloudVoucher, startCloudCreditCheckout } from '../graphql/cloudQueries';
 import { COUNTRY_OPTIONS } from '../../../utils/accountFormOptions';
 import { openMaterialDialog } from '../../../components/MaterialDialogProvider.jsx';
+import CloudInvoicePage from '../invoice/CloudInvoicePage.jsx';
 
 const FORM_FIELD = 'mt-1.5 w-full rounded-xl border border-[#DADCE0] bg-white px-3.5 py-2.5 text-sm font-normal text-[#202124] outline-none transition placeholder:text-[#80868B] focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white dark:focus:ring-[#174EA6]/40';
 
 export default function CloudBillingView({ currentUser, initialTab = 'overview', onBack, showToast }) {
   const userId = currentUser?.id || currentUser?.tiwiId || null;
   const [activeTab, setActiveTab] = useState(initialTab || 'overview');
+  const [invoiceId, setInvoiceId] = useState(() => {
+    const match = window.location.pathname.match(/^\/billing\/invoices\/([^/]+)\/?$/);
+    if (!match) return '';
+    try { return decodeURIComponent(match[1]); } catch { return ''; }
+  });
   const [copiedId, setCopiedId] = useState(false);
   const [voucherCode, setVoucherCode] = useState('');
   const [isRedeemingVoucher, setIsRedeemingVoucher] = useState(false);
   const [creditTopupAmount, setCreditTopupAmount] = useState('25');
   const [startingCheckoutProvider, setStartingCheckoutProvider] = useState('');
+  const [cancellingInvoiceId, setCancellingInvoiceId] = useState('');
   const [creditCheckoutError, setCreditCheckoutError] = useState('');
   const [creditCheckoutNotice, setCreditCheckoutNotice] = useState('');
   const [isEditingBillingAddress, setIsEditingBillingAddress] = useState(false);
@@ -117,9 +124,58 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
     }
   };
 
+  const handleCancelInvoice = async (invoice) => {
+    if (cancellingInvoiceId) return;
+    const confirmed = await openMaterialDialog({
+      type: 'confirm',
+      title: 'Cancel this checkout?',
+      message: "Your Tiwlo billing session will be marked cancelled immediately. This may not close the payment provider's hosted page.",
+      details: 'If you already completed payment with the provider, its verified confirmation will still be applied to your credit balance.',
+      confirmLabel: 'Cancel checkout',
+      cancelLabel: 'Keep checkout'
+    });
+    if (!confirmed) return;
+
+    setCancellingInvoiceId(invoice.id);
+    try {
+      const response = await fetch(`/api/cloud/billing/credits/${encodeURIComponent(invoice.id)}/cancel`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success) throw new Error(result.error || 'Could not cancel this checkout.');
+      showToast?.(result.cancelReason === 'expired' ? 'Checkout expired.'
+        : result.status === 'cancelled' ? 'Checkout cancelled.'
+          : `Checkout status: ${result.status}.`, 'success');
+      await loadBilling();
+    } catch (error) {
+      showToast?.(error.message || 'Could not cancel this checkout.', 'error');
+    } finally {
+      setCancellingInvoiceId('');
+    }
+  };
+
   useEffect(() => {
     loadBilling();
   }, [userId]);
+
+  useEffect(() => {
+    const syncInvoiceRoute = () => {
+      const match = window.location.pathname.match(/^\/billing\/invoices\/([^/]+)\/?$/);
+      if (!match) {
+        setInvoiceId('');
+        return;
+      }
+      try {
+        setInvoiceId(decodeURIComponent(match[1]));
+        setActiveTab('invoices');
+      } catch {
+        setInvoiceId('');
+      }
+    };
+    window.addEventListener('popstate', syncInvoiceRoute);
+    return () => window.removeEventListener('popstate', syncInvoiceRoute);
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -128,8 +184,9 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
     setActiveTab('credits');
     setCreditCheckoutNotice({
       success: 'Payment verified. Your cloud credits have been added.',
-      pending: 'Payment is still being verified. Refresh billing in a moment.',
-      cancelled: 'Checkout was cancelled. No credits were added.',
+      pending: 'The provider has not confirmed this payment yet. Refresh billing in a moment.',
+      cancelled: 'Checkout was cancelled. Any provider-confirmed payment will still be applied to your credit balance.',
+      failed: 'The provider could not confirm this payment. If you were charged, contact billing support.',
       invalid: 'This payment return could not be verified. Contact billing support if you were charged.'
     }[result] || 'Payment status could not be confirmed.');
     loadBilling();
@@ -186,6 +243,23 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
           )}
         </div>
       </div>
+    );
+  }
+
+  if (invoiceId) {
+    const invoice = account.invoices?.find(item => item.id === invoiceId) || null;
+    return (
+      <CloudInvoicePage
+        invoice={invoice}
+        account={account}
+        isCancelling={cancellingInvoiceId === invoiceId}
+        onCancel={handleCancelInvoice}
+        onBack={() => {
+          window.history.replaceState(null, '', '/billing');
+          setInvoiceId('');
+          setActiveTab('invoices');
+        }}
+      />
     );
   }
 
@@ -250,6 +324,14 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
         expectedPaymentAmount: acceptedQuote?.paymentAmount,
         expectedRateDate: acceptedQuote?.rateDate
       });
+      if (checkout.notificationSent === false) {
+        await openMaterialDialog({
+          type: 'alert',
+          title: 'Checkout is ready',
+          message: 'We could not send the checkout email to your verified account address. The secure checkout is ready in your browser.',
+          details: `Reference: ${checkout.topupId}\nYou can continue now; this checkout expires in 24 hours.`,
+        });
+      }
       window.location.assign(checkout.checkoutUrl);
     } catch (error) {
       setCreditCheckoutError(error.message || 'Could not open secure payment checkout.');
@@ -1068,6 +1150,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                         <th className="py-3 px-3">Date</th>
                         <th className="py-3 px-3">Amount</th>
                         <th className="py-3 px-3">Status</th>
+                        <th className="py-3 px-3 text-right">Document</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#F0F2F5] dark:divide-[#2C2D31]">
@@ -1081,6 +1164,14 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${inv.status?.toLowerCase() === 'paid' ? 'bg-[#E6F4EA] text-[#137333]' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200'}`}>
                               {inv.status || 'Unknown'}
                             </span>
+                          </td>
+                          <td className="py-3.5 px-3 text-right">
+                            <a
+                              href={`/billing/invoices/${encodeURIComponent(inv.id)}`}
+                              className="inline-flex items-center rounded-full px-3 py-1.5 font-medium text-[#1A73E8] transition hover:bg-[#E8F0FE] dark:hover:bg-[#202C3D]"
+                            >
+                              View invoice
+                            </a>
                           </td>
                         </tr>
                       ))}
