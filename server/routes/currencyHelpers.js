@@ -54,7 +54,8 @@ export function validateMarketRateRows(rows, now = Date.now()) {
     const rate = Number(row.rate);
     const date = String(row.date || '');
     const observationTime = Date.parse(`${date}T00:00:00Z`);
-    if (!quote || quote === 'USD' || !Number.isFinite(rate) || rate <= 0 || rate > MAX_RATE ||
+    if (!quote || !Number.isFinite(rate) || rate <= 0 || rate > MAX_RATE ||
+        (quote === 'USD' && rate !== 1) ||
         !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(observationTime) ||
         new Date(observationTime).toISOString().slice(0, 10) !== date) {
       throw new TypeError('The exchange-rate source returned malformed data.');
@@ -63,6 +64,7 @@ export function validateMarketRateRows(rows, now = Date.now()) {
       throw new TypeError(`The exchange-rate source returned a future rate for ${quote}.`);
     }
     if (now - observationTime > 4 * 24 * 60 * 60 * 1000) continue;
+    if (quote === 'USD') continue;
     rates[quote] = rate;
     rateDates[quote] = date;
     if (date > observedAt) observedAt = date;
