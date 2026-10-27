@@ -34,7 +34,9 @@ async function requestJson(url, options = {}) {
       }
     }
     if (!response.ok) {
-      throw new Error(`Payment provider request failed with HTTP ${response.status}.`);
+      const { code, message } = gatewayResponseDetail(result);
+      const detail = [code, message].filter(Boolean).join(': ');
+      throw new Error(`Payment provider request failed with HTTP ${response.status}${detail ? ` (${detail})` : ''}.`);
     }
     return result;
   } finally {
@@ -44,6 +46,13 @@ async function requestJson(url, options = {}) {
 
 function jsonHeaders() {
   return { Accept: 'application/json', 'Content-Type': 'application/json' };
+}
+
+function gatewayResponseDetail(result = {}) {
+  const code = String(result.statusCode || result.errorCode || result.code || '').trim().slice(0, 32);
+  const message = String(result.statusMessage || result.errorMessage || result.message || result.error || '')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 240);
+  return { code, message };
 }
 
 async function getBkashToken(tiwiId, credentials, mode) {
@@ -64,7 +73,12 @@ async function getBkashToken(tiwiId, credentials, mode) {
       app_secret: credentials.appSecret
     })
   }).then(result => {
-    if (!result.id_token) throw new Error('bKash did not issue an authorization token.');
+    if (!result.id_token) {
+      const { code, message } = gatewayResponseDetail(result);
+      const status = code ? ` (${code})` : '';
+      const detail = message ? `: ${message}` : '';
+      throw new Error(`bKash rejected the token request${status}${detail}. Confirm the API credentials belong to the selected ${mode === 'live' ? 'live' : 'sandbox'} environment.`);
+    }
     bkashTokens.set(cacheKey, {
       token: result.id_token,
       expiresAt: Date.now() + Math.max(60, Number(result.expires_in) || 3600) * 1000
