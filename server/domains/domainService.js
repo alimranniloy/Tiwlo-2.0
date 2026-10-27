@@ -39,7 +39,10 @@ export function normalizeCustomDomain(input) {
     throw new DomainServiceError('Enter a valid public DNS domain name.');
   }
 
-  const reservedDomains = [PLATFORM_CONFIG.primaryDomain, PLATFORM_CONFIG.storeDomain];
+  // Product-owned hosts (including UIDS) are provisioned by the platform.
+  // Letting a customer attach one of these would allow them to claim a host
+  // that is already used for login, dashboard, or free subdomains.
+  const reservedDomains = PLATFORM_CONFIG.managedDomains;
   if (reservedDomains.some(base => domain === base || domain.endsWith(`.${base}`))) {
     throw new DomainServiceError('Tiwlo platform domains are managed automatically and cannot be added as custom domains.');
   }

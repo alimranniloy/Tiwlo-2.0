@@ -193,8 +193,23 @@ function getSocialStateCookieOptions(req) {
 }
 
 function clearOAuthMfaCookie(res, req) {
-  const { maxAge, ...cookieOptions } = getSocialStateCookieOptions(req);
+  const cookieOptions = { ...getSocialMfaCookieOptions(req) };
+  delete cookieOptions.maxAge;
   res.clearCookie('tiwlo_oauth_mfa', cookieOptions);
+  const legacyOptions = { ...getSocialStateCookieOptions(req) };
+  delete legacyOptions.maxAge;
+  res.clearCookie('tiwlo_oauth_mfa', legacyOptions);
+}
+
+function getSocialMfaCookieOptions(req) {
+  return { ...getSocialStateCookieOptions(req), path: '/api', maxAge: 15 * 60 * 1000 };
+}
+
+function setSocialMfaCookie(res, req, token) {
+  const legacyOptions = { ...getSocialStateCookieOptions(req) };
+  delete legacyOptions.maxAge;
+  res.clearCookie('tiwlo_oauth_mfa', legacyOptions);
+  res.cookie('tiwlo_oauth_mfa', token, getSocialMfaCookieOptions(req));
 }
 
 function getSocialProfileChallengeCookieOptions(req) {
@@ -449,10 +464,7 @@ async function completeSocialLogin(provider, req, res) {
       name: user.name || user.storeName,
       code: otp.code
     });
-    res.cookie('tiwlo_oauth_mfa', otp.token, {
-      ...getSocialStateCookieOptions(req),
-      maxAge: 15 * 60 * 1000
-    });
+    setSocialMfaCookie(res, req, otp.token);
     const loginUrl = new URL(getSocialLoginUrl(provider, { returnTo: savedState.returnTo }));
     return res.redirect(loginUrl.toString());
   } catch (error) {
@@ -688,10 +700,7 @@ router.post('/auth/social/complete-profile', async (req, res) => {
       ...getSocialProfileChallengeCookieOptions(req),
       maxAge: undefined
     });
-    res.cookie('tiwlo_oauth_mfa', otp.token, {
-      ...getSocialStateCookieOptions(req),
-      maxAge: 15 * 60 * 1000
-    });
+    setSocialMfaCookie(res, req, otp.token);
     return res.json({
       success: true,
       challenge: mfaMode,
@@ -1244,10 +1253,7 @@ router.post('/auth/resend-2fa', async (req, res) => {
     await deleteOtpSession(tempToken);
     const newOtp = await generateSecureOtp(user.email, 'login_2fa', 10);
     if (req.cookies?.tiwlo_oauth_mfa) {
-      res.cookie('tiwlo_oauth_mfa', newOtp.token, {
-        ...getSocialStateCookieOptions(req),
-        maxAge: 15 * 60 * 1000
-      });
+      setSocialMfaCookie(res, req, newOtp.token);
     }
     const [u, d] = user.email.split('@');
     const masked = `${u[0]}***@${d}`;
@@ -1295,10 +1301,7 @@ router.post('/auth/resend-setup-2fa', async (req, res) => {
     await deleteOtpSession(tempToken);
     const newOtp = await generateSecureOtp(user.email, 'setup_2fa', 15);
     if (req.cookies?.tiwlo_oauth_mfa) {
-      res.cookie('tiwlo_oauth_mfa', newOtp.token, {
-        ...getSocialStateCookieOptions(req),
-        maxAge: 15 * 60 * 1000
-      });
+      setSocialMfaCookie(res, req, newOtp.token);
     }
     const [u, d] = user.email.split('@');
     const masked = `${u[0]}***@${d}`;
@@ -1416,10 +1419,7 @@ router.post('/auth/resend-setup-2fa', async (req, res) => {
     await deleteOtpSession(tempToken);
     const newOtp = await generateSecureOtp(user.email, 'setup_2fa', 15);
     if (req.cookies?.tiwlo_oauth_mfa) {
-      res.cookie('tiwlo_oauth_mfa', newOtp.token, {
-        ...getSocialStateCookieOptions(req),
-        maxAge: 15 * 60 * 1000
-      });
+      setSocialMfaCookie(res, req, newOtp.token);
     }
     const masked = maskEmail(user.email);
 
