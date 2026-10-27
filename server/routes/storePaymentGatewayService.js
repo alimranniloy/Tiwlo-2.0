@@ -276,7 +276,7 @@ function validateCheckoutUrl(provider, value, mode) {
   const host = url.hostname.toLowerCase();
   const allowedHosts = {
     bkash: mode === 'live'
-      ? ['checkout.pay.bka.sh', 'tokenized.pay.bka.sh']
+      ? ['checkout.pay.bka.sh', 'tokenized.pay.bka.sh', 'payment.bkash.com']
       : ['checkout.sandbox.bka.sh', 'tokenized.sandbox.bka.sh'],
     paypal: mode === 'live'
       ? ['paypal.com', 'www.paypal.com']

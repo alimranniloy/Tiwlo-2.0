@@ -178,22 +178,54 @@ test('bKash checkout and return use the provider API before reporting payment', 
   });
 });
 
-test('accepts bKash live checkout URLs from its checkout host', async () => {
+test('accepts bKash live checkout URLs from its official checkout hosts', async () => {
+  for (const host of ['checkout.pay.bka.sh', 'payment.bkash.com']) {
+    await withMockFetch(async url => {
+      if (String(url).endsWith('/auth/grant-token')) {
+        return jsonResponse({ id_token: 'token-live-host-test', expires_in: 3600 });
+      }
+      if (String(url).endsWith('/payment/create')) {
+        return jsonResponse({
+          paymentID: 'payment-live-host-test',
+          bKashURL: `https://${host}/checkout/payment-live-host-test`
+        });
+      }
+      throw new Error(`Unexpected bKash request: ${url}`);
+    }, async () => {
+      const checkout = await createHostedPayment({
+        provider: 'bkash',
+        tiwiId: 'tenant-bkash-live-host-test',
+        credentials: {
+          appKey: 'app-key',
+          appSecret: 'app-secret',
+          username: 'merchant',
+          password: 'password'
+        },
+        mode: 'live',
+        order: makeOrder('bkash'),
+        callbackUrl: 'https://shop.example/api/public/payments/bkash/return'
+      });
+      assert.equal(checkout.checkoutUrl, `https://${host}/checkout/payment-live-host-test`);
+    });
+  }
+});
+
+test('rejects bKash checkout URLs on lookalike domains', async () => {
   await withMockFetch(async url => {
     if (String(url).endsWith('/auth/grant-token')) {
-      return jsonResponse({ id_token: 'token-live-host-test', expires_in: 3600 });
+      return jsonResponse({ id_token: 'token-lookalike-host-test', expires_in: 3600 });
     }
     if (String(url).endsWith('/payment/create')) {
       return jsonResponse({
-        paymentID: 'payment-live-host-test',
-        bKashURL: 'https://checkout.pay.bka.sh/checkout/payment-live-host-test'
+        paymentID: 'payment-lookalike-host-test',
+        bKashURL: 'https://payment.bkash.com.attacker.example/checkout/payment-lookalike-host-test'
       });
     }
     throw new Error(`Unexpected bKash request: ${url}`);
   }, async () => {
-    const checkout = await createHostedPayment({
+    await assert.rejects(createHostedPayment({
       provider: 'bkash',
-      tiwiId: 'tenant-bkash-live-host-test',
+      tiwiId: 'tenant-bkash-lookalike-host-test',
       credentials: {
         appKey: 'app-key',
         appSecret: 'app-secret',
@@ -203,8 +235,7 @@ test('accepts bKash live checkout URLs from its checkout host', async () => {
       mode: 'live',
       order: makeOrder('bkash'),
       callbackUrl: 'https://shop.example/api/public/payments/bkash/return'
-    });
-    assert.equal(checkout.checkoutUrl, 'https://checkout.pay.bka.sh/checkout/payment-live-host-test');
+    }), /untrusted checkout host: payment\.bkash\.com\.attacker\.example/);
   });
 });
 
