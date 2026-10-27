@@ -1125,7 +1125,10 @@ export default function App() {
       submitWebSsoHandoff(result.handoffUrl, result.handoffCode, result.sessionToken);
     } catch (error) {
       console.error('Web SSO handoff failed:', error);
-      showToast('Signed in, but could not open the dashboard. Please try again.', 'error');
+      // The MFA endpoint has already created the session. Keep the user out of
+      // the completed OTP form and let the primary app restore that session
+      // from the shared first-party cookie.
+      window.location.replace(getMainAppUrl('/dashboard'));
     }
   }
 
