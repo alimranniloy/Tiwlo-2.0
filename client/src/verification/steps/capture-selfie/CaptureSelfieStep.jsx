@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertCircle, Check, Circle, Loader2, Video } from 'lucide-react';
+import { AlertCircle, Loader2, Video } from 'lucide-react';
 import { useVerification } from '../../context/VerificationContext';
 import VerificationHeader from '../../components/VerificationHeader';
 import StepIndicator from '../../components/StepIndicator';
@@ -11,6 +11,35 @@ const CHALLENGE_LABELS = {
   blink: 'Close and open your eyes',
 };
 const FRAME_INTERVAL_MS = 850;
+
+async function readVerificationResponse(response) {
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.toLowerCase().includes('json')) {
+    const detail = response.status === 404
+      ? 'The verification API route was not found.'
+      : 'The server returned a web page instead of verification data.';
+    throw new Error(`${detail} Refresh the page and try again. If this continues, the server update may be missing.`);
+  }
+
+  let result;
+  try {
+    result = await response.json();
+  } catch {
+    throw new Error('The verification server returned invalid data. Please try again later.');
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      result && typeof result.error === 'string'
+        ? result.error
+        : `The verification request failed (HTTP ${response.status}).`
+    );
+  }
+  if (!result || typeof result !== 'object' || Array.isArray(result)) {
+    throw new Error('The verification server returned an invalid response.');
+  }
+  return result;
+}
 
 function chooseRecordingMimeType() {
   if (!window.MediaRecorder) return null;
@@ -174,8 +203,14 @@ export default function CaptureSelfieStep() {
         `/api/verification/liveness/${encodeURIComponent(session.sessionId)}/frame`,
         { method: 'POST', credentials: 'include', body }
       );
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'The liveness check is unavailable.');
+      const result = await readVerificationResponse(response);
+      if (
+        typeof result.passed !== 'boolean' ||
+        typeof result.challengesRemaining !== 'number' ||
+        typeof result.complete !== 'boolean'
+      ) {
+        throw new Error('The verification server returned an invalid liveness result.');
+      }
 
       const passedIndex = session.challenges.length - result.challengesRemaining - (result.passed ? 1 : 0);
       if (result.passed) {
@@ -221,9 +256,13 @@ export default function CaptureSelfieStep() {
         credentials: 'include',
         signal: controller.signal,
       });
-      const sessionResult = await sessionResponse.json();
-      if (!sessionResponse.ok) {
-        throw new Error(sessionResult.error || 'Active liveness is unavailable.');
+      const sessionResult = await readVerificationResponse(sessionResponse);
+      if (
+        typeof sessionResult.sessionId !== 'string' ||
+        !Array.isArray(sessionResult.challenges) ||
+        sessionResult.challenges.length === 0
+      ) {
+        throw new Error('The verification server returned an invalid camera challenge.');
       }
       if (cancelled) {
         fetch(`/api/verification/liveness/${encodeURIComponent(sessionResult.sessionId)}`, {
@@ -354,11 +393,15 @@ export default function CaptureSelfieStep() {
             <span>{isRecording ? 'Recording securely' : 'Starting camera check'}</span>
           </div>
 
-          <div className={`relative h-52 w-52 rounded-full border-4 p-1 shadow-md transition-colors ${
+          <div
+            role="img"
+            aria-label={challengePassed || allChallengesPassed ? 'Liveness action detected' : 'Camera challenge in progress'}
+            className={`relative h-52 w-52 rounded-full border-4 p-1 shadow-md transition-colors ${
             challengePassed || allChallengesPassed
-              ? 'border-emerald-500'
+              ? 'border-emerald-500 shadow-emerald-200'
               : 'border-blue-600'
-          }`}>
+          } ${challengePassed && !allChallengesPassed ? 'animate-pulse' : ''}`}
+          >
             <div className="h-full w-full overflow-hidden rounded-full bg-slate-900">
               {stream ? (
                 <video
@@ -374,11 +417,6 @@ export default function CaptureSelfieStep() {
                 </div>
               )}
             </div>
-            <span className="absolute -right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border-4 border-white bg-emerald-500 text-white shadow">
-              {challengePassed || allChallengesPassed
-                ? <Check className="h-4 w-4" />
-                : <Circle className="h-3 w-3 fill-white" />}
-            </span>
           </div>
 
           <div className="mt-5 flex items-center justify-center gap-2" aria-label="Liveness challenge progress">
