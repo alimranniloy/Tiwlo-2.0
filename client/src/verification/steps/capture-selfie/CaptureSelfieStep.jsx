@@ -3,6 +3,10 @@ import { AlertCircle, Loader2, Video } from 'lucide-react';
 import { useVerification } from '../../context/VerificationContext';
 import VerificationHeader from '../../components/VerificationHeader';
 import StepIndicator from '../../components/StepIndicator';
+import {
+  isVerificationFetchError,
+  VERIFICATION_CONNECTION_ERROR,
+} from '../../utils/verificationErrors';
 
 const CHALLENGE_LABELS = {
   turn_left: 'Turn your head to the left',
@@ -226,7 +230,9 @@ export default function CaptureSelfieStep() {
         failCapture('That action was not detected in time. Please restart and follow each instruction.');
       }
     } catch (error) {
-      failCapture(error.message || 'The liveness check could not process the camera.');
+      failCapture(isVerificationFetchError(error)
+        ? VERIFICATION_CONNECTION_ERROR
+        : error.message || 'The liveness check could not process the camera.');
     } finally {
       frameBusyRef.current = false;
       if (!finishedRef.current) {
@@ -292,7 +298,9 @@ export default function CaptureSelfieStep() {
 
     start().catch(error => {
       if (cancelled || error.name === 'AbortError') return;
-      failCapture(error.message || 'Please allow camera access to start verification.');
+      failCapture(isVerificationFetchError(error)
+        ? VERIFICATION_CONNECTION_ERROR
+        : error.message || 'Please allow camera access to start verification.');
     });
 
     return () => {

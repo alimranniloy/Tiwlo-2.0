@@ -30,6 +30,7 @@ export function VerificationProvider({ children, initialStep = 1, onComplete = n
   const [livenessSessionId, setLivenessSessionId] = useState(null);
   const [verificationResult, setVerificationResult] = useState(null); // 'success' | 'failed' | null
   const [failureReason, setFailureReason] = useState("We couldn't verify your identity. Please check your information and try again.");
+  const [failureType, setFailureType] = useState('verification');
   const [consentAccepted, setConsentAccepted] = useState(false);
 
   // Real-time animated checklist stages for Step 4 (Processing)
@@ -107,6 +108,7 @@ export function VerificationProvider({ children, initialStep = 1, onComplete = n
     });
     setVerificationResult(null);
     setFailureReason("We couldn't verify your identity. Please check your information and try again.");
+    setFailureType('verification');
     goToStep(STEPS.SELECT_DOCUMENT);
   }, [goToStep, setFailureReason, setUploadedDocument]);
 
@@ -138,6 +140,8 @@ export function VerificationProvider({ children, initialStep = 1, onComplete = n
         setVerificationResult,
         failureReason,
         setFailureReason,
+        failureType,
+        setFailureType,
         resetVerification,
         onComplete,
         onCancel,

@@ -7,7 +7,7 @@ import { useVerification } from '../../context/VerificationContext';
  * Screen 6 in reference mockup
  */
 export default function VerificationFailedStep({ onTryAgain = null, onContactSupport = null }) {
-  const { failureReason, resetVerification } = useVerification();
+  const { failureReason, failureType, resetVerification } = useVerification();
 
   const handleTryAgain = () => {
     if (onTryAgain) {
@@ -38,7 +38,11 @@ export default function VerificationFailedStep({ onTryAgain = null, onContactSup
 
         {/* Title & Description */}
         <h2 className="text-[25px] font-bold text-slate-900 tracking-tight leading-snug">
-          Verification Failed
+          {failureType === 'connection'
+            ? 'Connection problem'
+            : failureType === 'service'
+              ? 'Verification temporarily unavailable'
+              : 'Verification Failed'}
         </h2>
         <p className="text-[14px] text-slate-500 font-normal mt-2.5 max-w-[290px] leading-relaxed">
           {failureReason || "We couldn't verify your identity. Please check your information and try again."}

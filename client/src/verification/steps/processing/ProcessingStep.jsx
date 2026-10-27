@@ -2,6 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Shield, Check, Loader2 } from 'lucide-react';
 import { useVerification } from '../../context/VerificationContext';
 import StepIndicator from '../../components/StepIndicator';
+import {
+  isVerificationFetchError,
+  VERIFICATION_CONNECTION_ERROR,
+} from '../../utils/verificationErrors';
 
 /**
  * Step 4: Verifying your identity (Processing)
@@ -19,6 +23,7 @@ export default function ProcessingStep() {
     livenessSessionId,
     consentAccepted,
     setFailureReason,
+    setFailureType,
   } = useVerification();
 
   const [documentChecked, setDocumentChecked] = useState(false);
@@ -34,9 +39,6 @@ export default function ProcessingStep() {
 
     const finish = (result) => {
       if (!active) return;
-      setDocumentChecked(true);
-      setFaceMatched(true);
-      setSecurityValidated(true);
       setVerificationResult(result);
       goToStep(result === 'success' ? STEPS.SUCCESS : STEPS.FAILED);
     };
@@ -64,12 +66,22 @@ export default function ProcessingStep() {
         body.append('consent', 'true');
         setDocumentChecked(true);
 
-        const response = await fetch('/api/verification/face-match', {
-          method: 'POST',
-          credentials: 'include',
-          body,
-          signal: controller.signal,
-        });
+        let response;
+        try {
+          response = await fetch('/api/verification/face-match', {
+            method: 'POST',
+            credentials: 'include',
+            body,
+            signal: controller.signal,
+          });
+        } catch (error) {
+          if (error.name === 'AbortError') throw error;
+          if (isVerificationFetchError(error)) {
+            setFailureType('connection');
+            throw new Error(VERIFICATION_CONNECTION_ERROR);
+          }
+          throw error;
+        }
         let result;
         try {
           result = await response.json();
@@ -77,17 +89,25 @@ export default function ProcessingStep() {
           throw new Error('The verification service returned an invalid response.');
         }
         if (!response.ok) {
-          throw new Error(result.error || 'The verification service is unavailable.');
+          const error = new Error(result.error || 'The verification service is unavailable.');
+          error.failureType = response.status === 429 || response.status >= 500
+            ? 'service'
+            : 'verification';
+          throw error;
         }
         if (result.success !== true || typeof result.isMatch !== 'boolean') {
           throw new Error('The verification service returned an invalid result.');
         }
 
+        setFaceMatched(true);
+        setSecurityValidated(true);
         if (result.isMatch) {
           setFailureReason('');
+          setFailureType('verification');
           finish('success');
           return;
         }
+        setFailureType('verification');
         setFailureReason(
           result.reason === 'liveness_check_failed'
             ? 'The selfie could not pass the available liveness check. Please capture a new selfie in good lighting.'
@@ -98,7 +118,13 @@ export default function ProcessingStep() {
         finish('failed');
       } catch (error) {
         if (error.name === 'AbortError') return;
-        setFailureReason(error.message || 'The verification service is temporarily unavailable.');
+        if (isVerificationFetchError(error) || error.message === VERIFICATION_CONNECTION_ERROR) {
+          setFailureType('connection');
+          setFailureReason(VERIFICATION_CONNECTION_ERROR);
+        } else {
+          setFailureType(error.failureType || 'verification');
+          setFailureReason(error.message || 'The verification service is temporarily unavailable.');
+        }
         finish('failed');
       }
     };
@@ -117,6 +143,7 @@ export default function ProcessingStep() {
     selfieImage,
     recordedVideo,
     setFailureReason,
+    setFailureType,
     setVerificationResult,
     STEPS.FAILED,
     STEPS.SUCCESS,
