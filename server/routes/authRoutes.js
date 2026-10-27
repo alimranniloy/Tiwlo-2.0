@@ -340,6 +340,7 @@ async function startSocialLogin(provider, req, res) {
     : defaultReturnTo;
   if (!isAllowedWebSsoReturnUrl(requestedReturnTo, {
     dashboardHost: PLATFORM_CONFIG.dashboardHost,
+    dashboardHosts: [PLATFORM_CONFIG.freeSubdomainDomain],
     mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`
   })) {
     return res.status(400).send('Invalid sign-in return destination.');
@@ -395,6 +396,7 @@ async function completeSocialLogin(provider, req, res) {
       typeof savedState.returnTo !== 'string' ||
       !isAllowedWebSsoReturnUrl(savedState.returnTo, {
         dashboardHost: PLATFORM_CONFIG.dashboardHost,
+        dashboardHosts: [PLATFORM_CONFIG.freeSubdomainDomain],
         mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`
       })) {
     return res.status(400).send('Social sign-in could not verify the OAuth state. Please try again.');

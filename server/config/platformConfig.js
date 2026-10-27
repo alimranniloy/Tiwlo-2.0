@@ -12,9 +12,9 @@ const storeDomain = cleanDomain(process.env.VITE_STORE_DOMAIN, primaryDomain) ||
 const freeSubdomainDomain = cleanDomain(process.env.VITE_FREE_SUBDOMAIN_DOMAIN, 'uids.app');
 const dashboardHost = (() => {
   try {
-    return new URL(process.env.VITE_DASHBOARD_URL || 'https://uids.tiwlo.com').hostname.toLowerCase();
+    return new URL(process.env.VITE_DASHBOARD_URL || `https://${freeSubdomainDomain}`).hostname.toLowerCase();
   } catch {
-    return 'uids.tiwlo.com';
+    return freeSubdomainDomain;
   }
 })();
 const sessionCookieDomain = cleanDomain(
@@ -39,7 +39,7 @@ export const PLATFORM_CONFIG = Object.freeze({
   storeDomain,
   freeSubdomainDomain,
   managedDomains,
-  dashboardUrl: process.env.VITE_DASHBOARD_URL || `https://${dashboardHost}`,
+  dashboardUrl: process.env.VITE_DASHBOARD_URL || `https://${freeSubdomainDomain}`,
   dashboardHost,
   cookieDomain: `.${sessionCookieDomain}`,
   authDomain: cleanDomain(process.env.VITE_AUTH_DOMAIN, `auth.${primaryDomain}`),

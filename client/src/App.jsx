@@ -166,6 +166,8 @@ export default function App() {
       const isOneProfilePath = pathname === 'oneprofile' || pathname.startsWith('oneprofile/') ||
         pathname === 'one-profile' || pathname.startsWith('one-profile/');
       const isTpanelPath = pathname === 'tpanel' || pathname.startsWith('tpanel/');
+      const isUidsLandingRoot = hostname.toLowerCase() === FREE_SUBDOMAIN_DOMAIN &&
+        !pathname && !searchParams.has('web_sso_return_to');
 
       // Remove legacy session-token handoffs from the URL without trusting them.
       if (searchParams.has('auth_token')) {
@@ -179,6 +181,8 @@ export default function App() {
         window.location.replace(`${getDashboardUrl(window.location.pathname)}${window.location.search}${window.location.hash}`);
         return 'oneprofile';
       }
+
+      if (isUidsLandingRoot) return 'subdomain';
 
       if (isTpanelPath && !isTPanelSubdomain() &&
           (hostname === PLATFORM_DOMAIN || hostname === `www.${PLATFORM_DOMAIN}` ||
@@ -214,11 +218,6 @@ export default function App() {
         ));
         window.location.replace(getAuthUrl(`${authPath}?${authQuery.toString()}`));
         return isRegistration ? 'create-account' : 'login';
-      }
-
-      // The standalone free-subdomain service has its own landing page.
-      if (hostname === FREE_SUBDOMAIN_DOMAIN) {
-        return 'subdomain';
       }
 
       // TPanel Subdomain or Direct Route Detection
@@ -345,7 +344,7 @@ export default function App() {
           const query = isExplicitLogout
             ? '?logout=1'
             : (isDashboardSubdomain()
-              ? `?return_to=${encodeURIComponent(getDashboardUrl('/oneprofile'))}`
+              ? `?return_to=${encodeURIComponent(`${window.location.origin}/oneprofile`)}`
               : (redirectPath ? `?redirect=${encodeURIComponent(redirectPath)}` : ''));
           window.location.replace(getAuthUrl(`/login${query}`));
           return 'login';
@@ -358,7 +357,7 @@ export default function App() {
           }
           const registrationParams = new URLSearchParams(window.location.search);
           if (isDashboardSubdomain()) {
-            registrationParams.set('return_to', getDashboardUrl('/oneprofile'));
+            registrationParams.set('return_to', `${window.location.origin}/oneprofile`);
             registrationParams.set('sso_login', '1');
           }
           const registrationQuery = registrationParams.toString();
@@ -533,7 +532,7 @@ export default function App() {
         const publicPaths = new Set(['/', '/landing', '/home', '/login', '/signin']);
         const isDashboardOrigin = isDashboardSubdomain();
         const isMailOrigin = isMailSubdomain();
-        const returnTo = window.location.hostname.toLowerCase() === FREE_SUBDOMAIN_DOMAIN
+        const returnTo = isDashboardOrigin
           ? `${window.location.origin}/oneprofile`
           : `${getMainAppUrl(path)}${window.location.search}`;
         const redirect = isDashboardOrigin
@@ -557,9 +556,7 @@ export default function App() {
       if (!isAuthSubdomain()) {
         const isDashboardOrigin = isDashboardSubdomain();
         const isMailOrigin = isMailSubdomain();
-        const returnTo = window.location.hostname.toLowerCase() === FREE_SUBDOMAIN_DOMAIN
-          ? `${window.location.origin}/oneprofile`
-          : null;
+        const returnTo = isDashboardOrigin ? `${window.location.origin}/oneprofile` : null;
         const query = isDashboardOrigin
           ? `?return_to=${encodeURIComponent(`${window.location.origin}/oneprofile`)}&sso_login=1`
           : (isMailOrigin
@@ -792,7 +789,11 @@ export default function App() {
 
   // Cross-subdomain auth shares a cookie scoped to the configured platform domain.
   const [authChecking, setAuthChecking] = useState(() => {
-    return new URLSearchParams(window.location.search).get('logout') !== '1';
+    const searchParams = new URLSearchParams(window.location.search);
+    const isUidsLandingRoot = window.location.hostname.toLowerCase() === FREE_SUBDOMAIN_DOMAIN &&
+      window.location.pathname.replace(/^\/+|\/+$/g, '') === '' &&
+      !searchParams.has('web_sso_return_to');
+    return searchParams.get('logout') !== '1' && !isUidsLandingRoot;
   });
 
   // Initial Cross-Subdomain Handshake & Cookie Session Auto-Discovery
@@ -801,6 +802,9 @@ export default function App() {
 
     const isAuthHost = isAuthSubdomain();
     const searchParams = new URLSearchParams(window.location.search);
+    const isUidsLandingRoot = window.location.hostname.toLowerCase() === FREE_SUBDOMAIN_DOMAIN &&
+      window.location.pathname.replace(/^\/+|\/+$/g, '') === '' &&
+      !searchParams.has('web_sso_return_to');
 
     if (isAuthHost && (searchParams.get('logout') === '1' || sessionStorage.getItem('tiwlo_explicit_logout') === '1')) {
       setAuthChecking(false);
@@ -900,7 +904,7 @@ export default function App() {
                 return;
               }
 
-              if (isDashboardSubdomain()) {
+              if (isDashboardSubdomain() && !isUidsLandingRoot) {
                 const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
                 if (!path || path === 'dashboard' || path === 'login') {
                   setActiveTab('oneprofile');
@@ -925,7 +929,7 @@ export default function App() {
                 return;
               }
               const isSuper = data.user.role === 'super_admin' || data.user.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
-              if (path === '' || path === 'login' || path === 'landing') {
+              if (!isUidsLandingRoot && (path === '' || path === 'login' || path === 'landing')) {
                 setActiveTab(isSuper ? 'administrator' : 'dashboard');
                 window.history.replaceState(null, '', isSuper ? '/administrator' : '/');
               } else if (path === 'dashboard') {
@@ -985,7 +989,7 @@ export default function App() {
           path === 'uids' || path === 'uids.app' || path.startsWith('uids/') ||
           path === 'one-profile' || path.startsWith('one-profile/');
 
-        if (!isPublicPath || isTpanelRoute || isDashboardSubdomain()) {
+        if (!isPublicPath || isTpanelRoute || (isDashboardSubdomain() && !isUidsLandingRoot)) {
           if (isMailSubdomain()) {
             const returnTo = getMailUrl(window.location.pathname + window.location.search + window.location.hash);
             const bridgeUrl = `${getMainAppUrl('/api/auth/sso/web-start')}?return_to=${encodeURIComponent(returnTo)}`;
@@ -1068,8 +1072,13 @@ export default function App() {
             localStorage.removeItem('stockpro_user');
             localStorage.removeItem('stockpro_session');
             setCurrentUser(null);
-            const returnTo = window.location.pathname + window.location.search;
-            window.location.replace(getAuthUrl(`/login?expired=1&redirect=${encodeURIComponent(returnTo)}`));
+            const isUidsLandingRoot = window.location.hostname.toLowerCase() === FREE_SUBDOMAIN_DOMAIN &&
+              window.location.pathname.replace(/^\/+|\/+$/g, '') === '' &&
+              !new URLSearchParams(window.location.search).has('web_sso_return_to');
+            if (!isUidsLandingRoot) {
+              const returnTo = window.location.pathname + window.location.search;
+              window.location.replace(getAuthUrl(`/login?expired=1&redirect=${encodeURIComponent(returnTo)}`));
+            }
           }
         }
       } catch (err) {
