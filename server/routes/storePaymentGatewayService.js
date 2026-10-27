@@ -25,6 +25,12 @@ function bkashV12Base(mode) {
     : 'https://tokenized.sandbox.bka.sh/v1.2.0-beta/tokenized/checkout';
 }
 
+function bkashRegularBase(mode) {
+  return mode === 'live'
+    ? 'https://checkout.pay.bka.sh/v1.2.0-beta/checkout'
+    : 'https://checkout.sandbox.bka.sh/v1.2.0-beta/checkout';
+}
+
 async function requestJson(url, options = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
@@ -55,8 +61,8 @@ function jsonHeaders() {
 }
 
 function gatewayResponseDetail(result = {}) {
-  const code = String(result.statusCode || result.errorCode || result.code || '').trim().slice(0, 32);
-  const message = String(result.statusMessage || result.errorMessage || result.message || result.error || '')
+  const code = String(result.statusCode || result.errorCode || result.code || result.status || '').trim().slice(0, 32);
+  const message = String(result.statusMessage || result.errorMessage || result.message || result.msg || result.error || '')
     .replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 240);
   return { code, message };
 }
@@ -70,7 +76,8 @@ async function getBkashToken(tiwiId, credentials, mode) {
   const pending = (async () => {
     const apiVersions = [
       { version: 'v2', url: `${gatewayBase('bkash', mode)}/auth/grant-token` },
-      { version: 'v1.2.0-beta', url: `${bkashV12Base(mode)}/token/grant` }
+      { version: 'tokenized-v1.2.0-beta', url: `${bkashV12Base(mode)}/token/grant` },
+      { version: 'regular-v1.2.0-beta', url: `${bkashRegularBase(mode)}/token/grant` }
     ];
     const failures = [];
     for (const api of apiVersions) {
@@ -87,7 +94,7 @@ async function getBkashToken(tiwiId, credentials, mode) {
         });
       } catch (error) {
         failures.push(`${api.version}: ${error.message}`);
-        if (api.version === 'v2' && /HTTP (?:401|403|404|405)|9999/i.test(error.message)) continue;
+        if (api.version !== 'regular-v1.2.0-beta' && /HTTP (?:401|403|404|405)|9999/i.test(error.message)) continue;
         throw error;
       }
 
@@ -102,7 +109,7 @@ async function getBkashToken(tiwiId, credentials, mode) {
 
       const { code, message } = gatewayResponseDetail(result);
       failures.push(`${api.version}${code ? ` (${code})` : ''}${message ? `: ${message}` : ': no id_token returned'}`);
-      if (api.version !== 'v2') break;
+      if (api.version === 'regular-v1.2.0-beta') break;
     }
     throw new Error(`bKash rejected token grant on its supported API versions (${failures.join('; ')}). Verify the live merchant credentials are enabled for Tokenized Checkout.`);
   })().catch(error => {
@@ -115,13 +122,16 @@ async function getBkashToken(tiwiId, credentials, mode) {
 
 async function createBkashCheckout({ tiwiId, credentials, mode, order, callbackUrl }) {
   const tokenData = await getBkashToken(tiwiId, credentials, mode);
-  const isV12 = tokenData.apiVersion === 'v1.2.0-beta';
-  const base = isV12 ? bkashV12Base(mode) : gatewayBase('bkash', mode);
-  const result = await requestJson(`${base}/${isV12 ? 'create' : 'payment/create'}`, {
+  const isRegularV12 = tokenData.apiVersion === 'regular-v1.2.0-beta';
+  const isTokenizedV12 = tokenData.apiVersion === 'tokenized-v1.2.0-beta';
+  const base = isRegularV12 ? bkashRegularBase(mode)
+    : isTokenizedV12 ? bkashV12Base(mode) : gatewayBase('bkash', mode);
+  const createPath = isTokenizedV12 ? 'create' : 'payment/create';
+  const result = await requestJson(`${base}/${createPath}`, {
     method: 'POST',
     headers: { ...jsonHeaders(), Authorization: tokenData.token, 'X-App-Key': credentials.appKey },
     body: JSON.stringify({
-      ...(isV12 ? { mode: '0011' } : {}),
+      ...(isRegularV12 || isTokenizedV12 ? { mode: '0011' } : {}),
       payerReference: order.id,
       callbackURL: callbackUrl,
       amount: Number(order.paymentGateway.amount).toFixed(2),
@@ -265,7 +275,9 @@ function validateCheckoutUrl(provider, value, mode) {
   if (url.protocol !== 'https:') throw new Error('Payment provider returned an insecure checkout link.');
   const host = url.hostname.toLowerCase();
   const allowedHosts = {
-    bkash: mode === 'live' ? ['tokenized.pay.bka.sh'] : ['tokenized.sandbox.bka.sh'],
+    bkash: mode === 'live'
+      ? ['checkout.pay.bka.sh', 'tokenized.pay.bka.sh']
+      : ['checkout.sandbox.bka.sh', 'tokenized.sandbox.bka.sh'],
     paypal: mode === 'live'
       ? ['paypal.com', 'www.paypal.com']
       : ['sandbox.paypal.com', 'www.sandbox.paypal.com'],
@@ -273,7 +285,7 @@ function validateCheckoutUrl(provider, value, mode) {
     stripe: ['checkout.stripe.com']
   }[provider] || [];
   if (!allowedHosts.includes(host)) {
-    throw new Error('Payment provider returned an untrusted checkout host.');
+    throw new Error(`Payment provider returned an untrusted checkout host: ${host}.`);
   }
   return url.toString();
 }
@@ -314,9 +326,12 @@ async function executeBkashReturn({ tiwiId, credentials, mode, order, query }) {
     return { paid: false, rawStatus: String(query.status || 'cancelled') };
   }
   const tokenData = await getBkashToken(tiwiId, credentials, mode);
-  const isV12 = tokenData.apiVersion === 'v1.2.0-beta';
-  const base = isV12 ? bkashV12Base(mode) : gatewayBase('bkash', mode);
-  const result = await requestJson(`${base}/${isV12 ? 'execute' : 'payment/execute'}`, {
+  const isRegularV12 = tokenData.apiVersion === 'regular-v1.2.0-beta';
+  const isTokenizedV12 = tokenData.apiVersion === 'tokenized-v1.2.0-beta';
+  const base = isRegularV12 ? bkashRegularBase(mode)
+    : isTokenizedV12 ? bkashV12Base(mode) : gatewayBase('bkash', mode);
+  const executePath = isRegularV12 ? 'payment/execute' : isTokenizedV12 ? 'execute' : 'payment/execute';
+  const result = await requestJson(`${base}/${executePath}`, {
     method: 'POST',
     headers: { ...jsonHeaders(), Authorization: tokenData.token, 'X-App-Key': credentials.appKey },
     body: JSON.stringify({ paymentID: paymentId })
@@ -460,15 +475,17 @@ async function refundBkash({ tiwiId, credentials, mode, order, refund }) {
     throw new TypeError('bKash allows up to 10 refund attempts per original payment.');
   }
   const tokenData = await getBkashToken(tiwiId, credentials, mode);
-  const isV12 = tokenData.apiVersion === 'v1.2.0-beta';
-  const base = isV12 ? bkashV12Base(mode) : gatewayBase('bkash', mode);
+  const isRegularV12 = tokenData.apiVersion === 'regular-v1.2.0-beta';
+  const isTokenizedV12 = tokenData.apiVersion === 'tokenized-v1.2.0-beta';
+  const base = isRegularV12 ? bkashRegularBase(mode)
+    : isTokenizedV12 ? bkashV12Base(mode) : gatewayBase('bkash', mode);
   const result = await requestJson(
-    `${base}/${isV12 ? 'payment/refund' : 'refund/payment/transaction'}`,
+    `${base}/${isRegularV12 || isTokenizedV12 ? 'payment/refund' : 'refund/payment/transaction'}`,
     {
       method: 'POST',
       headers: { ...jsonHeaders(), Authorization: tokenData.token, 'X-App-Key': credentials.appKey },
       body: JSON.stringify({
-        ...(isV12 ? { paymentID: paymentId, trxID: transactionId, amount: Number(refund.amount).toFixed(2) } : {
+        ...(isRegularV12 || isTokenizedV12 ? { paymentID: paymentId, trxID: transactionId, amount: Number(refund.amount).toFixed(2) } : {
           paymentId, trxId: transactionId, refundAmount: Number(refund.amount).toFixed(2)
         }),
         sku: String(order.invoiceNumber).slice(0, 255),

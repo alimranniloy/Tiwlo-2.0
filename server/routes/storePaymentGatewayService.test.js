@@ -132,7 +132,7 @@ test('bKash checkout and return use the provider API before reporting payment', 
       assert.equal(payload.amount, '123.45');
       return jsonResponse({
         paymentId: 'payment-123',
-        bKashURL: 'https://tokenized.sandbox.bka.sh/checkout/payment-123'
+        bKashURL: 'https://checkout.sandbox.bka.sh/checkout/payment-123'
       });
     }
     if (String(url).endsWith('/payment/execute')) {
@@ -175,6 +175,36 @@ test('bKash checkout and return use the provider API before reporting payment', 
     assert.equal(executeSeen, true);
     assert.equal(result.transactionId, 'trx-123');
     assert.equal(result.paid, true);
+  });
+});
+
+test('accepts bKash live checkout URLs from its checkout host', async () => {
+  await withMockFetch(async url => {
+    if (String(url).endsWith('/auth/grant-token')) {
+      return jsonResponse({ id_token: 'token-live-host-test', expires_in: 3600 });
+    }
+    if (String(url).endsWith('/payment/create')) {
+      return jsonResponse({
+        paymentID: 'payment-live-host-test',
+        bKashURL: 'https://checkout.pay.bka.sh/checkout/payment-live-host-test'
+      });
+    }
+    throw new Error(`Unexpected bKash request: ${url}`);
+  }, async () => {
+    const checkout = await createHostedPayment({
+      provider: 'bkash',
+      tiwiId: 'tenant-bkash-live-host-test',
+      credentials: {
+        appKey: 'app-key',
+        appSecret: 'app-secret',
+        username: 'merchant',
+        password: 'password'
+      },
+      mode: 'live',
+      order: makeOrder('bkash'),
+      callbackUrl: 'https://shop.example/api/public/payments/bkash/return'
+    });
+    assert.equal(checkout.checkoutUrl, 'https://checkout.pay.bka.sh/checkout/payment-live-host-test');
   });
 });
 
@@ -489,6 +519,6 @@ test('rejects provider checkout links outside the provider-owned HTTPS domains',
       order: makeOrder('stripe'),
       successUrl: 'https://shop.example/#/return',
       cancelUrl: 'https://shop.example/#/cancel'
-    }), /untrusted checkout host/);
+    }), /untrusted checkout host: attacker\.example/);
   });
 });
