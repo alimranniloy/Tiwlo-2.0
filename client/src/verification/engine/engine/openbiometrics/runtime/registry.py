@@ -192,7 +192,7 @@ class ModelRegistry:
             return path
 
         logger.info("Model '%s' not found locally, downloading from %s", name, info.url)
-        self._download(info.url, path)
+        self._download(info, path)
         return path
 
     def model_path(self, name: str) -> Path:
@@ -234,13 +234,13 @@ class ModelRegistry:
             raise KeyError(f"Unknown model '{name}'. Available: {available}")
         return _MODEL_CATALOG[name]
 
-    def _download(self, url: str, dest: Path) -> None:
-        """Download a file from url to dest."""
+    def _download(self, info: ModelInfo, dest: Path) -> None:
+        """Download and verify a model file."""
         dest.parent.mkdir(parents=True, exist_ok=True)
         tmp = dest.with_suffix(".part")
         try:
-            logger.info("Downloading %s -> %s", url, dest)
-            urllib.request.urlretrieve(url, str(tmp))
+            logger.info("Downloading %s -> %s", info.url, dest)
+            urllib.request.urlretrieve(info.url, str(tmp))
             if info.sha256:
                 digest = hashlib.sha256(tmp.read_bytes()).hexdigest()
                 if digest != info.sha256:
@@ -253,4 +253,4 @@ class ModelRegistry:
         except Exception as exc:
             if tmp.exists():
                 tmp.unlink()
-            raise RuntimeError(f"Failed to download model from {url}: {exc}") from exc
+            raise RuntimeError(f"Failed to download model from {info.url}: {exc}") from exc
