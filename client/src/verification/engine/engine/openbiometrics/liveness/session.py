@@ -299,6 +299,7 @@ class ActiveLivenessManager:
         *,
         num_challenges: int | None = None,
         timeout_seconds: float | None = None,
+        thresholds: ActionThresholds | None = None,
         allowed_types: list[ChallengeType] | None = None,
     ) -> ActiveLivenessSession:
         """Create and register a new active liveness session.
@@ -306,6 +307,7 @@ class ActiveLivenessManager:
         Args:
             num_challenges: Override default challenge count.
             timeout_seconds: Override default per-challenge timeout.
+            thresholds: Override default action-detection thresholds.
             allowed_types: Restrict challenge types.
 
         Returns:
@@ -316,7 +318,7 @@ class ActiveLivenessManager:
         session = ActiveLivenessSession(
             num_challenges=num_challenges or self._num_challenges,
             timeout_seconds=timeout_seconds or self._timeout_seconds,
-            thresholds=self._thresholds,
+            thresholds=thresholds if thresholds is not None else self._thresholds,
             allowed_types=allowed_types,
         )
 
