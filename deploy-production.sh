@@ -343,8 +343,8 @@ if ! command -v pm2 >/dev/null 2>&1; then
   npm install --global pm2 --no-audit --no-fund --silent
 fi
 if command -v pm2 >/dev/null 2>&1; then
-  cd "$ROOT_DIR/server"
-  pm2 reload tiwlo-backend || pm2 restart tiwlo-backend || pm2 start server.js --name tiwlo-backend
+  pm2 delete tiwlo-backend 2>/dev/null || true
+  pm2 start "$ROOT_DIR/server/server.js" --name tiwlo-backend --cwd "$ROOT_DIR/server" --update-env
   if [[ -f "$ROOT_DIR/server/dns/dnsServer.js" ]]; then
     pm2 reload tiwlo-dns || pm2 restart tiwlo-dns || pm2 start dns/dnsServer.js --name tiwlo-dns || true
   fi
@@ -398,6 +398,13 @@ else
   sleep 3
   curl --fail --silent --show-error http://127.0.0.1:5001/api/health || true
 fi
+
+VERIFY_ROUTE_RESPONSE="$(curl --silent --show-error --output /dev/null --write-out '%{http_code} %{content_type}' --request POST http://127.0.0.1:5001/api/verification/liveness/session || true)"
+if [[ "$VERIFY_ROUTE_RESPONSE" != 401\ application/json* ]]; then
+  echo "Verification API route check failed ($VERIFY_ROUTE_RESPONSE; expected JSON HTTP 401 from the mounted authenticated route)."
+  exit 1
+fi
+echo "Verification API route is mounted and responding from the deployed backend."
 
 echo "=========================================================="
 echo "   DEPLOYMENT COMPLETED SUCCESSFULLY ON TIWLO LIVE SERVER!"
