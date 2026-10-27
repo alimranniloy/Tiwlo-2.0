@@ -26,6 +26,8 @@ export function VerificationProvider({ children, initialStep = 1, onComplete = n
   const [documentFile, setDocumentFile] = useState(null);
   const [documentPreview, setDocumentPreview] = useState(null);
   const [selfieImage, setSelfieImage] = useState(null);
+  const [recordedVideo, setRecordedVideo] = useState(null);
+  const [livenessSessionId, setLivenessSessionId] = useState(null);
   const [verificationResult, setVerificationResult] = useState(null); // 'success' | 'failed' | null
   const [failureReason, setFailureReason] = useState("We couldn't verify your identity. Please check your information and try again.");
   const [consentAccepted, setConsentAccepted] = useState(false);
@@ -95,6 +97,8 @@ export function VerificationProvider({ children, initialStep = 1, onComplete = n
   const resetVerification = useCallback(() => {
     setUploadedDocument(null, null);
     setSelfieImage(null);
+    setRecordedVideo(null);
+    setLivenessSessionId(null);
     setConsentAccepted(false);
     setProcessingStages({
       documentCheck: false,
@@ -122,6 +126,10 @@ export function VerificationProvider({ children, initialStep = 1, onComplete = n
         setUploadedDocument,
         selfieImage,
         setCapturedSelfie,
+        recordedVideo,
+        setRecordedVideo,
+        livenessSessionId,
+        setLivenessSessionId,
         consentAccepted,
         setConsentAccepted: setConsent,
         processingStages,

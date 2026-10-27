@@ -8,24 +8,26 @@ import StepIndicator from '../../components/StepIndicator';
  * Screen 4 in reference mockup
  * Features animated circular spinner with central shield, and real-time step checklist
  */
-export default function ProcessingStep({ onNext = null, isStaticShowcase = false }) {
+export default function ProcessingStep() {
   const {
     goToStep,
     STEPS,
     setVerificationResult,
     documentFile,
     selfieImage,
+    recordedVideo,
+    livenessSessionId,
     consentAccepted,
     setFailureReason,
   } = useVerification();
 
-  const [documentChecked, setDocumentChecked] = useState(isStaticShowcase);
-  const [faceMatched, setFaceMatched] = useState(isStaticShowcase);
-  const [securityValidated, setSecurityValidated] = useState(isStaticShowcase);
+  const [documentChecked, setDocumentChecked] = useState(false);
+  const [faceMatched, setFaceMatched] = useState(false);
+  const [securityValidated, setSecurityValidated] = useState(false);
   const requestStarted = useRef(false);
 
   useEffect(() => {
-    if (isStaticShowcase || requestStarted.current) return undefined;
+    if (requestStarted.current) return undefined;
     requestStarted.current = true;
     let active = true;
     const controller = new AbortController();
@@ -36,13 +38,13 @@ export default function ProcessingStep({ onNext = null, isStaticShowcase = false
       setFaceMatched(true);
       setSecurityValidated(true);
       setVerificationResult(result);
-      if (onNext) onNext();
-      else goToStep(result === 'success' ? STEPS.SUCCESS : STEPS.FAILED);
+      goToStep(result === 'success' ? STEPS.SUCCESS : STEPS.FAILED);
     };
 
     const submitVerification = async () => {
-      if (!documentFile || typeof selfieImage !== 'string' || !selfieImage.startsWith('data:image/')) {
-        setFailureReason('Upload a real document image and capture a selfie before starting verification.');
+      if (!documentFile || !recordedVideo || !livenessSessionId ||
+          typeof selfieImage !== 'string' || !selfieImage.startsWith('data:image/')) {
+        setFailureReason('Complete the live camera challenges and recording before starting verification.');
         finish('failed');
         return;
       }
@@ -57,6 +59,8 @@ export default function ProcessingStep({ onNext = null, isStaticShowcase = false
         const body = new FormData();
         body.append('document', documentFile, documentFile.name || 'document-image');
         body.append('selfie', selfieBlob, 'selfie-image');
+        body.append('recording', recordedVideo, recordedVideo.name);
+        body.append('livenessSessionId', livenessSessionId);
         body.append('consent', 'true');
         setDocumentChecked(true);
 
@@ -109,9 +113,9 @@ export default function ProcessingStep({ onNext = null, isStaticShowcase = false
     consentAccepted,
     documentFile,
     goToStep,
-    isStaticShowcase,
-    onNext,
+    livenessSessionId,
     selfieImage,
+    recordedVideo,
     setFailureReason,
     setVerificationResult,
     STEPS.FAILED,

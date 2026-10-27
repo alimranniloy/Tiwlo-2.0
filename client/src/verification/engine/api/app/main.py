@@ -54,7 +54,12 @@ async def lifespan(app: FastAPI):
             enable_demographics=False,
         ),
         document=DocumentConfig(enabled=False, models_dir=models_dir),
-        liveness=LivenessConfig(enabled=False, models_dir=models_dir),
+        liveness=LivenessConfig(
+            enabled=True,
+            models_dir=models_dir,
+            num_challenges=4,
+            timeout_seconds=12.0,
+        ),
         person=PersonConfig(enabled=False, models_dir=models_dir),
         video=VideoConfig(enabled=False),
         events=EventsConfig(enabled=False, webhooks_enabled=False),

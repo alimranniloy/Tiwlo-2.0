@@ -7,7 +7,7 @@ randomised, non-repetitive challenge order.
 
 from __future__ import annotations
 
-import random
+import secrets
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -105,18 +105,21 @@ class ChallengeSequence:
     def _generate(self, pool: list[ChallengeType]) -> list[Challenge]:
         """Build a challenge list avoiding consecutive similar types."""
         selected: list[ChallengeType] = []
+        remaining = list(pool)
 
         for _ in range(self.num_challenges):
-            candidates = list(pool)
+            if not remaining:
+                remaining = list(pool)
+            candidates = list(remaining)
             if selected:
                 last = selected[-1]
                 candidates = [c for c in candidates if not _are_similar(c, last)]
-                # Fall back to full pool if filtering removed everything
                 if not candidates:
-                    candidates = list(pool)
+                    candidates = list(remaining)
 
-            choice = random.choice(candidates)
+            choice = secrets.choice(candidates)
             selected.append(choice)
+            remaining.remove(choice)
 
         return [
             Challenge(type=ct, timeout_seconds=self.timeout_seconds)

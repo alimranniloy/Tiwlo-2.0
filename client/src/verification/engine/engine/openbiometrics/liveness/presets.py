@@ -30,6 +30,7 @@ class PresetName(Enum):
     HEAD_TURN = "head_turn"
     FULL = "full"
     PASSIVE_ONLY = "passive_only"
+    VERIFICATION = "verification"
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,7 @@ class LivenessPreset:
             "num_challenges": self.num_challenges,
             "timeout_seconds": self.timeout_seconds,
             "allowed_types": self.challenge_types,
+            "thresholds": self.thresholds,
         }
 
 
@@ -162,6 +164,25 @@ _PASSIVE_ONLY_PRESET = LivenessPreset(
     require_passive=True,
 )
 
+_VERIFICATION_PRESET = LivenessPreset(
+    name=PresetName.VERIFICATION,
+    description="Randomised head-turn, mouth-open, and blink challenges.",
+    challenge_types=[
+        ChallengeType.TURN_LEFT,
+        ChallengeType.TURN_RIGHT,
+        ChallengeType.OPEN_MOUTH,
+        ChallengeType.BLINK,
+    ],
+    num_challenges=4,
+    timeout_seconds=12.0,
+    thresholds=ActionThresholds(
+        blink_ear=0.2,
+        open_mouth_mar=0.6,
+        turn_left_yaw=-15.0,
+        turn_right_yaw=15.0,
+    ),
+)
+
 
 _PRESETS: dict[PresetName, LivenessPreset] = {
     PresetName.EYE: _EYE_PRESET,
@@ -170,6 +191,7 @@ _PRESETS: dict[PresetName, LivenessPreset] = {
     PresetName.HEAD_TURN: _HEAD_TURN_PRESET,
     PresetName.FULL: _FULL_PRESET,
     PresetName.PASSIVE_ONLY: _PASSIVE_ONLY_PRESET,
+    PresetName.VERIFICATION: _VERIFICATION_PRESET,
 }
 
 

@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY client/src/verification/engine/ ./
 
-RUN pip install --no-cache-dir -e ./engine && \
+RUN pip install --no-cache-dir -e './engine[liveness]' && \
     pip install --no-cache-dir -e ./api
 
 ENV OPENBIOMETRICS_MODEL_DIR=/opt/openbiometrics/engine/models

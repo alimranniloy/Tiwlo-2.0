@@ -63,15 +63,19 @@ sudo npm run deploy:rust
 sudo npm run deploy:production -- --docker
 ```
 
-The native deployer installs Python 3.10+, creates a private virtual environment,
-downloads only the YuNet, SFace, and passive-liveness models, and runs the
-OpenBiometrics API on loopback. Docker deployments run the same API on the
-private Compose network and persist model weights in a dedicated volume.
-Document images and selfies are processed in memory through the authenticated
-`/api/verification/face-match` endpoint and are not retained. The current flow
-compares faces and checks a passive liveness signal; it does not verify document
-authenticity or persist an identity-verification status. Do not treat this
-face-match result as formal KYC approval.
+The native deployer installs Python 3.10+ and the MediaPipe liveness extra in a
+private virtual environment, downloads the YuNet, SFace, and passive-liveness
+models, and runs the OpenBiometrics API on loopback. MediaPipe downloads its
+FaceLandmarker task model on first use, so the engine needs outbound access to
+Google Storage for that initial download. Docker deployments run the same API
+on the private Compose network and persist model weights in a dedicated volume.
+The authenticated verification flow asks for a randomized sequence of head
+turns, a blink, and an open-mouth action; camera frames are checked live by the
+engine. Document images, selfies, and the short camera recording are processed
+in memory and are not retained. The flow compares faces and checks passive and
+active liveness, but it does not verify document authenticity or persist an
+identity-verification status. Do not treat this face-match result as formal KYC
+approval.
 
 For local `npm run dev`, start the private verification engine separately with
 `npm run docker:biometrics` (Docker required). The development Compose file
