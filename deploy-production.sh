@@ -90,9 +90,9 @@ ensure_biometrics_service() {
 
   if [[ ! -x "$venv_dir/bin/uvicorn" ||
         ! -x "$venv_dir/bin/python" ||
-        ! "$venv_dir/bin/python" -c 'import mediapipe' >/dev/null 2>&1 ||
         "$engine_dir/engine/pyproject.toml" -nt "$stamp" ||
-        "$api_dir/pyproject.toml" -nt "$stamp" ]]; then
+        "$api_dir/pyproject.toml" -nt "$stamp" ]] ||
+     ! "$venv_dir/bin/python" -c 'import mediapipe' >/dev/null 2>&1; then
     echo "--- Installing OpenBiometrics Python dependencies ---"
     python3 -m venv "$venv_dir"
     "$venv_dir/bin/python" -m pip install --upgrade pip
