@@ -12,6 +12,13 @@ const creditCheckoutLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many credit checkout attempts. Try again later.' }
 });
+const creditQuoteLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 24,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many payment quote requests. Try again later.' }
+});
 
 function dashboardOrigin(req) {
   const host = String(req.get('host') || '');
@@ -197,6 +204,19 @@ router.put('/billing/profile', async (req, res) => {
   }
 });
 
+router.post('/billing/credits/quote', creditQuoteLimiter, async (req, res) => {
+  try {
+    if (!getReqUserId(req)) return res.status(401).json({ error: 'Authentication required.' });
+    const provider = typeof req.body?.provider === 'string' ? req.body.provider.trim().toLowerCase() : '';
+    const quote = await BillingDB.getCreditQuote({ provider, amount: req.body?.amount });
+    return res.json({ success: true, quote });
+  } catch (error) {
+    const unavailable = /not enabled|not configured|not available|live payment credentials/i.test(error.message || '');
+    const status = unavailable ? 503 : error instanceof TypeError ? 400 : 502;
+    return res.status(status).json({ success: false, error: error.message || 'Could not quote the payment amount.' });
+  }
+});
+
 router.post('/billing/credits/add', creditCheckoutLimiter, async (req, res) => {
   try {
     const userId = getReqUserId(req);
@@ -209,7 +229,9 @@ router.post('/billing/credits/add', creditCheckoutLimiter, async (req, res) => {
       amount: req.body?.amount,
       origin: dashboardOrigin(req),
       returnOrigin: userReturnOrigin(req),
-      customerEmail: req.activeUser?.email || req.user?.email
+      customerEmail: req.activeUser?.email || req.user?.email,
+      expectedPaymentAmount: req.body?.expectedPaymentAmount,
+      expectedRateDate: req.body?.expectedRateDate
     });
     return res.status(201).json({ success: true, ...checkout });
   } catch (error) {
@@ -219,25 +241,31 @@ router.post('/billing/credits/add', creditCheckoutLimiter, async (req, res) => {
   }
 });
 
-router.get('/billing/credits/return/:provider', async (req, res) => {
+async function handleCreditTopupReturn(req, res, { ipn = false } = {}) {
   const provider = String(req.params.provider || '').toLowerCase();
   const resultHint = String(req.query?.result || '').toLowerCase();
   try {
     const topup = await BillingDB.getCreditTopupForReturn(
       String(req.query?.orderId || ''), provider, req.query?.returnToken
     );
-    if (!topup) return redirectCreditResult(res, 'invalid');
-    if (topup.status === 'paid') return redirectCreditResult(res, 'success', topup.return_origin);
+    if (!topup) return ipn ? res.status(404).json({ error: 'Credit top-up not found.' }) : redirectCreditResult(res, 'invalid');
+    if (topup.status === 'paid') return ipn ? res.json({ received: true, completed: true }) : redirectCreditResult(res, 'success', topup.return_origin);
     if (resultHint === 'cancelled' || resultHint === 'failed') {
-      return redirectCreditResult(res, 'cancelled', topup.return_origin);
+      return ipn ? res.json({ received: true, completed: false }) : redirectCreditResult(res, 'cancelled', topup.return_origin);
     }
     const verified = await BillingDB.verifyAndCompleteCreditTopup(topup, { query: req.query, body: req.body });
-    return redirectCreditResult(res, verified.success ? 'success' : 'pending', topup.return_origin);
+    return ipn
+      ? res.json({ received: true, completed: verified.success })
+      : redirectCreditResult(res, verified.success ? 'success' : 'pending', topup.return_origin);
   } catch (error) {
     console.error('[Cloud Billing] Credit checkout verification failed:', error.message);
-    return redirectCreditResult(res, 'pending');
+    return ipn ? res.status(400).json({ error: 'Credit payment could not be verified.' }) : redirectCreditResult(res, 'pending');
   }
-});
+}
+
+router.get('/billing/credits/return/:provider', (req, res) => handleCreditTopupReturn(req, res));
+router.post('/billing/credits/return/:provider', (req, res) => handleCreditTopupReturn(req, res));
+router.post('/billing/credits/ipn/sslcommerz', (req, res) => handleCreditTopupReturn(req, res, { ipn: true }));
 
 router.post('/billing/credits/stripe/webhook', async (req, res) => {
   try {

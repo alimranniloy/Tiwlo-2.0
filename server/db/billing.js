@@ -4,8 +4,18 @@ import { queryPg } from './postgres.js';
 import { CloudDB } from './cloud.js';
 import { getPlatformPaymentGatewaysRaw } from '../administrator/adminRoutes.js';
 import { createHostedPayment, verifyHostedPaymentReturn, verifyStripeWebhook } from '../routes/storePaymentGatewayService.js';
+import { convertCurrencyAmount } from '../routes/currencyHelpers.js';
+import { getMarketUsdRates } from '../routes/marketCurrencyRates.js';
 
-const CHECKOUT_PROVIDERS = new Set(['stripe', 'paypal']);
+const CHECKOUT_CURRENCIES = Object.freeze({ stripe: 'USD', paypal: 'USD', bkash: 'BDT', sslcommerz: 'BDT' });
+const CHECKOUT_PROVIDERS = new Set(Object.keys(CHECKOUT_CURRENCIES));
+function parseCreditAmount(amount) {
+  const parsedAmount = Number(amount);
+  if (!Number.isFinite(parsedAmount) || parsedAmount < 5 || parsedAmount > 10000 || Math.round(parsedAmount * 100) !== parsedAmount * 100) {
+    throw new TypeError('Choose a top-up amount from USD 5.00 to USD 10,000.00.');
+  }
+  return parsedAmount;
+}
 const toInvoice = row => ({
   id: String(row.id), amount: Number(row.amount), currency: String(row.currency || 'USD'),
   status: row.status === 'paid' ? 'Paid' : ['pending', 'processing'].includes(row.status) ? 'Pending' : row.status === 'cancelled' ? 'Cancelled' : 'Failed',
@@ -15,12 +25,16 @@ const toInvoice = row => ({
 });
 
 async function getCheckoutGateway(provider) {
-  if (!CHECKOUT_PROVIDERS.has(provider)) throw new TypeError('Choose an available USD checkout method.');
+  if (!CHECKOUT_PROVIDERS.has(provider)) throw new TypeError('Choose an available payment method.');
+  const currency = CHECKOUT_CURRENCIES[provider];
   const gateways = await getPlatformPaymentGatewaysRaw();
   const gateway = gateways[provider];
-  if (!gateway?.enabled || !Array.isArray(gateway.currencies) || !gateway.currencies.includes('USD') ||
-      !(provider === 'stripe' ? gateway.secretKey : gateway.clientId && gateway.clientSecret)) {
-    throw new TypeError('This checkout method is not enabled for USD Cloud credit purchases.');
+  const credentialsReady = provider === 'stripe' ? gateway?.secretKey
+    : provider === 'paypal' ? gateway?.clientId && gateway?.clientSecret
+      : provider === 'bkash' ? gateway?.appKey && gateway?.appSecret && gateway?.username && gateway?.password
+        : gateway?.storeId && gateway?.storePassword;
+  if (!gateway?.enabled || !Array.isArray(gateway.currencies) || !gateway.currencies.includes(currency) || !credentialsReady) {
+    throw new TypeError(`This checkout method is not enabled for ${currency} Cloud credit purchases.`);
   }
   if (gateway.mode !== 'live') {
     throw new TypeError('Live payment credentials are required for Cloud credit purchases.');
@@ -30,6 +44,22 @@ async function getCheckoutGateway(provider) {
 
 export const BillingDB = {
   init() { /* PostgreSQL schema is initialized by server startup. */ },
+
+  async getCreditQuote({ provider, amount }) {
+    const creditAmount = parseCreditAmount(amount);
+    await getCheckoutGateway(provider);
+    const paymentCurrency = CHECKOUT_CURRENCIES[provider];
+    if (paymentCurrency === 'USD') {
+      return { creditAmount, creditCurrency: 'USD', paymentAmount: creditAmount, paymentCurrency: 'USD', exchangeRate: 1 };
+    }
+    const rates = await getMarketUsdRates();
+    const converted = convertCurrencyAmount(creditAmount, 'USD', paymentCurrency, rates.rates);
+    return {
+      creditAmount, creditCurrency: 'USD', paymentAmount: converted.amount, paymentCurrency,
+      exchangeRate: converted.exchangeRate, rateDate: rates.rateDates[paymentCurrency] || rates.observedAt,
+      rateSource: rates.source
+    };
+  },
 
   async getPlatformGateways() {
     const raw = await getPlatformPaymentGatewaysRaw();
@@ -61,7 +91,7 @@ export const BillingDB = {
     }
 
     const creditCheckoutGateways = activeGateways.filter(gateway =>
-      CHECKOUT_PROVIDERS.has(gateway.id) && gateway.currencies.includes('USD') &&
+      CHECKOUT_PROVIDERS.has(gateway.id) && gateway.currencies.includes(CHECKOUT_CURRENCIES[gateway.id]) &&
       gateway.mode === 'live'
     );
     return {
@@ -167,32 +197,55 @@ export const BillingDB = {
     };
   },
 
-  async createCreditCheckout({ userId, provider, amount, origin, returnOrigin, customerEmail }) {
-    const parsedAmount = Number(amount);
-    if (!Number.isFinite(parsedAmount) || parsedAmount < 5 || parsedAmount > 10000 || Math.round(parsedAmount * 100) !== parsedAmount * 100) {
-      throw new TypeError('Choose a top-up amount from USD 5.00 to USD 10,000.00.');
-    }
+  async createCreditCheckout({ userId, provider, amount, origin, returnOrigin, customerEmail, expectedPaymentAmount, expectedRateDate }) {
+    const parsedAmount = parseCreditAmount(amount);
     const gateway = await getCheckoutGateway(provider);
-    if (!await this.getBillingAccount(userId)) throw new TypeError('Cloud billing account is unavailable for this user.');
+    const checkoutCurrency = CHECKOUT_CURRENCIES[provider];
+    const rateSnapshot = checkoutCurrency === 'BDT' ? await getMarketUsdRates() : null;
+    const converted = rateSnapshot ? convertCurrencyAmount(parsedAmount, 'USD', 'BDT', rateSnapshot.rates) : null;
+    const providerAmount = converted?.amount ?? parsedAmount;
+    const exchangeRate = converted?.exchangeRate ?? 1;
+    const rateDate = rateSnapshot?.rateDates?.BDT ?? null;
+    if (checkoutCurrency === 'BDT' && (
+      Number(expectedPaymentAmount) !== providerAmount || String(expectedRateDate || '') !== String(rateDate || rateSnapshot?.observedAt || '')
+    )) {
+      throw new TypeError('The BDT conversion rate changed. Review the updated amount and try again.');
+    }
+    const billingAccount = await this.getBillingAccount(userId);
+    if (!billingAccount) throw new TypeError('Cloud billing account is unavailable for this user.');
+    if (provider === 'sslcommerz' && !billingAccount.billingAddress.phone.trim()) {
+      throw new TypeError('Add a phone number to your billing address before using SSLCOMMERZ.');
+    }
 
     const id = `ctu-${randomUUID()}`;
-    const invoiceNumber = `CTU-${randomUUID().slice(0, 12).toUpperCase()}`;
+    const invoiceNumber = id;
     const returnToken = randomBytes(32).toString('base64url');
     const returnTokenHash = createHash('sha256').update(returnToken).digest('hex');
     const mode = gateway.mode || (provider === 'stripe' ? 'test' : 'sandbox');
     await queryPg(`
       INSERT INTO cloud_credit_topups
-        (id, user_id, provider, mode, amount, currency, return_origin, return_token_hash, status)
-      VALUES ($1, $2, $3, $4, $5, 'USD', $6, $7, 'pending')
-    `, [id, userId, provider, mode, parsedAmount, returnOrigin, returnTokenHash]);
+        (id, user_id, provider, mode, amount, currency, provider_amount, provider_currency,
+         exchange_rate, rate_date, rate_source, return_origin, return_token_hash, status)
+      VALUES ($1, $2, $3, $4, $5, 'USD', $6, $7, $8, $9, $10, $11, $12, 'pending')
+    `, [id, userId, provider, mode, parsedAmount, providerAmount, checkoutCurrency,
+      exchangeRate, rateDate, rateSnapshot?.source || null, returnOrigin, returnTokenHash]);
 
     const callbackUrl = `${origin}/api/cloud/billing/credits/return/${provider}?orderId=${encodeURIComponent(id)}&returnToken=${encodeURIComponent(returnToken)}`;
     const order = {
       id,
       invoiceNumber,
-      currency: 'USD',
+      currency: checkoutCurrency,
       customerEmail: typeof customerEmail === 'string' ? customerEmail.slice(0, 320) : '',
-      paymentGateway: { amount: parsedAmount, amountMinor: Math.round(parsedAmount * 100), tiwiId: userId }
+      customerName: billingAccount.billingAccountName,
+      customerPhone: billingAccount.billingAddress.phone,
+      deliveryAddress: billingAccount.billingAddress.address,
+      shippingAddress: {
+        street: billingAccount.billingAddress.address,
+        city: billingAccount.billingAddress.city,
+        postalCode: billingAccount.billingAddress.postalCode,
+        country: billingAccount.billingAddress.country
+      },
+      paymentGateway: { amount: providerAmount, amountMinor: Math.round(providerAmount * 100), tiwiId: userId }
     };
     try {
       const checkout = await createHostedPayment({
@@ -206,7 +259,12 @@ export const BillingDB = {
         SET provider_payment_id = $2, updated_at = CURRENT_TIMESTAMP
         WHERE id = $1 AND status = 'pending'
       `, [id, checkout.providerPaymentId]);
-      return { checkoutUrl: checkout.checkoutUrl, topupId: id };
+      return {
+        checkoutUrl: checkout.checkoutUrl, topupId: id,
+        creditAmount: parsedAmount, creditCurrency: 'USD',
+        paymentAmount: providerAmount, paymentCurrency: checkoutCurrency,
+        exchangeRate, rateDate, rateSource: rateSnapshot?.source || null
+      };
     } catch (error) {
       await queryPg(`UPDATE cloud_credit_topups SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
       throw error;
@@ -215,7 +273,8 @@ export const BillingDB = {
 
   async getCreditTopupForReturn(id, provider, returnToken) {
     const { rows } = await queryPg(`
-      SELECT id, user_id, provider, mode, amount, currency, provider_payment_id,
+      SELECT id, user_id, provider, mode, amount, currency, provider_amount, provider_currency,
+             exchange_rate, rate_date, rate_source, provider_payment_id,
              transaction_id, return_origin, return_token_hash, status, created_at, paid_at
       FROM cloud_credit_topups WHERE id = $1 AND provider = $2 LIMIT 1
     `, [id, provider]);
@@ -229,7 +288,8 @@ export const BillingDB = {
 
   async getCreditTopupById(id, provider) {
     const { rows } = await queryPg(`
-      SELECT id, user_id, provider, mode, amount, currency, provider_payment_id,
+      SELECT id, user_id, provider, mode, amount, currency, provider_amount, provider_currency,
+             exchange_rate, rate_date, rate_source, provider_payment_id,
              transaction_id, return_origin, return_token_hash, status, created_at, paid_at
       FROM cloud_credit_topups WHERE id = $1 AND provider = $2 LIMIT 1
     `, [id, provider]);
@@ -244,9 +304,9 @@ export const BillingDB = {
     const order = {
       id: topup.id,
       invoiceNumber: topup.id,
-      currency: String(topup.currency).toUpperCase(),
+      currency: String(topup.provider_currency || topup.currency).toUpperCase(),
       paymentGateway: {
-        amount: Number(topup.amount), amountMinor: Math.round(Number(topup.amount) * 100),
+        amount: Number(topup.provider_amount ?? topup.amount), amountMinor: Math.round(Number(topup.provider_amount ?? topup.amount) * 100),
         tiwiId: topup.user_id, providerPaymentId: topup.provider_payment_id
       }
     };
@@ -257,8 +317,8 @@ export const BillingDB = {
         mode: topup.mode, order, query, body
       });
     if (!verification.paid) return { success: false, status: verification.rawStatus || 'pending' };
-    if (Math.abs(Number(verification.amount) - Number(topup.amount)) > 0.005 ||
-        String(verification.currency).toUpperCase() !== String(topup.currency).toUpperCase() ||
+    if (Math.abs(Number(verification.amount) - Number(topup.provider_amount ?? topup.amount)) > 0.005 ||
+        String(verification.currency).toUpperCase() !== String(topup.provider_currency || topup.currency).toUpperCase() ||
         String(verification.providerPaymentId) !== String(topup.provider_payment_id)) {
       throw new Error('Verified payment amount, currency, or provider reference did not match the pending top-up.');
     }

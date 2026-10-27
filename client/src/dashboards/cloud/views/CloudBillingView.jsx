@@ -144,6 +144,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
   const hasConfiguredGateway = account?.hasConfiguredGateway === true;
   const configuredGateways = Array.isArray(account?.configuredGateways) ? account.configuredGateways : [];
   const creditCheckoutGateways = Array.isArray(account?.creditCheckoutGateways) ? account.creditCheckoutGateways : [];
+  const hasBdtCheckout = creditCheckoutGateways.some(gateway => gateway.currencies?.includes('BDT'));
   const billingAccountId = account?.billingAccountId || '';
   const billingAccountName = account?.billingAccountName || '';
   const costServices = Array.isArray(account?.costBreakdown) ? account.costBreakdown : [];
@@ -216,9 +217,34 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
     setCreditCheckoutError('');
     setStartingCheckoutProvider(provider);
     try {
+      const isLocalCurrency = ['bkash', 'sslcommerz'].includes(provider);
+      let acceptedQuote = null;
+      if (isLocalCurrency) {
+        const quoteResponse = await fetch('/api/cloud/billing/credits/quote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ amount: Number(creditTopupAmount), provider })
+        });
+        const quoteData = await quoteResponse.json();
+        if (!quoteResponse.ok || !quoteData?.quote) throw new Error(quoteData?.error || 'Could not get the current BDT payment amount.');
+        const quote = quoteData.quote;
+        acceptedQuote = quote;
+        const accepted = window.confirm(
+          `You will receive ${formatMoney(quote.creditAmount, 'USD')} Cloud credits and pay ${formatMoney(quote.paymentAmount, 'BDT')}.\n\n` +
+          `Reference rate: 1 USD = ${Number(quote.exchangeRate).toFixed(4)} BDT (${quote.rateDate || 'latest available'}).\n` +
+          `${quote.rateSource || 'Market reference rate'}; your bank or gateway may apply its own fees or rate. Continue?`
+        );
+        if (!accepted) {
+          setStartingCheckoutProvider('');
+          return;
+        }
+      }
       const checkout = await startCloudCreditCheckout({
         amount: Number(creditTopupAmount),
-        provider
+        provider,
+        expectedPaymentAmount: acceptedQuote?.paymentAmount,
+        expectedRateDate: acceptedQuote?.rateDate
       });
       window.location.assign(checkout.checkoutUrl);
     } catch (error) {
@@ -645,7 +671,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                     <span>Credit checkout ready</span>
                         </div>
                         <p className="text-[11px] text-[#137333]/90">
-                          {creditCheckoutGateways.map(gateway => gateway.name).join(' and ')} can securely process USD credit top-ups.
+                          {creditCheckoutGateways.map(gateway => gateway.name).join(' and ')} can securely process Cloud credit top-ups.
                         </p>
                       </div>
 
@@ -798,17 +824,17 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                     ))}
                   </div>
                   <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6]">
-                    You will complete payment on the provider’s secure checkout page. Credits are added only after the provider confirms the exact amount.
+                    Your balance stays in USD. {hasBdtCheckout ? 'bKash and SSLCOMMERZ charge the converted BDT amount using the latest available reference rate. ' : ''}Credits are added only after the provider confirms payment.
                   </p>
                 </div>
               ) : (
                 <div className="p-5 rounded-xl bg-[#FEF7E0] dark:bg-[#B06000]/15 border border-[#FEEFC3] dark:border-[#B06000]/30">
                   <div className="flex items-center gap-2 text-[#B06000] dark:text-[#FDD663] text-sm font-semibold">
                     <Lock className="w-5 h-5 shrink-0" />
-                    <span>USD credit checkout is not configured</span>
+                    <span>Credit checkout is not configured</span>
                   </div>
                   <p className="mt-2 text-xs text-[#5F6368] dark:text-[#9AA0A6] leading-relaxed">
-                    No payment will be submitted until live Stripe or PayPal credentials are enabled for USD. Test-mode payments cannot add credits.
+                    Enable a live Stripe or PayPal gateway for USD, or a live bKash or SSLCOMMERZ gateway for BDT. Test-mode payments cannot add credits. Nagad direct checkout is not connected yet.
                   </p>
                 </div>
               )}
@@ -914,7 +940,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                     <span>No platform payment gateway configured</span>
                   </div>
                   <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] leading-relaxed">
-                    A platform payment gateway is not configured. USD credit checkout becomes available after live Stripe or PayPal is enabled for USD.
+                    A platform payment gateway is not configured. Enable live Stripe/PayPal for USD or bKash/SSLCOMMERZ for BDT credit purchases.
                   </p>
                   <div>
                     <a
@@ -929,7 +955,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
               )}
               {hasConfiguredGateway && creditCheckoutGateways.length === 0 && (
                 <p className="mt-4 text-xs text-[#5F6368] dark:text-[#9AA0A6]">
-                  Configured channels are visible above. Only live Stripe or PayPal channels enabled for USD can be used for cloud credit checkout.
+                  Configured channels are visible above. Cloud credit checkout requires a live Stripe/PayPal USD channel or a live bKash/SSLCOMMERZ BDT channel. Nagad direct checkout is not connected yet.
                 </p>
               )}
             </div>

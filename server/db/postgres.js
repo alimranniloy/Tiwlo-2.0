@@ -745,6 +745,11 @@ export async function initPgSchema() {
       CREATE INDEX IF NOT EXISTS cloud_credit_topups_user_created_idx
         ON cloud_credit_topups(user_id, created_at DESC);
       ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS return_origin TEXT NOT NULL DEFAULT 'https://uids.app';
+      ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS provider_amount NUMERIC(12, 2);
+      ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS provider_currency VARCHAR(3);
+      ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS exchange_rate NUMERIC(18, 8);
+      ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS rate_date DATE;
+      ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS rate_source TEXT;
 
       CREATE TABLE IF NOT EXISTS whatsapp_auth_state (
         state_key TEXT PRIMARY KEY,

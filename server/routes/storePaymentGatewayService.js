@@ -184,7 +184,9 @@ async function createSslCommerzCheckout({ credentials, mode, order, callbackUrl,
     success_url: callbackUrl,
     fail_url: `${callbackUrl}&result=failed`,
     cancel_url: `${callbackUrl}&result=cancelled`,
-    ipn_url: callbackUrl.replace('/return?', '/ipn?'),
+    ipn_url: callbackUrl.includes('/return/sslcommerz?')
+      ? callbackUrl.replace('/return/sslcommerz?', '/ipn/sslcommerz?')
+      : callbackUrl.replace('/return?', '/ipn?'),
     shipping_method: 'YES',
     product_name: `Order ${order.invoiceNumber}`,
     product_category: 'ecommerce',
@@ -363,7 +365,7 @@ async function validateSslCommerz({ credentials, mode, order, body }) {
     paid: true,
     rawStatus: result.status,
     transactionId: result.bank_tran_id || result.tran_id,
-    providerPaymentId: result.val_id,
+    providerPaymentId: order.paymentGateway.providerPaymentId || result.val_id,
     amount: Number(result.amount),
     currency: result.currency
   };

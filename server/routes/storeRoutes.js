@@ -120,9 +120,9 @@ import {
   convertCurrencyAmount,
   getFreshUsdRates,
   normalizeCurrencyCode,
-  normalizeUsdRates,
-  validateMarketRateRows
+  normalizeUsdRates
 } from './currencyHelpers.js';
+import { getMarketUsdRates } from './marketCurrencyRates.js';
 
 const storage = createTemporaryFileStorage('store-upload');
 
@@ -132,9 +132,6 @@ const upload = multer({
 });
 
 const router = express.Router();
-const MARKET_RATE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-let marketUsdRateCache = null;
-let marketUsdRateRequest = null;
 const FINANCE_LEDGER_FILE = 'finance_ledger';
 const FINANCE_SETTINGS_FILE = 'finance_settings';
 const STAFF_FILE = 'staff';
@@ -543,44 +540,6 @@ function getStoreCurrencySettings(currencyValue, fallbackSymbol = '') {
   const code = currency.match(/[A-Z]{3}/i)?.[0]?.toUpperCase() || 'USD';
   const currencySymbol = currency.match(/\(([^)]+)\)/)?.[1] || CURRENCY_SYMBOLS[code] || fallbackSymbol;
   return { currency, currencySymbol };
-}
-
-async function getMarketUsdRates() {
-  const now = Date.now();
-  if (marketUsdRateCache &&
-      now - marketUsdRateCache.fetchedAt < MARKET_RATE_CACHE_TTL_MS &&
-      getFreshUsdRates(marketUsdRateCache, now)) {
-    return marketUsdRateCache;
-  }
-  if (marketUsdRateRequest) return marketUsdRateRequest;
-  const request = (async () => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
-    try {
-      const response = await fetch('https://api.frankfurter.dev/v2/rates?base=USD', {
-        headers: { Accept: 'application/json' },
-        signal: controller.signal
-      });
-      if (!response.ok) throw new Error(`Frankfurter returned HTTP ${response.status}.`);
-      const { rates, rateDates, observedAt } = validateMarketRateRows(await response.json());
-      marketUsdRateCache = {
-        rates,
-        rateDates,
-        observedAt,
-        fetchedAt: Date.now(),
-        source: 'Frankfurter blended central-bank reference rates'
-      };
-      return marketUsdRateCache;
-    } finally {
-      clearTimeout(timeout);
-    }
-  })();
-  marketUsdRateRequest = request;
-  try {
-    return await request;
-  } finally {
-    if (marketUsdRateRequest === request) marketUsdRateRequest = null;
-  }
 }
 
 // Store management and POS data are private to an authenticated tenant.

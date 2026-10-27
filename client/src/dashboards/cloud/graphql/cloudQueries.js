@@ -407,12 +407,12 @@ export async function redeemCloudVoucher(code) {
   return data;
 }
 
-export async function startCloudCreditCheckout({ amount, provider }) {
+export async function startCloudCreditCheckout({ amount, provider, expectedPaymentAmount, expectedRateDate }) {
   const response = await fetch('/api/cloud/billing/credits/add', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ amount, provider })
+    body: JSON.stringify({ amount, provider, expectedPaymentAmount, expectedRateDate })
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !result.success || !result.checkoutUrl) {
