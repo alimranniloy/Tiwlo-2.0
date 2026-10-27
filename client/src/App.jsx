@@ -1160,6 +1160,11 @@ export default function App() {
       return;
     }
 
+    if (destination.origin === new URL(getMainAppUrl()).origin) {
+      window.location.replace(destination.toString());
+      return;
+    }
+
     const webSsoOrigins = [
       getMainAppUrl(),
       getDashboardUrl(),
