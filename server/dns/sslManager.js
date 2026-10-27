@@ -114,6 +114,9 @@ export function generateNginxConfig(primaryDomain = SSL_CONFIG.PRIMARY_DOMAIN) {
   ])].filter(name => !dedicatedDomains.some(
     ({ domain }) => name === domain || name === `*.${domain}`
   ));
+  const ssoFormActionHosts = PLATFORM_CONFIG.managedDomains
+    .flatMap(domain => [`https://${domain}`, `https://*.${domain}`])
+    .join(' ');
   console.log(`Checking SSL certificate for ${primaryDomain}: ${hasSsl ? 'FOUND' : 'NOT FOUND (Using HTTP-only)'}`);
 
   const commonLocations = `
@@ -122,7 +125,7 @@ export function generateNginxConfig(primaryDomain = SSL_CONFIG.PRIMARY_DOMAIN) {
         root /var/www/tiwlo/client/dist;
         index index.html;
         try_files $uri $uri/ /index.html;
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; connect-src 'self' https: http: ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; connect-src 'self' https: http: ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self' ${ssoFormActionHosts}; frame-ancestors 'none'" always;
     }
 
     # Backend API Proxy
@@ -146,7 +149,7 @@ export function generateNginxConfig(primaryDomain = SSL_CONFIG.PRIMARY_DOMAIN) {
             return 404;
         }
         proxy_hide_header Content-Security-Policy;
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; connect-src 'self' https: http: ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; connect-src 'self' https: http: ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self' ${ssoFormActionHosts}; frame-ancestors 'none'" always;
         proxy_pass http://127.0.0.1:5001/graphql;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;

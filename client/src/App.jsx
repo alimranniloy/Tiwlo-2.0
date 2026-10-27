@@ -101,16 +101,18 @@ const getSafeRedirectTarget = (value) => {
   try {
     const platformUrl = new URL(getPlatformUrl());
     const dashboardUrl = new URL(getDashboardUrl());
+    const identityDashboardUrl = new URL(`https://${FREE_SUBDOMAIN_DOMAIN}`);
     const target = new URL(value, platformUrl);
     const isRelative = value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\');
-    const isAllowedOrigin = target.origin === platformUrl.origin || target.origin === dashboardUrl.origin;
-    if (!isRelative && target.origin !== dashboardUrl.origin) {
+    const isConfiguredDashboard = target.origin === dashboardUrl.origin || target.origin === identityDashboardUrl.origin;
+    const isAllowedOrigin = target.origin === platformUrl.origin || isConfiguredDashboard;
+    if (!isRelative && !isConfiguredDashboard) {
       return null;
     }
     if (!isAllowedOrigin || /^\/(login|signin|create-account|register|signup)(\/|$)/i.test(target.pathname)) {
       return null;
     }
-    return target.origin === dashboardUrl.origin
+    return isConfiguredDashboard
       ? target.toString()
       : `${target.pathname}${target.search}${target.hash}`;
   } catch (e) {
@@ -126,11 +128,13 @@ const getSafeReturnToTarget = (value) => {
     const target = new URL(value);
     const platformUrl = new URL(getPlatformUrl());
     const dashboardUrl = new URL(getDashboardUrl());
+    const identityDashboardUrl = new URL(`https://${FREE_SUBDOMAIN_DOMAIN}`);
     const mailUrl = new URL(getMailUrl());
     const tpanelUrl = new URL(getTPanelUrl());
     const isAllowedOrigin = [
       platformUrl.origin,
       dashboardUrl.origin,
+      identityDashboardUrl.origin,
       mailUrl.origin,
       tpanelUrl.origin
     ].includes(target.origin);
@@ -512,7 +516,7 @@ export default function App() {
   // Instant clean URL tab navigation without any '#' hash
   const handleTabChange = (tabId) => {
     if (tabId === 'dashboard' && window.location.hostname.toLowerCase() === FREE_SUBDOMAIN_DOMAIN) {
-      window.location.replace(getDashboardUrl('/oneprofile'));
+      window.location.replace(`${window.location.origin}/oneprofile`);
       return;
     }
     if (
@@ -520,7 +524,7 @@ export default function App() {
         (typeof tabId === 'string' && (tabId.startsWith('oneprofile/') || tabId.startsWith('one-profile/')))) &&
       window.location.hostname.toLowerCase() === FREE_SUBDOMAIN_DOMAIN
     ) {
-      window.location.replace(getDashboardUrl('/oneprofile'));
+      window.location.replace(`${window.location.origin}/oneprofile`);
       return;
     }
     if (tabId === 'login' || tabId === 'signin') {
@@ -530,10 +534,10 @@ export default function App() {
         const isDashboardOrigin = isDashboardSubdomain();
         const isMailOrigin = isMailSubdomain();
         const returnTo = window.location.hostname.toLowerCase() === FREE_SUBDOMAIN_DOMAIN
-          ? `${getDashboardUrl('/oneprofile')}`
+          ? `${window.location.origin}/oneprofile`
           : `${getMainAppUrl(path)}${window.location.search}`;
         const redirect = isDashboardOrigin
-          ? `?return_to=${encodeURIComponent(getDashboardUrl('/oneprofile'))}`
+          ? `?return_to=${encodeURIComponent(`${window.location.origin}/oneprofile`)}`
           : (isMailOrigin
             ? `?return_to=${encodeURIComponent(getMailUrl(window.location.pathname + window.location.search + window.location.hash))}`
             : `?redirect=${encodeURIComponent(publicPaths.has(path) && window.location.hostname.toLowerCase() !== FREE_SUBDOMAIN_DOMAIN ? '' : returnTo)}`);
@@ -554,10 +558,10 @@ export default function App() {
         const isDashboardOrigin = isDashboardSubdomain();
         const isMailOrigin = isMailSubdomain();
         const returnTo = window.location.hostname.toLowerCase() === FREE_SUBDOMAIN_DOMAIN
-          ? getDashboardUrl('/oneprofile')
+          ? `${window.location.origin}/oneprofile`
           : null;
         const query = isDashboardOrigin
-          ? `?return_to=${encodeURIComponent(getDashboardUrl('/oneprofile'))}&sso_login=1`
+          ? `?return_to=${encodeURIComponent(`${window.location.origin}/oneprofile`)}&sso_login=1`
           : (isMailOrigin
             ? `?return_to=${encodeURIComponent(getMailUrl(window.location.pathname + window.location.search + window.location.hash))}`
             : (returnTo ? `?redirect=${encodeURIComponent(returnTo)}` : ''));
@@ -811,8 +815,6 @@ export default function App() {
         return;
       }
       const initialPath = window.location.pathname.replace(/^\/+|\/+$/g, '');
-      const ssoToken = searchParams.get('sso_token');
-      const ssoNonce = searchParams.get('sso_nonce');
       const returnTo = searchParams.get('return_to');
       const ssoLoginMode = searchParams.get('sso_login') === '1';
       const webSsoReturnTo = searchParams.get('web_sso_return_to');
@@ -831,35 +833,24 @@ export default function App() {
           dashboardBridge.searchParams.set('web_sso_fallback', 'uids');
           window.location.replace(dashboardBridge.toString());
         };
-        if (!dashboardSessionToken) {
-          if (isPlatformHost && searchParams.get('web_sso_fallback') !== 'uids') {
-            redirectToDashboardBridge();
-            return;
-          }
-          window.location.replace(
-            `${getAuthUrl('/login')}?return_to=${encodeURIComponent(safeReturnTo)}&sso_login=1`
-          );
-          return;
-        }
         try {
+          const headers = { 'Content-Type': 'application/json' };
+          if (dashboardSessionToken) headers.Authorization = `Bearer ${dashboardSessionToken}`;
           const response = await fetch(`${API_BASE}/auth/sso/web-start`, {
             method: 'POST',
             credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${dashboardSessionToken}`
-            },
+            headers,
             body: JSON.stringify({ return_to: safeReturnTo })
           });
           const result = await response.json().catch(() => ({}));
-          if (!response.ok || typeof result.redirectUrl !== 'string') {
+          if (!response.ok || typeof result.handoffUrl !== 'string' || typeof result.handoffCode !== 'string' || typeof result.sessionToken !== 'string') {
             if (isPlatformHost && response.status === 401) {
               redirectToDashboardBridge();
               return;
             }
             throw new Error(result.error || 'Could not continue to Tiwlo Mail.');
           }
-          window.location.replace(result.redirectUrl);
+          submitWebSsoHandoff(result.handoffUrl, result.handoffCode, result.sessionToken);
           return;
         } catch (error) {
           console.error('Dashboard web SSO handoff failed:', error);
@@ -869,44 +860,11 @@ export default function App() {
           return;
         }
       }
-      if (isAuthHost && returnTo && !ssoToken && !ssoLoginMode && searchParams.get('social_flow') !== '1') {
+      if (isAuthHost && returnTo && !ssoLoginMode && searchParams.get('social_flow') !== '1') {
         const bridgeUrl = `${getMainAppUrl('/api/auth/sso/web-start')}?return_to=${encodeURIComponent(returnTo)}`;
         window.location.replace(bridgeUrl);
         return;
       }
-      if (ssoToken && ssoNonce) {
-        try {
-          const consumeResponse = await fetch(`${API_BASE}/auth/sso/consume-handshake`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ssoToken, nonce: ssoNonce })
-          });
-          const consumed = await consumeResponse.json().catch(() => ({}));
-          if (!consumeResponse.ok || !consumed.authenticated) {
-            throw new Error(consumed.error || 'SSO authentication failed');
-          }
-          localStorage.setItem('stockpro_session', consumed.sessionToken);
-          localStorage.setItem('stockpro_user', JSON.stringify(consumed.user));
-          const cleanParams = new URLSearchParams(window.location.search);
-          cleanParams.delete('sso_token');
-          cleanParams.delete('sso_nonce');
-          const cleanQuery = cleanParams.toString();
-          window.location.replace(
-            getSafeReturnToTarget(returnTo) ||
-            `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ''}${window.location.hash}`
-          );
-          return;
-        } catch (error) {
-          console.error('Web SSO consumption failed:', error);
-          if (isMounted) {
-            setAuthChecking(false);
-            setCurrentUser(null);
-          }
-          return;
-        }
-      }
-
       const token = localStorage.getItem('stockpro_session');
       try {
         const res = await fetch(`${API_BASE}/auth/sync-session`, {
@@ -1143,27 +1101,42 @@ export default function App() {
   async function startWebSsoHandoff(returnTo) {
     try {
       const token = localStorage.getItem('stockpro_session');
-      if (!token) {
-        throw new Error('Authenticated session token is missing.');
-      }
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
       const response = await fetch(`${API_BASE}/auth/sso/web-start`, {
         method: 'POST',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
+        headers,
         body: JSON.stringify({ return_to: returnTo })
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok || typeof result.redirectUrl !== 'string') {
+      if (!response.ok || typeof result.handoffUrl !== 'string' || typeof result.handoffCode !== 'string' || typeof result.sessionToken !== 'string') {
         throw new Error(result.error || 'Could not complete dashboard sign-in.');
       }
-      window.location.replace(result.redirectUrl);
+      submitWebSsoHandoff(result.handoffUrl, result.handoffCode, result.sessionToken);
     } catch (error) {
       console.error('Web SSO handoff failed:', error);
       showToast('Signed in, but could not open the dashboard. Please try again.', 'error');
     }
+  }
+
+  function submitWebSsoHandoff(action, code, sessionToken) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = action;
+    form.hidden = true;
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'handoffCode';
+    input.value = code;
+    form.appendChild(input);
+    const sessionInput = document.createElement('input');
+    sessionInput.type = 'hidden';
+    sessionInput.name = 'sessionToken';
+    sessionInput.value = sessionToken;
+    form.appendChild(sessionInput);
+    document.body.appendChild(form);
+    form.submit();
   }
 
   function redirectAfterAuthentication(target) {
@@ -1178,6 +1151,7 @@ export default function App() {
     const webSsoOrigins = [
       getMainAppUrl(),
       getDashboardUrl(),
+      `https://${FREE_SUBDOMAIN_DOMAIN}`,
       getMailUrl()
     ].map(url => new URL(url).origin);
     if (destination.protocol === 'https:' && webSsoOrigins.includes(destination.origin)) {

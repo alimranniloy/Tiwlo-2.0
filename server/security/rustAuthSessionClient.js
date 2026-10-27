@@ -118,6 +118,14 @@ export function revokeUserAuthSessionsWithRust(userId, exceptToken = null) {
   }).then(payload => requireOperationSuccess(payload, 'user session revocation'));
 }
 
+export function revokeDeviceAuthSessionsWithRust(userId, userAgent) {
+  return requestRust({
+    path: `/v1/auth/users/${encodeURIComponent(userId)}/sessions/revoke-device`,
+    body: { user_agent: userAgent || '' },
+    headers: getRustServiceIdentityHeader()
+  }).then(payload => requireOperationSuccess(payload, 'device session revocation'));
+}
+
 export function updatePasswordAndRevokeSessionsWithRust(userId, passwordHash, exceptToken = null) {
   return requestRust({
     path: `/v1/auth/users/${encodeURIComponent(userId)}/password`,

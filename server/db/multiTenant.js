@@ -9,6 +9,7 @@ import {
   createAuthSessionWithRust,
   hashPasswordWithRust,
   resolveAuthSessionWithRust,
+  revokeDeviceAuthSessionsWithRust,
   revokeAuthSessionWithRust,
   revokeUserAuthSessionsWithRust,
   updatePasswordAndRevokeSessionsWithRust
@@ -438,6 +439,12 @@ export const MasterDB = {
     if (!userId) throw new Error('User ID is required to revoke sessions.');
     if (!isPgActive()) throw new Error('PostgreSQL is unavailable; session revocation cannot be completed.');
     await revokeUserAuthSessionsWithRust(userId, exceptToken);
+  },
+
+  async revokeDeviceSessions(userId, userAgent) {
+    if (!userId || !userAgent) throw new Error('User ID and device identity are required.');
+    if (!isPgActive()) throw new Error('PostgreSQL is unavailable; session revocation cannot be completed.');
+    await revokeDeviceAuthSessionsWithRust(userId, userAgent);
   },
 
   async updatePasswordAndRevokeSessions(userId, passwordHash, exceptToken = null) {

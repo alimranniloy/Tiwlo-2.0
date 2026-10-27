@@ -176,6 +176,11 @@ pub struct RevokeSessionRequest {
 }
 
 #[derive(serde::Deserialize)]
+pub struct RevokeDeviceSessionsRequest {
+    pub user_agent: String,
+}
+
+#[derive(serde::Deserialize)]
 pub struct UpdatePasswordRequest {
     pub password_hash: String,
     pub except_token: Option<String>,
@@ -1382,6 +1387,45 @@ pub async fn revoke_user_auth_sessions(
         Ok(()) => (StatusCode::OK, Json(serde_json::json!({"success": true}))),
         Err(error) => {
             tracing::error!(?error, "User auth session revocation failed");
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({"error": "session_service_unavailable"})),
+            )
+        }
+    }
+}
+
+pub async fn revoke_device_auth_sessions(
+    State(state): State<AppState>,
+    TypedHeader(identity): TypedHeader<IdentityHeader>,
+    Path(user_id): Path<String>,
+    Json(request): Json<RevokeDeviceSessionsRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    if !trusted_auth_service(&state, &identity) {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "invalid_internal_identity"})),
+        );
+    }
+    if request.user_agent.is_empty() || request.user_agent.len() > 512 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "invalid_user_agent"})),
+        );
+    }
+    let Some(repository) = state.repository.as_ref() else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error": "database_unavailable"})),
+        );
+    };
+    match repository
+        .revoke_device_sessions(&user_id, &request.user_agent)
+        .await
+    {
+        Ok(()) => (StatusCode::OK, Json(serde_json::json!({"success": true}))),
+        Err(error) => {
+            tracing::error!(?error, "Device auth session revocation failed");
             (
                 StatusCode::SERVICE_UNAVAILABLE,
                 Json(serde_json::json!({"error": "session_service_unavailable"})),

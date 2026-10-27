@@ -1,4 +1,4 @@
-export function isAllowedWebSsoReturnUrl(returnTo, { dashboardHost, mailHost, platformHost }) {
+export function isAllowedWebSsoReturnUrl(returnTo, { dashboardHost, dashboardHosts = [], mailHost, platformHost }) {
   try {
     const target = new URL(returnTo);
     if (
@@ -10,8 +10,11 @@ export function isAllowedWebSsoReturnUrl(returnTo, { dashboardHost, mailHost, pl
     }
 
     const hostname = target.hostname.toLowerCase();
-    const isDashboardReturn = typeof dashboardHost === 'string' &&
-      hostname === dashboardHost.toLowerCase() &&
+    const allowedDashboardHosts = [
+      ...(typeof dashboardHost === 'string' ? [dashboardHost] : []),
+      ...(Array.isArray(dashboardHosts) ? dashboardHosts : [])
+    ].map(host => String(host).toLowerCase());
+    const isDashboardReturn = allowedDashboardHosts.includes(hostname) &&
       /^\/oneprofile(?:\/|$)/i.test(target.pathname);
     const isMailReturn = typeof mailHost === 'string' &&
       hostname === mailHost.toLowerCase();

@@ -32,6 +32,7 @@ use handlers::{
     generate_auth_otp, get_auth_otp, hash_auth_password, health, list_dns_records,
     list_user_domains, media_preflight, metrics, oneprofile_summary, ready,
     record_auth_rate_limit_failure, resolve_auth_session, revoke_auth_session,
+    revoke_device_auth_sessions,
     revoke_user_auth_sessions, session_policy, update_auth_password, update_dns_record,
     verify_auth_otp, verify_auth_password,
 };
@@ -139,6 +140,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route(
             "/v1/auth/users/{user_id}/sessions/revoke",
             axum::routing::post(revoke_user_auth_sessions),
+        )
+        .route(
+            "/v1/auth/users/{user_id}/sessions/revoke-device",
+            axum::routing::post(revoke_device_auth_sessions),
         )
         .route(
             "/v1/auth/users/{user_id}/password",

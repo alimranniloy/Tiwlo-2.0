@@ -197,6 +197,15 @@ export async function initPgSchema() {
       );
       CREATE INDEX IF NOT EXISTS idx_sso_nonces_expiry ON system_sso_nonces(expires_at);
 
+      CREATE TABLE IF NOT EXISTS system_sso_handoffs (
+        code_hash CHAR(64) PRIMARY KEY,
+        user_id VARCHAR(64) NOT NULL,
+        return_to TEXT NOT NULL,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_sso_handoffs_expiry ON system_sso_handoffs(expires_at);
+
       CREATE TABLE IF NOT EXISTS system_email_outbox (
         id BIGSERIAL PRIMARY KEY,
         recipient VARCHAR(255) NOT NULL,

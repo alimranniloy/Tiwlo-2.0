@@ -8,6 +8,7 @@ import {
   MAIL_HOSTNAME,
   MAIL_SUBDOMAIN,
   PLATFORM_DOMAIN,
+  FREE_SUBDOMAIN_DOMAIN,
   TPANEL_SUBDOMAIN,
   AUTH_DOMAIN,
   DASHBOARD_URL
@@ -23,7 +24,7 @@ export function isDashboardSubdomain() {
   if (typeof window === 'undefined') return false;
   const hostname = window.location.hostname.toLowerCase();
   const dashboardHost = new URL(DASHBOARD_URL).hostname.toLowerCase();
-  return hostname === dashboardHost || hostname === `uids.${PLATFORM_DOMAIN}.localhost`;
+  return hostname === dashboardHost || hostname === FREE_SUBDOMAIN_DOMAIN || hostname === `uids.${PLATFORM_DOMAIN}.localhost`;
 }
 
 export function isTPanelSubdomain() {

@@ -841,6 +841,35 @@ impl Repository {
         Ok(())
     }
 
+    pub async fn revoke_device_sessions(
+        &self,
+        user_id: &str,
+        user_agent: &str,
+    ) -> Result<(), RepositoryError> {
+        let fingerprint = session_fingerprint(user_agent);
+        let mut transaction = self.pool.begin().await?;
+        let result = sqlx::query(
+            "DELETE FROM system_sessions
+             WHERE user_id = $1 AND device_fingerprint = $2",
+        )
+        .bind(user_id)
+        .bind(&fingerprint)
+        .execute(&mut *transaction)
+        .await?;
+        if result.rows_affected() > 0 {
+            sqlx::query(
+                "INSERT INTO system_security_events
+                    (event_type, severity, user_id, subject_hash, user_agent, details)
+                 VALUES ('auth.device_sessions_revoked', 'info', $1, NULL, NULL, '{}'::jsonb)",
+            )
+            .bind(user_id)
+            .execute(&mut *transaction)
+            .await?;
+        }
+        transaction.commit().await?;
+        Ok(())
+    }
+
     pub async fn update_password_and_revoke_sessions(
         &self,
         user_id: &str,

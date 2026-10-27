@@ -84,7 +84,7 @@ app.use(helmet({
       connectSrc: ["'self'", "https:", "http:", "ws:", "wss:"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
-      formAction: ["'self'"],
+      formAction: ["'self'", ...PLATFORM_CONFIG.managedDomains.flatMap(domain => [`https://${domain}`, `https://*.${domain}`])],
       frameAncestors: ["'none'"],
       upgradeInsecureRequests: null
     }

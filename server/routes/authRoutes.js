@@ -68,12 +68,16 @@ const PLAN_CATALOG = {
 
 function getSessionCookieOptions(req) {
   const isSecure = process.env.NODE_ENV === 'production' || req?.secure || req?.headers?.['x-forwarded-proto'] === 'https';
+  const host = String(req?.headers?.host || req?.hostname || '').toLowerCase().replace(/:\d+$/, '');
+  const cookieDomain = [PLATFORM_CONFIG.primaryDomain, PLATFORM_CONFIG.freeSubdomainDomain]
+    .find(domain => host === domain || host.endsWith(`.${domain}`));
 
   return {
     httpOnly: true,
     secure: isSecure,
     sameSite: 'lax',
-    path: '/'
+    path: '/',
+    ...(cookieDomain ? { domain: `.${cookieDomain}` } : {})
   };
 }
 
@@ -87,7 +91,7 @@ function clearLegacySessionCookies(res, req) {
 }
 
 export function setSessionCookie(res, req, sessionToken) {
-  clearLegacySessionCookies(res, req);
+  clearSessionCookie(res, req);
   const opts = {
     ...getSessionCookieOptions(req),
     maxAge: 30 * 24 * 60 * 60 * 1000
@@ -97,7 +101,11 @@ export function setSessionCookie(res, req, sessionToken) {
 
 export function clearSessionCookie(res, req) {
   clearLegacySessionCookies(res, req);
-  res.clearCookie('tiwlo_host_session', getSessionCookieOptions(req));
+  const cookieOptions = getSessionCookieOptions(req);
+  const hostCookieOptions = { ...cookieOptions };
+  delete hostCookieOptions.domain;
+  res.clearCookie('tiwlo_host_session', cookieOptions);
+  res.clearCookie('tiwlo_host_session', hostCookieOptions);
   res.clearCookie('tiwlo_host_session');
 }
 
@@ -130,18 +138,24 @@ function formatRemainingWaitTime(seconds) {
   return `${minutes} minute${minutes > 1 ? 's' : ''}`;
 }
 
-async function createWebSsoRedirectUrl(returnTo, user, req) {
-  const handshake = await SsoSecurity.generateHandshakeTicket({
-    userId: user.id,
-    tiwiId: user.tiwiId || user.storeId || null,
-    email: user.email,
-    origin: 'web_sso',
-    req
+async function createWebSsoHandoff(userId, returnTo) {
+  const code = crypto.randomBytes(32).toString('base64url');
+  const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+  await queryPg(`
+    INSERT INTO system_sso_handoffs (code_hash, user_id, return_to, expires_at)
+    VALUES ($1, $2, $3, CURRENT_TIMESTAMP + INTERVAL '60 seconds')
+  `, [codeHash, userId, returnTo]);
+  return { code, consumeUrl: `${new URL(returnTo).origin}/api/auth/sso/consume-handoff` };
+}
+
+function renderWebSsoHandoff(res, consumeUrl, code, sessionToken) {
+  const nonce = crypto.randomBytes(18).toString('base64url');
+  const safeAction = consumeUrl.replaceAll('&', '&amp;').replaceAll('"', '&quot;');
+  res.set({
+    'Cache-Control': 'no-store',
+    'Content-Security-Policy': `default-src 'none'; form-action ${new URL(consumeUrl).origin}; script-src 'nonce-${nonce}'; base-uri 'none'; frame-ancestors 'none'`
   });
-  const target = new URL(returnTo);
-  target.searchParams.set('sso_token', handshake.ssoToken);
-  target.searchParams.set('sso_nonce', handshake.nonce);
-  return target.toString();
+  return res.status(200).type('html').send(`<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Signing in</title></head><body><p>Continuing securely…</p><form method="post" action="${safeAction}"><input type="hidden" name="handoffCode" value="${code}"><input type="hidden" name="sessionToken" value="${sessionToken}"><button type="submit">Continue</button></form><script nonce="${nonce}">document.forms[0].submit()</script></body></html>`);
 }
 
 function getSocialLoginUrl(provider, { returnTo, error = '' } = {}) {
@@ -1989,6 +2003,7 @@ router.get('/auth/sso/web-start', async (req, res) => {
     const returnTo = String(req.query.return_to || '').trim();
     const allowedReturn = isAllowedWebSsoReturnUrl(returnTo, {
       dashboardHost: PLATFORM_CONFIG.dashboardHost,
+      dashboardHosts: [PLATFORM_CONFIG.freeSubdomainDomain],
       mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`,
       platformHost: PLATFORM_CONFIG.primaryDomain
     });
@@ -2016,7 +2031,8 @@ router.get('/auth/sso/web-start', async (req, res) => {
       return res.redirect(`${PLATFORM_CONFIG.authDomain.startsWith('http') ? PLATFORM_CONFIG.authDomain : `https://${PLATFORM_CONFIG.authDomain}`}/login?return_to=${encodeURIComponent(returnTo)}&sso_login=1`);
     }
 
-    res.redirect(await createWebSsoRedirectUrl(returnTo, sessionData.user, req));
+    const handoff = await createWebSsoHandoff(sessionData.user.id, returnTo);
+    return renderWebSsoHandoff(res, handoff.consumeUrl, handoff.code, sessionData.session.sessionToken);
   } catch (err) {
     console.error('Web SSO start error:', err);
     res.status(500).json({ error: 'Failed to start web SSO' });
@@ -2028,6 +2044,7 @@ router.post('/auth/sso/web-start', async (req, res) => {
     const returnTo = String(req.body?.return_to || '').trim();
     const allowedReturn = isAllowedWebSsoReturnUrl(returnTo, {
       dashboardHost: PLATFORM_CONFIG.dashboardHost,
+      dashboardHosts: [PLATFORM_CONFIG.freeSubdomainDomain],
       mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`,
       platformHost: PLATFORM_CONFIG.primaryDomain
     });
@@ -2045,11 +2062,55 @@ router.post('/auth/sso/web-start', async (req, res) => {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const redirectUrl = await createWebSsoRedirectUrl(returnTo, sessionData.user, req);
-    return res.json({ redirectUrl });
+    const handoff = await createWebSsoHandoff(sessionData.user.id, returnTo);
+    return res.json({ handoffUrl: handoff.consumeUrl, handoffCode: handoff.code, sessionToken: sessionData.session.sessionToken });
   } catch (err) {
     console.error('Web SSO session handoff error:', err);
     return res.status(500).json({ error: 'Failed to start web SSO' });
+  }
+});
+
+router.post('/auth/sso/consume-handoff', async (req, res) => {
+  try {
+    const code = typeof req.body?.handoffCode === 'string' ? req.body.handoffCode : '';
+    const sessionToken = typeof req.body?.sessionToken === 'string' ? req.body.sessionToken : '';
+    if (!/^[A-Za-z0-9_-]{40,50}$/.test(code)) {
+      return res.status(400).send('Invalid sign-in handoff. Please return to Tiwlo and try again.');
+    }
+    if (!sessionToken || sessionToken.length > 128) {
+      return res.status(400).send('Invalid sign-in session. Please return to Tiwlo and try again.');
+    }
+    const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+    const { rows } = await queryPg(`
+      DELETE FROM system_sso_handoffs
+      WHERE code_hash = $1 AND expires_at > CURRENT_TIMESTAMP
+      RETURNING user_id, return_to
+    `, [codeHash]);
+    const handoff = rows[0];
+    if (!handoff) return res.status(401).send('This sign-in link expired or has already been used. Please try again.');
+
+    const allowlist = {
+      dashboardHost: PLATFORM_CONFIG.dashboardHost,
+      dashboardHosts: [PLATFORM_CONFIG.freeSubdomainDomain],
+      mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`,
+      platformHost: PLATFORM_CONFIG.primaryDomain
+    };
+    if (!isAllowedWebSsoReturnUrl(handoff.return_to, allowlist)) {
+      return res.status(400).send('Invalid sign-in destination.');
+    }
+
+    const sessionData = await MasterDB.getSession(sessionToken, req);
+    const user = sessionData?.user;
+    if (!user || user.id !== handoff.user_id) return res.status(401).send('This sign-in session expired. Please sign in again.');
+    if (user.isBanned) return res.status(403).send('This Tiwlo account is disabled.');
+
+    const tiwiId = user.tiwiId || user.storeId || null;
+    setSessionCookie(res, req, sessionToken);
+    await logActivity('auth', 'Web SSO Verified', `User: ${user.name} (${tiwiId}) signed in through a secure web handoff`, tiwiId);
+    return res.redirect(303, handoff.return_to);
+  } catch (err) {
+    console.error('Web SSO handoff consumption error:', err);
+    return res.status(500).send('Could not complete sign-in. Please try again.');
   }
 });
 
@@ -2349,11 +2410,20 @@ router.put('/oneprofile/profile', async (req, res) => {
 // Logout
 router.post('/auth/logout', async (req, res) => {
   try {
-    const token = getRequestSessionToken(req);
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith('Bearer ')
+      ? authHeader.substring(7).trim()
+      : getRequestSessionToken(req);
     clearSessionCookie(res, req);
 
     if (token) {
-      await MasterDB.deleteSession(token);
+      const sessionData = await MasterDB.getSession(token, req);
+      const userAgent = String(req.headers['user-agent'] || '').slice(0, 512);
+      if (sessionData?.user && userAgent) {
+        await MasterDB.revokeDeviceSessions(sessionData.user.id, userAgent);
+      } else {
+        await MasterDB.deleteSession(token);
+      }
     }
 
     res.json({ success: true, message: 'Logged out successfully' });
