@@ -411,7 +411,7 @@ router.post(
         return res.status(503).json({ error: 'The verification service is not configured.' });
       }
       const engineUrl = new URL(
-        '/api/v1/faces/verify',
+        '/api/v1/verify',
         process.env.OPENBIOMETRICS_API_URL || 'http://127.0.0.1:8000'
       );
       const engineResponse = await fetch(engineUrl, {

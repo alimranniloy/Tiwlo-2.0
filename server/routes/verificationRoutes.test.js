@@ -113,7 +113,7 @@ test('face match forwards validated images and requires a live matching face', a
         state: 'completed'
       });
     }
-    assert.equal(target, 'http://127.0.0.1:8000/api/v1/faces/verify');
+    assert.equal(target, 'http://127.0.0.1:8000/api/v1/verify');
     assert.equal(options.method, 'POST');
     assert.ok(options.body instanceof FormData);
     assert.equal(options.body.get('image1').type, 'image/png');
