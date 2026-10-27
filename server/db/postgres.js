@@ -725,6 +725,27 @@ export async function initPgSchema() {
       ALTER TABLE cloud_billing_accounts ADD COLUMN IF NOT EXISTS account_type VARCHAR(32);
       ALTER TABLE cloud_billing_accounts ADD COLUMN IF NOT EXISTS business_name VARCHAR(255);
 
+      CREATE TABLE IF NOT EXISTS cloud_credit_topups (
+        id VARCHAR(64) PRIMARY KEY,
+        user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
+        provider VARCHAR(32) NOT NULL,
+        mode VARCHAR(16) NOT NULL,
+        amount NUMERIC(12, 2) NOT NULL CHECK (amount >= 5 AND amount <= 10000),
+        currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+        provider_payment_id VARCHAR(255),
+        transaction_id VARCHAR(255),
+        return_origin TEXT NOT NULL DEFAULT 'https://uids.app',
+        return_token_hash CHAR(64) NOT NULL,
+        status VARCHAR(24) NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        paid_at TIMESTAMP WITH TIME ZONE,
+        UNIQUE (provider, provider_payment_id)
+      );
+      CREATE INDEX IF NOT EXISTS cloud_credit_topups_user_created_idx
+        ON cloud_credit_topups(user_id, created_at DESC);
+      ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS return_origin TEXT NOT NULL DEFAULT 'https://uids.app';
+
       CREATE TABLE IF NOT EXISTS whatsapp_auth_state (
         state_key TEXT PRIMARY KEY,
         data JSONB NOT NULL,

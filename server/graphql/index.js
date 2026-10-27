@@ -511,6 +511,7 @@ export const schema = buildSchema(`
     status: String!
     hasConfiguredGateway: Boolean!
     paymentGatewayStatusMessage: String!
+    creditCheckoutGateways: [CloudBillingPaymentGateway]!
     billingEnabled: Boolean!
     configuredGateways: [CloudBillingPaymentGateway]!
     invoices: [CloudBillingInvoice]!

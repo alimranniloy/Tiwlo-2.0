@@ -613,6 +613,9 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                       {showSecrets.stripeWebhook ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+                  <p className="mt-1.5 text-[11px] text-[#5F6368] dark:text-[#9AA0A6]">
+                    Stripe credit top-up webhook endpoint: <span className="font-mono">{window.location.origin}/api/cloud/billing/credits/stripe/webhook</span>
+                  </p>
                 </div>
               </>
             )}

@@ -29,7 +29,7 @@ import {
   X,
   Phone
 } from 'lucide-react';
-import { getCloudBillingData, redeemCloudVoucher } from '../graphql/cloudQueries';
+import { getCloudBillingData, redeemCloudVoucher, startCloudCreditCheckout } from '../graphql/cloudQueries';
 import { COUNTRY_OPTIONS } from '../../../utils/accountFormOptions';
 
 const FORM_FIELD = 'mt-1.5 w-full rounded-xl border border-[#DADCE0] bg-white px-3.5 py-2.5 text-sm font-normal text-[#202124] outline-none transition placeholder:text-[#80868B] focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white dark:focus:ring-[#174EA6]/40';
@@ -40,6 +40,10 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
   const [copiedId, setCopiedId] = useState(false);
   const [voucherCode, setVoucherCode] = useState('');
   const [isRedeemingVoucher, setIsRedeemingVoucher] = useState(false);
+  const [creditTopupAmount, setCreditTopupAmount] = useState('25');
+  const [startingCheckoutProvider, setStartingCheckoutProvider] = useState('');
+  const [creditCheckoutError, setCreditCheckoutError] = useState('');
+  const [creditCheckoutNotice, setCreditCheckoutNotice] = useState('');
   const [isEditingBillingAddress, setIsEditingBillingAddress] = useState(false);
   const [isSavingBillingAddress, setIsSavingBillingAddress] = useState(false);
   const [billingAddressError, setBillingAddressError] = useState('');
@@ -116,6 +120,21 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
     loadBilling();
   }, [userId]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('cloud_credit_payment');
+    if (!result) return;
+    setActiveTab('credits');
+    setCreditCheckoutNotice({
+      success: 'Payment verified. Your cloud credits have been added.',
+      pending: 'Payment is still being verified. Refresh billing in a moment.',
+      cancelled: 'Checkout was cancelled. No credits were added.',
+      invalid: 'This payment return could not be verified. Contact billing support if you were charged.'
+    }[result] || 'Payment status could not be confirmed.');
+    loadBilling();
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}`);
+  }, []);
+
   const hasCurrentUserData = billingState.userId === userId;
   const account = hasCurrentUserData ? billingState.account : null;
   const loading = !hasCurrentUserData || billingState.loading;
@@ -124,6 +143,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
   const promotionalCredits = Number.isFinite(account?.promotionalCredits) ? account.promotionalCredits : null;
   const hasConfiguredGateway = account?.hasConfiguredGateway === true;
   const configuredGateways = Array.isArray(account?.configuredGateways) ? account.configuredGateways : [];
+  const creditCheckoutGateways = Array.isArray(account?.creditCheckoutGateways) ? account.creditCheckoutGateways : [];
   const billingAccountId = account?.billingAccountId || '';
   const billingAccountName = account?.billingAccountName || '';
   const costServices = Array.isArray(account?.costBreakdown) ? account.costBreakdown : [];
@@ -188,6 +208,22 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
       showToast?.(error.message || 'Could not redeem voucher.', 'error');
     } finally {
       setIsRedeemingVoucher(false);
+    }
+  };
+
+  const handleStartCreditCheckout = async (provider) => {
+    if (startingCheckoutProvider) return;
+    setCreditCheckoutError('');
+    setStartingCheckoutProvider(provider);
+    try {
+      const checkout = await startCloudCreditCheckout({
+        amount: Number(creditTopupAmount),
+        provider
+      });
+      window.location.assign(checkout.checkoutUrl);
+    } catch (error) {
+      setCreditCheckoutError(error.message || 'Could not open secure payment checkout.');
+      setStartingCheckoutProvider('');
     }
   };
 
@@ -601,20 +637,20 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                     </button>
                   </div>
 
-                  {hasConfiguredGateway ? (
+                  {creditCheckoutGateways.length > 0 ? (
                     <div className="space-y-3">
                       <div className="p-3.5 rounded-xl bg-[#E6F4EA] text-xs">
                         <div className="flex items-center gap-2 text-[#137333] font-semibold mb-1">
                           <CheckCircle2 className="w-4 h-4" />
-                    <span>Payment Gateway Configured</span>
+                    <span>Credit checkout ready</span>
                         </div>
                         <p className="text-[11px] text-[#137333]/90">
-                          {configuredGateways.length} platform gateway(s) have credentials. Cloud checkout is not connected.
+                          {creditCheckoutGateways.map(gateway => gateway.name).join(' and ')} can securely process USD credit top-ups.
                         </p>
                       </div>
 
                       <div className="space-y-2">
-                        {configuredGateways.map(gw => (
+                        {creditCheckoutGateways.map(gw => (
                           <div key={gw.id} className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs">
                             <span className="font-semibold text-[#1F1F1F] dark:text-white">{gw.name}</span>
                             <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-white dark:bg-[#1E1F22] text-[#5F6368] dark:text-[#9AA0A6] border border-[#E0E2EC] dark:border-[#3C4043]">
@@ -639,7 +675,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                         <span>Payment Gateway Required</span>
                       </div>
                       <p className="text-[11px] text-[#5F6368] dark:text-[#9AA0A6] leading-relaxed">
-                        Cloud checkout is not connected, and no platform payment gateway is configured.
+                      No live USD checkout method is currently enabled. Contact billing support to enable live Stripe or PayPal.
                       </p>
                       <button
                         type="button"
@@ -725,15 +761,57 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 </p>
               </div>
 
-              <div className="p-5 rounded-xl bg-[#FEF7E0] dark:bg-[#B06000]/15 border border-[#FEEFC3] dark:border-[#B06000]/30">
-                <div className="flex items-center gap-2 text-[#B06000] dark:text-[#FDD663] text-sm font-semibold">
-                  <Lock className="w-5 h-5 shrink-0" />
-                  <span>Credit checkout unavailable</span>
+              {creditCheckoutNotice && (
+                <div role="status" className={`p-4 rounded-xl border text-sm ${creditCheckoutNotice.startsWith('Payment verified') ? 'bg-[#E6F4EA] border-[#CEEAD6] text-[#137333]' : 'bg-[#FEF7E0] border-[#FEEFC3] text-[#B06000]'}`}>
+                  {creditCheckoutNotice}
                 </div>
-                <p className="mt-2 text-xs text-[#5F6368] dark:text-[#9AA0A6] leading-relaxed">
-                  Payment gateways may be configured, but cloud credit checkout is not connected. No payment will be submitted and no credits will be added.
-                </p>
-              </div>
+              )}
+
+              {creditCheckoutGateways.length > 0 ? (
+                <div className="space-y-4 max-w-xl">
+                  <label className="block text-xs font-medium text-[#5F6368] dark:text-[#9AA0A6]">
+                    Top-up amount (USD, minimum $5)
+                    <input
+                      type="number"
+                      min="5"
+                      max="10000"
+                      step="0.01"
+                      required
+                      value={creditTopupAmount}
+                      onChange={event => setCreditTopupAmount(event.target.value)}
+                      className={FORM_FIELD}
+                    />
+                  </label>
+                  {creditCheckoutError && <p role="alert" className="text-xs text-rose-600">{creditCheckoutError}</p>}
+                  <div className="flex flex-wrap gap-3">
+                    {creditCheckoutGateways.map(gateway => (
+                      <button
+                        key={gateway.id}
+                        type="button"
+                        disabled={Boolean(startingCheckoutProvider)}
+                        onClick={() => handleStartCreditCheckout(gateway.id)}
+                        className="inline-flex items-center gap-2 rounded-full bg-[#1A73E8] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#1558B0] disabled:cursor-wait disabled:opacity-60"
+                      >
+                        <Lock className="h-4 w-4" />
+                        {startingCheckoutProvider === gateway.id ? 'Opening secure checkout…' : `Pay with ${gateway.name}`}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6]">
+                    You will complete payment on the provider’s secure checkout page. Credits are added only after the provider confirms the exact amount.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-5 rounded-xl bg-[#FEF7E0] dark:bg-[#B06000]/15 border border-[#FEEFC3] dark:border-[#B06000]/30">
+                  <div className="flex items-center gap-2 text-[#B06000] dark:text-[#FDD663] text-sm font-semibold">
+                    <Lock className="w-5 h-5 shrink-0" />
+                    <span>USD credit checkout is not configured</span>
+                  </div>
+                  <p className="mt-2 text-xs text-[#5F6368] dark:text-[#9AA0A6] leading-relaxed">
+                    No payment will be submitted until live Stripe or PayPal credentials are enabled for USD. Test-mode payments cannot add credits.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Promo Voucher Box — PURE WHITE */}
@@ -770,9 +848,26 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
               <h3 className="text-sm font-semibold text-[#1F1F1F] dark:text-white mb-4">
                 Credit Ledger History
               </h3>
-              <div className="py-10 text-center rounded-xl bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs text-[#5F6368] dark:text-[#9AA0A6]">
-                No credit transactions are available in the ledger.
-              </div>
+              {Array.isArray(account.invoices) && account.invoices.length ? (
+                <div className="divide-y divide-[#F0F2F5] dark:divide-[#2C2D31]">
+                  {account.invoices.map(invoice => (
+                    <div key={invoice.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-xs">
+                      <div>
+                        <p className="font-medium text-[#202124] dark:text-white">{invoice.description || 'Cloud credit transaction'}</p>
+                        <p className="mt-1 text-[#5F6368] dark:text-[#9AA0A6]">{new Date(invoice.createdAt).toLocaleString()} · {invoice.id}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-[#202124] dark:text-white">{formatMoney(Number(invoice.amount), invoice.currency)}</p>
+                        <p className={invoice.status === 'Paid' || invoice.status === 'Verified' ? 'text-[#137333]' : 'text-[#B06000]'}>{invoice.status}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-10 text-center rounded-xl bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs text-[#5F6368] dark:text-[#9AA0A6]">
+                  No credit transactions are available in the ledger.
+                </div>
+              )}
             </div>
 
           </div>
@@ -819,7 +914,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                     <span>No platform payment gateway configured</span>
                   </div>
                   <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] leading-relaxed">
-                    A platform payment gateway is not configured. Cloud credit checkout remains unavailable even when gateway credentials are configured.
+                    A platform payment gateway is not configured. USD credit checkout becomes available after live Stripe or PayPal is enabled for USD.
                   </p>
                   <div>
                     <a
@@ -831,6 +926,11 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                     </a>
                   </div>
                 </div>
+              )}
+              {hasConfiguredGateway && creditCheckoutGateways.length === 0 && (
+                <p className="mt-4 text-xs text-[#5F6368] dark:text-[#9AA0A6]">
+                  Configured channels are visible above. Only live Stripe or PayPal channels enabled for USD can be used for cloud credit checkout.
+                </p>
               )}
             </div>
 

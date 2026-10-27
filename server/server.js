@@ -160,6 +160,9 @@ app.use(express.json({
     if (req.originalUrl?.split('?')[0] === '/api/public/payments/stripe/webhook') {
       req.rawBody = Buffer.from(buffer);
     }
+    if (req.originalUrl?.split('?')[0] === '/api/cloud/billing/credits/stripe/webhook') {
+      req.rawBody = Buffer.from(buffer);
+    }
   }
 }));
 app.use(express.urlencoded({ extended: true, limit: '100kb', parameterLimit: 500 }));
