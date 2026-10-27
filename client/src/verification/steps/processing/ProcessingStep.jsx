@@ -7,6 +7,18 @@ import {
   VERIFICATION_CONNECTION_ERROR,
 } from '../../utils/verificationErrors';
 
+function imageDataUrlToBlob(dataUrl) {
+  const match = /^data:(image\/(?:jpeg|png|webp));base64,([a-z\d+/]+=*)$/i.exec(dataUrl);
+  if (!match) throw new Error('The camera selfie could not be prepared. Please try again.');
+
+  const binary = window.atob(match[2]);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new Blob([bytes], { type: match[1] });
+}
+
 /**
  * Step 4: Verifying your identity (Processing)
  * Screen 4 in reference mockup
@@ -57,7 +69,7 @@ export default function ProcessingStep() {
       }
 
       try {
-        const selfieBlob = await fetch(selfieImage).then((response) => response.blob());
+        const selfieBlob = imageDataUrlToBlob(selfieImage);
         const body = new FormData();
         body.append('document', documentFile, documentFile.name || 'document-image');
         body.append('selfie', selfieBlob, 'selfie-image');
