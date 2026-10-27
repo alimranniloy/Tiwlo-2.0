@@ -1,0 +1,12 @@
+.git
+**/.git
+node_modules
+**/node_modules
+client/dist
+**/dist
+client/src/verification/engine/.venv
+client/src/verification/engine/engine/models
+client/src/verification/engine/api/watchlists
+server/data/db
+server/uploads
+upload

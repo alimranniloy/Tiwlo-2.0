@@ -69,6 +69,74 @@ EOF
   systemctl enable --now tiwlo-rust
 }
 
+ensure_biometrics_service() {
+  local engine_dir="$ROOT_DIR/client/src/verification/engine"
+  local venv_dir="$engine_dir/.venv"
+  local api_dir="$engine_dir/api"
+  local models_dir="$engine_dir/engine/models"
+  local service_file="/etc/systemd/system/tiwlo-biometrics.service"
+  local stamp="$venv_dir/.tiwlo-dependencies-ready"
+
+  touch "$ROOT_DIR/.env"
+  chmod 600 "$ROOT_DIR/.env"
+  if ! grep -q '^OPENBIOMETRICS_SHARED_TOKEN=' "$ROOT_DIR/.env"; then
+    printf 'OPENBIOMETRICS_SHARED_TOKEN=%s\n' "$(openssl rand -hex 32)" >> "$ROOT_DIR/.env"
+  fi
+
+  if ! command -v python3 >/dev/null 2>&1 || ! python3 -c 'import sys; sys.exit(sys.version_info < (3, 10))'; then
+    echo "Error: Python 3.10 or newer is required for OpenBiometrics."
+    exit 1
+  fi
+
+  if [[ ! -x "$venv_dir/bin/uvicorn" ||
+        "$engine_dir/engine/pyproject.toml" -nt "$stamp" ||
+        "$api_dir/pyproject.toml" -nt "$stamp" ]]; then
+    echo "--- Installing OpenBiometrics Python dependencies ---"
+    python3 -m venv "$venv_dir"
+    "$venv_dir/bin/python" -m pip install --upgrade pip
+    "$venv_dir/bin/python" -m pip install -e "$engine_dir/engine" -e "$api_dir"
+    touch "$stamp"
+  fi
+
+  echo "--- Preparing OpenBiometrics face models ---"
+  "$venv_dir/bin/python" "$engine_dir/download_models.py" \
+    --models yunet sface antispoofing \
+    --models-dir "$models_dir"
+
+  cat > "$service_file" <<EOF
+[Unit]
+Description=Tiwlo OpenBiometrics face verification engine
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=$api_dir
+Environment=OPENBIOMETRICS_MODEL_DIR=$models_dir
+EnvironmentFile=-$ROOT_DIR/.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=$venv_dir/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl daemon-reload
+  systemctl enable tiwlo-biometrics
+  systemctl restart tiwlo-biometrics
+  for attempt in {1..60}; do
+    if curl --fail --silent http://127.0.0.1:8000/api/v1/health >/dev/null; then
+      echo "OpenBiometrics service is healthy."
+      return
+    fi
+    sleep 2
+  done
+  echo "Error: OpenBiometrics did not become healthy. Check: journalctl -u tiwlo-biometrics"
+  exit 1
+}
+
 ensure_node_dependencies() {
   local directory="$1"
   local install_args="${2:-}"
@@ -123,8 +191,10 @@ POSTGRES_DB=tiwlo_master
 POSTGRES_PASSWORD=$DB_PASSWORD
 REDIS_PASSWORD=$REDIS_PASSWORD
 TIWLO_INTERNAL_IDENTITY_SECRET=$IDENTITY_SECRET
+OPENBIOMETRICS_SHARED_TOKEN=$(openssl rand -hex 32)
 EOF
   fi
+  chmod 600 "$ENV_FILE"
 
   if ! grep -q '^REDIS_PASSWORD=' "$ENV_FILE"; then
     printf '\nREDIS_PASSWORD=%s\n' "$(openssl rand -hex 32)" >> "$ENV_FILE"
@@ -132,9 +202,36 @@ EOF
   if ! grep -q '^TIWLO_INTERNAL_IDENTITY_SECRET=' "$ENV_FILE"; then
     printf 'TIWLO_INTERNAL_IDENTITY_SECRET=%s\n' "$(openssl rand -hex 32)" >> "$ENV_FILE"
   fi
+  if ! grep -q '^OPENBIOMETRICS_SHARED_TOKEN=' "$ENV_FILE"; then
+    printf 'OPENBIOMETRICS_SHARED_TOKEN=%s\n' "$(openssl rand -hex 32)" >> "$ENV_FILE"
+  fi
   cd "$ROOT_DIR"
   docker compose --env-file .env --env-file docker/.env.production -f docker/docker-compose.production.yml up -d --build --remove-orphans
   docker compose --env-file .env --env-file docker/.env.production -f docker/docker-compose.production.yml ps
+  exit 0
+fi
+
+if [[ "$MODE" == "--biometrics-only" || "$MODE" == "biometrics-only" ]]; then
+  echo "--- Ensuring OpenBiometrics system prerequisites ---"
+  BIOMETRICS_PKGS=""
+  if ! command -v python3 >/dev/null 2>&1; then
+    BIOMETRICS_PKGS="$BIOMETRICS_PKGS python3"
+  fi
+  if ! dpkg-query -W -f='${Status}' python3-venv 2>/dev/null | grep -q 'install ok installed'; then
+    BIOMETRICS_PKGS="$BIOMETRICS_PKGS python3-venv"
+  fi
+  if ! command -v openssl >/dev/null 2>&1; then
+    BIOMETRICS_PKGS="$BIOMETRICS_PKGS openssl"
+  fi
+  if ! command -v curl >/dev/null 2>&1; then
+    BIOMETRICS_PKGS="$BIOMETRICS_PKGS curl"
+  fi
+  if [[ -n "$BIOMETRICS_PKGS" ]]; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -y
+    apt-get install -y $BIOMETRICS_PKGS
+  fi
+  ensure_biometrics_service
   exit 0
 fi
 
@@ -173,6 +270,14 @@ if ! command -v openssl >/dev/null 2>&1; then
 fi
 if ! command -v psql >/dev/null 2>&1; then
   MISSING_PKGS="$MISSING_PKGS postgresql postgresql-contrib"
+fi
+if ! command -v python3 >/dev/null 2>&1; then
+  MISSING_PKGS="$MISSING_PKGS python3 python3-venv python3-pip"
+elif ! python3 -m venv --help >/dev/null 2>&1; then
+  MISSING_PKGS="$MISSING_PKGS python3-venv"
+fi
+if ! dpkg-query -W -f='${Status}' python3-venv 2>/dev/null | grep -q 'install ok installed'; then
+  MISSING_PKGS="$MISSING_PKGS python3-venv"
 fi
 
 if [[ -n "$MISSING_PKGS" ]]; then
@@ -224,6 +329,10 @@ echo "--- Step 3b: Ensuring Rust backend ---"
 ensure_native_rust_environment
 build_rust_backend
 configure_native_rust_service
+
+# 3c. OpenBiometrics face verification engine
+echo "--- Step 3c: Ensuring OpenBiometrics face verification ---"
+ensure_biometrics_service
 
 # 4. Process Reload (PM2)
 echo "--- Step 4: Reloading PM2 Services ---"

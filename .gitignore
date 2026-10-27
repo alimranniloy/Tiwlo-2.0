@@ -17,6 +17,9 @@ build/
 .env.local
 .env.*.local
 server/data/db/
+client/src/verification/engine/.venv/
+client/src/verification/engine/engine/models/
+client/src/verification/engine/api/watchlists/
 
 # Logs
 *.log

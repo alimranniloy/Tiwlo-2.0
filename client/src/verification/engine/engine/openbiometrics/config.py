@@ -1,0 +1,178 @@
+"""Centralized configuration for the OpenBiometrics engine.
+
+BiometricConfig is the top-level configuration with subsections for each
+processing module. FaceConfig absorbs the fields from the original
+PipelineConfig for backward compatibility.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+
+@dataclass
+class FaceConfig:
+    """Configuration for face processing (detection, recognition, liveness, demographics).
+
+    Model selection: specify model names from the registry, or leave as "auto"
+    to use the best available model (prefers community tier, falls back to legacy).
+
+    Tiers:
+      - community: open-source, commercial use OK (default)
+      - premium: highest accuracy, requires license key
+      - legacy: non-commercial InsightFace models
+
+    Example:
+        FaceConfig(detector="yunet", recognizer="sface")           # community
+        FaceConfig(detector="det_10g", recognizer="w600k_r50")     # legacy
+        FaceConfig(detector="auto", recognizer="auto")             # best available
+    """
+
+    models_dir: str = "./models"
+    ctx_id: int = 0  # GPU device (-1 for CPU)
+    det_thresh: float = 0.5
+    det_size: tuple[int, int] = (640, 640)
+    max_faces: int = 0
+    enable_liveness: bool = True
+    enable_demographics: bool = True
+    enable_quality: bool = True
+    quality_gate: bool = False  # Skip recognition if quality fails
+
+    # Model selection — "auto" picks the best available model on disk
+    detector: str = "auto"  # yunet (community) | det_10g (legacy) | auto
+    recognizer: str = "auto"  # sface (community) | w600k_r50 (legacy) | auto
+    demographics_model: str = "auto"  # vit_genderage (community) | genderage (legacy) | auto
+
+
+@dataclass
+class DocumentConfig:
+    """Configuration for document processing.
+
+    Controls document detection, OCR, MRZ parsing, and face extraction
+    from identity documents.
+    """
+
+    enabled: bool = True
+    models_dir: str = "./models"
+    ctx_id: int = 0
+    enable_ocr: bool = True
+    enable_mrz: bool = True
+    enable_face_extraction: bool = False
+
+
+@dataclass
+class LivenessConfig:
+    """Configuration for standalone active liveness detection.
+
+    For passive liveness within the face pipeline, use FaceConfig.enable_liveness.
+    This is for the interactive multi-frame / active liveness challenge system.
+    """
+
+    enabled: bool = True
+    models_dir: str = "./models"
+    ctx_id: int = 0
+    session_ttl: float = 300.0  # Session time-to-live in seconds
+    num_challenges: int = 3
+    timeout_seconds: float = 5.0  # Per-challenge timeout
+
+
+@dataclass
+class PersonConfig:
+    """Configuration for person detection and tracking."""
+
+    enabled: bool = True
+    models_dir: str = "./models"
+    ctx_id: int = 0
+    model_path: str = "yolov8n.pt"
+    confidence_threshold: float = 0.5
+    max_disappeared: int = 30  # Frames before a tracked person is dropped
+    iou_threshold: float = 0.3
+
+
+@dataclass
+class VideoConfig:
+    """Configuration for video stream processing and camera management."""
+
+    enabled: bool = True
+    max_fps: float = 30.0
+    track_faces: bool = True
+    buffer_size: int = 30
+
+
+@dataclass
+class EventsConfig:
+    """Configuration for event emission and webhook dispatch."""
+
+    enabled: bool = True
+    max_workers: int = 4  # Thread pool size for event dispatch
+    history_size: int = 1000  # Number of recent events to retain
+    webhooks_enabled: bool = True
+
+
+@dataclass
+class IdentityConfig:
+    """Configuration for identity resolution and face clustering."""
+
+    enabled: bool = True
+    watchlist_dir: str = "./watchlists"
+    cluster_threshold: float = 0.6  # Default cosine similarity threshold
+
+
+@dataclass
+class CloudProviderConfig:
+    """Configuration for a cloud face processing provider.
+
+    When enabled, face detection and comparison can be proxied to cloud APIs.
+    Local ONNX models are still used for features the cloud provider doesn't support.
+
+    Usage:
+        CloudProviderConfig(name="aws", region="us-east-1")
+        CloudProviderConfig(name="azure", endpoint="https://...", api_key="...")
+        CloudProviderConfig(name="google", api_key="...")
+    """
+
+    name: str = ""  # "" = disabled (use local models), "aws", "azure", "google"
+    # AWS
+    region: str = "us-east-1"
+    access_key: str = ""
+    secret_key: str = ""
+    # Azure
+    endpoint: str = ""
+    api_key: str = ""
+    # Google
+    # (uses api_key above)
+
+
+@dataclass
+class BiometricConfig:
+    """Top-level configuration for the OpenBiometrics engine.
+
+    Groups subsection configs for each processing module.
+
+    Usage:
+        # Local models (default)
+        config = BiometricConfig(face=FaceConfig(ctx_id=-1))
+
+        # Cloud provider (AWS)
+        config = BiometricConfig(
+            cloud=CloudProviderConfig(name="aws", region="us-east-1"),
+        )
+
+        # Cloud provider (Azure)
+        config = BiometricConfig(
+            cloud=CloudProviderConfig(
+                name="azure",
+                endpoint="https://your-resource.cognitiveservices.azure.com",
+                api_key="your-key",
+            ),
+        )
+    """
+
+    face: FaceConfig = field(default_factory=FaceConfig)
+    document: DocumentConfig = field(default_factory=DocumentConfig)
+    liveness: LivenessConfig = field(default_factory=LivenessConfig)
+    person: PersonConfig = field(default_factory=PersonConfig)
+    video: VideoConfig = field(default_factory=VideoConfig)
+    events: EventsConfig = field(default_factory=EventsConfig)
+    identity: IdentityConfig = field(default_factory=IdentityConfig)
+    cloud: CloudProviderConfig = field(default_factory=CloudProviderConfig)

@@ -53,15 +53,30 @@ installations are reused.
 From the repository root on an Ubuntu live server:
 
 ```bash
-# Native Node + PostgreSQL + PM2 + systemd Rust deployment
+# Native Node + PostgreSQL + PM2 + systemd Rust + face verification deployment
 sudo npm run deploy:live
 
 # Build and restart only the native Rust service
 sudo npm run deploy:rust
 
-# Private Docker Compose deployment (Node, PostgreSQL, Redis, Rust, Caddy)
+# Private Docker Compose deployment (Node, PostgreSQL, Redis, Rust, biometrics, Caddy)
 sudo npm run deploy:production -- --docker
 ```
+
+The native deployer installs Python 3.10+, creates a private virtual environment,
+downloads only the YuNet, SFace, and passive-liveness models, and runs the
+OpenBiometrics API on loopback. Docker deployments run the same API on the
+private Compose network and persist model weights in a dedicated volume.
+Document images and selfies are processed in memory through the authenticated
+`/api/verification/face-match` endpoint and are not retained. The current flow
+compares faces and checks a passive liveness signal; it does not verify document
+authenticity or persist an identity-verification status. Do not treat this
+face-match result as formal KYC approval.
+
+For local `npm run dev`, start the private verification engine separately with
+`npm run docker:biometrics` (Docker required). The development Compose file
+binds it to `127.0.0.1:8000`; production Compose does not publish the engine
+port.
 
 Docker mode creates `docker/.env.production` with random database, Redis, and
 internal identity secrets on first run only. Review the generated file before

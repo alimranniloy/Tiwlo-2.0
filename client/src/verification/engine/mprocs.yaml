@@ -1,0 +1,17 @@
+procs:
+  api:
+    shell: "cd api && python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
+  dashboard:
+    shell: "cd packages/dashboard && npm run dev"
+  docs:
+    shell: "cd packages/www && npx astro dev --port 4000"
+  sample-2fa:
+    shell: "cd packages/sample-2fa && npm run dev"
+  sample-kyc:
+    shell: "cd packages/sample-kyc && npm run dev"
+  sample-age-gate:
+    shell: "cd packages/sample-age-gate && npm run dev"
+  sample-visitor-log:
+    shell: "cd packages/sample-visitor-log && npm run dev"
+  sample-surveillance:
+    shell: "cd packages/sample-surveillance && npm run dev"

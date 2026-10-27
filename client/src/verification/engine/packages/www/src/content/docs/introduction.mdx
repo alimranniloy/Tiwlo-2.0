@@ -1,0 +1,110 @@
+---
+title: Introduction
+description: Open-source biometric platform for developers
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+# OpenBiometrics
+
+**Face recognition, document processing, liveness detection, video analytics, and identity verification — as simple as an API call.**
+
+OpenBiometrics gives developers production-ready biometric capabilities without the complexity of training ML models or managing infrastructure. A single platform covers face biometrics, document verification, anti-spoofing, person detection, and real-time event processing.
+
+## What You Get
+
+- **Face Detection** — Detect faces with quality scoring, landmarks, and demographics
+- **1:1 Verification** — Compare two face images to confirm identity
+- **1:N Identification** — Search faces against watchlists of any size
+- **Passive Liveness** — Anti-spoofing with no user interaction required
+- **Active Liveness** — Challenge-response anti-spoofing with guided user actions (blink, smile, head turn)
+- **Document Processing** — MRZ parsing and document detection for passports, IDs, and driver's licenses
+- **Video Analytics** — Real-time face processing across camera feeds with frame skipping and throttling
+- **Events & Webhooks** — Real-time alerts and integrations for biometric events
+- **Quality Assessment** — Face image quality scoring (sharpness, brightness, contrast, head pose)
+- **Age & Gender** — Demographic estimation from face images
+
+## Quick Example
+
+<Tabs>
+  <TabItem label="Node.js">
+    ```ts
+    import { OpenBiometrics } from 'openbiometrics';
+    import { readFileSync } from 'fs';
+
+    const ob = new OpenBiometrics({
+      apiKey: 'any-value',
+      baseUrl: 'http://localhost:8000',
+    });
+
+    const photo = readFileSync('photo.jpg');
+    const { faces } = await ob.faces.detect(photo);
+
+    console.log(`Found ${faces.length} faces`);
+    console.log(`Age: ${faces[0].demographics?.age}`);
+    console.log(`Quality: ${faces[0].quality?.overall_score}/100`);
+    ```
+  </TabItem>
+  <TabItem label="Python">
+    ```python
+    from openbiometrics_sdk import OpenBiometrics
+
+    ob = OpenBiometrics(
+        api_key="any-value",
+        base_url="http://localhost:8000",
+    )
+
+    result = ob.faces.detect("photo.jpg")
+    for face in result["faces"]:
+        print(f"Age: {face['demographics']['age']}")
+        print(f"Quality: {face['quality']['overall_score']}/100")
+    ```
+  </TabItem>
+  <TabItem label="cURL">
+    ```bash
+    curl -X POST http://localhost:8000/api/v1/detect \
+      -F "image=@photo.jpg"
+    ```
+  </TabItem>
+</Tabs>
+
+## Architecture
+
+```
+Your App
+   │
+   ├── npm install openbiometrics  (Node.js SDK)
+   ├── pip install openbiometrics  (Python SDK)
+   └── REST API (curl, any language)
+          │
+          ▼
+   OpenBiometrics API (FastAPI, self-hosted)
+          │
+          ▼
+   ┌─────────────────────────────┐
+   │     Biometric Kernel        │
+   │                             │
+   │  ├── Face Detection (SCRFD) │
+   │  ├── Face Recognition       │
+   │  │   (ArcFace, 99.86% LFW) │
+   │  ├── Passive Liveness       │
+   │  │   (MiniFASNet)           │
+   │  ├── Active Liveness        │
+   │  │   (Challenge-Response)   │
+   │  ├── Quality Assessment     │
+   │  ├── Demographics           │
+   │  ├── Document Processing    │
+   │  │   (MRZ, OCR)             │
+   │  └── Video Analytics        │
+   │      (Camera Manager)       │
+   └─────────────────────────────┘
+          │
+          ▼
+   ┌─────────────────────────────┐
+   │     Event Bus + Webhooks    │
+   │     FAISS Watchlists        │
+   │     Identity Resolution     │
+   └─────────────────────────────┘
+```
+
+Ready to start? Head to the [Quickstart](quickstart/) guide.

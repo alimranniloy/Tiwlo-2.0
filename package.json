@@ -12,6 +12,7 @@
     "dev": "concurrently \"npm run rust:run\" \"npm run server\" \"npm run client\"",
     "build": "npm --prefix client run build",
     "docker:up": "docker-compose -f docker/docker-compose.yml up -d",
+    "docker:biometrics": "docker-compose -f docker/docker-compose.yml up -d --build biometrics",
     "docker:down": "docker-compose -f docker/docker-compose.yml down",
     "docker:db": "docker-compose -f docker/docker-compose.yml up -d postgres pgadmin",
     "install:all": "npm install && npm --prefix server install && npm --prefix client install",

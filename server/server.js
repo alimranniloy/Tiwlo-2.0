@@ -31,6 +31,7 @@ import {
 
 // Modular Feature Routers
 import cloudRoutes from './routes/cloudRoutes.js';
+import verificationRoutes from './routes/verificationRoutes.js';
 import securityRoutes from './security/securityRoutes.js';
 import systemRoutes from './routes/systemRoutes.js';
 import storeRoutes from './routes/storeRoutes.js';
@@ -344,6 +345,7 @@ const applicationRoutes = [
   ['/api/email', emailRoutes], ['/api/mail', emailRoutes],
   ['/api/plugins/discord', discordRoutes], ['/api/discord', discordRoutes], ['/api', authRoutes],
   ['/api/domains', domainRoutes], ['/api/cloud', cloudRoutes],
+  ['/api/verification', verificationRoutes],
   ['/api', securityRoutes], ['/api', systemRoutes], ['/api', storeRoutes]
 ];
 applicationRoutes.forEach(([, router]) => protectAsyncRouter(router));
@@ -389,6 +391,7 @@ app.use('/api/subdomains', subdomainRoutes);
 
 // Cloud & Droplets
 app.use('/api/cloud', cloudRoutes);
+app.use('/api/verification', verificationRoutes);
 
 // Security, Verification & Media Pipelines
 app.use('/api', securityRoutes);

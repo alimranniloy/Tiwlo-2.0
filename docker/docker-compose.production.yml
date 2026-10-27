@@ -60,6 +60,28 @@ services:
         condition: service_healthy
     networks: [tiwlo]
 
+  biometrics:
+    build:
+      context: ..
+      dockerfile: docker/biometrics.Dockerfile
+    restart: unless-stopped
+    environment:
+      OPENBIOMETRICS_MODEL_DIR: /opt/openbiometrics/engine/models
+      OPENBIOMETRICS_SHARED_TOKEN: ${OPENBIOMETRICS_SHARED_TOKEN:?OPENBIOMETRICS_SHARED_TOKEN is required}
+    volumes:
+      - tiwlo_biometrics_models:/opt/openbiometrics/engine/models
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3).read()"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 5m
+    networks: [tiwlo]
+
   app:
     build:
       context: ..
@@ -82,6 +104,8 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_NAME: ${POSTGRES_DB:-tiwlo_master}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      OPENBIOMETRICS_API_URL: http://biometrics:8000
+      OPENBIOMETRICS_SHARED_TOKEN: ${OPENBIOMETRICS_SHARED_TOKEN:?OPENBIOMETRICS_SHARED_TOKEN is required}
     volumes:
       - tiwlo_uploads:/app/upload
       - tiwlo_app_data:/app/server/data
@@ -92,6 +116,8 @@ services:
         condition: service_healthy
       rust:
         condition: service_healthy
+      biometrics:
+        condition: service_started
     networks: [tiwlo]
 
   caddy:
@@ -117,6 +143,7 @@ volumes:
   caddy_data:
   caddy_config:
   tiwlo_app_data:
+  tiwlo_biometrics_models:
 
 networks:
   tiwlo:

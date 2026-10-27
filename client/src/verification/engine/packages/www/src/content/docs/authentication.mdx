@@ -1,0 +1,35 @@
+---
+title: Authentication
+description: How to authenticate with the OpenBiometrics API
+---
+
+# Authentication
+
+OpenBiometrics currently runs as a **self-hosted service** with no authentication required. All endpoints are open by default.
+
+## Usage
+
+```bash
+curl -X POST http://localhost:8000/api/v1/detect \
+  -F "image=@photo.jpg"
+```
+
+The SDKs work with any `apiKey` value when connecting to a self-hosted instance:
+
+```ts
+const ob = new OpenBiometrics({
+  apiKey: 'any-value',
+  baseUrl: 'http://localhost:8000',
+});
+```
+
+```python
+ob = OpenBiometrics(
+    api_key="any-value",
+    base_url="http://localhost:8000",
+)
+```
+
+## Future: Cloud API
+
+A hosted cloud API with key-based authentication (`ob_live_`, `ob_test_` prefixes) is planned but not yet available. For now, self-host the API server.
