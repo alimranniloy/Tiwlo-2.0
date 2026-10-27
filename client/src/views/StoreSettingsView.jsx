@@ -33,6 +33,7 @@ import {
 import { StoreSettingsProvider, useStoreSettings } from '../context/StoreSettingsContext';
 import { THEME_COLOR_PRESETS, AVAILABLE_THEMES, THEME_CATEGORIES, DEFAULT_HERO_BANNERS } from '../themes/themeConfig';
 import { getStoreUrl } from '../config/platformConfig';
+import { openMaterialDialog } from '../components/MaterialDialogProvider.jsx';
 
 const toDateTimeLocal = value => {
   if (!value) return '';
@@ -646,7 +647,7 @@ function StoreSettingsContent({
   };
 
   const handleDeleteBanner = async (bannerId) => {
-    if (confirm('Are you sure you want to remove this banner?')) {
+    if (await openMaterialDialog({ title: 'Remove banner?', message: 'This banner will be removed from your storefront.', confirmLabel: 'Remove banner', tone: 'danger' })) {
       try {
         await deleteHeroBanner(bannerId);
         showToast?.('Banner removed');
@@ -2887,7 +2888,7 @@ function StoreSettingsContent({
                                 <button type="button" disabled={index === storePages.length - 1} onClick={() => moveStorePage(page.id, storePages[index + 1]?.id)} className="px-1 text-slate-400 disabled:opacity-30" aria-label={`Move ${page.title} down`}>▼</button>
                               </div>
                               <button type="button" onClick={async () => {
-                                if (!confirm(`Delete "${page.title}"?`)) return;
+                                if (!await openMaterialDialog({ title: 'Delete store page?', message: `Delete "${page.title}"?`, confirmLabel: 'Delete page', tone: 'danger' })) return;
                                 const remaining = storePages.filter(item => item.id !== page.id).map((item, order) => ({ ...item, order }));
                                 try {
                                   await updateStoreSettings({ storePages: remaining });
@@ -3111,7 +3112,7 @@ function StoreSettingsContent({
             <button
               type="button"
               onClick={async () => {
-                if (confirm('Reset slider banners to default 3 themes banners?')) {
+                if (await openMaterialDialog({ title: 'Reset slider banners?', message: 'This will replace your current slider banners with the default three banners.', confirmLabel: 'Reset banners', tone: 'danger' })) {
                   await resetToDefaultBanners();
                   showToast?.('Slider banners reset to default');
                 }

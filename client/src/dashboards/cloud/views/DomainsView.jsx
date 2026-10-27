@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Check, Copy, Edit3, Globe2, MoreVertical, Plus, RefreshCw, Server, Trash2 } from 'lucide-react';
+import { openMaterialDialog } from '../../../components/MaterialDialogProvider.jsx';
 
 const EMPTY_RECORD = { type: 'A', name: '@', value: '', ttl: 300 };
 
@@ -103,7 +104,7 @@ export default function DomainsView({ currentUser, showToast }) {
   };
 
   const deleteRecord = async item => {
-    if (!window.confirm(`Delete ${item.type} record ${item.name}?`)) return;
+    if (!await openMaterialDialog({ title: 'Delete DNS record?', message: `Delete ${item.type} record ${item.name}?`, confirmLabel: 'Delete', tone: 'danger' })) return;
     try {
       const response = await fetch(`/api/subdomains/${encodeURIComponent(selected.id)}/records/${encodeURIComponent(item.id)}`, { method: 'DELETE', credentials: 'include' });
       const payload = response.status === 204 ? null : await response.json();

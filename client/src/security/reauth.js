@@ -1,3 +1,5 @@
+import { openMaterialDialog } from '../components/MaterialDialogProvider.jsx';
+
 export async function requestSensitiveActionGrant(headers = {}, apiOrigin = window.location.origin) {
   const authHeaders = new Headers(headers);
   authHeaders.set('Content-Type', 'application/json');
@@ -12,9 +14,15 @@ export async function requestSensitiveActionGrant(headers = {}, apiOrigin = wind
     throw new Error(challenge.error || 'Could not start verification.');
   }
 
-  const otpCode = globalThis.prompt(
-    `Enter the verification code sent to ${challenge.emailMasked || 'your verified email'}. It expires in 10 minutes.`
-  );
+  const otpCode = await openMaterialDialog({
+    type: 'prompt',
+    title: 'Verify your identity',
+    message: `Enter the verification code sent to ${challenge.emailMasked || 'your verified email'}. It expires in 10 minutes.`,
+    inputLabel: 'Verification code',
+    inputType: 'text',
+    placeholder: 'Enter code',
+    confirmLabel: 'Verify'
+  });
   if (!otpCode?.trim()) throw new Error('Verification was cancelled.');
 
   const verifyResponse = await globalThis.fetch(`${apiOrigin}/api/auth/reauth/verify`, {

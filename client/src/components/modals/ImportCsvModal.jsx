@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, UploadCloud, CheckCircle2, FileText } from 'lucide-react';
+import { showMaterialAlert } from '../MaterialDialogProvider.jsx';
 
 export default function ImportCsvModal({ isOpen, onClose, onImportBatch }) {
   const [dragActive, setDragActive] = useState(false);
@@ -81,7 +82,7 @@ export default function ImportCsvModal({ isOpen, onClose, onImportBatch }) {
 
           <div className="mt-4 flex items-center justify-between text-[11px] text-slate-400 px-1">
             <span>Template format: [Name, SKU, Category, Stock, Price]</span>
-            <a href="#download" onClick={(e) => { e.preventDefault(); alert("Template downloaded: stockpro_template.csv"); }} className="text-blue-500 hover:underline">
+            <a href="#download" onClick={(e) => { e.preventDefault(); showMaterialAlert("Template downloaded: stockpro_template.csv"); }} className="text-blue-500 hover:underline">
               Download Template
             </a>
           </div>

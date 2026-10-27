@@ -1,4 +1,5 @@
 import { applicationFetch as fetch } from '../../../api/graphqlTransport.js';
+import { openMaterialDialog } from '../../../components/MaterialDialogProvider.jsx';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   MessageSquare,
@@ -367,7 +368,7 @@ export default function WhatsAppAutomationView({
   // Disconnect Session handler
   const handleDisconnect = async (sessionId, e) => {
     e?.stopPropagation();
-    if (!confirm('Are you sure you want to disconnect this WhatsApp session?')) return;
+    if (!await openMaterialDialog({ title: 'Disconnect WhatsApp?', message: 'This session will stop sending and receiving messages until it is connected again.', confirmLabel: 'Disconnect', tone: 'danger' })) return;
     try {
       const res = await fetch(`/api/whatsapp/sessions/${sessionId}/disconnect`, { method: 'POST' });
       const data = await res.json();
@@ -383,7 +384,7 @@ export default function WhatsAppAutomationView({
   // Delete Session handler
   const handleDelete = async (sessionId, e) => {
     e?.stopPropagation();
-    if (!confirm('Permanently delete this WhatsApp session?')) return;
+    if (!await openMaterialDialog({ title: 'Delete WhatsApp session?', message: 'This permanently removes the saved session and cannot be undone.', confirmLabel: 'Delete session', tone: 'danger' })) return;
     try {
       const res = await fetch(`/api/whatsapp/sessions/${sessionId}`, { method: 'DELETE' });
       const data = await res.json();

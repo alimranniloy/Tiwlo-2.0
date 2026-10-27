@@ -13,6 +13,7 @@ import {
   FolderPlus,
   AlertCircle
 } from 'lucide-react';
+import { showMaterialAlert } from '../MaterialDialogProvider.jsx';
 
 export default function AddProductModal({
   isOpen,
@@ -315,11 +316,11 @@ export default function AddProductModal({
         setNewCatDesc('');
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(err.error || 'Failed to create category');
+        showMaterialAlert(err.error || 'Failed to create category');
       }
     } catch (err) {
       console.error('Error creating inline category:', err);
-      alert('Network error creating category');
+      showMaterialAlert('Network error creating category');
     } finally {
       setSavingCategory(false);
     }

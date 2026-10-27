@@ -12,6 +12,7 @@ import {
   X,
   FileText
 } from 'lucide-react';
+import { showMaterialAlert } from '../../components/MaterialDialogProvider.jsx';
 
 export default function CreateTicketView({ currentUser, onBack, onTicketCreated }) {
   const [subject, setSubject] = useState('');
@@ -50,15 +51,15 @@ export default function CreateTicketView({ currentUser, onBack, onTicketCreated 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!subject.trim()) {
-      alert('Please enter a ticket subject.');
+      showMaterialAlert('Please enter a ticket subject.');
       return;
     }
     if (!category) {
-      alert('Please select a category.');
+      showMaterialAlert('Please select a category.');
       return;
     }
     if (!description.trim()) {
-      alert('Please provide a description.');
+      showMaterialAlert('Please provide a description.');
       return;
     }
 
@@ -86,11 +87,11 @@ export default function CreateTicketView({ currentUser, onBack, onTicketCreated 
           onTicketCreated(data.ticket);
         }
       } else {
-        alert('Could not save ticket to server.');
+        showMaterialAlert('Could not save ticket to server.');
       }
     } catch (err) {
       console.error('Error creating ticket:', err);
-      alert('Error creating ticket. Please check connection.');
+      showMaterialAlert('Error creating ticket. Please check connection.');
     } finally {
       setIsSubmitting(false);
     }

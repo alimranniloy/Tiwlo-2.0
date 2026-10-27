@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { getCloudBillingData, redeemCloudVoucher, startCloudCreditCheckout } from '../graphql/cloudQueries';
 import { COUNTRY_OPTIONS } from '../../../utils/accountFormOptions';
+import { openMaterialDialog } from '../../../components/MaterialDialogProvider.jsx';
 
 const FORM_FIELD = 'mt-1.5 w-full rounded-xl border border-[#DADCE0] bg-white px-3.5 py-2.5 text-sm font-normal text-[#202124] outline-none transition placeholder:text-[#80868B] focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white dark:focus:ring-[#174EA6]/40';
 
@@ -230,11 +231,14 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
         if (!quoteResponse.ok || !quoteData?.quote) throw new Error(quoteData?.error || 'Could not get the current BDT payment amount.');
         const quote = quoteData.quote;
         acceptedQuote = quote;
-        const accepted = window.confirm(
-          `You will receive ${formatMoney(quote.creditAmount, 'USD')} Cloud credits and pay ${formatMoney(quote.paymentAmount, 'BDT')}.\n\n` +
-          `Reference rate: 1 USD = ${Number(quote.exchangeRate).toFixed(4)} BDT (${quote.rateDate || 'latest available'}).\n` +
-          `${quote.rateSource || 'Market reference rate'}; your bank or gateway may apply its own fees or rate. Continue?`
-        );
+        const accepted = await openMaterialDialog({
+          type: 'confirm',
+          title: 'Confirm BDT payment',
+          message: `You will receive ${formatMoney(quote.creditAmount, 'USD')} in Cloud credits and pay ${formatMoney(quote.paymentAmount, 'BDT')}.`,
+          details: `Reference rate: 1 USD = ${Number(quote.exchangeRate).toFixed(4)} BDT · ${quote.rateDate || 'Latest available'}\n${quote.rateSource || 'Market reference rate'}\nYour bank or gateway may apply its own fees or exchange rate.`,
+          confirmLabel: 'Continue to payment',
+          cancelLabel: 'Review amount'
+        });
         if (!accepted) {
           setStartingCheckoutProvider('');
           return;

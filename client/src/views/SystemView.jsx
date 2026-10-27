@@ -2,6 +2,7 @@ import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import { requestSensitiveActionGrant } from '../security/reauth.js';
 import React, { useState, useEffect } from 'react';
 import { SUPPORT_EMAIL } from '../config/platformConfig';
+import { openMaterialDialog } from '../components/MaterialDialogProvider.jsx';
 import {
   Server,
   Download,
@@ -106,7 +107,7 @@ export default function SystemView({ showToast, onBackToDashboard }) {
 
   // Clear Audit Log
   const handleClearAuditLog = async () => {
-    if (!window.confirm('Are you sure you want to clear all system activity logs?')) return;
+    if (!await openMaterialDialog({ title: 'Clear activity history?', message: 'This permanently removes all system activity logs.', confirmLabel: 'Clear history', tone: 'danger' })) return;
     try {
       await fetch('/api/activities', { method: 'DELETE' });
       setActivities([]);

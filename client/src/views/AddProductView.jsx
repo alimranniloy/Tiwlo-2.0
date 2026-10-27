@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import JsBarcode from 'jsbarcode';
 import QRCode from 'qrcode';
+import { openMaterialDialog, showMaterialAlert } from '../components/MaterialDialogProvider.jsx';
 
 const EMPTY_CATEGORIES = [];
 
@@ -181,7 +182,7 @@ export default function AddProductView({
       }
     } catch (err) {
       console.error('Camera error:', err);
-      alert('Could not access camera. Please check browser permissions.');
+      showMaterialAlert('Could not access camera. Please check browser permissions.');
       setShowCamera(false);
     }
   };
@@ -317,7 +318,7 @@ export default function AddProductView({
           color: '#3B82F6'
         };
         if (localCategories.some(category => category.name.toLowerCase() === payload.name.toLowerCase())) {
-          alert(`Category "${payload.name}" already exists.`);
+          showMaterialAlert(`Category "${payload.name}" already exists.`);
           return;
         }
         let created;
@@ -339,7 +340,7 @@ export default function AddProductView({
           });
           if (!response.ok) {
             const err = await response.json().catch(() => ({}));
-            alert(err.error || 'Failed to create category');
+            showMaterialAlert(err.error || 'Failed to create category');
             return;
           }
           created = await response.json();
@@ -356,7 +357,7 @@ export default function AddProductView({
       } else {
         const parentCat = localCategories.find(c => c.id === newTaxParentCatId || c.name.toLowerCase() === (formData.category || '').toLowerCase()) || localCategories[0];
         if (!parentCat) {
-          alert('Please select a parent category');
+      showMaterialAlert('Please select a parent category');
           setSavingTaxonomy(false);
           return;
         }
@@ -370,7 +371,7 @@ export default function AddProductView({
           subcategory.categoryId === parentCat.id &&
           subcategory.name.toLowerCase() === payload.name.toLowerCase()
         )) {
-          alert(`Subcategory "${payload.name}" already exists under ${parentCat.name}.`);
+          showMaterialAlert(`Subcategory "${payload.name}" already exists under ${parentCat.name}.`);
           return;
         }
         let created;
@@ -392,7 +393,7 @@ export default function AddProductView({
           });
           if (!response.ok) {
             const err = await response.json().catch(() => ({}));
-            alert(err.error || 'Failed to create subcategory');
+            showMaterialAlert(err.error || 'Failed to create subcategory');
             return;
           }
           created = await response.json();
@@ -413,7 +414,7 @@ export default function AddProductView({
       }
     } catch (err) {
       console.error(err);
-      alert('Error connecting to server');
+      showMaterialAlert('Error connecting to server');
     } finally {
       setSavingTaxonomy(false);
     }
@@ -497,11 +498,11 @@ export default function AddProductView({
   const handleFinalSubmit = async (shouldPrintBarcode = false) => {
     if (uploading) return;
     if (!validateStep(1) || !validateStep(2)) {
-      alert('Please fill in required fields in Step 1 and Step 2');
+      showMaterialAlert('Please fill in required fields in Step 1 and Step 2');
       return;
     }
     if (!formData.image && formData.images.length === 0 &&
-      !window.confirm('This product has no image. Publish it without a product photo?')) return;
+      !await openMaterialDialog({ title: 'Publish without a photo?', message: 'This product has no image. You can add a photo later.', confirmLabel: 'Publish without photo' })) return;
 
     setLoading(true);
     const finalImgs = formData.images && formData.images.length > 0

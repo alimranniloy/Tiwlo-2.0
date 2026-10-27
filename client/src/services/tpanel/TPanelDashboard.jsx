@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getAuthUrl } from '../../utils/navigation';
 import { ADMIN_EMAIL, DNS_TTL, SERVER_IPV4, STORE_DOMAIN } from '../../config/platformConfig';
 import ToastNotification from '../../components/ToastNotification';
+import { openMaterialDialog } from '../../components/MaterialDialogProvider.jsx';
 import {
   LayoutDashboard,
   Globe,
@@ -442,7 +443,7 @@ export default function TPanelDashboard({ currentUser, onLogout }) {
   };
 
   const handleDeleteFileOrFolder = async (item) => {
-    if (!window.confirm(`Delete ${item.name}? This action cannot be reversed.`)) return;
+    if (!await openMaterialDialog({ title: 'Delete file or folder?', message: `Delete ${item.name}? This action cannot be reversed.`, confirmLabel: 'Delete', tone: 'danger' })) return;
     try {
       const res = await fetch(`/api/tpanel/files?userId=${encodeURIComponent(effectiveUserId)}&path=${encodeURIComponent(item.path)}`, {
         method: 'DELETE'
@@ -1286,8 +1287,8 @@ export default function TPanelDashboard({ currentUser, onLogout }) {
                               Export SQL
                             </button>
                             <button
-                              onClick={() => {
-                                if (window.confirm(`Permanently drop database ${db.name}?`)) {
+                              onClick={async () => {
+                                if (await openMaterialDialog({ title: 'Delete database?', message: `Permanently drop database ${db.name}? This action cannot be reversed.`, confirmLabel: 'Drop database', tone: 'danger' })) {
                                   fetch(`/api/tpanel/databases/${db.id}?userId=${encodeURIComponent(effectiveUserId)}`, { method: 'DELETE' }).then(() => {
                                     showToast(`Database ${db.name} dropped`);
                                     fetchTPanelData();
@@ -1647,8 +1648,8 @@ export default function TPanelDashboard({ currentUser, onLogout }) {
                               Edit / Quota
                             </button>
                             <button
-                              onClick={() => {
-                                if (window.confirm(`Delete ${em.address}?`)) {
+                              onClick={async () => {
+                                if (await openMaterialDialog({ title: 'Delete mailbox?', message: `Delete ${em.address}?`, confirmLabel: 'Delete mailbox', tone: 'danger' })) {
                                   fetch(`/api/tpanel/emails/${em.id}?userId=${encodeURIComponent(effectiveUserId)}`, { method: 'DELETE' }).then(() => {
                                     showToast('Mailbox deleted');
                                     fetchTPanelData();

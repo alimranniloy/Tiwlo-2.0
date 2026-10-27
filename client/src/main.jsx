@@ -4,6 +4,7 @@ import './index.css';
 import App from './App.jsx';
 import { initTheme } from './config/themeConfig';
 import ErrorBoundary from './components/ErrorBoundary';
+import MaterialDialogProvider from './components/MaterialDialogProvider.jsx';
 
 // Initialize mobile status bar, theme-color and color scheme immediately
 initTheme();
@@ -32,8 +33,10 @@ function DismissBootstrapLoader() {
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
-      <DismissBootstrapLoader />
-      <App />
+      <MaterialDialogProvider>
+        <DismissBootstrapLoader />
+        <App />
+      </MaterialDialogProvider>
     </ErrorBoundary>
   </StrictMode>,
 );

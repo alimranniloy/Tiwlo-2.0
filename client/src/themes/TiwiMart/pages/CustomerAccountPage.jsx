@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { BadgeCheck, MapPin, Package, ShieldCheck, UserRound } from 'lucide-react';
 import { useStoreSettings } from '../../../context/StoreSettingsContext';
 import { formatStoreCurrency } from '../storefrontUtils';
+import { openMaterialDialog } from '../../../components/MaterialDialogProvider.jsx';
 
 const emptyAddress = {
   label: 'Home',
@@ -152,7 +153,7 @@ export default function CustomerAccountPage({ onNavigate, showToast }) {
   };
 
   const removeAddress = async id => {
-    if (!confirm('Remove this saved address?')) return;
+    if (!await openMaterialDialog({ title: 'Remove saved address?', message: 'This address will be removed from your account.', confirmLabel: 'Remove address', tone: 'danger' })) return;
     try {
       const response = await fetch(`/api/public/customer-auth/addresses/${encodeURIComponent(id)}`, { method: 'DELETE' });
       const result = await response.json().catch(() => ({}));
