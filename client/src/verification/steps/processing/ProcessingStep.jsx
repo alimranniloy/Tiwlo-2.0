@@ -28,6 +28,7 @@ export default function ProcessingStep() {
   const {
     goToStep,
     STEPS,
+    verificationAccessToken,
     setVerificationResult,
     documentFile,
     selfieImage,
@@ -83,6 +84,9 @@ export default function ProcessingStep() {
           response = await fetch('/api/verification/face-match', {
             method: 'POST',
             credentials: 'include',
+            headers: verificationAccessToken
+              ? { Authorization: `Bearer ${verificationAccessToken}` }
+              : {},
             body,
             signal: controller.signal,
           });
@@ -152,6 +156,7 @@ export default function ProcessingStep() {
     documentFile,
     goToStep,
     livenessSessionId,
+    verificationAccessToken,
     selfieImage,
     recordedVideo,
     setFailureReason,

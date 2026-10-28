@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Loader2, Video } from 'lucide-react';
 import { useVerification } from '../../context/VerificationContext';
 import VerificationHeader from '../../components/VerificationHeader';
@@ -57,12 +57,17 @@ function chooseRecordingMimeType() {
 
 export default function CaptureSelfieStep() {
   const {
+    verificationAccessToken,
     setCapturedSelfie,
     setRecordedVideo,
     setLivenessSessionId,
     nextStep,
     prevStep,
   } = useVerification();
+  const accessHeaders = useMemo(
+    () => verificationAccessToken ? { Authorization: `Bearer ${verificationAccessToken}` } : {},
+    [verificationAccessToken]
+  );
   const [stream, setStream] = useState(null);
   const [challenges, setChallenges] = useState([]);
   const [challengeIndex, setChallengeIndex] = useState(0);
@@ -144,9 +149,10 @@ export default function CaptureSelfieStep() {
       fetch(`/api/verification/liveness/${encodeURIComponent(sessionId)}`, {
         method: 'DELETE',
         credentials: 'include',
+        headers: accessHeaders,
       }).catch(() => {});
     }
-  }, [stopCamera]);
+  }, [accessHeaders, stopCamera]);
 
   const completeCapture = useCallback(async () => {
     if (finishedRef.current) return;
@@ -205,7 +211,7 @@ export default function CaptureSelfieStep() {
       body.append('frame', frame, 'frame.jpg');
       const response = await fetch(
         `/api/verification/liveness/${encodeURIComponent(session.sessionId)}/frame`,
-        { method: 'POST', credentials: 'include', body }
+        { method: 'POST', credentials: 'include', headers: accessHeaders, body }
       );
       const result = await readVerificationResponse(response);
       if (
@@ -242,7 +248,7 @@ export default function CaptureSelfieStep() {
         );
       }
     }
-  }, [captureFrame, completeCapture, failCapture]);
+  }, [accessHeaders, captureFrame, completeCapture, failCapture]);
 
   useEffect(() => {
     submitChallengeFrameRef.current = submitChallengeFrame;
@@ -260,6 +266,7 @@ export default function CaptureSelfieStep() {
       const sessionResponse = await fetch('/api/verification/liveness/session', {
         method: 'POST',
         credentials: 'include',
+        headers: accessHeaders,
         signal: controller.signal,
       });
       const sessionResult = await readVerificationResponse(sessionResponse);
@@ -274,6 +281,7 @@ export default function CaptureSelfieStep() {
         fetch(`/api/verification/liveness/${encodeURIComponent(sessionResult.sessionId)}`, {
           method: 'DELETE',
           credentials: 'include',
+          headers: accessHeaders,
         }).catch(() => {});
         return;
       }
@@ -318,11 +326,12 @@ export default function CaptureSelfieStep() {
         fetch(`/api/verification/liveness/${encodeURIComponent(sessionId)}`, {
           method: 'DELETE',
           credentials: 'include',
+          headers: accessHeaders,
         }).catch(() => {});
       }
       sessionRef.current = null;
     };
-  }, [retry, failCapture, setCapturedSelfie, setLivenessSessionId, setRecordedVideo, stopCamera]);
+  }, [accessHeaders, retry, failCapture, setCapturedSelfie, setLivenessSessionId, setRecordedVideo, stopCamera]);
 
   useEffect(() => {
     if (!stream || !videoRef.current || !sessionRef.current) return undefined;

@@ -69,7 +69,7 @@ const TiwloStudioLanding = lazy(() => import('./studio/landing-page'));
 // UIDis.app / OneProfile Identity & Website Dashboard (/oneprofile, /one-profile)
 const OneProfileDashboard = lazy(() => import('./oneprofile'));
 
-// Identity Verification Flow Mobile Experience (/verification)
+// Cross-device Identity Verification Flow (/verification)
 const VerificationFlow = lazy(() => import('./verification'));
 
 // Live Support AI Widget
@@ -228,6 +228,10 @@ export default function App() {
 
       if (isTpanelRoute) {
         return 'tpanel';
+      }
+
+      if (pathname === 'verification' || pathname.startsWith('verification/')) {
+        return 'verification';
       }
 
       // Check if user is navigating on the configured authentication subdomain.
@@ -434,10 +438,6 @@ export default function App() {
 
         if (pathname === 'oneprofile' || pathname.startsWith('oneprofile/') || pathname === 'one-profile' || pathname.startsWith('one-profile/') || pathname === 'uids/dashboard') {
           return 'oneprofile';
-        }
-
-        if (pathname === 'verification' || pathname.startsWith('verification/')) {
-          return 'verification';
         }
 
         // Unrecognized route -> 404
@@ -991,6 +991,7 @@ export default function App() {
           currentParams.get('tab') === 'tpanel' ||
           currentParams.get('view') === 'tpanel';
         const isPublicPath = (!isMailSubdomain() && path === '') || path === 'landing' || path === 'home' ||
+          path === 'verification' || path.startsWith('verification/') ||
           path === 'store' || path.startsWith('store/') ||
           path === 'create-account' || path === 'register' || path === 'signup' ||
           path === 'create-store' || path.startsWith('create-store/') ||
@@ -1912,7 +1913,7 @@ export default function App() {
         />
       ) : authChecking ? (
         <TiwloPageLoader />
-      ) : (!currentUser && activeTab !== 'store' && activeTab !== 'create-account' && !activeTab.startsWith('create-store') && activeTab !== 'mobile-help-support' && activeTab !== 'help-support/mobile' && activeTab !== 'tpanel' && activeTab !== 'landing' && activeTab !== 'subdomain' && !(typeof activeTab === 'string' && (activeTab.startsWith('subdomain') || activeTab.startsWith('uidis')))) ? (
+      ) : (!currentUser && activeTab !== 'store' && activeTab !== 'verification' && activeTab !== 'create-account' && !activeTab.startsWith('create-store') && activeTab !== 'mobile-help-support' && activeTab !== 'help-support/mobile' && activeTab !== 'tpanel' && activeTab !== 'landing' && activeTab !== 'subdomain' && !(typeof activeTab === 'string' && (activeTab.startsWith('subdomain') || activeTab.startsWith('uidis')))) ? (
         <LoginView
           onLoginSuccess={handleLoginSuccess}
           onAccountDisabled={(info) => {

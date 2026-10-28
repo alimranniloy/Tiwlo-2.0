@@ -20,7 +20,13 @@ export const STEP_ROUTES = {
   6: '/verification/failed',
 };
 
-export function VerificationProvider({ children, initialStep = 1, onComplete = null, onCancel = null }) {
+export function VerificationProvider({
+  children,
+  initialStep = 1,
+  onComplete = null,
+  onCancel = null,
+  accessToken = null,
+}) {
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [selectedDocument, setSelectedDocument] = useState('passport'); // 'passport' | 'national_id' | 'aadhaar'
   const [documentFile, setDocumentFile] = useState(null);
@@ -117,6 +123,7 @@ export function VerificationProvider({ children, initialStep = 1, onComplete = n
       value={{
         STEPS,
         currentStep,
+        verificationAccessToken: accessToken,
         setCurrentStep,
         goToStep,
         nextStep,

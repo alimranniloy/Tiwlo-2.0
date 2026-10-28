@@ -69,11 +69,17 @@ models, and runs the OpenBiometrics API on loopback. MediaPipe downloads its
 FaceLandmarker task model on first use, so the engine needs outbound access to
 Google Storage for that initial download. Docker deployments run the same API
 on the private Compose network and persist model weights in a dedicated volume.
-The authenticated verification flow asks for a randomized sequence of head
-turns, a blink, and an open-mouth action; camera frames are checked live by the
-engine. Document images, selfies, and the short camera recording are processed
-in memory and are not retained. The flow compares faces and checks passive and
-active liveness, but it does not verify document authenticity or persist an
+Desktop identity verification displays a Material-inspired one-time QR code
+that refreshes every five minutes. Scanning it opens a temporary mobile session
+without requiring a second sign-in; the QR token can be redeemed only once.
+Closing either browser ends the handoff, and an inactive session expires after
+30 minutes. Handoff state is held in server memory, so a server restart
+invalidates active QR links. On the phone, the user uploads an identity
+document and completes a randomized sequence of head turns, a blink, and an
+open-mouth action; camera frames are checked live by the engine. Document
+images, selfies, and the short camera recording are processed in memory and
+are not retained. The flow compares faces and checks passive and active
+liveness, but it does not verify document authenticity or persist an
 identity-verification status. Do not treat this face-match result as formal KYC
 approval.
 

@@ -5,10 +5,14 @@ import sharp from 'sharp';
 import verificationRoutes from './verificationRoutes.js';
 
 const originalFetch = globalThis.fetch;
+let nextTestIp = 1;
 
 async function createClient(t) {
+  const clientIp = `198.51.100.${nextTestIp++}`;
   const app = express();
+  app.use(express.json());
   app.use((req, _res, next) => {
+    Object.defineProperty(req, 'ip', { configurable: true, value: clientIp });
     if (req.headers['x-user-id']) req.activeUser = { id: req.headers['x-user-id'] };
     next();
   });
@@ -21,6 +25,152 @@ async function createClient(t) {
     options
   );
 }
+
+test('verification QR links expire after five minutes and can only be redeemed once', async t => {
+  const call = await createClient(t);
+  const clock = { now: Date.now() };
+  t.mock.method(Date, 'now', () => clock.now);
+  const createdResponse = await call('/api/verification/handoff', { method: 'POST' });
+  assert.equal(createdResponse.status, 201);
+  const created = await createdResponse.json();
+  assert.equal(typeof created.sessionId, 'string');
+  assert.equal(typeof created.sessionKey, 'string');
+  assert.equal(typeof created.token, 'string');
+  assert.ok(created.expiresAt > clock.now);
+  assert.ok(created.expiresAt <= clock.now + 5 * 60 * 1000);
+
+  const headers = { 'x-verification-session-key': created.sessionKey };
+  clock.now += 5 * 60 * 1000 + 1;
+  const rotateResponse = await call(
+    `/api/verification/handoff/${created.sessionId}/rotate`,
+    { method: 'POST', headers }
+  );
+  assert.equal(rotateResponse.status, 201);
+  const rotated = await rotateResponse.json();
+
+  const oldToken = await call('/api/verification/handoff/redeem', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: created.token })
+  });
+  assert.equal(oldToken.status, 410);
+
+  const redeemed = await call('/api/verification/handoff/redeem', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: rotated.token })
+  });
+  assert.equal(redeemed.status, 200);
+  const mobileSession = await redeemed.json();
+  assert.equal(mobileSession.sessionId, created.sessionId);
+  assert.equal(typeof mobileSession.accessToken, 'string');
+
+  const secondRedeem = await call('/api/verification/handoff/redeem', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: rotated.token })
+  });
+  assert.equal(secondRedeem.status, 410);
+
+  const status = await call(
+    `/api/verification/handoff/${created.sessionId}/status`,
+    { headers }
+  );
+  assert.equal((await status.json()).status, 'connected');
+
+  const closed = await call(`/api/verification/handoff/${created.sessionId}/close`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${mobileSession.accessToken}` }
+  });
+  assert.equal(closed.status, 204);
+  const unavailable = await call(
+    `/api/verification/handoff/${created.sessionId}/status`,
+    { headers }
+  );
+  assert.equal(unavailable.status, 404);
+});
+
+test('a redeemed mobile link can complete verification without an authenticated account', async t => {
+  const call = await createClient(t);
+  const handoffResponse = await call('/api/verification/handoff', { method: 'POST' });
+  const handoff = await handoffResponse.json();
+  const redeemResponse = await call('/api/verification/handoff/redeem', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: handoff.token })
+  });
+  assert.equal(redeemResponse.status, 200);
+  const { accessToken } = await redeemResponse.json();
+  const guestHeaders = { Authorization: `Bearer ${accessToken}` };
+
+  const previousToken = process.env.OPENBIOMETRICS_SHARED_TOKEN;
+  process.env.OPENBIOMETRICS_SHARED_TOKEN = 'test-token';
+  t.after(() => {
+    if (previousToken === undefined) delete process.env.OPENBIOMETRICS_SHARED_TOKEN;
+    else process.env.OPENBIOMETRICS_SHARED_TOKEN = previousToken;
+  });
+  const engineCall = t.mock.method(globalThis, 'fetch', async url => {
+    const target = String(url);
+    if (target.endsWith('/api/v1/liveness/sessions?preset=verification')) {
+      return Response.json({
+        session_id: 'guest-liveness-1',
+        challenges: ['turn_right', 'blink', 'turn_left', 'open_mouth'].map(type => ({ type, instruction: type }))
+      });
+    }
+    if (target.endsWith('/api/v1/liveness/sessions/guest-liveness-1/frame')) {
+      return Response.json({
+        session_id: 'guest-liveness-1',
+        challenge_type: 'open_mouth',
+        passed: true,
+        challenges_remaining: 0,
+        session_complete: true,
+        is_live: true,
+        state: 'completed'
+      });
+    }
+    assert.equal(target, 'http://127.0.0.1:8000/api/v1/verify');
+    return Response.json({
+      is_match: true,
+      face2: { liveness: { is_live: true } }
+    });
+  });
+
+  const livenessResponse = await call('/api/verification/liveness/session', {
+    method: 'POST',
+    headers: guestHeaders
+  });
+  assert.equal(livenessResponse.status, 201);
+
+  const frame = new FormData();
+  frame.append('frame', new Blob([await createImage()], { type: 'image/png' }), 'frame.png');
+  const frameResponse = await call('/api/verification/liveness/guest-liveness-1/frame', {
+    method: 'POST',
+    headers: guestHeaders,
+    body: frame
+  });
+  assert.equal(frameResponse.status, 200);
+  assert.equal((await frameResponse.json()).complete, true);
+
+  const response = await call('/api/verification/face-match', {
+    method: 'POST',
+    headers: guestHeaders,
+    body: createForm(await createImage(), { sessionId: 'guest-liveness-1' })
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    success: true,
+    isMatch: true,
+    isLive: true,
+    reason: null
+  });
+  assert.equal(engineCall.mock.callCount(), 3);
+
+  const status = await call(
+    `/api/verification/handoff/${handoff.sessionId}/status`,
+    { headers: { 'x-verification-session-key': handoff.sessionKey } }
+  );
+  assert.deepEqual(await status.json(), { status: 'success', result: null });
+});
 
 async function createImage() {
   return sharp({
