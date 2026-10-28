@@ -27,7 +27,8 @@ import {
   Tag,
   MessageSquareText,
   UserRound,
-  Wallet
+  Wallet,
+  Fingerprint
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -65,6 +66,7 @@ export default function Sidebar({
     { id: 'hr-management', name: 'HR & Company Finance', icon: Wallet, section: 'People & payroll' },
     { id: 'reports', name: 'Reports Ledger', icon: FileText, section: 'Insights' },
     { id: 'analytics', name: 'Analytics', icon: BarChart3, section: 'Insights' },
+    { id: 'verification', name: 'Identity', icon: Fingerprint, section: 'Account' },
     { id: 'settings', name: 'Settings', icon: Server, section: 'Settings & support' },
     { id: 'store-settings', name: 'Storefront & Theme', icon: Settings, section: 'Settings & support' },
     { id: 'store-pages', name: 'Pages & Menus', icon: FileText, section: 'Store settings' },
