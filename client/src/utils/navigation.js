@@ -24,7 +24,11 @@ export function isDashboardSubdomain() {
   if (typeof window === 'undefined') return false;
   const hostname = window.location.hostname.toLowerCase();
   const dashboardHost = new URL(DASHBOARD_URL).hostname.toLowerCase();
-  return hostname === dashboardHost || hostname === FREE_SUBDOMAIN_DOMAIN || hostname === `uids.${PLATFORM_DOMAIN}.localhost`;
+  const platformHost = PLATFORM_DOMAIN.toLowerCase();
+  const isConfiguredDashboardHost = hostname === dashboardHost &&
+    hostname !== platformHost &&
+    hostname !== `www.${platformHost}`;
+  return isConfiguredDashboardHost || hostname === FREE_SUBDOMAIN_DOMAIN || hostname === `uids.${PLATFORM_DOMAIN}.localhost`;
 }
 
 export function isTPanelSubdomain() {
