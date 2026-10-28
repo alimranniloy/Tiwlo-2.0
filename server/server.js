@@ -136,6 +136,7 @@ const allowedOrigins = [
 app.use(cors({
   origin: async function (origin, callback) {
     if (!origin) return callback(null, true);
+    if (origin === 'null') return callback(null, false);
     if (allowedOrigins.includes(origin)) return callback(null, true);
     try {
       const hostname = new URL(origin).hostname.toLowerCase();
