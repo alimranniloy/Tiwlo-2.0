@@ -54,7 +54,10 @@ export function VerificationProvider({
     try {
       const route = STEP_ROUTES[targetStep] || '/verification';
       if (window.location.pathname !== route) {
-        window.history.pushState({ step: targetStep }, '', route);
+        window.history.pushState({
+          step: targetStep,
+          identityVerificationStarted: window.history.state?.identityVerificationStarted === true,
+        }, '', route);
       }
     } catch {}
   }, []);

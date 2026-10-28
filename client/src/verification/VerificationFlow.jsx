@@ -87,7 +87,11 @@ function MobileHandoff({ token, initialStep, onComplete, onCancel }) {
           throw new Error('The verification service returned an invalid mobile session.');
         }
         if (!active) return;
-        window.history.replaceState(null, '', '/verification/continue');
+        window.history.replaceState(
+          { identityVerificationStarted: true },
+          '',
+          '/verification/continue'
+        );
         setHandoff(result);
       } catch (requestError) {
         if (active) setError(requestError.message || 'This verification link is unavailable.');
@@ -160,6 +164,7 @@ function MobileStartNotice() {
 export default function VerificationFlow({ initialStep = 1, onComplete = null, onCancel = null }) {
   const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 768px)').matches);
   const isContinueRoute = /^\/verification\/continue\/?$/.test(window.location.pathname);
+  const startedFromIdentity = window.history.state?.identityVerificationStarted === true;
   const token = isContinueRoute
     ? new URLSearchParams(window.location.hash.slice(1)).get('token')
     : null;
@@ -176,5 +181,12 @@ export default function VerificationFlow({ initialStep = 1, onComplete = null, o
     return <MobileHandoff token={token} initialStep={initialStep} onComplete={onComplete} onCancel={onCancel} />;
   }
   if (isDesktop) return <DesktopVerificationPage />;
+  if (startedFromIdentity) {
+    return (
+      <VerificationProvider initialStep={initialStep} onComplete={onComplete} onCancel={onCancel}>
+        <FlowRouter />
+      </VerificationProvider>
+    );
+  }
   return <MobileStartNotice />;
 }

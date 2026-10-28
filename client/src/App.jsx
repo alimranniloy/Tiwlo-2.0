@@ -16,6 +16,7 @@ import {
   isStorefrontSubdomainHost
 } from './config/platformConfig';
 import { updateSeoMetadata } from './utils/seo';
+import { isVerificationRouteAllowed } from './verification/access';
 
 // Dedicated Dashboards (Code-Split via React.lazy)
 const CloudDashboard = lazy(() => import('./dashboards/cloud/CloudDashboard'));
@@ -231,7 +232,15 @@ export default function App() {
       }
 
       if (pathname === 'verification' || pathname.startsWith('verification/')) {
-        return 'verification';
+        if (isVerificationRouteAllowed(
+          pathname,
+          window.location.hash,
+          window.history.state
+        )) {
+          return 'verification';
+        }
+        window.history.replaceState(null, '', '/identity');
+        return 'identity';
       }
       if (pathname === 'identity') {
         return 'identity';
@@ -460,7 +469,8 @@ export default function App() {
         return 'studio';
       }
       if (searchParams.get('tab') === 'verification' || searchParams.get('view') === 'verification') {
-        return 'verification';
+        window.history.replaceState(null, '', '/identity');
+        return 'identity';
       }
       if (searchParams.get('tab') === 'subdomain' || searchParams.get('view') === 'subdomain' || searchParams.get('view') === 'uidis') {
         return 'subdomain';
@@ -527,6 +537,15 @@ export default function App() {
 
   // Instant clean URL tab navigation without any '#' hash
   const handleTabChange = (tabId) => {
+    if (tabId === 'verification') {
+      setActiveTab('verification');
+      window.history.pushState(
+        { identityVerificationStarted: true },
+        '',
+        '/verification'
+      );
+      return;
+    }
     if (tabId === 'dashboard' && window.location.hostname.toLowerCase() === FREE_SUBDOMAIN_DOMAIN) {
       window.location.replace(`${window.location.origin}/oneprofile`);
       return;
