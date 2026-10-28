@@ -21,6 +21,11 @@ const LOCAL_MEDIA_ROOTS = {
   '/uploads/': path.resolve(__dirname, '../uploads')
 };
 
+export function resolveMediaStorageBackend(storageSettings, purpose) {
+  if (purpose === 'identity_verification') return 'local';
+  return storageSettings?.backend || 'postgres';
+}
+
 const MIME_TYPES = {
   '.avif': 'image/avif',
   '.gif': 'image/gif',
@@ -149,7 +154,7 @@ export async function storeMedia({
   const safeName = String(originalFilename || 'media').split(/[\\/]/).pop().replace(/[^a-zA-Z0-9._-]/g, '_').slice(-180);
   const normalizedContentType = sanitizeContentType(contentType, originalFilename);
   const storageSettings = await getPlatformStorageSettings();
-  const storageBackend = storageSettings.backend || 'postgres';
+  const storageBackend = resolveMediaStorageBackend(storageSettings, purpose);
   let localEvidencePath = null;
   let activeDriveAccount = null;
   let driveFile = null;
