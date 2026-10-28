@@ -229,7 +229,7 @@ export default function CaptureSelfieStep() {
   const captureFinalSelfie = useCallback(async () => {
     if (!awaitingFinalSelfieRef.current || frameBusyRef.current || finishedRef.current) return;
     if (Date.now() - finalSelfieStartedAtRef.current > 90_000) {
-      failCapture('We could not capture a clear, forward-facing selfie in time. Keep your face centered, look straight at the camera, and try again.');
+      failCapture('We could not capture a clear selfie in time. Follow the camera guidance, hold still, and try again.');
       return;
     }
     frameBusyRef.current = true;
@@ -242,7 +242,7 @@ export default function CaptureSelfieStep() {
 
       const body = new FormData();
       body.append('frame', frame, 'final-selfie.jpg');
-      const response = await fetch('/api/verification/liveness/quality?stage=final-selfie', {
+      const response = await fetch('/api/verification/liveness/quality', {
         method: 'POST',
         credentials: 'include',
         headers: accessHeaders,
@@ -255,7 +255,7 @@ export default function CaptureSelfieStep() {
 
       transientFailuresRef.current = 0;
       retryDelayRef.current = result.ready ? FRAME_INTERVAL_MS : QUALITY_RETRY_MS;
-      setFaceGuidance(result.guidance || (result.ready ? 'ready' : 'face_forward'));
+      setFaceGuidance(result.guidance || (result.ready ? 'ready' : 'hold_still'));
       setLowLightWarning(
         typeof result.quality?.brightness === 'number' && result.quality.brightness < 35
       );
@@ -332,7 +332,7 @@ export default function CaptureSelfieStep() {
         awaitingFinalSelfieRef.current = true;
         finalSelfieStartedAtRef.current = Date.now();
         setAwaitingFinalSelfie(true);
-        setFaceGuidance('face_forward');
+        setFaceGuidance('hold_still');
         retryDelayRef.current = FRAME_INTERVAL_MS;
       } else if (result.state === 'failed' || result.state === 'expired') {
         const action = CHALLENGE_LABELS[result.challengeType] || 'the requested action';
@@ -600,7 +600,6 @@ export default function CaptureSelfieStep() {
     center_lower: 'Lower the phone a little.',
     center_upper: 'Raise the phone a little.',
     hold_still: 'Hold still for a moment so the camera can focus.',
-    face_forward: 'Look straight at the camera and hold still.',
     connection: 'Reconnecting to the camera check. Keep your face in view.',
     checking: 'Finding your face and checking focus…',
     ready: 'Face centered and in focus. Starting the live check…',
@@ -618,7 +617,6 @@ export default function CaptureSelfieStep() {
     connection: 'Reconnecting to the camera check',
     checking: 'Align your face in the ring',
     ready: 'Face centered and in focus',
-    face_forward: 'Look straight at the camera',
   }[faceGuidance] || 'Align your face in the ring';
   const directionIcon = {
     center_left: ArrowLeft,
@@ -739,7 +737,7 @@ export default function CaptureSelfieStep() {
             {cameraError
               ? 'Camera check stopped'
               : awaitingFinalSelfie
-                ? 'Look straight at the camera'
+                ? 'Hold still for your selfie'
                 : faceReady
                   ? challengeLabel
                   : guidanceTitle}
@@ -749,7 +747,7 @@ export default function CaptureSelfieStep() {
               ? cameraError
               : awaitingFinalSelfie
                 ? faceGuidance === 'ready'
-                  ? 'Hold still while we capture your clear selfie.'
+                  ? 'Face is clear. Capturing your selfie now.'
                   : guidance
                 : faceReady
                   ? 'Keep the phone steady and move your face only when prompted. Each action can take up to 90 seconds. Camera video is used only for this check and is not saved.'
@@ -780,7 +778,7 @@ export default function CaptureSelfieStep() {
       ) : (
         <p className="pb-2 text-center text-[11px] text-slate-400">
           {awaitingFinalSelfie
-            ? 'Look straight at the camera and hold still for your selfie.'
+            ? 'Hold still while we capture your selfie.'
             : 'Keep the phone steady, keep your face inside the circle, and follow each prompt.'}
         </p>
       )}

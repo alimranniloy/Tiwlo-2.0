@@ -710,15 +710,12 @@ router.post(
       const face = result.faces[0];
       const bbox = face?.detection?.bbox;
       const sharpness = face?.quality?.sharpness;
-      const headPoseOk = face?.quality?.head_pose_ok;
-      const requireFrontalPose = req.query.stage === 'final-selfie';
       if (!Array.isArray(bbox) || bbox.length !== 4 ||
           bbox.some(value => typeof value !== 'number' || !Number.isFinite(value)) ||
           bbox[0] < 0 || bbox[1] < 0 ||
           bbox[2] > frame.width || bbox[3] > frame.height ||
           bbox[2] <= bbox[0] || bbox[3] <= bbox[1] ||
-          typeof sharpness !== 'number' || !Number.isFinite(sharpness) ||
-          (requireFrontalPose && typeof headPoseOk !== 'boolean')) {
+          typeof sharpness !== 'number' || !Number.isFinite(sharpness)) {
         return res.status(503).json({ error: 'The camera quality check returned invalid face data.' });
       }
       const faceWidth = bbox[2] - bbox[0];
@@ -738,8 +735,6 @@ router.post(
         guidance = 'center_lower';
       } else if (faceCenterY > 0.7) {
         guidance = 'center_upper';
-      } else if (requireFrontalPose && !headPoseOk) {
-        guidance = 'face_forward';
       } else if (sharpness < 30) {
         guidance = 'hold_still';
       }
@@ -749,8 +744,7 @@ router.post(
         guidance,
         quality: face.quality ? {
           sharpness: face.quality.sharpness,
-          brightness: face.quality.brightness,
-          headPoseOk: typeof headPoseOk === 'boolean' ? headPoseOk : null
+          brightness: face.quality.brightness
         } : null
       });
     } catch (error) {

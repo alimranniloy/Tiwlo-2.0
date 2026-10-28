@@ -231,7 +231,7 @@ test('camera framing feedback waits for one centered, focused face but permits l
   assert.equal(engineCall.mock.callCount(), 11);
 });
 
-test('frontal pose is required for the final selfie but not initial camera alignment', async t => {
+test('camera alignment and final selfie capture do not block on coarse head-pose estimates', async t => {
   const call = await createClient(t);
   const image = await createImage(640, 480);
   const engineCall = t.mock.method(globalThis, 'fetch', async () => Response.json({
@@ -257,9 +257,9 @@ test('frontal pose is required for the final selfie but not initial camera align
   const alignment = await getQuality('/api/verification/liveness/quality');
   assert.equal(alignment.ready, true);
 
-  const finalSelfie = await getQuality('/api/verification/liveness/quality?stage=final-selfie');
-  assert.equal(finalSelfie.ready, false);
-  assert.equal(finalSelfie.guidance, 'face_forward');
+  const finalSelfie = await getQuality('/api/verification/liveness/quality');
+  assert.equal(finalSelfie.ready, true);
+  assert.equal(finalSelfie.guidance, null);
   assert.equal(engineCall.mock.callCount(), 2);
 });
 
