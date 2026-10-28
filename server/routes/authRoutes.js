@@ -456,25 +456,28 @@ async function completeSocialLogin(provider, req, res) {
         challengeToken
       }));
     }
-    const mfaMode = user.twoFactorEnabled ? 'login' : 'setup';
-    const otp = await generateSecureOtp(
-      user.email,
-      mfaMode === 'login' ? 'login_2fa' : 'setup_2fa',
-      mfaMode === 'login' ? 10 : 15
+    const tiwiId = user.tiwiId || user.storeId || null;
+    const { sessionToken } = await MasterDB.createSession(user.id, tiwiId, user.email, req);
+    await recordSuccessfulLoginDevice(user, req).catch(error => {
+      console.warn('[Login Risk] Could not record trusted device:', error.message);
+    });
+    setSessionCookie(res, req, sessionToken);
+    clearOAuthMfaCookie(res, req);
+    await logActivity(
+      'auth',
+      'User signed in with social authentication',
+      `Provider: ${provider}; Store: ${user.storeName} (${tiwiId})`,
+      tiwiId
     );
-    const emailResult = await sendTwoFactorOtpEmail({
+    sendLoginActivityAlertEmail({
       to: user.email,
       name: user.name || user.storeName,
-      code: otp.code
-    }).catch(error => ({ success: false, status: 'failed', error: error.message }));
-    if (!emailResult?.success) {
-      await deleteOtpSession(otp.token);
-      clearOAuthMfaCookie(res, req);
-      return res.redirect(getSocialLoginUrl(provider, { returnTo: savedState.returnTo, error: 'email' }));
-    }
-    setSocialMfaCookie(res, req, otp.token);
-    const loginUrl = new URL(getSocialLoginUrl(provider, { returnTo: savedState.returnTo }));
-    return res.redirect(loginUrl.toString());
+      ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1',
+      userAgent: req.headers['user-agent'] || 'Web Browser',
+      location: 'Dhaka, Bangladesh',
+      timestamp: new Date().toUTCString()
+    }).catch(error => console.error('[Login Alert Email Error]', error));
+    return res.redirect(303, savedState.returnTo);
   } catch (error) {
     if (error.code === 'ACCOUNT_DISABLED') {
       return res.redirect(getSocialLoginUrl(provider, { returnTo: savedState.returnTo, error: 'disabled' }));
@@ -668,6 +671,9 @@ router.post('/auth/social/complete-profile', async (req, res) => {
 
     const user = await MasterDB.findUserByIdentifier(userId);
     if (!user) throw new Error('Could not resolve the account after profile completion.');
+    if (user.isBanned) {
+      return res.status(403).json({ error: 'This Tiwlo account has been disabled.' });
+    }
     const socialData = await SocialDB.getData();
     const currentProfile = socialData.profiles?.[userId] || {};
     const normalizedHandle = `@${handle}`;
@@ -693,31 +699,56 @@ router.post('/auth/social/complete-profile', async (req, res) => {
       'DELETE FROM system_social_profile_challenges WHERE token_hash = $1',
       [hashSocialProfileChallenge(challengeToken)]
     );
-    const mfaMode = user.twoFactorEnabled ? 'login' : 'setup';
-    const otp = await generateSecureOtp(
-      user.email,
-      mfaMode === 'login' ? 'login_2fa' : 'setup_2fa',
-      mfaMode === 'login' ? 10 : 15
-    );
-    const emailResult = await sendTwoFactorOtpEmail({
-      to: user.email,
-      name: user.name || user.storeName,
-      code: otp.code
-    }).catch(error => ({ success: false, status: 'failed', error: error.message }));
+    const tiwiId = user.tiwiId || user.storeId || null;
+    const { sessionToken } = await MasterDB.createSession(user.id, tiwiId, user.email, req);
+    await recordSuccessfulLoginDevice(user, req).catch(error => {
+      console.warn('[Login Risk] Could not record trusted device:', error.message);
+    });
+    setSessionCookie(res, req, sessionToken);
+    clearOAuthMfaCookie(res, req);
     res.clearCookie('tiwlo_social_profile', {
       ...getSocialProfileChallengeCookieOptions(req),
       maxAge: undefined
     });
-    setSocialMfaCookie(res, req, otp.token);
-    const emailDelivered = emailResult?.success === true;
+    await logActivity(
+      'auth',
+      'User completed social profile and signed in',
+      `Store: ${user.storeName} (${tiwiId})`,
+      tiwiId
+    );
+    sendLoginActivityAlertEmail({
+      to: user.email,
+      name: user.name || user.storeName,
+      ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1',
+      userAgent: req.headers['user-agent'] || 'Web Browser',
+      location: 'Dhaka, Bangladesh',
+      timestamp: new Date().toUTCString()
+    }).catch(error => console.error('[Login Alert Email Error]', error));
+    res.setHeader('Cache-Control', 'no-store');
     return res.json({
       success: true,
-      challenge: mfaMode,
-      emailMasked: maskSocialEmail(user.email),
-      deliveryStatus: emailDelivered ? emailResult.status : 'failed',
-      message: emailDelivered
-        ? 'Profile saved. A verification code has been sent to your email.'
-        : 'Profile saved, but the verification email could not be delivered. Use Resend code to try again.'
+      sessionToken,
+      user: {
+        id: user.id,
+        tiwiId,
+        storeId: tiwiId,
+        storeName: user.storeName || user.name,
+        name: user.name || user.storeName,
+        avatar: user.avatar || '/tiwlo-icon.png',
+        coverPhoto: user.coverPhoto || '/cloud-hero-full-bg.jpg',
+        email: user.email,
+        role: user.role || 'owner',
+        planId: user.planId,
+        planName: user.planName,
+        subdomain: user.subdomain,
+        billingDetails: user.billingDetails,
+        accountType: user.accountType,
+        address: user.address,
+        dateOfBirth: user.dateOfBirth || '',
+        phone: user.phone,
+        identityVerified: user.identityVerified === true,
+        identityVerificationRequired: user.identityVerificationRequired === true
+      }
     });
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});

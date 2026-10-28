@@ -165,6 +165,27 @@ export default function AccountVerificationScreen({ onNavigate }) {
                   </Text>
                 </View>
               </View>
+
+              {/* Launch 6-Step Government ID & Biometric Flow */}
+              <TouchableOpacity
+                onPress={() => onNavigate && onNavigate('identity-verification')}
+                style={{
+                  marginTop: 14,
+                  backgroundColor: COLORS.hex_1D9BF0,
+                  borderRadius: 12,
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="scan-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 14 }}>
+                  Start 6-Step Biometric ID Verification
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Application Form */}

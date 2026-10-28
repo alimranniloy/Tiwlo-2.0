@@ -82,6 +82,7 @@ const screenLoaders = {
   'help-support': () => require('./src/screens/HelpSupportScreen').default,
   'about-tiwi': () => require('./src/screens/AboutTiwiScreen').default,
   'account-verification': () => require('./src/screens/AccountVerificationScreen').default,
+  'identity-verification': () => require('./src/screens/verification/IdentityVerificationScreen').default,
 
   // 25 Advanced Ecosystem Screens (Google UI + Page-NoPopup Rule + No Dummy Data)
   'audio-spaces': () => require('./src/screens/LiveAudioSpaceScreen').default,

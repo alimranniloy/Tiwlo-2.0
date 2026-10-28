@@ -912,6 +912,12 @@ export default function App() {
           headers: token ? { 'Authorization': `Bearer ${token}` } : {}
         });
 
+        if (!res.ok) {
+          console.error(`Session verification unavailable (HTTP ${res.status}).`);
+          if (isMounted) setAuthChecking(false);
+          return;
+        }
+
         if (res.ok) {
           const data = await res.json();
           if (data.authenticated && data.user) {
@@ -1010,6 +1016,8 @@ export default function App() {
         }
       } catch (err) {
         console.error('Session verification error:', err);
+        if (isMounted) setAuthChecking(false);
+        return;
       }
 
       if (isMounted) {
@@ -1270,8 +1278,8 @@ export default function App() {
     if (user?.role === 'super_admin' || user?.email === 'tiwloltd@gmail.com') {
       handleTabChange('administrator');
     } else {
-      setDashboardLoading(true);
       handleTabChange('dashboard');
+      setDashboardLoading(false);
     }
   };
 
