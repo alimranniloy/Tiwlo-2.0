@@ -161,6 +161,7 @@ test('a redeemed mobile link can complete verification without an authenticated 
     success: true,
     isMatch: true,
     isLive: true,
+    passiveLiveness: true,
     reason: null
   });
   assert.equal(engineCall.mock.callCount(), 3);
@@ -392,12 +393,13 @@ test('face match forwards validated images and requires a live matching face', a
     success: true,
     isMatch: true,
     isLive: true,
+    passiveLiveness: true,
     reason: null
   });
   assert.equal(engineCall.mock.callCount(), 3);
 });
 
-test('a face match without a positive liveness result is never accepted', async t => {
+test('completed active challenges remain authoritative when passive liveness has a false negative', async t => {
   const call = await createClient(t);
   const image = await createImage();
   const previousToken = process.env.OPENBIOMETRICS_SHARED_TOKEN;
@@ -406,17 +408,19 @@ test('a face match without a positive liveness result is never accepted', async 
     if (previousToken === undefined) delete process.env.OPENBIOMETRICS_SHARED_TOKEN;
     else process.env.OPENBIOMETRICS_SHARED_TOKEN = previousToken;
   });
+  let verifyCalls = 0;
+  let sessionNumber = 0;
   const engineCall = t.mock.method(globalThis, 'fetch', async (url) => {
     const target = String(url);
     if (target.endsWith('/api/v1/liveness/sessions?preset=verification')) {
       return Response.json({
-        session_id: 'active-session-2',
+        session_id: `active-session-${++sessionNumber}`,
         challenges: ['turn_right', 'blink', 'turn_left', 'open_mouth'].map(type => ({ type, instruction: type }))
       });
     }
-    if (target.endsWith('/api/v1/liveness/sessions/active-session-2/frame')) {
+    if (target.includes('/api/v1/liveness/sessions/active-session-') && target.endsWith('/frame')) {
       return Response.json({
-        session_id: 'active-session-2',
+        session_id: target.split('/').slice(-2)[0],
         challenge_type: 'open_mouth',
         passed: true,
         challenges_remaining: 0,
@@ -425,10 +429,10 @@ test('a face match without a positive liveness result is never accepted', async 
         state: 'completed'
       });
     }
-    return Response.json({
-      is_match: true,
-      face2: { liveness: { is_live: false } }
-    });
+    verifyCalls += 1;
+    return Response.json(verifyCalls === 1
+      ? { is_match: true, face2: { liveness: { is_live: false } } }
+      : { is_match: true });
   });
 
   const sessionId = await createCompletedSession(call);
@@ -440,11 +444,27 @@ test('a face match without a positive liveness result is never accepted', async 
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), {
     success: true,
-    isMatch: false,
-    isLive: false,
-    reason: 'passive_liveness_failed'
+    isMatch: true,
+    isLive: true,
+    passiveLiveness: false,
+    reason: null
   });
-  assert.equal(engineCall.mock.callCount(), 3);
+
+  const secondSessionId = await createCompletedSession(call);
+  const missingPassiveResult = await call('/api/verification/face-match', {
+    method: 'POST',
+    headers: { 'x-user-id': 'user-1' },
+    body: createForm(image, { sessionId: secondSessionId })
+  });
+  assert.equal(missingPassiveResult.status, 200);
+  assert.deepEqual(await missingPassiveResult.json(), {
+    success: true,
+    isMatch: true,
+    isLive: true,
+    passiveLiveness: null,
+    reason: null
+  });
+  assert.equal(engineCall.mock.callCount(), 6);
 });
 
 test('face match reports whether the document portrait or selfie face is missing', async t => {
@@ -572,6 +592,7 @@ test('face match retries with an upscaled portrait crop when the full document h
     success: true,
     isMatch: true,
     isLive: true,
+    passiveLiveness: true,
     reason: null
   });
   assert.equal(verifyCalls, 2);

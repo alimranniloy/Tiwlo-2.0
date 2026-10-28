@@ -866,18 +866,17 @@ router.post(
       }
 
       const result = await engineResponse.json();
-      const isLive = result.face2?.liveness?.is_live;
-      if (typeof result.is_match !== 'boolean' || typeof isLive !== 'boolean') {
+      const passiveLiveness = result.face2?.liveness?.is_live;
+      if (typeof result.is_match !== 'boolean' ||
+          (passiveLiveness !== undefined && passiveLiveness !== null &&
+           typeof passiveLiveness !== 'boolean')) {
         if (req.verificationHandoff) setHandoffStatus(req.verificationHandoff, 'failed', 'service_unavailable');
         return res.status(503).json({ error: 'The verification service is not fully configured.' });
       }
 
-      const isMatch = result.is_match && isLive;
-      const reason = !result.is_match
-        ? 'face_mismatch'
-        : !isLive
-          ? 'passive_liveness_failed'
-          : null;
+      const activeLivenessComplete = livenessSession.complete;
+      const isMatch = result.is_match && activeLivenessComplete;
+      const reason = isMatch ? null : 'face_mismatch';
       if (req.verificationHandoff) {
         setHandoffStatus(
           req.verificationHandoff,
@@ -889,7 +888,8 @@ router.post(
       return res.status(200).json({
         success: true,
         isMatch,
-        isLive,
+        isLive: activeLivenessComplete,
+        passiveLiveness: typeof passiveLiveness === 'boolean' ? passiveLiveness : null,
         reason
       });
     } catch (error) {
