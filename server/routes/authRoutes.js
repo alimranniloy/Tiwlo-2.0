@@ -1305,7 +1305,9 @@ router.post('/auth/verify-2fa', async (req, res) => {
         accountType: user.accountType,
         address: user.address,
         dateOfBirth: user.dateOfBirth || '',
-        phone: user.phone
+        phone: user.phone,
+        identityVerified: user.identityVerified === true,
+        identityVerificationRequired: user.identityVerificationRequired === true
       },
       message: `Two-Step verification successful. Welcome back, ${user.name || user.storeName}!`
     });
@@ -1478,7 +1480,9 @@ router.post('/auth/setup-2fa', async (req, res) => {
         accountType: user.accountType,
         address: user.address,
         dateOfBirth: user.dateOfBirth || '',
-        phone: user.phone
+        phone: user.phone,
+        identityVerified: user.identityVerified === true,
+        identityVerificationRequired: user.identityVerificationRequired === true
       },
       message: `2-Step Verification activated successfully! Welcome to Tiwlo, ${user.name || user.storeName}!`
     });
@@ -1914,6 +1918,8 @@ router.get('/auth/session', async (req, res) => {
         avatar: user.avatar || '/tiwlo-icon.png',
         coverPhoto: user.coverPhoto || '/cloud-hero-full-bg.jpg',
         email: user.email,
+        identityVerified: user.identityVerified === true,
+        identityVerificationRequired: user.identityVerificationRequired === true,
         planId: user.planId,
         planName: user.planName,
         subdomain: user.subdomain
@@ -1977,6 +1983,8 @@ router.get('/auth/me', async (req, res) => {
         avatar: freshUser.avatar || '/tiwlo-icon.png',
         coverPhoto: freshUser.coverPhoto || '/cloud-hero-full-bg.jpg',
         email: freshUser.email,
+        identityVerified: freshUser.identityVerified === true,
+        identityVerificationRequired: freshUser.identityVerificationRequired === true,
         role: freshUser.role || 'owner',
         planId: freshUser.planId,
         planName: freshUser.planName,
@@ -2041,6 +2049,8 @@ router.get('/auth/sync-session', async (req, res) => {
         avatar: freshUser.avatar || '/tiwlo-icon.png',
         coverPhoto: freshUser.coverPhoto || '/cloud-hero-full-bg.jpg',
         email: freshUser.email,
+        identityVerified: freshUser.identityVerified === true,
+        identityVerificationRequired: freshUser.identityVerificationRequired === true,
         role: freshUser.role || 'owner',
         planId: freshUser.planId,
         planName: freshUser.planName,
@@ -2276,6 +2286,8 @@ router.post('/auth/sso/consume-handshake', async (req, res) => {
         avatar: user.avatar || '/tiwlo-icon.png',
         coverPhoto: user.coverPhoto || '/cloud-hero-full-bg.jpg',
         email: user.email,
+        identityVerified: user.identityVerified === true,
+        identityVerificationRequired: user.identityVerificationRequired === true,
         planId: user.planId,
         planName: user.planName,
         subdomain: user.subdomain,

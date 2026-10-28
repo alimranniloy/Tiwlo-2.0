@@ -36,7 +36,10 @@ const ECOSYSTEM_DEFAULTS = {
 // Applied to each feature route after registration so only these routes load
 // the durable document and successful changes commit before the response.
 async function bindEcosystemState(req, res, next) {
-  if (!req.activeUser || req.activeUser.isBanned) return requireAuthenticatedUser(req, res, next);
+  if (!req.activeUser || req.activeUser.isBanned ||
+      (req.activeUser.identityVerificationRequired && !req.activeUser.identityVerified)) {
+    return requireAuthenticatedUser(req, res, next);
+  }
   const userId = req.activeUser.id;
   req.query = { ...req.query, userId };
   req.body = { ...req.body, userId, senderId: userId };

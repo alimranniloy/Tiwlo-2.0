@@ -180,7 +180,7 @@ export default function VerificationFlow({ initialStep = 1, onComplete = null, o
     if (isDesktop) return <MobileStartNotice />;
     return <MobileHandoff token={token} initialStep={initialStep} onComplete={onComplete} onCancel={onCancel} />;
   }
-  if (isDesktop) return <DesktopVerificationPage />;
+  if (isDesktop) return <DesktopVerificationPage onComplete={onComplete} />;
   if (startedFromIdentity) {
     return (
       <VerificationProvider initialStep={initialStep} onComplete={onComplete} onCancel={onCancel}>

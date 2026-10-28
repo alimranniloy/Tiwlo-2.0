@@ -18,7 +18,9 @@ function ProcessStep({ number, title, description, icon: Icon }) {
   );
 }
 
-export default function IdentityView({ onStartVerification }) {
+export default function IdentityView({ currentUser, onStartVerification }) {
+  const isVerified = currentUser?.identityVerified === true;
+
   return (
     <main className="min-h-full bg-white px-5 py-7 sm:px-8 sm:py-10">
       <div className="mx-auto max-w-4xl">
@@ -31,25 +33,29 @@ export default function IdentityView({ onStartVerification }) {
 
         <section className="rounded-[28px] bg-[#F1F6FE] px-6 py-8 sm:px-10 sm:py-11">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-xs font-medium text-[#5F6368]">
-            <span className="h-2 w-2 rounded-full bg-[#9AA0A6]" />
-            Not verified
+            <span className={`h-2 w-2 rounded-full ${isVerified ? 'bg-[#188038]' : 'bg-[#9AA0A6]'}`} />
+            {isVerified ? 'Verified' : 'Not verified'}
           </div>
 
           <h2 className="mt-5 max-w-xl text-[28px] font-normal leading-tight tracking-[-0.025em] text-[#202124] sm:text-[36px]">
-            Verify it’s really you
+            {isVerified ? 'Your identity check is complete' : 'Verify it’s really you'}
           </h2>
           <p className="mt-3 max-w-xl text-sm leading-6 text-[#5F6368] sm:text-base">
-            Match your selfie with your ID photo in a quick, guided check.
+            {isVerified
+              ? 'Your selfie matched the photo on your submitted document, and your account is active.'
+              : 'Match your selfie with your ID photo in a quick, guided check.'}
           </p>
 
-          <button
-            type="button"
-            onClick={onStartVerification}
-            className="mt-7 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#1A73E8] px-6 text-sm font-medium text-white shadow-[0_1px_2px_rgba(60,64,67,0.3)] transition hover:bg-[#1765CC] hover:shadow-[0_2px_5px_rgba(60,64,67,0.3)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D2E3FC] active:bg-[#185ABC]"
-          >
-            Start verification
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </button>
+          {!isVerified && (
+            <button
+              type="button"
+              onClick={onStartVerification}
+              className="mt-7 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#1A73E8] px-6 text-sm font-medium text-white shadow-[0_1px_2px_rgba(60,64,67,0.3)] transition hover:bg-[#1765CC] hover:shadow-[0_2px_5px_rgba(60,64,67,0.3)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#D2E3FC] active:bg-[#185ABC]"
+            >
+              Start verification
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </button>
+          )}
         </section>
 
         <section className="mt-9">

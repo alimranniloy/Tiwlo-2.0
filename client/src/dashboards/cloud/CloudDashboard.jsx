@@ -246,7 +246,10 @@ export default function CloudDashboard({
           )}
           {activeNav === 'identity' ? (
             <div className="-m-3.5 min-h-full sm:-m-6 lg:-m-8">
-              <IdentityView onStartVerification={() => onNavigateTab?.('verification')} />
+              <IdentityView
+                currentUser={currentUser}
+                onStartVerification={() => onNavigateTab?.('verification')}
+              />
             </div>
           ) : activeNav === 'profile-settings' ? (
             <div className="max-w-[1000px] mx-auto space-y-5">

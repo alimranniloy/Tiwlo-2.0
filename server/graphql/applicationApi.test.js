@@ -54,6 +54,37 @@ test('typed GraphQL rejects anonymous and other-tenant access', async t => {
   assert.deepEqual((await call('{products(tiwiId:"own"){id}}', {}, { authorization: 'owner' }, '/graphql')).body.data.products, []);
 });
 
+test('identity-required users can access only authentication and verification operations', async t => {
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    req.activeUser = {
+      id: 'locked-user',
+      identityVerificationRequired: true,
+      identityVerified: false
+    };
+    next();
+  });
+  const router = express.Router();
+  router.get('/records', (_req, res) => res.json({ records: [] }));
+  router.post('/verification/handoff', (_req, res) => res.status(201).json({ session: 'created' }));
+  app.post('/api/graphql', createApplicationGraphQL([['/api', router]]));
+  const call = await serve(t, app);
+
+  const restricted = await call(
+    'query($input:ApplicationInput){result:getApiRecords(input:$input){status body}}',
+    { input: {} }
+  );
+  assert.equal(restricted.body.data.result.status, 403);
+  assert.equal(restricted.body.data.result.body.code, 'IDENTITY_VERIFICATION_REQUIRED');
+
+  const verification = await call(
+    'mutation($input:ApplicationInput){result:postApiVerificationHandoff(input:$input){status body}}',
+    { input: {} }
+  );
+  assert.equal(verification.body.data.result.status, 201);
+});
+
 test('production GraphQL hides the explorer and rejects introspection', async t => {
   const previousNodeEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = 'production';

@@ -72,6 +72,7 @@ const OneProfileDashboard = lazy(() => import('./oneprofile'));
 
 // Cross-device Identity Verification Flow (/verification)
 const VerificationFlow = lazy(() => import('./verification'));
+const IdentityRequiredView = lazy(() => import('./verification/IdentityRequiredView'));
 
 // Live Support AI Widget
 const LiveSupportWidget = lazy(() => import('./support/ai/LiveSupportWidget'));
@@ -244,6 +245,9 @@ export default function App() {
       }
       if (pathname === 'identity') {
         return 'identity';
+      }
+      if (pathname === 'identity-required') {
+        return 'identity-required';
       }
 
       // Check if user is navigating on the configured authentication subdomain.
@@ -919,6 +923,16 @@ export default function App() {
               setCurrentUser(data.user);
               setAuthChecking(false);
 
+              if (data.user.identityVerificationRequired && !data.user.identityVerified) {
+                if (isAuthHost) {
+                  redirectAfterAuthentication(getMainAppUrl('/identity-required'));
+                  return;
+                }
+                setActiveTab('identity-required');
+                window.history.replaceState(null, '', '/identity-required');
+                return;
+              }
+
               if (isAuthHost) {
                 if (searchParams.get('mail_return') === '1') {
                   redirectAfterAuthentication(getMailUrl());
@@ -1213,6 +1227,15 @@ export default function App() {
 
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
+    if (user?.identityVerificationRequired && !user?.identityVerified) {
+      if (isAuthSubdomain()) {
+        redirectAfterAuthentication(getMainAppUrl('/identity-required'));
+      } else {
+        setDashboardLoading(false);
+        handleTabChange('identity-required');
+      }
+      return;
+    }
     if (isAuthSubdomain()) {
       sessionStorage.removeItem('tiwlo_explicit_logout');
       const searchParams = new URLSearchParams(window.location.search);
@@ -1843,6 +1866,14 @@ export default function App() {
       <Suspense fallback={<TiwloTopSyncBar active={true} />}>
         {authChecking && (activeTab === 'administrator' || activeTab === 'admin' || activeTab === 'tpanel') ? (
           <TiwloPageLoader />
+        ) : !authChecking && currentUser?.identityVerificationRequired === true &&
+          currentUser?.identityVerified !== true && activeTab !== 'verification' &&
+          !String(activeTab).startsWith('verification/') ? (
+          <IdentityRequiredView
+            user={currentUser}
+            onStartVerification={() => handleTabChange('verification')}
+            onSignOut={handleLogout}
+          />
         ) : activeTab === 'not-found' ? (
           <NotFoundView
             onNavigate={(target) => {
@@ -2040,8 +2071,20 @@ export default function App() {
       ) : (activeTab === 'verification' || (typeof activeTab === 'string' && activeTab.startsWith('verification'))) ? (
         <Suspense fallback={<TiwloPageLoader text="Loading Identity Verification..." />}>
           <VerificationFlow
-            onComplete={() => handleTabChange('dashboard')}
-            onCancel={() => handleTabChange('dashboard')}
+            onComplete={() => {
+              if (!currentUser?.id) return;
+              const verifiedUser = {
+                ...currentUser,
+                identityVerified: true,
+                identityVerificationRequired: false
+              };
+              setCurrentUser(verifiedUser);
+              localStorage.setItem('stockpro_user', JSON.stringify(verifiedUser));
+              handleTabChange('dashboard');
+            }}
+            onCancel={() => handleTabChange(
+              currentUser?.identityVerificationRequired ? 'identity-required' : 'dashboard'
+            )}
           />
         </Suspense>
       ) : activeTab === 'pos' ? (

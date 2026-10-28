@@ -4,6 +4,9 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import multer from 'multer';
 import rateLimit from 'express-rate-limit';
 import sharp from 'sharp';
+import { MasterDB } from '../db/multiTenant.js';
+import { identityVerificationEmailNotifications } from '../db/emailService.js';
+import { recordSecurityEvent } from '../db/securityPersistence.js';
 import { requireAuthenticatedUser } from '../security/authGuards.js';
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -198,7 +201,35 @@ function requireVerificationAccess(req, res, next) {
     }
     return res.status(401).json({ error: 'This verification link is no longer active.' });
   }
-  return requireAuthenticatedUser(req, res, next);
+  return requireAuthenticatedUser(req, res, next, { allowIdentityVerification: true });
+}
+
+function requireIdentityVerificationUser(req, res, next) {
+  return requireAuthenticatedUser(req, res, next, { allowIdentityVerification: true });
+}
+
+async function completeIdentityVerification(userId, method) {
+  if (!userId) throw new Error('Verification session is not linked to an account.');
+  const existingUser = await MasterDB.findUserByIdentifier(userId);
+  if (!existingUser) throw new Error('The account for this verification session no longer exists.');
+  if (existingUser.identityVerified && !existingUser.identityVerificationRequired) return;
+
+  const user = await MasterDB.updateUser(existingUser.id, {
+    identityVerified: true,
+    identityVerificationRequired: false
+  });
+  if (!user) throw new Error('The account verification status could not be saved.');
+  identityVerificationEmailNotifications.completed({
+    to: user.email,
+    name: user.name || user.storeName || 'Tiwlo user'
+  }).catch(error => console.error('[Identity Verification Complete Email Error]', error.message));
+  await recordSecurityEvent({
+    eventType: 'identity.verification_succeeded',
+    severity: 'info',
+    userId: user.id,
+    subject: user.email,
+    details: { method }
+  });
 }
 
 function setHandoffStatus(session, status, result = null) {
@@ -458,7 +489,7 @@ const handoffLimiter = rateLimit({
   message: { error: 'Too many verification links. Please try again later.' }
 });
 
-router.post('/handoff', sendNoStore, handoffLimiter, (req, res) => {
+router.post('/handoff', requireIdentityVerificationUser, sendNoStore, handoffLimiter, (req, res) => {
   pruneExpiredHandoffs();
   const id = randomBytes(24).toString('base64url');
   const sessionKey = randomBytes(32).toString('base64url');
@@ -473,7 +504,8 @@ router.post('/handoff', sendNoStore, handoffLimiter, (req, res) => {
     redeemedAt: null,
     closed: false,
     status: 'waiting',
-    result: null
+    result: null,
+    userId: req.activeUser.id
   };
   handoffSessions.set(id, session);
   const token = createHandoffToken(session);
@@ -877,6 +909,18 @@ router.post(
       const activeLivenessComplete = livenessSession.complete;
       const isMatch = result.is_match && activeLivenessComplete;
       const reason = isMatch ? null : 'face_mismatch';
+      if (isMatch) {
+        try {
+          await completeIdentityVerification(
+            req.activeUser?.id || req.verificationHandoff?.userId,
+            req.verificationHandoff ? 'qr_handoff' : 'direct'
+          );
+        } catch (verificationError) {
+          console.error('[Verification] Could not persist identity verification:', verificationError.message);
+          if (req.verificationHandoff) setHandoffStatus(req.verificationHandoff, 'failed', 'verification_save_failed');
+          return res.status(503).json({ error: 'Your identity check passed, but account access could not be updated. Please try again.' });
+        }
+      }
       if (req.verificationHandoff) {
         setHandoffStatus(
           req.verificationHandoff,

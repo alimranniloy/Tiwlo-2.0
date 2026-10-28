@@ -9,13 +9,15 @@ import {
   ArrowLeft,
   X,
   AlertTriangle,
+  BadgeCheck,
+  ShieldAlert,
 } from 'lucide-react';
 
 const API_BASE = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
   ? 'http://localhost:5000/api'
   : '/api';
 
-export default function AdminCustomersView({ onBackToDashboard, showToast }) {
+export default function AdminCustomersView({ onBackToDashboard, showToast, currentUser }) {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
@@ -79,6 +81,40 @@ export default function AdminCustomersView({ onBackToDashboard, showToast }) {
       }
     } catch {
       showToast?.('Network error updating user', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRequireIdentityVerification = async (customer) => {
+    try {
+      setActionLoading(true);
+      const token = localStorage.getItem('stockpro_session');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      headers['x-tiwlo-reauth-grant'] = await requestSensitiveActionGrant(
+        headers,
+        API_BASE.replace(/\/api\/?$/, '') || window.location.origin
+      );
+      const response = await fetch(
+        `${API_BASE}/admin/users/${encodeURIComponent(customer.id)}/identity-verification/require`,
+        {
+          method: 'POST',
+          headers,
+          credentials: 'include'
+        }
+      );
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Could not require identity verification.');
+      }
+      showToast?.(result.message || 'Identity verification is now required.');
+      setCustomers(previous => previous.map(user => user.id === customer.id
+        ? { ...user, identityVerificationRequired: true, status: 'Identity required' }
+        : user
+      ));
+    } catch (error) {
+      showToast?.(error.message || 'Could not require identity verification.', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -169,7 +205,7 @@ export default function AdminCustomersView({ onBackToDashboard, showToast }) {
             <thead>
               <tr className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 bg-slate-50/50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800">
                 <th className="py-2.5 px-4">Merchant / Customer</th>
-                <th className="py-2.5 px-3">Tiwi ID</th>
+                <th className="py-2.5 px-3">Tiwi ID / Identity</th>
                 <th className="py-2.5 px-3 text-center">Stores Count</th>
                 <th className="py-2.5 px-3">Primary Store</th>
                 <th className="py-2.5 px-3">Plan</th>
@@ -220,8 +256,39 @@ export default function AdminCustomersView({ onBackToDashboard, showToast }) {
                     </td>
 
                     {/* Tiwi ID */}
-                    <td className="py-2.5 px-3 font-mono font-medium text-slate-600 dark:text-slate-400 text-[11px]">
-                      {c.tiwiId}
+                    <td className="py-2.5 px-3">
+                      <p className="font-mono font-medium text-slate-600 dark:text-slate-400 text-[11px]">
+                        {c.tiwiId || '—'}
+                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        {c.identityVerified ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#E6F4EA] px-2 py-0.5 text-[10px] font-medium text-[#137333]">
+                            <BadgeCheck className="h-3 w-3" aria-hidden="true" />
+                            Verified
+                          </span>
+                        ) : c.identityVerificationRequired ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#FCE8E6] px-2 py-0.5 text-[10px] font-medium text-[#B3261E]">
+                            <ShieldAlert className="h-3 w-3" aria-hidden="true" />
+                            Account locked · ID required
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-[#F1F3F4] px-2 py-0.5 text-[10px] font-medium text-[#5F6368]">
+                            Not verified
+                          </span>
+                        )}
+                        {!c.isBanned && !c.identityVerified && !c.identityVerificationRequired &&
+                          c.role !== 'super_admin' && c.email !== 'tiwloltd@gmail.com' &&
+                          (c.role !== 'admin' || currentUser?.role === 'super_admin') && (
+                            <button
+                              type="button"
+                              disabled={actionLoading}
+                              onClick={() => handleRequireIdentityVerification(c)}
+                              className="rounded-full px-2 py-0.5 text-[10px] font-medium text-[#1A73E8] transition hover:bg-[#E8F0FE] disabled:cursor-wait disabled:opacity-60"
+                            >
+                              {actionLoading ? 'Applying…' : 'Lock & require ID'}
+                            </button>
+                          )}
+                      </div>
                     </td>
 
                     {/* Stores Count with interactive preview */}

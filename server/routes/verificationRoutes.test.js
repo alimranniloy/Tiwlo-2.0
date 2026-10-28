@@ -2,10 +2,35 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import express from 'express';
 import sharp from 'sharp';
+import { MasterDB } from '../db/multiTenant.js';
+import { getPgPool } from '../db/postgres.js';
+import { identityVerificationEmailNotifications } from '../db/emailService.js';
 import verificationRoutes from './verificationRoutes.js';
 
 const originalFetch = globalThis.fetch;
 let nextTestIp = 1;
+
+function mockIdentityCompletion(t, initialUser = {}) {
+  let user = {
+    id: 'user-1',
+    email: 'verification-test@example.com',
+    identityVerified: false,
+    identityVerificationRequired: false,
+    ...initialUser
+  };
+  t.mock.method(MasterDB, 'findUserByIdentifier', async () => user);
+  const updateUser = t.mock.method(MasterDB, 'updateUser', async (_id, updates) => {
+    user = { ...user, ...updates };
+    return user;
+  });
+  t.mock.method(getPgPool(), 'query', async () => ({ rows: [{ id: 1 }] }));
+  const completedEmail = t.mock.method(
+    identityVerificationEmailNotifications,
+    'completed',
+    async () => ({ success: true })
+  );
+  return { updateUser, completedEmail };
+}
 
 async function createClient(t) {
   const clientIp = `198.51.100.${nextTestIp++}`;
@@ -30,7 +55,10 @@ test('verification QR links expire after five minutes and can only be redeemed o
   const call = await createClient(t);
   const clock = { now: Date.now() };
   t.mock.method(Date, 'now', () => clock.now);
-  const createdResponse = await call('/api/verification/handoff', { method: 'POST' });
+  const createdResponse = await call('/api/verification/handoff', {
+    method: 'POST',
+    headers: { 'x-user-id': 'user-1' }
+  });
   assert.equal(createdResponse.status, 201);
   const created = await createdResponse.json();
   assert.equal(typeof created.sessionId, 'string');
@@ -90,9 +118,16 @@ test('verification QR links expire after five minutes and can only be redeemed o
   assert.equal(unavailable.status, 404);
 });
 
-test('a redeemed mobile link can complete verification without an authenticated account', async t => {
+test('a redeemed mobile link completes verification for its linked account without a phone login', async t => {
   const call = await createClient(t);
-  const handoffResponse = await call('/api/verification/handoff', { method: 'POST' });
+  const user = { id: 'user-1' };
+  const { updateUser, completedEmail } = mockIdentityCompletion(t, {
+    identityVerificationRequired: true
+  });
+  const handoffResponse = await call('/api/verification/handoff', {
+    method: 'POST',
+    headers: { 'x-user-id': user.id }
+  });
   const handoff = await handoffResponse.json();
   const redeemResponse = await call('/api/verification/handoff/redeem', {
     method: 'POST',
@@ -165,6 +200,11 @@ test('a redeemed mobile link can complete verification without an authenticated 
     reason: null
   });
   assert.equal(engineCall.mock.callCount(), 3);
+  assert.deepEqual(updateUser.mock.calls[0].arguments[1], {
+    identityVerified: true,
+    identityVerificationRequired: false
+  });
+  assert.equal(completedEmail.mock.callCount(), 1);
 
   const status = await call(
     `/api/verification/handoff/${handoff.sessionId}/status`,
@@ -328,6 +368,7 @@ test('face match requires an authenticated user', async t => {
 
 test('face match forwards validated images and requires a live matching face', async t => {
   const call = await createClient(t);
+  mockIdentityCompletion(t);
   const image = await createImage();
   const previousToken = process.env.OPENBIOMETRICS_SHARED_TOKEN;
   process.env.OPENBIOMETRICS_SHARED_TOKEN = 'test-token';
@@ -401,6 +442,7 @@ test('face match forwards validated images and requires a live matching face', a
 
 test('completed active challenges remain authoritative when passive liveness has a false negative', async t => {
   const call = await createClient(t);
+  mockIdentityCompletion(t);
   const image = await createImage();
   const previousToken = process.env.OPENBIOMETRICS_SHARED_TOKEN;
   process.env.OPENBIOMETRICS_SHARED_TOKEN = 'test-token';
@@ -519,6 +561,7 @@ test('face match reports whether the document portrait or selfie face is missing
 
 test('face match retries with an upscaled portrait crop when the full document has no detectable face', async t => {
   const call = await createClient(t);
+  mockIdentityCompletion(t);
   const image = await createImage();
   const previousToken = process.env.OPENBIOMETRICS_SHARED_TOKEN;
   process.env.OPENBIOMETRICS_SHARED_TOKEN = 'test-token';

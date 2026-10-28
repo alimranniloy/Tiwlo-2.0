@@ -115,6 +115,8 @@ export async function initPgSchema() {
       ALTER TABLE system_users ADD COLUMN IF NOT EXISTS business_name VARCHAR(255);
       ALTER TABLE system_users ADD COLUMN IF NOT EXISTS free_subdomain_claimed_at TIMESTAMP WITH TIME ZONE;
       ALTER TABLE system_users ADD COLUMN IF NOT EXISTS free_subdomain_id VARCHAR(64);
+      ALTER TABLE system_users ADD COLUMN IF NOT EXISTS identity_verified BOOLEAN NOT NULL DEFAULT FALSE;
+      ALTER TABLE system_users ADD COLUMN IF NOT EXISTS identity_verification_required BOOLEAN NOT NULL DEFAULT FALSE;
       CREATE UNIQUE INDEX IF NOT EXISTS idx_users_tiwi_id_unique ON system_users(tiwi_id) WHERE tiwi_id IS NOT NULL;
 
       CREATE TABLE IF NOT EXISTS system_sessions (

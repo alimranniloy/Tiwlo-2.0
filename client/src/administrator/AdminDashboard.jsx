@@ -148,6 +148,7 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
             <AdminCustomersView
               onBackToDashboard={() => handleNavigate('dashboard')}
               showToast={showToast}
+              currentUser={currentUser}
             />
           ) : activeView === 'users' ? (
             <AdminUsersView

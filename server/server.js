@@ -230,6 +230,23 @@ app.use(async (req, res, next) => {
             redirectUrl: '/account-disabled'
           });
         }
+        const isProtectedApiRequest = req.path.startsWith('/api/') || req.path === '/graphql';
+        const isIdentityVerificationRequest = req.path === '/api/verification' ||
+          req.path.startsWith('/api/verification/');
+        const isAuthRequest = req.path === '/api/auth' || req.path.startsWith('/api/auth/');
+        if (
+          isProtectedApiRequest &&
+          sessionData.user.identityVerificationRequired === true &&
+          sessionData.user.identityVerified !== true &&
+          !isIdentityVerificationRequest &&
+          !isAuthRequest
+        ) {
+          return res.status(403).json({
+            error: 'Identity verification is required before you can use this account.',
+            code: 'IDENTITY_VERIFICATION_REQUIRED',
+            redirectUrl: '/identity-required'
+          });
+        }
       }
     }
 

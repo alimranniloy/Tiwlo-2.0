@@ -1,6 +1,10 @@
 import express from 'express';
 import { MasterDB, TenantDB } from '../db/multiTenant.js';
-import { sendAccountDisabledEmail, sendAccountRestoredEmail } from '../db/emailService.js';
+import {
+  sendAccountDisabledEmail,
+  sendAccountRestoredEmail,
+  identityVerificationEmailNotifications
+} from '../db/emailService.js';
 import { RestoreSessions } from '../db/restoreSessions.js';
 import { queryPg } from '../db/postgres.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
@@ -431,8 +435,10 @@ router.get('/customers', requireAdmin, async (req, res) => {
         planName: u.planName || u.planId || 'Unknown',
         planId: u.planId || 'free',
         isBanned: !!u.isBanned,
+        identityVerified: u.identityVerified === true,
+        identityVerificationRequired: u.identityVerificationRequired === true,
         banReason: u.banReason || '',
-        status: u.isBanned ? 'Suspended' : 'Active',
+        status: u.isBanned ? 'Suspended' : u.identityVerificationRequired && !u.identityVerified ? 'Identity required' : 'Active',
         createdAt: u.createdAt || null
       };
     });
@@ -459,6 +465,68 @@ router.get('/customers', requireAdmin, async (req, res) => {
   } catch (err) {
     console.error('[Admin Customers Error]', err);
     res.status(500).json({ error: 'Failed to retrieve customers.' });
+  }
+});
+
+router.post('/users/:id/identity-verification/require', requireAdmin, requireRecentReauth, async (req, res) => {
+  try {
+    const targetUser = await MasterDB.findUserByIdentifier(req.params.id);
+    if (!targetUser) return res.status(404).json({ error: 'User not found in system.' });
+    if (targetUser.isBanned) {
+      return res.status(409).json({ error: 'Disabled accounts must be restored before identity verification can be required.' });
+    }
+    if (isSuperAdminUser(targetUser)) {
+      return res.status(403).json({ error: 'Super Administrator accounts cannot be locked for identity verification.' });
+    }
+    if (targetUser.role === 'admin' && !isSuperAdminUser(req.adminUser)) {
+      return res.status(403).json({ error: 'Only a super administrator can require identity verification for another administrator.' });
+    }
+    if (targetUser.identityVerified) {
+      return res.status(409).json({ error: 'This account has already completed identity verification.' });
+    }
+    if (targetUser.identityVerificationRequired) {
+      return res.status(409).json({ error: 'Identity verification is already required for this account.' });
+    }
+
+    const updatedUser = await MasterDB.updateUser(targetUser.id, {
+      identityVerificationRequired: true
+    });
+    if (!updatedUser) return res.status(404).json({ error: 'User not found in system.' });
+    await recordSecurityEvent({
+      eventType: 'admin.identity_verification_required',
+      severity: 'warning',
+      userId: updatedUser.id,
+      subject: updatedUser.email,
+      details: { administrator: req.adminUser.email }
+    });
+
+    identityVerificationEmailNotifications.required({
+      to: updatedUser.email,
+      name: updatedUser.name || updatedUser.storeName || 'Tiwlo user'
+    }).catch(error => console.error('[Identity Verification Required Email Error]', error.message));
+
+    try {
+      await MasterDB.revokeUserSessions(updatedUser.id);
+    } catch (error) {
+      console.error('[Admin Identity Verification] Could not revoke existing sessions:', error.message);
+      return res.status(503).json({
+        error: 'Identity verification is required and account access is restricted, but existing sessions could not be signed out.'
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `Identity verification is now required for ${updatedUser.name || updatedUser.email}.`,
+      user: {
+        id: updatedUser.id,
+        tiwiId: updatedUser.tiwiId,
+        identityVerified: false,
+        identityVerificationRequired: true
+      }
+    });
+  } catch (error) {
+    console.error('[Admin Identity Verification] Could not require verification:', error);
+    return res.status(500).json({ error: 'Could not require identity verification for this account.' });
   }
 });
 
@@ -496,6 +564,8 @@ router.get('/users', requireAdmin, async (req, res) => {
         stores: userStores.map(s => ({ id: s.id, name: s.storeName, subdomain: s.subdomain })),
         avatar: u.avatar && !u.avatar.includes('unsplash.com') ? u.avatar : '/tiwlo-icon.png',
         isBanned: !!u.isBanned,
+        identityVerified: u.identityVerified === true,
+        identityVerificationRequired: u.identityVerificationRequired === true,
         banReason: u.banReason || '',
         bannedAt: u.bannedAt || null,
         emailVerified: u.emailVerified === true,
@@ -965,4 +1035,3 @@ router.post('/payment-gateways', requireAdmin, requireRecentReauth, async (req, 
 });
 
 export default router;
-

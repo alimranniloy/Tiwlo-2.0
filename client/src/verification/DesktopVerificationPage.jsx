@@ -13,13 +13,14 @@ async function readJson(response) {
   return result;
 }
 
-export default function DesktopVerificationPage() {
+export default function DesktopVerificationPage({ onComplete = null }) {
   const [session, setSession] = useState(null);
   const [qrCode, setQrCode] = useState('');
   const [status, setStatus] = useState('waiting');
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [error, setError] = useState('');
   const sessionRef = useRef(null);
+  const completionHandled = useRef(false);
 
   const requestSession = useCallback(async () => {
     const result = await readJson(await fetch('/api/verification/handoff', {
@@ -129,6 +130,12 @@ export default function DesktopVerificationPage() {
       window.clearInterval(timer);
     };
   }, [createSession, session, status]);
+
+  useEffect(() => {
+    if (status !== 'success' || !onComplete || completionHandled.current) return;
+    completionHandled.current = true;
+    onComplete();
+  }, [onComplete, status]);
 
   useEffect(() => {
     if (!session || status !== 'waiting') return undefined;

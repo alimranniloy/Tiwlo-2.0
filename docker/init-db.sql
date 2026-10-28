@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS system_users (
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(32) DEFAULT 'owner',
+    identity_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    identity_verification_required BOOLEAN NOT NULL DEFAULT FALSE,
     date_of_birth DATE,
     phone VARCHAR(64),
     city VARCHAR(100),
@@ -24,6 +26,9 @@ CREATE TABLE IF NOT EXISTS system_users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE system_users ADD COLUMN IF NOT EXISTS identity_verified BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE system_users ADD COLUMN IF NOT EXISTS identity_verification_required BOOLEAN NOT NULL DEFAULT FALSE;
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON system_users(email);
 CREATE INDEX IF NOT EXISTS idx_users_tiwi_id ON system_users(tiwi_id);

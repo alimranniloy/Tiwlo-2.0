@@ -49,6 +49,8 @@ import {
   renderInvoiceEmail,
   renderAccountDisabledEmail,
   renderAccountRestoredEmail,
+  renderIdentityVerificationRequiredEmail,
+  renderIdentityVerificationCompleteEmail,
   renderContentRemovedEmail
 } from '../email/index.js';
 
@@ -585,6 +587,35 @@ export async function sendAccountRestoredEmail({ to, name, checkupUrl }) {
     metadata: { recipientName: name, checkupUrl }
   });
 }
+
+export async function sendIdentityVerificationRequiredEmail({ to, name, identityUrl }) {
+  const html = renderIdentityVerificationRequiredEmail({ to, name, identityUrl });
+  return sendTiwloEmail({
+    to,
+    subject: 'Action required: verify your Tiwlo identity',
+    html,
+    text: `Identity verification is required before you can use your Tiwlo account. Sign in and complete verification to restore access: ${identityUrl || getPlatformUrl('identity-required')}`,
+    type: 'identity_verification_required',
+    metadata: { recipientName: name, identityUrl }
+  });
+}
+
+export async function sendIdentityVerificationCompleteEmail({ to, name, accountUrl }) {
+  const html = renderIdentityVerificationCompleteEmail({ to, name, accountUrl });
+  return sendTiwloEmail({
+    to,
+    subject: 'Your Tiwlo account is verified and unlocked',
+    html,
+    text: `Your identity check was successful and your Tiwlo account is unlocked. Continue to your account: ${accountUrl || getPlatformUrl('dashboard')}`,
+    type: 'identity_verification_complete',
+    metadata: { recipientName: name, accountUrl }
+  });
+}
+
+export const identityVerificationEmailNotifications = {
+  required: sendIdentityVerificationRequiredEmail,
+  completed: sendIdentityVerificationCompleteEmail
+};
 
 /**
  * 8. Notice of Content Removal Email

@@ -151,6 +151,8 @@ export const MasterDB = {
           name: r.name || r.store_name,
           isBanned: r.is_banned === true,
           banReason: r.ban_reason || null,
+          identityVerified: r.identity_verified === true,
+          identityVerificationRequired: r.identity_verification_required === true,
           emailVerified: r.email_verified === true,
           twoFactorEnabled: r.two_factor_enabled === true,
           authMethod: r.auth_method || 'credentials',
@@ -255,6 +257,14 @@ export const MasterDB = {
         if (updates.isBanned !== undefined) {
           fields.push(`is_banned = $${valIndex++}`);
           values.push(Boolean(updates.isBanned));
+        }
+        if (updates.identityVerified !== undefined) {
+          fields.push(`identity_verified = $${valIndex++}`);
+          values.push(Boolean(updates.identityVerified));
+        }
+        if (updates.identityVerificationRequired !== undefined) {
+          fields.push(`identity_verification_required = $${valIndex++}`);
+          values.push(Boolean(updates.identityVerificationRequired));
         }
         if (updates.banReason !== undefined) {
           fields.push(`ban_reason = $${valIndex++}`);

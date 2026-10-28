@@ -32,6 +32,20 @@ function dispatch(router, route, method, input, context, fullPath) {
     if (context.req.activeUser?.isBanned && !/^\/api\/auth\/(disabled|appeal|session|logout)(\/|$)/.test(fullPath)) {
       return resolve({ status: 403, body: { error: 'ACCOUNT_DISABLED', banned: true, reason: context.req.activeUser.banReason }, headers: {} });
     }
+    if (
+      context.req.activeUser?.identityVerificationRequired === true &&
+      context.req.activeUser?.identityVerified !== true &&
+      !/^\/api\/(?:auth|verification)(\/|$)/.test(fullPath)
+    ) {
+      return resolve({
+        status: 403,
+        body: {
+          error: 'Identity verification is required before you can use this account.',
+          code: 'IDENTITY_VERIFICATION_REQUIRED'
+        },
+        headers: {}
+      });
+    }
     Object.assign(req, {
       method, url: routePath, originalUrl: routePath, baseUrl: '',
       params: {}, query: input?.query || {}, body: input?.body || {},
