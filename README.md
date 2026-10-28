@@ -78,11 +78,13 @@ invalidates active QR links. On the phone, the user uploads an identity
 document and completes a randomized sequence of head turns, a blink, and an
 open-mouth action; camera framing checks keep guiding position and focus before
 recording begins, and each action has up to 90 seconds. Camera frames are
-checked live by the engine. Document images, selfies, and the short camera
-recording are processed in memory and are not retained. The flow compares faces
-and checks passive and active liveness, but it does not verify document
-authenticity or persist an identity-verification status. Do not treat this
-face-match result as formal KYC approval.
+checked live by the engine. After the actions, the flow waits for a centered,
+sharp, forward-facing selfie frame before running the passive liveness check.
+Document images, selfies, and the short camera recording are processed in
+memory and are not retained. The flow compares faces and checks passive and
+active liveness, but it does not verify document authenticity or persist an
+identity-verification status. Do not treat this face-match result as formal KYC
+approval.
 
 For local `npm run dev`, start the private verification engine separately with
 `npm run docker:biometrics` (Docker required). The development Compose file

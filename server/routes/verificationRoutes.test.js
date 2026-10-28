@@ -181,21 +181,22 @@ test('camera framing feedback waits for one centered, focused face but permits l
     { count: 2, faces: [{}, {}] },
     {
       count: 1,
-      faces: [{ detection: { bbox: [20, 100, 100, 260] }, quality: { sharpness: 50, brightness: 100 } }]
+      faces: [{ detection: { bbox: [20, 100, 100, 260] }, quality: { sharpness: 50, brightness: 100, head_pose_ok: true } }]
     },
     {
       count: 1,
-      faces: [{ detection: { bbox: [240, 120, 400, 360] }, quality: { sharpness: 20, brightness: 100 } }]
+      faces: [{ detection: { bbox: [240, 120, 400, 360] }, quality: { sharpness: 20, brightness: 100, head_pose_ok: true } }]
     },
     {
       count: 1,
-      faces: [{ detection: { bbox: [240, 120, 400, 360] }, quality: { sharpness: 40, brightness: 28 } }]
+      faces: [{ detection: { bbox: [240, 120, 400, 360] }, quality: { sharpness: 40, brightness: 28, head_pose_ok: true } }]
     },
-    { count: 1, faces: [{ detection: { bbox: [30, 120, 190, 360] }, quality: { sharpness: 50 } }] },
-    { count: 1, faces: [{ detection: { bbox: [450, 120, 610, 360] }, quality: { sharpness: 50 } }] },
-    { count: 1, faces: [{ detection: { bbox: [240, 10, 400, 150] }, quality: { sharpness: 50 } }] },
-    { count: 1, faces: [{ detection: { bbox: [240, 330, 400, 470] }, quality: { sharpness: 50 } }] },
-    { count: 1, faces: [{ detection: { bbox: [160, 200, 320, 440] }, quality: { sharpness: 50 } }] }
+    { count: 1, faces: [{ detection: { bbox: [30, 120, 190, 360] }, quality: { sharpness: 50, head_pose_ok: true } }] },
+    { count: 1, faces: [{ detection: { bbox: [450, 120, 610, 360] }, quality: { sharpness: 50, head_pose_ok: true } }] },
+    { count: 1, faces: [{ detection: { bbox: [240, 10, 400, 150] }, quality: { sharpness: 50, head_pose_ok: true } }] },
+    { count: 1, faces: [{ detection: { bbox: [240, 330, 400, 470] }, quality: { sharpness: 50, head_pose_ok: true } }] },
+    { count: 1, faces: [{ detection: { bbox: [160, 200, 320, 440] }, quality: { sharpness: 50, head_pose_ok: true } }] },
+    { count: 1, faces: [{ detection: { bbox: [240, 120, 400, 360] }, quality: { sharpness: 50, head_pose_ok: false } }] }
   ];
   const engineCall = t.mock.method(globalThis, 'fetch', async url => {
     assert.equal(String(url), 'http://127.0.0.1:8000/api/v1/detect');
@@ -212,7 +213,8 @@ test('camera framing feedback waits for one centered, focused face but permits l
     [false, 'center_right', image],
     [false, 'center_lower', image],
     [false, 'center_upper', image],
-    [true, null, portraitImage]
+    [true, null, portraitImage],
+    [false, 'face_forward', image]
   ]) {
     const body = new FormData();
     body.append('frame', new Blob([frame], { type: 'image/png' }), 'frame.png');
@@ -226,7 +228,7 @@ test('camera framing feedback waits for one centered, focused face but permits l
     assert.equal(result.ready, expected);
     assert.equal(result.guidance, guidance);
   }
-  assert.equal(engineCall.mock.callCount(), 10);
+  assert.equal(engineCall.mock.callCount(), 11);
 });
 
 async function createImage(width = 16, height = 16) {
@@ -408,7 +410,7 @@ test('a face match without a positive liveness result is never accepted', async 
     success: true,
     isMatch: false,
     isLive: false,
-    reason: 'liveness_check_failed'
+    reason: 'passive_liveness_failed'
   });
   assert.equal(engineCall.mock.callCount(), 3);
 });

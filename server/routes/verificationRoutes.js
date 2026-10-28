@@ -43,7 +43,8 @@ const livenessSessionLimiter = rateLimit({
 
 const livenessFrameLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 600,
+  // Four 90-second challenges at 500ms polling can submit up to 720 frames.
+  limit: 900,
   keyGenerator: getVerificationRateLimitKey,
   standardHeaders: true,
   legacyHeaders: false,
@@ -709,12 +710,14 @@ router.post(
       const face = result.faces[0];
       const bbox = face?.detection?.bbox;
       const sharpness = face?.quality?.sharpness;
+      const headPoseOk = face?.quality?.head_pose_ok;
       if (!Array.isArray(bbox) || bbox.length !== 4 ||
           bbox.some(value => typeof value !== 'number' || !Number.isFinite(value)) ||
           bbox[0] < 0 || bbox[1] < 0 ||
           bbox[2] > frame.width || bbox[3] > frame.height ||
           bbox[2] <= bbox[0] || bbox[3] <= bbox[1] ||
-          typeof sharpness !== 'number' || !Number.isFinite(sharpness)) {
+          typeof sharpness !== 'number' || !Number.isFinite(sharpness) ||
+          typeof headPoseOk !== 'boolean') {
         return res.status(503).json({ error: 'The camera quality check returned invalid face data.' });
       }
       const faceWidth = bbox[2] - bbox[0];
@@ -734,6 +737,8 @@ router.post(
         guidance = 'center_lower';
       } else if (faceCenterY > 0.7) {
         guidance = 'center_upper';
+      } else if (!headPoseOk) {
+        guidance = 'face_forward';
       } else if (sharpness < 30) {
         guidance = 'hold_still';
       }
@@ -743,7 +748,8 @@ router.post(
         guidance,
         quality: face.quality ? {
           sharpness: face.quality.sharpness,
-          brightness: face.quality.brightness
+          brightness: face.quality.brightness,
+          headPoseOk
         } : null
       });
     } catch (error) {
@@ -872,11 +878,16 @@ router.post(
       }
 
       const isMatch = result.is_match && isLive;
+      const reason = !result.is_match
+        ? 'face_mismatch'
+        : !isLive
+          ? 'passive_liveness_failed'
+          : null;
       if (req.verificationHandoff) {
         setHandoffStatus(
           req.verificationHandoff,
           isMatch ? 'success' : 'failed',
-          !isLive ? 'liveness_check_failed' : isMatch ? null : 'face_mismatch'
+          reason
         );
         if (isMatch) req.verificationHandoff.accessTokenHash = null;
       }
@@ -884,7 +895,7 @@ router.post(
         success: true,
         isMatch,
         isLive,
-        reason: !isLive ? 'liveness_check_failed' : result.is_match ? null : 'face_mismatch'
+        reason
       });
     } catch (error) {
       if (req.verificationHandoff) {

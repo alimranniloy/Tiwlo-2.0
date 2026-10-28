@@ -29,6 +29,15 @@ function getTransientRetryDelay(failureCount) {
   return Math.min(1000 * (2 ** Math.max(0, failureCount - 1)), 8000);
 }
 
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('The camera selfie could not be prepared. Please try again.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 async function readVerificationResponse(response) {
   const contentType = response.headers.get('content-type') || '';
   if (!contentType.toLowerCase().includes('json')) {
@@ -92,6 +101,7 @@ export default function CaptureSelfieStep() {
   const [isRecording, setIsRecording] = useState(false);
   const [faceReady, setFaceReady] = useState(false);
   const [faceGuidance, setFaceGuidance] = useState('checking');
+  const [awaitingFinalSelfie, setAwaitingFinalSelfie] = useState(false);
   const [lowLightWarning, setLowLightWarning] = useState(false);
   const [retry, setRetry] = useState(0);
 
@@ -103,11 +113,14 @@ export default function CaptureSelfieStep() {
   const sessionRef = useRef(null);
   const pollTimerRef = useRef(null);
   const submitChallengeFrameRef = useRef(null);
+  const captureFinalSelfieRef = useRef(null);
   const challengePassedTimerRef = useRef(null);
   const frameBusyRef = useRef(false);
   const transientFailuresRef = useRef(0);
   const retryDelayRef = useRef(FRAME_INTERVAL_MS);
   const faceReadyRef = useRef(false);
+  const awaitingFinalSelfieRef = useRef(false);
+  const finalSelfieStartedAtRef = useRef(0);
   const preparingRecorderRef = useRef(false);
   const finishedRef = useRef(false);
   const discardRecordingRef = useRef(false);
@@ -133,7 +146,7 @@ export default function CaptureSelfieStep() {
     return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.82));
   }, []);
 
-  const captureSelfieImage = useCallback(async () => {
+  const captureSelfieFrame = useCallback(async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video?.videoWidth || !video?.videoHeight || !canvas) return null;
@@ -153,7 +166,7 @@ export default function CaptureSelfieStep() {
       size,
       size
     );
-    return canvas.toDataURL('image/jpeg', 0.92);
+    return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
   }, []);
 
   const failCapture = useCallback((message) => {
@@ -176,19 +189,11 @@ export default function CaptureSelfieStep() {
     }
   }, [accessHeaders, stopCamera]);
 
-  const completeCapture = useCallback(async () => {
+  const completeCapture = useCallback(selfie => {
     if (finishedRef.current) return;
     finishedRef.current = true;
     window.clearTimeout(pollTimerRef.current);
     window.clearTimeout(challengePassedTimerRef.current);
-    let selfie;
-    try {
-      selfie = await captureSelfieImage();
-    } catch {
-      finishedRef.current = false;
-      failCapture('The camera selfie could not be captured. Please try again.');
-      return;
-    }
     const recorder = recorderRef.current;
     if (!selfie || !recorder || recorder.state !== 'recording') {
       finishedRef.current = false;
@@ -214,13 +219,82 @@ export default function CaptureSelfieStep() {
     }, { once: true });
     recorder.stop();
   }, [
-    captureSelfieImage,
     failCapture,
     nextStep,
     setCapturedSelfie,
     setRecordedVideo,
     stopCamera,
   ]);
+
+  const captureFinalSelfie = useCallback(async () => {
+    if (!awaitingFinalSelfieRef.current || frameBusyRef.current || finishedRef.current) return;
+    if (Date.now() - finalSelfieStartedAtRef.current > 90_000) {
+      failCapture('We could not capture a clear, forward-facing selfie in time. Keep your face centered, look straight at the camera, and try again.');
+      return;
+    }
+    frameBusyRef.current = true;
+    try {
+      const frame = await captureSelfieFrame();
+      if (!frame) {
+        setFaceGuidance('checking');
+        return;
+      }
+
+      const body = new FormData();
+      body.append('frame', frame, 'final-selfie.jpg');
+      const response = await fetch('/api/verification/liveness/quality', {
+        method: 'POST',
+        credentials: 'include',
+        headers: accessHeaders,
+        body,
+      });
+      const result = await readVerificationResponse(response);
+      if (typeof result.ready !== 'boolean') {
+        throw new Error('The final selfie quality check returned an invalid result.');
+      }
+
+      transientFailuresRef.current = 0;
+      retryDelayRef.current = result.ready ? FRAME_INTERVAL_MS : QUALITY_RETRY_MS;
+      setFaceGuidance(result.guidance || (result.ready ? 'ready' : 'face_forward'));
+      setLowLightWarning(
+        typeof result.quality?.brightness === 'number' && result.quality.brightness < 35
+      );
+      if (result.ready) {
+        const selfie = await blobToDataUrl(frame);
+        awaitingFinalSelfieRef.current = false;
+        setAwaitingFinalSelfie(false);
+        completeCapture(selfie);
+      }
+    } catch (error) {
+      if (error.status === 429) {
+        failCapture(error.message || 'Too many camera checks. Please restart verification later.');
+        return;
+      }
+      if (error.status >= 500 || isVerificationFetchError(error)) {
+        transientFailuresRef.current += 1;
+        retryDelayRef.current = getTransientRetryDelay(transientFailuresRef.current);
+        if (transientFailuresRef.current >= 10) {
+          failCapture(isVerificationFetchError(error)
+            ? VERIFICATION_CONNECTION_ERROR
+            : error.message || 'The final selfie quality check is temporarily unavailable.');
+          return;
+        }
+        setFaceGuidance('connection');
+      } else {
+        failCapture(isVerificationFetchError(error)
+          ? VERIFICATION_CONNECTION_ERROR
+          : error.message || 'The final selfie could not be checked.');
+      }
+    } finally {
+      frameBusyRef.current = false;
+      if (awaitingFinalSelfieRef.current && !finishedRef.current) {
+        pollTimerRef.current = window.setTimeout(
+          () => captureFinalSelfieRef.current?.(),
+          retryDelayRef.current
+        );
+      }
+    }
+  }, [accessHeaders, captureSelfieFrame, completeCapture, failCapture]);
 
   const submitChallengeFrame = useCallback(async () => {
     const session = sessionRef.current;
@@ -255,9 +329,14 @@ export default function CaptureSelfieStep() {
         challengePassedTimerRef.current = window.setTimeout(() => setChallengePassed(false), 700);
       }
       if (result.complete) {
-        completeCapture();
+        awaitingFinalSelfieRef.current = true;
+        finalSelfieStartedAtRef.current = Date.now();
+        setAwaitingFinalSelfie(true);
+        setFaceGuidance('face_forward');
+        retryDelayRef.current = FRAME_INTERVAL_MS;
       } else if (result.state === 'failed' || result.state === 'expired') {
-        failCapture('That action was not detected in time. Please restart and follow each instruction.');
+        const action = CHALLENGE_LABELS[result.challengeType] || 'the requested action';
+        failCapture(`We could not detect ${action} in time. Keep your face in view and follow the prompt slowly, then try again.`);
       }
     } catch (error) {
       const retryable = isVerificationFetchError(error) || error.status >= 500;
@@ -276,22 +355,33 @@ export default function CaptureSelfieStep() {
       frameBusyRef.current = false;
       if (!finishedRef.current) {
         pollTimerRef.current = window.setTimeout(
-          () => submitChallengeFrameRef.current?.(),
+          () => {
+            if (awaitingFinalSelfieRef.current) {
+              captureFinalSelfieRef.current?.();
+            } else {
+              submitChallengeFrameRef.current?.();
+            }
+          },
           retryDelayRef.current
         );
       }
     }
-  }, [accessHeaders, captureFrame, completeCapture, failCapture]);
+  }, [accessHeaders, captureFrame, failCapture]);
 
   useEffect(() => {
     submitChallengeFrameRef.current = submitChallengeFrame;
   }, [submitChallengeFrame]);
 
   useEffect(() => {
+    captureFinalSelfieRef.current = captureFinalSelfie;
+  }, [captureFinalSelfie]);
+
+  useEffect(() => {
     let cancelled = false;
     finishedRef.current = false;
     discardRecordingRef.current = false;
     frameBusyRef.current = false;
+    awaitingFinalSelfieRef.current = false;
     transientFailuresRef.current = 0;
     retryDelayRef.current = FRAME_INTERVAL_MS;
     chunksRef.current = [];
@@ -484,6 +574,8 @@ export default function CaptureSelfieStep() {
     setIsRecording(false);
     setFaceReady(false);
     faceReadyRef.current = false;
+    awaitingFinalSelfieRef.current = false;
+    setAwaitingFinalSelfie(false);
     setFaceGuidance('checking');
     setLivenessSessionId(null);
     setCapturedSelfie(null);
@@ -508,6 +600,7 @@ export default function CaptureSelfieStep() {
     center_lower: 'Lower the phone a little.',
     center_upper: 'Raise the phone a little.',
     hold_still: 'Hold still for a moment so the camera can focus.',
+    face_forward: 'Look straight at the camera and hold still.',
     connection: 'Reconnecting to the camera check. Keep your face in view.',
     checking: 'Finding your face and checking focus…',
     ready: 'Face centered and in focus. Starting the live check…',
@@ -525,6 +618,7 @@ export default function CaptureSelfieStep() {
     connection: 'Reconnecting to the camera check',
     checking: 'Align your face in the ring',
     ready: 'Face centered and in focus',
+    face_forward: 'Look straight at the camera',
   }[faceGuidance] || 'Align your face in the ring';
   const directionIcon = {
     center_left: ArrowLeft,
@@ -567,7 +661,15 @@ export default function CaptureSelfieStep() {
             isRecording ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-600'
           }`}>
             {isRecording ? <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" /> : <Video className="h-3.5 w-3.5" />}
-            <span>{isRecording ? 'Recording securely' : faceReady ? 'Face is in position' : 'Finding your face'}</span>
+            <span>
+              {awaitingFinalSelfie
+                ? 'Preparing clear selfie'
+                : isRecording
+                  ? 'Recording securely'
+                  : faceReady
+                    ? 'Face is in position'
+                    : 'Finding your face'}
+            </span>
           </div>
 
           <div
@@ -634,14 +736,24 @@ export default function CaptureSelfieStep() {
             ))}
           </div>
           <h2 className="mt-3 text-center text-lg font-bold text-slate-900">
-            {cameraError ? 'Camera check stopped' : faceReady ? challengeLabel : guidanceTitle}
+            {cameraError
+              ? 'Camera check stopped'
+              : awaitingFinalSelfie
+                ? 'Look straight at the camera'
+                : faceReady
+                  ? challengeLabel
+                  : guidanceTitle}
           </h2>
           <p className="mt-1 text-center text-xs leading-relaxed text-slate-500">
             {cameraError
               ? cameraError
-              : faceReady
-                ? 'Keep the phone steady and move your face only when prompted. Each action can take up to 90 seconds. Camera video is used only for this check and is not saved.'
-                : guidance}
+              : awaitingFinalSelfie
+                ? faceGuidance === 'ready'
+                  ? 'Hold still while we capture your clear selfie.'
+                  : guidance
+                : faceReady
+                  ? 'Keep the phone steady and move your face only when prompted. Each action can take up to 90 seconds. Camera video is used only for this check and is not saved.'
+                  : guidance}
           </p>
           {lowLightWarning && !cameraError && (
             <p className="mt-2 text-center text-xs text-amber-700">
@@ -667,7 +779,9 @@ export default function CaptureSelfieStep() {
         </button>
       ) : (
         <p className="pb-2 text-center text-[11px] text-slate-400">
-          Keep the phone steady, keep your face inside the circle, and follow each prompt.
+          {awaitingFinalSelfie
+            ? 'Look straight at the camera and hold still for your selfie.'
+            : 'Keep the phone steady, keep your face inside the circle, and follow each prompt.'}
         </p>
       )}
       <canvas ref={canvasRef} className="hidden" />

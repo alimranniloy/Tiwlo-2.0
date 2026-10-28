@@ -125,8 +125,10 @@ export default function ProcessingStep() {
         }
         setFailureType('verification');
         setFailureReason(
-          result.reason === 'liveness_check_failed'
-            ? 'The live action check did not finish. Hold the phone steady and follow each prompt fully; you will have more time for each action.'
+          result.reason === 'active_liveness_failed'
+            ? 'The live camera actions did not complete. Keep your face in view, hold the phone steady, and follow each prompt slowly.'
+            : result.reason === 'passive_liveness_failed' || result.reason === 'liveness_check_failed'
+              ? 'Your live actions were completed, but the final selfie check could not confirm a live camera image. Look straight at the camera, hold still, and use steady light. Do not use a photo or a screen.'
             : result.reason === 'document_face_not_clear'
               ? 'We could not find exactly one clear face in the document photo. For an ID card, include its portrait; for a passport, use the photo page and keep the face unobstructed.'
               : result.reason === 'selfie_face_not_clear'
