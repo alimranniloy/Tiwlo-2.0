@@ -20,6 +20,11 @@ class LivenessPresetTests(unittest.TestCase):
             {challenge.type for challenge in session.challenges},
             set(preset.challenge_types),
         )
+        self.assertTrue(
+            all(challenge.timeout_seconds == 45.0 for challenge in session.challenges)
+        )
+        self.assertEqual(preset.timeout_seconds, 45.0)
+        self.assertEqual(preset.thresholds.open_mouth_mar, 0.48)
 
 
 if __name__ == "__main__":

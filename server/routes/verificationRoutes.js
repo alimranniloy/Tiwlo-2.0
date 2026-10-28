@@ -10,6 +10,7 @@ const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_RECORDING_BYTES = 30 * 1024 * 1024;
 const MAX_IMAGE_PIXELS = 20_000_000;
 const LIVENESS_SESSION_TTL_MS = 10 * 60 * 1000;
+const CAMERA_FRAME_TIMEOUT_MS = 30_000;
 const HANDOFF_TOKEN_TTL_MS = 5 * 60 * 1000;
 const HANDOFF_IDLE_TTL_MS = 30 * 60 * 1000;
 const router = express.Router();
@@ -41,10 +42,18 @@ const livenessSessionLimiter = rateLimit({
 
 const livenessFrameLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 240,
+  limit: 600,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many liveness frames. Please restart verification later.' }
+});
+
+const cameraQualityLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many camera quality checks. Please restart verification later.' }
 });
 
 const uploadImages = multer({
@@ -187,6 +196,25 @@ function setHandoffStatus(session, status, result = null) {
   session.status = status;
   session.result = result;
   session.lastActivityAt = Date.now();
+}
+
+function parseCameraFrame(req, res, next) {
+  multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 2 * 1024 * 1024, files: 1, fields: 0, parts: 1 },
+    fileFilter(_request, file, callback) {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
+        return callback(new TypeError('Camera frames must be JPEG, PNG, or WebP images.'));
+      }
+      return callback(null, true);
+    }
+  }).single('frame')(req, res, error => {
+    if (!error) return next();
+    if (error instanceof multer.MulterError || error instanceof TypeError) {
+      return res.status(400).json({ error: error.message });
+    }
+    return next(error);
+  });
 }
 
 async function getValidImageFormat(file) {
@@ -454,24 +482,7 @@ router.post(
   requireVerificationAccess,
   livenessFrameLimiter,
   sendNoStore,
-  (req, res, next) => {
-    multer({
-      storage: multer.memoryStorage(),
-      limits: { fileSize: 2 * 1024 * 1024, files: 1, fields: 0, parts: 1 },
-      fileFilter(_request, file, callback) {
-        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
-          return callback(new TypeError('Liveness frames must be JPEG, PNG, or WebP images.'));
-        }
-        return callback(null, true);
-      }
-    }).single('frame')(req, res, error => {
-      if (!error) return next();
-      if (error instanceof multer.MulterError || error instanceof TypeError) {
-        return res.status(400).json({ error: error.message });
-      }
-      return next(error);
-    });
-  },
+  parseCameraFrame,
   async (req, res) => {
     const sessionId = req.params.sessionId;
     const session = getSessionForUser(sessionId, getRequestOwner(req));
@@ -530,6 +541,97 @@ router.post(
         return res.status(400).json({ error: 'Use a valid camera frame.' });
       }
       return res.status(503).json({ error: 'The liveness frame could not be checked.' });
+    }
+  }
+);
+
+router.post(
+  '/liveness/quality',
+  requireVerificationAccess,
+  cameraQualityLimiter,
+  sendNoStore,
+  parseCameraFrame,
+  async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'A camera frame is required.' });
+    const sharedToken = getSharedToken();
+    if (!sharedToken) {
+      return res.status(503).json({ error: 'The verification service is not configured.' });
+    }
+
+    try {
+      const frame = await toEngineFrame(req.file);
+      if (!frame) return res.status(400).json({ error: 'Use a valid camera frame.' });
+      const body = new FormData();
+      body.append('image', new Blob([frame], { type: 'image/jpeg' }), 'camera-frame.jpg');
+      const response = await fetch(getEngineUrl('/api/v1/faces/detect'), {
+        method: 'POST',
+        body,
+        headers: { 'x-tiwlo-biometrics-token': sharedToken },
+        signal: AbortSignal.timeout(20_000)
+      });
+      if (!response.ok) {
+        return res.status(503).json({ error: 'The camera quality check is temporarily unavailable.' });
+      }
+      const result = await response.json();
+      if (!Number.isInteger(result.count) || !Array.isArray(result.faces) ||
+          result.count !== result.faces.length) {
+        return res.status(503).json({ error: 'The camera quality check returned an invalid result.' });
+      }
+      if (result.count === 0) {
+        return res.json({ ready: false, guidance: 'no_face' });
+      }
+      if (result.count > 1) {
+        return res.json({ ready: false, guidance: 'multiple_faces' });
+      }
+
+      const face = result.faces[0];
+      const bbox = face?.detection?.bbox;
+      const sharpness = face?.quality?.sharpness;
+      if (!Array.isArray(bbox) || bbox.length !== 4 ||
+          bbox.some(value => typeof value !== 'number' || !Number.isFinite(value)) ||
+          typeof sharpness !== 'number' || !Number.isFinite(sharpness)) {
+        return res.status(503).json({ error: 'The camera quality check returned invalid face data.' });
+      }
+      const faceWidth = bbox[2] - bbox[0];
+      const faceHeight = bbox[3] - bbox[1];
+      const faceCenterX = (bbox[0] + bbox[2]) / 2;
+      const faceCenterY = (bbox[1] + bbox[3]) / 2;
+      let guidance = null;
+      if (faceWidth < 96 || faceHeight < 110) {
+        guidance = 'move_closer';
+      } else if (faceWidth > 420 || faceHeight > 500) {
+        guidance = 'move_back';
+      } else if (faceCenterX < 256) {
+        guidance = 'center_left';
+      } else if (faceCenterX > 384) {
+        guidance = 'center_right';
+      } else if (faceCenterY < 240) {
+        guidance = 'center_lower';
+      } else if (faceCenterY > 400) {
+        guidance = 'center_upper';
+      } else if (sharpness < 30) {
+        guidance = 'hold_still';
+      }
+
+      return res.json({
+        ready: guidance === null,
+        guidance,
+        quality: face.quality ? {
+          sharpness: face.quality.sharpness,
+          brightness: face.quality.brightness
+        } : null
+      });
+    } catch (error) {
+      console.error('[Verification] Camera quality check failed:', error.message);
+      if (error.name === 'TimeoutError' || error.name === 'AbortError' ||
+          error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+        return res.status(503).json({ error: 'The camera quality check is temporarily unavailable.' });
+      }
+      if (error.name === 'InputError' || error.name === 'MetadataError' ||
+          error.code === 'ERR_INPUT_IMAGE_TOO_LARGE') {
+        return res.status(400).json({ error: 'Use a valid camera frame.' });
+      }
+      return res.status(503).json({ error: 'The camera quality check could not process this frame.' });
     }
   }
 );
@@ -613,12 +715,21 @@ router.post(
       });
 
       if (engineResponse.status === 400 || engineResponse.status === 422) {
-        if (req.verificationHandoff) setHandoffStatus(req.verificationHandoff, 'failed', 'image_check_failed');
+        const engineError = await engineResponse.json().catch(() => null);
+        const detail = typeof engineError?.detail === 'string' ? engineError.detail : '';
+        const reason = /image1/i.test(detail)
+          ? 'document_face_not_clear'
+          : /image2/i.test(detail)
+            ? 'selfie_face_not_clear'
+            : /invalid image/i.test(detail)
+              ? 'invalid_image'
+              : 'face_not_clear';
+        if (req.verificationHandoff) setHandoffStatus(req.verificationHandoff, 'failed', reason);
         return res.status(200).json({
           success: true,
           isMatch: false,
           isLive: false,
-          reason: 'image_check_failed'
+          reason
         });
       }
       if (!engineResponse.ok) {

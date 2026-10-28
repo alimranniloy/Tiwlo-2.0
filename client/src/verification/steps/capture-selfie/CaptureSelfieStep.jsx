@@ -1,5 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Loader2, Video } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  Check,
+  Loader2,
+  Video,
+} from 'lucide-react';
 import { useVerification } from '../../context/VerificationContext';
 import VerificationHeader from '../../components/VerificationHeader';
 import StepIndicator from '../../components/StepIndicator';
@@ -14,7 +23,8 @@ const CHALLENGE_LABELS = {
   open_mouth: 'Open your mouth',
   blink: 'Close and open your eyes',
 };
-const FRAME_INTERVAL_MS = 850;
+const FRAME_INTERVAL_MS = 500;
+const QUALITY_RETRY_MS = 800;
 
 async function readVerificationResponse(response) {
   const contentType = response.headers.get('content-type') || '';
@@ -33,11 +43,13 @@ async function readVerificationResponse(response) {
   }
 
   if (!response.ok) {
-    throw new Error(
+    const error = new Error(
       result && typeof result.error === 'string'
         ? result.error
         : `The verification request failed (HTTP ${response.status}).`
     );
+    error.status = response.status;
+    throw error;
   }
   if (!result || typeof result !== 'object' || Array.isArray(result)) {
     throw new Error('The verification server returned an invalid response.');
@@ -75,6 +87,9 @@ export default function CaptureSelfieStep() {
   const [challengePassed, setChallengePassed] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [faceReady, setFaceReady] = useState(false);
+  const [faceGuidance, setFaceGuidance] = useState('checking');
+  const [lowLightWarning, setLowLightWarning] = useState(false);
   const [retry, setRetry] = useState(0);
 
   const videoRef = useRef(null);
@@ -87,6 +102,9 @@ export default function CaptureSelfieStep() {
   const submitChallengeFrameRef = useRef(null);
   const challengePassedTimerRef = useRef(null);
   const frameBusyRef = useRef(false);
+  const transientFailuresRef = useRef(0);
+  const faceReadyRef = useRef(false);
+  const preparingRecorderRef = useRef(false);
   const finishedRef = useRef(false);
   const discardRecordingRef = useRef(false);
 
@@ -221,6 +239,7 @@ export default function CaptureSelfieStep() {
       ) {
         throw new Error('The verification server returned an invalid liveness result.');
       }
+      transientFailuresRef.current = 0;
 
       const passedIndex = session.challenges.length - result.challengesRemaining - (result.passed ? 1 : 0);
       if (result.passed) {
@@ -236,19 +255,25 @@ export default function CaptureSelfieStep() {
         failCapture('That action was not detected in time. Please restart and follow each instruction.');
       }
     } catch (error) {
-      failCapture(isVerificationFetchError(error)
-        ? VERIFICATION_CONNECTION_ERROR
-        : error.message || 'The liveness check could not process the camera.');
+      const retryable = isVerificationFetchError(error) || error.status === 429 || error.status >= 500;
+      if (retryable && transientFailuresRef.current < 10) {
+        transientFailuresRef.current += 1;
+        setFaceGuidance('connection');
+      } else {
+        failCapture(retryable
+          ? VERIFICATION_CONNECTION_ERROR
+          : error.message || 'The liveness check could not process the camera.');
+      }
     } finally {
       frameBusyRef.current = false;
       if (!finishedRef.current) {
         pollTimerRef.current = window.setTimeout(
           () => submitChallengeFrameRef.current?.(),
-          FRAME_INTERVAL_MS
+          faceGuidance === 'connection' ? 1000 : FRAME_INTERVAL_MS
         );
       }
     }
-  }, [accessHeaders, captureFrame, completeCapture, failCapture]);
+  }, [accessHeaders, captureFrame, completeCapture, failCapture, faceGuidance]);
 
   useEffect(() => {
     submitChallengeFrameRef.current = submitChallengeFrame;
@@ -256,39 +281,13 @@ export default function CaptureSelfieStep() {
 
   useEffect(() => {
     let cancelled = false;
-    const controller = new AbortController();
     finishedRef.current = false;
     discardRecordingRef.current = false;
     frameBusyRef.current = false;
+    transientFailuresRef.current = 0;
     chunksRef.current = [];
 
     const start = async () => {
-      const sessionResponse = await fetch('/api/verification/liveness/session', {
-        method: 'POST',
-        credentials: 'include',
-        headers: accessHeaders,
-        signal: controller.signal,
-      });
-      const sessionResult = await readVerificationResponse(sessionResponse);
-      if (
-        typeof sessionResult.sessionId !== 'string' ||
-        !Array.isArray(sessionResult.challenges) ||
-        sessionResult.challenges.length === 0
-      ) {
-        throw new Error('The verification server returned an invalid camera challenge.');
-      }
-      if (cancelled) {
-        fetch(`/api/verification/liveness/${encodeURIComponent(sessionResult.sessionId)}`, {
-          method: 'DELETE',
-          credentials: 'include',
-          headers: accessHeaders,
-        }).catch(() => {});
-        return;
-      }
-      sessionRef.current = sessionResult;
-      setLivenessSessionId(sessionResult.sessionId);
-      setChallenges(sessionResult.challenges);
-
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error('This browser does not support secure camera access.');
       }
@@ -313,8 +312,8 @@ export default function CaptureSelfieStep() {
 
     return () => {
       cancelled = true;
-      controller.abort();
       window.clearTimeout(pollTimerRef.current);
+      preparingRecorderRef.current = false;
       const recorder = recorderRef.current;
       if (recorder?.state === 'recording') {
         discardRecordingRef.current = true;
@@ -334,15 +333,41 @@ export default function CaptureSelfieStep() {
   }, [accessHeaders, retry, failCapture, setCapturedSelfie, setLivenessSessionId, setRecordedVideo, stopCamera]);
 
   useEffect(() => {
-    if (!stream || !videoRef.current || !sessionRef.current) return undefined;
+    if (!stream || !videoRef.current) return undefined;
     const video = videoRef.current;
     video.srcObject = stream;
     let cancelled = false;
+    let qualityTimer;
 
     const startRecording = async () => {
+      if (cancelled || finishedRef.current || recorderRef.current || preparingRecorderRef.current) return;
+      preparingRecorderRef.current = true;
       try {
-        await video.play();
-        if (cancelled) return;
+        const sessionResponse = await fetch('/api/verification/liveness/session', {
+          method: 'POST',
+          credentials: 'include',
+          headers: accessHeaders,
+        });
+        const sessionResult = await readVerificationResponse(sessionResponse);
+        if (
+          typeof sessionResult.sessionId !== 'string' ||
+          !Array.isArray(sessionResult.challenges) ||
+          sessionResult.challenges.length === 0
+        ) {
+          throw new Error('The verification server returned an invalid camera challenge.');
+        }
+        if (cancelled) {
+          fetch(`/api/verification/liveness/${encodeURIComponent(sessionResult.sessionId)}`, {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: accessHeaders,
+          }).catch(() => {});
+          return;
+        }
+        sessionRef.current = sessionResult;
+        setLivenessSessionId(sessionResult.sessionId);
+        setChallenges(sessionResult.challenges);
+
         const mimeType = chooseRecordingMimeType();
         if (!mimeType) throw new Error('This browser cannot record a supported verification video.');
         const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 500_000 });
@@ -355,19 +380,77 @@ export default function CaptureSelfieStep() {
         setIsRecording(true);
         pollTimerRef.current = window.setTimeout(
           () => submitChallengeFrameRef.current?.(),
-          250
+          FRAME_INTERVAL_MS
         );
       } catch (error) {
-        failCapture(error.message || 'The camera could not start recording.');
+        if (!cancelled) {
+          failCapture(isVerificationFetchError(error)
+            ? VERIFICATION_CONNECTION_ERROR
+            : error.message || 'The camera could not start recording.');
+        }
+      } finally {
+        preparingRecorderRef.current = false;
       }
     };
 
-    startRecording();
+    const inspectFrame = async () => {
+      if (cancelled || finishedRef.current || faceReadyRef.current) return;
+      try {
+        await video.play();
+        const frame = await captureFrame();
+        if (!frame) {
+          setFaceGuidance('checking');
+          qualityTimer = window.setTimeout(inspectFrame, QUALITY_RETRY_MS);
+          return;
+        }
+        const body = new FormData();
+        body.append('frame', frame, 'camera-frame.jpg');
+        const response = await fetch('/api/verification/liveness/quality', {
+          method: 'POST',
+          credentials: 'include',
+          headers: accessHeaders,
+          body,
+        });
+        const result = await readVerificationResponse(response);
+        if (typeof result.ready !== 'boolean') {
+          throw new Error('The camera quality check returned an invalid result.');
+        }
+        if (cancelled) return;
+        transientFailuresRef.current = 0;
+        faceReadyRef.current = result.ready;
+        setFaceGuidance(result.guidance || (result.ready ? 'ready' : 'checking'));
+        setLowLightWarning(typeof result.quality?.brightness === 'number' && result.quality.brightness < 35);
+        if (result.ready) {
+          setFaceReady(true);
+          startRecording();
+          return;
+        }
+      } catch (error) {
+        if (cancelled) return;
+        if (error.status === 429 || error.status >= 500 || isVerificationFetchError(error)) {
+          transientFailuresRef.current += 1;
+          setFaceGuidance('connection');
+          if (transientFailuresRef.current >= 10) {
+            failCapture(VERIFICATION_CONNECTION_ERROR);
+            return;
+          }
+        } else {
+          failCapture(error.message || 'The camera quality check could not process the frame.');
+          return;
+        }
+      }
+      qualityTimer = window.setTimeout(inspectFrame, QUALITY_RETRY_MS);
+    };
+
+    video.play().then(inspectFrame).catch(error => {
+      failCapture(error.message || 'The camera preview could not start.');
+    });
     return () => {
       cancelled = true;
+      window.clearTimeout(qualityTimer);
       video.srcObject = null;
     };
-  }, [stream, failCapture, submitChallengeFrame]);
+  }, [accessHeaders, captureFrame, stream, failCapture, setLivenessSessionId]);
 
   const handleBack = () => {
     prevStep();
@@ -380,9 +463,14 @@ export default function CaptureSelfieStep() {
     setLastPassedIndex(-1);
     setChallengePassed(false);
     setIsRecording(false);
+    setFaceReady(false);
+    faceReadyRef.current = false;
+    setFaceGuidance('checking');
     setLivenessSessionId(null);
     setCapturedSelfie(null);
     setRecordedVideo(null);
+    recorderRef.current = null;
+    chunksRef.current = [];
     setRetry(value => value + 1);
   };
 
@@ -391,6 +479,31 @@ export default function CaptureSelfieStep() {
   const challengeLabel = currentChallenge
     ? CHALLENGE_LABELS[currentChallenge.type] || currentChallenge.instruction
     : 'Preparing your secure camera check';
+  const guidance = {
+    no_face: 'Move your face into the circle.',
+    multiple_faces: 'Only one person should be in the frame.',
+    move_closer: 'Move a little closer to the camera.',
+    move_back: 'Move the phone a little farther away.',
+    center_left: 'Shift your face slightly left.',
+    center_right: 'Shift your face slightly right.',
+    center_lower: 'Lower the phone a little.',
+    center_upper: 'Raise the phone a little.',
+    hold_still: 'Hold still for a moment so the camera can focus.',
+    connection: 'Reconnecting to the camera check. Keep your face in view.',
+    checking: 'Finding your face and checking focus…',
+    ready: 'Face centered and in focus. Starting the live check…',
+  }[faceGuidance] || 'Center your face inside the circle.';
+  const directionIcon = {
+    center_left: ArrowLeft,
+    center_right: ArrowRight,
+    center_lower: ArrowDown,
+    center_upper: ArrowUp,
+  }[faceGuidance];
+  const challengeDirectionIcon = currentChallenge?.type === 'turn_left'
+    ? ArrowLeft
+    : currentChallenge?.type === 'turn_right'
+      ? ArrowRight
+      : null;
 
   return (
     <div className="flex-1 flex flex-col justify-between px-6 pb-6 pt-1 select-none">
@@ -407,19 +520,23 @@ export default function CaptureSelfieStep() {
             isRecording ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-600'
           }`}>
             {isRecording ? <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" /> : <Video className="h-3.5 w-3.5" />}
-            <span>{isRecording ? 'Recording securely' : 'Starting camera check'}</span>
+            <span>{isRecording ? 'Recording securely' : faceReady ? 'Face is in position' : 'Finding your face'}</span>
           </div>
 
           <div
             role="img"
-            aria-label={challengePassed || allChallengesPassed ? 'Liveness action detected' : 'Camera challenge in progress'}
-            className={`relative h-52 w-52 rounded-full border-4 p-1 shadow-md transition-colors ${
-            challengePassed || allChallengesPassed
-              ? 'border-emerald-500 shadow-emerald-200'
-              : 'border-blue-600'
-          } ${challengePassed && !allChallengesPassed ? 'animate-pulse' : ''}`}
+            aria-label={challengePassed || allChallengesPassed
+              ? 'Liveness action detected'
+              : faceReady
+                ? 'Face centered and in focus'
+                : 'Aligning face in camera'}
+            className={`relative h-64 w-64 rounded-full border-[5px] p-1.5 shadow-lg transition-all duration-500 ${
+              challengePassed || allChallengesPassed || faceReady
+                ? 'border-emerald-500 shadow-emerald-200'
+                : 'border-rose-500 shadow-rose-200'
+            } ${challengePassed && !allChallengesPassed ? 'scale-[1.03]' : ''}`}
           >
-            <div className="h-full w-full overflow-hidden rounded-full bg-slate-900">
+            <div className="relative h-full w-full overflow-hidden rounded-full bg-slate-900">
               {stream ? (
                 <video
                   ref={videoRef}
@@ -433,7 +550,25 @@ export default function CaptureSelfieStep() {
                   {cameraError ? <AlertCircle className="h-8 w-8 text-amber-400" /> : <Loader2 className="h-8 w-8 animate-spin text-blue-300" />}
                 </div>
               )}
+              {faceReady && (
+                <div className="pointer-events-none absolute inset-3 rounded-full border border-emerald-300/80 animate-pulse" />
+              )}
             </div>
+            {directionIcon && !faceReady && (
+              <span className="absolute -right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-rose-600 shadow-md ring-1 ring-rose-100">
+                {React.createElement(directionIcon, { className: 'h-5 w-5 animate-pulse' })}
+              </span>
+            )}
+            {isRecording && challengeDirectionIcon && !challengePassed && (
+              <span className="absolute -right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md ring-4 ring-white">
+                {React.createElement(challengeDirectionIcon, { className: 'h-5 w-5 animate-pulse' })}
+              </span>
+            )}
+            {faceReady && (
+              <span className="absolute -bottom-1 left-1/2 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md ring-4 ring-white">
+                <Check className="h-5 w-5" strokeWidth={3} />
+              </span>
+            )}
           </div>
 
           <div className="mt-5 flex items-center justify-center gap-2" aria-label="Liveness challenge progress">
@@ -447,13 +582,20 @@ export default function CaptureSelfieStep() {
             ))}
           </div>
           <h2 className="mt-3 text-center text-lg font-bold text-slate-900">
-            {cameraError ? 'Camera check stopped' : challengeLabel}
+            {cameraError ? 'Camera check stopped' : faceReady ? challengeLabel : 'Center your face'}
           </h2>
           <p className="mt-1 text-center text-xs leading-relaxed text-slate-500">
             {cameraError
               ? cameraError
-              : 'Follow each randomly selected action. Your camera video is recorded only for this check and is not saved.'}
+              : faceReady
+                ? 'Follow each action shown. Camera video is used only for this check and is not saved.'
+                : guidance}
           </p>
+          {lowLightWarning && !cameraError && (
+            <p className="mt-2 text-center text-xs text-amber-700">
+              A little more light may help; slight darkness is okay.
+            </p>
+          )}
         </div>
         {cameraError && (
           <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">

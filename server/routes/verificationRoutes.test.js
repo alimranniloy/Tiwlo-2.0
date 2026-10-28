@@ -172,6 +172,52 @@ test('a redeemed mobile link can complete verification without an authenticated 
   assert.deepEqual(await status.json(), { status: 'success', result: null });
 });
 
+test('camera framing feedback waits for one centered, focused face but permits low light', async t => {
+  const call = await createClient(t);
+  const image = await createImage();
+  const responses = [
+    { count: 0, faces: [] },
+    { count: 2, faces: [{}, {}] },
+    {
+      count: 1,
+      faces: [{ detection: { bbox: [20, 100, 100, 260] }, quality: { sharpness: 50, brightness: 100 } }]
+    },
+    {
+      count: 1,
+      faces: [{ detection: { bbox: [200, 150, 360, 390] }, quality: { sharpness: 20, brightness: 100 } }]
+    },
+    {
+      count: 1,
+      faces: [{ detection: { bbox: [200, 150, 360, 390] }, quality: { sharpness: 40, brightness: 28 } }]
+    }
+  ];
+  const engineCall = t.mock.method(globalThis, 'fetch', async url => {
+    assert.equal(String(url), 'http://127.0.0.1:8000/api/v1/faces/detect');
+    return Response.json(responses.shift());
+  });
+
+  for (const [expected, guidance] of [
+    [false, 'no_face'],
+    [false, 'multiple_faces'],
+    [false, 'move_closer'],
+    [false, 'hold_still'],
+    [true, null]
+  ]) {
+    const body = new FormData();
+    body.append('frame', new Blob([image], { type: 'image/png' }), 'frame.png');
+    const response = await call('/api/verification/liveness/quality', {
+      method: 'POST',
+      headers: { 'x-user-id': 'user-1' },
+      body
+    });
+    assert.equal(response.status, 200);
+    const result = await response.json();
+    assert.equal(result.ready, expected);
+    assert.equal(result.guidance, guidance);
+  }
+  assert.equal(engineCall.mock.callCount(), 5);
+});
+
 async function createImage() {
   return sharp({
     create: {
@@ -354,6 +400,52 @@ test('a face match without a positive liveness result is never accepted', async 
     reason: 'liveness_check_failed'
   });
   assert.equal(engineCall.mock.callCount(), 3);
+});
+
+test('face match reports whether the document portrait or selfie face is missing', async t => {
+  const call = await createClient(t);
+  const image = await createImage();
+  const previousToken = process.env.OPENBIOMETRICS_SHARED_TOKEN;
+  process.env.OPENBIOMETRICS_SHARED_TOKEN = 'test-token';
+  t.after(() => {
+    if (previousToken === undefined) delete process.env.OPENBIOMETRICS_SHARED_TOKEN;
+    else process.env.OPENBIOMETRICS_SHARED_TOKEN = previousToken;
+  });
+  t.mock.method(globalThis, 'fetch', async url => {
+    const target = String(url);
+    if (target.endsWith('/api/v1/liveness/sessions?preset=verification')) {
+      return Response.json({
+        session_id: 'unclear-document-liveness',
+        challenges: ['turn_right', 'blink', 'turn_left', 'open_mouth'].map(type => ({ type, instruction: type }))
+      });
+    }
+    if (target.endsWith('/api/v1/liveness/sessions/unclear-document-liveness/frame')) {
+      return Response.json({
+        session_id: 'unclear-document-liveness',
+        challenge_type: 'open_mouth',
+        passed: true,
+        challenges_remaining: 0,
+        session_complete: true,
+        is_live: true,
+        state: 'completed'
+      });
+    }
+    return Response.json(
+      { detail: 'Exactly one face must be visible in image1' },
+      { status: 422 }
+    );
+  });
+
+  const sessionId = await createCompletedSession(call);
+  const response = await call('/api/verification/face-match', {
+    method: 'POST',
+    headers: { 'x-user-id': 'user-1' },
+    body: createForm(image, { sessionId })
+  });
+  assert.equal(response.status, 200);
+  const result = await response.json();
+  assert.equal(result.isMatch, false);
+  assert.equal(result.reason, 'document_face_not_clear');
 });
 
 test('face match cannot be submitted without a completed server liveness session', async t => {

@@ -126,10 +126,18 @@ export default function ProcessingStep() {
         setFailureType('verification');
         setFailureReason(
           result.reason === 'liveness_check_failed'
-            ? 'The selfie could not pass the available liveness check. Please capture a new selfie in good lighting.'
-            : result.reason === 'face_mismatch'
-              ? 'The face in the selfie did not match the face in the document image.'
-              : 'Use a clear image showing one face in the document and a live selfie.'
+            ? 'The live action check did not finish. Hold the phone steady and follow each prompt fully; you will have more time for each action.'
+            : result.reason === 'document_face_not_clear'
+              ? 'We could not find exactly one clear face in the document photo. For an ID card, include its portrait; for a passport, use the photo page and keep the face unobstructed.'
+              : result.reason === 'selfie_face_not_clear'
+                ? 'We could not find exactly one clear face in the selfie. Remove anything covering your face, move closer, and use steady light.'
+                : result.reason === 'face_not_clear'
+                  ? 'We could not detect one face in both images. Check that the document portrait and selfie are fully visible and in focus.'
+                  : result.reason === 'invalid_image'
+                    ? 'One of the uploaded images could not be read. Upload a JPEG, PNG, or WebP photo.'
+                    : result.reason === 'face_mismatch'
+                      ? 'The face in the selfie did not match the face in the document photo. Check that you uploaded your own document.'
+                      : 'The face match could not be completed. Check the document portrait and selfie, then try again.'
         );
         finish('failed');
       } catch (error) {

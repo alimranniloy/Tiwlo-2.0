@@ -174,10 +174,10 @@ _VERIFICATION_PRESET = LivenessPreset(
         ChallengeType.BLINK,
     ],
     num_challenges=4,
-    timeout_seconds=12.0,
+    timeout_seconds=45.0,
     thresholds=ActionThresholds(
         blink_ear=0.2,
-        open_mouth_mar=0.6,
+        open_mouth_mar=0.48,
         turn_left_yaw=-15.0,
         turn_right_yaw=15.0,
     ),
