@@ -25,6 +25,11 @@ import {
   getSocialProviderStatuses,
   saveSocialProviderSettings
 } from '../security/socialAuth.js';
+import {
+  getGoogleMapsSettingsStatus,
+  normalizeGoogleMapsApiKey,
+  saveGoogleMapsApiKey
+} from '../db/googleMapsSettings.js';
 
 const router = express.Router();
 
@@ -198,6 +203,31 @@ router.put('/admin/social-login/:provider', requireAdmin, requireRecentReauth, a
     }
     console.error('[SystemRoutes] Failed to save social login settings:', error.message);
     res.status(503).json({ error: 'Social login settings could not be saved.' });
+  }
+});
+
+router.get('/admin/google-maps', requireAdmin, async (_req, res) => {
+  try {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ success: true, settings: await getGoogleMapsSettingsStatus() });
+  } catch (error) {
+    console.error('[SystemRoutes] Failed to read Google Maps settings:', error.message);
+    res.status(503).json({ error: 'Google Maps settings are currently unavailable.' });
+  }
+});
+
+router.put('/admin/google-maps', requireAdmin, requireRecentReauth, async (req, res) => {
+  try {
+    const apiKey = req.body?.clear === true ? '' : normalizeGoogleMapsApiKey(req.body?.apiKey);
+    const settings = await saveGoogleMapsApiKey(apiKey);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ success: true, settings });
+  } catch (error) {
+    if (error instanceof TypeError) {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error('[SystemRoutes] Failed to save Google Maps settings:', error.message);
+    res.status(503).json({ error: 'Google Maps settings could not be saved.' });
   }
 });
 

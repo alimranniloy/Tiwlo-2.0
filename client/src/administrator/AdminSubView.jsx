@@ -1,6 +1,6 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, Layers, RefreshCw, Search, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, KeyRound, Layers, Map, RefreshCw, Search, ShieldCheck } from 'lucide-react';
 
 const API_BASE = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
   ? 'http://localhost:5000/api'
@@ -110,6 +110,27 @@ export default function AdminSubView({ viewId, onBackToDashboard, onNavigate }) 
             </span>
           </span>
           <ArrowRight className="h-5 w-5 text-slate-400" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onNavigate?.('google-maps')}
+          className="flex w-full items-center justify-between rounded-2xl border border-slate-200/70 bg-white p-5 text-left transition hover:border-blue-300 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-800"
+        >
+          <span className="flex items-center gap-4">
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+              <Map className="h-5 w-5" />
+            </span>
+            <span>
+              <span className="block font-semibold text-slate-900 dark:text-white">Google Maps API</span>
+              <span className="mt-1 block text-sm text-slate-500 dark:text-slate-400">
+                Configure the Google Maps API key and manage its PostgreSQL-backed setting.
+              </span>
+            </span>
+          </span>
+          <span className="flex items-center gap-2">
+            <KeyRound className="h-4 w-4 text-slate-400" />
+            <ArrowRight className="h-5 w-5 text-slate-400" />
+          </span>
         </button>
       </div>
     );

@@ -16,6 +16,7 @@ import AdminUsersView from './AdminUsersView';
 import AdminGoogleDrivePage from './AdminGoogleDrivePage';
 import AdminIdentityVerificationPage from './AdminIdentityVerificationPage';
 import AdminSocialLoginSettings from './AdminSocialLoginSettings';
+import AdminGoogleMapsSettings from './AdminGoogleMapsSettings';
 import AdminPlatformPaymentsView from './AdminPlatformPaymentsView';
 import { Calendar, Sparkles } from 'lucide-react';
 import { useTheme } from '../config/themeConfig';
@@ -169,6 +170,11 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
           ) : activeView === 'social-login' ? (
             <AdminSocialLoginSettings
               onBackToDashboard={() => handleNavigate('dashboard')}
+              showToast={showToast}
+            />
+          ) : activeView === 'google-maps' ? (
+            <AdminGoogleMapsSettings
+              onBackToDashboard={() => handleNavigate('system-settings')}
               showToast={showToast}
             />
           ) : (activeView === 'platform-payments' || activeView === 'payment-gateways') ? (
