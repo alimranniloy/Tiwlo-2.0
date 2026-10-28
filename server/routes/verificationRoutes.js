@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import sharp from 'sharp';
 import { MasterDB } from '../db/multiTenant.js';
 import { identityVerificationEmailNotifications } from '../db/emailService.js';
+import { identityVerificationEvidence } from '../db/identityVerificationEvidence.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
 import { requireAuthenticatedUser } from '../security/authGuards.js';
 
@@ -65,7 +66,7 @@ const cameraQualityLimiter = rateLimit({
 
 const uploadImages = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_RECORDING_BYTES, files: 3, fields: 2, parts: 5 },
+  limits: { fileSize: MAX_RECORDING_BYTES, files: 3, fields: 3, parts: 6 },
   fileFilter(_req, file, callback) {
     const supportedImage = ['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype);
     const supportedVideo = file.fieldname === 'recording' &&
@@ -847,7 +848,7 @@ router.post(
         if (req.verificationHandoff) setHandoffStatus(req.verificationHandoff, 'failed', 'invalid_image');
         return res.status(400).json({ error: 'Use a valid JPEG, PNG, or WebP image.' });
       }
-      await convertRecordingToMp4(recording);
+      const mp4Recording = await convertRecordingToMp4(recording);
       livenessSessions.delete(livenessSessionId);
 
       document.detectedFormat = documentFormat;
@@ -911,10 +912,19 @@ router.post(
       const reason = isMatch ? null : 'face_mismatch';
       if (isMatch) {
         try {
-          await completeIdentityVerification(
-            req.activeUser?.id || req.verificationHandoff?.userId,
-            req.verificationHandoff ? 'qr_handoff' : 'direct'
-          );
+          const userId = req.activeUser?.id || req.verificationHandoff?.userId;
+          const verificationUser = await MasterDB.findUserByIdentifier(userId);
+          if (!verificationUser) throw new Error('The account for this verification session no longer exists.');
+          if (!verificationUser.identityVerified || verificationUser.identityVerificationRequired) {
+            await identityVerificationEvidence.store({
+              user: verificationUser,
+              document,
+              selfie,
+              recording: mp4Recording,
+              documentType: req.body?.documentType
+            });
+          }
+          await completeIdentityVerification(userId, req.verificationHandoff ? 'qr_handoff' : 'direct');
         } catch (verificationError) {
           console.error('[Verification] Could not persist identity verification:', verificationError.message);
           if (req.verificationHandoff) setHandoffStatus(req.verificationHandoff, 'failed', 'verification_save_failed');

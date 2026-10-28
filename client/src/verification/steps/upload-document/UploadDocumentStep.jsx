@@ -202,7 +202,7 @@ export default function UploadDocumentStep({ onNext = null, onBack = null }) {
           />
           <span>
             I agree to temporarily process this document image and selfie to compare their faces.
-            Images are not saved. This check does not confirm that the document is genuine.
+            If verification succeeds, the document image, selfie and liveness recording are stored securely for identity records and can be accessed by authorized administrators. This check does not confirm that the document is genuine.
           </span>
         </label>
       </div>

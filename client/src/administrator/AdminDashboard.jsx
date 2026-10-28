@@ -14,6 +14,7 @@ import AdminSubView from './AdminSubView';
 import AdminCustomersView from './AdminCustomersView';
 import AdminUsersView from './AdminUsersView';
 import AdminGoogleDrivePage from './AdminGoogleDrivePage';
+import AdminIdentityVerificationPage from './AdminIdentityVerificationPage';
 import AdminSocialLoginSettings from './AdminSocialLoginSettings';
 import AdminPlatformPaymentsView from './AdminPlatformPaymentsView';
 import { Calendar, Sparkles } from 'lucide-react';
@@ -147,8 +148,15 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
           {activeView === 'customers' ? (
             <AdminCustomersView
               onBackToDashboard={() => handleNavigate('dashboard')}
+              onNavigate={handleNavigate}
               showToast={showToast}
               currentUser={currentUser}
+            />
+          ) : activeView.startsWith('identity-verification/') ? (
+            <AdminIdentityVerificationPage
+              userId={decodeURIComponent(activeView.slice('identity-verification/'.length))}
+              onBackToCustomers={() => handleNavigate('customers')}
+              showToast={showToast}
             />
           ) : activeView === 'users' ? (
             <AdminUsersView

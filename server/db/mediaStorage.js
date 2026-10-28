@@ -150,6 +150,7 @@ export async function storeMedia({
   const normalizedContentType = sanitizeContentType(contentType, originalFilename);
   const storageSettings = await getPlatformStorageSettings();
   const storageBackend = storageSettings.backend || 'postgres';
+  let localEvidencePath = null;
   let activeDriveAccount = null;
   let driveFile = null;
   if (storageBackend === 'google_drive') {
@@ -183,9 +184,31 @@ export async function storeMedia({
     if (!driveFile) throw new AggregateError(failures, 'All configured Google Drive accounts have reached their storage quota.');
   } else if (storageBackend === 'local') {
     await writeLocalMedia(storagePaths[0], buffer, sha256);
+    if (purpose === 'identity_verification') {
+      localEvidencePath = getLocalMediaPath(storagePaths[0]);
+    }
   }
 
-  const client = await pool.connect();
+  let client;
+  try {
+    client = await pool.connect();
+  } catch (error) {
+    if (localEvidencePath) {
+      try {
+        await fs.promises.unlink(localEvidencePath);
+      } catch (cleanupError) {
+        if (cleanupError.code !== 'ENOENT') {
+          console.error('[MediaStorage] Could not remove failed identity evidence upload:', cleanupError.message);
+        }
+      }
+    }
+    if (driveFile && activeDriveAccount) {
+      await deleteGoogleDriveMedia(activeDriveAccount, driveFile.id).catch((cleanupError) => {
+        console.error('[MediaStorage] Could not remove unlinked Google Drive upload:', cleanupError.message);
+      });
+    }
+    throw error;
+  }
   let orphanedDriveMedia = [];
   try {
     await client.query('BEGIN');
@@ -229,6 +252,7 @@ export async function storeMedia({
     );
     orphanedDriveMedia = removed.rows.filter((media) => media.storage_backend === 'google_drive');
     await client.query('COMMIT');
+    localEvidencePath = null;
     for (const media of orphanedDriveMedia) {
       try {
         const account = await getGoogleDriveAccount(media.drive_account_id);
@@ -240,6 +264,15 @@ export async function storeMedia({
     return { id: mediaId, size: buffer.length, sha256 };
   } catch (error) {
     await client.query('ROLLBACK');
+    if (localEvidencePath) {
+      try {
+        await fs.promises.unlink(localEvidencePath);
+      } catch (cleanupError) {
+        if (cleanupError.code !== 'ENOENT') {
+          console.error('[MediaStorage] Could not remove failed identity evidence upload:', cleanupError.message);
+        }
+      }
+    }
     if (driveFile && activeDriveAccount) {
       await deleteGoogleDriveMedia(activeDriveAccount, driveFile.id).catch((cleanupError) => {
         console.error('[MediaStorage] Could not remove unlinked Google Drive upload:', cleanupError.message);
@@ -350,6 +383,7 @@ export async function deleteMedia(value) {
   if (!pool) throw new Error('PostgreSQL media storage is unavailable.');
   const client = await pool.connect();
   let removedDriveMedia = null;
+  let removedLocalEvidencePath = null;
   try {
     await client.query('BEGIN');
     const { rows } = await client.query(
@@ -363,16 +397,27 @@ export async function deleteMedia(value) {
       );
       if (remaining.rowCount === 0) {
         const media = await client.query(
-          'DELETE FROM system_media WHERE id = $1 RETURNING storage_backend, drive_file_id, drive_account_id',
+          'DELETE FROM system_media WHERE id = $1 RETURNING storage_backend, drive_file_id, drive_account_id, purpose',
           [rows[0].media_id]
         );
         removedDriveMedia = media.rows[0]?.storage_backend === 'google_drive' ? media.rows[0] : null;
+        if (media.rows[0]?.storage_backend === 'local' &&
+            media.rows[0]?.purpose === 'identity_verification') {
+          removedLocalEvidencePath = getLocalMediaPath(storagePath);
+        }
       }
     }
     await client.query('COMMIT');
     if (removedDriveMedia) {
       const driveAccount = await getGoogleDriveAccount(removedDriveMedia.drive_account_id);
       await deleteGoogleDriveMedia(driveAccount, removedDriveMedia.drive_file_id);
+    }
+    if (removedLocalEvidencePath) {
+      try {
+        await fs.promises.unlink(removedLocalEvidencePath);
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
     }
     return rows.length > 0;
   } catch (error) {
@@ -504,6 +549,7 @@ export function isMediaRequestAuthorized(req, metadata) {
   if (!metadata || metadata.review_status !== 'approved') return false;
 
   const purpose = String(metadata.purpose || 'general');
+  if (purpose === 'identity_verification') return false;
   if (purpose !== 'direct_message') return true;
 
   const userId = req.activeUser?.id;

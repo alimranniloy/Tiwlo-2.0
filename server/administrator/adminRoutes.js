@@ -7,6 +7,7 @@ import {
 } from '../db/emailService.js';
 import { RestoreSessions } from '../db/restoreSessions.js';
 import { queryPg } from '../db/postgres.js';
+import { identityVerificationEvidence } from '../db/identityVerificationEvidence.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
 import { requireRecentReauth } from '../security/recentReauth.js';
 import {
@@ -468,7 +469,130 @@ router.get('/customers', requireAdmin, async (req, res) => {
   }
 });
 
-router.post('/users/:id/identity-verification/require', requireAdmin, requireRecentReauth, async (req, res) => {
+router.get('/users/:id/identity-verification', requireAdmin, async (req, res) => {
+  try {
+    const user = await MasterDB.findUserByIdentifier(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    const files = await identityVerificationEvidence.listForUser(user);
+    return res.json({
+      success: true,
+      user: {
+        id: user.id,
+        tiwiId: user.tiwiId || user.storeId || '',
+        name: user.name || user.storeName || 'Tiwlo user',
+        email: user.email,
+        identityVerified: user.identityVerified === true,
+        identityVerificationRequired: user.identityVerificationRequired === true
+      },
+      files
+    });
+  } catch (error) {
+    console.error('[Admin Identity Verification] Could not load evidence:', error.message);
+    return res.status(503).json({ error: 'Identity verification records could not be loaded.' });
+  }
+});
+
+router.get('/users/:id/identity-verification/media/:fileId', requireAdmin, async (req, res) => {
+  try {
+    const user = await MasterDB.findUserByIdentifier(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    const file = await identityVerificationEvidence.readForUser(user, req.params.fileId);
+    if (!file) return res.status(404).json({ error: 'Verification file not found.' });
+    const filename = String(file.original_filename || 'identity-evidence')
+      .replace(/[\r\n"]/g, '_')
+      .slice(0, 180);
+    res.set({
+      'Cache-Control': 'private, no-store',
+      'Pragma': 'no-cache',
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'no-referrer',
+      'Content-Type': file.content_type || 'application/octet-stream',
+      'Content-Length': String(file.data.length),
+      'Content-Disposition': `inline; filename="${filename}"`
+    });
+    return res.end(file.data);
+  } catch (error) {
+    console.error('[Admin Identity Verification] Could not read evidence:', error.message);
+    return res.status(503).json({ error: 'The verification file could not be opened.' });
+  }
+});
+
+router.delete('/users/:id/identity-verification/files', requireAdmin, async (req, res) => {
+  try {
+    const user = await MasterDB.findUserByIdentifier(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    const deletedCount = await identityVerificationEvidence.deleteForUser(user);
+    await recordSecurityEvent({
+      eventType: 'admin.identity_evidence_deleted',
+      severity: 'warning',
+      userId: user.id,
+      subject: user.email,
+      details: { administrator: req.adminUser.email, deletedCount }
+    });
+    return res.json({ success: true, deletedCount });
+  } catch (error) {
+    console.error('[Admin Identity Verification] Could not delete evidence:', error.message);
+    return res.status(503).json({ error: 'Verification files could not be deleted.' });
+  }
+});
+
+router.post('/users/:id/identity-verification/unverify', requireAdmin, async (req, res) => {
+  try {
+    const targetUser = await MasterDB.findUserByIdentifier(req.params.id);
+    if (!targetUser) return res.status(404).json({ error: 'User not found.' });
+    if (isSuperAdminUser(targetUser)) {
+      return res.status(403).json({ error: 'Super Administrator identity status cannot be changed here.' });
+    }
+    if (targetUser.role === 'admin' && !isSuperAdminUser(req.adminUser)) {
+      return res.status(403).json({ error: 'Only a super administrator can change another administrator identity status.' });
+    }
+    if (!targetUser.identityVerified) {
+      return res.status(409).json({ error: 'This account is not currently verified.' });
+    }
+
+    const updatedUser = await MasterDB.updateUser(targetUser.id, {
+      identityVerified: false,
+      identityVerificationRequired: true
+    });
+    if (!updatedUser) return res.status(404).json({ error: 'User not found.' });
+
+    await recordSecurityEvent({
+      eventType: 'admin.identity_verification_revoked',
+      severity: 'warning',
+      userId: updatedUser.id,
+      subject: updatedUser.email,
+      details: { administrator: req.adminUser.email }
+    });
+    identityVerificationEmailNotifications.required({
+      to: updatedUser.email,
+      name: updatedUser.name || updatedUser.storeName || 'Tiwlo user'
+    }).catch(error => console.error('[Identity Verification Required Email Error]', error.message));
+
+    try {
+      await MasterDB.revokeUserSessions(updatedUser.id);
+    } catch (error) {
+      console.error('[Admin Identity Verification] Could not revoke sessions after unverify:', error.message);
+      return res.status(503).json({
+        error: 'The account is now unverified and restricted, but existing sessions could not be signed out.'
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `Identity verification was removed for ${updatedUser.name || updatedUser.email}.`,
+      user: {
+        id: updatedUser.id,
+        identityVerified: false,
+        identityVerificationRequired: true
+      }
+    });
+  } catch (error) {
+    console.error('[Admin Identity Verification] Could not change verification status:', error.message);
+    return res.status(500).json({ error: 'Identity verification status could not be changed.' });
+  }
+});
+
+router.post('/users/:id/identity-verification/require', requireAdmin, async (req, res) => {
   try {
     const targetUser = await MasterDB.findUserByIdentifier(req.params.id);
     if (!targetUser) return res.status(404).json({ error: 'User not found in system.' });

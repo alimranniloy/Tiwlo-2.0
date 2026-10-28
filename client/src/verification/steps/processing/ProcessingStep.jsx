@@ -29,6 +29,7 @@ export default function ProcessingStep() {
     goToStep,
     STEPS,
     verificationAccessToken,
+    selectedDocument,
     setVerificationResult,
     documentFile,
     selfieImage,
@@ -76,6 +77,7 @@ export default function ProcessingStep() {
         body.append('selfie', selfieBlob, 'selfie-image');
         body.append('recording', recordedVideo, recordedVideo.name);
         body.append('livenessSessionId', livenessSessionId);
+        body.append('documentType', selectedDocument);
         body.append('consent', 'true');
         setDocumentChecked(true);
 
@@ -174,6 +176,7 @@ export default function ProcessingStep() {
     setVerificationResult,
     STEPS.FAILED,
     STEPS.SUCCESS,
+    selectedDocument,
   ]);
 
   return (

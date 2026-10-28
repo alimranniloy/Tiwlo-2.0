@@ -5,6 +5,7 @@ import sharp from 'sharp';
 import { MasterDB } from '../db/multiTenant.js';
 import { getPgPool } from '../db/postgres.js';
 import { identityVerificationEmailNotifications } from '../db/emailService.js';
+import { identityVerificationEvidence } from '../db/identityVerificationEvidence.js';
 import verificationRoutes from './verificationRoutes.js';
 
 const originalFetch = globalThis.fetch;
@@ -29,7 +30,12 @@ function mockIdentityCompletion(t, initialUser = {}) {
     'completed',
     async () => ({ success: true })
   );
-  return { updateUser, completedEmail };
+  const savedEvidence = t.mock.method(
+    identityVerificationEvidence,
+    'store',
+    async () => undefined
+  );
+  return { updateUser, completedEmail, savedEvidence };
 }
 
 async function createClient(t) {
@@ -121,7 +127,7 @@ test('verification QR links expire after five minutes and can only be redeemed o
 test('a redeemed mobile link completes verification for its linked account without a phone login', async t => {
   const call = await createClient(t);
   const user = { id: 'user-1' };
-  const { updateUser, completedEmail } = mockIdentityCompletion(t, {
+  const { updateUser, completedEmail, savedEvidence } = mockIdentityCompletion(t, {
     identityVerificationRequired: true
   });
   const handoffResponse = await call('/api/verification/handoff', {
@@ -200,6 +206,9 @@ test('a redeemed mobile link completes verification for its linked account witho
     reason: null
   });
   assert.equal(engineCall.mock.callCount(), 3);
+  assert.equal(savedEvidence.mock.callCount(), 1);
+  assert.equal(savedEvidence.mock.calls[0].arguments[0].user.id, 'user-1');
+  assert.equal(savedEvidence.mock.calls[0].arguments[0].recording.toString('ascii', 4, 8), 'ftyp');
   assert.deepEqual(updateUser.mock.calls[0].arguments[1], {
     identityVerified: true,
     identityVerificationRequired: false
@@ -321,12 +330,13 @@ function createRecording() {
   return bytes;
 }
 
-function createForm(image, { consent = 'true', sessionId = '' } = {}) {
+function createForm(image, { consent = 'true', sessionId = '', documentType = 'passport' } = {}) {
   const form = new FormData();
   form.append('document', new Blob([image], { type: 'image/png' }), 'document.png');
   form.append('selfie', new Blob([image], { type: 'image/png' }), 'selfie.png');
   form.append('recording', new Blob([createRecording()], { type: 'video/mp4' }), 'liveness.mp4');
   form.append('livenessSessionId', sessionId);
+  form.append('documentType', documentType);
   form.append('consent', consent);
   return form;
 }

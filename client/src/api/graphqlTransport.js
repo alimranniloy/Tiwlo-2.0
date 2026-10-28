@@ -41,7 +41,7 @@ export async function applicationFetch(resource, options = {}) {
   const method = (options.method || 'GET').toUpperCase();
   if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return nativeFetch(resource, options);
   const sensitiveAction = method === 'POST' && /^\/api\/(?:domains\/?|admin\/payment-gateways)$/.test(url.pathname) ||
-    (method === 'POST' || method === 'PUT' || method === 'DELETE') && /^\/api\/(?:domains\/[^/]+(?:\/provision)?|staff(?:\/[^/]+)?|store\/payment-providers\/[^/]+|admin\/users\/[^/]+(?:\/ban|\/identity-verification\/require)?)$/.test(url.pathname) ||
+    (method === 'POST' || method === 'PUT' || method === 'DELETE') && /^\/api\/(?:domains\/[^/]+(?:\/provision)?|staff(?:\/[^/]+)?|store\/payment-providers\/[^/]+|admin\/users\/[^/]+(?:\/ban)?)$/.test(url.pathname) ||
     (method === 'PUT' || method === 'DELETE') && /^\/api\/admin\/users\/[^/]+$/.test(url.pathname) ||
     method === 'POST' && /^\/api\/subdomains\/(?:claim|[^/]+\/records)$/.test(url.pathname) ||
     (method === 'PATCH' || method === 'DELETE') && /^\/api\/subdomains\/[^/]+\/records(?:\/[^/]+)?$/.test(url.pathname) ||

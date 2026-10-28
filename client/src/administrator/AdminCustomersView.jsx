@@ -1,6 +1,6 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
-import { requestSensitiveActionGrant } from '../security/reauth.js';
 import React, { useState, useEffect, useCallback } from 'react';
+import { requestSensitiveActionGrant } from '../security/reauth.js';
 import {
   Search,
   Store,
@@ -17,13 +17,14 @@ const API_BASE = window.location.origin.includes('localhost') || window.location
   ? 'http://localhost:5000/api'
   : '/api';
 
-export default function AdminCustomersView({ onBackToDashboard, showToast, currentUser }) {
+export default function AdminCustomersView({ onBackToDashboard, onNavigate, showToast, currentUser }) {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
   const [search, setSearch] = useState('');
   const [selectedCustomerStores, setSelectedCustomerStores] = useState(null);
   const [banModalTarget, setBanModalTarget] = useState(null);
+  const [identityLockTarget, setIdentityLockTarget] = useState(null);
   const [banReason, setBanReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -92,10 +93,6 @@ export default function AdminCustomersView({ onBackToDashboard, showToast, curre
       const token = localStorage.getItem('stockpro_session');
       const headers = { 'Content-Type': 'application/json' };
       if (token) headers.Authorization = `Bearer ${token}`;
-      headers['x-tiwlo-reauth-grant'] = await requestSensitiveActionGrant(
-        headers,
-        API_BASE.replace(/\/api\/?$/, '') || window.location.origin
-      );
       const response = await fetch(
         `${API_BASE}/admin/users/${encodeURIComponent(customer.id)}/identity-verification/require`,
         {
@@ -113,6 +110,7 @@ export default function AdminCustomersView({ onBackToDashboard, showToast, curre
         ? { ...user, identityVerificationRequired: true, status: 'Identity required' }
         : user
       ));
+      setIdentityLockTarget(null);
     } catch (error) {
       showToast?.(error.message || 'Could not require identity verification.', 'error');
     } finally {
@@ -263,8 +261,8 @@ export default function AdminCustomersView({ onBackToDashboard, showToast, curre
                       <div className="mt-1 flex flex-wrap items-center gap-1.5">
                         {c.identityVerified ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-[#E6F4EA] px-2 py-0.5 text-[10px] font-medium text-[#137333]">
-                            <BadgeCheck className="h-3 w-3" aria-hidden="true" />
-                            Verified
+                              <BadgeCheck className="h-3 w-3" aria-hidden="true" />
+                              Verified
                           </span>
                         ) : c.identityVerificationRequired ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-[#FCE8E6] px-2 py-0.5 text-[10px] font-medium text-[#B3261E]">
@@ -282,12 +280,23 @@ export default function AdminCustomersView({ onBackToDashboard, showToast, curre
                             <button
                               type="button"
                               disabled={actionLoading}
-                              onClick={() => handleRequireIdentityVerification(c)}
+                              onClick={() => setIdentityLockTarget(c)}
                               className="rounded-full px-2 py-0.5 text-[10px] font-medium text-[#1A73E8] transition hover:bg-[#E8F0FE] disabled:cursor-wait disabled:opacity-60"
                             >
-                              {actionLoading ? 'Applying…' : 'Lock & require ID'}
+                              Lock for ID check
                             </button>
                           )}
+                          {(c.identityVerified || c.identityVerificationRequired) &&
+                            c.role !== 'super_admin' && c.email !== 'tiwloltd@gmail.com' &&
+                            (c.role !== 'admin' || currentUser?.role === 'super_admin') && (
+                              <button
+                                type="button"
+                                onClick={() => onNavigate?.(`identity-verification/${encodeURIComponent(c.id)}`)}
+                                className="rounded-full px-2 py-0.5 text-[10px] font-medium text-[#1A73E8] transition hover:bg-[#E8F0FE]"
+                              >
+                                {c.identityVerified ? 'View verified' : 'Review ID files'}
+                              </button>
+                            )}
                       </div>
                     </td>
 
@@ -532,6 +541,54 @@ export default function AdminCustomersView({ onBackToDashboard, showToast, curre
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {identityLockTarget && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-[#202124]/40 p-4"
+          onMouseDown={event => {
+            if (event.target === event.currentTarget && !actionLoading) setIdentityLockTarget(null);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="identity-lock-title"
+            className="w-full max-w-[440px] rounded-[28px] bg-white p-6 text-[#202124] shadow-[0_8px_24px_rgba(60,64,67,0.24)]"
+          >
+            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#FCE8E6] text-[#B3261E]">
+              <ShieldAlert className="h-6 w-6" aria-hidden="true" />
+            </div>
+            <h3 id="identity-lock-title" className="text-xl font-normal tracking-[-0.01em]">
+              Require identity verification?
+            </h3>
+            <p className="mt-3 text-sm leading-6 text-[#5F6368]">
+              <span className="font-medium text-[#202124]">{identityLockTarget.name}</span>
+              {identityLockTarget.email ? ` (${identityLockTarget.email})` : ''} will be signed out and their account will be locked until they complete identity verification.
+            </p>
+            <p className="mt-3 text-sm leading-6 text-[#5F6368]">
+              This affects only this account. Access is restored automatically after successful verification.
+            </p>
+            <div className="mt-7 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={actionLoading}
+                onClick={() => setIdentityLockTarget(null)}
+                className="min-h-10 rounded-full px-5 text-sm font-medium text-[#1A73E8] transition hover:bg-[#F1F3F4] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={actionLoading}
+                onClick={() => handleRequireIdentityVerification(identityLockTarget)}
+                className="min-h-10 rounded-full bg-[#1A73E8] px-5 text-sm font-medium text-white transition hover:bg-[#1765CC] disabled:cursor-wait disabled:opacity-60"
+              >
+                {actionLoading ? 'Locking account…' : 'Lock this account'}
+              </button>
+            </div>
+          </section>
         </div>
       )}
     </div>
