@@ -236,6 +236,7 @@ app.use(async (req, res, next) => {
           req.path.startsWith('/api/verification/');
         const isAuthRequest = req.path === '/api/auth' || req.path.startsWith('/api/auth/');
         if (
+          req.path !== '/api/graphql' &&
           isProtectedApiRequest &&
           sessionData.user.identityVerificationRequired === true &&
           sessionData.user.identityVerified !== true &&

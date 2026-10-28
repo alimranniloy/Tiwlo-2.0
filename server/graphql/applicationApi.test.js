@@ -66,6 +66,7 @@ test('identity-required users can access only authentication and verification op
     next();
   });
   const router = express.Router();
+  router.get('/auth/sync-session', (_req, res) => res.json({ authenticated: true }));
   router.get('/records', (_req, res) => res.json({ records: [] }));
   router.post('/verification/handoff', (_req, res) => res.status(201).json({ session: 'created' }));
   app.post('/api/graphql', createApplicationGraphQL([['/api', router]]));
@@ -77,6 +78,15 @@ test('identity-required users can access only authentication and verification op
   );
   assert.equal(restricted.body.data.result.status, 403);
   assert.equal(restricted.body.data.result.body.code, 'IDENTITY_VERIFICATION_REQUIRED');
+
+  const sessionSync = await call(
+    'query($input:ApplicationInput){result:getApiAuthSync_session(input:$input){status body}}',
+    { input: {} }
+  );
+  assert.deepEqual(sessionSync.body.data.result, {
+    status: 200,
+    body: { authenticated: true }
+  });
 
   const verification = await call(
     'mutation($input:ApplicationInput){result:postApiVerificationHandoff(input:$input){status body}}',
