@@ -1215,7 +1215,7 @@ export default function App() {
       return;
     }
 
-    if (destination.origin === new URL(getMainAppUrl()).origin) {
+    if (destination.origin === window.location.origin) {
       window.location.replace(destination.toString());
       return;
     }

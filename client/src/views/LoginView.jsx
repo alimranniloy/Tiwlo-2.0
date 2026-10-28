@@ -123,7 +123,7 @@ export default function LoginView({
 
   useEffect(() => {
     let active = true;
-    fetch(`${API_BASE}/auth/social/providers`, { credentials: 'include' })
+    globalThis.fetch(`${API_BASE}/auth/social/providers`, { credentials: 'include', cache: 'no-store' })
       .then(async response => {
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || 'Could not load social login options.');

@@ -493,7 +493,8 @@ async function completeSocialLogin(provider, req, res) {
       location: 'Dhaka, Bangladesh',
       timestamp: new Date().toUTCString()
     }).catch(error => console.error('[Login Alert Email Error]', error));
-    return res.redirect(303, socialReturnTo);
+    const handoff = await createWebSsoHandoff(user.id, socialReturnTo);
+    return renderWebSsoHandoff(res, handoff.consumeUrl, handoff.code, sessionToken);
   } catch (error) {
     if (error.code === 'ACCOUNT_DISABLED') {
       return res.redirect(getSocialLoginUrl(provider, { returnTo: savedState.returnTo, error: 'disabled' }));
