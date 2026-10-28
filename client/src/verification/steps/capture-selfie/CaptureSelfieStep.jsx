@@ -24,7 +24,11 @@ const CHALLENGE_LABELS = {
   blink: 'Close and open your eyes',
 };
 const FRAME_INTERVAL_MS = 500;
-const QUALITY_RETRY_MS = 800;
+const QUALITY_RETRY_MS = 1200;
+
+function getTransientRetryDelay(failureCount) {
+  return Math.min(1000 * (2 ** Math.max(0, failureCount - 1)), 8000);
+}
 
 async function readVerificationResponse(response) {
   const contentType = response.headers.get('content-type') || '';
@@ -103,6 +107,7 @@ export default function CaptureSelfieStep() {
   const challengePassedTimerRef = useRef(null);
   const frameBusyRef = useRef(false);
   const transientFailuresRef = useRef(0);
+  const retryDelayRef = useRef(FRAME_INTERVAL_MS);
   const faceReadyRef = useRef(false);
   const preparingRecorderRef = useRef(false);
   const finishedRef = useRef(false);
@@ -240,6 +245,7 @@ export default function CaptureSelfieStep() {
         throw new Error('The verification server returned an invalid liveness result.');
       }
       transientFailuresRef.current = 0;
+      retryDelayRef.current = FRAME_INTERVAL_MS;
 
       const passedIndex = session.challenges.length - result.challengesRemaining - (result.passed ? 1 : 0);
       if (result.passed) {
@@ -255,12 +261,15 @@ export default function CaptureSelfieStep() {
         failCapture('That action was not detected in time. Please restart and follow each instruction.');
       }
     } catch (error) {
-      const retryable = isVerificationFetchError(error) || error.status === 429 || error.status >= 500;
+      const retryable = isVerificationFetchError(error) || error.status >= 500;
       if (retryable && transientFailuresRef.current < 10) {
         transientFailuresRef.current += 1;
+        retryDelayRef.current = getTransientRetryDelay(transientFailuresRef.current);
         setFaceGuidance('connection');
+      } else if (error.status === 429) {
+        failCapture(error.message || 'Too many camera checks. Please restart verification later.');
       } else {
-        failCapture(retryable
+        failCapture(isVerificationFetchError(error)
           ? VERIFICATION_CONNECTION_ERROR
           : error.message || 'The liveness check could not process the camera.');
       }
@@ -269,11 +278,11 @@ export default function CaptureSelfieStep() {
       if (!finishedRef.current) {
         pollTimerRef.current = window.setTimeout(
           () => submitChallengeFrameRef.current?.(),
-          faceGuidance === 'connection' ? 1000 : FRAME_INTERVAL_MS
+          retryDelayRef.current
         );
       }
     }
-  }, [accessHeaders, captureFrame, completeCapture, failCapture, faceGuidance]);
+  }, [accessHeaders, captureFrame, completeCapture, failCapture]);
 
   useEffect(() => {
     submitChallengeFrameRef.current = submitChallengeFrame;
@@ -285,6 +294,7 @@ export default function CaptureSelfieStep() {
     discardRecordingRef.current = false;
     frameBusyRef.current = false;
     transientFailuresRef.current = 0;
+    retryDelayRef.current = FRAME_INTERVAL_MS;
     chunksRef.current = [];
 
     const start = async () => {
@@ -417,6 +427,7 @@ export default function CaptureSelfieStep() {
         }
         if (cancelled) return;
         transientFailuresRef.current = 0;
+        retryDelayRef.current = QUALITY_RETRY_MS;
         faceReadyRef.current = result.ready;
         setFaceGuidance(result.guidance || (result.ready ? 'ready' : 'checking'));
         setLowLightWarning(typeof result.quality?.brightness === 'number' && result.quality.brightness < 35);
@@ -427,19 +438,28 @@ export default function CaptureSelfieStep() {
         }
       } catch (error) {
         if (cancelled) return;
-        if (error.status === 429 || error.status >= 500 || isVerificationFetchError(error)) {
+        if (error.status === 429) {
+          failCapture(error.message || 'Too many camera checks. Please restart verification later.');
+          return;
+        }
+        if (error.status >= 500 || isVerificationFetchError(error)) {
           transientFailuresRef.current += 1;
-          setFaceGuidance('connection');
+          retryDelayRef.current = getTransientRetryDelay(transientFailuresRef.current);
           if (transientFailuresRef.current >= 10) {
-            failCapture(VERIFICATION_CONNECTION_ERROR);
+            failCapture(isVerificationFetchError(error)
+              ? VERIFICATION_CONNECTION_ERROR
+              : error.message || 'The camera quality check is temporarily unavailable.');
             return;
           }
+          setFaceGuidance('connection');
         } else {
           failCapture(error.message || 'The camera quality check could not process the frame.');
           return;
         }
       }
-      qualityTimer = window.setTimeout(inspectFrame, QUALITY_RETRY_MS);
+      if (!finishedRef.current) {
+        qualityTimer = window.setTimeout(inspectFrame, retryDelayRef.current);
+      }
     };
 
     video.play().then(inspectFrame).catch(error => {

@@ -35,6 +35,7 @@ const faceMatchLimiter = rateLimit({
 const livenessSessionLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 6,
+  keyGenerator: getVerificationRateLimitKey,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many verification sessions. Please try again later.' }
@@ -43,6 +44,7 @@ const livenessSessionLimiter = rateLimit({
 const livenessFrameLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 600,
+  keyGenerator: getVerificationRateLimitKey,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many liveness frames. Please restart verification later.' }
@@ -50,7 +52,8 @@ const livenessFrameLimiter = rateLimit({
 
 const cameraQualityLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 300,
+  limit: 900,
+  keyGenerator: getVerificationRateLimitKey,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many camera quality checks. Please restart verification later.' }
@@ -171,6 +174,12 @@ function getRequestOwner(req) {
   if (req.activeUser?.id !== undefined) return String(req.activeUser.id);
   if (req.verificationHandoff) return `handoff:${req.verificationHandoff.id}`;
   return null;
+}
+
+function getVerificationRateLimitKey(req) {
+  const owner = getRequestOwner(req);
+  if (!owner) throw new Error('Verification rate limiting requires an authenticated session.');
+  return `verification:${owner}`;
 }
 
 function requireVerificationAccess(req, res, next) {
