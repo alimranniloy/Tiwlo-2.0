@@ -15,7 +15,7 @@ export function isAllowedWebSsoReturnUrl(returnTo, { dashboardHost, dashboardHos
       ...(Array.isArray(dashboardHosts) ? dashboardHosts : [])
     ].map(host => String(host).toLowerCase());
     const isDashboardReturn = allowedDashboardHosts.includes(hostname) &&
-      /^\/oneprofile(?:\/|$)/i.test(target.pathname);
+      !/^\/(api|login|signin|create-account|register|signup|auth)(\/|$)/i.test(target.pathname);
     const isMailReturn = typeof mailHost === 'string' &&
       hostname === mailHost.toLowerCase();
     const isPlatformReturn = typeof platformHost === 'string' &&

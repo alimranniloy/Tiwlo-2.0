@@ -172,6 +172,13 @@ function getSocialLoginUrl(provider, { returnTo, error = '' } = {}) {
   return loginUrl.toString();
 }
 
+function getSocialDefaultReturnTo(user) {
+  const isSuperAdmin = user?.role === 'super_admin' ||
+    user?.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
+  const path = isSuperAdmin ? '/administrator' : '/dashboard';
+  return `https://${PLATFORM_CONFIG.primaryDomain}${path}`;
+}
+
 function getSocialProfileCompletionUrl(provider, { returnTo, challengeToken }) {
   const authOrigin = PLATFORM_CONFIG.authDomain.startsWith('http')
     ? PLATFORM_CONFIG.authDomain
@@ -352,21 +359,26 @@ async function startSocialLogin(provider, req, res) {
   const credentials = await getSocialProviderCredentials(provider);
   if (!credentials) return res.status(503).send(`${provider} sign-in is not configured yet.`);
 
-  const defaultReturnTo = `${PLATFORM_CONFIG.dashboardUrl.replace(/\/+$/, '')}/oneprofile`;
-  const requestedReturnTo = typeof req.query.return_to === 'string'
+  const hasRequestedReturnTo = typeof req.query.return_to === 'string' && req.query.return_to.length > 0;
+  const requestedReturnTo = hasRequestedReturnTo
     ? req.query.return_to
-    : defaultReturnTo;
+    : `https://${PLATFORM_CONFIG.primaryDomain}/dashboard`;
   if (!isAllowedWebSsoReturnUrl(requestedReturnTo, {
     dashboardHost: PLATFORM_CONFIG.dashboardHost,
     dashboardHosts: [PLATFORM_CONFIG.freeSubdomainDomain],
-    mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`
+    mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`,
+    platformHost: PLATFORM_CONFIG.primaryDomain
   })) {
     return res.status(400).send('Invalid sign-in return destination.');
   }
 
   const state = crypto.randomBytes(32).toString('base64url');
   const cookieName = `tiwlo_${provider}_oauth_state`;
-  res.cookie(cookieName, JSON.stringify({ state, returnTo: requestedReturnTo }), getSocialStateCookieOptions(req));
+  res.cookie(
+    cookieName,
+    JSON.stringify({ state, returnTo: requestedReturnTo, returnToExplicit: hasRequestedReturnTo }),
+    getSocialStateCookieOptions(req)
+  );
   const callbackUrl = getSocialCallbackUrl(provider);
 
   if (provider === 'google') {
@@ -415,7 +427,8 @@ async function completeSocialLogin(provider, req, res) {
       !isAllowedWebSsoReturnUrl(savedState.returnTo, {
         dashboardHost: PLATFORM_CONFIG.dashboardHost,
         dashboardHosts: [PLATFORM_CONFIG.freeSubdomainDomain],
-        mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`
+        mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`,
+        platformHost: PLATFORM_CONFIG.primaryDomain
       })) {
     return res.status(400).send('Social sign-in could not verify the OAuth state. Please try again.');
   }
@@ -431,6 +444,9 @@ async function completeSocialLogin(provider, req, res) {
     }
     const identity = await fetchSocialProfile(provider, req.query.code, credentials);
     const user = await findOrCreateSocialUser({ provider, ...identity });
+    const socialReturnTo = savedState.returnToExplicit === true
+      ? savedState.returnTo
+      : getSocialDefaultReturnTo(user);
     const socialData = await SocialDB.getData();
     const socialProfile = socialData.profiles?.[user.id] || {};
     if (
@@ -452,7 +468,7 @@ async function completeSocialLogin(provider, req, res) {
       );
       res.cookie('tiwlo_social_profile', challengeToken, getSocialProfileChallengeCookieOptions(req));
       return res.redirect(getSocialProfileCompletionUrl(provider, {
-        returnTo: savedState.returnTo,
+        returnTo: socialReturnTo,
         challengeToken
       }));
     }
@@ -477,7 +493,7 @@ async function completeSocialLogin(provider, req, res) {
       location: 'Dhaka, Bangladesh',
       timestamp: new Date().toUTCString()
     }).catch(error => console.error('[Login Alert Email Error]', error));
-    return res.redirect(303, savedState.returnTo);
+    return res.redirect(303, socialReturnTo);
   } catch (error) {
     if (error.code === 'ACCOUNT_DISABLED') {
       return res.redirect(getSocialLoginUrl(provider, { returnTo: savedState.returnTo, error: 'disabled' }));

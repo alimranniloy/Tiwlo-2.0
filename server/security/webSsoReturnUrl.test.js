@@ -12,9 +12,17 @@ const hosts = {
   platformHost: 'tiwlo.com'
 };
 
-test('allows OneProfile and TMail HTTPS SSO return URLs', () => {
+test('allows UIDS product and TMail HTTPS SSO return URLs', () => {
+  assert.equal(
+    isAllowedWebSsoReturnUrl('https://uids.tiwlo.com/', hosts),
+    true
+  );
   assert.equal(
     isAllowedWebSsoReturnUrl('https://uids.tiwlo.com/oneprofile', hosts),
+    true
+  );
+  assert.equal(
+    isAllowedWebSsoReturnUrl('https://uids.tiwlo.com/product/123', hosts),
     true
   );
   assert.equal(
@@ -36,10 +44,8 @@ test('rejects non-HTTPS and untrusted SSO return URLs', () => {
     isAllowedWebSsoReturnUrl('https://evil.example/oneprofile', hosts),
     false
   );
-  assert.equal(
-    isAllowedWebSsoReturnUrl('https://uids.tiwlo.com/dashboard', hosts),
-    false
-  );
+  assert.equal(isAllowedWebSsoReturnUrl('https://uids.tiwlo.com/login', hosts), false);
+  assert.equal(isAllowedWebSsoReturnUrl('https://uids.tiwlo.com/api/auth/session', hosts), false);
   assert.equal(
     isAllowedWebSsoReturnUrl('https://tmail.tiwlo.com.evil.example/', hosts),
     false

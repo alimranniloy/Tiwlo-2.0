@@ -1,7 +1,6 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useState, useEffect } from 'react';
 import { getPlatformUrl } from '../config/platformConfig';
-import { getDashboardUrl } from '../utils/navigation';
 import { COUNTRY_OPTIONS, MONTH_OPTIONS, getDaysInBirthMonth } from '../utils/accountFormOptions';
 import {
   Eye,
@@ -218,9 +217,8 @@ export default function CreateAccountView({
 
   const startSocialLogin = (provider) => {
     const params = new URLSearchParams();
-    const returnTo = new URLSearchParams(window.location.search).get('return_to') ||
-      getDashboardUrl('/oneprofile');
-    params.set('return_to', returnTo);
+    const returnTo = new URLSearchParams(window.location.search).get('return_to');
+    if (returnTo) params.set('return_to', returnTo);
     window.location.assign(`/api/auth/${provider}${params.toString() ? `?${params}` : ''}`);
   };
 
