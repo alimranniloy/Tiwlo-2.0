@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
-  Check,
   Loader2,
   Video,
 } from 'lucide-react';
@@ -538,6 +537,20 @@ export default function CaptureSelfieStep() {
     : currentChallenge?.type === 'turn_right'
       ? ArrowRight
       : null;
+  const ringDirectionIcon = isRecording && !challengePassed
+    ? challengeDirectionIcon
+    : !faceReady
+      ? directionIcon
+      : null;
+  const ringDirectionPosition = ringDirectionIcon === ArrowLeft
+    ? 'left-2 top-1/2 -translate-y-1/2'
+    : ringDirectionIcon === ArrowRight
+      ? 'right-2 top-1/2 -translate-y-1/2'
+      : ringDirectionIcon === ArrowUp
+        ? 'left-1/2 top-2 -translate-x-1/2'
+        : ringDirectionIcon === ArrowDown
+          ? 'bottom-2 left-1/2 -translate-x-1/2'
+          : '';
 
   return (
     <div className="flex-1 flex flex-col justify-between px-6 pb-6 pt-1 select-none">
@@ -598,22 +611,16 @@ export default function CaptureSelfieStep() {
               {faceReady && (
                 <div className="pointer-events-none absolute inset-3 rounded-full border border-emerald-300/80 animate-pulse" />
               )}
+              {ringDirectionIcon && (
+                <span
+                  className={`absolute z-20 flex h-10 w-10 items-center justify-center rounded-full shadow-md ${
+                    isRecording ? 'bg-emerald-500 text-white ring-4 ring-white/80' : 'bg-white text-rose-600 ring-1 ring-rose-100'
+                  } ${ringDirectionPosition}`}
+                >
+                  {React.createElement(ringDirectionIcon, { className: 'h-5 w-5 animate-pulse' })}
+                </span>
+              )}
             </div>
-            {directionIcon && !faceReady && (
-              <span className="absolute -right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-rose-600 shadow-md ring-1 ring-rose-100">
-                {React.createElement(directionIcon, { className: 'h-5 w-5 animate-pulse' })}
-              </span>
-            )}
-            {isRecording && challengeDirectionIcon && !challengePassed && (
-              <span className="absolute -right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md ring-4 ring-white">
-                {React.createElement(challengeDirectionIcon, { className: 'h-5 w-5 animate-pulse' })}
-              </span>
-            )}
-            {faceReady && (
-              <span className="absolute -bottom-1 left-1/2 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md ring-4 ring-white">
-                <Check className="h-5 w-5" strokeWidth={3} />
-              </span>
-            )}
           </div>
 
           <div className="mt-5 flex items-center justify-center gap-2" aria-label="Liveness challenge progress">

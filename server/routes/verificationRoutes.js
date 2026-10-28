@@ -244,12 +244,120 @@ async function toEngineFrame(file) {
   return { buffer: data, width: info.width, height: info.height };
 }
 
+async function findDocumentPortrait(file, sharedToken) {
+  const { data: image, info } = await sharp(file.buffer, { limitInputPixels: MAX_IMAGE_PIXELS })
+    .rotate()
+    .toBuffer({ resolveWithObject: true });
+  const { width, height } = info;
+  const crops = width >= height
+    ? [
+      { left: 0, top: 0, width: Math.round(width * 0.58), height },
+      {
+        left: Math.round(width * 0.42),
+        top: 0,
+        width: width - Math.round(width * 0.42),
+        height
+      },
+      { left: 0, top: 0, width, height: Math.round(height * 0.72) },
+      {
+        left: 0,
+        top: Math.round(height * 0.28),
+        width,
+        height: height - Math.round(height * 0.28)
+      }
+    ]
+    : [
+      { left: 0, top: 0, width, height: Math.round(height * 0.62) },
+      {
+        left: 0,
+        top: Math.round(height * 0.38),
+        width,
+        height: height - Math.round(height * 0.38)
+      },
+      { left: 0, top: 0, width: Math.round(width * 0.62), height },
+      {
+        left: Math.round(width * 0.38),
+        top: 0,
+        width: width - Math.round(width * 0.38),
+        height
+      }
+    ];
+  let bestCandidate = null;
+  let bestScore = -1;
+
+  for (const crop of crops) {
+    const { data, info: cropInfo } = await sharp(image)
+      .extract(crop)
+      .resize({ width: 640, height: 640, fit: 'inside' })
+      .jpeg({ quality: 90 })
+      .toBuffer({ resolveWithObject: true });
+    const form = new FormData();
+    form.append('image', new Blob([data], { type: 'image/jpeg' }), 'document-portrait-candidate.jpg');
+    const response = await fetch(getEngineUrl('/api/v1/detect'), {
+      method: 'POST',
+      body: form,
+      headers: { 'x-tiwlo-biometrics-token': sharedToken },
+      signal: AbortSignal.timeout(20_000)
+    });
+    if (!response.ok) {
+      throw new Error(`Document portrait detection returned HTTP ${response.status}.`);
+    }
+
+    const result = await response.json();
+    if (!Number.isInteger(result.count) || !Array.isArray(result.faces) ||
+        result.count !== result.faces.length) {
+      throw new Error('Document portrait detection returned an invalid result.');
+    }
+    if (result.count !== 1) continue;
+
+    const face = result.faces[0];
+    const bbox = face?.detection?.bbox;
+    if (!Array.isArray(bbox) || bbox.length !== 4 ||
+        bbox.some(value => typeof value !== 'number' || !Number.isFinite(value)) ||
+        bbox[0] < 0 || bbox[1] < 0 ||
+        bbox[2] > cropInfo.width || bbox[3] > cropInfo.height ||
+        bbox[2] <= bbox[0] || bbox[3] <= bbox[1]) {
+      continue;
+    }
+    const faceAreaRatio =
+      Math.max(0, bbox[2] - bbox[0]) * Math.max(0, bbox[3] - bbox[1]) /
+      (cropInfo.width * cropInfo.height);
+    const confidence = face.detection.confidence;
+    const quality = face.quality?.overall_score;
+    const score =
+      (Number.isFinite(confidence) ? confidence : 0) * 0.45 +
+      Math.min(1, faceAreaRatio / 0.12) * 0.35 +
+      (Number.isFinite(quality) ? quality / 100 : 0) * 0.2;
+    if (score > bestScore) {
+      bestScore = score;
+      bestCandidate = { buffer: data, detectedFormat: 'jpeg' };
+    }
+  }
+
+  return bestCandidate;
+}
+
 function toEngineFile(form, name, file) {
   const mediaType = imageTypes.get(file.detectedFormat);
   form.append(
     name,
     new Blob([file.buffer], { type: mediaType }),
     `${name}.${file.detectedFormat}`
+  );
+}
+
+async function sendFaceMatch(document, selfie, sharedToken) {
+  const body = new FormData();
+  toEngineFile(body, 'image1', document);
+  toEngineFile(body, 'image2', selfie);
+  return fetch(
+    getEngineUrl('/api/v1/verify'),
+    {
+      method: 'POST',
+      body,
+      headers: { 'x-tiwlo-biometrics-token': sharedToken },
+      signal: AbortSignal.timeout(60_000)
+    }
   );
 }
 
@@ -712,27 +820,29 @@ router.post(
       document.detectedFormat = documentFormat;
       selfie.detectedFormat = selfieFormat;
 
-      const body = new FormData();
-      toEngineFile(body, 'image1', document);
-      toEngineFile(body, 'image2', selfie);
       const sharedToken = getSharedToken();
       if (!sharedToken) {
         if (req.verificationHandoff) setHandoffStatus(req.verificationHandoff, 'failed', 'service_unavailable');
         return res.status(503).json({ error: 'The verification service is not configured.' });
       }
-      const engineUrl = new URL(
-        '/api/v1/verify',
-        process.env.OPENBIOMETRICS_API_URL || 'http://127.0.0.1:8000'
-      );
-      const engineResponse = await fetch(engineUrl, {
-        method: 'POST',
-        body,
-        headers: { 'x-tiwlo-biometrics-token': sharedToken },
-        signal: AbortSignal.timeout(60_000)
-      });
+      let engineResponse = await sendFaceMatch(document, selfie, sharedToken);
+      let engineError = null;
+      if (engineResponse.status === 400 || engineResponse.status === 422) {
+        engineError = await engineResponse.json().catch(() => null);
+        const detail = typeof engineError?.detail === 'string' ? engineError.detail : '';
+        if (/image1/i.test(detail)) {
+          const portrait = await findDocumentPortrait(document, sharedToken);
+          if (portrait) {
+            engineResponse = await sendFaceMatch(portrait, selfie, sharedToken);
+            engineError = null;
+            if (engineResponse.status === 400 || engineResponse.status === 422) {
+              engineError = await engineResponse.json().catch(() => null);
+            }
+          }
+        }
+      }
 
       if (engineResponse.status === 400 || engineResponse.status === 422) {
-        const engineError = await engineResponse.json().catch(() => null);
         const detail = typeof engineError?.detail === 'string' ? engineError.detail : '';
         const reason = /image1/i.test(detail)
           ? 'document_face_not_clear'

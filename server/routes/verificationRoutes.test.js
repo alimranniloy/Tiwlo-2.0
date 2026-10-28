@@ -422,7 +422,7 @@ test('face match reports whether the document portrait or selfie face is missing
     if (previousToken === undefined) delete process.env.OPENBIOMETRICS_SHARED_TOKEN;
     else process.env.OPENBIOMETRICS_SHARED_TOKEN = previousToken;
   });
-  t.mock.method(globalThis, 'fetch', async url => {
+  const engineCall = t.mock.method(globalThis, 'fetch', async url => {
     const target = String(url);
     if (target.endsWith('/api/v1/liveness/sessions?preset=verification')) {
       return Response.json({
@@ -441,6 +441,9 @@ test('face match reports whether the document portrait or selfie face is missing
         state: 'completed'
       });
     }
+    if (target.endsWith('/api/v1/detect')) {
+      return Response.json({ count: 0, faces: [] });
+    }
     return Response.json(
       { detail: 'Exactly one face must be visible in image1' },
       { status: 422 }
@@ -457,6 +460,89 @@ test('face match reports whether the document portrait or selfie face is missing
   const result = await response.json();
   assert.equal(result.isMatch, false);
   assert.equal(result.reason, 'document_face_not_clear');
+  assert.equal(engineCall.mock.callCount(), 7);
+});
+
+test('face match retries with an upscaled portrait crop when the full document has no detectable face', async t => {
+  const call = await createClient(t);
+  const image = await createImage();
+  const previousToken = process.env.OPENBIOMETRICS_SHARED_TOKEN;
+  process.env.OPENBIOMETRICS_SHARED_TOKEN = 'test-token';
+  t.after(() => {
+    if (previousToken === undefined) delete process.env.OPENBIOMETRICS_SHARED_TOKEN;
+    else process.env.OPENBIOMETRICS_SHARED_TOKEN = previousToken;
+  });
+
+  let verifyCalls = 0;
+  let detectionCalls = 0;
+  const engineCall = t.mock.method(globalThis, 'fetch', async (url, options) => {
+    const target = String(url);
+    if (target.endsWith('/api/v1/liveness/sessions?preset=verification')) {
+      return Response.json({
+        session_id: 'portrait-crop-liveness',
+        challenges: ['turn_right', 'blink', 'turn_left', 'open_mouth'].map(type => ({ type, instruction: type }))
+      });
+    }
+    if (target.endsWith('/api/v1/liveness/sessions/portrait-crop-liveness/frame')) {
+      return Response.json({
+        session_id: 'portrait-crop-liveness',
+        challenge_type: 'open_mouth',
+        passed: true,
+        challenges_remaining: 0,
+        session_complete: true,
+        is_live: true,
+        state: 'completed'
+      });
+    }
+    if (target.endsWith('/api/v1/detect')) {
+      detectionCalls += 1;
+      if (detectionCalls === 1) {
+        return Response.json({
+          count: 1,
+          faces: [{
+            detection: { bbox: [80, 100, 280, 500], confidence: 0.95 },
+            quality: { overall_score: 85 }
+          }]
+        });
+      }
+      return Response.json({ count: 0, faces: [] });
+    }
+
+    assert.equal(target, 'http://127.0.0.1:8000/api/v1/verify');
+    verifyCalls += 1;
+    const submittedDocument = options.body.get('image1');
+    if (verifyCalls === 1) {
+      assert.equal(submittedDocument.type, 'image/png');
+      return Response.json(
+        { detail: 'Exactly one face must be visible in image1' },
+        { status: 422 }
+      );
+    }
+    assert.equal(submittedDocument.type, 'image/jpeg');
+    assert.ok(submittedDocument.size > 0);
+    return Response.json({
+      is_match: true,
+      similarity: 0.91,
+      face2: { liveness: { is_live: true } }
+    });
+  });
+
+  const sessionId = await createCompletedSession(call);
+  const response = await call('/api/verification/face-match', {
+    method: 'POST',
+    headers: { 'x-user-id': 'user-1' },
+    body: createForm(image, { sessionId })
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    success: true,
+    isMatch: true,
+    isLive: true,
+    reason: null
+  });
+  assert.equal(verifyCalls, 2);
+  assert.equal(detectionCalls, 4);
+  assert.equal(engineCall.mock.callCount(), 8);
 });
 
 test('face match cannot be submitted without a completed server liveness session', async t => {
