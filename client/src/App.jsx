@@ -233,6 +233,9 @@ export default function App() {
       if (pathname === 'verification' || pathname.startsWith('verification/')) {
         return 'verification';
       }
+      if (pathname === 'identity') {
+        return 'identity';
+      }
 
       // Check if user is navigating on the configured authentication subdomain.
       if (isAuthSubdomain()) {
@@ -2040,10 +2043,10 @@ export default function App() {
           showToast={showToast}
           onBackToApp={() => handleTabChange('dashboard')}
         />
-      ) : (activeTab === 'dashboard' || activeTab === 'billing' || activeTab.startsWith('billing') || activeTab === 'domains' || activeTab === 'workspace' || activeTab.startsWith('workspace') || activeTab === 'marketplace' || activeTab.startsWith('marketplace') || activeTab === 'whatsapp-automation' || activeTab.startsWith('whatsapp-automation')) ? (
+      ) : (activeTab === 'dashboard' || activeTab === 'identity' || activeTab === 'billing' || activeTab.startsWith('billing') || activeTab === 'domains' || activeTab === 'workspace' || activeTab.startsWith('workspace') || activeTab === 'marketplace' || activeTab.startsWith('marketplace') || activeTab === 'whatsapp-automation' || activeTab.startsWith('whatsapp-automation')) ? (
         <CloudDashboard
           currentUser={currentUser}
-          initialNav={activeTab === 'billing' || activeTab.startsWith('billing') ? 'billing' : activeTab === 'domains' ? 'domains' : activeTab.startsWith('workspace') ? activeTab : activeTab.startsWith('marketplace') ? activeTab : activeTab.startsWith('whatsapp-automation') ? 'whatsapp-automation' : 'dashboard'}
+          initialNav={activeTab === 'identity' ? 'identity' : activeTab === 'billing' || activeTab.startsWith('billing') ? 'billing' : activeTab === 'domains' ? 'domains' : activeTab.startsWith('workspace') ? activeTab : activeTab.startsWith('marketplace') ? activeTab : activeTab.startsWith('whatsapp-automation') ? 'whatsapp-automation' : 'dashboard'}
           onLogout={handleLogout}
           onOpenStoreDashboard={handleStoreConsoleLaunch}
           onNavigateTab={handleTabChange}

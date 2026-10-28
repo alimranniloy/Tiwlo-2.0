@@ -31,6 +31,7 @@ import WorkspaceOperationsView from '../../views/workspace/WorkspaceOperationsVi
 import MarketplaceView from '../../views/marketplace/MarketplaceView';
 import MarketplaceProductDetailView from '../../views/marketplace/MarketplaceProductDetailView';
 import OneProfileSettingsView from '../../oneprofile/views/OneProfileSettingsView';
+import IdentityView from './views/IdentityView';
 
 // Real GraphQL / REST Client
 import {
@@ -177,6 +178,7 @@ export default function CloudDashboard({
           try {
             if (nav === 'workspace') window.history.pushState(null, '', '/workspace');
             else if (nav === 'marketplace') window.history.pushState(null, '', '/marketplace');
+            else if (nav === 'identity') window.history.pushState(null, '', '/identity');
             else if (nav === 'dashboard') window.history.pushState(null, '', '/');
             else if (nav === 'whatsapp-automation') window.history.pushState(null, '', '/whatsapp-automation');
           } catch (e) {}
@@ -242,7 +244,11 @@ export default function CloudDashboard({
               </button>
             </div>
           )}
-          {activeNav === 'profile-settings' ? (
+          {activeNav === 'identity' ? (
+            <div className="-m-3.5 min-h-full sm:-m-6 lg:-m-8">
+              <IdentityView onStartVerification={() => onNavigateTab?.('verification')} />
+            </div>
+          ) : activeNav === 'profile-settings' ? (
             <div className="max-w-[1000px] mx-auto space-y-5">
               <button
                 type="button"

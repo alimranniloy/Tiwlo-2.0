@@ -231,7 +231,7 @@ export default function CloudSidebar({
             <p className="px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#747775] dark:text-slate-500">
               Account
             </p>
-            {renderNavItem({ id: 'verification', label: 'Identity', icon: IdCard, external: true, navigateTab: true })}
+            {renderNavItem({ id: 'identity', label: 'Identity', icon: IdCard })}
             {renderNavItem({ id: 'help-support', label: 'Help & support', icon: HelpCircle })}
             {renderNavItem({ id: 'billing', label: 'Billing', icon: CreditCard })}
             {renderNavItem({ id: 'settings', label: 'Settings', icon: Settings, navigateTab: true })}
