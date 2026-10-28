@@ -158,7 +158,7 @@ function renderWebSsoHandoff(res, consumeUrl, code, sessionToken) {
     'Cache-Control': 'no-store',
     'Content-Security-Policy': `default-src 'none'; form-action ${new URL(consumeUrl).origin}; script-src 'nonce-${nonce}'; base-uri 'none'; frame-ancestors 'none'`
   });
-  return res.status(200).type('html').send(`<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Signing in</title></head><body><p>Continuing securely…</p><form method="post" action="${safeAction}"><input type="hidden" name="handoffCode" value="${code}"><input type="hidden" name="sessionToken" value="${sessionToken}"><button type="submit">Continue</button></form><script nonce="${nonce}">document.forms[0].submit()</script></body></html>`);
+  return res.status(200).type('html').send(`<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Signing in</title></head><body><form id="handoff" method="post" action="${safeAction}" hidden><input type="hidden" name="handoffCode" value="${code}"><input type="hidden" name="sessionToken" value="${sessionToken}"></form><script nonce="${nonce}">document.getElementById('handoff').submit()</script></body></html>`);
 }
 
 function getSocialLoginUrl(provider, { returnTo, error = '' } = {}) {

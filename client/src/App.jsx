@@ -2062,9 +2062,11 @@ export default function App() {
         />
       ) : (activeTab === 'subdomain' || (typeof activeTab === 'string' && (activeTab.startsWith('subdomain') || activeTab.startsWith('uidis') || activeTab.startsWith('uids')))) ? (
         <SubdomainLanding
-          onNavigateAuth={(mode) => {
-            if (mode === 'signup') handleTabChange('create-account');
-            else handleTabChange('login');
+          onNavigateAuth={(mode, returnPath = '/dashboard') => {
+            const authPath = mode === 'signup' ? '/create-account' : '/login';
+            const returnTo = getMainAppUrl(returnPath);
+            const params = new URLSearchParams({ return_to: returnTo, sso_login: '1' });
+            window.location.replace(getAuthUrl(`${authPath}?${params}`));
           }}
           onNavigateTab={handleTabChange}
         />

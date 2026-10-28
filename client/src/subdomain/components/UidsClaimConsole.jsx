@@ -1,20 +1,27 @@
 import React, { useState } from 'react';
 import { CheckCircle2, X, ArrowRight } from 'lucide-react';
-import { getAuthUrl } from '../../utils/navigation';
+import { getAuthUrl, getMainAppUrl } from '../../utils/navigation';
 
 export default function UidsClaimConsole({
   subdomain,
   suffix = '.uids.app',
   availability,
-  onClose
+  onClose,
+  onNavigateAuth
 }) {
   const [claimError, setClaimError] = useState('');
   const fullDomain = `${subdomain || 'mybrand'}${suffix}`;
   const isAvailable = availability?.available === true;
 
   const goToAuth = (mode) => {
-    const redirect = `/domains?domain_claim=${encodeURIComponent(subdomain || '')}`;
-    window.location.replace(getAuthUrl(`/${mode === 'signup' ? 'create-account' : 'login'}?redirect=${encodeURIComponent(redirect)}`));
+    const returnPath = `/domains?domain_claim=${encodeURIComponent(subdomain || '')}`;
+    if (onNavigateAuth) {
+      onNavigateAuth(mode, returnPath);
+      return;
+    }
+    const returnTo = getMainAppUrl(returnPath);
+    const params = new URLSearchParams({ return_to: returnTo, sso_login: '1' });
+    window.location.replace(getAuthUrl(`/${mode === 'signup' ? 'create-account' : 'login'}?${params}`));
   };
 
   return (
