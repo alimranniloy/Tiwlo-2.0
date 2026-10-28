@@ -214,7 +214,7 @@ test('camera framing feedback waits for one centered, focused face but permits l
     [false, 'center_lower', image],
     [false, 'center_upper', image],
     [true, null, portraitImage],
-    [false, 'face_forward', image]
+    [true, null, image]
   ]) {
     const body = new FormData();
     body.append('frame', new Blob([frame], { type: 'image/png' }), 'frame.png');
@@ -229,6 +229,38 @@ test('camera framing feedback waits for one centered, focused face but permits l
     assert.equal(result.guidance, guidance);
   }
   assert.equal(engineCall.mock.callCount(), 11);
+});
+
+test('frontal pose is required for the final selfie but not initial camera alignment', async t => {
+  const call = await createClient(t);
+  const image = await createImage(640, 480);
+  const engineCall = t.mock.method(globalThis, 'fetch', async () => Response.json({
+    count: 1,
+    faces: [{
+      detection: { bbox: [240, 120, 400, 360] },
+      quality: { sharpness: 50, brightness: 100, head_pose_ok: false }
+    }]
+  }));
+
+  const getQuality = async path => {
+    const body = new FormData();
+    body.append('frame', new Blob([image], { type: 'image/png' }), 'frame.png');
+    const response = await call(path, {
+      method: 'POST',
+      headers: { 'x-user-id': 'user-1' },
+      body
+    });
+    assert.equal(response.status, 200);
+    return response.json();
+  };
+
+  const alignment = await getQuality('/api/verification/liveness/quality');
+  assert.equal(alignment.ready, true);
+
+  const finalSelfie = await getQuality('/api/verification/liveness/quality?stage=final-selfie');
+  assert.equal(finalSelfie.ready, false);
+  assert.equal(finalSelfie.guidance, 'face_forward');
+  assert.equal(engineCall.mock.callCount(), 2);
 });
 
 async function createImage(width = 16, height = 16) {

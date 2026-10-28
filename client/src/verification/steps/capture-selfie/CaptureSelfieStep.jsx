@@ -242,7 +242,7 @@ export default function CaptureSelfieStep() {
 
       const body = new FormData();
       body.append('frame', frame, 'final-selfie.jpg');
-      const response = await fetch('/api/verification/liveness/quality', {
+      const response = await fetch('/api/verification/liveness/quality?stage=final-selfie', {
         method: 'POST',
         credentials: 'include',
         headers: accessHeaders,
