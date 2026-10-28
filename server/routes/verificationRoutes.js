@@ -237,10 +237,11 @@ async function getValidImageFormat(file) {
 async function toEngineFrame(file) {
   const format = await getValidImageFormat(file);
   if (!format) return null;
-  return sharp(file.buffer, { limitInputPixels: MAX_IMAGE_PIXELS })
+  const { data, info } = await sharp(file.buffer, { limitInputPixels: MAX_IMAGE_PIXELS })
     .resize({ width: 640, height: 640, fit: 'inside', withoutEnlargement: true })
     .jpeg({ quality: 78 })
-    .toBuffer();
+    .toBuffer({ resolveWithObject: true });
+  return { buffer: data, width: info.width, height: info.height };
 }
 
 function toEngineFile(form, name, file) {
@@ -512,7 +513,7 @@ router.post(
       if (!frame) return res.status(400).json({ error: 'Use a valid camera frame.' });
 
       const body = new FormData();
-      body.append('image', new Blob([frame], { type: 'image/jpeg' }), 'liveness-frame.jpg');
+      body.append('image', new Blob([frame.buffer], { type: 'image/jpeg' }), 'liveness-frame.jpg');
       const engineResponse = await fetch(
         getEngineUrl(`/api/v1/liveness/sessions/${encodeURIComponent(sessionId)}/frame`),
         {
@@ -571,14 +572,18 @@ router.post(
       const frame = await toEngineFrame(req.file);
       if (!frame) return res.status(400).json({ error: 'Use a valid camera frame.' });
       const body = new FormData();
-      body.append('image', new Blob([frame], { type: 'image/jpeg' }), 'camera-frame.jpg');
-      const response = await fetch(getEngineUrl('/api/v1/faces/detect'), {
+      body.append('image', new Blob([frame.buffer], { type: 'image/jpeg' }), 'camera-frame.jpg');
+      const response = await fetch(getEngineUrl('/api/v1/detect'), {
         method: 'POST',
         body,
         headers: { 'x-tiwlo-biometrics-token': sharedToken },
         signal: AbortSignal.timeout(20_000)
       });
       if (!response.ok) {
+        console.error(`[Verification] Camera quality endpoint returned HTTP ${response.status}.`);
+        if (response.status === 404) {
+          return res.status(503).json({ error: 'The camera guidance service endpoint is unavailable. Please try again later.' });
+        }
         return res.status(503).json({ error: 'The camera quality check is temporarily unavailable.' });
       }
       const result = await response.json();
@@ -598,25 +603,28 @@ router.post(
       const sharpness = face?.quality?.sharpness;
       if (!Array.isArray(bbox) || bbox.length !== 4 ||
           bbox.some(value => typeof value !== 'number' || !Number.isFinite(value)) ||
+          bbox[0] < 0 || bbox[1] < 0 ||
+          bbox[2] > frame.width || bbox[3] > frame.height ||
+          bbox[2] <= bbox[0] || bbox[3] <= bbox[1] ||
           typeof sharpness !== 'number' || !Number.isFinite(sharpness)) {
         return res.status(503).json({ error: 'The camera quality check returned invalid face data.' });
       }
       const faceWidth = bbox[2] - bbox[0];
       const faceHeight = bbox[3] - bbox[1];
-      const faceCenterX = (bbox[0] + bbox[2]) / 2;
-      const faceCenterY = (bbox[1] + bbox[3]) / 2;
+      const faceCenterX = (bbox[0] + bbox[2]) / (2 * frame.width);
+      const faceCenterY = (bbox[1] + bbox[3]) / (2 * frame.height);
       let guidance = null;
-      if (faceWidth < 96 || faceHeight < 110) {
+      if (faceWidth / frame.width < 0.18 || faceHeight / frame.height < 0.22) {
         guidance = 'move_closer';
-      } else if (faceWidth > 420 || faceHeight > 500) {
+      } else if (faceWidth / frame.width > 0.68 || faceHeight / frame.height > 0.78) {
         guidance = 'move_back';
-      } else if (faceCenterX < 256) {
+      } else if (faceCenterX < 0.35) {
         guidance = 'center_left';
-      } else if (faceCenterX > 384) {
+      } else if (faceCenterX > 0.65) {
         guidance = 'center_right';
-      } else if (faceCenterY < 240) {
+      } else if (faceCenterY < 0.3) {
         guidance = 'center_lower';
-      } else if (faceCenterY > 400) {
+      } else if (faceCenterY > 0.7) {
         guidance = 'center_upper';
       } else if (sharpness < 30) {
         guidance = 'hold_still';

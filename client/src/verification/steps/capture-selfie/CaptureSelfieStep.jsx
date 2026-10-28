@@ -513,6 +513,20 @@ export default function CaptureSelfieStep() {
     checking: 'Finding your face and checking focus…',
     ready: 'Face centered and in focus. Starting the live check…',
   }[faceGuidance] || 'Center your face inside the circle.';
+  const guidanceTitle = {
+    no_face: 'Bring your face into view',
+    multiple_faces: 'Only one face at a time',
+    move_closer: 'Move a little closer',
+    move_back: 'Move a little farther away',
+    center_left: 'Shift your face left',
+    center_right: 'Shift your face right',
+    center_lower: 'Lower the camera slightly',
+    center_upper: 'Raise the camera slightly',
+    hold_still: 'Hold still while the camera focuses',
+    connection: 'Reconnecting to the camera check',
+    checking: 'Align your face in the ring',
+    ready: 'Face centered and in focus',
+  }[faceGuidance] || 'Align your face in the ring';
   const directionIcon = {
     center_left: ArrowLeft,
     center_right: ArrowRight,
@@ -550,13 +564,24 @@ export default function CaptureSelfieStep() {
               : faceReady
                 ? 'Face centered and in focus'
                 : 'Aligning face in camera'}
-            className={`relative h-64 w-64 rounded-full border-[5px] p-1.5 shadow-lg transition-all duration-500 ${
+            className={`relative h-64 w-64 rounded-full p-[5px] shadow-lg transition-all duration-500 ${
               challengePassed || allChallengesPassed || faceReady
-                ? 'border-emerald-500 shadow-emerald-200'
-                : 'border-rose-500 shadow-rose-200'
+                ? 'shadow-emerald-200'
+                : 'shadow-rose-200'
             } ${challengePassed && !allChallengesPassed ? 'scale-[1.03]' : ''}`}
           >
-            <div className="relative h-full w-full overflow-hidden rounded-full bg-slate-900">
+            <div
+              aria-hidden="true"
+              className={`absolute inset-0 rounded-full ${
+                faceReady || challengePassed || allChallengesPassed
+                  ? 'bg-emerald-500'
+                  : 'animate-[spin_2.4s_linear_infinite]'
+              }`}
+              style={!faceReady && !challengePassed && !allChallengesPassed
+                ? { background: 'conic-gradient(from 0deg, #fb7185 0deg, #f43f5e 100deg, #fff1f2 145deg, #f43f5e 205deg, #fb7185 300deg, #fff1f2 330deg, #fb7185 360deg)' }
+                : undefined}
+            />
+            <div className="relative z-10 h-full w-full overflow-hidden rounded-full bg-slate-900">
               {stream ? (
                 <video
                   ref={videoRef}
@@ -602,7 +627,7 @@ export default function CaptureSelfieStep() {
             ))}
           </div>
           <h2 className="mt-3 text-center text-lg font-bold text-slate-900">
-            {cameraError ? 'Camera check stopped' : faceReady ? challengeLabel : 'Center your face'}
+            {cameraError ? 'Camera check stopped' : faceReady ? challengeLabel : guidanceTitle}
           </h2>
           <p className="mt-1 text-center text-xs leading-relaxed text-slate-500">
             {cameraError

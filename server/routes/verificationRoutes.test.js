@@ -174,7 +174,8 @@ test('a redeemed mobile link can complete verification without an authenticated 
 
 test('camera framing feedback waits for one centered, focused face but permits low light', async t => {
   const call = await createClient(t);
-  const image = await createImage();
+  const image = await createImage(640, 480);
+  const portraitImage = await createImage(480, 640);
   const responses = [
     { count: 0, faces: [] },
     { count: 2, faces: [{}, {}] },
@@ -184,27 +185,37 @@ test('camera framing feedback waits for one centered, focused face but permits l
     },
     {
       count: 1,
-      faces: [{ detection: { bbox: [200, 150, 360, 390] }, quality: { sharpness: 20, brightness: 100 } }]
+      faces: [{ detection: { bbox: [240, 120, 400, 360] }, quality: { sharpness: 20, brightness: 100 } }]
     },
     {
       count: 1,
-      faces: [{ detection: { bbox: [200, 150, 360, 390] }, quality: { sharpness: 40, brightness: 28 } }]
-    }
+      faces: [{ detection: { bbox: [240, 120, 400, 360] }, quality: { sharpness: 40, brightness: 28 } }]
+    },
+    { count: 1, faces: [{ detection: { bbox: [30, 120, 190, 360] }, quality: { sharpness: 50 } }] },
+    { count: 1, faces: [{ detection: { bbox: [450, 120, 610, 360] }, quality: { sharpness: 50 } }] },
+    { count: 1, faces: [{ detection: { bbox: [240, 10, 400, 150] }, quality: { sharpness: 50 } }] },
+    { count: 1, faces: [{ detection: { bbox: [240, 330, 400, 470] }, quality: { sharpness: 50 } }] },
+    { count: 1, faces: [{ detection: { bbox: [160, 200, 320, 440] }, quality: { sharpness: 50 } }] }
   ];
   const engineCall = t.mock.method(globalThis, 'fetch', async url => {
-    assert.equal(String(url), 'http://127.0.0.1:8000/api/v1/faces/detect');
+    assert.equal(String(url), 'http://127.0.0.1:8000/api/v1/detect');
     return Response.json(responses.shift());
   });
 
-  for (const [expected, guidance] of [
-    [false, 'no_face'],
-    [false, 'multiple_faces'],
-    [false, 'move_closer'],
-    [false, 'hold_still'],
-    [true, null]
+  for (const [expected, guidance, frame] of [
+    [false, 'no_face', image],
+    [false, 'multiple_faces', image],
+    [false, 'move_closer', image],
+    [false, 'hold_still', image],
+    [true, null, image],
+    [false, 'center_left', image],
+    [false, 'center_right', image],
+    [false, 'center_lower', image],
+    [false, 'center_upper', image],
+    [true, null, portraitImage]
   ]) {
     const body = new FormData();
-    body.append('frame', new Blob([image], { type: 'image/png' }), 'frame.png');
+    body.append('frame', new Blob([frame], { type: 'image/png' }), 'frame.png');
     const response = await call('/api/verification/liveness/quality', {
       method: 'POST',
       headers: { 'x-user-id': 'user-1' },
@@ -215,14 +226,14 @@ test('camera framing feedback waits for one centered, focused face but permits l
     assert.equal(result.ready, expected);
     assert.equal(result.guidance, guidance);
   }
-  assert.equal(engineCall.mock.callCount(), 5);
+  assert.equal(engineCall.mock.callCount(), 10);
 });
 
-async function createImage() {
+async function createImage(width = 16, height = 16) {
   return sharp({
     create: {
-      width: 16,
-      height: 16,
+      width,
+      height,
       channels: 3,
       background: { r: 120, g: 140, b: 160 }
     }
