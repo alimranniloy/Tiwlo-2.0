@@ -67,6 +67,18 @@ export function getDashboardUrl(path = '') {
   return `${base}${cleanPath}`;
 }
 
+export function getUidsDashboardUrl(path = '') {
+  if (typeof window === 'undefined') return path || '/';
+  const isLocal = window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.endsWith('.localhost');
+  const base = isLocal
+    ? `${window.location.protocol}//uids.${PLATFORM_DOMAIN}.localhost${window.location.port ? `:${window.location.port}` : ''}`
+    : `https://${FREE_SUBDOMAIN_DOMAIN}`;
+  const cleanPath = path ? '/' + path.replace(/^\/+/, '') : '';
+  return `${base}${cleanPath}`;
+}
+
 export function getMainAppUrl(path = '') {
   if (typeof window === 'undefined') return '/';
   const hostname = window.location.hostname.toLowerCase();

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CheckCircle2, X, ArrowRight } from 'lucide-react';
-import { getAuthUrl, getMainAppUrl } from '../../utils/navigation';
+import { getAuthUrl, getMainAppUrl, getUidsDashboardUrl } from '../../utils/navigation';
 
 export default function UidsClaimConsole({
   subdomain,
@@ -19,7 +19,8 @@ export default function UidsClaimConsole({
       onNavigateAuth(mode, returnPath);
       return;
     }
-    const returnTo = getMainAppUrl(returnPath);
+    const nextTarget = getMainAppUrl(returnPath);
+    const returnTo = getUidsDashboardUrl(`/authorize?next=${encodeURIComponent(nextTarget)}`);
     const params = new URLSearchParams({ return_to: returnTo, sso_login: '1' });
     window.location.replace(getAuthUrl(`/${mode === 'signup' ? 'create-account' : 'login'}?${params}`));
   };

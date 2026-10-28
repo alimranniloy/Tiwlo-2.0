@@ -26,6 +26,13 @@ test('allows UIDS product and TMail HTTPS SSO return URLs', () => {
     true
   );
   assert.equal(
+    isAllowedWebSsoReturnUrl(
+      'https://uids.app/authorize?next=https%3A%2F%2Ftiwlo.com%2Fdashboard',
+      { ...hosts, dashboardHosts: ['uids.app'] }
+    ),
+    true
+  );
+  assert.equal(
     isAllowedWebSsoReturnUrl('https://tmail.tiwlo.com/', hosts),
     true
   );

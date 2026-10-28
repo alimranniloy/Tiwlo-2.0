@@ -8,7 +8,7 @@ import LoginView from './views/LoginView';
 import CreateAccountView from './views/CreateAccountView';
 import { RefreshCw } from 'lucide-react';
 import TiwloPageLoader, { TiwloTopSyncBar } from './components/TiwloUniqueLoader';
-import { isAuthSubdomain, isDashboardSubdomain, isMailSubdomain, isTPanelSubdomain, getAuthUrl, getMainAppUrl, getMailUrl, getDashboardUrl, getTPanelUrl } from './utils/navigation';
+import { isAuthSubdomain, isDashboardSubdomain, isMailSubdomain, isTPanelSubdomain, getAuthUrl, getMainAppUrl, getMailUrl, getDashboardUrl, getUidsDashboardUrl, getTPanelUrl } from './utils/navigation';
 import {
   getPlatformUrl,
   PLATFORM_DOMAIN,
@@ -63,6 +63,7 @@ const DiscordBotManager = lazy(() => import('./discord-web'));
 
 // uids.app Subdomain Landing Page (/subdomain, /uidis, /uids)
 const SubdomainLanding = lazy(() => import('./subdomain'));
+const UidsAuthorizationView = lazy(() => import('./subdomain/UidsAuthorizationView'));
 
 // Tiwlo Studio Music Level & Distribution Landing Page (/studio)
 const TiwloStudioLanding = lazy(() => import('./studio/landing-page'));
@@ -134,16 +135,21 @@ const getSafeReturnToTarget = (value) => {
     const platformUrl = new URL(getPlatformUrl());
     const dashboardUrl = new URL(getDashboardUrl());
     const identityDashboardUrl = new URL(`https://${FREE_SUBDOMAIN_DOMAIN}`);
+    const mainAppUrl = new URL(getMainAppUrl());
+    const uidsDashboardUrl = new URL(getUidsDashboardUrl());
     const mailUrl = new URL(getMailUrl());
     const tpanelUrl = new URL(getTPanelUrl());
     const isAllowedOrigin = [
       platformUrl.origin,
       dashboardUrl.origin,
       identityDashboardUrl.origin,
+      mainAppUrl.origin,
+      uidsDashboardUrl.origin,
       mailUrl.origin,
       tpanelUrl.origin
     ].includes(target.origin);
-    const isLocalTarget = target.protocol === 'http:' && target.hostname.endsWith('.localhost');
+    const isLocalTarget = target.protocol === 'http:' &&
+      (target.hostname === 'localhost' || target.hostname.endsWith('.localhost'));
     if ((target.protocol !== 'https:' && !isLocalTarget) || !isAllowedOrigin ||
         /^\/(login|signin|create-account|register|signup)(\/|$)/i.test(target.pathname)) {
       return null;
@@ -151,6 +157,16 @@ const getSafeReturnToTarget = (value) => {
     return target.toString();
   } catch (e) {
     return null;
+  }
+};
+
+const isUidsAuthorizationTarget = (value) => {
+  try {
+    const target = new URL(value);
+    return target.origin === new URL(getUidsDashboardUrl()).origin &&
+      target.pathname === '/authorize';
+  } catch {
+    return false;
   }
 };
 
@@ -170,6 +186,7 @@ export default function App() {
       const restoreToken = searchParams.get('token');
       const isOneProfilePath = pathname === 'oneprofile' || pathname.startsWith('oneprofile/') ||
         pathname === 'one-profile' || pathname.startsWith('one-profile/');
+      const isUidsAuthorizationPath = pathname === 'authorize' && isDashboardSubdomain();
       const isTpanelPath = pathname === 'tpanel' || pathname.startsWith('tpanel/');
       const isUidsLandingRoot = hostname.toLowerCase() === FREE_SUBDOMAIN_DOMAIN &&
         !pathname && !searchParams.has('web_sso_return_to');
@@ -188,6 +205,7 @@ export default function App() {
       }
 
       if (isUidsLandingRoot) return 'subdomain';
+      if (isUidsAuthorizationPath) return 'uids-authorize';
 
       if (isTpanelPath && !isTPanelSubdomain() &&
           (hostname === PLATFORM_DOMAIN || hostname === `www.${PLATFORM_DOMAIN}` ||
@@ -542,11 +560,13 @@ export default function App() {
   // Instant clean URL tab navigation without any '#' hash
   const handleTabChange = (tabId) => {
     if (tabId === 'verification') {
+      const returnTo = getSafeReturnToTarget(new URLSearchParams(window.location.search).get('return_to'));
+      const verificationQuery = returnTo ? `?return_to=${encodeURIComponent(returnTo)}` : '';
       setActiveTab('verification');
       window.history.pushState(
         { identityVerificationStarted: true },
         '',
-        '/verification'
+        `/verification${verificationQuery}`
       );
       return;
     }
@@ -929,13 +949,22 @@ export default function App() {
               setCurrentUser(data.user);
               setAuthChecking(false);
 
-              if (data.user.identityVerificationRequired && !data.user.identityVerified) {
+              const isUidsAuthorizationRoute = isDashboardSubdomain() && initialPath === 'authorize';
+              const safeReturnTo = getSafeReturnToTarget(returnTo);
+              if (data.user.identityVerificationRequired && !data.user.identityVerified && !isUidsAuthorizationRoute) {
                 if (isAuthHost) {
-                  redirectAfterAuthentication(getMainAppUrl('/identity-required'));
+                  if (isUidsAuthorizationTarget(safeReturnTo)) {
+                    redirectAfterAuthentication(safeReturnTo);
+                  } else {
+                    const identityUrl = new URL(getMainAppUrl('/identity-required'));
+                    if (safeReturnTo) identityUrl.searchParams.set('return_to', safeReturnTo);
+                    redirectAfterAuthentication(identityUrl.toString());
+                  }
                   return;
                 }
                 setActiveTab('identity-required');
-                window.history.replaceState(null, '', '/identity-required');
+                const identityQuery = safeReturnTo ? `?return_to=${encodeURIComponent(safeReturnTo)}` : '';
+                window.history.replaceState(null, '', `/identity-required${identityQuery}`);
                 return;
               }
 
@@ -945,7 +974,6 @@ export default function App() {
                   return;
                 }
                 const safeRedirect = getSafeRedirectPath(searchParams.get('redirect'));
-                const safeReturnTo = getSafeReturnToTarget(returnTo);
                 const isSuper = data.user.role === 'super_admin' || data.user.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
                 const target = safeRedirect && !searchParams.has('dashboard')
                   ? safeRedirect
@@ -1236,8 +1264,13 @@ export default function App() {
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
     if (user?.identityVerificationRequired && !user?.identityVerified) {
-      if (isAuthSubdomain()) {
-        redirectAfterAuthentication(getMainAppUrl('/identity-required'));
+      const safeReturnTo = getSafeReturnToTarget(new URLSearchParams(window.location.search).get('return_to'));
+      if (isAuthSubdomain() && isUidsAuthorizationTarget(safeReturnTo)) {
+        redirectAfterAuthentication(safeReturnTo);
+      } else if (isAuthSubdomain() || safeReturnTo) {
+        const identityUrl = new URL(getMainAppUrl('/identity-required'));
+        if (safeReturnTo) identityUrl.searchParams.set('return_to', safeReturnTo);
+        redirectAfterAuthentication(identityUrl.toString());
       } else {
         setDashboardLoading(false);
         handleTabChange('identity-required');
@@ -1874,7 +1907,7 @@ export default function App() {
           <TiwloPageLoader />
         ) : !authChecking && currentUser?.identityVerificationRequired === true &&
           currentUser?.identityVerified !== true && activeTab !== 'verification' &&
-          !String(activeTab).startsWith('verification/') ? (
+          !String(activeTab).startsWith('verification/') && activeTab !== 'uids-authorize' ? (
           <IdentityRequiredView
             user={currentUser}
             onStartVerification={() => handleTabChange('verification')}
@@ -1972,6 +2005,30 @@ export default function App() {
         />
       ) : authChecking ? (
         <TiwloPageLoader />
+      ) : activeTab === 'uids-authorize' ? (
+        <UidsAuthorizationView
+          user={currentUser}
+          loading={false}
+          onAuthorize={() => {
+            const requestedTarget = getSafeReturnToTarget(
+              new URLSearchParams(window.location.search).get('next')
+            );
+            const destination = requestedTarget || getUidsDashboardUrl('/oneprofile');
+            if (currentUser?.identityVerificationRequired && !currentUser?.identityVerified) {
+              const identityUrl = new URL(getMainAppUrl('/identity-required'));
+              identityUrl.searchParams.set('return_to', destination);
+              redirectAfterAuthentication(identityUrl.toString());
+              return;
+            }
+            redirectAfterAuthentication(destination);
+          }}
+          onSignIn={() => {
+            const currentUrl = getUidsDashboardUrl(`${window.location.pathname}${window.location.search}`);
+            const params = new URLSearchParams({ return_to: currentUrl, sso_login: '1' });
+            window.location.assign(getAuthUrl(`/login?${params}`));
+          }}
+          onCancel={() => window.location.assign(getUidsDashboardUrl('/'))}
+        />
       ) : (!currentUser && activeTab !== 'store' && activeTab !== 'verification' && activeTab !== 'create-account' && !activeTab.startsWith('create-store') && activeTab !== 'mobile-help-support' && activeTab !== 'help-support/mobile' && activeTab !== 'tpanel' && activeTab !== 'landing' && activeTab !== 'subdomain' && !(typeof activeTab === 'string' && (activeTab.startsWith('subdomain') || activeTab.startsWith('uidis')))) ? (
         <LoginView
           onLoginSuccess={handleLoginSuccess}
@@ -2062,9 +2119,12 @@ export default function App() {
         />
       ) : (activeTab === 'subdomain' || (typeof activeTab === 'string' && (activeTab.startsWith('subdomain') || activeTab.startsWith('uidis') || activeTab.startsWith('uids')))) ? (
         <SubdomainLanding
-          onNavigateAuth={(mode, returnPath = '/dashboard') => {
+          onNavigateAuth={(mode, returnPath = null) => {
             const authPath = mode === 'signup' ? '/create-account' : '/login';
-            const returnTo = getMainAppUrl(returnPath);
+            const nextTarget = returnPath
+              ? getMainAppUrl(returnPath)
+              : getUidsDashboardUrl('/oneprofile');
+            const returnTo = getUidsDashboardUrl(`/authorize?next=${encodeURIComponent(nextTarget)}`);
             const params = new URLSearchParams({ return_to: returnTo, sso_login: '1' });
             window.location.replace(getAuthUrl(`${authPath}?${params}`));
           }}
@@ -2088,6 +2148,13 @@ export default function App() {
               };
               setCurrentUser(verifiedUser);
               localStorage.setItem('stockpro_user', JSON.stringify(verifiedUser));
+              const returnTo = getSafeReturnToTarget(
+                new URLSearchParams(window.location.search).get('return_to')
+              );
+              if (returnTo) {
+                redirectAfterAuthentication(returnTo);
+                return;
+              }
               handleTabChange('dashboard');
             }}
             onCancel={() => handleTabChange(
