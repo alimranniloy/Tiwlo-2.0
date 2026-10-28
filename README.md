@@ -89,6 +89,31 @@ liveness, and records the passive liveness result for diagnostics, but it does
 not verify document authenticity or persist an identity-verification status.
 Do not treat this face-match result as formal KYC approval.
 
+Address verification is required for new and existing signed-in accounts before
+protected application APIs are available. The user must select **Verify** and
+grant browser location permission. The browser reports a fresh GPS fix's
+coordinates and accuracy to the server, which uses only the administrator-managed Google Maps
+Geocoding API. Verification requires Google's formatted address, area, postcode,
+and Plus Code, as well as device-reported GPS accuracy of 50 meters or better. Google
+is retried once; API errors, missing address fields, missing API configuration,
+or insufficient GPS accuracy fail closed. There is no offline/IP fallback.
+Coordinates, reported accuracy, Google address fields, Plus Code, and the server
+verification time are saved as the account's latest live-location check, not as
+a permanent residential address. GPS can be inaccurate or spoofed; this is not
+proof that the user is physically present or proof of residence/banking KYC.
+
+After address verification, the first login on a browser offers a transparent,
+optional location-sharing prompt. Once the user consents, each new login
+session attempts one fresh browser GPS capture and resolves it with the same
+server-side Google Geocoding API. If GPS is unavailable, the server may save a
+clearly labeled approximate location from its local `geoip-lite` IP database;
+this estimate is not an exact location and does not count as address
+verification. If GPS becomes available later in that session, the approximate
+entry is replaced rather than duplicated. Only the latest 10 login-location
+records per user are retained. Administrators can review them from
+**Administrator → User Locations**; access to a user's history is audit-logged.
+Declining location sharing or denying GPS does not block login.
+
 For local `npm run dev`, start the private verification engine separately with
 `npm run docker:biometrics` (Docker required). The development Compose file
 binds it to `127.0.0.1:8000`; production Compose does not publish the engine
@@ -147,7 +172,7 @@ The DNS provider is not changed automatically; customers must add the records th
 - The admin page `/administrator/google-drive` accepts Google service-account JSON and a shared root-folder ID. Credentials are encrypted with AES-256-GCM before PostgreSQL persistence; `SECURITY_SECRET` must remain stable or saved credentials cannot be decrypted. The page/API returns account metadata only, never Drive file links. Once a folder is verified and selected, new uploads use Drive through Tiwlo's `drive` subdomain proxy. **Sync all to Google Drive** scans the managed `upload/` and `server/uploads/` trees (including nested folders and non-image files), mirrors their relative hierarchy, migrates database-backed media, and verifies size and SHA-256 before removing server copies. Sync direction, status, and counters persist in PostgreSQL; an interrupted job resumes on server startup, and individual files are safe to retry. **Transfer all back to server** writes and verifies server copies before deleting Drive media. TPanel-specific storage is not included.
 - Optional `GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON_BASE64` and `GOOGLE_DRIVE_ROOT_FOLDER_ID` variables bootstrap an account into PostgreSQL. The JSON must be base64-encoded locally and must not be committed. The account is not automatically activated: verify it in the admin page first. `VITE_DRIVE_SUBDOMAIN` defaults to `drive` and is included in generated SSL/Nginx host configuration; DNS still needs to point that hostname at the server.
 - OTP challenges and password-reset grants are stored in PostgreSQL as keyed hashes, expire, and are deleted after successful use. SSO replay nonces and login lockout counters are also database-backed; login identifiers are stored as keyed hashes for these counters.
-- The `security` plugin adds PostgreSQL-backed request limits shared across server instances for sign-in, registration, mailbox availability/creation, and per-account mail sending. Limit hits are audit-logged once per rate-limit window; authentication lockouts remain temporary, and request-rate signals alone do not permanently ban accounts. Old counters expire and are pruned during schema maintenance.
+- The `security` plugin adds PostgreSQL-backed request limits shared across server instances for sign-in, registration, mailbox availability/creation, per-account mail sending, address verification, and login-location capture. Limit hits are audit-logged once per rate-limit window; authentication lockouts remain temporary, and request-rate signals alone do not permanently ban accounts. Old counters expire and are pruned during schema maintenance.
 - Tiwlo Mail limits sends to 20 messages per account per hour and 50 per day, caps each message at 10 unique recipients and attachments at 100 MB per account per day, and enforces per-mailbox inbound storage caps. Production mail provisioning installs and enables SpamAssassin; high-scoring incoming messages go to Junk rather than being used as grounds to ban an account. If the scanner is unavailable, delivery is deferred instead of silently skipping the check. Postfix also applies per-client connection, message, and recipient rate limits. Mailbox quota overflow is temporarily deferred by SMTP; a real network flood still needs upstream CDN/WAF/provider DDoS mitigation.
 - Public account creation always starts on the Free plan; a client-supplied plan ID cannot grant a paid tier. No free-trial entitlement currently exists. Email uniqueness plus persistent IP-based signup throttles reduce browser-clear/restart bypass, but preventing multiple identities across changing IPs requires verified phone/payment or equivalent proof; IP/device/geolocation alone cannot prove that accounts belong to one person.
 - Browser dimensions, device fingerprints, VPN/proxy status, and geographic location are not treated as trusted identity or ban evidence. Browser-supplied values are spoofable, accurate IP intelligence requires a maintained local data source or a configured provider, and installing many unrelated packages would add supply-chain risk without providing reliable protection.

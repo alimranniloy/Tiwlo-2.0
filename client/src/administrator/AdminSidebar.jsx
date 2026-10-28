@@ -19,6 +19,7 @@ import {
   Activity,
   Sliders,
   UserCheck,
+  MapPin,
   ShieldAlert,
   FileText,
   Bell,
@@ -71,6 +72,7 @@ export default function AdminSidebar({
       items: [
         { id: 'platform-payments', label: 'Payment Gateways', icon: CreditCard },
         { id: 'users', label: 'Users', icon: UserCheck },
+        { id: 'user-locations', label: 'User Locations', icon: MapPin },
         { id: 'roles', label: 'Roles & Permissions', icon: ShieldAlert },
         { id: 'logs', label: 'Logs', icon: FileText },
         { id: 'notifications', label: 'Notifications', icon: Bell },
@@ -125,7 +127,7 @@ export default function AdminSidebar({
             <div className="space-y-0.5 pt-1">
               {sec.items.map((item) => {
                 const IconComponent = item.icon;
-                const isActive = activeView === item.id;
+                const isActive = activeView === item.id || activeView.startsWith(`${item.id}/`);
                 return (
                   <button
                     key={item.id}

@@ -19,19 +19,76 @@ import { getFfmpegStatus } from '../security/videoProcessor.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { MasterDB } from '../db/multiTenant.js';
 import { findActiveCustomDomain } from '../domains/domainService.js';
-import { listSecurityEvents } from '../db/securityPersistence.js';
+import { hashSecuritySubject, listSecurityEvents, recordSecurityEvent } from '../db/securityPersistence.js';
 import { requireRecentReauth } from '../security/recentReauth.js';
+import { queryPg } from '../db/postgres.js';
+import { isValidLiveLocation, reverseGeocodeAddress } from '../db/addressVerification.js';
+import { securityLimiters } from '../plugins/security/index.js';
+import geoip from 'geoip-lite';
 import {
   getSocialProviderStatuses,
   saveSocialProviderSettings
 } from '../security/socialAuth.js';
 import {
+  getGoogleMapsApiKey,
   getGoogleMapsSettingsStatus,
   normalizeGoogleMapsApiKey,
   saveGoogleMapsApiKey
 } from '../db/googleMapsSettings.js';
 
 const router = express.Router();
+
+function getSessionToken(req) {
+  const authorization = req.headers.authorization;
+  return req.cookies?.tiwlo_host_session ||
+    (typeof authorization === 'string' && authorization.startsWith('Bearer ')
+      ? authorization.slice(7)
+      : null);
+}
+
+async function saveLoginLocation({ userId, sessionKey, source, location }) {
+  await queryPg(
+    `INSERT INTO system_user_login_locations
+       (user_id, session_key, location_source, latitude, longitude, accuracy_meters,
+        formatted_address, area, postal_code, plus_code)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     ON CONFLICT (session_key) DO UPDATE
+       SET location_source = EXCLUDED.location_source,
+           latitude = EXCLUDED.latitude,
+           longitude = EXCLUDED.longitude,
+           accuracy_meters = EXCLUDED.accuracy_meters,
+           formatted_address = EXCLUDED.formatted_address,
+           area = EXCLUDED.area,
+           postal_code = EXCLUDED.postal_code,
+           plus_code = EXCLUDED.plus_code,
+           captured_at = CURRENT_TIMESTAMP
+       WHERE system_user_login_locations.user_id = EXCLUDED.user_id
+         AND system_user_login_locations.location_source = 'ip'
+         AND EXCLUDED.location_source = 'gps'`,
+    [
+      userId,
+      sessionKey,
+      source,
+      location.latitude,
+      location.longitude,
+      location.accuracyMeters,
+      location.formattedAddress,
+      location.area,
+      location.postalCode,
+      location.plusCode
+    ]
+  );
+  await queryPg(
+    `DELETE FROM system_user_login_locations
+     WHERE user_id = $1 AND id NOT IN (
+       SELECT id FROM system_user_login_locations
+       WHERE user_id = $1
+       ORDER BY captured_at DESC, id DESC
+       LIMIT 10
+     )`,
+    [userId]
+  );
+}
 
 // Health check
 router.get('/health', (req, res) => {
@@ -72,6 +129,184 @@ router.use((req, res, next) => {
   }
   if (!req.activeUser) return res.status(401).json({ error: 'Authentication required' });
   next();
+});
+
+router.get('/address-verification', async (req, res) => {
+  try {
+    const result = await queryPg(
+      'SELECT address_verified_at, address_verified_location FROM system_users WHERE id = $1',
+      [req.activeUser.id]
+    );
+    const account = result.rows[0];
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({
+      success: true,
+      verified: Boolean(account?.address_verified_at && account?.address_verified_location),
+      verifiedAt: account?.address_verified_at || null,
+      location: account?.address_verified_location
+        ? { ...account.address_verified_location, verifiedAt: account.address_verified_at }
+        : null
+    });
+  } catch (error) {
+    console.error('[AddressVerification] Could not read saved location:', error.message);
+    return res.status(503).json({ error: 'Saved address verification is currently unavailable.' });
+  }
+});
+
+router.post('/address-verification', securityLimiters.addressVerification, async (req, res) => {
+  const { latitude, longitude, accuracy } = req.body || {};
+  if (!isValidLiveLocation({ latitude, longitude, accuracy })) {
+    return res.status(400).json({
+      error: 'A GPS location with reported accuracy of 50 meters or better is required.'
+    });
+  }
+
+  try {
+    const googleAddress = await reverseGeocodeAddress({
+      latitude,
+      longitude,
+      apiKey: await getGoogleMapsApiKey()
+    });
+    const location = {
+      latitude,
+      longitude,
+      accuracyMeters: accuracy,
+      ...googleAddress
+    };
+    const result = await queryPg(
+      `UPDATE system_users
+       SET address_verified_at = CURRENT_TIMESTAMP,
+           address_verified_location = $2::jsonb,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING address_verified_at, address_verified_location`,
+      [req.activeUser.id, JSON.stringify(location)]
+    );
+    if (!result.rows[0]) {
+      return res.status(404).json({ error: 'The signed-in account could not be found.' });
+    }
+    recordSecurityEvent({
+      eventType: 'address_verification.succeeded',
+      severity: 'info',
+      userId: req.activeUser.id,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+      details: {
+        provider: 'google',
+        accuracyMeters: accuracy,
+        requiredAddressFieldsReturned: true
+      }
+    }).catch(auditError => {
+      console.error('[AddressVerification] Could not record success audit event:', auditError.message);
+    });
+
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({
+      success: true,
+      verified: true,
+      verifiedAt: result.rows[0].address_verified_at,
+      location: {
+        ...result.rows[0].address_verified_location,
+        verifiedAt: result.rows[0].address_verified_at
+      }
+    });
+
+  } catch (error) {
+    console.error('[AddressVerification] Verification failed:', error.message);
+    recordSecurityEvent({
+      eventType: 'address_verification.failed',
+      severity: 'warning',
+      userId: req.activeUser.id,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+      details: {
+        provider: 'google',
+        accuracyMeters: accuracy,
+        reason: error.message
+      }
+    }).catch(auditError => {
+      console.error('[AddressVerification] Could not record failure audit event:', auditError.message);
+    });
+    return res.status(error instanceof TypeError ? 400 : 503).json({
+      error: 'Google could not verify a complete address for this location. Check your GPS accuracy or try again.'
+    });
+  }
+});
+
+router.post('/login-location', securityLimiters.loginLocation, async (req, res) => {
+  const sessionToken = getSessionToken(req);
+  if (!sessionToken) {
+    return res.status(401).json({ error: 'Your signed-in session could not be confirmed.' });
+  }
+
+  const { latitude, longitude, accuracy } = req.body || {};
+  try {
+    const sessionKey = hashSecuritySubject(sessionToken);
+    let source = 'gps';
+    let location;
+    if (latitude !== undefined || longitude !== undefined || accuracy !== undefined) {
+      if (!isValidLiveLocation({ latitude, longitude, accuracy })) {
+        return res.status(400).json({ error: 'A GPS location with reported accuracy of 50 meters or better is required.' });
+      }
+      const googleAddress = await reverseGeocodeAddress({
+        latitude,
+        longitude,
+        apiKey: await getGoogleMapsApiKey()
+      });
+      location = {
+        latitude,
+        longitude,
+        accuracyMeters: accuracy,
+        formattedAddress: googleAddress.formattedAddress,
+        area: googleAddress.area,
+        postalCode: googleAddress.postalCode,
+        plusCode: googleAddress.plusCode
+      };
+    } else {
+      source = 'ip';
+      const ip = String(req.ip || '').replace(/^::ffff:/, '');
+      const ipLocation = geoip.lookup(ip);
+      if (!ipLocation?.ll?.every(Number.isFinite)) {
+        return res.status(422).json({ success: false, locationAvailable: false });
+      }
+      const [city, region] = [ipLocation.city, ipLocation.region].filter(Boolean);
+      const country = ipLocation.country || '';
+      const area = [city, region].filter(Boolean).join(', ') || country || 'Approximate network location';
+      location = {
+        latitude: ipLocation.ll[0],
+        longitude: ipLocation.ll[1],
+        accuracyMeters: null,
+        formattedAddress: [city, region, country].filter(Boolean).join(', ') || 'Approximate network location',
+        area,
+        postalCode: null,
+        plusCode: null
+      };
+    }
+
+    await saveLoginLocation({
+      userId: req.activeUser.id,
+      sessionKey,
+      source,
+      location
+    });
+    recordSecurityEvent({
+      eventType: 'login_location.captured',
+      severity: 'info',
+      userId: req.activeUser.id,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+      details: { source }
+    }).catch(auditError => {
+      console.error('[LoginLocation] Could not record capture audit event:', auditError.message);
+    });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({ success: true, locationAvailable: true, source });
+  } catch (error) {
+    console.error('[LoginLocation] Could not capture login location:', error.message);
+    return res.status(error instanceof TypeError ? 400 : 503).json({
+      error: 'Could not resolve this login location.'
+    });
+  }
 });
 
 router.get('/admin/security-events', requireAdmin, async (req, res) => {

@@ -153,6 +153,8 @@ export const MasterDB = {
           banReason: r.ban_reason || null,
           identityVerified: r.identity_verified === true,
           identityVerificationRequired: r.identity_verification_required === true,
+          addressVerified: Boolean(r.address_verified_at && r.address_verified_location),
+          addressVerifiedAt: r.address_verified_at || null,
           emailVerified: r.email_verified === true,
           twoFactorEnabled: r.two_factor_enabled === true,
           authMethod: r.auth_method || 'credentials',

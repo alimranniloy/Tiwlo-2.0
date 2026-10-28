@@ -348,15 +348,27 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
 
                     {/* Status */}
                     <td className="py-2.5 px-3 text-center">
-                      <span
-                        className={`inline-block px-2 py-0.5 text-[10px] font-bold rounded-full ${
-                          c.isBanned
-                            ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
-                            : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                        }`}
-                      >
-                        {c.status}
-                      </span>
+                      <div className="flex flex-col items-center gap-1.5">
+                        <span
+                          className={`inline-block px-2 py-0.5 text-[10px] font-bold rounded-full ${
+                            c.isBanned
+                              ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                              : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                          }`}
+                        >
+                          {c.status}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onNavigate?.(`user-locations/${encodeURIComponent(c.id)}`)}
+                          className="text-[10px] font-semibold text-[#1a73e8] hover:underline dark:text-blue-400"
+                        >
+                          User location
+                        </button>
+                        <span className="text-[10px] text-slate-400">
+                          Last login: {c.lastLoginAt ? new Date(c.lastLoginAt).toLocaleString() : '—'}
+                        </span>
+                      </div>
                     </td>
 
                     {/* Actions */}

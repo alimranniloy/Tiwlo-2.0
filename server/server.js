@@ -84,6 +84,7 @@ app.use(helmet({
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
       connectSrc: ["'self'", "https:", "http:", "ws:", "wss:"],
+      frameSrc: ["'self'", "https://maps.google.com", "https://www.google.com"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'", ...PLATFORM_CONFIG.managedDomains.flatMap(domain => [`https://${domain}`, `https://*.${domain}`])],
@@ -235,18 +236,33 @@ app.use(async (req, res, next) => {
         const isIdentityVerificationRequest = req.path === '/api/verification' ||
           req.path.startsWith('/api/verification/');
         const isAuthRequest = req.path === '/api/auth' || req.path.startsWith('/api/auth/');
+        const isAddressVerificationRequest = req.path === '/api/address-verification' ||
+          req.path.startsWith('/api/address-verification/');
         if (
           req.path !== '/api/graphql' &&
           isProtectedApiRequest &&
           sessionData.user.identityVerificationRequired === true &&
           sessionData.user.identityVerified !== true &&
           !isIdentityVerificationRequest &&
+          !isAddressVerificationRequest &&
           !isAuthRequest
         ) {
           return res.status(403).json({
             error: 'Identity verification is required before you can use this account.',
             code: 'IDENTITY_VERIFICATION_REQUIRED',
             redirectUrl: '/identity-required'
+          });
+        }
+        if (
+          isProtectedApiRequest &&
+          !isAuthRequest &&
+          !isAddressVerificationRequest &&
+          sessionData.user.addressVerified !== true
+        ) {
+          return res.status(403).json({
+            error: 'Address verification is required before you can use this account.',
+            code: 'ADDRESS_VERIFICATION_REQUIRED',
+            redirectUrl: '/address-verification'
           });
         }
       }

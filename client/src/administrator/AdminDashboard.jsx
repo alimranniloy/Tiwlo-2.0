@@ -12,6 +12,7 @@ import QuickActions from './QuickActions';
 import SystemInfoCard from './SystemInfoCard';
 import AdminSubView from './AdminSubView';
 import AdminCustomersView from './AdminCustomersView';
+import AdminUserLocationsView from './AdminUserLocationsView';
 import AdminUsersView from './AdminUsersView';
 import AdminGoogleDrivePage from './AdminGoogleDrivePage';
 import AdminIdentityVerificationPage from './AdminIdentityVerificationPage';
@@ -152,6 +153,13 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
               onNavigate={handleNavigate}
               showToast={showToast}
               currentUser={currentUser}
+            />
+          ) : activeView === 'user-locations' || activeView.startsWith('user-locations/') ? (
+            <AdminUserLocationsView
+              userId={activeView.startsWith('user-locations/')
+                ? decodeURIComponent(activeView.slice('user-locations/'.length))
+                : null}
+              onNavigate={handleNavigate}
             />
           ) : activeView.startsWith('identity-verification/') ? (
             <AdminIdentityVerificationPage

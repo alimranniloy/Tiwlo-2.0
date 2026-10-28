@@ -117,6 +117,8 @@ export async function initPgSchema() {
       ALTER TABLE system_users ADD COLUMN IF NOT EXISTS free_subdomain_id VARCHAR(64);
       ALTER TABLE system_users ADD COLUMN IF NOT EXISTS identity_verified BOOLEAN NOT NULL DEFAULT FALSE;
       ALTER TABLE system_users ADD COLUMN IF NOT EXISTS identity_verification_required BOOLEAN NOT NULL DEFAULT FALSE;
+      ALTER TABLE system_users ADD COLUMN IF NOT EXISTS address_verified_at TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE system_users ADD COLUMN IF NOT EXISTS address_verified_location JSONB;
       CREATE UNIQUE INDEX IF NOT EXISTS idx_users_tiwi_id_unique ON system_users(tiwi_id) WHERE tiwi_id IS NOT NULL;
 
       CREATE TABLE IF NOT EXISTS system_sessions (
@@ -290,6 +292,23 @@ export async function initPgSchema() {
       );
       CREATE INDEX IF NOT EXISTS idx_security_events_created ON system_security_events(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_security_events_user ON system_security_events(user_id, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS system_user_login_locations (
+        id BIGSERIAL PRIMARY KEY,
+        user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
+        session_key CHAR(64) NOT NULL UNIQUE,
+        location_source VARCHAR(8) NOT NULL CHECK (location_source IN ('gps', 'ip')),
+        latitude DOUBLE PRECISION NOT NULL,
+        longitude DOUBLE PRECISION NOT NULL,
+        accuracy_meters DOUBLE PRECISION,
+        formatted_address TEXT NOT NULL,
+        area VARCHAR(255),
+        postal_code VARCHAR(32),
+        plus_code VARCHAR(64),
+        captured_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_login_locations_latest
+        ON system_user_login_locations(user_id, captured_at DESC);
 
       CREATE TABLE IF NOT EXISTS system_account_security (
         user_id VARCHAR(64) PRIMARY KEY,

@@ -401,6 +401,28 @@ router.get('/customers', requireAdmin, async (req, res) => {
     const users = await MasterDB.getUsers();
     const { allStores: stores } = (await getAggregatedStoreData());
     const query = (req.query.q || req.query.search || '').trim().toLowerCase();
+    const userIds = users.map(user => user.id);
+    const [loginResult, locationResult] = userIds.length
+      ? await Promise.all([
+          queryPg(
+            `SELECT user_id, MAX(created_at) AS last_login_at
+             FROM system_sessions
+             WHERE user_id = ANY($1::varchar[])
+             GROUP BY user_id`,
+            [userIds]
+          ),
+          queryPg(
+            `SELECT DISTINCT ON (user_id)
+                    user_id, location_source, formatted_address, area, captured_at
+             FROM system_user_login_locations
+             WHERE user_id = ANY($1::varchar[])
+             ORDER BY user_id, captured_at DESC, id DESC`,
+            [userIds]
+          )
+        ])
+      : [{ rows: [] }, { rows: [] }];
+    const loginByUser = new Map(loginResult.rows.map(row => [row.user_id, row.last_login_at]));
+    const locationByUser = new Map(locationResult.rows.map(row => [row.user_id, row]));
 
     // Map each customer/store owner
     let customers = users.map(u => {
@@ -440,7 +462,14 @@ router.get('/customers', requireAdmin, async (req, res) => {
         identityVerificationRequired: u.identityVerificationRequired === true,
         banReason: u.banReason || '',
         status: u.isBanned ? 'Suspended' : u.identityVerificationRequired && !u.identityVerified ? 'Identity required' : 'Active',
-        createdAt: u.createdAt || null
+        createdAt: u.createdAt || null,
+        lastLoginAt: loginByUser.get(u.id) || null,
+        latestLocation: locationByUser.has(u.id) ? {
+          source: locationByUser.get(u.id).location_source,
+          address: locationByUser.get(u.id).formatted_address,
+          area: locationByUser.get(u.id).area,
+          capturedAt: locationByUser.get(u.id).captured_at
+        } : null
       };
     });
 
@@ -466,6 +495,63 @@ router.get('/customers', requireAdmin, async (req, res) => {
   } catch (err) {
     console.error('[Admin Customers Error]', err);
     res.status(500).json({ error: 'Failed to retrieve customers.' });
+  }
+});
+
+router.get('/user-locations', requireAdmin, async (req, res) => {
+  try {
+    const result = await queryPg(
+      `SELECT DISTINCT ON (l.user_id)
+              u.id AS user_id, u.name, u.email, u.avatar,
+              l.location_source, l.formatted_address, l.area, l.captured_at
+       FROM system_user_login_locations l
+       JOIN system_users u ON u.id = l.user_id
+       ORDER BY l.user_id, l.captured_at DESC, l.id DESC`
+    );
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({ success: true, users: result.rows });
+  } catch (error) {
+    console.error('[Admin User Locations] Could not list location records:', error.message);
+    return res.status(503).json({ error: 'Could not load user location records.' });
+  }
+});
+
+router.get('/user-locations/:id', requireAdmin, async (req, res) => {
+  try {
+    const userResult = await queryPg(
+      'SELECT id, name, email FROM system_users WHERE id = $1',
+      [req.params.id]
+    );
+    if (!userResult.rows[0]) return res.status(404).json({ error: 'User not found.' });
+
+    const locationsResult = await queryPg(
+      `SELECT location_source, latitude, longitude, accuracy_meters,
+              formatted_address, area, postal_code, plus_code, captured_at
+       FROM system_user_login_locations
+       WHERE user_id = $1
+       ORDER BY captured_at DESC, id DESC
+       LIMIT 10`,
+      [req.params.id]
+    );
+    recordSecurityEvent({
+      eventType: 'admin.login_locations.viewed',
+      severity: 'info',
+      userId: req.adminUser.id,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+      details: { viewedUserId: req.params.id, resultCount: locationsResult.rows.length }
+    }).catch(auditError => {
+      console.error('[Admin User Locations] Could not record access audit event:', auditError.message);
+    });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({
+      success: true,
+      user: userResult.rows[0],
+      locations: locationsResult.rows
+    });
+  } catch (error) {
+    console.error('[Admin User Locations] Could not load location history:', error.message);
+    return res.status(503).json({ error: 'Could not load this user’s location history.' });
   }
 });
 

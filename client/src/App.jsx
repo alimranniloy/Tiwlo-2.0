@@ -3,6 +3,7 @@ import React, { useState, useEffect, Suspense, lazy } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import ToastNotification from './components/ToastNotification';
+import LoginLocationCapture from './components/LoginLocationCapture';
 import LandingPage from './landing/LandingPage';
 import LoginView from './views/LoginView';
 import CreateAccountView from './views/CreateAccountView';
@@ -45,6 +46,7 @@ const HelpSupportView = lazy(() => import('./views/HelpSupportView'));
 const MobileHelpSupportView = lazy(() => import('./views/MobileHelpSupportView'));
 const AccountDisabledView = lazy(() => import('./views/AccountDisabledView'));
 const SecurityCheckupView = lazy(() => import('./views/SecurityCheckupView'));
+const AddressVerificationView = lazy(() => import('./views/AddressVerificationView'));
 const NotFoundView = lazy(() => import('./views/NotFoundView'));
 const TPanelDashboard = lazy(() => import('./services/tpanel/TPanelDashboard'));
 const AdminDashboard = lazy(() => import('./administrator').then(m => ({ default: m.AdminDashboard })));
@@ -263,6 +265,9 @@ export default function App() {
       }
       if (pathname === 'identity') {
         return 'identity';
+      }
+      if (pathname === 'address-verification') {
+        return 'address-verification';
       }
       if (pathname === 'identity-required') {
         return 'identity-required';
@@ -559,6 +564,16 @@ export default function App() {
 
   // Instant clean URL tab navigation without any '#' hash
   const handleTabChange = (tabId) => {
+    if (tabId === 'address-verification') {
+      const addressUrl = new URL(getAddressVerificationUrl(currentUser));
+      if (addressUrl.origin !== window.location.origin) {
+        redirectAfterAuthentication(addressUrl.toString());
+        return;
+      }
+      setActiveTab('address-verification');
+      window.history.pushState(null, '', `${addressUrl.pathname}${addressUrl.search}`);
+      return;
+    }
     if (tabId === 'verification') {
       const returnTo = getSafeReturnToTarget(new URLSearchParams(window.location.search).get('return_to'));
       const verificationQuery = returnTo ? `?return_to=${encodeURIComponent(returnTo)}` : '';
@@ -951,6 +966,16 @@ export default function App() {
 
               const isUidsAuthorizationRoute = isDashboardSubdomain() && initialPath === 'authorize';
               const safeReturnTo = getSafeReturnToTarget(returnTo);
+              if (data.user.addressVerified !== true) {
+                if (isAuthHost) {
+                  redirectAfterAuthentication(getAddressVerificationUrl(data.user));
+                } else {
+                  const addressUrl = new URL(getAddressVerificationUrl(data.user));
+                  setActiveTab('address-verification');
+                  window.history.replaceState(null, '', `${addressUrl.pathname}${addressUrl.search}`);
+                }
+                return;
+              }
               if (data.user.identityVerificationRequired && !data.user.identityVerified && !isUidsAuthorizationRoute) {
                 if (isAuthHost) {
                   if (isUidsAuthorizationTarget(safeReturnTo)) {
@@ -1261,8 +1286,58 @@ export default function App() {
     window.location.replace(destination.toString());
   }
 
+  function getAddressVerificationUrl(user) {
+    const searchParams = new URLSearchParams(window.location.search);
+    let returnTarget = getSafeReturnToTarget(searchParams.get('return_to'));
+    if (!returnTarget) {
+      const safeRedirect = searchParams.has('dashboard')
+        ? null
+        : getSafeRedirectTarget(searchParams.get('redirect'));
+      returnTarget = safeRedirect
+        ? (safeRedirect.startsWith('http') ? safeRedirect : getMainAppUrl(safeRedirect))
+        : null;
+    }
+    if (!returnTarget && searchParams.get('mail_return') === '1') {
+      returnTarget = getMailUrl();
+    }
+
+    if (!returnTarget) {
+      const currentPath = window.location.pathname.replace(/^\/+|\/+$/g, '');
+      const isAuthPath = !currentPath ||
+        /^(login|signin|create-account|register|signup|address-verification|landing|home)$/.test(currentPath);
+      if (!isAuthPath) {
+        const currentTarget = isDashboardSubdomain() || isMailSubdomain() || isTPanelSubdomain()
+          ? `${window.location.origin}${window.location.pathname}${window.location.search}${window.location.hash}`
+          : `${window.location.pathname}${window.location.search}${window.location.hash}`;
+        returnTarget = getSafeReturnToTarget(
+          currentTarget
+        );
+      }
+    }
+
+    if (!returnTarget || new URL(returnTarget, getPlatformUrl()).pathname === '/address-verification') {
+      const isSuperAdmin = user?.role === 'super_admin' ||
+        user?.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
+      returnTarget = getMainAppUrl(isSuperAdmin ? '/administrator' : '/dashboard');
+    }
+
+    const url = new URL(getMainAppUrl('/address-verification'));
+    url.searchParams.set('return_to', returnTarget);
+    return url.toString();
+  }
+
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
+    if (user?.addressVerified !== true) {
+      const addressUrl = new URL(getAddressVerificationUrl(user));
+      if (isAuthSubdomain() || addressUrl.origin !== window.location.origin) {
+        redirectAfterAuthentication(addressUrl.toString());
+      } else {
+        setActiveTab('address-verification');
+        window.history.replaceState(null, '', `${addressUrl.pathname}${addressUrl.search}`);
+      }
+      return;
+    }
     if (user?.identityVerificationRequired && !user?.identityVerified) {
       const safeReturnTo = getSafeReturnToTarget(new URLSearchParams(window.location.search).get('return_to'));
       if (isAuthSubdomain() && isUidsAuthorizationTarget(safeReturnTo)) {
@@ -1316,6 +1391,16 @@ export default function App() {
 
   const handleRegisterSuccess = (user) => {
     setCurrentUser(user);
+    if (user?.addressVerified !== true) {
+      const addressUrl = new URL(getAddressVerificationUrl(user));
+      if (isAuthSubdomain() || addressUrl.origin !== window.location.origin) {
+        redirectAfterAuthentication(addressUrl.toString());
+      } else {
+        setActiveTab('address-verification');
+        window.history.replaceState(null, '', `${addressUrl.pathname}${addressUrl.search}`);
+      }
+      return;
+    }
     if (isAuthSubdomain()) {
       sessionStorage.removeItem('tiwlo_explicit_logout');
       if (new URLSearchParams(window.location.search).get('mail_return') === '1') {
@@ -1900,11 +1985,38 @@ export default function App() {
 
       {/* Toast Notification Banner */}
       <ToastNotification message={toast?.message} type={toast?.type} />
+      {!authChecking && currentUser?.addressVerified === true && localStorage.getItem('stockpro_session') && (
+        <LoginLocationCapture
+          key={localStorage.getItem('stockpro_session')}
+          sessionToken={localStorage.getItem('stockpro_session')}
+        />
+      )}
 
       {/* DEDICATED AUTHENTICATION, LANDING & ONBOARDING VIEWS */}
       <Suspense fallback={<TiwloTopSyncBar active={true} />}>
         {authChecking && (activeTab === 'administrator' || activeTab === 'admin' || activeTab === 'tpanel') ? (
           <TiwloPageLoader />
+        ) : !authChecking && currentUser &&
+          (currentUser.addressVerified !== true || activeTab === 'address-verification') ? (
+          <AddressVerificationView
+            onVerified={() => {
+              const verifiedUser = { ...currentUser, addressVerified: true };
+              setCurrentUser(verifiedUser);
+              localStorage.setItem('stockpro_user', JSON.stringify(verifiedUser));
+              const returnTo = getSafeReturnToTarget(
+                new URLSearchParams(window.location.search).get('return_to')
+              );
+              if (returnTo) {
+                redirectAfterAuthentication(returnTo);
+                return;
+              }
+              const isSuperAdmin = verifiedUser?.role === 'super_admin' ||
+                verifiedUser?.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
+              redirectAfterAuthentication(
+                getMainAppUrl(isSuperAdmin ? '/administrator' : '/dashboard')
+              );
+            }}
+          />
         ) : !authChecking && currentUser?.identityVerificationRequired === true &&
           currentUser?.identityVerified !== true && activeTab !== 'verification' &&
           !String(activeTab).startsWith('verification/') && activeTab !== 'uids-authorize' ? (

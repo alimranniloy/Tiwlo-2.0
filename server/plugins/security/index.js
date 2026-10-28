@@ -138,6 +138,20 @@ export const securityLimiters = {
     getIdentity: (req) => req.activeUser?.id ? `user:${req.activeUser.id}` : getClientNetwork(req),
     error: 'Too many sensitive-action verification requests. Try again later.'
   }),
+  addressVerification: createLimiter({
+    policyId: 'address_verification_account',
+    windowMs: hour,
+    limit: 5,
+    getIdentity: (req) => req.activeUser?.id ? `user:${req.activeUser.id}` : getClientNetwork(req),
+    error: 'Too many address verification attempts. Please try again later.'
+  }),
+  loginLocation: createLimiter({
+    policyId: 'login_location_account',
+    windowMs: hour,
+    limit: 60,
+    getIdentity: (req) => req.activeUser?.id ? `user:${req.activeUser.id}` : getClientNetwork(req),
+    error: 'Too many login location attempts. Please try again later.'
+  }),
   otpRequestIp: createLimiter({
     policyId: 'auth_otp_request_ip_hourly',
     windowMs: hour,
