@@ -267,7 +267,7 @@ class ActiveLivenessManager:
     Thread-safe — safe to call from multiple threads or async tasks.
 
     Usage:
-        manager = ActiveLivenessManager(session_ttl=300)
+        manager = ActiveLivenessManager(session_ttl=600)
         session = manager.create_session()
         result = manager.submit_frame(session.session_id, frame)
     """
@@ -275,14 +275,14 @@ class ActiveLivenessManager:
     def __init__(
         self,
         *,
-        session_ttl: float = 300.0,
+        session_ttl: float = 600.0,
         num_challenges: int = 3,
         timeout_seconds: float = 5.0,
         thresholds: ActionThresholds | None = None,
     ):
         """
         Args:
-            session_ttl: Time-to-live for sessions in seconds (default 5 min).
+            session_ttl: Time-to-live for sessions in seconds (default 10 min).
             num_challenges: Default number of challenges per session.
             timeout_seconds: Per-challenge timeout in seconds.
             thresholds: Default action-detection thresholds.

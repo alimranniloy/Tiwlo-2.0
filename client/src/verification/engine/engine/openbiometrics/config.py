@@ -71,7 +71,7 @@ class LivenessConfig:
     enabled: bool = True
     models_dir: str = "./models"
     ctx_id: int = 0
-    session_ttl: float = 300.0  # Session time-to-live in seconds
+    session_ttl: float = 600.0  # Session time-to-live in seconds
     num_challenges: int = 3
     timeout_seconds: float = 5.0  # Per-challenge timeout
 

@@ -77,7 +77,7 @@ Closing either browser ends the handoff, and an inactive session expires after
 invalidates active QR links. On the phone, the user uploads an identity
 document and completes a randomized sequence of head turns, a blink, and an
 open-mouth action; camera framing checks keep guiding position and focus before
-recording begins, and each action has up to 45 seconds. Camera frames are
+recording begins, and each action has up to 90 seconds. Camera frames are
 checked live by the engine. Document images, selfies, and the short camera
 recording are processed in memory and are not retained. The flow compares faces
 and checks passive and active liveness, but it does not verify document

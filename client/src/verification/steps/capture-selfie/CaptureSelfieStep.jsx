@@ -640,7 +640,7 @@ export default function CaptureSelfieStep() {
             {cameraError
               ? cameraError
               : faceReady
-                ? 'Follow each action shown. Camera video is used only for this check and is not saved.'
+                ? 'Keep the phone steady and move your face only when prompted. Each action can take up to 90 seconds. Camera video is used only for this check and is not saved.'
                 : guidance}
           </p>
           {lowLightWarning && !cameraError && (
@@ -667,7 +667,7 @@ export default function CaptureSelfieStep() {
         </button>
       ) : (
         <p className="pb-2 text-center text-[11px] text-slate-400">
-          Keep your face inside the circle and follow the instructions.
+          Keep the phone steady, keep your face inside the circle, and follow each prompt.
         </p>
       )}
       <canvas ref={canvasRef} className="hidden" />

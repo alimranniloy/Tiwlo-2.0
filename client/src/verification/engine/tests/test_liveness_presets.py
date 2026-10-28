@@ -12,6 +12,11 @@ class LivenessPresetTests(unittest.TestCase):
         preset = get_preset("verification")
         manager = ActiveLivenessManager()
 
+        self.assertGreaterEqual(
+            manager._session_ttl,
+            preset.timeout_seconds * preset.num_challenges,
+        )
+
         with patch("openbiometrics.liveness.session.FaceMeshDetector"):
             session = manager.create_session(**preset.session_kwargs())
 
@@ -21,9 +26,9 @@ class LivenessPresetTests(unittest.TestCase):
             set(preset.challenge_types),
         )
         self.assertTrue(
-            all(challenge.timeout_seconds == 45.0 for challenge in session.challenges)
+            all(challenge.timeout_seconds == 90.0 for challenge in session.challenges)
         )
-        self.assertEqual(preset.timeout_seconds, 45.0)
+        self.assertEqual(preset.timeout_seconds, 90.0)
         self.assertEqual(preset.thresholds.open_mouth_mar, 0.48)
 
 

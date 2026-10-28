@@ -57,6 +57,7 @@ async def lifespan(app: FastAPI):
         liveness=LivenessConfig(
             enabled=True,
             models_dir=models_dir,
+            session_ttl=600.0,
             num_challenges=4,
             timeout_seconds=12.0,
         ),
