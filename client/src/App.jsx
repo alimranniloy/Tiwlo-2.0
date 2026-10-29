@@ -382,33 +382,35 @@ export default function App() {
 
         if (pathname === 'login' || pathname === 'signin') {
           if (isAuthSubdomain()) return 'login';
-          if (hostname.toLowerCase() === PLATFORM_DOMAIN || hostname.toLowerCase() === `www.${PLATFORM_DOMAIN}`) {
-            return 'login';
+          const authParams = new URLSearchParams();
+          for (const key of ['logout', 'return_to', 'sso_login', 'mail_return', 'restore_token', 'expired', 'social_flow']) {
+            if (searchParams.has(key)) authParams.set(key, searchParams.get(key));
           }
-          const isExplicitLogout = searchParams.get('logout') === '1';
-          const redirectPath = getSafeRedirectPath(searchParams.get('redirect'));
-          const query = isExplicitLogout
-            ? '?logout=1'
-            : (isDashboardSubdomain()
-              ? `?return_to=${encodeURIComponent(`${window.location.origin}/oneprofile`)}`
-              : (redirectPath ? `?redirect=${encodeURIComponent(redirectPath)}` : ''));
-          window.location.replace(getAuthUrl(`/login${query}`));
+          if (isDashboardSubdomain() && !authParams.has('return_to')) {
+            authParams.set('return_to', `${window.location.origin}/oneprofile`);
+          } else if (!authParams.has('return_to')) {
+            const redirectPath = getSafeRedirectPath(searchParams.get('redirect'));
+            if (redirectPath) authParams.set('redirect', redirectPath);
+          }
+          const query = authParams.toString();
+          window.location.replace(getAuthUrl(`/login${query ? `?${query}` : ''}`));
           return 'login';
         }
 
         if (pathname === 'create-account' || pathname === 'register' || pathname === 'signup' || pathname === 'create-store' || pathname.startsWith('create-store/')) {
           if (isAuthSubdomain()) return 'create-account';
-          if (hostname.toLowerCase() === PLATFORM_DOMAIN || hostname.toLowerCase() === `www.${PLATFORM_DOMAIN}`) {
-            return 'create-account';
+          const registrationParams = new URLSearchParams();
+          for (const key of ['redirect', 'return_to', 'sso_login', 'mail_return']) {
+            if (searchParams.has(key)) registrationParams.set(key, searchParams.get(key));
           }
-          const registrationParams = new URLSearchParams(window.location.search);
           if (isDashboardSubdomain()) {
-            registrationParams.set('return_to', `${window.location.origin}/oneprofile`);
+            if (!registrationParams.has('return_to')) {
+              registrationParams.set('return_to', `${window.location.origin}/oneprofile`);
+            }
             registrationParams.set('sso_login', '1');
           }
           const registrationQuery = registrationParams.toString();
-          const registrationPath = `${window.location.pathname}${registrationQuery ? `?${registrationQuery}` : ''}`;
-          window.location.replace(getAuthUrl(registrationPath));
+          window.location.replace(getAuthUrl(`/create-account${registrationQuery ? `?${registrationQuery}` : ''}`));
           return 'create-account';
         }
 
