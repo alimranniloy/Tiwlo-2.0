@@ -1,5 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { MapPin, ShieldCheck } from 'lucide-react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 
 const API_BASE = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
@@ -7,19 +6,10 @@ const API_BASE = window.location.origin.includes('localhost') || window.location
   : '/api';
 
 export default function LoginLocationCapture({ sessionToken }) {
-  const [status, setStatus] = useState(() => {
-    if (!sessionToken || sessionStorage.getItem('tiwlo_login_location_captured_session') === sessionToken) return 'captured';
-    if (sessionStorage.getItem('tiwlo_login_location_declined_session') === sessionToken) return 'declined';
-    if (sessionStorage.getItem('tiwlo_login_location_ip_session') === sessionToken) return 'approximate';
-    return localStorage.getItem('tiwlo_login_location_consent_v1') === 'yes'
-      ? 'capturing'
-      : 'consent';
-  });
-  const [consented, setConsented] = useState(
-    () => localStorage.getItem('tiwlo_login_location_consent_v1') === 'yes'
-  );
   const inFlight = useRef(false);
-  const gpsCaptured = useRef(false);
+  const gpsCaptured = useRef(
+    Boolean(sessionToken && sessionStorage.getItem('tiwlo_login_location_captured_session') === sessionToken)
+  );
 
   const postLocation = useCallback(async (coordinates) => {
     const response = await fetch(`${API_BASE}/login-location`, {
@@ -42,9 +32,22 @@ export default function LoginLocationCapture({ sessionToken }) {
   const capture = useCallback(async () => {
     if (inFlight.current || gpsCaptured.current) return;
     inFlight.current = true;
-    let locationSaved = false;
 
-    if (navigator.geolocation) {
+    if (!navigator.geolocation) {
+      inFlight.current = false;
+      return;
+    }
+
+    try {
+      let locationAllowed = false;
+      if (navigator.permissions?.query) {
+        const permission = await navigator.permissions.query({ name: 'geolocation' });
+        locationAllowed = permission.state === 'granted';
+      } else {
+        locationAllowed = localStorage.getItem('tiwlo_login_location_consent_v1') === 'yes';
+      }
+      if (!locationAllowed) return;
+
       try {
         const position = await new Promise((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -53,37 +56,26 @@ export default function LoginLocationCapture({ sessionToken }) {
             maximumAge: 0
           });
         });
-        if (position.coords.accuracy <= 50) {
-          locationSaved = await postLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy
-          });
-          if (locationSaved) {
-            gpsCaptured.current = true;
-            sessionStorage.setItem('tiwlo_login_location_captured_session', sessionToken);
-            sessionStorage.removeItem('tiwlo_login_location_ip_session');
-            setStatus('captured');
-            inFlight.current = false;
-            return;
-          }
+        const locationSaved = await postLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy
+        });
+        if (locationSaved) {
+          gpsCaptured.current = true;
+          sessionStorage.setItem('tiwlo_login_location_captured_session', sessionToken);
+          sessionStorage.removeItem('tiwlo_login_location_ip_session');
+          return;
         }
       } catch (error) {
-        console.info('[Login Location] GPS unavailable; trying network location:', error?.message || error);
+        console.info('[Login Location] GPS unavailable; trying approximate network location:', error?.message || error);
       }
-    }
 
-    try {
-      locationSaved = await postLocation(null);
-      if (locationSaved) {
+      if (await postLocation(null)) {
         sessionStorage.setItem('tiwlo_login_location_ip_session', sessionToken);
-        setStatus('approximate');
-      } else {
-        setStatus('unavailable');
       }
     } catch (error) {
-      console.error('[Login Location] Could not record location:', error);
-      setStatus('unavailable');
+      console.error('[Login Location] Background location capture failed:', error);
     } finally {
       inFlight.current = false;
     }
@@ -94,12 +86,6 @@ export default function LoginLocationCapture({ sessionToken }) {
     const capturedSession = sessionStorage.getItem('tiwlo_login_location_captured_session');
     if (capturedSession === sessionToken) {
       gpsCaptured.current = true;
-      return undefined;
-    }
-    if (sessionStorage.getItem('tiwlo_login_location_declined_session') === sessionToken) {
-      return undefined;
-    }
-    if (localStorage.getItem('tiwlo_login_location_consent_v1') !== 'yes' && !consented) {
       return undefined;
     }
 
@@ -114,55 +100,7 @@ export default function LoginLocationCapture({ sessionToken }) {
       window.removeEventListener('focus', retryWhenAvailable);
       window.removeEventListener('online', retryWhenAvailable);
     };
-  }, [capture, consented, sessionToken]);
+  }, [capture, sessionToken]);
 
-  const consentToCapture = () => {
-    localStorage.setItem('tiwlo_login_location_consent_v1', 'yes');
-    setConsented(true);
-    setStatus('capturing');
-  };
-
-  const declineCapture = () => {
-    sessionStorage.setItem('tiwlo_login_location_declined_session', sessionToken);
-    setStatus('declined');
-  };
-
-  if (status !== 'consent' || !sessionToken) return null;
-
-  return (
-    <aside
-      role="status"
-      className="fixed bottom-4 right-4 z-[70] w-[min(360px,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900"
-    >
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
-          <MapPin className="h-4 w-4" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-slate-900 dark:text-white">
-            Share this login location?
-          </p>
-          <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">
-            We can save one location for this login: GPS resolved by Google when allowed, or an approximate network-IP location. Administrators can view it. This is optional and will not block login.
-          </p>
-          <div className="mt-3 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={consentToCapture}
-              className="inline-flex items-center gap-1.5 rounded-full bg-[#1a73e8] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#1765cc]"
-            >
-              <ShieldCheck className="h-3.5 w-3.5" /> Share location
-            </button>
-            <button
-              type="button"
-              onClick={declineCapture}
-              className="rounded-full px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              Not now
-            </button>
-          </div>
-        </div>
-      </div>
-    </aside>
-  );
+  return null;
 }

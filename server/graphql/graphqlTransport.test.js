@@ -46,6 +46,11 @@ for (const [label, file] of [['web', '../../client/src/api/graphqlTransport.js']
       assert.equal(await locationResponse.text(), 'native');
       assert.equal(calls.at(-1).url, 'https://tiwlo.com/api/address-verification');
       assert.equal(calls.at(-1).options.method, 'POST');
+      await applicationFetch('https://tiwlo.com/api/login-location', {
+        method: 'POST', credentials: 'include', body: JSON.stringify({ latitude: 24, longitude: 90, accuracy: 500 })
+      });
+      assert.equal(calls.at(-1).url, 'https://tiwlo.com/api/login-location');
+      assert.equal(calls.at(-1).options.method, 'POST');
     }
   });
 }
