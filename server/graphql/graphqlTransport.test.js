@@ -6,7 +6,8 @@ for (const [label, file] of [['web', '../../client/src/api/graphqlTransport.js']
   test(`${label} requests use named GraphQL operations, preserving auth and Response semantics`, async t => {
     const source = (await fs.readFile(new URL(file, import.meta.url), 'utf8'))
       .replace(/import \{ PLATFORM_DOMAIN \} from [^;]+;/, "const PLATFORM_DOMAIN = 'tiwlo.com';")
-      .replace(/import \{ BASE_URL \} from [^;]+;/, "const BASE_URL = 'https://tiwlo.com';");
+      .replace(/import \{ BASE_URL \} from [^;]+;/, "const BASE_URL = 'https://tiwlo.com';")
+      .replace(/import \{ requestSensitiveActionGrant \} from [^;]+;/, 'const requestSensitiveActionGrant = async () => "test-grant";');
     const previousWindow = globalThis.window;
     globalThis.window = { location: { href: 'https://tiwlo.com/dashboard', origin: 'https://tiwlo.com' } };
     t.after(() => { globalThis.window = previousWindow; });
@@ -38,5 +39,13 @@ for (const [label, file] of [['web', '../../client/src/api/graphqlTransport.js']
     await assert.rejects(applicationFetch('https://tiwlo.com/api/missing'), /No GraphQL operation/);
     assert.equal(await (await applicationFetch('https://tiwlo.com/api/upload/file')).text(), 'native');
     assert.equal(await (await applicationFetch('https://external.example/api/records')).text(), 'native');
+    if (label === 'web') {
+      const locationResponse = await applicationFetch('https://tiwlo.com/api/address-verification', {
+        method: 'POST', credentials: 'include', body: JSON.stringify({ latitude: 24, longitude: 90, accuracy: 500 })
+      });
+      assert.equal(await locationResponse.text(), 'native');
+      assert.equal(calls.at(-1).url, 'https://tiwlo.com/api/address-verification');
+      assert.equal(calls.at(-1).options.method, 'POST');
+    }
   });
 }
