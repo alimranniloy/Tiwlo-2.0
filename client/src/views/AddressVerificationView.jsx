@@ -145,24 +145,24 @@ export default function AddressVerificationView({ onVerified, onSignOut }) {
     : 16;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f8f9fa] px-4 py-8 text-[#202124]">
+    <main className="flex min-h-screen items-center justify-center bg-[#F0F4F9] px-4 py-8 text-[#1F1F1F]">
       <section
         aria-labelledby="address-verification-title"
-        className="w-full max-w-[448px] overflow-hidden rounded-[28px] border border-[#dadce0] bg-white shadow-[0_1px_2px_rgba(60,64,67,0.12),0_2px_6px_rgba(60,64,67,0.08)]"
+        className="w-full max-w-[448px] rounded-[28px] border border-[#DADCE0] bg-white p-7 shadow-none sm:p-9"
       >
-        <div className="flex items-center justify-between border-b border-[#f1f3f4] px-5 py-4 sm:px-7">
+        <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center">
             <img
               src={TIWLO_LOGO}
               alt="Tiwlo"
-              className="h-7 w-auto object-contain"
+              className="h-8 w-auto object-contain sm:h-9"
             />
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onSignOut}
-              className="inline-flex min-h-9 items-center gap-2 rounded-full px-3 text-sm font-medium text-[#5f6368] transition hover:bg-[#f1f3f4] hover:text-[#202124] focus:outline-none focus:ring-2 focus:ring-[#d2e3fc]"
+              className="inline-flex min-h-9 items-center gap-2 rounded-full px-3 text-sm font-medium text-[#5F6368] transition hover:bg-[#F1F3F4] hover:text-[#202124] focus:outline-none focus:ring-2 focus:ring-[#D2E3FC]"
               aria-label="Sign out"
             >
               <LogOut className="h-[18px] w-[18px]" aria-hidden="true" />
@@ -171,7 +171,7 @@ export default function AddressVerificationView({ onVerified, onSignOut }) {
           </div>
         </div>
 
-        <div className="px-5 pb-6 pt-6 sm:px-7 sm:pb-7 sm:pt-7">
+        <div>
           <div className={`mb-5 flex h-11 w-11 items-center justify-center rounded-full ${
             phase === 'success'
               ? 'bg-[#e6f4ea] text-[#188038]'
