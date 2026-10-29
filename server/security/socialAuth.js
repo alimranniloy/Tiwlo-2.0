@@ -7,6 +7,24 @@ import { signupEmailKey } from './signupIdentity.js';
 const ENCRYPTION_CONTEXT = Buffer.from('tiwlo-social-oauth-provider-v1');
 const PROVIDERS = new Set(['google', 'github']);
 
+export function getSocialStateCookieOptions(req) {
+  const host = String(req?.headers?.host || req?.hostname || '')
+    .toLowerCase()
+    .replace(/:\d+$/, '')
+    .replace(/\.$/, '');
+  const cookieDomain = [PLATFORM_CONFIG.primaryDomain, PLATFORM_CONFIG.freeSubdomainDomain]
+    .find(domain => host === domain || host.endsWith(`.${domain}`));
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production' || req?.secure ||
+      req?.headers?.['x-forwarded-proto'] === 'https',
+    sameSite: 'lax',
+    path: '/api/auth',
+    maxAge: 10 * 60 * 1000,
+    ...(cookieDomain ? { domain: `.${cookieDomain}` } : {})
+  };
+}
+
 function getEncryptionKey() {
   const secret = process.env.SECURITY_SECRET;
   if (!secret || secret.length < 32) {

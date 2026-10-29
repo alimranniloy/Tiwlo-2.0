@@ -49,7 +49,8 @@ import {
   findOrCreateSocialUser,
   getSocialCallbackUrl,
   getSocialProviderCredentials,
-  getSocialProviderStatuses
+  getSocialProviderStatuses,
+  getSocialStateCookieOptions
 } from '../security/socialAuth.js';
 
 const router = express.Router();
@@ -192,16 +193,6 @@ function getSocialProfileCompletionUrl(provider, { returnTo, challengeToken }) {
   return profileUrl.toString();
 }
 
-function getSocialStateCookieOptions(req) {
-  return {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production' || req.secure || req.headers['x-forwarded-proto'] === 'https',
-    sameSite: 'lax',
-    path: '/api/auth',
-    maxAge: 10 * 60 * 1000
-  };
-}
-
 function clearOAuthMfaCookie(res, req) {
   const cookieOptions = { ...getSocialMfaCookieOptions(req) };
   delete cookieOptions.maxAge;
@@ -250,6 +241,17 @@ function sameState(left, right) {
   const leftBuffer = Buffer.from(left);
   const rightBuffer = Buffer.from(right);
   return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function clearSocialStateCookie(res, req, provider) {
+  const cookieName = `tiwlo_${provider}_oauth_state`;
+  const sharedOptions = { ...getSocialStateCookieOptions(req) };
+  const hostOnlyOptions = { ...sharedOptions };
+  delete sharedOptions.maxAge;
+  delete hostOnlyOptions.domain;
+  delete hostOnlyOptions.maxAge;
+  res.clearCookie(cookieName, sharedOptions);
+  res.clearCookie(cookieName, hostOnlyOptions);
 }
 
 function maskSocialEmail(email) {
@@ -374,6 +376,7 @@ async function startSocialLogin(provider, req, res) {
 
   const state = crypto.randomBytes(32).toString('base64url');
   const cookieName = `tiwlo_${provider}_oauth_state`;
+  clearSocialStateCookie(res, req, provider);
   res.cookie(
     cookieName,
     JSON.stringify({ state, returnTo: requestedReturnTo, returnToExplicit: hasRequestedReturnTo }),
@@ -414,14 +417,13 @@ async function startSocialLogin(provider, req, res) {
 async function completeSocialLogin(provider, req, res) {
   const callbackState = req.query.state;
   const cookieName = `tiwlo_${provider}_oauth_state`;
-  const cookieOptions = getSocialStateCookieOptions(req);
   let savedState;
   try {
     savedState = JSON.parse(req.cookies?.[cookieName] || 'null');
   } catch {
     savedState = null;
   }
-  res.clearCookie(cookieName, { ...cookieOptions, maxAge: undefined });
+  clearSocialStateCookie(res, req, provider);
   if (!savedState || !sameState(callbackState, savedState.state) ||
       typeof savedState.returnTo !== 'string' ||
       !isAllowedWebSsoReturnUrl(savedState.returnTo, {
