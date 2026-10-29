@@ -43,7 +43,7 @@ export function isValidLiveLocation({ latitude, longitude, accuracy }) {
     typeof longitude === 'number' && Number.isFinite(longitude) &&
     longitude >= -180 && longitude <= 180 &&
     typeof accuracy === 'number' && Number.isFinite(accuracy) &&
-    accuracy >= 0 && accuracy <= 50;
+    accuracy >= 0;
 }
 
 export async function reverseGeocodeAddress({

@@ -25,13 +25,10 @@ function getLocationError(error) {
   if (error?.code === 3) {
     return 'Getting your location took too long. Check your connection and try again.';
   }
-  if (Number.isFinite(error?.accuracy)) {
-    return `The best GPS reading is currently accurate to about ${Math.round(error.accuracy)} meters. We need 50 meters or better to verify. Try again near a window or outdoors with precise location enabled.`;
-  }
   return error?.message || 'We could not verify this location. Please try again.';
 }
 
-function getAccuratePosition() {
+function getBestAvailablePosition() {
   return new Promise((resolve, reject) => {
     let watchId;
     let bestPosition = null;
@@ -42,9 +39,7 @@ function getAccuratePosition() {
     };
     const timeoutId = window.setTimeout(() => {
       if (bestPosition) {
-        const accuracyError = new Error('GPS accuracy threshold not reached.');
-        accuracyError.accuracy = bestPosition.coords.accuracy;
-        finish(reject, accuracyError);
+        finish(resolve, bestPosition);
       } else {
         finish(reject, { code: 3 });
       }
@@ -55,13 +50,10 @@ function getAccuratePosition() {
         if (!bestPosition || position.coords.accuracy < bestPosition.coords.accuracy) {
           bestPosition = position;
         }
-        if (position.coords.accuracy <= 50) finish(resolve, position);
       },
       (error) => {
-        if (bestPosition && bestPosition.coords.accuracy > 50) {
-          const accuracyError = new Error('GPS accuracy threshold not reached.');
-          accuracyError.accuracy = bestPosition.coords.accuracy;
-          finish(reject, accuracyError);
+        if (bestPosition) {
+          finish(resolve, bestPosition);
           return;
         }
         finish(reject, error);
@@ -107,7 +99,7 @@ export default function AddressVerificationView({ onVerified, onSignOut }) {
 
     setPhase('locating');
     try {
-      const position = await getAccuratePosition();
+      const position = await getBestAvailablePosition();
 
       setPhase('verifying');
       const token = localStorage.getItem('stockpro_session');
@@ -147,6 +139,10 @@ export default function AddressVerificationView({ onVerified, onSignOut }) {
   const mapUrl = verifiedLocation
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${verifiedLocation.latitude},${verifiedLocation.longitude}`)}`
     : '';
+  const isApproximate = Number(verifiedLocation?.accuracyMeters) > 50;
+  const mapZoom = isApproximate
+    ? Math.max(8, Math.min(14, Math.floor(17 - Math.log2(verifiedLocation.accuracyMeters / 50))))
+    : 16;
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f8fafd] px-4 py-8 text-[#202124] sm:py-12">
@@ -203,18 +199,22 @@ export default function AddressVerificationView({ onVerified, onSignOut }) {
           </div>
 
           {phase === 'success' && (
-            <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-[#e6f4ea] px-3 py-1.5 text-xs font-semibold text-[#137333]">
+            <div className={`mb-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${
+              isApproximate ? 'bg-[#fef7e0] text-[#8d5d00]' : 'bg-[#e6f4ea] text-[#137333]'
+            }`}>
               <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-              Verified with Google
+              {isApproximate ? 'Approximate GPS · Google resolved' : 'Verified with Google'}
             </div>
           )}
 
           <h1 id="address-verification-title" className="text-[28px] font-normal leading-tight tracking-[-0.5px] text-[#202124] sm:text-[30px]">
-            {phase === 'success' ? 'Location verified' : 'Verify your live location'}
+            {phase === 'success' ? (isApproximate ? 'Location found' : 'Location verified') : 'Verify your live location'}
           </h1>
           <p className="mt-3 max-w-[420px] text-sm leading-6 text-[#5f6368]">
             {phase === 'success'
-              ? 'Your current location was resolved and securely saved. Returning you to your account shortly.'
+              ? isApproximate
+                ? 'Google resolved the best available GPS coordinates. The map pin is approximate because your device reported a wide accuracy range.'
+                : 'Your current location was resolved and securely saved. Returning you to your account shortly.'
               : phase === 'locating'
                 ? 'Finding the most accurate GPS signal. This can take up to 45 seconds…'
                 : phase === 'verifying'
@@ -235,7 +235,9 @@ export default function AddressVerificationView({ onVerified, onSignOut }) {
                   <MapPin className="h-5 w-5" strokeWidth={2.1} aria-hidden="true" />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5f6368]">Current location</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5f6368]">
+                    {isApproximate ? 'Approximate current location' : 'Current location'}
+                  </p>
                   <p className="mt-1 text-sm font-medium leading-5 text-[#202124]">{verifiedLocation.formattedAddress}</p>
                   <p className="mt-1 text-xs text-[#5f6368]">
                     {[verifiedLocation.area, verifiedLocation.postalCode].filter(Boolean).join(' · ')}
@@ -249,12 +251,14 @@ export default function AddressVerificationView({ onVerified, onSignOut }) {
                 </div>
                 <div className="bg-[#f8fafd] px-4 py-3 sm:px-5">
                   <p className="text-[10px] font-medium uppercase tracking-wide text-[#80868b]">GPS accuracy</p>
-                  <p className="mt-1 text-xs font-semibold text-[#3c4043]">{Math.round(verifiedLocation.accuracyMeters)} meters</p>
+                  <p className="mt-1 text-xs font-semibold text-[#3c4043]">
+                    {isApproximate ? 'About ' : '±'}{Math.round(verifiedLocation.accuracyMeters)} meters
+                  </p>
                 </div>
               </div>
               <iframe
                 title="Map of verified current location"
-                src={`https://maps.google.com/maps?q=${encodeURIComponent(`${verifiedLocation.latitude},${verifiedLocation.longitude}`)}&z=15&output=embed`}
+                src={`https://maps.google.com/maps?q=${encodeURIComponent(`${verifiedLocation.latitude},${verifiedLocation.longitude}`)}&z=${mapZoom}&output=embed`}
                 className="h-40 w-full border-0"
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"

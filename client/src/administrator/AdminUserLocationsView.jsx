@@ -15,6 +15,12 @@ function googleMapsUrl(location) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${location.latitude},${location.longitude}`)}`;
 }
 
+function googleMapZoom(location) {
+  if (location.location_source === 'ip' || location.accuracy_meters == null) return 9;
+  if (location.accuracy_meters <= 50) return 16;
+  return Math.max(8, Math.min(14, Math.floor(17 - Math.log2(location.accuracy_meters / 50))));
+}
+
 export default function AdminUserLocationsView({ userId, onNavigate }) {
   const [users, setUsers] = useState([]);
   const [user, setUser] = useState(null);
@@ -122,7 +128,7 @@ export default function AdminUserLocationsView({ userId, onNavigate }) {
               <article key={`${location.captured_at}-${index}`} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <iframe
                   title={`Location map ${index + 1}`}
-                  src={`https://maps.google.com/maps?q=${encodeURIComponent(`${location.latitude},${location.longitude}`)}&z=14&output=embed`}
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(`${location.latitude},${location.longitude}`)}&z=${googleMapZoom(location)}&output=embed`}
                   className="h-56 w-full border-0"
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
@@ -134,7 +140,11 @@ export default function AdminUserLocationsView({ userId, onNavigate }) {
                         ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
                         : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
                     }`}>
-                      {location.location_source === 'gps' ? 'GPS · Google resolved' : 'Approximate IP location'}
+                      {location.location_source === 'gps'
+                        ? location.accuracy_meters > 50
+                          ? `Approximate GPS · Google resolved · ±${Math.round(location.accuracy_meters)} m`
+                          : 'GPS · Google resolved'
+                        : 'Approximate IP location'}
                     </span>
                     <span className="text-xs text-slate-500 dark:text-slate-400">{formatCapturedAt(location.captured_at)}</span>
                   </div>
@@ -153,7 +163,10 @@ export default function AdminUserLocationsView({ userId, onNavigate }) {
                   )}
                   {location.location_source === 'gps' && (
                     <p className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
-                      <ShieldCheck className="h-3.5 w-3.5" /> Device-reported GPS; not proof of physical presence.
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      {location.accuracy_meters > 50
+                        ? `Map pin uses reported coordinates; the device estimates up to ${Math.round(location.accuracy_meters)} m uncertainty.`
+                        : 'Device-reported GPS; not proof of physical presence.'}
                     </p>
                   )}
                   <a

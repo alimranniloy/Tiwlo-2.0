@@ -27,13 +27,6 @@ test('Google reverse geocoding returns all required address fields', async () =>
     }
   });
 
-  test('live location accuracy and coordinates are validated', () => {
-    assert.equal(isValidLiveLocation({ latitude: 23, longitude: 90, accuracy: 50 }), true);
-    assert.equal(isValidLiveLocation({ latitude: 23, longitude: 90, accuracy: 50.1 }), false);
-    assert.equal(isValidLiveLocation({ latitude: 91, longitude: 90, accuracy: 10 }), false);
-    assert.equal(isValidLiveLocation({ latitude: 23, longitude: -181, accuracy: 10 }), false);
-  });
-
   assert.equal(fetchCount, 1);
   assert.deepEqual(result, {
     formattedAddress: 'Dhaka 1212, Bangladesh',
@@ -43,6 +36,16 @@ test('Google reverse geocoding returns all required address fields', async () =>
     compoundPlusCode: '7MMG+JX Dhaka, Bangladesh',
     placeId: 'google-place-1'
   });
+});
+
+test('valid GPS fixes are accepted with rural-area accuracy estimates', () => {
+  assert.equal(isValidLiveLocation({ latitude: 23, longitude: 90, accuracy: 50 }), true);
+  assert.equal(isValidLiveLocation({ latitude: 23, longitude: 90, accuracy: 500 }), true);
+  assert.equal(isValidLiveLocation({ latitude: 23, longitude: 90, accuracy: 5000 }), true);
+  assert.equal(isValidLiveLocation({ latitude: 91, longitude: 90, accuracy: 10 }), false);
+  assert.equal(isValidLiveLocation({ latitude: 23, longitude: -181, accuracy: 10 }), false);
+  assert.equal(isValidLiveLocation({ latitude: 23, longitude: 90, accuracy: -1 }), false);
+  assert.equal(isValidLiveLocation({ latitude: 23, longitude: 90, accuracy: Infinity }), false);
 });
 
 test('Google failure is retried once and never uses an offline fallback', async () => {

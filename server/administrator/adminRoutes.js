@@ -501,10 +501,28 @@ router.get('/customers', requireAdmin, async (req, res) => {
 router.get('/user-locations', requireAdmin, async (req, res) => {
   try {
     const result = await queryPg(
-      `SELECT DISTINCT ON (l.user_id)
+      `WITH all_locations AS (
+         SELECT user_id, location_source, latitude, longitude, accuracy_meters,
+                formatted_address, area, postal_code, plus_code, captured_at, id
+         FROM system_user_login_locations
+         UNION ALL
+         SELECT id AS user_id, 'gps'::varchar(8) AS location_source,
+                (address_verified_location->>'latitude')::double precision AS latitude,
+                (address_verified_location->>'longitude')::double precision AS longitude,
+                (address_verified_location->>'accuracyMeters')::double precision AS accuracy_meters,
+                address_verified_location->>'formattedAddress' AS formatted_address,
+                address_verified_location->>'area' AS area,
+                address_verified_location->>'postalCode' AS postal_code,
+                address_verified_location->>'plusCode' AS plus_code,
+                address_verified_at AS captured_at, 0::bigint AS id
+         FROM system_users
+         WHERE address_verified_at IS NOT NULL AND address_verified_location IS NOT NULL
+       )
+       SELECT DISTINCT ON (l.user_id)
               u.id AS user_id, u.name, u.email, u.avatar,
-              l.location_source, l.formatted_address, l.area, l.captured_at
-       FROM system_user_login_locations l
+              l.location_source, l.latitude, l.longitude, l.accuracy_meters,
+              l.formatted_address, l.area, l.postal_code, l.plus_code, l.captured_at
+       FROM all_locations l
        JOIN system_users u ON u.id = l.user_id
        ORDER BY l.user_id, l.captured_at DESC, l.id DESC`
     );
@@ -525,10 +543,28 @@ router.get('/user-locations/:id', requireAdmin, async (req, res) => {
     if (!userResult.rows[0]) return res.status(404).json({ error: 'User not found.' });
 
     const locationsResult = await queryPg(
-      `SELECT location_source, latitude, longitude, accuracy_meters,
+      `WITH all_locations AS (
+         SELECT user_id, location_source, latitude, longitude, accuracy_meters,
+                formatted_address, area, postal_code, plus_code, captured_at, id
+         FROM system_user_login_locations
+         WHERE user_id = $1
+         UNION ALL
+         SELECT id AS user_id, 'gps'::varchar(8) AS location_source,
+                (address_verified_location->>'latitude')::double precision AS latitude,
+                (address_verified_location->>'longitude')::double precision AS longitude,
+                (address_verified_location->>'accuracyMeters')::double precision AS accuracy_meters,
+                address_verified_location->>'formattedAddress' AS formatted_address,
+                address_verified_location->>'area' AS area,
+                address_verified_location->>'postalCode' AS postal_code,
+                address_verified_location->>'plusCode' AS plus_code,
+                address_verified_at AS captured_at, 0::bigint AS id
+         FROM system_users
+         WHERE id = $1 AND address_verified_at IS NOT NULL
+           AND address_verified_location IS NOT NULL
+       )
+       SELECT location_source, latitude, longitude, accuracy_meters,
               formatted_address, area, postal_code, plus_code, captured_at
-       FROM system_user_login_locations
-       WHERE user_id = $1
+       FROM all_locations
        ORDER BY captured_at DESC, id DESC
        LIMIT 10`,
       [req.params.id]

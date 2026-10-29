@@ -63,8 +63,10 @@ async function saveLoginLocation({ userId, sessionKey, source, location }) {
            plus_code = EXCLUDED.plus_code,
            captured_at = CURRENT_TIMESTAMP
        WHERE system_user_login_locations.user_id = EXCLUDED.user_id
-         AND system_user_login_locations.location_source = 'ip'
-         AND EXCLUDED.location_source = 'gps'`,
+         AND (
+           system_user_login_locations.location_source = 'ip'
+           OR EXCLUDED.location_source = 'gps'
+         )`,
     [
       userId,
       sessionKey,
@@ -157,7 +159,7 @@ router.post('/address-verification', securityLimiters.addressVerification, async
   const { latitude, longitude, accuracy } = req.body || {};
   if (!isValidLiveLocation({ latitude, longitude, accuracy })) {
     return res.status(400).json({
-      error: 'A GPS location with reported accuracy of 50 meters or better is required.'
+      error: 'Valid GPS coordinates and reported accuracy are required.'
     });
   }
 
@@ -246,7 +248,7 @@ router.post('/login-location', securityLimiters.loginLocation, async (req, res) 
     let location;
     if (latitude !== undefined || longitude !== undefined || accuracy !== undefined) {
       if (!isValidLiveLocation({ latitude, longitude, accuracy })) {
-        return res.status(400).json({ error: 'A GPS location with reported accuracy of 50 meters or better is required.' });
+        return res.status(400).json({ error: 'Valid GPS coordinates and reported accuracy are required.' });
       }
       const googleAddress = await reverseGeocodeAddress({
         latitude,

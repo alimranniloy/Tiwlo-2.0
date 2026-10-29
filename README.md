@@ -94,9 +94,10 @@ protected application APIs are available. The user must select **Verify** and
 grant browser location permission. The browser reports a fresh GPS fix's
 coordinates and accuracy to the server, which uses only the administrator-managed Google Maps
 Geocoding API. Verification requires Google's formatted address, area, postcode,
-and Plus Code, as well as device-reported GPS accuracy of 50 meters or better. Google
-is retried once; API errors, missing address fields, missing API configuration,
-or insufficient GPS accuracy fail closed. There is no offline/IP fallback.
+and Plus Code. Device-reported coordinates are saved at their reported accuracy:
+fixes over 50 meters are labeled approximate, while the map pin uses the coordinates
+returned by the device. Google is retried once; API errors, missing address fields,
+or missing API configuration fail closed. There is no offline/IP fallback.
 Coordinates, reported accuracy, Google address fields, Plus Code, and the server
 verification time are saved as the account's latest live-location check, not as
 a permanent residential address. GPS can be inaccurate or spoofed; this is not
