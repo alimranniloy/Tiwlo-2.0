@@ -1999,6 +1999,7 @@ export default function App() {
         ) : !authChecking && currentUser &&
           (currentUser.addressVerified !== true || activeTab === 'address-verification') ? (
           <AddressVerificationView
+            onSignOut={handleLogout}
             onVerified={() => {
               const verifiedUser = { ...currentUser, addressVerified: true };
               setCurrentUser(verifiedUser);

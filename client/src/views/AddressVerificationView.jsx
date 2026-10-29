@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ExternalLink,
   LoaderCircle,
+  LogOut,
   MapPin,
   Navigation2
 } from 'lucide-react';
@@ -24,7 +25,50 @@ function getLocationError(error) {
   if (error?.code === 3) {
     return 'Getting your location took too long. Check your connection and try again.';
   }
+  if (Number.isFinite(error?.accuracy)) {
+    return `The best GPS reading is currently accurate to about ${Math.round(error.accuracy)} meters. We need 50 meters or better to verify. Try again near a window or outdoors with precise location enabled.`;
+  }
   return error?.message || 'We could not verify this location. Please try again.';
+}
+
+function getAccuratePosition() {
+  return new Promise((resolve, reject) => {
+    let watchId;
+    let bestPosition = null;
+    const finish = (callback, value) => {
+      window.clearTimeout(timeoutId);
+      if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
+      callback(value);
+    };
+    const timeoutId = window.setTimeout(() => {
+      if (bestPosition) {
+        const accuracyError = new Error('GPS accuracy threshold not reached.');
+        accuracyError.accuracy = bestPosition.coords.accuracy;
+        finish(reject, accuracyError);
+      } else {
+        finish(reject, { code: 3 });
+      }
+    }, 45000);
+
+    watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        if (!bestPosition || position.coords.accuracy < bestPosition.coords.accuracy) {
+          bestPosition = position;
+        }
+        if (position.coords.accuracy <= 50) finish(resolve, position);
+      },
+      (error) => {
+        if (bestPosition && bestPosition.coords.accuracy > 50) {
+          const accuracyError = new Error('GPS accuracy threshold not reached.');
+          accuracyError.accuracy = bestPosition.coords.accuracy;
+          finish(reject, accuracyError);
+          return;
+        }
+        finish(reject, error);
+      },
+      { enableHighAccuracy: true, timeout: 45000, maximumAge: 0 }
+    );
+  });
 }
 
 function getLocationSettingsUrl() {
@@ -41,7 +85,7 @@ function getLocationSettingsUrl() {
   return null;
 }
 
-export default function AddressVerificationView({ onVerified }) {
+export default function AddressVerificationView({ onVerified, onSignOut }) {
   const [phase, setPhase] = useState('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [permissionDenied, setPermissionDenied] = useState(false);
@@ -63,16 +107,7 @@ export default function AddressVerificationView({ onVerified }) {
 
     setPhase('locating');
     try {
-      const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 20000,
-          maximumAge: 0
-        });
-      });
-      if (!Number.isFinite(position.coords.accuracy) || position.coords.accuracy > 50) {
-        throw new Error('Your GPS accuracy is currently over 50 meters. Move to a place with a clearer GPS signal and try again.');
-      }
+      const position = await getAccuratePosition();
 
       setPhase('verifying');
       const token = localStorage.getItem('stockpro_session');
@@ -129,9 +164,20 @@ export default function AddressVerificationView({ onVerified }) {
               className="h-8 w-auto object-contain"
             />
           </div>
-          <span className="rounded-full bg-[#f1f3f4] px-3 py-1.5 text-[11px] font-medium text-[#5f6368]">
-            Location check
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="hidden rounded-full bg-[#f1f3f4] px-3 py-1.5 text-[11px] font-medium text-[#5f6368] sm:inline-flex">
+              Location check
+            </span>
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="inline-flex min-h-9 items-center gap-2 rounded-full px-3 text-xs font-medium text-[#5f6368] transition hover:bg-[#f1f3f4] hover:text-[#202124] focus:outline-none focus:ring-2 focus:ring-[#d2e3fc]"
+              aria-label="Sign out"
+            >
+              <LogOut className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Sign out</span>
+            </button>
+          </div>
         </div>
 
         <div className="px-6 pb-7 pt-8 sm:px-9 sm:pb-9 sm:pt-10">
@@ -170,7 +216,7 @@ export default function AddressVerificationView({ onVerified }) {
             {phase === 'success'
               ? 'Your current location was resolved and securely saved. Returning you to your account shortly.'
               : phase === 'locating'
-                ? 'Waiting for your device to share its current location…'
+                ? 'Finding the most accurate GPS signal. This can take up to 45 seconds…'
                 : phase === 'verifying'
                   ? 'Google is matching your GPS coordinates to an address…'
                   : 'Use your device location to verify where you are now. Google will resolve the address, area, postcode, and Plus Code.'}
