@@ -20,6 +20,7 @@ async function serve(t, app) {
 test('application GraphQL preserves authentication, parameters, cookies and errors', async t => {
   const app = express(); app.use(express.json());
   app.use((req, _res, next) => { if (req.headers.authorization === 'Bearer valid') req.activeUser = { id: 'owner', tiwiId: 'own' }; next(); });
+  app.use((req, _res, next) => { if (req.activeUser) req.activeUser.addressVerified = true; next(); });
   const router = express.Router();
   router.use(async (req, res, next) => { if (!req.activeUser) return res.status(401).json({ error: 'Login required' }); next(); });
   router.get('/records/:id', (req, res) => res.json({ id: req.params.id, filter: req.query.filter, owner: req.activeUser.id }));
@@ -93,6 +94,50 @@ test('identity-required users can access only authentication and verification op
     { input: {} }
   );
   assert.equal(verification.body.data.result.status, 201);
+});
+
+test('address-unverified users can sync sessions but cannot access protected operations', async t => {
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    req.activeUser = {
+      id: 'address-pending-user',
+      identityVerified: true,
+      addressVerified: false
+    };
+    next();
+  });
+  const router = express.Router();
+  router.get('/auth/sync-session', (_req, res) => res.json({ authenticated: true }));
+  router.post('/address-verification', (_req, res) => res.json({ verified: true }));
+  router.get('/records', (_req, res) => res.json({ records: [] }));
+  app.post('/api/graphql', createApplicationGraphQL([['/api', router]]));
+  const call = await serve(t, app);
+
+  const sessionSync = await call(
+    'query($input:ApplicationInput){result:getApiAuthSync_session(input:$input){status body}}',
+    { input: {} }
+  );
+  assert.deepEqual(sessionSync.body.data.result, {
+    status: 200,
+    body: { authenticated: true }
+  });
+
+  const verification = await call(
+    'mutation($input:ApplicationInput){result:postApiAddress_verification(input:$input){status body}}',
+    { input: { body: { latitude: 24, longitude: 90, accuracy: 500 } } }
+  );
+  assert.deepEqual(verification.body.data.result, {
+    status: 200,
+    body: { verified: true }
+  });
+
+  const protectedRequest = await call(
+    'query($input:ApplicationInput){result:getApiRecords(input:$input){status body}}',
+    { input: {} }
+  );
+  assert.equal(protectedRequest.body.data.result.status, 403);
+  assert.equal(protectedRequest.body.data.result.body.code, 'ADDRESS_VERIFICATION_REQUIRED');
 });
 
 test('production GraphQL hides the explorer and rejects introspection', async t => {

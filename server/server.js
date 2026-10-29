@@ -254,6 +254,7 @@ app.use(async (req, res, next) => {
           });
         }
         if (
+          req.path !== '/api/graphql' &&
           isProtectedApiRequest &&
           !isAuthRequest &&
           !isAddressVerificationRequest &&

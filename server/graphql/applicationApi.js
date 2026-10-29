@@ -35,13 +35,27 @@ function dispatch(router, route, method, input, context, fullPath) {
     if (
       context.req.activeUser?.identityVerificationRequired === true &&
       context.req.activeUser?.identityVerified !== true &&
-      !/^\/api\/(?:auth|verification)(\/|$)/.test(fullPath)
+      !/^\/api\/(?:auth|verification|address-verification)(\/|$)/.test(fullPath)
     ) {
       return resolve({
         status: 403,
         body: {
           error: 'Identity verification is required before you can use this account.',
           code: 'IDENTITY_VERIFICATION_REQUIRED'
+        },
+        headers: {}
+      });
+    }
+    if (
+      context.req.activeUser &&
+      context.req.activeUser.addressVerified !== true &&
+      !/^\/api\/(?:auth|verification|address-verification)(\/|$)/.test(fullPath)
+    ) {
+      return resolve({
+        status: 403,
+        body: {
+          error: 'Address verification is required before you can use this account.',
+          code: 'ADDRESS_VERIFICATION_REQUIRED'
         },
         headers: {}
       });
