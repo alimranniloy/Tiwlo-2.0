@@ -7,16 +7,16 @@ import {
   ExternalLink,
   LoaderCircle,
   MapPin,
-  Navigation2,
-  ShieldCheck
+  Navigation2
 } from 'lucide-react';
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 
 const API_BASE = '/api';
+const TIWLO_LOGO = '/tiwlologo.png';
 
 function getLocationError(error) {
   if (error?.code === 1) {
-    return 'Location permission was denied. Allow location access in your browser settings, then try again.';
+    return 'Location access is blocked for this site. Browsers do not show the permission popup again until you change the site permission.';
   }
   if (error?.code === 2) {
     return 'Your device could not determine a location. Check that location services are enabled and try again.';
@@ -27,9 +27,24 @@ function getLocationError(error) {
   return error?.message || 'We could not verify this location. Please try again.';
 }
 
+function getLocationSettingsUrl() {
+  const site = encodeURIComponent(window.location.origin);
+  if (/Edg\//.test(navigator.userAgent)) {
+    return `edge://settings/content/siteDetails?site=${site}`;
+  }
+  if (/Chrome\//.test(navigator.userAgent)) {
+    return `chrome://settings/content/siteDetails?site=${site}`;
+  }
+  if (/Firefox\//.test(navigator.userAgent)) {
+    return 'about:preferences#privacy';
+  }
+  return null;
+}
+
 export default function AddressVerificationView({ onVerified }) {
   const [phase, setPhase] = useState('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const [permissionDenied, setPermissionDenied] = useState(false);
   const [verifiedLocation, setVerifiedLocation] = useState(null);
 
   useEffect(() => {
@@ -40,6 +55,7 @@ export default function AddressVerificationView({ onVerified }) {
 
   const startVerification = async () => {
     setErrorMessage('');
+    setPermissionDenied(false);
     if (!navigator.geolocation) {
       setErrorMessage('This browser does not support location access. Try again on a device with GPS enabled.');
       return;
@@ -82,8 +98,14 @@ export default function AddressVerificationView({ onVerified }) {
       setPhase('success');
     } catch (error) {
       setPhase('idle');
+      setPermissionDenied(error?.code === 1);
       setErrorMessage(getLocationError(error));
     }
+  };
+
+  const openLocationSettings = () => {
+    const settingsUrl = getLocationSettingsUrl();
+    if (settingsUrl) window.open(settingsUrl, '_blank', 'noopener,noreferrer');
   };
 
   const isWorking = phase === 'locating' || phase === 'verifying';
@@ -100,11 +122,12 @@ export default function AddressVerificationView({ onVerified }) {
         className="relative w-full max-w-[520px] overflow-hidden rounded-[30px] border border-[#e3e8f0] bg-white shadow-[0_18px_60px_rgba(60,64,67,0.12)]"
       >
         <div className="flex items-center justify-between border-b border-[#edf0f4] px-6 py-5 sm:px-9">
-          <div className="flex items-center gap-3 text-sm font-medium tracking-tight text-[#3c4043]">
-            <span className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#e8f0fe] text-[#1a73e8]">
-              <MapPin className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
-            </span>
-            <span>Tiwlo Account</span>
+          <div className="flex items-center">
+            <img
+              src={TIWLO_LOGO}
+              alt="Tiwlo"
+              className="h-8 w-auto object-contain"
+            />
           </div>
           <span className="rounded-full bg-[#f1f3f4] px-3 py-1.5 text-[11px] font-medium text-[#5f6368]">
             Location check
@@ -212,6 +235,22 @@ export default function AddressVerificationView({ onVerified }) {
               <div>
                 <p className="font-semibold">Verification failed</p>
                 <p className="mt-0.5">{errorMessage}</p>
+                {permissionDenied && (
+                  <div className="mt-3 rounded-xl bg-white/70 p-3 text-xs leading-5 text-[#8c2f2b]">
+                    <p>
+                      Change this site’s Location permission to <strong>Allow</strong> in your browser settings, then return and try again. If it is set to Block, the browser will not show its permission popup again.
+                    </p>
+                    {getLocationSettingsUrl() && (
+                      <button
+                        type="button"
+                        onClick={openLocationSettings}
+                        className="mt-2 inline-flex min-h-9 items-center rounded-full border border-[#d9a09d] px-3 py-1.5 font-semibold text-[#8c2f2b] transition hover:bg-[#fce8e6]"
+                      >
+                        Open location settings
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -242,14 +281,6 @@ export default function AddressVerificationView({ onVerified }) {
             </div>
           )}
 
-          <div className="mt-6 flex items-start gap-2 border-t border-[#edf0f4] pt-4 text-[11px] leading-5 text-[#80868b]">
-            <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#5f6368]" aria-hidden="true" />
-            <p>
-              By selecting Verify address, you consent to share a fresh GPS fix with Tiwlo and Google.
-              Coordinates and the resolved address are saved as your latest live-location check.
-              GPS accuracy can vary and does not prove residence or banking KYC.
-            </p>
-          </div>
         </div>
       </section>
     </main>
