@@ -1,751 +1,836 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from 'react';
 import {
   ArrowRight,
   ArrowUpRight,
+  Barcode,
   Check,
-  ChevronDown,
   Cloud,
-  Command,
-  Globe2,
-  Layers3,
+  Database,
+  Globe,
+  Layers,
+  Lock,
   Menu,
-  Monitor,
-  Package,
+  MonitorSmartphone,
   Plus,
+  RefreshCw,
+  Server,
   ShieldCheck,
   ShoppingBag,
+  Store,
   X,
-} from "lucide-react";
-import "./landing.css";
-import "./cleanTheme.css";
+  Zap,
+} from 'lucide-react';
 
 const products = [
   {
-    name: "Online store",
-    icon: ShoppingBag,
-    eyebrow: "YOUR BRAND. YOUR STOREFRONT.",
-    title: "From a little idea to your next big thing.",
-    description:
-      "Give your products a home. Bring your catalog, customers, and orders together in a storefront that feels like you.",
-    features: [
-      "Your product catalog, beautifully organized",
-      "Orders and inventory in one workspace",
-      "A storefront that fits every screen",
-    ],
-    action: "Explore the storefront",
-    route: "store",
+    title: 'Cloud Compute',
+    body: 'Manage your cloud workspace and services from your Tiwlo account.',
+    icon: Server,
+    destination: 'dashboard',
   },
   {
-    name: "Retail & POS",
-    icon: Monitor,
-    eyebrow: "BEHIND EVERY GREAT CHECKOUT.",
-    title: "Less busywork. More happy customers.",
-    description:
-      "Keep your counter moving with a connected point of sale. Find products, build a cart, and manage the details of everyday retail.",
-    features: [
-      "Product search and barcode workflows",
-      "Sales, purchases, and stock management",
-      "Customer and supplier records together",
-    ],
-    action: "Explore retail tools",
-    route: "pos",
+    title: 'Commerce Storefront',
+    body: 'Bring your products and online storefront together in one place.',
+    icon: Store,
+    destination: 'store',
   },
   {
-    name: "Cloud workspace",
-    icon: Cloud,
-    eyebrow: "ROOM FOR YOUR NEXT CHAPTER.",
-    title: "A clearer view of your digital world.",
-    description:
-      "Keep your cloud resources and business tools within reach. Start with your workspace and explore the services that fit your next step.",
-    features: [
-      "A dedicated cloud dashboard",
-      "Domain management from your account",
-      "Your services in one place",
-    ],
-    action: "Open your workspace",
-    route: "dashboard",
+    title: 'Retail & POS',
+    body: 'Explore the tools for managing in-person sales and retail workflows.',
+    icon: MonitorSmartphone,
+    destination: 'pos',
   },
-];
-const faqs = [
-  [
-    "What can I do with Tiwlo?",
-    "Tiwlo brings together online storefronts, retail and inventory tools, and a cloud workspace. Choose the tools that match how you work, and manage them through your account.",
-  ],
-  [
-    "How do I get started?",
-    "Create an account, verify your email, and complete the account setup. You can then explore your dashboard, add your products, and set up your store.",
-  ],
-  [
-    "Can I use Tiwlo on my phone?",
-    "Yes. The web experience adapts to phones, tablets, and larger screens, so you can open your workspace from your browser.",
-  ],
-  [
-    "Where can I compare plans?",
-    "Open the pricing page to compare the available plans and their features. The help center is there if you need a hand choosing or getting started.",
-  ],
+  {
+    title: 'Cloud Database',
+    body: 'Keep your cloud services and workspace tools connected to your account.',
+    icon: Database,
+    destination: 'dashboard',
+  },
+  {
+    title: 'Domains & identity',
+    body: 'Manage your profile and account settings from one workspace.',
+    icon: Globe,
+    destination: 'oneprofile',
+  },
 ];
 
-function StorePreview({ active }) {
+const cloudTools = [
+  {
+    name: 'Cloud workspace',
+    tag: 'YOUR SERVICES',
+    description: 'Open your cloud dashboard to manage the services available to your account.',
+    features: ['A dedicated cloud dashboard', 'Services in one workspace', 'Account-level access'],
+  },
+  {
+    name: 'Domains & profile',
+    tag: 'MAKE IT YOURS',
+    description: 'Manage your profile and domain-related tools from your Tiwlo workspace.',
+    features: ['Profile and account settings', 'Domain management tools', 'One place for your details'],
+  },
+  {
+    name: 'Business tools',
+    tag: 'ROOM TO GROW',
+    description: 'Explore the tools that support your store and everyday business workflows.',
+    features: ['Commerce and retail tools', 'Connected account experience', 'Access from your dashboard'],
+  },
+];
+
+const commerce = [
+  {
+    title: 'Retail & POS',
+    body: 'Explore the tools for everyday retail workflows and in-person sales.',
+    points: ['Retail workspace', 'Product and sales workflows', 'Customer and supplier tools'],
+    icon: Barcode,
+    destination: 'pos',
+  },
+  {
+    title: 'Online storefront',
+    body: 'Bring your products into a storefront that represents your business.',
+    points: ['Storefront management', 'Product catalog tools'],
+    icon: Store,
+    destination: 'store',
+  },
+  {
+    title: 'Commerce workspace',
+    body: 'Keep your commerce tools close to the rest of your Tiwlo workspace.',
+    points: ['One account experience', 'Online and in-person workflows'],
+    icon: ShoppingBag,
+    destination: 'store',
+  },
+  {
+    title: 'Inventory tools',
+    body: 'Manage product and stock workflows from your business workspace.',
+    points: ['Product organization', 'Inventory management tools', 'Retail workflows'],
+    icon: Layers,
+    destination: 'pos',
+  },
+];
+
+const benefits = [
+  {
+    title: 'Your tools, together.',
+    body: 'Bring your store, retail, and cloud tools into one thoughtful workspace.',
+    icon: Zap,
+  },
+  {
+    title: 'A flexible workspace.',
+    body: 'Open Tiwlo from a desktop, tablet, or phone and get to the tools you use.',
+    icon: RefreshCw,
+  },
+  {
+    title: 'Your account. Your space.',
+    body: 'Use your account to access the Tiwlo products and settings available to you.',
+    icon: Lock,
+  },
+  {
+    title: 'Built around your business.',
+    body: 'Choose the tools that fit the way you manage your everyday work.',
+    icon: ShieldCheck,
+  },
+  {
+    title: 'Store and retail tools.',
+    body: 'Explore the storefront and POS experiences from your Tiwlo workspace.',
+    icon: Store,
+  },
+  {
+    title: 'Cloud services.',
+    body: 'Find your cloud workspace and related services from your dashboard.',
+    icon: Cloud,
+  },
+];
+
+const faqs = [
+  {
+    question: 'What can I do with Tiwlo?',
+    answer:
+      'Tiwlo brings together commerce, retail, and cloud tools. Choose the products that fit your work and access them through your account.',
+  },
+  {
+    question: 'How do I get started?',
+    answer:
+      'Create an account, verify your email, and complete the account setup. You can then open your workspace and explore the available tools.',
+  },
+  {
+    question: 'Can I use Tiwlo on my phone?',
+    answer:
+      'Yes. Tiwlo pages adapt to phones, tablets, and larger screens, so you can open your workspace in a browser.',
+  },
+  {
+    question: 'Where can I compare plans?',
+    answer:
+      'Open the pricing page to review the available plans and features for your account.',
+  },
+  {
+    question: 'Where can I get help?',
+    answer:
+      'Visit the help and support page to find assistance with your account and Tiwlo workspace.',
+  },
+];
+
+function Logo({ inverted = false, onClick }) {
   return (
-    <div
-      className={`tl-preview tl-preview-${active}`}
-      aria-label={`${products[active].name} illustrative preview`}
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center"
+      aria-label="Tiwlo home"
     >
-      <div className="tl-preview-toolbar">
-        <span className="tl-window-dots">
-          <i />
-          <i />
-          <i />
-        </span>
-        <span>
-          {active === 0
-            ? "Your next favorite store"
-            : active === 1
-              ? "Your retail workspace"
-              : "Your cloud workspace"}
-        </span>
-        <span className="tl-demo-label">Preview</span>
-      </div>
-      {active === 0 ? (
-        <div className="tl-store-demo">
-          <div className="tl-demo-nav">
-            <strong>
-              form<span>&</span>field
-            </strong>
-            <span>Objects for everyday living</span>
-            <ShoppingBag size={17} />
-          </div>
-          <div className="tl-demo-banner">
-            <span>THOUGHTFULLY SIMPLE</span>
-            <h3>
-              Good things.
-              <br />
-              Every day.
-            </h3>
-            <span className="tl-demo-shop">
-              The everyday collection <ArrowUpRight size={15} />
-            </span>
-            <div className="tl-vase">
-              <i />
-              <i />
-            </div>
-          </div>
-          <div className="tl-demo-products">
-            {["The daily carry", "A softer start", "Room to unwind"].map(
-              (name, i) => (
-                <div key={name}>
-                  <div className={`tl-object tl-object-${i}`}>
-                    <span />
-                  </div>
-                  <strong>{name}</strong>
-                  <span>Everyday essentials</span>
-                </div>
-              ),
-            )}
-          </div>
-        </div>
-      ) : active === 1 ? (
-        <div className="tl-pos-demo">
-          <div>
-            <div className="tl-demo-heading">
-              <strong>Your counter</strong>
-              <Package size={19} />
-            </div>
-            <div className="tl-pos-products">
-              {["Canvas tote", "Ceramic cup", "Desk light", "Linen throw"].map(
-                (item, i) => (
-                  <div key={item}>
-                    <div className={`tl-object tl-object-${i % 3}`}>
-                      <span />
-                    </div>
-                    <strong>{item}</strong>
-                  </div>
-                ),
-              )}
-            </div>
-          </div>
-          <aside>
-            <strong>Current sale</strong>
-            <p>Sample cart</p>
-            <div>
-              Canvas tote <span>× 1</span>
-            </div>
-            <div>
-              Ceramic cup <span>× 2</span>
-            </div>
-            <hr />
-            <span className="tl-demo-shop">
-              Ready for checkout <Check size={15} />
-            </span>
-          </aside>
-        </div>
-      ) : (
-        <div className="tl-cloud-demo">
-          <div className="tl-demo-heading">
-            <div>
-              <span>YOUR WORKSPACE</span>
-              <h3>Everything, connected.</h3>
-            </div>
-            <Cloud size={30} />
-          </div>
-          <div className="tl-cloud-stats">
-            <div>
-              <Layers3 />
-              <strong>Resources</strong>
-              <span>Organize your services</span>
-            </div>
-            <div>
-              <Globe2 />
-              <strong>Domains</strong>
-              <span>Make it your own</span>
-            </div>
-          </div>
-          <div className="tl-resource">
-            <span className="tl-resource-icon">
-              <Cloud />
-            </span>
-            <div>
-              <strong>My cloud workspace</strong>
-              <span>Your next project starts here</span>
-            </div>
-            <ArrowUpRight size={19} />
-          </div>
-          <div className="tl-resource">
-            <span className="tl-resource-icon">
-              <ShoppingBag />
-            </span>
-            <div>
-              <strong>My storefront</strong>
-              <span>A home for your products</span>
-            </div>
-            <ArrowUpRight size={19} />
-          </div>
-        </div>
+      <img
+        src={inverted ? '/tiwlo-dark-bg-logo.png' : '/tiwlo-light-logo.png'}
+        alt="Tiwlo"
+        className="h-8 w-auto max-w-[150px] object-contain"
+      />
+    </button>
+  );
+}
+
+function SectionHeading({ eyebrow, title, body, inverted = false }) {
+  return (
+    <div className="max-w-2xl">
+      <p
+        className={`text-sm font-semibold uppercase tracking-widest ${
+          inverted ? 'text-[#1ed760]' : 'text-[#0f7a37]'
+        }`}
+      >
+        {eyebrow}
+      </p>
+      <h2 className="mt-3 text-balance text-3xl font-bold tracking-tight sm:text-5xl">
+        {title}
+      </h2>
+      {body && (
+        <p
+          className={`mt-4 text-pretty text-lg ${
+            inverted ? 'text-white/65' : 'text-[#6a6a6a]'
+          }`}
+        >
+          {body}
+        </p>
       )}
-      <div className="tl-preview-caption">
-        <span className="tl-status-dot" /> A little look at what you can build{" "}
-        <span>Illustrative demo</span>
+    </div>
+  );
+}
+
+function HeroPreview() {
+  return (
+    <div className="relative" aria-label="Illustrative Tiwlo workspace preview">
+      <div className="pointer-events-none absolute -right-16 -top-12 size-[300px] rounded-full border-[38px] border-[#1ed760]/80 sm:size-[440px] sm:border-[52px]" />
+      <div className="relative rounded-[2rem] bg-[#121212] p-3 shadow-2xl">
+        <div className="flex items-center gap-1.5 px-3 pb-3 pt-1">
+          <span className="size-2.5 rounded-full bg-white/25" />
+          <span className="size-2.5 rounded-full bg-white/25" />
+          <span className="size-2.5 rounded-full bg-white/25" />
+          <span className="ml-3 rounded-full bg-white/10 px-3 py-1 text-[10px] text-white/60">
+            workspace.tiwlo
+          </span>
+        </div>
+        <div className="grid gap-3 rounded-[1.5rem] bg-[#f4f4f4] p-4 sm:grid-cols-3">
+          <div className="rounded-2xl bg-white p-4 sm:col-span-2">
+            <p className="text-xs font-semibold text-[#6a6a6a]">Your workspace</p>
+            <p className="mt-1 text-2xl font-bold tracking-tight">Everything, connected.</p>
+            <div className="mt-4 flex h-24 items-end gap-2" aria-hidden="true">
+              {[40, 65, 48, 80, 62, 92, 74].map((height, index) => (
+                <span
+                  key={index}
+                  className={`flex-1 rounded-t-md ${
+                    index === 5 ? 'bg-[#1ed760]' : 'bg-[#121212]/80'
+                  }`}
+                  style={{ height: `${height}%` }}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-3">
+            <div className="flex-1 rounded-2xl bg-[#1ed760] p-4 text-[#121212]">
+              <Cloud className="size-5" aria-hidden="true" />
+              <p className="mt-3 text-lg font-bold">Cloud</p>
+              <p className="text-xs opacity-70">Your workspace</p>
+            </div>
+            <div className="flex-1 rounded-2xl bg-white p-4">
+              <Store className="size-5" aria-hidden="true" />
+              <p className="mt-3 text-lg font-bold">Commerce</p>
+              <p className="text-xs text-[#6a6a6a]">Store and retail tools</p>
+            </div>
+          </div>
+          <div className="rounded-2xl bg-white p-4 sm:col-span-3">
+            {[
+              ['Storefront', 'Commerce tools'],
+              ['Cloud workspace', 'Cloud services'],
+            ].map(([name, description]) => (
+              <div
+                key={name}
+                className="flex items-center justify-between border-b border-[#e4e4e4] py-2 text-xs last:border-0"
+              >
+                <span className="font-semibold">{name}</span>
+                <span className="text-[#6a6a6a]">{description}</span>
+                <ArrowUpRight className="size-4 text-[#6a6a6a]" aria-hidden="true" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <p className="px-3 pb-1 pt-3 text-center text-[10px] text-white/55">
+          Illustrative workspace preview
+        </p>
       </div>
     </div>
   );
 }
 
-export default function LandingPage({ onNavigate, currentUser }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [activeProduct, setActiveProduct] = useState(0);
-  const menuButton = useRef(null);
-  const pageRoot = useRef(null);
-  const product = products[activeProduct];
-  const start = () => onNavigate(currentUser ? "dashboard" : "create-account");
-  useEffect(() => {
-    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const elements = pageRoot.current.querySelectorAll(
-      ".tl-section-heading, .tl-product-panel, .tl-benefits article, .tl-start-section, .tl-faq-section, .tl-cta",
-    );
-    const animations = new Set();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          observer.unobserve(entry.target);
-          if (motion.matches) continue;
-          const animation = entry.target.animate(
-            [
-              { opacity: 0.6, transform: "translateY(14px)" },
-              { opacity: 1, transform: "translateY(0)" },
-            ],
-            { duration: 450, easing: "cubic-bezier(.2,.7,.2,1)", fill: "none" },
-          );
-          animations.add(animation);
-          animation.onfinish = () => animations.delete(animation);
-        }
-      },
-      { threshold: 0.12 },
-    );
-    elements.forEach((element) => observer.observe(element));
-    const stopMotion = () => {
-      if (motion.matches) animations.forEach((animation) => animation.cancel());
-    };
-    motion.addEventListener("change", stopMotion);
-    return () => {
-      observer.disconnect();
-      animations.forEach((animation) => animation.cancel());
-      motion.removeEventListener("change", stopMotion);
-    };
-  }, []);
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onKey = (event) => {
-      if (event.key === "Escape") {
-        setMenuOpen(false);
-        menuButton.current?.focus();
-      }
-    };
-    const onOutside = (event) => {
-      if (!event.target.closest(".tl-header")) setMenuOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("pointerdown", onOutside);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onOutside);
-    };
-  }, [menuOpen]);
-  function switchProduct(event) {
-    let next = activeProduct;
-    if (event.key === "ArrowRight") next = (next + 1) % products.length;
-    else if (event.key === "ArrowLeft")
-      next = (next + products.length - 1) % products.length;
-    else if (event.key === "Home") next = 0;
-    else if (event.key === "End") next = products.length - 1;
-    else return;
-    event.preventDefault();
-    setActiveProduct(next);
-    document.getElementById(`tl-tab-${next}`)?.focus();
-  }
+function ProductSection({ onNavigate }) {
   return (
-    <div className="tiwi-v3-landing tl-landing tl-clean-theme" ref={pageRoot}>
-      <a className="tl-skip" href="#tl-main">
-        Skip to content
-      </a>
-      <header className="tl-header">
-        <div className="tl-container tl-nav">
-          <a className="tl-brand" href="#tl-main" aria-label="Tiwlo home">
-            <img src="/tiwlologo.png" alt="Tiwlo" width="100" height="34" />
-          </a>
-          <nav className="tl-desktop-nav" aria-label="Main navigation">
-            <a href="#tl-products">
-              Products <ChevronDown size={13} />
-            </a>
-            <a href="#tl-possibilities">Why Tiwlo</a>
-            <button onClick={() => onNavigate("pricing")}>Pricing</button>
-            <a href="#tl-faq">Resources</a>
-          </nav>
-          <div className="tl-nav-actions">
+    <section id="products" className="scroll-mt-24 bg-[#f4f4f4]/70 py-20 sm:py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <SectionHeading
+          eyebrow="Products"
+          title="Everything your business runs on, in one console."
+          body="Explore commerce, retail, cloud, and account tools from your Tiwlo workspace."
+        />
+        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {products.map((product, index) => (
             <button
-              className="tl-signin"
-              onClick={() => onNavigate(currentUser ? "dashboard" : "login")}
+              key={product.title}
+              type="button"
+              onClick={() => onNavigate(product.destination)}
+              className={`group flex flex-col justify-between gap-10 rounded-3xl p-6 text-left transition hover:-translate-y-0.5 ${
+                index === 0
+                  ? 'bg-[#121212] text-white sm:col-span-2 lg:col-span-2'
+                  : 'bg-white ring-1 ring-[#e4e4e4] hover:ring-[#121212]'
+              }`}
             >
-              {currentUser ? "Dashboard" : "Log in"}
-            </button>
-            <button className="tl-button tl-button-small" onClick={start}>
-              {currentUser ? "Open workspace" : "Get started"}
-            </button>
-            <button
-              ref={menuButton}
-              className="tl-menu-toggle"
-              aria-label={menuOpen ? "Close navigation" : "Open navigation"}
-              aria-expanded={menuOpen}
-              aria-controls="tl-mobile-nav"
-              onClick={() => setMenuOpen(!menuOpen)}
-            >
-              {menuOpen ? <X /> : <Menu />}
-            </button>
-          </div>
-        </div>
-        {menuOpen && (
-          <nav
-            id="tl-mobile-nav"
-            className="tl-mobile-nav"
-            aria-label="Mobile navigation"
-          >
-            <a href="#tl-products" onClick={() => setMenuOpen(false)}>
-              Products <ArrowUpRight size={17} />
-            </a>
-            <a href="#tl-possibilities" onClick={() => setMenuOpen(false)}>
-              Why Tiwlo <ArrowUpRight size={17} />
-            </a>
-            <button
-              onClick={() => {
-                setMenuOpen(false);
-                onNavigate("pricing");
-              }}
-            >
-              Pricing <ArrowUpRight size={17} />
-            </button>
-            <a href="#tl-faq" onClick={() => setMenuOpen(false)}>
-              Resources <ArrowUpRight size={17} />
-            </a>
-            <button
-              onClick={() => {
-                setMenuOpen(false);
-                onNavigate(currentUser ? "dashboard" : "login");
-              }}
-            >
-              {currentUser ? "Your dashboard" : "Log in"}{" "}
-              <ArrowRight size={17} />
-            </button>
-          </nav>
-        )}
-      </header>
-      <main id="tl-main">
-        <div className="tl-hero-stage">
-          <section
-            className="tl-hero tl-container"
-            aria-labelledby="tl-hero-title"
-          >
-            <div className="tl-hero-copy">
-              <h1 id="tl-hero-title">
-                Less busywork.
-                <br />
-                <span>More possibility.</span>
-              </h1>
-              <p>
-                A calmer way to run your business. Bring your store, everyday
-                retail, and cloud tools into one thoughtful workspace.
-              </p>
-              <div className="tl-hero-actions">
-                <button className="tl-button" onClick={start}>
-                  {currentUser
-                    ? "Go to your workspace"
-                    : "Get started with Tiwlo"}{" "}
-                  <ArrowUpRight size={17} />
-                </button>
-                <a
-                  className="tl-text-link tl-button-secondary"
-                  href="#tl-products"
-                >
-                  Explore products
-                </a>
-              </div>
-              <div className="tl-hero-note">
-                <span>
-                  <Check size={14} /> Start with a free account
-                </span>
-                <span className="tl-note-divider" />
-                <span>Build at your own pace</span>
-              </div>
-            </div>
-            <div className="tl-hero-art">
-              <img
-                className="tl-workspace-illustration"
-                src="/landing/workspace-illustration.svg"
-                width="680"
-                height="540"
-                fetchPriority="high"
-                alt="Illustration of a connected Tiwlo workspace with a product catalog, retail checkout, and cloud tools."
-              />
-            </div>
-          </section>
-        </div>
-        <div className="tl-tool-strip">
-          <div className="tl-container">
-            <span>
-              A place for every part
-              <br />
-              <strong>of your ambition.</strong>
-            </span>
-            <span>
-              <ShoppingBag /> Online stores
-            </span>
-            <span>
-              <Monitor /> Retail & POS
-            </span>
-            <span>
-              <Cloud /> Cloud workspace
-            </span>
-            <span>
-              <Globe2 /> Custom domains
-            </span>
-          </div>
-        </div>
-        <section
-          id="tl-products"
-          className="tl-section tl-container"
-          aria-labelledby="tl-products-title"
-        >
-          <div className="tl-section-heading">
-            <div>
-              <span className="tl-eyebrow">LESS SWITCHING. MORE DOING.</span>
-              <h2 id="tl-products-title">
-                Big plans.
-                <br />
-                Meet your toolkit.
-              </h2>
-            </div>
-            <p>
-              Everything starts with an idea.
-              <br />
-              Here’s what helps you bring yours to life.
-            </p>
-          </div>
-          <div
-            className="tl-product-tabs"
-            role="tablist"
-            aria-label="Explore Tiwlo products"
-          >
-            {products.map((item, index) => (
-              <button
-                key={item.name}
-                role="tab"
-                id={`tl-tab-${index}`}
-                aria-selected={activeProduct === index}
-                aria-controls="tl-product-panel"
-                tabIndex={activeProduct === index ? 0 : -1}
-                onClick={() => setActiveProduct(index)}
-                onKeyDown={switchProduct}
+              <span
+                className={`flex size-11 items-center justify-center rounded-full ${
+                  index === 0 ? 'bg-[#1ed760] text-[#121212]' : 'bg-[#f4f4f4]'
+                }`}
               >
-                <item.icon size={18} />
-                {item.name}
-                <ArrowUpRight size={15} />
-              </button>
-            ))}
-          </div>
-          <div
-            id="tl-product-panel"
-            className="tl-product-panel"
-            role="tabpanel"
-            aria-labelledby={`tl-tab-${activeProduct}`}
-            tabIndex={0}
+                <product.icon className="size-5" aria-hidden="true" />
+              </span>
+              <span>
+                <span className="block text-lg font-bold">{product.title}</span>
+                <span
+                  className={`mt-2 block text-sm leading-relaxed ${
+                    index === 0 ? 'text-white/65' : 'text-[#6a6a6a]'
+                  }`}
+                >
+                  {product.body}
+                </span>
+                <span className="mt-4 inline-flex items-center gap-1 text-sm font-bold">
+                  Explore <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CloudSection({ onNavigate }) {
+  return (
+    <section id="cloud" className="scroll-mt-24 py-20 sm:py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <SectionHeading
+            eyebrow="Cloud workspace"
+            title="A clearer view of your digital world."
+            body="Open your workspace and explore the cloud and account tools available to you."
+          />
+          <button
+            type="button"
+            onClick={() => onNavigate('dashboard')}
+            className="inline-flex h-12 w-fit items-center gap-2 rounded-full bg-[#121212] px-6 text-sm font-bold text-white transition hover:bg-[#121212]/85"
           >
-            <div className="tl-product-copy">
-              <span className="tl-eyebrow">{product.eyebrow}</span>
-              <h3>{product.title}</h3>
-              <p>{product.description}</p>
-              <ul>
-                {product.features.map((feature) => (
-                  <li key={feature}>
-                    <Check size={16} />
+            <Plus className="size-4" aria-hidden="true" /> Open your workspace
+          </button>
+        </div>
+        <div className="mt-12 grid gap-4 lg:grid-cols-3">
+          {cloudTools.map((tool, index) => (
+            <article
+              key={tool.name}
+              className={`flex flex-col rounded-3xl p-7 ${
+                index === 0 ? 'bg-[#1ed760] text-[#121212]' : 'bg-[#f4f4f4]'
+              }`}
+            >
+              <span
+                className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${
+                  index === 0 ? 'bg-[#121212] text-white' : 'bg-white'
+                }`}
+              >
+                {tool.tag}
+              </span>
+              <h3 className="mt-6 text-2xl font-bold tracking-tight">{tool.name}</h3>
+              <p
+                className={`mt-3 text-sm leading-relaxed ${
+                  index === 0 ? 'text-[#121212]/70' : 'text-[#6a6a6a]'
+                }`}
+              >
+                {tool.description}
+              </p>
+              <ul className="mt-6 flex flex-col gap-3 border-t border-current/10 pt-6">
+                {tool.features.map((feature) => (
+                  <li key={feature} className="flex items-start gap-3 text-sm font-medium">
+                    <Check className="mt-0.5 size-4 shrink-0" strokeWidth={3} aria-hidden="true" />
                     {feature}
                   </li>
                 ))}
               </ul>
-              <button
-                className="tl-text-link"
-                onClick={() =>
-                  onNavigate(
-                    product.route === "dashboard" && !currentUser
-                      ? "login"
-                      : product.route,
-                  )
-                }
-              >
-                {product.action} <ArrowRight size={17} />
-              </button>
-            </div>
-            <StorePreview active={activeProduct} />
-          </div>
-        </section>
-        <section id="tl-possibilities" className="tl-possibilities">
-          <div className="tl-container">
-            <div className="tl-section-heading">
-              <div>
-                <span className="tl-eyebrow">BUILT AROUND YOUR EVERYDAY.</span>
-                <h2>
-                  Less friction.
-                  <br />
-                  More forward.
-                </h2>
-              </div>
-              <p>
-                The small details make a big difference.
-                <br />A workspace that keeps things simple.
-              </p>
-            </div>
-            <div className="tl-benefits">
-              <article>
-                <span className="tl-benefit-icon">
-                  <Layers3 />
-                </span>
-                <span className="tl-card-number">01 / CONNECTED</span>
-                <h3>
-                  Everything has
-                  <br />
-                  its place.
-                </h3>
-                <p>
-                  Bring your products, stock, sales, and customers into a shared
-                  workflow. Spend less time jumping between tools.
-                </p>
-                <div className="tl-connected-art" aria-hidden="true">
-                  <span>
-                    <ShoppingBag />
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CommerceSection({ onNavigate }) {
+  return (
+    <section id="commerce" className="scroll-mt-24 bg-[#121212] py-20 text-white sm:py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <SectionHeading
+            inverted
+            eyebrow="Commerce"
+            title="Sell online and in-store from one catalog."
+            body="Explore the storefront, retail, and inventory tools available in your Tiwlo workspace."
+          />
+          <button
+            type="button"
+            onClick={() => onNavigate('store')}
+            className="inline-flex h-12 w-fit items-center gap-2 rounded-full bg-[#1ed760] px-6 text-sm font-bold text-[#121212] transition hover:bg-[#1ed760]/85"
+          >
+            Explore commerce <ArrowRight className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+        <div className="mt-12 grid gap-4 md:grid-cols-2">
+          {commerce.map((item) => (
+            <button
+              key={item.title}
+              type="button"
+              onClick={() => onNavigate(item.destination)}
+              className="rounded-3xl bg-white/5 p-7 text-left ring-1 ring-white/10 transition hover:bg-white/10"
+            >
+              <span className="flex size-11 items-center justify-center rounded-full bg-[#1ed760] text-[#121212]">
+                <item.icon className="size-5" aria-hidden="true" />
+              </span>
+              <span className="mt-6 block text-xl font-bold">{item.title}</span>
+              <span className="mt-2 block text-sm leading-relaxed text-white/65">{item.body}</span>
+              <span className="mt-5 flex flex-wrap gap-2">
+                {item.points.map((point) => (
+                  <span key={point} className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold">
+                    {point}
                   </span>
-                  <i />
-                  <span className="tl-connect-center">
-                    <Command />
-                  </span>
-                  <i />
-                  <span>
-                    <Cloud />
-                  </span>
-                </div>
-              </article>
-              <article>
-                <span className="tl-benefit-icon">
-                  <Monitor />
-                </span>
-                <span className="tl-card-number">02 / FLEXIBLE</span>
-                <h3>
-                  Big ideas.
-                  <br />
-                  Any size screen.
-                </h3>
-                <p>
-                  At the counter or on the couch. A thoughtful experience that
-                  makes room for the way you work.
-                </p>
-                <div className="tl-device-art" aria-hidden="true">
-                  <div>
-                    <i />
-                    <i />
-                    <i />
-                  </div>
-                  <span>
-                    <i />
-                    <i />
-                  </span>
-                </div>
-              </article>
-              <article>
-                <span className="tl-benefit-icon">
-                  <ShieldCheck />
-                </span>
-                <span className="tl-card-number">03 / YOURS</span>
-                <h3>
-                  Your business.
-                  <br />
-                  Your own space.
-                </h3>
-                <p>
-                  Account verification, access controls, and store-specific data
-                  help keep your workspace in your hands.
-                </p>
-                <div className="tl-shield-art" aria-hidden="true">
-                  <span />
-                  <ShieldCheck size={54} />
-                  <span />
-                </div>
-              </article>
-            </div>
-          </div>
-        </section>
-        <section className="tl-start-section tl-container">
-          <div>
-            <span className="tl-eyebrow">YOUR NEXT CHAPTER STARTS SMALL.</span>
-            <h2>
-              From “what if”
-              <br />
-              to <span>“let’s go.”</span>
-            </h2>
-            <button className="tl-text-link" onClick={start}>
-              Make your first move <ArrowRight size={18} />
+                ))}
+              </span>
             </button>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function WhySection() {
+  const comparison = [
+    ['Store and retail tools', 'Separate workflows', 'Tiwlo workspace'],
+    ['Cloud and account access', 'Multiple destinations', 'One account'],
+    ['Products and services', 'Different tools', 'Connected experience'],
+    ['Everyday business tasks', 'Switch between tools', 'One workspace'],
+  ];
+
+  return (
+    <section id="why" className="scroll-mt-24 py-20 sm:py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <SectionHeading
+          eyebrow="Why Tiwlo"
+          title="Infrastructure you never have to think about."
+          body="A workspace that brings the tools you use closer together."
+        />
+        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {benefits.map((benefit) => (
+            <article key={benefit.title} className="rounded-3xl bg-[#f4f4f4] p-6">
+              <benefit.icon className="size-6" aria-hidden="true" />
+              <h3 className="mt-5 font-bold">{benefit.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-[#6a6a6a]">{benefit.body}</p>
+            </article>
+          ))}
+        </div>
+        <div className="mt-16 overflow-hidden rounded-3xl ring-1 ring-[#e4e4e4]">
+          <div className="bg-[#121212] px-6 py-5 text-white">
+            <p className="text-xs font-semibold uppercase tracking-widest text-[#1ed760]">
+              One workspace
+            </p>
+            <h3 className="mt-1 text-xl font-bold">Your tools, connected through Tiwlo</h3>
           </div>
-          <ol className="tl-steps">
-            {[
-              [
-                "Make yourself at home",
-                "Create your account and set up your workspace.",
-              ],
-              [
-                "Bring your idea to life",
-                "Add your products, organize your tools, and make it yours.",
-              ],
-              [
-                "Find your own momentum",
-                "Manage the everyday details and plan what comes next.",
-              ],
-            ].map(([title, text], i) => (
-              <li key={title}>
-                <span>0{i + 1}</span>
-                <div>
-                  <h3>{title}</h3>
-                  <p>{text}</p>
-                </div>
-                <ArrowUpRight size={18} />
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-[#e4e4e4] text-xs uppercase tracking-wider text-[#6a6a6a]">
+                  <th className="px-6 py-4 font-semibold">What you need</th>
+                  <th className="px-6 py-4 font-semibold">Separate workflows</th>
+                  <th className="px-6 py-4 font-semibold">Tiwlo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {comparison.map(([feature, separate, tiwlo]) => (
+                  <tr key={feature} className="border-b border-[#e4e4e4] last:border-0">
+                    <td className="px-6 py-4 font-semibold">{feature}</td>
+                    <td className="px-6 py-4 text-[#6a6a6a]">{separate}</td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-[#1ed760]/15 px-3 py-1 text-xs font-bold text-[#0f7a37]">
+                        <Check className="size-3.5" strokeWidth={3} aria-hidden="true" />
+                        {tiwlo}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FaqSection({ onNavigate }) {
+  return (
+    <section id="faq" className="scroll-mt-24 bg-[#f4f4f4]/70 py-20 sm:py-24">
+      <div className="mx-auto grid max-w-7xl gap-12 px-4 sm:px-6 lg:grid-cols-3 lg:px-8">
+        <div>
+          <SectionHeading
+            eyebrow="FAQ"
+            title="Questions, answered."
+            body="Can’t find what you need? Visit our help and support page."
+          />
+          <button
+            type="button"
+            onClick={() => onNavigate('help-support')}
+            className="mt-6 inline-flex items-center gap-2 text-sm font-bold"
+          >
+            Get help <ArrowRight className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+        <div className="flex flex-col gap-3 lg:col-span-2">
+          {faqs.map((faq, index) => (
+            <details
+              key={faq.question}
+              name="tiwlo-landing-faq"
+              open={index === 0 || undefined}
+              className="group rounded-2xl bg-white p-5 ring-1 ring-[#e4e4e4] open:ring-[#121212]"
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-bold">
+                {faq.question}
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#f4f4f4] transition group-open:rotate-45 group-open:bg-[#1ed760]">
+                  <Plus className="size-4" aria-hidden="true" />
+                </span>
+              </summary>
+              <p className="mt-3 pr-12 text-sm leading-relaxed text-[#6a6a6a]">{faq.answer}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CtaSection({ currentUser, onNavigate }) {
+  return (
+    <section className="py-20 sm:py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="relative overflow-hidden rounded-[2rem] bg-[#1ed760] px-6 py-16 text-center text-[#121212] sm:px-16">
+          <Cloud className="mx-auto size-10" aria-hidden="true" />
+          <h2 className="mx-auto mt-6 max-w-2xl text-balance text-4xl font-bold tracking-tight sm:text-5xl">
+            Ready to build on Tiwlo?
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-pretty text-base">
+            Open your workspace and explore the tools for your next step.
+          </p>
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => onNavigate(currentUser ? 'dashboard' : 'create-account')}
+              className="inline-flex h-12 items-center gap-2 rounded-full bg-[#121212] px-7 text-sm font-bold text-white transition hover:bg-[#121212]/85"
+            >
+              {currentUser ? 'Open your workspace' : 'Create your account'}
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </button>
+            <a
+              href="#cloud"
+              className="inline-flex h-12 items-center rounded-full bg-white/30 px-7 text-sm font-bold transition hover:bg-white/50"
+            >
+              Explore cloud tools
+            </a>
+          </div>
+          <ul className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-semibold">
+            {['Commerce tools', 'Cloud workspace', 'One Tiwlo account'].map((item) => (
+              <li key={item} className="flex items-center gap-2">
+                <Check className="size-4" strokeWidth={3} aria-hidden="true" />
+                {item}
               </li>
             ))}
-          </ol>
-        </section>
-        <section id="tl-faq" className="tl-faq-section tl-container">
-          <div>
-            <span className="tl-eyebrow">A LITTLE MORE CLARITY.</span>
-            <h2>
-              Good questions.
-              <br />
-              Simple answers.
-            </h2>
-            <p>Still curious about something?</p>
-            <button
-              className="tl-text-link"
-              onClick={() => onNavigate("help-support")}
-            >
-              We’re here to help <ArrowUpRight size={17} />
-            </button>
-          </div>
-          <div className="tl-faq-list">
-            {faqs.map(([question, answer], i) => (
-              <details key={question} name="tl-faq" open={i === 0 || undefined}>
-                <summary>
-                  {question}
-                  <Plus size={19} />
-                </summary>
-                <p>{answer}</p>
-              </details>
-            ))}
-          </div>
-        </section>
-        <section className="tl-cta tl-container">
-          <span className="tl-eyebrow">
-            SMALL BEGINNINGS. BIG POSSIBILITIES.
-          </span>
-          <h2>
-            Your next big thing
-            <br />
-            is waiting for <em>you.</em>
-          </h2>
-          <p>Let’s give it a place to grow.</p>
-          <button className="tl-button tl-button-white" onClick={start}>
-            {currentUser ? "Open your workspace" : "Get started with Tiwlo"}{" "}
-            <ArrowUpRight size={19} />
-          </button>
-          <span className="tl-cta-footnote">
-            Your ideas. Your pace. Your Tiwlo.
-          </span>
-        </section>
-      </main>
-      <footer className="tl-footer tl-container">
-        <div className="tl-footer-top">
-          <div>
-            <a className="tl-brand" href="#tl-main">
-              <img src="/tiwlologo.png" alt="Tiwlo" width="100" height="34" />
-            </a>
-            <p>A little idea. Unlimited possibility.</p>
-          </div>
-          <div>
-            <strong>Explore</strong>
-            <a href="#tl-products">Our products</a>
-            <button onClick={() => onNavigate("store")}>Storefront</button>
-            <button onClick={() => onNavigate("pricing")}>
-              Plans & pricing
-            </button>
-          </div>
-          <div>
-            <strong>Get in touch</strong>
-            <button onClick={() => onNavigate("help-support")}>
-              Help center
-            </button>
-            <a href="#tl-faq">Common questions</a>
-            <button onClick={start}>
-              Your workspace <ArrowUpRight size={13} />
-            </button>
-          </div>
-          <div className="tl-footer-note">
-            <Globe2 size={22} />
-            <p>
-              Made for the way
-              <br />
-              you want to work.
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function LandingFooter({ onNavigate }) {
+  const columns = [
+    {
+      title: 'Products',
+      links: [
+        ['Storefront', 'store'],
+        ['Retail & POS', 'pos'],
+        ['Cloud workspace', 'dashboard'],
+      ],
+    },
+    {
+      title: 'Explore',
+      links: [
+        ['Products', '#products'],
+        ['Cloud tools', '#cloud'],
+        ['Commerce', '#commerce'],
+      ],
+    },
+    {
+      title: 'Resources',
+      links: [
+        ['FAQ', '#faq'],
+        ['Pricing', 'pricing'],
+        ['Help & support', 'help-support'],
+      ],
+    },
+  ];
+
+  const handleFooterLink = (destination) => {
+    if (destination.startsWith('#')) {
+      document.querySelector(destination)?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    onNavigate(destination);
+  };
+
+  return (
+    <footer className="bg-[#121212] text-white">
+      <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="grid gap-12 lg:grid-cols-6">
+          <div className="lg:col-span-2">
+            <Logo inverted onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
+            <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/60">
+              A unified workspace for commerce, retail, and cloud tools.
             </p>
           </div>
+          {columns.map((column) => (
+            <div key={column.title}>
+              <h3 className="text-sm font-bold">{column.title}</h3>
+              <ul className="mt-4 flex flex-col gap-3">
+                {column.links.map(([label, destination]) => (
+                  <li key={label}>
+                    <button
+                      type="button"
+                      onClick={() => handleFooterLink(destination)}
+                      className="text-left text-sm text-white/60 transition hover:text-white"
+                    >
+                      {label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          <div>
+            <h3 className="text-sm font-bold">Your workspace</h3>
+            <button
+              type="button"
+              onClick={() => onNavigate('dashboard')}
+              className="mt-4 inline-flex items-center gap-2 text-sm text-white/60 transition hover:text-white"
+            >
+              Open Tiwlo <ArrowUpRight className="size-4" aria-hidden="true" />
+            </button>
+          </div>
         </div>
-        <div className="tl-footer-bottom">
-          <span>© {new Date().getFullYear()} Tiwlo. All rights reserved.</span>
-          <span>Commerce. Cloud. Possibility.</span>
-          <a href="#tl-main">Back to top ↑</a>
+        <div className="mt-16 flex flex-col gap-4 border-t border-white/10 pt-8 text-xs text-white/50 sm:flex-row sm:items-center sm:justify-between">
+          <p>© {new Date().getFullYear()} Tiwlo. All rights reserved.</p>
+          <button
+            type="button"
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="w-fit transition hover:text-white"
+          >
+            Back to top ↑
+          </button>
         </div>
-      </footer>
+      </div>
+    </footer>
+  );
+}
+
+export default function LandingPage({ onNavigate, currentUser }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const navigate = (destination) => {
+    setMenuOpen(false);
+    onNavigate?.(destination);
+  };
+  const start = () => navigate(currentUser ? 'dashboard' : 'create-account');
+
+  const navigationLinks = [
+    ['Products', '#products'],
+    ['Cloud Compute', '#cloud'],
+    ['Commerce', '#commerce'],
+    ['Why Tiwlo', '#why'],
+    ['FAQ', '#faq'],
+  ];
+
+  return (
+    <div className="min-h-screen overflow-x-clip bg-white text-[#121212] [font-family:var(--font-sans)]">
+      <a
+        href="#tiwlo-main"
+        className="fixed left-4 top-[-5rem] z-[100] border-2 border-[#1ed760] bg-white px-5 py-3 focus:top-3"
+      >
+        Skip to content
+      </a>
+      <header className="sticky top-0 z-40 border-b border-[#e4e4e4] bg-white/90 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-8 px-4 sm:px-6 lg:px-8">
+          <Logo onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
+          <nav aria-label="Main navigation" className="hidden items-center gap-1 xl:flex">
+            {navigationLinks.map(([label, href]) => (
+              <a
+                key={href}
+                href={href}
+                className="rounded-full px-3.5 py-2 text-sm font-medium text-[#6a6a6a] transition hover:bg-[#f4f4f4] hover:text-[#121212]"
+              >
+                {label}
+              </a>
+            ))}
+            <button
+              type="button"
+              onClick={() => navigate('pricing')}
+              className="rounded-full px-3.5 py-2 text-sm font-medium text-[#6a6a6a] transition hover:bg-[#f4f4f4] hover:text-[#121212]"
+            >
+              Pricing
+            </button>
+          </nav>
+          <div className="ml-auto hidden items-center gap-2 xl:flex">
+            <button
+              type="button"
+              onClick={() => navigate(currentUser ? 'dashboard' : 'login')}
+              className="rounded-full px-4 py-2 text-sm font-bold transition hover:bg-[#f4f4f4]"
+            >
+              {currentUser ? 'Dashboard' : 'Sign in'}
+            </button>
+            <button
+              type="button"
+              onClick={start}
+              className="rounded-full bg-[#121212] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#121212]/85"
+            >
+              {currentUser ? 'Open workspace' : 'Get started'}
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
+            className="ml-auto flex size-10 items-center justify-center rounded-full hover:bg-[#f4f4f4] xl:hidden"
+          >
+            {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+          </button>
+        </div>
+        {menuOpen && (
+          <nav
+            aria-label="Mobile navigation"
+            className="flex flex-col gap-1 border-t border-[#e4e4e4] px-4 py-4 xl:hidden"
+          >
+            {navigationLinks.map(([label, href]) => (
+              <a
+                key={href}
+                href={href}
+                onClick={() => setMenuOpen(false)}
+                className="rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-[#f4f4f4]"
+              >
+                {label}
+              </a>
+            ))}
+            <button
+              type="button"
+              onClick={() => navigate('pricing')}
+              className="rounded-xl px-3 py-2.5 text-left text-sm font-medium hover:bg-[#f4f4f4]"
+            >
+              Pricing
+            </button>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => navigate(currentUser ? 'dashboard' : 'login')}
+                className="rounded-full py-2.5 text-center text-sm font-bold ring-1 ring-[#e4e4e4]"
+              >
+                {currentUser ? 'Dashboard' : 'Sign in'}
+              </button>
+              <button
+                type="button"
+                onClick={start}
+                className="rounded-full bg-[#1ed760] py-2.5 text-center text-sm font-bold text-[#121212]"
+              >
+                {currentUser ? 'Open workspace' : 'Get started'}
+              </button>
+            </div>
+          </nav>
+        )}
+      </header>
+
+      <main id="tiwlo-main">
+        <section className="relative overflow-hidden">
+          <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 pb-20 pt-16 sm:px-6 lg:grid-cols-2 lg:px-8 lg:pb-24 lg:pt-24">
+            <div>
+              <span className="inline-flex items-center gap-2 rounded-full bg-[#f4f4f4] px-3 py-1.5 text-xs font-semibold">
+                <span className="size-2 rounded-full bg-[#1ed760]" />
+                Tiwlo Cloud · Commerce · Retail
+              </span>
+              <h1 className="mt-6 text-balance text-5xl font-bold leading-[1.02] tracking-tight sm:text-7xl">
+                Accelerate your business with{' '}
+                <span className="text-[#0f7a37]">Tiwlo Cloud</span>
+              </h1>
+              <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-[#6a6a6a]">
+                Bring your cloud workspace, online storefront, and retail tools together in one
+                place, and explore the services that fit the way you work.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={start}
+                  className="inline-flex h-12 items-center gap-2 rounded-full bg-[#1ed760] px-7 text-sm font-bold text-[#121212] transition hover:bg-[#1ed760]/85"
+                >
+                  {currentUser ? 'Open your workspace' : 'Get started'}
+                  <ArrowRight className="size-4" aria-hidden="true" />
+                </button>
+                <a
+                  href="#products"
+                  className="inline-flex h-12 items-center rounded-full px-7 text-sm font-bold ring-1 ring-[#e4e4e4] transition hover:bg-[#f4f4f4]"
+                >
+                  Explore solutions
+                </a>
+              </div>
+              <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[#6a6a6a]">
+                {['Cloud workspace', 'Commerce tools', 'Retail & POS'].map((item) => (
+                  <li key={item} className="flex items-center gap-2">
+                    <Check className="size-4 text-[#0f7a37]" strokeWidth={3} aria-hidden="true" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <HeroPreview />
+          </div>
+        </section>
+
+        <ProductSection onNavigate={navigate} />
+        <CloudSection onNavigate={navigate} />
+        <CommerceSection onNavigate={navigate} />
+        <WhySection />
+        <FaqSection onNavigate={navigate} />
+
+        <CtaSection currentUser={currentUser} onNavigate={navigate} />
+      </main>
+      <LandingFooter onNavigate={navigate} />
     </div>
   );
 }

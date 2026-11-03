@@ -282,8 +282,7 @@
 .tiwi-v3-app,
 .tiwi-v3-cloud,
 .tiwi-v3-oneprofile,
-.tiwi-v3-discord,
-.tiwi-v3-landing {
+.tiwi-v3-discord {
   background: var(--tiwi-v3-background);
   color: var(--tiwi-v3-ink);
 }
@@ -318,10 +317,6 @@
   color: var(--tiwi-v3-ink) !important;
 }
 
-.tiwi-v3-landing {
-  --tl-blue: var(--tiwi-v3-green);
-}
-
 .tiwi-v3-app :is(section, article, div)[class*="rounded-2xl"][class*="bg-white"],
 .tiwi-v3-app :is(section, article, div)[class*="rounded-3xl"][class*="bg-white"],
 .tiwi-v3-cloud :is(section, article, div)[class*="rounded-2xl"][class*="bg-white"],
@@ -346,11 +341,6 @@
 .tiwi-v3-discord a[class*="bg-[#696969]"] {
   background-color: var(--tiwi-v3-green) !important;
   color: var(--tiwi-v3-ink) !important;
-}
-
-.tiwi-v3-landing :is(a, button):focus-visible {
-  outline: 2px solid var(--tiwi-v3-green);
-  outline-offset: 3px;
 }
 
 .tiwi-v3-sidebar {
