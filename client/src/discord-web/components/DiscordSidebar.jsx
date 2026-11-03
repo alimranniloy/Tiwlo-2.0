@@ -58,11 +58,11 @@ export default function DiscordSidebar({
   const displayName = currentUser?.name || currentUser?.storeName || 'Account';
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-white text-[#1F1F1F] border-r border-[#e2e2e2] select-none font-sans">
+    <div className="tiwi-v3-sidebar flex flex-col h-full bg-white text-[#1F1F1F] border-r border-[#e2e2e2] select-none font-sans">
       {/* Top Console Title */}
       <div className="px-5 py-4 flex items-center justify-between border-b border-[#e2e2e2]">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-[#000000] text-white flex items-center justify-center shadow-none">
+          <div className="w-8 h-8 rounded-xl bg-[#1ed760] text-[#121212] flex items-center justify-center shadow-none">
             <Bot className="w-4 h-4 stroke-[2]" />
           </div>
           <div>
@@ -104,11 +104,11 @@ export default function DiscordSidebar({
                 }}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium transition-colors text-left cursor-pointer rounded-full ${
                   active
-                    ? 'bg-[#e1e1e1] text-[#191919] font-semibold'
-                    : 'text-[#444746] hover:bg-[#f4f4f4] hover:text-[#1F1F1F]'
+                    ? 'bg-white text-[#121212] font-semibold'
+                    : 'text-white/65 hover:bg-white/10 hover:text-white'
                 }`}
               >
-                <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-[#191919]' : 'text-[#747775]'}`} />
+                <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-[#121212]' : 'text-white/50'}`} />
                 <span className="truncate">{item.label}</span>
               </button>
             </div>
@@ -131,11 +131,11 @@ export default function DiscordSidebar({
                 }}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium transition-colors text-left cursor-pointer rounded-full ${
                   active
-                    ? 'bg-[#e1e1e1] text-[#191919] font-semibold'
-                    : 'text-[#444746] hover:bg-[#f4f4f4] hover:text-[#1F1F1F]'
+                    ? 'bg-white text-[#121212] font-semibold'
+                    : 'text-white/65 hover:bg-white/10 hover:text-white'
                 }`}
               >
-                <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-[#191919]' : 'text-[#747775]'}`} />
+                <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-[#121212]' : 'text-white/50'}`} />
                 <span className="truncate">{item.label}</span>
               </button>
             </div>
@@ -192,7 +192,7 @@ export default function DiscordSidebar({
             className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
             onClick={onCloseMobile}
           />
-          <div className="relative w-72 max-w-[85vw] bg-white h-full shadow-xl z-10 animate-in slide-in-from-left duration-200">
+          <div className="relative w-72 max-w-[85vw] bg-[#121212] h-full shadow-xl z-10 animate-in slide-in-from-left duration-200">
             {sidebarContent}
           </div>
         </div>

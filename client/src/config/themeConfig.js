@@ -39,7 +39,7 @@ export const THEME_CONFIG = {
   },
 
   // Brand Accent
-  primary: import.meta.env?.VITE_THEME_PRIMARY || '#000000'
+  primary: import.meta.env?.VITE_THEME_PRIMARY || '#1ED760'
 };
 
 /**
@@ -120,6 +120,7 @@ export function applyTheme(themeName) {
     root.style.setProperty('--theme-status-bar', targetStatusBarColor);
     root.style.setProperty('--theme-header-bg', isDark ? THEME_CONFIG.header.dark : THEME_CONFIG.header.light);
     root.style.setProperty('--theme-dashboard-bg', isDark ? THEME_CONFIG.dashboard.dark : THEME_CONFIG.dashboard.light);
+    root.style.setProperty('--theme-primary', THEME_CONFIG.primary);
 
     // 6. Persist to localStorage
     localStorage.setItem('tiwlo_theme', theme);

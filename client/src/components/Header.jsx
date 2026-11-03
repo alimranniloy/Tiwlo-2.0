@@ -43,7 +43,7 @@ export default function Header({
   }, []);
 
   return (
-    <header className="h-16 px-3 sm:px-6 lg:px-8 flex items-center justify-between border-b border-[#f1f1f1] dark:border-gray-800 bg-white/80 dark:bg-[#181818]/80 backdrop-blur-md sticky top-0 z-30 transition-colors duration-200">
+    <header className="tiwi-v3-topbar h-16 px-3 sm:px-6 lg:px-8 flex items-center justify-between border-b border-[#f1f1f1] dark:border-gray-800 bg-white/80 dark:bg-[#181818]/80 backdrop-blur-md sticky top-0 z-30 transition-colors duration-200">
       {/* Left: Mobile Menu Toggle & Search Bar */}
       <div className="flex items-center flex-1 max-w-xl min-w-0 mr-2 sm:mr-4">
         {/* Mobile Hamburger Button */}
@@ -59,7 +59,7 @@ export default function Header({
 
         {/* Search Bar */}
         <div className="w-full relative">
-          <div className="flex items-center w-full bg-neutral-50/80 dark:bg-gray-800/80 hover:bg-neutral-100/70 dark:hover:bg-gray-800 focus-within:bg-white dark:focus-within:bg-gray-800 focus-within:ring-2 focus-within:ring-neutral-500/20 border border-neutral-200/80 dark:border-gray-700/80 rounded-xl px-3 py-1.5 sm:py-2 transition-all duration-150 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+          <div className="flex items-center w-full bg-[#f4f4f4] dark:bg-gray-800/80 hover:bg-[#eeeeee] dark:hover:bg-gray-800 focus-within:bg-white dark:focus-within:bg-gray-800 focus-within:ring-2 focus-within:ring-[#1ed760]/20 border border-transparent focus-within:border-[#1ed760] rounded-full px-4 py-1.5 sm:py-2 transition-all duration-150">
             <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400 mr-2 shrink-0" />
             <input
               id="global-search-input"
@@ -84,7 +84,7 @@ export default function Header({
         <button
           type="button"
           onClick={onUpgrade}
-          className="relative group flex items-center space-x-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold shadow-xs shadow-amber-500/25 hover:shadow-md hover:shadow-amber-500/35 transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
+          className="relative group flex items-center space-x-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full bg-[#1ed760] hover:bg-[#18b953] text-[#121212] text-xs font-bold shadow-xs transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
           title="Upgrade your Tiwlo workspace"
         >
           <Sparkles className="w-3.5 h-3.5 fill-white/20 group-hover:rotate-12 transition-transform duration-300" />

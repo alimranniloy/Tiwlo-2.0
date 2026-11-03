@@ -208,7 +208,7 @@ export default function DiscordBotManager({ currentUser, onNavigateHome }) {
   };
 
   return (
-    <div className="flex min-h-screen bg-white text-[#1F1F1F] font-sans antialiased">
+    <div className="tiwi-v3-discord flex min-h-screen bg-[#f4f4f4] text-[#1F1F1F] font-sans antialiased">
       {/* Sidebar Navigation */}
       <DiscordSidebar
         currentPath={currentPath}

@@ -1087,7 +1087,7 @@ export default function CreateAccountView({
   const headerInfo = getStepHeader();
 
   return (
-    <div className="min-h-screen bg-[#ffffff] sm:bg-[#f8f9fa] flex flex-col justify-between py-6 sm:py-12 px-4 sm:px-6 font-sans antialiased text-[#1f1f1f] select-none">
+    <div className="tiwi-v3-auth min-h-screen bg-[#f4f4f4] flex flex-col justify-between py-6 sm:py-12 px-4 sm:px-6 font-sans antialiased text-[#1f1f1f] select-none">
       {/* Liquid Page Loader */}
       {loading && <TiwloPageLoader />}
 

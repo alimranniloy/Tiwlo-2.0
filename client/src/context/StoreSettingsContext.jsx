@@ -13,7 +13,7 @@ const DEFAULT_SETTINGS = {
   storeLogo: null,
   storeFavicon: null,
   activeTheme: 'TiwiMart',
-  themeColor: '#000000',
+  themeColor: '#1ED760',
   themeColorPreset: 'sapphire',
   themeMode: 'light',
   contactEmail: '',

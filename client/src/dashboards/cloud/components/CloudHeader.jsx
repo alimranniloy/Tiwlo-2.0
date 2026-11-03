@@ -70,7 +70,7 @@ export default function CloudHeader({
   };
 
   return (
-    <header className="h-16 px-3 sm:px-6 lg:px-8 bg-white border-b border-[#e2e2e2] flex items-center justify-between sticky top-0 z-50 font-sans">
+    <header className="tiwi-v3-topbar h-16 px-3 sm:px-6 lg:px-8 bg-white border-b border-[#e2e2e2] flex items-center justify-between sticky top-0 z-50 font-sans">
       {/* Left: Hamburger menu on mobile & Search Bar */}
       <div className="flex items-center flex-1 max-w-xs sm:max-w-md min-w-0 mr-2 sm:mr-4">
         {/* Mobile Hamburger Button */}
@@ -92,7 +92,7 @@ export default function CloudHeader({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search resources, services, and docs (/)..."
-            className="w-full pl-10 pr-12 py-2 rounded-full bg-[#f4f4f4] hover:bg-[#eeeeee] focus:bg-white border border-transparent focus:border-[#000000] focus:ring-1 focus:ring-[#000000] text-[13px] text-[#1F1F1F] placeholder-[#444746] transition font-normal min-w-0 outline-none"
+            className="w-full pl-10 pr-12 py-2 rounded-full bg-[#f4f4f4] hover:bg-[#eeeeee] focus:bg-white border border-transparent focus:border-[#1ed760] focus:ring-1 focus:ring-[#1ed760] text-[13px] text-[#1F1F1F] placeholder-[#444746] transition font-normal min-w-0 outline-none"
           />
           <div className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 items-center gap-0.5 px-2 py-0.5 rounded-full bg-white border border-[#e2e2e2] text-[10px] font-semibold text-[#444746]">
             <span>/</span>

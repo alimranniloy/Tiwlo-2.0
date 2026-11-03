@@ -58,15 +58,15 @@ export default function OneProfileSidebar({
   };
 
   const sidebarContent = (
-    <div className="h-full flex flex-col justify-between p-4 bg-white border-r border-neutral-100 overflow-y-auto select-none">
+    <div className="tiwi-v3-sidebar h-full flex flex-col justify-between p-4 bg-white border-r border-neutral-100 overflow-y-auto select-none">
       <div>
         {/* Brand Header */}
         <div className="flex items-center justify-between px-2 pt-1 pb-6">
           <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => handleNavClick('home')}>
             <UidisLogoIcon className="w-8 h-8" />
-            <div className="text-xl font-extrabold tracking-tight text-neutral-900 flex items-center">
+            <div className="text-xl font-extrabold tracking-tight text-white flex items-center">
               <span>UIDs</span>
-              <span className="text-neutral-800 font-semibold">.app</span>
+              <span className="text-white/70 font-semibold">.app</span>
             </div>
           </div>
           {/* Mobile close button */}
@@ -91,11 +91,11 @@ export default function OneProfileSidebar({
                 onClick={() => handleNavClick(item.id)}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-150 text-left ${
                   isActive
-                    ? 'bg-neutral-50 text-neutral-600 shadow-2xs font-bold'
-                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+                    ? 'bg-white text-[#121212] shadow-2xs font-bold'
+                    : 'text-white/65 hover:text-white hover:bg-white/10'
                 }`}
               >
-                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-neutral-600 stroke-[2.5]' : 'text-neutral-400'}`} />
+                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#121212] stroke-[2.5]' : 'text-white/50'}`} />
                 <span>{item.label}</span>
               </button>
             );
@@ -117,11 +117,11 @@ export default function OneProfileSidebar({
                 onClick={() => handleNavClick(item.id)}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-150 text-left ${
                   isActive
-                    ? 'bg-neutral-50 text-neutral-600 shadow-2xs font-bold'
-                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+                    ? 'bg-white text-[#121212] shadow-2xs font-bold'
+                    : 'text-white/65 hover:text-white hover:bg-white/10'
                 }`}
               >
-                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-neutral-600 stroke-[2.5]' : 'text-neutral-400'}`} />
+                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#121212] stroke-[2.5]' : 'text-white/50'}`} />
                 <span>{item.label}</span>
               </button>
             );
@@ -131,7 +131,7 @@ export default function OneProfileSidebar({
 
       {/* Upgrade to Pro Card (Bottom) matching screenshot */}
       <div className="mt-6 pt-2">
-        <div className="relative rounded-2xl p-4 bg-gradient-to-br from-amber-50/60 via-purple-50/50 to-neutral-50/60 border border-neutral-200/80 shadow-2xs overflow-hidden">
+        <div className="relative rounded-2xl p-4 bg-[#1ed760] border border-[#1ed760] shadow-2xs overflow-hidden text-[#121212]">
           {/* Crown Icon */}
           <div className="w-8 h-8 rounded-xl bg-amber-100/90 text-amber-700 flex items-center justify-center mb-2.5 shadow-2xs">
             <Crown className="w-4 h-4 fill-amber-500 text-amber-600" />

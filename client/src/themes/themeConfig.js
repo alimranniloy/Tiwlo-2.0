@@ -6,12 +6,12 @@
 export const THEME_COLOR_PRESETS = [
   {
     id: 'sapphire',
-    name: 'Monochrome Black',
-    hex: '#000000',
-    hover: '#000000',
-    light: '#f5f5f5',
-    border: '#d8d8d8',
-    description: 'Clean black-and-white storefront palette (Default TiwloMart)'
+    name: 'Tiwi Green',
+    hex: '#1ED760',
+    hover: '#18B953',
+    light: '#E8FAEF',
+    border: '#B7EBC9',
+    description: 'The signature Tiwi 3.0 green storefront palette'
   },
   {
     id: 'emerald',
@@ -154,7 +154,7 @@ export function applyThemeColor(hexColor) {
 
 export const THEME_CONFIG = {
   activeTheme: 'TiwiMart',
-  defaultColor: '#000000',
+  defaultColor: '#1ED760',
   colorPresets: THEME_COLOR_PRESETS,
   availableThemes: AVAILABLE_THEMES,
   defaultBanners: DEFAULT_HERO_BANNERS

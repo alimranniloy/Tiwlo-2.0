@@ -54,8 +54,8 @@ export default function CloudSidebar({
         aria-current={isActive ? 'page' : undefined}
         className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors cursor-pointer ${
           isActive
-            ? 'bg-[#efefef] text-[#000000] font-semibold dark:bg-neutral-950/40 dark:text-neutral-300'
-            : 'text-[#444746] hover:bg-[#f4f4f4] hover:text-[#1F1F1F] dark:text-neutral-400 dark:hover:bg-gray-800 dark:hover:text-white'
+            ? 'bg-white text-[#121212] font-semibold'
+            : 'text-white/65 hover:bg-white/10 hover:text-white'
         }`}
       >
         <span className="flex items-center gap-3 min-w-0">
@@ -90,7 +90,7 @@ export default function CloudSidebar({
       )}
 
       <aside className={`
-        w-[260px] sm:w-[270px] lg:w-[250px] h-screen overflow-y-auto bg-white border-r border-[#e2e2e2] flex flex-col p-4 select-none transition-all duration-300 ease-in-out shrink-0 font-sans
+        tiwi-v3-sidebar w-[260px] sm:w-[270px] lg:w-[250px] h-screen overflow-y-auto bg-white border-r border-[#e2e2e2] flex flex-col p-4 select-none transition-all duration-300 ease-in-out shrink-0 font-sans
         fixed inset-y-0 left-0 z-50
         lg:static lg:translate-x-0 lg:z-20 lg:sticky lg:top-0
         ${mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
@@ -122,7 +122,7 @@ export default function CloudSidebar({
 
         <nav aria-label="Main navigation" className="space-y-5">
           <section className="space-y-1">
-            <p className="px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#747775] dark:text-neutral-500">
+            <p className="tiwi-v3-nav-label px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#747775] dark:text-neutral-500">
               Overview
             </p>
             {renderNavItem({ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard })}
@@ -130,7 +130,7 @@ export default function CloudSidebar({
           </section>
 
           <section className="space-y-1">
-            <p className="px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#747775] dark:text-neutral-500">
+            <p className="tiwi-v3-nav-label px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#747775] dark:text-neutral-500">
               Products
             </p>
             <div className="flex items-center gap-1">
@@ -140,8 +140,8 @@ export default function CloudSidebar({
                 aria-current={activeNav === 'my-online-store' ? 'page' : undefined}
                 className={`flex-1 min-w-0 flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors cursor-pointer ${
                   activeNav === 'my-online-store'
-                    ? 'bg-[#efefef] text-[#000000] font-semibold dark:bg-neutral-950/40 dark:text-neutral-300'
-                    : 'text-[#444746] hover:bg-[#f4f4f4] hover:text-[#1F1F1F] dark:text-neutral-400 dark:hover:bg-gray-800 dark:hover:text-white'
+                    ? 'bg-white text-[#121212] font-semibold'
+                    : 'text-white/65 hover:bg-white/10 hover:text-white'
                 }`}
               >
                 <span className="flex items-center gap-3 min-w-0">
@@ -171,7 +171,7 @@ export default function CloudSidebar({
           </section>
 
           <section className="space-y-1">
-            <p className="px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#747775] dark:text-neutral-500">
+            <p className="tiwi-v3-nav-label px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#747775] dark:text-neutral-500">
               Cloud
             </p>
             {renderNavItem({ id: 'domains', label: 'Domains', icon: Globe2 })}
@@ -183,8 +183,8 @@ export default function CloudSidebar({
                 aria-expanded={dropletsOpen}
                 className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors cursor-pointer ${
                   activeNav === 'my-droplets' || ['images', 'snapshots', 'backups', 'volumes', 'kubernetes', 'create-droplet'].includes(activeNav)
-                    ? 'bg-[#efefef] text-[#000000] font-semibold dark:bg-neutral-950/40 dark:text-neutral-300'
-                    : 'text-[#444746] hover:bg-[#f4f4f4] hover:text-[#1F1F1F] dark:text-neutral-400 dark:hover:bg-gray-800 dark:hover:text-white'
+                    ? 'bg-white text-[#121212] font-semibold'
+                    : 'text-white/65 hover:bg-white/10 hover:text-white'
                 }`}
               >
                 <span className="flex items-center gap-3">
@@ -210,8 +210,8 @@ export default function CloudSidebar({
                       }}
                       className={`w-full text-left px-2.5 py-2 rounded-lg text-xs flex items-center justify-between transition cursor-pointer ${
                         activeNav === sub.id
-                          ? 'text-[#000000] dark:text-neutral-300 font-semibold bg-[#efefef] dark:bg-neutral-950/40'
-                          : 'text-[#636363] dark:text-neutral-400 hover:text-[#1F1F1F] dark:hover:text-white hover:bg-[#f4f4f4] dark:hover:bg-gray-800'
+                          ? 'text-white font-semibold bg-white/10'
+                          : 'text-white/55 hover:text-white hover:bg-white/10'
                       }`}
                     >
                       <span>{sub.label}</span>
@@ -228,7 +228,7 @@ export default function CloudSidebar({
           </section>
 
           <section className="space-y-1">
-            <p className="px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#747775] dark:text-neutral-500">
+            <p className="tiwi-v3-nav-label px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#747775] dark:text-neutral-500">
               Account
             </p>
             {renderNavItem({ id: 'identity', label: 'Identity', icon: IdCard })}

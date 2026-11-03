@@ -121,7 +121,7 @@ export default function OneProfileDashboard({
   };
 
   return (
-    <div className="min-h-screen flex bg-[#fafafa] text-neutral-800 font-sans antialiased selection:bg-neutral-500 selection:text-white">
+    <div className="tiwi-v3-oneprofile min-h-screen flex bg-[#f4f4f4] text-neutral-800 font-sans antialiased selection:bg-neutral-500 selection:text-white">
       {/* Sidebar (Desktop Persistent & Mobile Drawer) */}
       <OneProfileSidebar
         currentUser={currentUser}

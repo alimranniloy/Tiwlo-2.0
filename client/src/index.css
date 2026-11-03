@@ -2,12 +2,15 @@
 
 @layer base {
   :root {
-    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --theme-primary: #000000;
-    --theme-primary-hover: #171717;
-    --theme-primary-light: #f5f5f5;
-    --theme-primary-border: rgba(0, 0, 0, 0.25);
-    --theme-primary-glow: rgba(0, 0, 0, 0.2);
+    --font-sans: 'Figtree', Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --theme-primary: #1ed760;
+    --theme-primary-hover: #18b953;
+    --theme-primary-light: #e8faef;
+    --theme-primary-border: rgba(30, 215, 96, 0.25);
+    --theme-primary-glow: rgba(30, 215, 96, 0.2);
+    --tiwi-v3-ink: #121212;
+    --tiwi-v3-green: #1ed760;
+    --tiwi-v3-background: #f4f4f4;
   }
   
   * {
@@ -273,6 +276,218 @@
   bottom: 0;
   will-change: left, right;
   animation: google-linear-anim 2.1s cubic-bezier(0.65, 0.815, 0.735, 0.395) infinite;
+}
+
+/* Tiwi 3.0 visual shell; data and interaction remain owned by existing views. */
+.tiwi-v3-app,
+.tiwi-v3-cloud,
+.tiwi-v3-oneprofile,
+.tiwi-v3-discord,
+.tiwi-v3-landing {
+  background: var(--tiwi-v3-background);
+  color: var(--tiwi-v3-ink);
+}
+
+.tiwi-v3-auth {
+  --tiwi-v3-background: #f4f4f4;
+  --tiwi-v3-ink: #121212;
+  --tiwi-v3-green: #1ed760;
+  background: var(--tiwi-v3-background);
+  color: var(--tiwi-v3-ink);
+}
+
+.tiwi-v3-auth > .w-full.max-w-\[448px\] > .bg-white,
+.tiwi-v3-auth > .w-full.max-w-\[1040px\] {
+  border: 1px solid #e4e4e4;
+  border-radius: 1.75rem;
+  box-shadow: 0 1px 3px rgb(18 18 18 / 8%);
+}
+
+.tiwi-v3-auth button[class~="bg-[#000000]"],
+.tiwi-v3-auth button[class~="bg-[#0b57d0]"],
+.tiwi-v3-auth button[class~="bg-primary"],
+.tiwi-v3-app button[class~="bg-[#000000]"],
+.tiwi-v3-app a[class~="bg-[#000000]"],
+.tiwi-v3-cloud button[class~="bg-[#000000]"],
+.tiwi-v3-cloud a[class~="bg-[#000000]"],
+.tiwi-v3-oneprofile button[class~="bg-[#000000]"],
+.tiwi-v3-oneprofile a[class~="bg-[#000000]"],
+.tiwi-v3-discord button[class~="bg-[#000000]"],
+.tiwi-v3-discord a[class~="bg-[#000000]"] {
+  background-color: var(--tiwi-v3-green) !important;
+  color: var(--tiwi-v3-ink) !important;
+}
+
+.tiwi-v3-landing {
+  --tl-blue: var(--tiwi-v3-green);
+}
+
+.tiwi-v3-app :is(section, article, div)[class*="rounded-2xl"][class*="bg-white"],
+.tiwi-v3-app :is(section, article, div)[class*="rounded-3xl"][class*="bg-white"],
+.tiwi-v3-cloud :is(section, article, div)[class*="rounded-2xl"][class*="bg-white"],
+.tiwi-v3-cloud :is(section, article, div)[class*="rounded-3xl"][class*="bg-white"],
+.tiwi-v3-oneprofile :is(section, article, div)[class*="rounded-2xl"][class*="bg-white"],
+.tiwi-v3-oneprofile :is(section, article, div)[class*="rounded-3xl"][class*="bg-white"],
+.tiwi-v3-discord :is(section, article, div)[class*="rounded-2xl"][class*="bg-white"],
+.tiwi-v3-discord :is(section, article, div)[class*="rounded-3xl"][class*="bg-white"] {
+  border-color: #e4e4e4;
+  box-shadow: 0 1px 2px rgb(18 18 18 / 4%);
+}
+
+.tiwi-v3-app button[class*="bg-[#696969]"],
+.tiwi-v3-app a[class*="bg-[#696969]"],
+.tiwi-v3-app button[class*="bg-[#5c5c5c]"],
+.tiwi-v3-app a[class*="bg-[#5c5c5c]"],
+.tiwi-v3-cloud button[class*="bg-[#696969]"],
+.tiwi-v3-cloud a[class*="bg-[#696969]"],
+.tiwi-v3-oneprofile button[class*="bg-[#696969]"],
+.tiwi-v3-oneprofile a[class*="bg-[#696969]"],
+.tiwi-v3-discord button[class*="bg-[#696969]"],
+.tiwi-v3-discord a[class*="bg-[#696969]"] {
+  background-color: var(--tiwi-v3-green) !important;
+  color: var(--tiwi-v3-ink) !important;
+}
+
+.tiwi-v3-landing :is(a, button):focus-visible {
+  outline: 2px solid var(--tiwi-v3-green);
+  outline-offset: 3px;
+}
+
+.tiwi-v3-sidebar {
+  background: var(--tiwi-v3-ink) !important;
+  border-color: #292929 !important;
+  color: #f5f5f5 !important;
+}
+
+.tiwi-v3-sidebar .tiwi-v3-nav-label {
+  color: #8d8d8d !important;
+}
+
+.tiwi-v3-sidebar [class*="text-neutral-900"],
+.tiwi-v3-sidebar [class*="text-neutral-800"],
+.tiwi-v3-sidebar [class*="text-[#1F1F1F]"],
+.tiwi-v3-sidebar [class*="text-[#444746]"] {
+  color: #f5f5f5 !important;
+}
+
+.tiwi-v3-sidebar [class*="border-neutral-100"],
+.tiwi-v3-sidebar [class*="border-[#e2e2e2]"] {
+  border-color: #292929 !important;
+}
+
+.tiwi-v3-topbar {
+  background: rgb(255 255 255 / 92%) !important;
+  border-color: #e4e4e4 !important;
+  backdrop-filter: blur(14px);
+}
+
+.dark .tiwi-v3-topbar {
+  background: rgb(18 18 18 / 92%) !important;
+  border-color: #292929 !important;
+  color: #f5f5f5;
+}
+
+.tiwi-v3-content {
+  background: var(--tiwi-v3-background);
+}
+
+.tiwi-v3-app :is(section, article, div)[class*="bg-white"][class*="rounded"],
+.tiwi-v3-cloud :is(section, article, div)[class*="bg-white"][class*="rounded"],
+.tiwi-v3-oneprofile :is(section, article, div)[class*="bg-white"][class*="rounded"],
+.tiwi-v3-discord :is(section, article, div)[class*="bg-white"][class*="rounded"] {
+  border-radius: 1.5rem;
+  border-color: #e4e4e4;
+}
+
+.tiwi-v3-app .aura-banner-wrapper,
+.tiwi-v3-app .aura-quick-actions-card,
+.tiwi-v3-app .aura-section-border {
+  border-radius: 1.5rem;
+  border-color: #e4e4e4;
+  box-shadow: 0 1px 2px rgb(18 18 18 / 4%);
+}
+
+.tiwi-v3-app input:not([type="checkbox"]):not([type="radio"]),
+.tiwi-v3-app select,
+.tiwi-v3-app textarea,
+.tiwi-v3-cloud input:not([type="checkbox"]):not([type="radio"]),
+.tiwi-v3-cloud select,
+.tiwi-v3-cloud textarea,
+.tiwi-v3-oneprofile input:not([type="checkbox"]):not([type="radio"]),
+.tiwi-v3-oneprofile select,
+.tiwi-v3-oneprofile textarea,
+.tiwi-v3-discord input:not([type="checkbox"]):not([type="radio"]),
+.tiwi-v3-discord select,
+.tiwi-v3-discord textarea {
+font-family: var(--font-sans);
+border-radius: 0.75rem;
+}
+
+.tiwi-v3-app :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus,
+.tiwi-v3-cloud :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus,
+.tiwi-v3-oneprofile :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus,
+.tiwi-v3-discord :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus {
+  box-shadow: 0 0 0 2px rgb(30 215 96 / 16%);
+}
+
+.tiwi-v3-app input[type="checkbox"],
+.tiwi-v3-cloud input[type="checkbox"],
+.tiwi-v3-oneprofile input[type="checkbox"],
+.tiwi-v3-discord input[type="checkbox"] {
+  accent-color: var(--tiwi-v3-green);
+}
+
+.tiwi-v3-cloud .aura-banner-wrapper,
+.tiwi-v3-cloud .aura-quick-actions-card,
+.tiwi-v3-cloud .aura-section-border,
+.tiwi-v3-oneprofile .aura-banner-wrapper,
+.tiwi-v3-oneprofile .aura-quick-actions-card,
+.tiwi-v3-oneprofile .aura-section-border,
+.tiwi-v3-discord .aura-banner-wrapper,
+.tiwi-v3-discord .aura-quick-actions-card,
+.tiwi-v3-discord .aura-section-border {
+  border-color: #e4e4e4;
+  box-shadow: 0 1px 2px rgb(18 18 18 / 4%);
+}
+
+.tiwi-v3-app :is(button, a, input, select, textarea):focus-visible,
+.tiwi-v3-cloud :is(button, a, input, select, textarea):focus-visible,
+.tiwi-v3-oneprofile :is(button, a, input, select, textarea):focus-visible,
+.tiwi-v3-discord :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--tiwi-v3-green);
+  outline-offset: 2px;
+}
+
+.tiwi-v3-app .bg-theme-primary,
+.tiwi-v3-cloud .bg-theme-primary,
+.tiwi-v3-oneprofile .bg-theme-primary,
+.tiwi-v3-discord .bg-theme-primary,
+.tiwi-v3-auth .bg-theme-primary {
+  background-color: var(--tiwi-v3-green) !important;
+  color: var(--tiwi-v3-ink) !important;
+}
+
+.tiwi-v3-app button[class*="bg-neutral-600"],
+.tiwi-v3-app a[class*="bg-neutral-600"],
+.tiwi-v3-cloud button[class*="bg-neutral-600"],
+.tiwi-v3-cloud a[class*="bg-neutral-600"],
+.tiwi-v3-oneprofile button[class*="bg-neutral-600"],
+.tiwi-v3-oneprofile a[class*="bg-neutral-600"],
+.tiwi-v3-discord button[class*="bg-neutral-600"],
+.tiwi-v3-discord a[class*="bg-neutral-600"] {
+  background-color: var(--tiwi-v3-green) !important;
+  color: var(--tiwi-v3-ink) !important;
+}
+
+.tiwi-v3-app button[class*="bg-neutral-600"]:hover,
+.tiwi-v3-app a[class*="bg-neutral-600"]:hover,
+.tiwi-v3-cloud button[class*="bg-neutral-600"]:hover,
+.tiwi-v3-cloud a[class*="bg-neutral-600"]:hover,
+.tiwi-v3-oneprofile button[class*="bg-neutral-600"]:hover,
+.tiwi-v3-oneprofile a[class*="bg-neutral-600"]:hover,
+.tiwi-v3-discord button[class*="bg-neutral-600"]:hover,
+.tiwi-v3-discord a[class*="bg-neutral-600"]:hover {
+  background-color: #18b953 !important;
 }
 
 .google-linear-progress::after {

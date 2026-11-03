@@ -1974,7 +1974,7 @@ export default function App() {
   });
 
   return (
-    <div className="min-h-screen bg-[#f8f8f8] dark:bg-[#0f0f0f] font-sans antialiased text-neutral-800 dark:text-neutral-100">
+    <div className="tiwi-v3-app min-h-screen bg-[#f8f8f8] dark:bg-[#0f0f0f] font-sans antialiased text-neutral-800 dark:text-neutral-100">
       {/* Top Laser Progress Beam for Unique Reload Indication */}
       {activeTab !== 'mobile-help-support' && activeTab !== 'help-support/mobile' && (
         <TiwloTopSyncBar active={loading || manualReload} />
@@ -2305,7 +2305,7 @@ export default function App() {
           showToast={showToast}
         />
       ) : (
-        <div className="flex min-h-screen bg-[#f8f8f8] dark:bg-[#0f0f0f] text-[#282828] dark:text-[#e7e7e7] transition-colors">
+        <div className="flex min-h-screen bg-[#f4f4f4] dark:bg-[#0f0f0f] text-[#282828] dark:text-[#e7e7e7] transition-colors">
           {/* Left Sidebar */}
           <Sidebar
             activeTab={activeTab}
@@ -2331,7 +2331,7 @@ export default function App() {
             />
 
             {/* Scrollable Body */}
-            <main className="flex-1 px-3 sm:px-6 lg:px-8 py-4 sm:py-7 overflow-y-auto min-w-0">
+            <main className="tiwi-v3-content flex-1 px-3 sm:px-6 lg:px-8 py-4 sm:py-7 overflow-y-auto min-w-0">
               {/* TAB: ECOMMERCE DASHBOARD */}
               {activeTab === 'ecommerce-dashboard' && (
                 <EcommerceDashboard

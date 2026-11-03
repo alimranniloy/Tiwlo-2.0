@@ -801,7 +801,7 @@ export default function LoginView({
   };
 
   return (
-    <div className="min-h-screen bg-[#f4f4f4] dark:bg-[#131313] flex flex-col justify-center items-center py-8 sm:py-12 px-4 selection:bg-[#000000] selection:text-white transition-colors duration-200">
+    <div className="tiwi-v3-auth min-h-screen bg-[#f4f4f4] dark:bg-[#131313] flex flex-col justify-center items-center py-8 sm:py-12 px-4 selection:bg-[#1ed760] selection:text-[#121212] transition-colors duration-200">
       {/* Liquid Page Loader */}
       {loading && <TiwloPageLoader />}
 

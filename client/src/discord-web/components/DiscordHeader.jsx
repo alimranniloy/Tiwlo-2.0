@@ -22,7 +22,7 @@ export default function DiscordHeader({
   const displayEmail = currentUser?.email || '';
 
   return (
-    <header className="h-16 border-b border-[#e2e2e2] bg-white px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20 font-sans select-none">
+    <header className="tiwi-v3-topbar h-16 border-b border-[#e2e2e2] bg-white px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20 font-sans select-none">
       {/* Left: Mobile Toggle, Product Title & Environment Selector */}
       <div className="flex items-center gap-3 min-w-0">
         <button
@@ -35,7 +35,7 @@ export default function DiscordHeader({
 
         {/* Tiwlo Discord Console Brand */}
         <div className="flex items-center gap-2.5 shrink-0">
-          <div className="w-8 h-8 rounded-xl bg-[#000000] text-white flex items-center justify-center font-bold text-xs shadow-none">
+          <div className="w-8 h-8 rounded-xl bg-[#1ed760] text-[#121212] flex items-center justify-center font-bold text-xs shadow-none">
             <Bot className="w-4 h-4 stroke-[2.2]" />
           </div>
           <button

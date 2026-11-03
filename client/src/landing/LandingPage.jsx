@@ -304,7 +304,7 @@ export default function LandingPage({ onNavigate, currentUser }) {
     document.getElementById(`tl-tab-${next}`)?.focus();
   }
   return (
-    <div className="tl-landing tl-clean-theme" ref={pageRoot}>
+    <div className="tiwi-v3-landing tl-landing tl-clean-theme" ref={pageRoot}>
       <a className="tl-skip" href="#tl-main">
         Skip to content
       </a>

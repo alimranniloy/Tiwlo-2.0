@@ -21,7 +21,7 @@ export default function OneProfileTopBar({
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   return (
-    <header className="w-full bg-white border-b border-neutral-100/90 px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4 sticky top-0 z-30">
+    <header className="tiwi-v3-topbar w-full bg-white border-b border-neutral-100/90 px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4 sticky top-0 z-30">
       {/* Left: Mobile Sidebar Toggle & Search Input */}
       <div className="flex items-center gap-3 flex-1 max-w-xl">
         {/* Mobile Hamburger */}
@@ -44,7 +44,7 @@ export default function OneProfileTopBar({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search templates, domains, settings..."
-            className="w-full pl-10 pr-12 py-2 bg-neutral-50 hover:bg-neutral-100/70 focus:bg-white border border-neutral-200/80 focus:border-neutral-500 rounded-xl text-xs sm:text-sm text-neutral-800 placeholder-neutral-400 focus:outline-none transition-all"
+            className="w-full pl-10 pr-12 py-2 bg-neutral-50 hover:bg-neutral-100/70 focus:bg-white border border-neutral-200/80 focus:border-[#1ed760] rounded-full text-xs sm:text-sm text-neutral-800 placeholder-neutral-400 focus:outline-none transition-all"
           />
           <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
             <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono font-semibold text-neutral-400 bg-white border border-neutral-200 rounded shadow-2xs">
