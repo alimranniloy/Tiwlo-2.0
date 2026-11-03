@@ -212,66 +212,12 @@ function SectionHeading({ eyebrow, title, body, inverted = false }) {
 
 function HeroPreview() {
   return (
-    <div className="relative" aria-label="Illustrative Tiwlo workspace preview">
-      <div className="pointer-events-none absolute -right-16 -top-12 size-[300px] rounded-full border-[38px] border-[#1ed760]/80 sm:size-[440px] sm:border-[52px]" />
-      <div className="relative rounded-[2rem] bg-[#121212] p-3 shadow-2xl">
-        <div className="flex items-center gap-1.5 px-3 pb-3 pt-1">
-          <span className="size-2.5 rounded-full bg-white/25" />
-          <span className="size-2.5 rounded-full bg-white/25" />
-          <span className="size-2.5 rounded-full bg-white/25" />
-          <span className="ml-3 rounded-full bg-white/10 px-3 py-1 text-[10px] text-white/60">
-            workspace.tiwlo
-          </span>
-        </div>
-        <div className="grid gap-3 rounded-[1.5rem] bg-[#f4f4f4] p-4 sm:grid-cols-3">
-          <div className="rounded-2xl bg-white p-4 sm:col-span-2">
-            <p className="text-xs font-semibold text-[#6a6a6a]">Your workspace</p>
-            <p className="mt-1 text-2xl font-bold tracking-tight">Everything, connected.</p>
-            <div className="mt-4 flex h-24 items-end gap-2" aria-hidden="true">
-              {[40, 65, 48, 80, 62, 92, 74].map((height, index) => (
-                <span
-                  key={index}
-                  className={`flex-1 rounded-t-md ${
-                    index === 5 ? 'bg-[#1ed760]' : 'bg-[#121212]/80'
-                  }`}
-                  style={{ height: `${height}%` }}
-                />
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-col gap-3">
-            <div className="flex-1 rounded-2xl bg-[#1ed760] p-4 text-[#121212]">
-              <Cloud className="size-5" aria-hidden="true" />
-              <p className="mt-3 text-lg font-bold">Cloud</p>
-              <p className="text-xs opacity-70">Your workspace</p>
-            </div>
-            <div className="flex-1 rounded-2xl bg-white p-4">
-              <Store className="size-5" aria-hidden="true" />
-              <p className="mt-3 text-lg font-bold">Commerce</p>
-              <p className="text-xs text-[#6a6a6a]">Store and retail tools</p>
-            </div>
-          </div>
-          <div className="rounded-2xl bg-white p-4 sm:col-span-3">
-            {[
-              ['Storefront', 'Commerce tools'],
-              ['Cloud workspace', 'Cloud services'],
-            ].map(([name, description]) => (
-              <div
-                key={name}
-                className="flex items-center justify-between border-b border-[#e4e4e4] py-2 text-xs last:border-0"
-              >
-                <span className="font-semibold">{name}</span>
-                <span className="text-[#6a6a6a]">{description}</span>
-                <ArrowUpRight className="size-4 text-[#6a6a6a]" aria-hidden="true" />
-              </div>
-            ))}
-          </div>
-        </div>
-        <p className="px-3 pb-1 pt-3 text-center text-[10px] text-white/55">
-          Illustrative workspace preview
-        </p>
-      </div>
-    </div>
+    <img
+      src="/landing-cloud-dashboard.png"
+      alt="Tiwlo Cloud dashboard"
+      className="block h-auto w-full rounded-[2%] object-cover"
+      fetchPriority="high"
+    />
   );
 }
 
@@ -779,37 +725,37 @@ export default function LandingPage({ onNavigate, currentUser }) {
 
       <main id="tiwlo-main">
         <section className="relative overflow-hidden">
-          <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 pb-20 pt-16 sm:px-6 lg:grid-cols-2 lg:px-8 lg:pb-24 lg:pt-24">
+          <div className="mx-auto grid max-w-7xl items-center gap-7 px-4 pb-10 pt-10 sm:gap-12 sm:px-6 sm:pb-20 sm:pt-16 lg:grid-cols-2 lg:px-8 lg:pb-24 lg:pt-24">
             <div>
               <span className="inline-flex items-center gap-2 rounded-full bg-[#f4f4f4] px-3 py-1.5 text-xs font-semibold">
                 <span className="size-2 rounded-full bg-[#1ed760]" />
                 Tiwlo Cloud · Commerce · Retail
               </span>
-              <h1 className="mt-6 text-balance text-5xl font-bold leading-[1.02] tracking-tight sm:text-7xl">
+              <h1 className="mt-4 text-balance text-[2.5rem] font-bold leading-[1.02] tracking-tight sm:mt-6 sm:text-7xl">
                 Accelerate your business with{' '}
                 <span className="text-[#0f7a37]">Tiwlo Cloud</span>
               </h1>
-              <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-[#6a6a6a]">
+              <p className="mt-4 max-w-xl text-pretty text-base leading-relaxed text-[#6a6a6a] sm:mt-6 sm:text-lg">
                 Bring your cloud workspace, online storefront, and retail tools together in one
                 place, and explore the services that fit the way you work.
               </p>
-              <div className="mt-8 flex flex-wrap gap-3">
+              <div className="mt-6 flex flex-wrap gap-3 sm:mt-8">
                 <button
                   type="button"
                   onClick={start}
-                  className="inline-flex h-12 items-center gap-2 rounded-full bg-[#1ed760] px-7 text-sm font-bold text-[#121212] transition hover:bg-[#1ed760]/85"
+                  className="inline-flex h-11 items-center gap-2 rounded-full bg-[#1ed760] px-6 text-sm font-bold text-[#121212] transition hover:bg-[#1ed760]/85 sm:h-12 sm:px-7"
                 >
                   {currentUser ? 'Open your workspace' : 'Get started'}
                   <ArrowRight className="size-4" aria-hidden="true" />
                 </button>
                 <a
                   href="#products"
-                  className="inline-flex h-12 items-center rounded-full px-7 text-sm font-bold ring-1 ring-[#e4e4e4] transition hover:bg-[#f4f4f4]"
+                  className="inline-flex h-11 items-center rounded-full px-6 text-sm font-bold ring-1 ring-[#e4e4e4] transition hover:bg-[#f4f4f4] sm:h-12 sm:px-7"
                 >
                   Explore solutions
                 </a>
               </div>
-              <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[#6a6a6a]">
+              <ul className="mt-5 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-[#6a6a6a] sm:mt-8 sm:gap-x-6 sm:gap-y-2 sm:text-sm">
                 {['Cloud workspace', 'Commerce tools', 'Retail & POS'].map((item) => (
                   <li key={item} className="flex items-center gap-2">
                     <Check className="size-4 text-[#0f7a37]" strokeWidth={3} aria-hidden="true" />
