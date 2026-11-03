@@ -79,8 +79,8 @@ export default function OutlookHeader() {
   }, []);
 
   const appSuite = [
-    { name: 'Tiwlo Mail', icon: Mail, color: 'text-[#137333]', bg: 'bg-[#137333]/10', active: true },
-    { name: 'OneProfile', icon: Users, color: 'text-[#137333]', bg: 'bg-[#137333]/10', url: getDashboardUrl('/oneprofile') },
+    { name: 'Tiwlo Mail', icon: Mail, color: 'text-[#656565]', bg: 'bg-[#656565]/10', active: true },
+    { name: 'OneProfile', icon: Users, color: 'text-[#656565]', bg: 'bg-[#656565]/10', url: getDashboardUrl('/oneprofile') },
     { name: 'Tiwlo Workspace', icon: HardDrive, color: 'text-[#6d6d6d]', bg: 'bg-[#6d6d6d]/10', url: getMainAppUrl('/dashboard') },
     { name: 'Store', icon: ShoppingBag, color: 'text-[#107C41]', bg: 'bg-[#107C41]/10', url: getMainAppUrl('/store') },
     { name: 'Tiwi Social', icon: Share2, color: 'text-[#6c6c6c]', bg: 'bg-[#6c6c6c]/10', url: getMainAppUrl('/tiwi') }
@@ -94,7 +94,7 @@ export default function OutlookHeader() {
   ];
 
   return (
-    <header className="h-[48px] bg-gradient-to-r from-[#137333] via-[#176c39] to-[#115c31] text-white flex items-center justify-between px-2 sm:px-4 select-none relative z-40 shadow-xs border-b border-white/10">
+    <header className="h-[48px] bg-gradient-to-r from-[#656565] via-[#5e5e5e] to-[#4c4c4c] text-white flex items-center justify-between px-2 sm:px-4 select-none relative z-40 shadow-xs border-b border-white/10">
       {/* 1. Left: Waffle App Launcher & Brand */}
       <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
         {/* Mobile menu toggle for folder drawer */}
@@ -125,7 +125,7 @@ export default function OutlookHeader() {
                 <span className="font-bold text-[12px] text-gray-500 uppercase tracking-wider">
                   Apps & Services
                 </span>
-                <span className="text-[11px] font-bold text-[#137333] bg-[#137333]/10 px-2 py-0.5 rounded-full">
+                <span className="text-[11px] font-bold text-[#656565] bg-[#656565]/10 px-2 py-0.5 rounded-full">
                   Tiwlo Apps
                 </span>
               </div>
@@ -144,7 +144,7 @@ export default function OutlookHeader() {
                         }
                       }}
                       className={`flex flex-col items-center justify-center p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer text-center group ${
-                        app.active ? 'bg-neutral-50 dark:bg-neutral-950/40 ring-1 ring-[#137333]' : ''
+                        app.active ? 'bg-neutral-50 dark:bg-neutral-950/40 ring-1 ring-[#656565]' : ''
                       }`}
                     >
                       <div className={`w-9 h-9 rounded-lg ${app.bg} ${app.color} flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform`}>
@@ -171,7 +171,7 @@ export default function OutlookHeader() {
           className="flex items-center gap-2 cursor-pointer group pr-2 bg-transparent border-0 text-left"
         >
           <div className="w-7 h-7 rounded-md bg-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform overflow-hidden">
-            <img src="/tiwlo-brand-mark.png" alt="" className="w-6 h-6 object-contain" />
+            <img src="/tiwlo-icon.png" alt="" className="w-6 h-6 object-contain" />
           </div>
           <div className="flex flex-col leading-none">
             <div className="flex items-center gap-1.5">
@@ -200,7 +200,7 @@ export default function OutlookHeader() {
             className="w-full h-[34px] pl-9 pr-24 bg-white/20 hover:bg-white/25 focus:bg-white text-white focus:text-[#201F1E] placeholder-white/80 focus:placeholder-gray-400 text-[13px] rounded-full outline-none transition-all shadow-inner border border-white/20 focus:border-transparent"
           />
           <Search className={`w-4 h-4 absolute left-3 pointer-events-none transition-colors ${
-            isSearchFocused ? 'text-[#137333]' : 'text-white/80'
+            isSearchFocused ? 'text-[#656565]' : 'text-white/80'
           }`} />
 
           {/* Right Search Controls: Clear & Shortcut & Filter */}
@@ -230,7 +230,7 @@ export default function OutlookHeader() {
           <div className="absolute top-[40px] left-0 right-0 bg-white dark:bg-[#201F1E] text-[#323130] dark:text-[#E1DFDD] rounded-xl shadow-2xl border border-black/10 dark:border-white/10 p-2.5 z-50 animate-fadeIn text-[12.5px]">
             <div className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-2 py-1 flex items-center justify-between">
               <span>Quick Search Filters</span>
-              <span className="text-[10px] lowercase text-[#137333] font-normal">search updates as you type</span>
+              <span className="text-[10px] lowercase text-[#656565] font-normal">search updates as you type</span>
             </div>
             <div className="flex flex-col gap-0.5 mt-1">
               {recentSearchFilters.map((f, i) => (
@@ -240,7 +240,7 @@ export default function OutlookHeader() {
                   onClick={f.action}
                   className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-left transition cursor-pointer"
                 >
-                  <Search className="w-3.5 h-3.5 text-[#137333]" />
+                  <Search className="w-3.5 h-3.5 text-[#656565]" />
                   <span>{f.label}</span>
                 </button>
               ))}
@@ -299,7 +299,7 @@ export default function OutlookHeader() {
                   <span className="flex items-center gap-2">
                     <Moon className="w-3.5 h-3.5" /> Dark mode
                   </span>
-                  <span className="text-[11px] text-[#137333]">Toggle</span>
+                  <span className="text-[11px] text-[#656565]">Toggle</span>
                 </button>
               </div>
             </div>
@@ -328,7 +328,7 @@ export default function OutlookHeader() {
               {currentUser?.avatar ? (
                 <img src={currentUser.avatar} alt={currentUser.name || 'Account'} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover ring-1 ring-white/30" />
               ) : (
-                <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white text-[#115c31] font-bold text-[11px] flex items-center justify-center ring-1 ring-white/30">
+                <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white text-[#4c4c4c] font-bold text-[11px] flex items-center justify-center ring-1 ring-white/30">
                   {userInitials(currentUser)}
                 </span>
               )}
@@ -340,9 +340,9 @@ export default function OutlookHeader() {
             <div className="absolute top-[42px] right-0 w-[300px] bg-white dark:bg-[#201F1E] text-[#323130] dark:text-[#F3F2F1] rounded-xl shadow-2xl border border-black/10 dark:border-white/10 p-4 z-50 animate-fadeIn">
               <div className="flex items-center gap-3 pb-3 mb-3 border-b border-gray-100 dark:border-gray-800">
                 {currentUser?.avatar ? (
-                  <img src={currentUser.avatar} alt={currentUser.name || 'Account'} className="w-12 h-12 rounded-full object-cover ring-2 ring-[#137333]/20" />
+                  <img src={currentUser.avatar} alt={currentUser.name || 'Account'} className="w-12 h-12 rounded-full object-cover ring-2 ring-[#656565]/20" />
                 ) : (
-                  <span className="w-12 h-12 shrink-0 rounded-full bg-[#137333] text-white font-bold text-sm flex items-center justify-center ring-2 ring-[#137333]/20">
+                  <span className="w-12 h-12 shrink-0 rounded-full bg-[#656565] text-white font-bold text-sm flex items-center justify-center ring-2 ring-[#656565]/20">
                     {userInitials(currentUser)}
                   </span>
                 )}
@@ -372,7 +372,7 @@ export default function OutlookHeader() {
                   className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer text-left"
                 >
                   <span className="flex items-center gap-2">
-                    <Home className="w-4 h-4 text-[#137333]" />
+                    <Home className="w-4 h-4 text-[#656565]" />
                     <span>Tiwlo Workspace Dashboard</span>
                   </span>
                   <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
@@ -404,7 +404,7 @@ export default function OutlookHeader() {
                         window.location.assign(getAuthUrl('/login?logout=1'));
                       }
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-950/30 text-neutral-600 dark:text-neutral-400 transition cursor-pointer text-left font-medium"
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 transition cursor-pointer text-left font-medium"
                   >
                     <LogOut className="w-4 h-4" />
                     <span>Sign out</span>

@@ -101,7 +101,7 @@ export default function OneProfileTopBar({
             {/* Avatar */}
             <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden bg-neutral-200 ring-2 ring-neutral-100 shrink-0">
               <img
-                src={currentUser?.avatar || '/tiwlo-brand-mark.png'}
+                src={currentUser?.avatar || '/tiwlo-icon.png'}
                 alt={currentUser?.name || currentUser?.email || 'Account'}
                 className="w-full h-full object-cover"
                 onError={(e) => {

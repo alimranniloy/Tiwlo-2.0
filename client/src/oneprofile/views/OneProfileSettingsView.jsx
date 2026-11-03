@@ -113,7 +113,7 @@ export default function OneProfileSettingsView({ currentUser, profile, onProfile
 
         <div className="flex items-center gap-4">
           <img
-            src={avatar || '/tiwlo-brand-mark.png'}
+            src={avatar || '/tiwlo-icon.png'}
             alt="Profile"
             className="h-16 w-16 rounded-full border border-neutral-200 object-cover"
           />

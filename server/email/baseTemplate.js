@@ -76,7 +76,7 @@ export function renderBaseEmail({
                 <tr>
                   <td align="center">
                     <a href="${getPlatformUrl()}" target="_blank" style="text-decoration: none; display: inline-block;">
-                      <img src="${getPlatformUrl('tiwlo-brand-mark.png')}" alt="${PLATFORM_CONFIG.emailSenderName}" width="40" height="40" style="display: block; width: 40px; height: 40px; object-fit: contain; border: 0;" />
+                      <img src="${getPlatformUrl('tiwlo-light-logo.png')}" alt="${PLATFORM_CONFIG.emailSenderName}" width="120" height="40" style="display: block; width: 120px; height: 40px; object-fit: contain; border: 0;" />
                     </a>
                   </td>
                 </tr>

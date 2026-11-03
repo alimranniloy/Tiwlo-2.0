@@ -48,13 +48,13 @@ export default function NotFoundView({ onNavigate }) {
           {!logoError ? (
             <>
               <img
-                src="/tiwlo-brand-mark.png"
+                src="/tiwlologo.png"
                 alt="Tiwlo"
                 onError={() => setLogoError(true)}
                 className="h-6 sm:h-7 w-auto object-contain dark:hidden transition-transform group-hover:scale-[1.02]"
               />
               <img
-                src="/tiwlo-brand-mark.png"
+                src="/tiwlologo-dark.png"
                 alt="Tiwlo"
                 onError={() => setLogoError(true)}
                 className="h-6 sm:h-7 w-auto object-contain hidden dark:block transition-transform group-hover:scale-[1.02]"

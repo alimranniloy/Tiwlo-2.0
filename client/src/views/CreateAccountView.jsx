@@ -1107,12 +1107,12 @@ export default function CreateAccountView({
               <div className="mb-5 sm:mb-6">
                 <a href={getPlatformUrl()} className="inline-block transition-opacity hover:opacity-90">
                   <img
-                    src="/tiwlo-brand-mark.png"
+                    src="/tiwlo-light-logo.png"
                     alt="Tiwlo"
                     className="h-7 w-auto object-contain lg:hidden"
                   />
                   <img
-                    src="/tiwlo-brand-mark.png"
+                    src="/tiwlo-dark-bg-logo.png"
                     alt="Tiwlo"
                     className="hidden h-8 w-auto object-contain lg:block"
                   />

@@ -68,7 +68,7 @@ export default function EmailReadingPane() {
   if (!selectedEmail) {
     return (
       <div className="flex-1 hidden md:flex flex-col items-center justify-center p-8 bg-neutral-50/50 dark:bg-[#121212] text-neutral-400 select-none">
-        <div className="w-16 h-16 rounded-2xl bg-neutral-50 dark:bg-neutral-950/40 text-[#137333] flex items-center justify-center mb-3">
+        <div className="w-16 h-16 rounded-2xl bg-neutral-50 dark:bg-neutral-950/40 text-[#656565] flex items-center justify-center mb-3">
           <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
@@ -107,7 +107,7 @@ export default function EmailReadingPane() {
               subject: `Re: ${selectedEmail.subject}`,
               body: `\n\nOn ${selectedEmail.fullDate}, ${selectedEmail.sender?.name} wrote:\n${selectedEmail.bodyText || ''}`
             })}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#137333] hover:bg-[#0f7a37] active:bg-[#115c31] text-white font-bold transition cursor-pointer shadow-xs"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#656565] hover:bg-[#606060] active:bg-[#4c4c4c] text-white font-bold transition cursor-pointer shadow-xs"
           >
             <Reply className="w-4 h-4" />
             <span>Reply</span>
@@ -153,7 +153,7 @@ export default function EmailReadingPane() {
               handleDeleteEmail(selectedEmail.id);
               setMobileView('list');
             }}
-            className="p-2 rounded-lg hover:bg-neutral-50 hover:text-neutral-600 dark:hover:bg-neutral-950/40 text-[#111111] transition cursor-pointer"
+            className="p-2 rounded-lg hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 text-[#D83B01] transition cursor-pointer"
             title="Delete"
           >
             <Trash2 className="w-4 h-4" />
@@ -180,7 +180,7 @@ export default function EmailReadingPane() {
             className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 transition cursor-pointer"
             title="Flag message"
           >
-            <Star className={`w-4 h-4 ${selectedEmail.isFlagged ? 'fill-[#111111] text-[#111111]' : ''}`} />
+            <Star className={`w-4 h-4 ${selectedEmail.isFlagged ? 'fill-[#D83B01] text-[#D83B01]' : ''}`} />
           </button>
           <button
             type="button"
@@ -204,7 +204,7 @@ export default function EmailReadingPane() {
             {selectedEmail.category && (
               <span
                 className="text-[11px] font-bold px-2.5 py-0.5 rounded-full text-white flex-shrink-0 shadow-xs"
-                style={{ backgroundColor: selectedEmail.categoryColor || '#137333' }}
+                style={{ backgroundColor: selectedEmail.categoryColor || '#656565' }}
               >
                 {selectedEmail.category}
               </span>
@@ -214,11 +214,11 @@ export default function EmailReadingPane() {
           {/* Delivery information */}
           <div className={`flex items-center gap-2 p-2 px-3 rounded-lg border text-[11.5px] ${
             selectedEmail.deliveryStatus === 'failed'
-              ? 'bg-neutral-50 dark:bg-neutral-950/30 border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-300'
+              ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
               : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
           }`}>
             {selectedEmail.deliveryStatus === 'failed'
-              ? <AlertCircle className="w-4 h-4 text-neutral-600 flex-shrink-0" />
+              ? <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
               : <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />}
             <span className="font-semibold">Mail status:</span>
             <span>
@@ -242,7 +242,7 @@ export default function EmailReadingPane() {
                 className="w-10 h-10 rounded-full object-cover ring-2 ring-neutral-500/20 mt-0.5"
               />
             ) : (
-              <div className={`w-10 h-10 rounded-full ${selectedEmail.sender?.avatarColor || 'bg-[#137333]'} text-white font-bold text-[14px] flex items-center justify-center shadow-xs mt-0.5`}>
+              <div className={`w-10 h-10 rounded-full ${selectedEmail.sender?.avatarColor || 'bg-[#656565]'} text-white font-bold text-[14px] flex items-center justify-center shadow-xs mt-0.5`}>
                 {selectedEmail.sender?.initials || 'U'}
               </div>
             )}
@@ -301,9 +301,9 @@ export default function EmailReadingPane() {
               {selectedEmail.attachments.map((att) => (
                 <div
                   key={att.id || att.filename}
-                  className="flex items-center gap-3 p-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50/80 dark:bg-neutral-800/60 hover:border-[#137333] transition group"
+                  className="flex items-center gap-3 p-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50/80 dark:bg-neutral-800/60 hover:border-[#656565] transition group"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-neutral-50 dark:bg-neutral-950/40 text-[#137333] flex items-center justify-center font-bold text-[9px]">
+                  <div className="w-8 h-8 rounded-lg bg-neutral-50 dark:bg-neutral-950/40 text-[#656565] flex items-center justify-center font-bold text-[9px]">
                     {(att.contentType?.startsWith('image/') ? 'IMG' : att.filename?.split('.').pop()?.slice(0, 4) || 'FILE').toUpperCase()}
                   </div>
                   <div className="flex flex-col text-left">
@@ -335,7 +335,7 @@ export default function EmailReadingPane() {
             <button
               type="button"
               onClick={() => setShowExternalImages(true)}
-              className="shrink-0 rounded-md bg-[#137333] px-3 py-1.5 font-semibold text-white hover:bg-[#0f7a37]"
+              className="shrink-0 rounded-md bg-[#656565] px-3 py-1.5 font-semibold text-white hover:bg-[#606060]"
             >
               Load images
             </button>
@@ -344,7 +344,7 @@ export default function EmailReadingPane() {
 
         {/* Email HTML Body */}
         <div
-          className="prose dark:prose-invert max-w-none text-[13.5px] text-neutral-800 dark:text-neutral-200 leading-relaxed py-2 [&_a]:text-[#137333] [&_a]:underline [&_a]:cursor-pointer [&_img]:max-w-full [&_img]:h-auto"
+          className="prose dark:prose-invert max-w-none text-[13.5px] text-neutral-800 dark:text-neutral-200 leading-relaxed py-2 [&_a]:text-[#656565] [&_a]:underline [&_a]:cursor-pointer [&_img]:max-w-full [&_img]:h-auto"
           dangerouslySetInnerHTML={{
             __html: showExternalImages
               ? selectedEmail.bodyHtml?.replace(/\bdata-remote-src=/g, 'src=') || ''
@@ -361,9 +361,9 @@ export default function EmailReadingPane() {
               onClick={() => {
                 setReplyText(reply);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-neutral-200 dark:border-neutral-700 hover:border-[#137333] hover:bg-neutral-50/50 dark:hover:bg-neutral-950/30 text-[12px] text-neutral-700 dark:text-neutral-300 transition cursor-pointer group"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-neutral-200 dark:border-neutral-700 hover:border-[#656565] hover:bg-neutral-50/50 dark:hover:bg-neutral-950/30 text-[12px] text-neutral-700 dark:text-neutral-300 transition cursor-pointer group"
             >
-              <Sparkles className="w-3 h-3 text-[#137333] group-hover:scale-110 transition-transform" />
+              <Sparkles className="w-3 h-3 text-[#656565] group-hover:scale-110 transition-transform" />
               <span>{reply}</span>
             </button>
           ))}
@@ -373,10 +373,10 @@ export default function EmailReadingPane() {
         <div className="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-800">
           <form
             onSubmit={handleQuickReplySubmit}
-            className="p-3.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-900/40 flex flex-col gap-2.5 focus-within:ring-2 focus-within:ring-[#137333]/40 focus-within:border-[#137333] transition shadow-xs"
+            className="p-3.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-900/40 flex flex-col gap-2.5 focus-within:ring-2 focus-within:ring-[#656565]/40 focus-within:border-[#656565] transition shadow-xs"
           >
             <div className="flex items-center gap-2 text-[12px] text-neutral-600 font-semibold">
-              <Reply className="w-3.5 h-3.5 text-[#137333]" />
+              <Reply className="w-3.5 h-3.5 text-[#656565]" />
               <span>Reply to {selectedEmail.sender?.name}...</span>
             </div>
 
@@ -408,7 +408,7 @@ export default function EmailReadingPane() {
                 <button
                   type="submit"
                   disabled={!replyText.trim() || isReplying}
-                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[#137333] hover:bg-[#0f7a37] active:bg-[#115c31] disabled:opacity-40 text-white text-[12.5px] font-bold shadow-xs transition cursor-pointer"
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[#656565] hover:bg-[#606060] active:bg-[#4c4c4c] disabled:opacity-40 text-white text-[12.5px] font-bold shadow-xs transition cursor-pointer"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>{isReplying ? 'Sending...' : 'Send'}</span>

@@ -188,7 +188,7 @@ export default function SecurityCheckupView({ user, onComplete }) {
         <div className="flex items-center gap-3">
           <a href={getPlatformUrl()} className="flex items-center gap-2.5 transition-opacity hover:opacity-90">
             <img
-              src="/tiwlo-brand-mark.png"
+              src="/tiwlologo.png"
               alt="Tiwlo"
               className="h-7 sm:h-8 w-auto object-contain"
               onError={(e) => {

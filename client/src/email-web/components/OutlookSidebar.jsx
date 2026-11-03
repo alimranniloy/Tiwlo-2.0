@@ -52,7 +52,7 @@ export default function OutlookSidebar() {
   ];
 
   const categoryTags = [
-    { name: 'Work', color: '#137333' },
+    { name: 'Work', color: '#656565' },
     { name: 'Personal', color: '#107C41' }
   ];
 
@@ -72,13 +72,13 @@ export default function OutlookSidebar() {
               }}
               className={`relative w-[38px] h-[38px] rounded-lg flex items-center justify-center transition cursor-pointer ${
                 isActive
-                  ? 'bg-white dark:bg-neutral-800 text-[#137333] dark:text-[#1ed760] shadow-xs font-semibold'
+                  ? 'bg-white dark:bg-neutral-800 text-[#656565] dark:text-[#737373] shadow-xs font-semibold'
                   : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60'
               }`}
               title={item.label}
             >
               {isActive && (
-                <span className="absolute left-0 top-2 bottom-2 w-1 bg-[#137333] dark:bg-[#1ed760] rounded-r-md" />
+                <span className="absolute left-0 top-2 bottom-2 w-1 bg-[#656565] dark:bg-[#737373] rounded-r-md" />
               )}
               <Icon className="w-5 h-5 stroke-[1.8]" />
             </button>
@@ -94,7 +94,7 @@ export default function OutlookSidebar() {
             <button
               type="button"
               onClick={() => openCompose()}
-              className="w-full flex items-center justify-center gap-2 bg-[#137333] hover:bg-[#0f7a37] active:bg-[#115c31] text-white font-bold py-2 px-3 rounded-lg shadow-xs hover:shadow transition cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 bg-[#656565] hover:bg-[#606060] active:bg-[#4c4c4c] text-white font-bold py-2 px-3 rounded-lg shadow-xs hover:shadow transition cursor-pointer"
               title="Compose New Mail (Ctrl + N)"
             >
               <Plus className="w-4 h-4 stroke-[2.8]" />
@@ -128,19 +128,19 @@ export default function OutlookSidebar() {
                       }}
                       className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg transition cursor-pointer text-left ${
                         isActive
-                          ? 'bg-neutral-50 dark:bg-neutral-950/40 text-[#137333] dark:text-[#1ed760] font-bold'
+                          ? 'bg-neutral-50 dark:bg-neutral-950/40 text-[#656565] dark:text-[#737373] font-bold'
                           : 'hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50 text-neutral-600 dark:text-neutral-300'
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-[#137333] dark:text-[#1ed760]' : 'text-neutral-400'}`} />
+                        <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-[#656565] dark:text-[#737373]' : 'text-neutral-400'}`} />
                         <span className="truncate">{f.label}</span>
                       </div>
                       {f.count > 0 && (
                         <span
                           className={`text-[11px] font-bold px-1.5 py-0.2 rounded-full ${
                             f.countHighlight
-                              ? 'bg-[#137333] text-white'
+                              ? 'bg-[#656565] text-white'
                               : 'text-neutral-400'
                           }`}
                         >
@@ -180,19 +180,19 @@ export default function OutlookSidebar() {
                       }}
                       className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg transition cursor-pointer text-left ${
                         isActive
-                          ? 'bg-neutral-50 dark:bg-neutral-950/40 text-[#137333] dark:text-[#1ed760] font-bold'
+                          ? 'bg-neutral-50 dark:bg-neutral-950/40 text-[#656565] dark:text-[#737373] font-bold'
                           : 'hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50 text-neutral-600 dark:text-neutral-300'
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-[#137333] dark:text-[#1ed760]' : 'text-neutral-400'}`} />
+                        <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-[#656565] dark:text-[#737373]' : 'text-neutral-400'}`} />
                         <span className="truncate">{f.label}</span>
                       </div>
                       {f.count > 0 && (
                         <span
                           className={`text-[11px] font-bold px-1.5 py-0.2 rounded-full ${
                             f.countHighlight
-                              ? 'bg-[#137333] text-white'
+                              ? 'bg-[#656565] text-white'
                               : 'text-neutral-400'
                           }`}
                         >
@@ -232,7 +232,7 @@ export default function OutlookSidebar() {
                       }}
                       className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg transition cursor-pointer text-left ${
                         isSelected
-                          ? 'bg-neutral-50 dark:bg-neutral-950/40 text-[#137333] dark:text-[#1ed760] font-semibold'
+                          ? 'bg-neutral-50 dark:bg-neutral-950/40 text-[#656565] dark:text-[#737373] font-semibold'
                           : 'hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50 text-neutral-600 dark:text-neutral-300'
                       }`}
                     >

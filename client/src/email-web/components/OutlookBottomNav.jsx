@@ -29,14 +29,14 @@ export default function OutlookBottomNav() {
         }}
         className={`flex flex-col items-center justify-center flex-1 py-1 transition cursor-pointer relative ${
           activeFolder === 'inbox' && mobileView === 'list'
-            ? 'text-[#137333] dark:text-[#1ed760] font-bold'
+            ? 'text-[#656565] dark:text-[#737373] font-bold'
             : 'text-neutral-500 dark:text-neutral-400'
         }`}
       >
         <Mail className="w-5 h-5 stroke-[2]" />
         <span className="text-[10px] font-semibold mt-0.5">Mail</span>
         {counts.inboxUnread > 0 && (
-          <span className="absolute top-1 right-[26%] bg-[#137333] text-white text-[9.5px] font-bold px-1.5 py-0.2 rounded-full">
+          <span className="absolute top-1 right-[26%] bg-[#656565] text-white text-[9.5px] font-bold px-1.5 py-0.2 rounded-full">
             {counts.inboxUnread}
           </span>
         )}
@@ -55,7 +55,7 @@ export default function OutlookBottomNav() {
       <button
         type="button"
         onClick={() => openCompose()}
-        className="w-12 h-12 rounded-full bg-[#137333] hover:bg-[#0f7a37] active:scale-95 text-white flex items-center justify-center shadow-lg transition cursor-pointer -mt-5 ring-4 ring-white dark:ring-[#181818]"
+        className="w-12 h-12 rounded-full bg-[#656565] hover:bg-[#606060] active:scale-95 text-white flex items-center justify-center shadow-lg transition cursor-pointer -mt-5 ring-4 ring-white dark:ring-[#181818]"
         title="Compose Email"
       >
         <Plus className="w-6 h-6 stroke-[2.8]" />

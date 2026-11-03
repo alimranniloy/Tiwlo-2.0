@@ -852,7 +852,8 @@ export default function SalesView({
           <div className="border-b border-neutral-200 dark:border-gray-800 pb-4 mb-4 flex justify-between items-start">
             <div>
               <div className="flex items-center space-x-2">
-                <img src="/tiwlo-brand-mark.png" alt="Tiwlo" className="w-5 h-5 object-contain" />
+                <img src="/tiwlo-icon.png" alt="Tiwlo" className="w-5 h-5 object-contain dark:hidden" />
+                <img src="/tiwlo-icon-dark.png" alt="Tiwlo" className="w-5 h-5 object-contain hidden dark:block" />
                 <h2 className="text-xl font-bold text-neutral-900 dark:text-white tracking-tight">Tiwlo Commerce</h2>
               </div>
               <p className="text-[11px] text-neutral-400">Invoice: <strong>{viewingInvoice.invoiceNumber}</strong></p>
