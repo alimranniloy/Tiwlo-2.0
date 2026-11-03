@@ -1087,58 +1087,67 @@ export default function CreateAccountView({
   const headerInfo = getStepHeader();
 
   return (
-    <div className="tiwi-v3-auth min-h-screen bg-[#f4f4f4] flex flex-col justify-between py-6 sm:py-12 px-4 sm:px-6 font-sans antialiased text-[#1f1f1f] select-none">
+    <div className="tiwi-v3-auth min-h-dvh bg-white font-sans antialiased text-[#1f1f1f]">
       {/* Liquid Page Loader */}
       {loading && <TiwloPageLoader />}
 
       {/* ============================================================== */}
       {/* MAIN CARD CONTAINER (GOOGLE ACCOUNT 2-COLUMN CLONE)             */}
       {/* ============================================================== */}
-      <div className="w-full max-w-[1040px] mx-auto my-auto bg-white sm:border sm:border-[#dcdcdc] sm:rounded-[28px] p-6 sm:p-10 lg:p-12 sm:shadow-[0_1px_3px_0_rgba(60,64,67,0.15)] transition-all">
+      <div className="auth-v3-layout grid min-h-dvh w-full grid-cols-1 bg-white transition-all lg:grid-cols-2">
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14 items-start">
+        <div className="grid grid-cols-1 items-stretch gap-0 lg:contents">
           
           {/* ============================================================ */}
           {/* LEFT COLUMN: BRAND LOGO, GOOGLE HEADLINE & STEP TRACKER      */}
           {/* ============================================================ */}
-          <div className="flex flex-col justify-between lg:min-h-[420px]">
+          <div className="auth-v3-register-intro relative flex flex-col justify-between p-6 sm:p-8 lg:min-h-[640px] lg:p-12">
             <div>
               {/* Tiwlo Logo */}
               <div className="mb-5 sm:mb-6">
                 <a href={getPlatformUrl()} className="inline-block transition-opacity hover:opacity-90">
                   <img
-                    src="/tiwlologo.png"
+                    src="/tiwlo-light-logo.png"
                     alt="Tiwlo"
-                    className="h-7 sm:h-8 w-auto object-contain"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'flex';
-                    }}
+                    className="h-7 w-auto object-contain lg:hidden"
                   />
-                  <div className="hidden items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-[#000000] text-white font-bold flex items-center justify-center text-sm">
-                      T
-                    </div>
-                    <span className="font-semibold text-lg text-[#1f1f1f] tracking-tight">Tiwlo</span>
-                  </div>
+                  <img
+                    src="/tiwlo-dark-bg-logo.png"
+                    alt="Tiwlo"
+                    className="hidden h-8 w-auto object-contain lg:block"
+                  />
                 </a>
               </div>
 
               {/* Main Heading */}
-              <h1 className="text-[28px] sm:text-[36px] font-normal text-[#1f1f1f] tracking-tight leading-[1.2] mb-3">
+              <h1 className="text-[28px] sm:text-[36px] font-normal text-[#1f1f1f] tracking-tight leading-[1.2] mb-3 lg:text-white">
                 {headerInfo.title}
               </h1>
 
               {/* Subheading */}
-              <p className="text-[15px] sm:text-[16px] text-[#444746] leading-relaxed max-w-[420px]">
+              <p className="text-[15px] sm:text-[16px] text-[#444746] leading-relaxed max-w-[420px] lg:text-white/65">
                 {headerInfo.subtitle}
               </p>
+              <ul className="mt-8 hidden flex-col gap-4 lg:flex">
+                {[
+                  'Online store and retail tools',
+                  'Cloud workspace and account services',
+                  'One account for your Tiwlo workspace'
+                ].map(item => (
+                  <li key={item} className="flex items-center gap-3 text-sm text-white/80">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[#1ed760] text-[#121212]">
+                      <Check className="size-3.5" strokeWidth={3} aria-hidden="true" />
+                    </span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
 
             {/* Google Minimal Step Indicator (Steps 1 to 5) */}
             {step !== 'success' && (
-              <div className="mt-8 pt-6 border-t border-[#f1f3f4] hidden lg:block">
-                <div className="flex items-center justify-between text-[12px] text-[#444746] mb-2 font-medium">
+              <div className="mt-8 hidden border-t border-[#f1f3f4] pt-6 lg:block lg:border-white/15">
+                <div className="flex items-center justify-between text-[12px] text-[#444746] mb-2 font-medium lg:text-white/75">
                   <span>
                     {step === 1 && "Step 1: Account credentials"}
                     {step === 2 && (socialProfileMode ? 'Complete your profile' : 'Step 2: Profile & account type')}
@@ -1146,13 +1155,13 @@ export default function CreateAccountView({
                     {step === 4 && "Step 4: Email confirmation"}
                     {step === 5 && "Step 5: 2-Step Verification"}
                   </span>
-                  <span className="font-mono text-[#747775]">
+                  <span className="font-mono text-[#747775] lg:text-white/50">
                     {socialProfileMode ? 'Profile details' : `Step ${step} of 5`}
                   </span>
                 </div>
-                <div className="w-full bg-[#e2e2e2] h-1 rounded-full overflow-hidden">
+                <div className="w-full bg-[#e2e2e2] h-1 rounded-full overflow-hidden lg:bg-white/15">
                   <div
-                    className="bg-[#000000] h-full transition-all duration-300 rounded-full"
+                    className="bg-[#000000] h-full transition-all duration-300 rounded-full lg:bg-[#1ed760]"
                     style={{ width: `${(step / 5) * 100}%` }}
                   />
                 </div>
@@ -1163,9 +1172,9 @@ export default function CreateAccountView({
           {/* ============================================================ */}
           {/* RIGHT COLUMN: INTERACTIVE FORM & GOOGLE CONTROLS            */}
           {/* ============================================================ */}
-          <div className="flex flex-col justify-between lg:min-h-[420px]">
+          <div className="auth-v3-form-panel flex min-w-0 flex-col justify-center px-6 py-8 sm:px-12 lg:min-h-dvh lg:px-14">
             
-            <div className="space-y-4">
+            <div className="mx-auto w-full max-w-sm space-y-4">
               {/* Error Message Alert (Google Minimal Style - No Background) */}
               {errorMsg && (
                 <div className="flex items-center gap-2 text-[13px] text-[#d93025] font-medium py-1">
@@ -2397,29 +2406,22 @@ export default function CreateAccountView({
               )}
 
             </div>
-
+            <footer className="mx-auto mt-8 flex w-full max-w-sm flex-col items-center justify-between gap-3 text-[12px] text-[#636363] sm:flex-row lg:mt-auto">
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4 text-[#636363]" />
+                <span>English (United States)</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <a href={getPlatformUrl()} className="transition-colors hover:text-[#1f1f1f]">Help</a>
+                <a href={getPlatformUrl()} className="transition-colors hover:text-[#1f1f1f]">Privacy</a>
+                <a href={getPlatformUrl()} className="transition-colors hover:text-[#1f1f1f]">Terms</a>
+              </div>
+            </footer>
           </div>
 
         </div>
 
       </div>
-
-      {/* ============================================================== */}
-      {/* STANDARD GOOGLE ACCOUNT FOOTER                                 */}
-      {/* ============================================================== */}
-      <footer className="w-full max-w-[1040px] mx-auto pt-6 flex flex-col sm:flex-row items-center justify-between text-[12px] text-[#636363] gap-3">
-        <div className="flex items-center gap-2">
-          <Globe className="w-4 h-4 text-[#636363]" />
-          <span className="hover:text-[#1f1f1f] cursor-pointer">English (United States)</span>
-        </div>
-
-        <div className="flex items-center gap-6">
-          <a href={getPlatformUrl()} className="hover:text-[#1f1f1f] transition-colors">Help</a>
-          <a href={getPlatformUrl()} className="hover:text-[#1f1f1f] transition-colors">Privacy</a>
-          <a href={getPlatformUrl()} className="hover:text-[#1f1f1f] transition-colors">Terms</a>
-          <span>&copy; 2026 Tiwlo, Inc.</span>
-        </div>
-      </footer>
 
     </div>
   );

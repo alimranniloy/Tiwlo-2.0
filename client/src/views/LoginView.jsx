@@ -9,6 +9,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import TiwloPageLoader from '../components/TiwloUniqueLoader';
+import AuthBrandPanel from '../components/auth/AuthBrandPanel';
 
 const API_BASE = '/api';
 
@@ -801,28 +802,28 @@ export default function LoginView({
   };
 
   return (
-    <div className="tiwi-v3-auth min-h-screen bg-[#f4f4f4] dark:bg-[#131313] flex flex-col justify-center items-center py-8 sm:py-12 px-4 selection:bg-[#1ed760] selection:text-[#121212] transition-colors duration-200">
+    <div className="tiwi-v3-auth min-h-dvh bg-white selection:bg-[#1ed760] selection:text-[#121212]">
       {/* Liquid Page Loader */}
       {loading && <TiwloPageLoader />}
 
-      {/* Main Google Material 3 Styled Card */}
-      <div className="w-full max-w-[448px]">
-        <div className="bg-white dark:bg-[#1f1f1f] border border-[#dcdcdc] dark:border-[#3f3f3f] rounded-[28px] p-7 sm:p-9 shadow-none space-y-5">
+      <div className="auth-v3-layout grid min-h-dvh w-full grid-cols-1 bg-white lg:grid-cols-2">
+        <AuthBrandPanel
+          title="Accelerate your business with Tiwlo."
+          description="Sign in to reach your storefront, retail tools, and cloud workspace."
+        />
+        <section className="auth-v3-form-panel flex min-h-dvh min-w-0 flex-col bg-white px-6 py-8 sm:px-12 lg:px-14">
           
           {/* Top Brand Logo */}
-          <div className="flex items-center">
+          <div className="lg:hidden">
             <img
-              src="/tiwlologo.png"
+              src="/tiwlo-light-logo.png"
               alt="Tiwlo"
-              className="h-8 sm:h-9 w-auto object-contain dark:hidden"
-            />
-            <img
-              src="/tiwlologo-dark.png"
-              alt="Tiwlo"
-              className="h-8 sm:h-9 w-auto object-contain hidden dark:block"
+              className="h-8 sm:h-9 w-auto object-contain lg:hidden"
             />
           </div>
 
+          <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">
+            <div className="space-y-5">
           {viewMode === 'profile_complete' && (
             <div className="space-y-4">
               <div>
@@ -1728,17 +1729,19 @@ export default function LoginView({
             </div>
           )}
 
-        </div>
+            </div>
+          </div>
 
         {/* Google Style Minimalist Footer */}
-        <div className="mt-6 flex items-center justify-between text-[12px] text-[#747775] px-4">
+        <footer className="mx-auto flex w-full max-w-sm items-center justify-between gap-4 text-[12px] text-[#747775]">
           <span>English (United States)</span>
           <div className="space-x-4">
             <span className="hover:text-[#1F1F1F] dark:hover:text-[#E3E3E3] cursor-pointer">Help</span>
             <span className="hover:text-[#1F1F1F] dark:hover:text-[#E3E3E3] cursor-pointer">Privacy</span>
             <span className="hover:text-[#1F1F1F] dark:hover:text-[#E3E3E3] cursor-pointer">Terms</span>
           </div>
-        </div>
+        </footer>
+        </section>
       </div>
     </div>
   );

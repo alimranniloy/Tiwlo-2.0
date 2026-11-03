@@ -295,11 +295,48 @@
   color: var(--tiwi-v3-ink);
 }
 
-.tiwi-v3-auth > .w-full.max-w-\[448px\] > .bg-white,
-.tiwi-v3-auth > .w-full.max-w-\[1040px\] {
-  border: 1px solid #e4e4e4;
-  border-radius: 1.75rem;
-  box-shadow: 0 1px 3px rgb(18 18 18 / 8%);
+.tiwi-v3-auth .auth-v3-form-panel :is(input, select, textarea) {
+  border-radius: 0.75rem;
+  background-color: #f4f4f4;
+  border-color: #e4e4e4;
+  color: #121212;
+  min-height: 3rem;
+}
+
+.tiwi-v3-auth .auth-v3-form-panel h1 {
+  color: #121212;
+  font-size: 1.875rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.tiwi-v3-auth .auth-v3-form-panel label {
+  color: #121212;
+  font-weight: 600;
+}
+
+.tiwi-v3-auth .auth-v3-form-panel :is(input, select, textarea):focus {
+  background-color: #fff;
+  border-color: #121212;
+  outline: 2px solid rgb(30 215 96 / 25%);
+  outline-offset: 1px;
+}
+
+.tiwi-v3-auth .auth-v3-form-panel :is(input, select, textarea)::placeholder {
+  color: #6a6a6a;
+}
+
+.tiwi-v3-auth .auth-v3-register-intro {
+  background: #fff;
+}
+
+@media (min-width: 1024px) {
+  .tiwi-v3-auth .auth-v3-register-intro {
+    background:
+      radial-gradient(circle at 105% 105%, rgb(30 215 96 / 12%), transparent 42%),
+      #121212;
+  }
 }
 
 .tiwi-v3-auth button[class~="bg-[#000000]"],
