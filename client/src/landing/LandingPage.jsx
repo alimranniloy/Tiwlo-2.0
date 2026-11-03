@@ -212,10 +212,10 @@ function SectionHeading({ eyebrow, title, body, inverted = false }) {
 
 function HeroPreview() {
   return (
-    <div className="relative isolate">
+    <div className="relative isolate mt-8 sm:mt-0">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -right-8 top-3 -z-10 size-44 rounded-full border-[18px] border-[#1ed760]/65 blur-[3px] sm:-right-12 sm:-top-12 sm:size-72 sm:border-[34px] sm:blur-[5px]"
+        className="pointer-events-none absolute -right-8 -top-8 -z-10 size-44 rounded-full border-[18px] border-[#1ed760]/65 blur-[3px] sm:-right-12 sm:-top-12 sm:size-72 sm:border-[34px] sm:blur-[5px]"
       />
       <img
         src="/landing-cloud-dashboard.png"
@@ -489,8 +489,7 @@ function CtaSection({ currentUser, onNavigate }) {
     <section className="py-20 sm:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="relative overflow-hidden rounded-[2rem] bg-[#1ed760] px-6 py-16 text-center text-[#121212] sm:px-16">
-          <Cloud className="mx-auto size-10" aria-hidden="true" />
-          <h2 className="mx-auto mt-6 max-w-2xl text-balance text-4xl font-bold tracking-tight sm:text-5xl">
+          <h2 className="mx-auto max-w-2xl text-balance text-4xl font-bold tracking-tight sm:text-5xl">
             Ready to build on Tiwlo?
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-pretty text-base">
