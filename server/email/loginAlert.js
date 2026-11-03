@@ -60,7 +60,7 @@ export function renderLoginAlertEmail({
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0;">
       <tr>
         <td align="center">
-          <a href="${actionUrl}" target="_blank" style="background-color: #1a73e8; color: #ffffff; font-size: 14px; font-weight: 500; text-decoration: none; padding: 10px 24px; border-radius: 4px; display: inline-block; font-family: 'Google Sans', Roboto, Arial, sans-serif;">
+          <a href="${actionUrl}" target="_blank" style="background-color: #137333; color: #ffffff; font-size: 14px; font-weight: 500; text-decoration: none; padding: 10px 24px; border-radius: 4px; display: inline-block; font-family: 'Google Sans', Roboto, Arial, sans-serif;">
             Check activity
           </a>
         </td>

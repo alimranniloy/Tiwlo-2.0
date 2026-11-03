@@ -8,7 +8,7 @@ import { getPlatformUrl } from '../config/platformConfig.js';
  * - Clean total amount display with green "Paid" status chip
  * - High-clarity invoice metadata table
  * - Itemized billing breakdown
- * - Google Blue "View invoice" button (#1a73e8)
+ * - Tiwlo green "View invoice" button
  */
 export function renderInvoiceEmail({
   to,
@@ -157,7 +157,7 @@ export function renderInvoiceEmail({
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 20px 0;">
       <tr>
         <td align="center">
-          <a href="${safeActionUrl}" target="_blank" style="background-color: #1a73e8; color: #ffffff; font-size: 14px; font-weight: 500; text-decoration: none; padding: 10px 24px; border-radius: 4px; display: inline-block; font-family: 'Google Sans', Roboto, Arial, sans-serif;">
+          <a href="${safeActionUrl}" target="_blank" style="background-color: #137333; color: #ffffff; font-size: 14px; font-weight: 500; text-decoration: none; padding: 10px 24px; border-radius: 4px; display: inline-block; font-family: 'Google Sans', Roboto, Arial, sans-serif;">
             View invoice
           </a>
         </td>

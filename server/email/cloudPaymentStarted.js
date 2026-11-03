@@ -48,7 +48,7 @@ export function renderCloudPaymentStartedEmail({
     </table>
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0;">
       <tr><td align="center">
-        <a href="${safeCheckoutUrl}" target="_blank" rel="noopener" style="background-color: #1a73e8; color: #ffffff; font-size: 14px; font-weight: 500; text-decoration: none; padding: 11px 24px; border-radius: 4px; display: inline-block;">
+        <a href="${safeCheckoutUrl}" target="_blank" rel="noopener" style="background-color: #137333; color: #ffffff; font-size: 14px; font-weight: 500; text-decoration: none; padding: 11px 24px; border-radius: 4px; display: inline-block;">
           Continue to secure checkout
         </a>
       </td></tr>
@@ -108,7 +108,7 @@ export function renderCloudPaymentReminderEmail({
     </table>
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0;">
       <tr><td align="center">
-        <a href="${safeInvoiceUrl}" target="_blank" rel="noopener" style="background-color: #1a73e8; color: #ffffff; font-size: 14px; font-weight: 500; text-decoration: none; padding: 11px 24px; border-radius: 4px; display: inline-block;">
+        <a href="${safeInvoiceUrl}" target="_blank" rel="noopener" style="background-color: #137333; color: #ffffff; font-size: 14px; font-weight: 500; text-decoration: none; padding: 11px 24px; border-radius: 4px; display: inline-block;">
           Review invoice
         </a>
       </td></tr>
@@ -160,7 +160,7 @@ export function renderCloudPaymentCancelledEmail({
     </p>
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 24px 0;">
       <tr><td align="center">
-        <a href="${safeInvoiceUrl}" target="_blank" rel="noopener" style="background-color: #1a73e8; color: #ffffff; font-size: 14px; font-weight: 500; text-decoration: none; padding: 11px 24px; border-radius: 4px; display: inline-block;">
+        <a href="${safeInvoiceUrl}" target="_blank" rel="noopener" style="background-color: #137333; color: #ffffff; font-size: 14px; font-weight: 500; text-decoration: none; padding: 11px 24px; border-radius: 4px; display: inline-block;">
           View billing
         </a>
       </td></tr>

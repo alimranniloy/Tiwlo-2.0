@@ -17,7 +17,7 @@ export function renderIdentityVerificationRequiredEmail({ to, identityUrl }) {
     </div>
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin:24px 0;">
       <tr><td align="center">
-        <a href="${targetUrl}" target="_blank" style="display:inline-block;background:#1a73e8;color:#fff;text-decoration:none;font-size:14px;font-weight:500;line-height:20px;padding:12px 28px;border-radius:20px;font-family:'Google Sans',Roboto,-apple-system,BlinkMacSystemFont,sans-serif;">
+        <a href="${targetUrl}" target="_blank" style="display:inline-block;background:#137333;color:#fff;text-decoration:none;font-size:14px;font-weight:500;line-height:20px;padding:12px 28px;border-radius:20px;font-family:'Google Sans',Roboto,-apple-system,BlinkMacSystemFont,sans-serif;">
           Start identity verification
         </a>
       </td></tr>

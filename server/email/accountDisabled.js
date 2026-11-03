@@ -28,7 +28,7 @@ export function renderAccountDisabledEmail({ to, name, reason, restoreUrl }) {
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 26px 0;">
       <tr>
         <td align="center">
-          <a href="${targetUrl}" target="_blank" style="display: inline-block; background-color: #0b57d0; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 500; line-height: 20px; padding: 12px 36px; border-radius: 20px; font-family: 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;">
+          <a href="${targetUrl}" target="_blank" style="display: inline-block; background-color: #137333; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 500; line-height: 20px; padding: 12px 36px; border-radius: 20px; font-family: 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;">
             Submit appeal
           </a>
         </td>
