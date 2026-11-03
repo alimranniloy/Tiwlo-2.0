@@ -215,7 +215,7 @@ function HeroPreview() {
     <div className="relative isolate">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -right-8 -top-8 -z-10 size-44 rounded-full border-[18px] border-[#1ed760]/65 blur-[3px] sm:-right-12 sm:-top-12 sm:size-72 sm:border-[34px] sm:blur-[5px]"
+        className="pointer-events-none absolute -right-8 top-3 -z-10 size-44 rounded-full border-[18px] border-[#1ed760]/65 blur-[3px] sm:-right-12 sm:-top-12 sm:size-72 sm:border-[34px] sm:blur-[5px]"
       />
       <img
         src="/landing-cloud-dashboard.png"
@@ -757,7 +757,7 @@ export default function LandingPage({ onNavigate, currentUser }) {
                   Explore solutions
                 </a>
               </div>
-              <ul className="mt-5 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-[#6a6a6a] sm:mt-8 sm:gap-x-6 sm:gap-y-2 sm:text-sm">
+              <ul className="relative z-10 mt-5 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-[#6a6a6a] sm:mt-8 sm:gap-x-6 sm:gap-y-2 sm:text-sm">
                 {['Cloud workspace', 'Commerce tools', 'Retail & POS'].map((item) => (
                   <li key={item} className="flex items-center gap-2">
                     <Check className="size-4 text-[#0f7a37]" strokeWidth={3} aria-hidden="true" />
