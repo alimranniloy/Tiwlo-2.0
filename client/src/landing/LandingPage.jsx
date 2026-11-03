@@ -215,7 +215,7 @@ function HeroPreview() {
     <div className="relative isolate">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -right-7 -top-8 -z-10 size-44 rounded-full border-[18px] border-[#1ed760]/80 sm:-right-12 sm:-top-12 sm:size-72 sm:border-[34px]"
+        className="pointer-events-none absolute -right-8 -top-8 -z-10 size-44 rounded-full border-[18px] border-[#1ed760]/65 blur-[3px] sm:-right-12 sm:-top-12 sm:size-72 sm:border-[34px] sm:blur-[5px]"
       />
       <img
         src="/landing-cloud-dashboard.png"
@@ -733,13 +733,9 @@ export default function LandingPage({ onNavigate, currentUser }) {
         <section className="relative overflow-hidden">
           <div className="mx-auto grid max-w-[1440px] items-center gap-7 px-4 pb-10 pt-10 sm:gap-12 sm:px-6 sm:pb-20 sm:pt-16 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:px-8 lg:pb-24 lg:pt-24">
             <div>
-              <span className="inline-flex items-center gap-2 rounded-full bg-[#f4f4f4] px-3 py-1.5 text-xs font-semibold">
-                <span className="size-2 rounded-full bg-[#1ed760]" />
-                Tiwlo Cloud · Commerce · Retail
-              </span>
-              <h1 className="mt-4 text-balance text-[2.5rem] font-bold leading-[1.02] tracking-tight sm:mt-6 sm:text-7xl">
+              <h1 className="text-balance text-[2.5rem] font-bold leading-[1.02] tracking-tight sm:text-7xl">
                 Accelerate your business with{' '}
-                <span className="text-[#0f7a37]">Tiwlo Cloud</span>
+                <span className="text-[#0f7a37]">Tiwlo</span>
               </h1>
               <p className="mt-4 max-w-xl text-pretty text-base leading-relaxed text-[#6a6a6a] sm:mt-6 sm:text-lg">
                 Bring your cloud workspace, online storefront, and retail tools together in one
