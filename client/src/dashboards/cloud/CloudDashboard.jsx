@@ -450,7 +450,7 @@ export default function CloudDashboard({
                   setInitialDropletImage('Ubuntu 24.04 LTS');
                   setActiveNav('create-droplet');
                 }}
-                onOpenStore={launchStoreConsole}
+                onOpenTPanel={() => window.open('/tpanel', '_blank', 'noopener,noreferrer')}
               />
               <CloudStatCards metrics={metrics} loading={loading} />
 
