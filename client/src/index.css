@@ -1026,13 +1026,15 @@ border-radius: 0.75rem;
   color: var(--tiwi-v3-ink);
 }
 
-.dark .tiwi-v3-store-content :is(section, article, div)[class*="rounded-2xl"][class~="bg-white"],
-.dark .tiwi-v3-store-content :is(section, article, div)[class*="rounded-3xl"][class~="bg-white"] {
+.dark .tiwi-v3-store-content [class~="bg-white"] {
   background-color: #181818;
-  border-color: #303030;
-  box-shadow: none;
 }
 
+.dark .tiwi-v3-store-content :is(section, article, div)[class~="bg-white"] {
+  border-color: #303030;
+}
+
+.dark .tiwi-v3-store-content [class*="text-neutral-950"],
 .dark .tiwi-v3-store-content [class*="text-neutral-900"],
 .dark .tiwi-v3-store-content [class*="text-neutral-800"] {
   color: #f4f4f4;
@@ -1041,4 +1043,66 @@ border-radius: 0.75rem;
 .dark .tiwi-v3-store-content [class*="text-neutral-700"],
 .dark .tiwi-v3-store-content [class*="text-neutral-600"] {
   color: #d4d4d4;
+}
+
+/* Tiwi 3.0 Help & Support workspace */
+.tiwi-v3-help {
+  --tiwi-v3-background: #f4f4f4;
+  --tiwi-v3-ink: #121212;
+  --tiwi-v3-green: #1ed760;
+  color: var(--tiwi-v3-ink);
+}
+
+.tiwi-v3-help [class*="rounded-2xl"][class*="bg-white"],
+.tiwi-v3-help [class*="rounded-3xl"][class*="bg-white"],
+.tiwi-v3-help [class*="rounded-2xl"][class*="bg-gray-800"],
+.tiwi-v3-help [class*="rounded-3xl"][class*="bg-gray-800"] {
+  border-color: #e4e4e4;
+  border-radius: 1.5rem;
+  box-shadow: 0 1px 2px rgb(18 18 18 / 4%);
+}
+
+.tiwi-v3-help button[class*="bg-neutral-600"],
+.tiwi-v3-help a[class*="bg-neutral-600"] {
+  background-color: var(--tiwi-v3-green);
+  color: var(--tiwi-v3-ink);
+}
+
+.tiwi-v3-help button[class*="bg-neutral-600"]:hover,
+.tiwi-v3-help a[class*="bg-neutral-600"]:hover {
+  background-color: #18c755;
+}
+
+.tiwi-v3-help :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  border-radius: 0.75rem;
+}
+
+.tiwi-v3-help :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus {
+  box-shadow: 0 0 0 2px rgb(30 215 96 / 16%);
+}
+
+.tiwi-v3-help :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid rgb(30 215 96 / 75%);
+  outline-offset: 2px;
+}
+
+.dark .tiwi-v3-help [class~="bg-white"],
+.dark .tiwi-v3-help [class*="bg-white/"] {
+  background-color: #181818;
+}
+
+.dark .tiwi-v3-help [class*="text-neutral-950"],
+.dark .tiwi-v3-help [class*="text-neutral-900"],
+.dark .tiwi-v3-help [class*="text-neutral-800"] {
+  color: #f4f4f4;
+}
+
+.dark .tiwi-v3-help [class*="text-neutral-700"],
+.dark .tiwi-v3-help [class*="text-neutral-600"] {
+  color: #d4d4d4;
+}
+
+.dark .tiwi-v3-help [class*="border-neutral-200"],
+.dark .tiwi-v3-help [class*="border-neutral-100"] {
+  border-color: #303030;
 }

@@ -34,8 +34,8 @@ function OutlookEmailLayout() {
   if (mailboxError) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-neutral-50 dark:bg-[#171717] px-6 text-center">
-        <p className="max-w-md text-sm text-red-600 dark:text-red-300">{mailboxError}</p>
-        <button type="button" onClick={refreshMailbox} className="rounded-lg bg-[#656565] px-4 py-2 text-sm font-semibold text-white hover:bg-[#606060]">
+        <p className="max-w-md text-sm text-neutral-600 dark:text-neutral-300">{mailboxError}</p>
+        <button type="button" onClick={refreshMailbox} className="rounded-lg bg-[#137333] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0f7a37]">
           Retry connection
         </button>
       </div>
@@ -69,7 +69,7 @@ function OutlookEmailLayout() {
             />
             {/* Drawer */}
             <div className="relative w-[280px] max-w-[85vw] h-full bg-white dark:bg-[#181818] shadow-2xl flex flex-col z-10 animate-slideRight">
-              <div className="p-3.5 bg-[#656565] text-white flex items-center justify-between">
+              <div className="p-3.5 bg-[#137333] text-white flex items-center justify-between">
                 <span className="font-bold text-[14px]">Mail Folders</span>
                 <button
                   type="button"

@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Box,
   Search,
-  ChevronDown,
   LayoutGrid,
   List,
   MoreHorizontal,
@@ -82,77 +80,75 @@ export default function RecentProductsTable({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 border border-neutral-200/80 dark:border-gray-700/80 rounded-2xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)] mb-7">
+    <section className="overflow-hidden rounded-3xl bg-white p-5 ring-1 ring-neutral-200 sm:p-6">
       {/* Table Header Controls */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+      <div className="mb-5 flex flex-col gap-4">
         <div className="flex items-start space-x-2.5">
-          <div className="w-5 h-5 rounded-md bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 flex items-center justify-center shrink-0 mt-0.5">
-            <Box className="w-3.5 h-3.5" />
-          </div>
           <div>
-            <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
+            <h2 className="text-lg font-bold tracking-tight text-neutral-950">
               Recent Products
-            </h3>
-            <p className="text-[11px] text-neutral-400 dark:text-neutral-400">
+            </h2>
+            <p className="mt-1 text-xs text-neutral-500">
               Latest added products to your inventory
             </p>
           </div>
         </div>
 
         {/* Filter / Search Bar in Table */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Search Table */}
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search products..."
-              value={tableSearch}
-              onChange={(e) => setTableSearch(e.target.value)}
-              className="pl-8 pr-3 py-1.5 text-xs bg-neutral-50/80 dark:bg-gray-700/50 border border-neutral-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-500/20 w-44 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400"
-            />
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {categories.map((category) => (
+              <button
+                key={category}
+                type="button"
+                onClick={() => setTableCategory(category)}
+                aria-pressed={tableCategory === category}
+                className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+                  tableCategory === category
+                    ? 'bg-[#121212] text-white'
+                    : 'bg-[#f1f1f1] text-neutral-700 hover:bg-[#e8e8e8]'
+                }`}
+              >
+                {category}
+              </button>
+            ))}
           </div>
-
-          {/* Category Dropdown */}
-          <div className="relative">
-            <select
-              value={tableCategory}
-              onChange={(e) => setTableCategory(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-1.5 text-xs font-medium text-neutral-600 dark:text-neutral-300 bg-neutral-50/80 dark:bg-gray-700/50 border border-neutral-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-500/20 cursor-pointer"
-            >
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-neutral-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-
-          {/* View Mode Toggle */}
-          <div className="flex items-center p-0.5 bg-neutral-100 dark:bg-gray-700 rounded-xl border border-neutral-200 dark:border-gray-600">
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-lg transition ${
-                viewMode === 'list'
-                  ? 'bg-white dark:bg-gray-600 text-neutral-600 dark:text-white shadow-2xs'
-                  : 'text-neutral-400 hover:text-neutral-600'
-              }`}
-              title="List view"
-            >
-              <List className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-lg transition ${
-                viewMode === 'grid'
-                  ? 'bg-white dark:bg-gray-600 text-neutral-600 dark:text-white shadow-2xs'
-                  : 'text-neutral-400 hover:text-neutral-600'
-              }`}
-              title="Grid view"
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-            </button>
+          <div className="flex items-center gap-2">
+            <label className="relative flex-1 lg:w-64 lg:flex-none">
+              <span className="sr-only">Search products</span>
+              <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-neutral-500" aria-hidden="true" />
+              <input
+                type="search"
+                placeholder="Search products..."
+                value={tableSearch}
+                onChange={(event) => setTableSearch(event.target.value)}
+                className="h-9 w-full rounded-full bg-[#f1f1f1] pl-10 pr-4 text-sm outline-none transition focus:ring-2 focus:ring-black/10"
+              />
+            </label>
+            <div className="flex rounded-full bg-[#f1f1f1] p-1">
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                aria-label="List view"
+                aria-pressed={viewMode === 'list'}
+                className={`flex size-7 items-center justify-center rounded-full transition ${
+                  viewMode === 'list' ? 'bg-white text-neutral-950 shadow-sm' : 'text-neutral-500'
+                }`}
+              >
+                <List className="size-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                aria-label="Grid view"
+                aria-pressed={viewMode === 'grid'}
+                className={`flex size-7 items-center justify-center rounded-full transition ${
+                  viewMode === 'grid' ? 'bg-white text-neutral-950 shadow-sm' : 'text-neutral-500'
+                }`}
+              >
+                <LayoutGrid className="size-4" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -160,20 +156,20 @@ export default function RecentProductsTable({
       {/* Table Content */}
       {viewMode === 'list' ? (
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full min-w-[760px] text-left text-sm">
             <thead>
-              <tr className="border-b border-neutral-100 dark:border-gray-700/70 text-neutral-400 dark:text-neutral-400 font-semibold">
-                <th className="pb-3 pl-1 font-medium w-16">Image</th>
-                <th className="pb-3 font-medium">Product Name</th>
-                <th className="pb-3 font-medium">SKU</th>
-                <th className="pb-3 font-medium">Category</th>
-                <th className="pb-3 font-medium">Stock</th>
-                <th className="pb-3 font-medium">Price</th>
-                <th className="pb-3 font-medium">Status</th>
-                <th className="pb-3 pr-2 text-right font-medium">Action</th>
+              <tr className="border-b border-neutral-200 text-xs uppercase tracking-wider text-neutral-500">
+                <th className="w-16 pb-3 pl-1 font-semibold">Image</th>
+                <th className="pb-3 font-semibold">Product Name</th>
+                <th className="pb-3 font-semibold">SKU</th>
+                <th className="pb-3 font-semibold">Category</th>
+                <th className="pb-3 font-semibold">Stock</th>
+                <th className="pb-3 font-semibold">Price</th>
+                <th className="pb-3 font-semibold">Status</th>
+                <th className="pb-3 pr-2 text-right font-semibold">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-100 dark:divide-gray-700/40">
+            <tbody className="divide-y divide-neutral-100">
               {products.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="py-8 text-center text-neutral-400">
@@ -184,7 +180,7 @@ export default function RecentProductsTable({
                 products.map((product) => (
                   <tr
                     key={product.id}
-                    className="hover:bg-neutral-50/70 dark:hover:bg-gray-700/30 transition-colors group"
+                    className="group transition-colors hover:bg-neutral-50"
                   >
                     {/* Image */}
                     <td className="py-3 pl-1">
@@ -369,6 +365,6 @@ export default function RecentProductsTable({
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }

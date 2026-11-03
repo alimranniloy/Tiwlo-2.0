@@ -61,7 +61,7 @@ export default function EmailListPane() {
               {folderTitle}
             </h2>
             {activeCategoryFilter && (
-              <span className="text-[11px] font-semibold bg-neutral-50 dark:bg-neutral-950/40 text-[#656565] dark:text-[#737373] px-2 py-0.5 rounded-full border border-neutral-200 dark:border-neutral-800">
+              <span className="text-[11px] font-semibold bg-neutral-50 dark:bg-neutral-950/40 text-[#137333] dark:text-[#1ed760] px-2 py-0.5 rounded-full border border-neutral-200 dark:border-neutral-800">
                 {activeCategoryFilter}
               </span>
             )}
@@ -122,13 +122,13 @@ export default function EmailListPane() {
                 onClick={() => setActiveTab('all')}
                 className={`font-bold text-[13px] pb-1.5 relative transition cursor-pointer ${
                   activeTab === 'all'
-                    ? 'text-[#656565] dark:text-[#737373]'
+                    ? 'text-[#137333] dark:text-[#1ed760]'
                     : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
                 }`}
               >
                 All mail
                 {activeTab === 'all' && (
-                  <span className="absolute bottom-[-1px] left-0 right-0 h-[2.5px] bg-[#656565] dark:bg-[#737373] rounded-full" />
+                  <span className="absolute bottom-[-1px] left-0 right-0 h-[2.5px] bg-[#137333] dark:bg-[#1ed760] rounded-full" />
                 )}
               </button>
 
@@ -137,13 +137,13 @@ export default function EmailListPane() {
                 onClick={() => setActiveTab('unread')}
                 className={`font-bold text-[13px] pb-1.5 relative transition cursor-pointer ${
                   activeTab === 'unread'
-                    ? 'text-[#656565] dark:text-[#737373]'
+                    ? 'text-[#137333] dark:text-[#1ed760]'
                     : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
                 }`}
               >
                 Unread
                 {activeTab === 'unread' && (
-                  <span className="absolute bottom-[-1px] left-0 right-0 h-[2.5px] bg-[#656565] dark:bg-[#737373] rounded-full" />
+                  <span className="absolute bottom-[-1px] left-0 right-0 h-[2.5px] bg-[#137333] dark:bg-[#1ed760] rounded-full" />
                 )}
               </button>
             </div>
@@ -161,7 +161,7 @@ export default function EmailListPane() {
                   onClick={() => setQuickFilter(chip.id)}
                   className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full transition cursor-pointer ${
                     quickFilter === chip.id
-                      ? 'bg-[#656565] text-white shadow-xs'
+                      ? 'bg-[#137333] text-white shadow-xs'
                       : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:text-neutral-800'
                   }`}
                 >
@@ -185,11 +185,11 @@ export default function EmailListPane() {
       <div className="flex-1 overflow-y-auto divide-y divide-neutral-100 dark:divide-neutral-800">
         {loading ? (
           <div className="flex items-center justify-center p-12">
-            <div className="w-6 h-6 border-2 border-[#656565] border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-[#137333] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : displayedEmails.length === 0 ? (
           <div className="p-10 text-center flex flex-col items-center justify-center text-neutral-400 gap-2.5">
-            <div className="w-14 h-14 rounded-2xl bg-neutral-50 dark:bg-neutral-950/40 flex items-center justify-center text-[#656565]">
+            <div className="w-14 h-14 rounded-2xl bg-neutral-50 dark:bg-neutral-950/40 flex items-center justify-center text-[#137333]">
               <Inbox className="w-7 h-7 stroke-[1.8]" />
             </div>
             <h4 className="font-bold text-[14px] text-neutral-800 dark:text-neutral-200">
@@ -219,7 +219,7 @@ export default function EmailListPane() {
               >
                 {/* Unread Accent Pill */}
                 {mail.isUnread && (
-                  <span className="absolute left-0 top-3 bottom-3 w-1 bg-[#656565] rounded-r-md" />
+                  <span className="absolute left-0 top-3 bottom-3 w-1 bg-[#137333] rounded-r-md" />
                 )}
 
                 {/* Sender Avatar: Clean Circle with NO overlapping hover ticks! */}
@@ -231,7 +231,7 @@ export default function EmailListPane() {
                       className="w-9 h-9 rounded-full object-cover ring-1 ring-black/5"
                     />
                   ) : (
-                    <div className={`w-9 h-9 rounded-full ${mail.sender?.avatarColor || 'bg-[#656565]'} text-white font-bold text-[12px] flex items-center justify-center shadow-xs`}>
+                    <div className={`w-9 h-9 rounded-full ${mail.sender?.avatarColor || 'bg-[#137333]'} text-white font-bold text-[12px] flex items-center justify-center shadow-xs`}>
                       {mail.sender?.initials || 'U'}
                     </div>
                   )}
@@ -249,7 +249,7 @@ export default function EmailListPane() {
                       {mail.sender?.name}
                     </span>
                     <span className={`text-[11px] whitespace-nowrap ml-2 ${
-                      mail.isUnread ? 'text-[#656565] dark:text-[#737373] font-bold' : 'text-neutral-400'
+                      mail.isUnread ? 'text-[#137333] dark:text-[#1ed760] font-bold' : 'text-neutral-400'
                     }`}>
                       {formatEmailDate(mail.date)}
                     </span>
@@ -258,7 +258,7 @@ export default function EmailListPane() {
                   {/* Row 2: Subject */}
                   <div className="flex items-center gap-1.5 mb-1">
                     {mail.isPinned && (
-                      <Pin className="w-3 h-3 text-[#656565] fill-current flex-shrink-0" />
+                      <Pin className="w-3 h-3 text-[#137333] fill-current flex-shrink-0" />
                     )}
                     <h3 className={`text-[12.5px] truncate ${
                       mail.isUnread
@@ -285,7 +285,7 @@ export default function EmailListPane() {
                     {mail.category && (
                       <span
                         className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
-                        style={{ backgroundColor: mail.categoryColor || '#656565' }}
+                        style={{ backgroundColor: mail.categoryColor || '#137333' }}
                       >
                         {mail.category}
                       </span>
@@ -298,7 +298,7 @@ export default function EmailListPane() {
                   <button
                     type="button"
                     onClick={(e) => handleDeleteEmail(mail.id, e)}
-                    className="p-1 rounded-md hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 text-[#D83B01] transition"
+                    className="p-1 rounded-md hover:bg-neutral-50 hover:text-neutral-600 dark:hover:bg-neutral-950/40 text-[#111111] transition"
                     title="Delete"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -323,7 +323,7 @@ export default function EmailListPane() {
                     type="button"
                     onClick={(e) => handleToggleFlag(mail.id, e)}
                     className={`p-1 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 transition ${
-                      mail.isFlagged ? 'text-[#D83B01]' : 'text-neutral-400'
+                      mail.isFlagged ? 'text-[#111111]' : 'text-neutral-400'
                     }`}
                     title="Flag message"
                   >
@@ -333,7 +333,7 @@ export default function EmailListPane() {
                     type="button"
                     onClick={(e) => handleTogglePin(mail.id, e)}
                     className={`p-1 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 transition ${
-                      mail.isPinned ? 'text-[#656565]' : 'text-neutral-400'
+                      mail.isPinned ? 'text-[#137333]' : 'text-neutral-400'
                     }`}
                     title="Pin to top"
                   >

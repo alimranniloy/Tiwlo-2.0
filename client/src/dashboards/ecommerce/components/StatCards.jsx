@@ -1,75 +1,43 @@
 import React from 'react';
-import { AlertTriangle, Box, Package, ShoppingCart } from 'lucide-react';
+import { AlertTriangle, Boxes, DollarSign, Package } from 'lucide-react';
 
 export default function StatCards({ stats }) {
   const cards = [
-    {
-      id: 'products',
-      title: 'Total Products',
-      value: stats?.totalProducts ?? '—',
-      color: 'blue',
-      icon: Box,
-      iconBg: 'bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 border border-neutral-100 dark:border-neutral-800/40'
-    },
-    {
-      id: 'stock',
-      title: 'Total Stock (Units)',
-      value: stats?.totalStock ?? '—',
-      color: 'emerald',
-      icon: Package,
-      iconBg: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/40'
-    },
-    {
-      id: 'sales',
-      title: 'Total Sales',
-      value: stats?.totalSales ?? '—',
-      color: 'purple',
-      icon: ShoppingCart,
-      iconBg: 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-800/40'
-    },
-    {
-      id: 'low_stock',
-      title: 'Low Stock Items',
-      value: stats?.lowStockItems ?? '—',
-      color: 'amber',
-      icon: AlertTriangle,
-      iconBg: 'bg-amber-50 dark:bg-amber-900/30 text-amber-500 dark:text-amber-400 border border-amber-100 dark:border-amber-800/40'
-    }
+    { id: 'products', label: 'Total Products', value: stats?.totalProducts ?? '—', hint: 'Current total', icon: Package, tone: 'ink' },
+    { id: 'stock', label: 'Total Stock (Units)', value: stats?.totalStock ?? '—', hint: 'Across your inventory', icon: Boxes, tone: 'default' },
+    { id: 'sales', label: 'Total Sales', value: stats?.totalSales ?? '—', hint: 'Recorded sales', icon: DollarSign, tone: 'primary' },
+    { id: 'low-stock', label: 'Low Stock Items', value: stats?.lowStockItems ?? '—', hint: 'Needs reorder', icon: AlertTriangle, tone: 'default' },
   ];
 
-  const borderGlowClass = {
-    blue: 'hover:border-neutral-400/60 dark:hover:border-neutral-500/60',
-    emerald: 'hover:border-emerald-400/60 dark:hover:border-emerald-500/60',
-    purple: 'hover:border-purple-400/60 dark:hover:border-purple-500/60',
-    amber: 'hover:border-amber-400/60 dark:hover:border-amber-500/60'
-  };
-
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 mb-5 sm:mb-7">
-      {cards.map((card) => {
-        const Icon = card.icon;
-        return (
-          <div
-            key={card.id}
-            className={`bg-white dark:bg-gray-800 border border-neutral-200/80 dark:border-gray-700/80 rounded-2xl p-3.5 sm:p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex flex-col justify-between overflow-hidden transition-all duration-200 ${borderGlowClass[card.color]}`}
-          >
-            <div className="flex items-center space-x-2 sm:space-x-3 mb-2 sm:mb-3">
-              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-full flex items-center justify-center shrink-0 ${card.iconBg}`}>
-                <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
-              <span className="text-[11px] sm:text-xs font-medium text-neutral-500 dark:text-neutral-400 truncate">
-                {card.title}
-              </span>
-            </div>
-            <div className="text-xl sm:text-[28px] font-extrabold text-neutral-900 dark:text-white tracking-tight leading-none">
-              {card.value}
-            </div>
-            <p className="mt-2 text-[11px] text-neutral-400 dark:text-neutral-500">
-              {stats ? 'Current total' : 'Data unavailable'}
-            </p>
+    <section aria-label="Store statistics" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {cards.map(({ id, label, value, hint, icon: Icon, tone }) => (
+        <article
+          key={id}
+          className={`flex min-h-36 flex-col justify-between gap-5 rounded-3xl p-4 ring-1 sm:p-5 ${
+            tone === 'ink'
+              ? 'bg-[#121212] text-white ring-[#121212]'
+              : tone === 'primary'
+                ? 'bg-[#1ed760] text-black ring-[#1ed760]'
+                : 'bg-white text-neutral-950 ring-neutral-200 dark:bg-neutral-900 dark:text-white dark:ring-neutral-800'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className={`text-xs font-medium sm:text-sm ${tone === 'default' ? 'text-neutral-500' : 'opacity-75'}`}>
+              {label}
+            </span>
+            <span className={`flex size-9 shrink-0 items-center justify-center rounded-full ${
+              tone === 'ink' ? 'bg-white/10' : tone === 'primary' ? 'bg-black/10' : 'bg-[#f1f1f1]'
+            }`}>
+              <Icon className="size-4" aria-hidden="true" />
+            </span>
           </div>
-        );
-      })}
-    </div>
+          <div>
+            <p className="text-2xl font-bold tracking-tight sm:text-3xl">{value}</p>
+            <p className={`mt-1 text-xs ${tone === 'default' ? 'text-neutral-500' : 'opacity-60'}`}>{hint}</p>
+          </div>
+        </article>
+      ))}
+    </section>
   );
 }

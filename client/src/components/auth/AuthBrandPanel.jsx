@@ -10,9 +10,9 @@ export default function AuthBrandPanel({ title, description, children }) {
   return (
     <aside className="auth-v3-brand-panel relative hidden flex-col justify-between overflow-hidden bg-[#121212] p-8 text-white lg:flex lg:p-12">
       <img
-        src="/tiwlo-dark-bg-logo.png"
+        src="/tiwlo-brand-mark.png"
         alt="Tiwlo"
-        className="relative z-10 h-9 w-fit max-w-[180px] object-contain"
+        className="relative z-10 h-9 w-9 object-contain"
       />
       <div className="relative z-10 my-10 max-w-md">
         <p className="text-sm font-semibold uppercase tracking-widest text-[#1ed760]">

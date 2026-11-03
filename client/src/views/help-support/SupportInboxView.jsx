@@ -25,7 +25,8 @@ export default function SupportInboxView({ currentUser, onBack }) {
   // Load real conversations from backend database
   const loadConversations = async () => {
     try {
-      const res = await fetch('/api/support/conversations');
+      const userId = currentUser?.id || currentUser?.tiwiId || '';
+      const res = await fetch(`/api/support/conversations?userId=${encodeURIComponent(userId)}`);
       if (res.ok) {
         const data = await res.json();
         if (data?.conversations && data.conversations.length > 0) {

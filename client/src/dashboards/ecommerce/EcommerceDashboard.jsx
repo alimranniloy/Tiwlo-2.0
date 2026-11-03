@@ -7,6 +7,7 @@ import TopSellingProducts from './components/TopSellingProducts';
 import QuickActions from './components/QuickActions';
 import RecentActivity from './components/RecentActivity';
 import RecentProductsTable from './components/RecentProductsTable';
+import BottomBanners from './components/BottomBanners';
 import StoreSetupChecklist from './components/StoreSetupChecklist';
 
 export default function EcommerceDashboard({
@@ -38,7 +39,7 @@ export default function EcommerceDashboard({
   onVisitSite
 }) {
   return (
-    <div className="space-y-6 animate-in fade-in duration-150">
+    <div className="space-y-8 animate-in fade-in duration-150">
       {dataLoadError && (
         <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <span>Some dashboard data could not be loaded: {dataLoadError}</span>
@@ -52,7 +53,11 @@ export default function EcommerceDashboard({
         </div>
       )}
 
-      <GreetingBar currentUser={currentUser} />
+      <GreetingBar
+        currentUser={currentUser}
+        onVisitSite={onVisitSite}
+        onAddProduct={onAddProduct}
+      />
       <QuickActions
         onAddProduct={onAddProduct}
         onNewPurchase={onNewPurchase}
@@ -63,21 +68,24 @@ export default function EcommerceDashboard({
       />
       <StatCards stats={stats} />
 
-      <StoreSetupChecklist
-        products={products}
-        categories={categories}
-        inventoryLoading={inventoryLoading}
-        onNavigateTab={onNavigateTab}
-        onVisitSite={onVisitSite}
-      />
-
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <InventoryOverviewChart
-          totalStock={stats?.totalStock ?? '—'}
-          categories={stats?.categoryDistribution || []}
-          onCategorySelect={setTableCategory}
-        />
-        <StockMovementChart data={stats?.stockMovement} />
+      <div className="grid items-start gap-6 xl:grid-cols-3">
+        <div className="xl:col-span-1">
+          <StoreSetupChecklist
+            products={products}
+            categories={categories}
+            inventoryLoading={inventoryLoading}
+            onNavigateTab={onNavigateTab}
+            onVisitSite={onVisitSite}
+          />
+        </div>
+        <div className="flex flex-col gap-6 xl:col-span-2">
+          <StockMovementChart data={stats?.stockMovement} />
+          <InventoryOverviewChart
+            totalStock={stats?.totalStock ?? '—'}
+            categories={stats?.categoryDistribution || []}
+            onCategorySelect={setTableCategory}
+          />
+        </div>
       </div>
 
       <RecentProductsTable
@@ -93,7 +101,7 @@ export default function EcommerceDashboard({
         onOpenPrintBarcode={onOpenPrintBarcode}
       />
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <TopSellingProducts
           products={stats?.topSellingProducts}
           onViewAll={() => onNavigateTab('products')}
@@ -103,6 +111,12 @@ export default function EcommerceDashboard({
           onDeleteActivity={onDeleteActivity}
         />
       </div>
+
+      <BottomBanners
+        onExploreFeatures={() => onNavigateTab('inventory')}
+        onViewReport={() => onNavigateTab('reports')}
+        onUpgrade={() => onNavigateTab('pricing')}
+      />
     </div>
   );
 }

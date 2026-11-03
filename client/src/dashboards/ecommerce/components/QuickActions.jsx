@@ -1,101 +1,44 @@
 import React from 'react';
 import {
+  Barcode,
+  FileUp,
+  FileText,
   Plus,
   ShoppingCart,
-  Tag,
-  ScanLine,
-  UploadCloud,
-  FileSpreadsheet,
-  SlidersHorizontal
+  Truck,
 } from 'lucide-react';
 
-export default function QuickActions({
-  onAddProduct,
-  onNewPurchase,
-  onNewSale,
-  onScanBarcode,
-  onImportCsv,
-  onGenerateReport
-}) {
-  const actions = [
-    {
-      id: 'add_product',
-      title: 'Add Product',
-      icon: Plus,
-      iconContainer: 'bg-neutral-600 text-white shadow-md shadow-neutral-500/20',
-      action: onAddProduct
-    },
-    {
-      id: 'new_purchase',
-      title: 'New Purchase',
-      icon: ShoppingCart,
-      iconContainer: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/40',
-      action: onNewPurchase
-    },
-    {
-      id: 'new_sale',
-      title: 'New Sale',
-      icon: Tag,
-      iconContainer: 'bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-800/40',
-      action: onNewSale
-    },
-    {
-      id: 'scan_barcode',
-      title: 'Scan Barcode',
-      icon: ScanLine,
-      iconContainer: 'bg-amber-50 dark:bg-amber-950/40 text-amber-500 dark:text-amber-400 border border-amber-100 dark:border-amber-800/40',
-      action: onScanBarcode
-    },
-    {
-      id: 'import_csv',
-      title: 'Import CSV',
-      icon: UploadCloud,
-      iconContainer: 'bg-neutral-50 dark:bg-neutral-950/40 text-neutral-600 dark:text-neutral-400 border border-neutral-100 dark:border-neutral-800/40',
-      action: onImportCsv
-    },
-    {
-      id: 'generate_report',
-      title: 'Generate Report',
-      icon: FileSpreadsheet,
-      iconContainer: 'bg-rose-50 dark:bg-rose-950/40 text-rose-500 dark:text-rose-400 border border-rose-100 dark:border-rose-800/40',
-      action: onGenerateReport
-    }
-  ];
+const actions = [
+  { id: 'product', title: 'Add Product', icon: Plus, key: 'onAddProduct' },
+  { id: 'purchase', title: 'New Purchase', icon: Truck, key: 'onNewPurchase' },
+  { id: 'sale', title: 'New Sale', icon: ShoppingCart, key: 'onNewSale' },
+  { id: 'barcode', title: 'Scan Barcode', icon: Barcode, key: 'onScanBarcode' },
+  { id: 'import', title: 'Import CSV', icon: FileUp, key: 'onImportCsv' },
+  { id: 'report', title: 'Generate Report', icon: FileText, key: 'onGenerateReport' },
+];
 
+export default function QuickActions(props) {
   return (
-    <div className="aura-quick-actions-card p-5">
-      <div className="relative z-1">
-        {/* Header */}
-        <div className="flex items-center space-x-2 mb-4">
-          <SlidersHorizontal className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
-          <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
-            Quick Actions
-          </h3>
-        </div>
-
-        {/* Grid of 6 buttons */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6">
-          {actions.map((act) => {
-            const Icon = act.icon;
-            return (
-              <button
-                key={act.id}
-                onClick={act.action}
-                className="flex flex-col items-center justify-center p-3.5 bg-neutral-50/60 dark:bg-gray-800/60 hover:bg-white dark:hover:bg-gray-700/80 border border-neutral-200/80 dark:border-gray-700/80 rounded-xl transition duration-150 group hover:shadow-xs cursor-pointer text-center"
-              >
-                <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 ${act.iconContainer}`}
-                >
-                  <Icon className="w-4 h-4 stroke-[2]" />
-                </div>
-                <span className="text-xs font-semibold text-neutral-700 dark:text-neutral-200 mt-2.5 group-hover:text-neutral-600 dark:group-hover:text-neutral-400 transition-colors">
-                  {act.title}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </div>
+    <nav aria-label="Quick actions" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      {actions.map(({ id, title, icon: Icon, key }, index) => (
+        <button
+          key={id}
+          type="button"
+          onClick={props[key]}
+          className={`group flex min-h-28 flex-col items-center justify-center gap-2.5 rounded-2xl p-4 text-center text-xs font-bold ring-1 transition ${
+            index === 0
+              ? 'bg-[#1ed760] text-black ring-[#1ed760] hover:bg-[#18c755]'
+              : 'bg-white text-neutral-900 ring-neutral-200 hover:bg-neutral-50 dark:bg-neutral-900 dark:text-white dark:ring-neutral-800 dark:hover:bg-neutral-800'
+          }`}
+        >
+          <span className={`flex size-10 items-center justify-center rounded-full transition-transform group-hover:scale-105 ${
+            index === 0 ? 'bg-black text-white' : 'bg-[#f1f1f1] text-neutral-900 dark:bg-neutral-800 dark:text-white'
+          }`}>
+            <Icon className="size-4" aria-hidden="true" />
+          </span>
+          {title}
+        </button>
+      ))}
+    </nav>
   );
 }

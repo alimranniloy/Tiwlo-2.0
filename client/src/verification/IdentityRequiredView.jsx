@@ -8,7 +8,7 @@ export default function IdentityRequiredView({ user, onStartVerification, onSign
     <main className="flex min-h-screen items-center justify-center bg-[#F8F9FA] px-4 py-8 text-[#212121] sm:px-6">
       <section className="w-full max-w-[560px] rounded-[28px] bg-white px-6 py-8 shadow-[0_1px_3px_rgba(60,64,67,0.12)] sm:px-10 sm:py-10">
         <header className="mb-8 flex items-center justify-between gap-4">
-          <img src="/tiwlologo.png" alt="Tiwlo" className="h-7 w-auto max-w-[104px] object-contain object-left" />
+          <img src="/tiwlo-brand-mark.png" alt="Tiwlo" className="h-7 w-7 object-contain object-left" />
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FCE8E6] px-3 py-1.5 text-xs font-medium text-[#B3261E]">
             <LockKeyhole className="h-3.5 w-3.5" aria-hidden="true" />
             Account locked

@@ -1,107 +1,64 @@
 import React from 'react';
-import {
-  Clock,
-  ShoppingCart,
-  Box,
-  FileCheck,
-  PlusCircle,
-  AlertTriangle,
-  Trash2
-} from 'lucide-react';
+import { AlertTriangle, Box, Clock, FileCheck, PlusCircle, ShoppingCart, Trash2 } from 'lucide-react';
+
+const icons = {
+  sale: ShoppingCart,
+  stock: Box,
+  purchase: FileCheck,
+  product: PlusCircle,
+  alert: AlertTriangle,
+};
 
 export default function RecentActivity({ activities = [], onDeleteActivity }) {
-  const getIconAndStyle = (type) => {
-    switch (type) {
-      case 'sale':
-        return {
-          icon: ShoppingCart,
-          bg: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/40'
-        };
-      case 'stock':
-        return {
-          icon: Box,
-          bg: 'bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 border border-neutral-100 dark:border-neutral-800/40'
-        };
-      case 'purchase':
-        return {
-          icon: FileCheck,
-          bg: 'bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-800/40'
-        };
-      case 'product':
-        return {
-          icon: PlusCircle,
-          bg: 'bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 border border-teal-100 dark:border-teal-800/40'
-        };
-      case 'alert':
-      default:
-        return {
-          icon: AlertTriangle,
-          bg: 'bg-amber-50 dark:bg-amber-950/40 text-amber-500 dark:text-amber-400 border border-amber-100 dark:border-amber-800/40'
-        };
-    }
-  };
-
-  const items = activities.slice(0, 6);
+  const items = Array.isArray(activities) ? activities.slice(0, 6) : [];
 
   return (
-    <div className="bg-white dark:bg-gray-800 border border-neutral-200/80 dark:border-gray-700/80 rounded-2xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-2">
-          <Clock className="w-4 h-4 text-neutral-400" />
-          <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
-            Recent Activity
-          </h3>
+    <section className="rounded-3xl bg-white p-5 ring-1 ring-neutral-200 sm:p-6">
+      <div className="mb-5">
+        <h2 className="text-lg font-bold tracking-tight text-neutral-950">Recent Activity</h2>
+        <p className="mt-1 text-xs text-neutral-500">The latest updates from your store</p>
+      </div>
+      {items.length === 0 ? (
+        <div className="flex min-h-40 items-center justify-center rounded-2xl bg-[#f7f7f7] px-4 text-center text-sm text-neutral-500">
+          No recent store activity.
         </div>
-      </div>
-
-      {/* Activity Timeline List */}
-      <div className="space-y-3.5">
-        {items.length === 0 ? (
-          <p className="py-5 text-center text-xs text-neutral-500 dark:text-neutral-400">
-            No recent activity.
-          </p>
-        ) : items.map((act) => {
-          const { icon: Icon, bg } = getIconAndStyle(act.type);
-          return (
-            <div
-              key={act.id}
-              className="flex items-center justify-between p-1.5 rounded-xl hover:bg-neutral-50 dark:hover:bg-gray-700/30 transition group"
-            >
-              <div className="flex items-center space-x-3 min-w-0">
-                <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${bg}`}
-                >
-                  <Icon className="w-4 h-4 stroke-[2.2]" />
+      ) : (
+        <ol className="relative ml-1 flex flex-col gap-5 border-l-2 border-neutral-200 pl-5">
+          {items.map((activity, index) => {
+            const Icon = icons[activity.type] || AlertTriangle;
+            return (
+              <li key={activity.id || `${activity.title}-${index}`} className="group relative">
+                <span className="absolute -left-[27px] top-0.5 flex size-3.5 items-center justify-center rounded-full bg-[#1ed760] ring-4 ring-white" />
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-start gap-2.5">
+                    <Icon className="mt-0.5 size-4 shrink-0 text-neutral-500" aria-hidden="true" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-neutral-900">{activity.title}</p>
+                      {activity.subtitle && <p className="mt-0.5 text-xs text-neutral-500">{activity.subtitle}</p>}
+                      {activity.time && (
+                        <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-neutral-400">
+                          <Clock className="size-3" aria-hidden="true" /> {activity.time}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {onDeleteActivity && (
+                    <button
+                      type="button"
+                      onClick={() => onDeleteActivity(activity.id)}
+                      className="rounded-full p-1 text-neutral-400 opacity-0 transition hover:bg-red-50 hover:text-red-600 focus:opacity-100 group-hover:opacity-100"
+                      title="Delete activity"
+                      aria-label="Delete activity"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  )}
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-neutral-800 dark:text-white truncate leading-tight">
-                    {act.title}
-                  </p>
-                  <p className="text-[11px] text-neutral-400 font-medium truncate mt-0.5">
-                    {act.subtitle}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-2 shrink-0 ml-2">
-                <span className="text-[11px] font-medium text-neutral-400">
-                  {act.time}
-                </span>
-                {onDeleteActivity && (
-                  <button
-                    onClick={() => onDeleteActivity(act.id)}
-                    className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-rose-500 p-1 transition"
-                    title="Delete activity"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </section>
   );
 }

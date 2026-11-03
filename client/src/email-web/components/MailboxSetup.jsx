@@ -57,7 +57,7 @@ export default function MailboxSetup() {
               <div className="mb-5 sm:mb-6">
                 <a href={getPlatformUrl()} className="inline-block transition-opacity hover:opacity-90">
                   <img
-                    src="/tiwlologo.png"
+                    src="/tiwlo-brand-mark.png"
                     alt="Tiwlo"
                     className="h-7 sm:h-8 w-auto object-contain"
                     onError={(event) => {
@@ -127,7 +127,7 @@ export default function MailboxSetup() {
                       aria-describedby="mailbox-availability"
                       className={`min-w-0 flex-1 px-3.5 py-3 rounded-l-[4px] border text-[14px] text-[#1f1f1f] outline-none transition-colors placeholder:text-[#747775] ${
                         availability?.error
-                          ? 'border-[#d93025] focus:border-[#d93025] focus:ring-1 focus:ring-[#d93025]'
+                          ? 'border-[#137333] focus:border-[#137333] focus:ring-1 focus:ring-[#137333]'
                           : availability?.available
                             ? 'border-[#137333] focus:border-[#137333] focus:ring-1 focus:ring-[#137333]'
                             : 'border-[#747775] focus:border-[#000000] focus:ring-1 focus:ring-[#000000]'
@@ -148,7 +148,7 @@ export default function MailboxSetup() {
                         <Check className="w-3.5 h-3.5" /> {availability.address} is available
                       </span>
                     ) : availability?.error ? (
-                      <span className="flex items-center gap-1.5 text-[#d93025]">
+                      <span className="flex items-center gap-1.5 text-[#137333]">
                         <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {availability.error}
                       </span>
                     ) : (

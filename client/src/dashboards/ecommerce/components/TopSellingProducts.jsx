@@ -1,75 +1,47 @@
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
 
-export default function TopSellingProducts({ products, onViewAll }) {
-  const items = products || [];
+export default function TopSellingProducts({ products = [], onViewAll }) {
+  const items = Array.isArray(products) ? products : [];
 
   return (
-    <div className="bg-white dark:bg-gray-800 border border-neutral-200/80 dark:border-gray-700/80 rounded-2xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex flex-col justify-between">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+    <section className="rounded-3xl bg-white p-5 ring-1 ring-neutral-200 sm:p-6">
+      <div className="mb-5 flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
-            Top Selling Products
-          </h3>
-          <p className="text-[11px] text-neutral-400 dark:text-neutral-400">
-            Based on total sales
-          </p>
+          <h2 className="text-lg font-bold tracking-tight text-neutral-950">Top Selling Products</h2>
+          <p className="mt-1 text-xs text-neutral-500">Ranked by recorded units sold</p>
         </div>
         <button
+          type="button"
           onClick={onViewAll}
-          className="text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-neutral-700 flex items-center space-x-1 group"
+          className="inline-flex items-center gap-1 text-xs font-bold text-neutral-800 transition hover:text-neutral-500"
         >
-          <span>View All</span>
-          <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+          View All <ArrowRight className="size-3.5" aria-hidden="true" />
         </button>
       </div>
-
-      {/* List */}
-      <div className="space-y-3">
-        {items.length === 0 ? (
-          <p className="py-6 text-center text-xs text-neutral-500 dark:text-neutral-400">
-            No sales data available yet.
-          </p>
-        ) : items.map((item) => (
-          <div
-            key={item.id}
-            className="flex items-center justify-between p-1.5 rounded-xl hover:bg-neutral-50 dark:hover:bg-gray-700/40 transition group"
-          >
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-gray-700 overflow-hidden shrink-0 border border-neutral-200/60 dark:border-gray-600 flex items-center justify-center">
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                  onError={(e) => {
-                    e.target.src = '/default-product.svg';
-                  }}
-                />
+      {items.length === 0 ? (
+        <div className="flex min-h-40 items-center justify-center rounded-2xl bg-[#f7f7f7] px-4 text-center text-sm text-neutral-500">
+          No product sales have been recorded yet.
+        </div>
+      ) : (
+        <ol className="flex flex-col gap-3">
+          {items.map((item, index) => (
+            <li
+              key={item.id || item.name}
+              className="flex items-center gap-3 rounded-2xl bg-[#f5f5f5] p-3 transition hover:bg-[#efefef]"
+            >
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#121212] text-sm font-bold text-white">
+                {index + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-neutral-950">{item.name}</p>
+                <p className="text-xs text-neutral-500">{item.sold}</p>
               </div>
-              <div>
-                <p className="text-xs font-bold text-neutral-800 dark:text-white leading-tight">
-                  {item.name}
-                </p>
-                <p className="text-[11px] text-neutral-400 font-medium">
-                  {item.sold}
-                </p>
-              </div>
-            </div>
-
-            <div className="text-right">
-              <p className="text-xs font-bold text-neutral-800 dark:text-white">
-                {item.revenue}
-              </p>
-              {item.growth && (
-                <div className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400">
-                  {item.growth}
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+              <span className="shrink-0 text-right text-sm font-bold text-neutral-950">{item.revenue}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
   );
 }

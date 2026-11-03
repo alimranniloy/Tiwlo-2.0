@@ -259,17 +259,17 @@ export default function StoreSetupChecklist({
   return (
     <section
       aria-labelledby="store-setup-title"
-      className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+      className="overflow-hidden rounded-3xl bg-white ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800"
     >
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-100 px-5 py-4 dark:border-gray-700 sm:px-6">
+      <div className="flex flex-col items-start justify-between gap-4 border-b border-neutral-100 px-5 py-5 dark:border-neutral-800 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
             allComplete ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-neutral-50 text-neutral-700 dark:bg-neutral-950/50 dark:text-neutral-300'
           }`}>
             {allComplete ? <Check className="h-5 w-5" /> : <Store className="h-5 w-5" />}
           </div>
           <div className="min-w-0">
-            <h2 id="store-setup-title" className="text-base font-semibold tracking-tight text-neutral-900 dark:text-white">
+            <h2 id="store-setup-title" className="text-lg font-bold tracking-tight text-neutral-950 dark:text-white">
               {allComplete ? 'Your store is ready' : 'Finish setting up your store'}
             </h2>
             <p className="mt-0.5 text-sm text-neutral-500 dark:text-neutral-400">
@@ -296,7 +296,7 @@ export default function StoreSetupChecklist({
             <button
               type="button"
               onClick={() => onNavigateTab(nextStep.tab)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-2"
+              className="inline-flex items-center gap-1.5 rounded-full bg-[#1ed760] px-4 py-2 text-xs font-bold text-black transition hover:bg-[#18c755] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1ed760] focus-visible:ring-offset-2"
             >
               {allComplete ? 'Review setup' : 'Complete setup'}
               <ArrowRight className="h-4 w-4" />
@@ -337,12 +337,12 @@ export default function StoreSetupChecklist({
             aria-valuenow={completedCount}
           >
             <div
-              className={`h-full rounded-full transition-all duration-300 ${allComplete ? 'bg-emerald-500' : 'bg-neutral-600'}`}
+              className="h-full rounded-full bg-[#1ed760] transition-all duration-300"
               style={{ width: `${(completedCount / setupSteps.length) * 100}%` }}
             />
           </div>
 
-          <div className="grid gap-2 md:grid-cols-2">
+          <div className="grid gap-2">
             {visibleSteps.map(step => renderStep(step, Boolean(completedSteps[step.id])))}
           </div>
           {!showCompleted && hiddenCompletedCount > 0 && (
@@ -389,7 +389,7 @@ export default function StoreSetupChecklist({
                   </button>
                 )}
               </div>
-              <div className="grid gap-2 md:grid-cols-2">
+              <div className="grid gap-2">
                 {recommendedSteps.map(step => renderStep(step, Boolean(recommendedComplete[step.id]), true))}
               </div>
             </div>

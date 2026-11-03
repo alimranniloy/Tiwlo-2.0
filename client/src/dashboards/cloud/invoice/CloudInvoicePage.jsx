@@ -147,7 +147,7 @@ export default function CloudInvoicePage({ invoice, account, onBack, onCancel, i
 
             <header className="flex flex-col gap-4 border-b border-[#eaeaea] px-5 py-5 dark:border-[#3f3f3f] sm:flex-row sm:items-center sm:justify-between sm:px-7 sm:py-5">
               <div className="flex min-w-0 items-center gap-3">
-                <img src="/tiwlologo.png" alt="Tiwlo" className="h-7 w-auto max-w-[96px] object-contain object-left" />
+                <img src="/tiwlo-brand-mark.png" alt="Tiwlo" className="h-7 w-7 object-contain object-left" />
                 <span className="h-7 w-px bg-[#dcdcdc] dark:bg-[#3f3f3f]" />
                 <div>
                   <p className="text-[13px] font-semibold leading-4 text-[#212121] dark:text-[#eaeaea]">Tiwlo Cloud</p>

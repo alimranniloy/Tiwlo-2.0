@@ -13,7 +13,7 @@ import {
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 
 const API_BASE = '/api';
-const TIWLO_LOGO = '/tiwlologo.png';
+const TIWLO_LOGO = '/tiwlo-brand-mark.png';
 
 function getLocationError(error) {
   if (error?.code === 1) {

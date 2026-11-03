@@ -32,7 +32,7 @@ import UidisLogoIcon from '../components/UidisLogoIcon';
 export default function OneProfileHomeView({ currentUser, summary, onNavigateTab }) {
   const displayName = currentUser?.name || currentUser?.email || 'Your profile';
   const primaryDomain = summary?.domains?.[0]?.domain || 'No domain claimed';
-  const profileAvatar = currentUser?.avatar || '/tiwlo-icon.png';
+  const profileAvatar = currentUser?.avatar || '/tiwlo-brand-mark.png';
   const metrics = summary?.metrics || {};
   const primaryWebsite = summary?.websites?.[0];
   const profileHeadline = summary?.profile?.headline || 'Profile headline not configured';

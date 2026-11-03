@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 
 export default function TicketsView({
+  currentUser,
   onBack,
   onCreateTicket,
   onSelectTicket
@@ -24,7 +25,8 @@ export default function TicketsView({
   const loadTickets = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/support/tickets');
+      const userId = currentUser?.id || currentUser?.tiwiId || '';
+      const res = await fetch(`/api/support/tickets?userId=${encodeURIComponent(userId)}`);
       if (res.ok) {
         const data = await res.json();
         if (data?.tickets) {

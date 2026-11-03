@@ -1,113 +1,99 @@
-import React, { useState } from 'react';
-import { ArrowLeftRight } from 'lucide-react';
+import React from 'react';
+import { ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 
-export default function StockMovementChart({ data }) {
-  const [hoveredIdx, setHoveredIdx] = useState(null);
-  const chartData = data || [];
-  const maxVal = Math.max(1, ...chartData.flatMap(item => [item.inStock || 0, item.outStock || 0]));
+const chartWidth = 640;
+const chartHeight = 220;
+const chartTop = 12;
+const chartBottom = 178;
+
+export default function StockMovementChart({ data = [] }) {
+  const rows = Array.isArray(data) ? data : [];
+  const values = rows.map(item => ({
+    label: item.day || item.label || item.month || '',
+    incoming: Number(item.inStock ?? item.in ?? 0),
+    outgoing: Number(item.outStock ?? item.out ?? 0),
+  }));
+  const maxValue = Math.max(1, ...values.flatMap(item => [item.incoming, item.outgoing]));
+  const y = value => chartBottom - (value / maxValue) * (chartBottom - chartTop);
+  const groupWidth = values.length ? chartWidth / values.length : chartWidth;
+  const barWidth = Math.min(20, groupWidth * 0.22);
 
   return (
-    <div className="bg-white dark:bg-gray-800 border border-neutral-200/80 dark:border-gray-700/80 rounded-2xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex flex-col justify-between">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-start space-x-2">
-          <div className="w-5 h-5 rounded-md bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 flex items-center justify-center shrink-0 mt-0.5">
-            <ArrowLeftRight className="w-3.5 h-3.5" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
-              Stock Movement
-            </h3>
-            <p className="text-[11px] text-neutral-400 dark:text-neutral-400">
-              In & Out flow (last 7 days)
-            </p>
-          </div>
+    <section className="rounded-3xl bg-white p-5 ring-1 ring-neutral-200 sm:p-6">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-bold tracking-tight text-neutral-950">Stock Movement</h2>
+          <p className="mt-1 text-xs text-neutral-500">Stock received and sold over time</p>
         </div>
-
-        {/* Legend */}
-        <div className="flex items-center space-x-3 text-xs">
-          <div className="flex items-center space-x-1.5">
-            <span className="w-2 h-2 rounded-full bg-neutral-500"></span>
-            <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
-              In Stock
-            </span>
-          </div>
-          <div className="flex items-center space-x-1.5">
-            <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-            <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
-              Out Stock
-            </span>
-          </div>
+        <div className="flex items-center gap-4 text-xs font-medium text-neutral-600">
+          <span className="inline-flex items-center gap-1.5">
+            <ArrowDownToLine className="size-3.5 text-[#1ed760]" aria-hidden="true" />
+            Stock in
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <ArrowUpFromLine className="size-3.5 text-[#121212]" aria-hidden="true" />
+            Stock out
+          </span>
         </div>
       </div>
 
-      {chartData.length === 0 ? (
-        <div className="flex h-44 items-center justify-center text-center text-xs text-neutral-500 dark:text-neutral-400">
-          No stock movement data available yet.
+      {values.length === 0 ? (
+        <div className="flex h-[220px] items-center justify-center rounded-2xl bg-[#f7f7f7] px-5 text-center">
+          <div>
+            <p className="text-sm font-semibold text-neutral-700">No stock movement data yet</p>
+            <p className="mt-1 text-xs text-neutral-500">Recorded receiving and sales activity will appear here.</p>
+          </div>
         </div>
       ) : (
-        <div className="relative pt-4 pb-2">
-        {/* Y Axis Grid Lines */}
-        <div className="absolute inset-x-8 top-4 bottom-8 flex flex-col justify-between pointer-events-none opacity-40">
-          <div className="border-b border-dashed border-neutral-200 dark:border-gray-700 w-full"></div>
-          <div className="border-b border-dashed border-neutral-200 dark:border-gray-700 w-full"></div>
-          <div className="border-b border-dashed border-neutral-200 dark:border-gray-700 w-full"></div>
-          <div className="border-b border-dashed border-neutral-200 dark:border-gray-700 w-full"></div>
-          <div className="border-b border-neutral-200 dark:border-gray-700 w-full"></div>
+        <div className="w-full overflow-x-auto">
+          <svg
+            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+            role="img"
+            aria-label="Stock received and sold over time"
+            className="h-[220px] min-w-[440px] w-full overflow-visible"
+          >
+            {[0, 0.25, 0.5, 0.75, 1].map((fraction, index) => {
+              const lineY = chartBottom - fraction * (chartBottom - chartTop);
+              return (
+                <g key={fraction}>
+                  <line x1="0" x2={chartWidth} y1={lineY} y2={lineY} stroke="#e5e5e5" strokeDasharray={index === 0 ? undefined : '3 5'} />
+                  <text x="0" y={lineY - 5} fill="#737373" fontSize="10">
+                    {Math.round(maxValue * fraction).toLocaleString()}
+                  </text>
+                </g>
+              );
+            })}
+            {values.map((item, index) => {
+              const center = groupWidth * index + groupWidth / 2;
+              const inHeight = (item.incoming / maxValue) * (chartBottom - chartTop);
+              const outHeight = (item.outgoing / maxValue) * (chartBottom - chartTop);
+              return (
+                <g key={`${item.label}-${index}`}>
+                  <rect
+                    x={center - barWidth - 2}
+                    y={y(item.incoming)}
+                    width={barWidth}
+                    height={Math.max(item.incoming ? 2 : 0, inHeight)}
+                    rx="5"
+                    fill="#1ed760"
+                  />
+                  <rect
+                    x={center + 2}
+                    y={y(item.outgoing)}
+                    width={barWidth}
+                    height={Math.max(item.outgoing ? 2 : 0, outHeight)}
+                    rx="5"
+                    fill="#121212"
+                  />
+                  <text x={center} y="207" textAnchor="middle" fill="#737373" fontSize="11">
+                    {item.label}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
         </div>
-        <div className="flex items-end justify-between h-44 pl-8 pr-2 relative">
-          {/* Y-axis Labels on Left */}
-          <div className="absolute left-0 top-0 bottom-8 flex flex-col justify-between text-[10px] text-neutral-400 font-medium">
-            <span>{maxVal.toLocaleString()}</span>
-            <span>{Math.round(maxVal * 0.75).toLocaleString()}</span>
-            <span>{Math.round(maxVal * 0.5).toLocaleString()}</span>
-            <span>{Math.round(maxVal * 0.25).toLocaleString()}</span>
-            <span>0</span>
-          </div>
-
-          {/* Bars for each day */}
-          {chartData.map((d, idx) => {
-            const inHeight = ((d.inStock || 0) / maxVal) * 100;
-            const outHeight = ((d.outStock || 0) / maxVal) * 100;
-
-            return (
-              <div
-                key={d.day}
-                onMouseEnter={() => setHoveredIdx(idx)}
-                onMouseLeave={() => setHoveredIdx(null)}
-                className="flex-1 flex flex-col items-center group relative cursor-pointer h-full justify-end pb-7"
-              >
-                {/* Tooltip */}
-                {hoveredIdx === idx && (
-                  <div className="absolute -top-7 z-20 bg-neutral-900 text-white text-[10px] px-2 py-1 rounded-md shadow-md whitespace-nowrap pointer-events-none">
-                    In: {d.inStock} | Out: {d.outStock}
-                  </div>
-                )}
-
-                <div className="flex items-end space-x-1.5 h-full">
-                  {/* In Stock Bar */}
-                  <div
-                    className="w-2.5 sm:w-3 bg-gradient-to-t from-neutral-600 to-neutral-400 rounded-t-sm transition-all duration-300 group-hover:brightness-110 shadow-2xs"
-                    style={{ height: `${Math.min(100, Math.max(0, inHeight))}%` }}
-                  ></div>
-
-                  {/* Out Stock Bar */}
-                  <div
-                    className="w-2.5 sm:w-3 bg-gradient-to-t from-purple-600 to-purple-400 rounded-t-sm transition-all duration-300 group-hover:brightness-110 shadow-2xs"
-                    style={{ height: `${Math.min(100, Math.max(0, outHeight))}%` }}
-                  ></div>
-                </div>
-
-                {/* Day Label */}
-                <span className="absolute bottom-1 text-[11px] font-medium text-neutral-400 group-hover:text-neutral-700 dark:group-hover:text-neutral-200 transition">
-                  {d.day}
-                </span>
-              </div>
-            );
-          })}
-      </div>
-      </div>
       )}
-    </div>
+    </section>
   );
 }

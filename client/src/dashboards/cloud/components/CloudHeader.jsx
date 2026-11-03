@@ -105,7 +105,7 @@ export default function CloudHeader({
           className="hidden h-10 items-center gap-2 rounded-full bg-neutral-100 px-4 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700 sm:flex"
           title="Tiwlo Cloud Credits & Billing Account"
         >
-          <img src="/tiwlo-icon.png" alt="" className="size-4 object-contain" />
+          <img src="/tiwlo-brand-mark.png" alt="" className="size-4 object-contain" />
           Credits <span className="font-bold">{headerCredits === null ? '—' : `$${headerCredits.toFixed(2)}`}</span>
         </button>
 

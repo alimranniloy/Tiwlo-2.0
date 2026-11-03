@@ -63,7 +63,7 @@ export default function LandingFooter({ onNavigate }) {
           >
             {!logoError ? (
               <img
-                src="/tiwlologo.png"
+                src="/tiwlo-brand-mark.png"
                 alt="Tiwlo"
                 onError={() => setLogoError(true)}
                 className="h-6 w-auto object-contain transition-transform group-hover:scale-105"

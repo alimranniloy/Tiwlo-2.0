@@ -72,11 +72,13 @@ export default function HelpSupportView({
   };
 
   return (
-    <div className="w-full">
+    <div className="tiwi-v3-help w-full">
       {/* VIEW 1: Help & Support Home Landing Page */}
       {currentView === 'home' && (
         <HelpSupportHome
           onNavigate={handleNavigate}
+          currentUser={currentUser}
+          onTicketCreated={handleTicketCreated}
           onContactSupport={handleContactSupport}
         />
       )}
@@ -84,6 +86,7 @@ export default function HelpSupportView({
       {/* VIEW 2: Tickets List Page (Real Data from database) */}
       {currentView === 'tickets' && (
         <TicketsView
+          currentUser={currentUser}
           onBack={() => handleNavigate('home')}
           onCreateTicket={() => handleNavigate('create-ticket')}
           onSelectTicket={(ticket) => handleNavigate('inbox')}

@@ -129,7 +129,7 @@ export default function Sidebar({
             className="flex h-8 items-center"
             aria-label="Tiwlo Store dashboard"
           >
-            <img src="/tiwlo-dark-bg-logo.png" alt="Tiwlo" className="h-7 w-auto max-w-[150px] object-contain" />
+            <img src="/tiwlo-brand-mark.png" alt="Tiwlo" className="h-7 w-7 object-contain" />
             <span className="ml-1.5 text-sm font-medium text-white/50">Store</span>
           </button>
           <button

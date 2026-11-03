@@ -441,7 +441,7 @@ router.get('/customers', requireAdmin, async (req, res) => {
         tiwiId: u.tiwiId || u.storeId || '',
         name: u.name || u.storeName || 'Merchant User',
         email: u.email,
-        avatar: u.avatar && !u.avatar.includes('unsplash.com') ? u.avatar : '/tiwlo-icon.png',
+        avatar: u.avatar && !u.avatar.includes('unsplash.com') ? u.avatar : '/tiwlo-brand-mark.png',
         role: u.role || 'owner',
         storeCount,
         stores: userStores.map(s => ({
@@ -808,7 +808,7 @@ router.get('/users', requireAdmin, async (req, res) => {
         planName: u.planName || u.planId || 'Unknown',
         storeCount,
         stores: userStores.map(s => ({ id: s.id, name: s.storeName, subdomain: s.subdomain })),
-        avatar: u.avatar && !u.avatar.includes('unsplash.com') ? u.avatar : '/tiwlo-icon.png',
+        avatar: u.avatar && !u.avatar.includes('unsplash.com') ? u.avatar : '/tiwlo-brand-mark.png',
         isBanned: !!u.isBanned,
         identityVerified: u.identityVerified === true,
         identityVerificationRequired: u.identityVerificationRequired === true,

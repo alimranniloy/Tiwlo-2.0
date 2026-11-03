@@ -159,7 +159,7 @@ export default function CloudSidebar({
             className="flex h-8 items-center"
             aria-label="Tiwlo Cloud dashboard"
           >
-            <img src="/tiwlo-dark-bg-logo.png" alt="Tiwlo Cloud" className="h-7 w-auto max-w-[150px] object-contain" />
+            <img src="/tiwlo-brand-mark.png" alt="Tiwlo Cloud" className="h-7 w-7 object-contain" />
           </button>
           <button
             type="button"

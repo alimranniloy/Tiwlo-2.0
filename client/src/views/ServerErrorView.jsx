@@ -68,13 +68,13 @@ export default function ServerErrorView({ error, onReload, onNavigate }) {
           {!logoError ? (
             <>
               <img
-                src="/tiwlologo.png"
+                src="/tiwlo-brand-mark.png"
                 alt="Tiwlo"
                 onError={() => setLogoError(true)}
                 className="h-6 sm:h-7 w-auto object-contain dark:hidden transition-transform group-hover:scale-[1.02]"
               />
               <img
-                src="/tiwlologo-dark.png"
+                src="/tiwlo-brand-mark.png"
                 alt="Tiwlo"
                 onError={() => setLogoError(true)}
                 className="h-6 sm:h-7 w-auto object-contain hidden dark:block transition-transform group-hover:scale-[1.02]"

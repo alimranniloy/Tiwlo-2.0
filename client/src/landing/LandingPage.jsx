@@ -176,9 +176,9 @@ function Logo({ inverted = false, onClick }) {
       aria-label="Tiwlo home"
     >
       <img
-        src={inverted ? '/tiwlo-dark-bg-logo.png' : '/tiwlo-light-logo.png'}
+        src="/tiwlo-brand-mark.png"
         alt="Tiwlo"
-        className="h-8 w-auto max-w-[150px] object-contain"
+        className="h-8 w-8 object-contain"
       />
     </button>
   );

@@ -816,7 +816,7 @@ export default function LoginView({
           {/* Top Brand Logo */}
           <div className="lg:hidden">
             <img
-              src="/tiwlo-light-logo.png"
+              src="/tiwlo-brand-mark.png"
               alt="Tiwlo"
               className="h-8 sm:h-9 w-auto object-contain lg:hidden"
             />

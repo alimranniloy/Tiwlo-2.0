@@ -65,11 +65,11 @@ export default function OutlookRibbon() {
   };
 
   const categories = [
-    { name: 'Work', color: '#656565' },
+    { name: 'Work', color: '#137333' },
     { name: 'Personal', color: '#107C41' },
-    { name: 'Finance', color: '#D83B01' },
+    { name: 'Finance', color: '#111111' },
     { name: 'Projects', color: '#555555' },
-    { name: 'Urgent', color: '#E81123' }
+    { name: 'Urgent', color: '#137333' }
   ];
 
   return (
@@ -87,13 +87,13 @@ export default function OutlookRibbon() {
                 onClick={() => setActiveRibbonTab(tab)}
                 className={`relative px-3 py-1 font-semibold transition cursor-pointer ${
                   isActive
-                    ? 'text-[#656565] dark:text-[#737373]'
+                    ? 'text-[#137333] dark:text-[#1ed760]'
                     : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
                 }`}
               >
                 {labels[tab]}
                 {isActive && (
-                  <span className="absolute bottom-[-1px] left-2 right-2 h-[2px] bg-[#656565] dark:bg-[#737373] rounded-full" />
+                  <span className="absolute bottom-[-1px] left-2 right-2 h-[2px] bg-[#137333] dark:bg-[#1ed760] rounded-full" />
                 )}
               </button>
             );
@@ -117,7 +117,7 @@ export default function OutlookRibbon() {
             <button
               type="button"
               onClick={() => openCompose()}
-              className="flex items-center gap-2 bg-[#656565] hover:bg-[#606060] active:bg-[#4c4c4c] text-white font-bold px-3.5 py-1.5 rounded-lg text-[13px] shadow-xs hover:shadow-sm transition cursor-pointer mr-1"
+              className="flex items-center gap-2 bg-[#137333] hover:bg-[#0f7a37] active:bg-[#115c31] text-white font-bold px-3.5 py-1.5 rounded-lg text-[13px] shadow-xs hover:shadow-sm transition cursor-pointer mr-1"
               title="Compose New Mail (Ctrl + N)"
             >
               <Plus className="w-4 h-4 stroke-[2.8]" />
@@ -134,10 +134,10 @@ export default function OutlookRibbon() {
                 if (selectedEmail) handleDeleteEmail(selectedEmail.id);
                 else showToast('Select an email first', 'info');
               }}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 text-neutral-700 dark:text-neutral-300 transition cursor-pointer font-medium"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:bg-neutral-50 hover:text-neutral-600 dark:hover:bg-neutral-950/30 text-neutral-700 dark:text-neutral-300 transition cursor-pointer font-medium"
               title="Delete message"
             >
-              <Trash2 className="w-4 h-4 text-[#D83B01]" />
+              <Trash2 className="w-4 h-4 text-[#111111]" />
               <span className="hidden sm:inline">Delete</span>
             </button>
 
@@ -167,7 +167,7 @@ export default function OutlookRibbon() {
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition cursor-pointer font-medium"
               title="Report Junk"
             >
-              <ShieldAlert className="w-4 h-4 text-[#D83B01]" />
+              <ShieldAlert className="w-4 h-4 text-[#111111]" />
               <span className="hidden md:inline">Report</span>
             </button>
 
@@ -182,7 +182,7 @@ export default function OutlookRibbon() {
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition cursor-pointer font-medium"
               title="Sweep all emails from this sender"
             >
-              <Sparkles className="w-4 h-4 text-[#656565]" />
+              <Sparkles className="w-4 h-4 text-[#137333]" />
               <span className="hidden md:inline">Sweep</span>
             </button>
 
@@ -234,7 +234,7 @@ export default function OutlookRibbon() {
                 onClick={() => setCategorizeDropdown((prev) => !prev)}
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition cursor-pointer font-medium"
               >
-                <Tag className="w-4 h-4 text-[#656565]" />
+                <Tag className="w-4 h-4 text-[#137333]" />
                 <span className="hidden lg:inline">Categorize</span>
                 <ChevronDown className="w-3 h-3 text-neutral-400" />
               </button>
@@ -302,7 +302,7 @@ export default function OutlookRibbon() {
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition cursor-pointer font-medium"
               title="Pin to top of folder"
             >
-              <Pin className="w-4 h-4 text-[#656565]" />
+              <Pin className="w-4 h-4 text-[#137333]" />
               <span className="hidden xl:inline">Pin</span>
             </button>
 
@@ -325,7 +325,7 @@ export default function OutlookRibbon() {
               type="button"
               onClick={handleRefresh}
               className={`p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition cursor-pointer text-neutral-600 dark:text-neutral-400 ${
-                isRefreshing ? 'animate-spin text-[#656565]' : ''
+                isRefreshing ? 'animate-spin text-[#137333]' : ''
               }`}
               title="Check for new messages"
             >
@@ -363,7 +363,7 @@ export default function OutlookRibbon() {
             <button
               type="button"
               onClick={() => showToast('Reading pane: Right side (Default)', 'info')}
-              className="px-2.5 py-1 bg-neutral-50 dark:bg-neutral-950/40 text-[#656565] rounded-md font-medium cursor-pointer"
+              className="px-2.5 py-1 bg-neutral-50 dark:bg-neutral-950/40 text-[#137333] rounded-md font-medium cursor-pointer"
             >
               Right
             </button>
@@ -394,7 +394,7 @@ export default function OutlookRibbon() {
               onClick={() => showToast('Shortcuts: Ctrl+N (New mail), Ctrl+E (Search), Delete (Remove)', 'info')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 font-medium cursor-pointer"
             >
-              <Keyboard className="w-4 h-4 text-[#656565]" />
+              <Keyboard className="w-4 h-4 text-[#137333]" />
               <span>Keyboard Shortcuts</span>
             </button>
             <button
