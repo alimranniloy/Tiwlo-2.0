@@ -220,7 +220,7 @@ function HeroPreview() {
       <img
         src="/landing-cloud-dashboard.png"
         alt="Tiwlo Cloud dashboard"
-        className="relative block h-auto w-full rounded-[2%] object-cover lg:max-h-[360px] lg:object-cover"
+        className="relative block h-auto w-full rounded-[3%] object-cover lg:max-h-[360px] lg:object-cover"
         fetchPriority="high"
       />
     </div>
