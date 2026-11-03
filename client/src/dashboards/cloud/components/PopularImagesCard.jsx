@@ -1,62 +1,6 @@
 import React from 'react';
 
-export default function PopularImagesCard({ onDeployImage }) {
-  const images = [
-    {
-      id: 'ubuntu',
-      name: 'Ubuntu 22.04 LTS',
-      os: 'Ubuntu',
-      color: '#E95420',
-      svg: (
-        <svg viewBox="0 0 24 24" className="w-5 h-5 fill-[#E95420]">
-          <circle cx="12" cy="12" r="10" fill="#E95420" />
-          <circle cx="12" cy="5" r="2" fill="white" />
-          <circle cx="6" cy="16" r="2" fill="white" />
-          <circle cx="18" cy="16" r="2" fill="white" />
-        </svg>
-      )
-    },
-    {
-      id: 'debian',
-      name: 'Debian 12',
-      os: 'Debian',
-      color: '#A81D33',
-      svg: (
-        <svg viewBox="0 0 24 24" className="w-5 h-5">
-          <circle cx="12" cy="12" r="10" fill="#D70A53" />
-          <path d="M12 7c-2.76 0-5 2.24-5 5 0 2.21 1.44 4.09 3.44 4.74.28.09.56-.12.56-.41v-1.1c0-.21-.13-.39-.33-.47-1.1-.44-1.89-1.52-1.89-2.76 0-1.65 1.35-3 3-3s3 1.35 3 3c0 .83-.34 1.58-.88 2.12-.15.15-.15.4 0 .55l.78.78c.15.15.4.15.55 0C16.32 14.65 17 13.41 17 12c0-2.76-2.24-5-5-5z" fill="white" />
-        </svg>
-      )
-    },
-    {
-      id: 'centos',
-      name: 'CentOS 8',
-      os: 'CentOS',
-      color: '#93227F',
-      svg: (
-        <svg viewBox="0 0 24 24" className="w-5 h-5">
-          <circle cx="12" cy="12" r="10" fill="#2b2b2b" />
-          <rect x="7" y="7" width="4" height="4" fill="#E54E27" />
-          <rect x="13" y="7" width="4" height="4" fill="#93227F" />
-          <rect x="7" y="13" width="4" height="4" fill="#4B9038" />
-          <rect x="13" y="13" width="4" height="4" fill="#ECB018" />
-        </svg>
-      )
-    },
-    {
-      id: 'almalinux',
-      name: 'AlmaLinux 9',
-      os: 'AlmaLinux',
-      color: '#2b2b2b',
-      svg: (
-        <svg viewBox="0 0 24 24" className="w-5 h-5">
-          <circle cx="12" cy="12" r="10" fill="#2b2b2b" />
-          <path d="M8 8h3v8H8zm5 0h3v8h-3z" fill="#a2a2a2" />
-        </svg>
-      )
-    }
-  ];
-
+export default function PopularImagesCard({ images = [], onDeployImage }) {
   return (
     <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#181818] border border-neutral-200/70 dark:border-gray-800 shadow-2xs flex flex-col justify-between">
       <div>
@@ -65,42 +9,48 @@ export default function PopularImagesCard({ onDeployImage }) {
             Popular images
           </h3>
           <button
-            onClick={() => onDeployImage?.('Ubuntu 22.04 LTS')}
+            type="button"
+            onClick={() => onDeployImage?.()}
             className="text-xs font-bold text-neutral-600 dark:text-neutral-400 hover:text-neutral-700 cursor-pointer"
           >
             View all
           </button>
         </div>
 
-        <div className="space-y-3">
-          {images.map((img) => (
+        {images.length > 0 ? (
+          <div className="space-y-3">
+            {images.map((img) => (
             <div
-              key={img.id}
+              key={img.id || img.name}
               className="flex items-center justify-between py-1"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0">
-                  {img.svg}
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-[10px] font-bold text-neutral-700">
+                  {(img.os || img.name || '?').slice(0, 2).toUpperCase()}
                 </div>
                 <div>
                   <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200 leading-tight">
                     {img.name}
                   </p>
                   <p className="text-[10px] text-neutral-400 font-medium">
-                    {img.os}
+                    {[img.os, img.version].filter(Boolean).join(' · ') || 'Operating system image'}
                   </p>
                 </div>
               </div>
 
               <button
+                type="button"
                 onClick={() => onDeployImage?.(img.name)}
                 className="px-2.5 py-1 rounded-lg bg-neutral-50/80 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-600 hover:text-white dark:hover:bg-neutral-600 dark:hover:text-white text-[11px] font-bold transition cursor-pointer"
               >
                 Deploy
               </button>
             </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <p className="py-5 text-center text-xs text-neutral-500">No image catalog data is available.</p>
+        )}
       </div>
     </div>
   );

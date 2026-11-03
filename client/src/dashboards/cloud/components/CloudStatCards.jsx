@@ -9,7 +9,9 @@ export default function CloudStatCards({ metrics, loading = false }) {
       value: loading ? 'Loading…' : (metrics?.totalDroplets ?? '—'),
       change: metrics?.dropletsGrowth || 'Historical trend unavailable',
       icon: Droplet,
-      iconBg: 'bg-neutral-50 dark:bg-neutral-950/40 text-neutral-600 dark:text-neutral-400'
+      surface: 'bg-black text-white border-black',
+      iconBg: 'bg-white/10 text-[#1ed760]',
+      secondary: 'text-white/60'
     },
     {
       id: 'vcpus',
@@ -17,7 +19,9 @@ export default function CloudStatCards({ metrics, loading = false }) {
       value: loading ? 'Loading…' : (metrics?.totalVcpus ?? '—'),
       change: metrics?.vcpusGrowth || 'Historical trend unavailable',
       icon: Layers,
-      iconBg: 'bg-neutral-50 dark:bg-neutral-950/40 text-neutral-600 dark:text-neutral-400'
+      surface: 'bg-white text-neutral-950 border-neutral-200 dark:bg-neutral-900 dark:text-white dark:border-neutral-800',
+      iconBg: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300',
+      secondary: 'text-neutral-500 dark:text-neutral-400'
     },
     {
       id: 'storage',
@@ -25,7 +29,9 @@ export default function CloudStatCards({ metrics, loading = false }) {
       value: loading ? 'Loading…' : (metrics?.totalStorage ?? '—'),
       change: metrics?.storageGrowth || 'Historical trend unavailable',
       icon: HardDrive,
-      iconBg: 'bg-neutral-50 dark:bg-neutral-950/40 text-neutral-600 dark:text-neutral-400'
+      surface: 'bg-white text-neutral-950 border-neutral-200 dark:bg-neutral-900 dark:text-white dark:border-neutral-800',
+      iconBg: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300',
+      secondary: 'text-neutral-500 dark:text-neutral-400'
     },
     {
       id: 'bandwidth',
@@ -33,7 +39,9 @@ export default function CloudStatCards({ metrics, loading = false }) {
       value: loading ? 'Loading…' : (metrics?.totalBandwidth ?? '—'),
       change: metrics?.bandwidthGrowth || 'Historical trend unavailable',
       icon: Globe,
-      iconBg: 'bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400'
+      surface: 'bg-[#1ed760] text-black border-[#1ed760]',
+      iconBg: 'bg-black/10 text-black',
+      secondary: 'text-black/65'
     }
   ];
 
@@ -44,7 +52,7 @@ export default function CloudStatCards({ metrics, loading = false }) {
         return (
           <div
             key={card.id}
-            className="p-3.5 sm:p-5 rounded-2xl bg-white dark:bg-[#181818] border border-neutral-200/70 dark:border-gray-800 shadow-2xs"
+            className={`rounded-3xl border p-4 shadow-sm sm:p-5 ${card.surface}`}
           >
             <div className="flex items-center justify-between mb-2 sm:mb-3">
               <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center ${card.iconBg}`}>
@@ -52,15 +60,15 @@ export default function CloudStatCards({ metrics, loading = false }) {
               </div>
             </div>
 
-            <p className="text-[11px] sm:text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-1 truncate">
+            <p className={`mb-1 truncate text-xs font-semibold ${card.secondary}`}>
               {card.title}
             </p>
 
-            <h3 className="text-lg sm:text-2xl font-black text-neutral-900 dark:text-white tracking-tight mb-1 sm:mb-2">
+            <h3 className="mb-1 text-xl font-black tracking-tight sm:text-2xl">
               {card.value}
             </h3>
 
-            <p className="text-[10px] sm:text-[11px] font-medium text-neutral-500 dark:text-neutral-400 flex items-center gap-1 truncate">
+            <p className={`flex items-center gap-1 truncate text-[11px] font-medium ${card.secondary}`}>
               {card.change}
             </p>
           </div>

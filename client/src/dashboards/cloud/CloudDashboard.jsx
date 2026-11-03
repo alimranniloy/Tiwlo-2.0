@@ -3,6 +3,7 @@ import CloudHeader from './components/CloudHeader';
 import CloudSidebar from './components/CloudSidebar';
 import CloudHeroBanner from './components/CloudHeroBanner';
 import CloudStatCards from './components/CloudStatCards';
+import CloudPerformanceCard from './components/CloudPerformanceCard';
 import DropletsTable from './components/DropletsTable';
 import ServiceStatusCard from './components/ServiceStatusCard';
 import PopularImagesCard from './components/PopularImagesCard';
@@ -169,7 +170,7 @@ export default function CloudDashboard({
   });
 
   return (
-    <div className="tiwi-v3-cloud min-h-screen bg-[#f4f4f4] text-[#1F1F1F] flex font-sans">
+    <div className="tiwi-v3-cloud flex min-h-dvh bg-neutral-50 font-sans text-neutral-950 dark:bg-neutral-950 dark:text-neutral-100">
       {/* Left Sidebar */}
       <CloudSidebar
         activeNav={activeNav}
@@ -184,6 +185,7 @@ export default function CloudDashboard({
           } catch (e) {}
         }}
         userStores={userStores}
+        currentStore={currentStore}
         onNavigateTab={onNavigateTab}
         onOpenCreateStore={() => setActiveNav('create-store')}
         onOpenCreateDroplet={() => {
@@ -231,7 +233,7 @@ export default function CloudDashboard({
         />
 
         {/* Scrollable Dashboard Body */}
-        <main className="flex-1 p-3.5 sm:p-6 lg:p-8 overflow-y-auto min-w-0">
+        <main className="min-w-0 flex-1 overflow-y-auto px-4 py-8 sm:px-6 lg:px-10">
           {cloudError && (
             <div role="alert" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
               <span>{cloudError}</span>
@@ -441,62 +443,69 @@ export default function CloudDashboard({
               )}
             </div>
           ) : (
-            <div className="max-w-[1600px] mx-auto space-y-6">
-              {/* Top 2-Column Split: Main Grid (Left ~68%) and Right Column (~32%) */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* Left/Center Main Column (Col 8) */}
-                <div className="lg:col-span-8 space-y-6">
-                  {/* Hero Greeting & Cloud Banner */}
-                  <CloudHeroBanner currentUser={{ ...currentUser, storeName: currentStore?.storeName || currentUser?.storeName }} />
+            <div className="mx-auto max-w-7xl space-y-6">
+              <CloudHeroBanner
+                currentUser={{ ...currentUser, storeName: currentStore?.storeName || currentUser?.storeName }}
+                onCreateDroplet={() => {
+                  setInitialDropletImage('Ubuntu 24.04 LTS');
+                  setActiveNav('create-droplet');
+                }}
+                onOpenStore={launchStoreConsole}
+              />
+              <CloudStatCards metrics={metrics} loading={loading} />
 
-                  {/* 4 Stat Cards */}
-                  <CloudStatCards metrics={metrics} loading={loading} />
-
-                  {/* Droplets Table */}
-                  <DropletsTable
-                    droplets={filteredDroplets}
-                    onOpenCreateDroplet={() => {
-                      setInitialDropletImage('Ubuntu 24.04 LTS');
-                      setActiveNav('create-droplet');
-                    }}
-                  />
-
-                  {/* Bottom Row of 3 Cards matching screenshot */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                    <ServiceStatusCard />
-                    <PopularImagesCard
-                      onDeployImage={(img) => {
-                        setInitialDropletImage(img);
-                        setActiveNav('create-droplet');
-                      }}
-                    />
-                    <QuickAccessCard
-                      onSelectAction={(action) => {
-                        if (action === 'Droplets') setActiveNav('create-droplet');
-                        else if (action === 'Volumes') setActiveNav('volumes');
-                        else if (action === 'Kubernetes') setActiveNav('kubernetes');
-                        else if (action === 'Domains') setActiveNav('domains');
-                      }}
-                    />
-                  </div>
+              <div className="grid items-start gap-6 lg:grid-cols-3">
+                <div className="lg:col-span-2">
+                  <CloudPerformanceCard metrics={metrics} loading={loading} />
                 </div>
+                <UsageOverviewCard metrics={metrics} />
+              </div>
 
-                {/* Right Column (Col 4) */}
-                <div className="lg:col-span-4 space-y-6">
-                  {/* Usage Overview (4 Circular Progress Rings) */}
-                  <UsageOverviewCard metrics={metrics} />
+              <DropletsTable
+                droplets={filteredDroplets}
+                onOpenCreateDroplet={() => {
+                  setInitialDropletImage('Ubuntu 24.04 LTS');
+                  setActiveNav('create-droplet');
+                }}
+              />
 
-                  {/* Create New Hero Button + 2x2 Grid */}
+              <div className="grid items-start gap-6 lg:grid-cols-3">
+                <div className="lg:col-span-2">
                   <CreateNewSection
                     onOpenCreateDroplet={() => {
                       setInitialDropletImage('Ubuntu 24.04 LTS');
                       setActiveNav('create-droplet');
                     }}
                   />
-
-                  {/* Recent Activity */}
-                  <CloudRecentActivity activities={activities} />
                 </div>
+                <ServiceStatusCard />
+              </div>
+
+              <div className="grid items-start gap-6 lg:grid-cols-3">
+                <div className="lg:col-span-1">
+                  <PopularImagesCard
+                    images={popularImages}
+                    onDeployImage={(img) => {
+                      if (!img) {
+                        setActiveNav('images');
+                        return;
+                      }
+                      setInitialDropletImage(img);
+                      setActiveNav('create-droplet');
+                    }}
+                  />
+                </div>
+                <div className="lg:col-span-1">
+                  <QuickAccessCard
+                    onSelectAction={(action) => {
+                      if (action === 'Droplets') setActiveNav('create-droplet');
+                      else if (action === 'Volumes') setActiveNav('volumes');
+                      else if (action === 'Kubernetes') setActiveNav('kubernetes');
+                      else if (action === 'Domains') setActiveNav('domains');
+                    }}
+                  />
+                </div>
+                <CloudRecentActivity activities={activities} />
               </div>
             </div>
           )}

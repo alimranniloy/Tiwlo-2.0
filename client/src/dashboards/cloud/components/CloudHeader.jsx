@@ -4,7 +4,6 @@ import {
   Bell,
   Moon,
   Sun,
-  ChevronDown,
   Store,
   ShieldCheck,
   User,
@@ -14,8 +13,8 @@ import {
   Check,
   Menu,
   LogOut,
+  Plus,
 } from 'lucide-react';
-import { resolveAvatarUrl } from '../../../utils/mediaUtils';
 import { useTheme } from '../../../config/themeConfig';
 import { getCloudBillingData } from '../graphql/cloudQueries';
 
@@ -33,7 +32,6 @@ export default function CloudHeader({
   onToggleMobileMenu
 }) {
   const { isDark, toggleTheme } = useTheme();
-  const toggleDarkMode = toggleTheme;
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [copiedTiwiId, setCopiedTiwiId] = useState(false);
@@ -70,39 +68,33 @@ export default function CloudHeader({
   };
 
   return (
-    <header className="tiwi-v3-topbar h-16 px-3 sm:px-6 lg:px-8 bg-white border-b border-[#e2e2e2] flex items-center justify-between sticky top-0 z-50 font-sans">
-      {/* Left: Hamburger menu on mobile & Search Bar */}
-      <div className="flex items-center flex-1 max-w-xs sm:max-w-md min-w-0 mr-2 sm:mr-4">
-        {/* Mobile Hamburger Button */}
+    <header className="tiwi-v3-topbar sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-neutral-200 bg-white/95 px-4 font-sans backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/95 sm:px-6 lg:px-8">
+      <div className="flex min-w-0 max-w-md flex-1 items-center gap-2">
         <button
           type="button"
           onClick={onToggleMobileMenu}
-          className="lg:hidden mr-2 p-2 rounded-full border border-[#e2e2e2] bg-[#f4f4f4] text-[#444746] hover:bg-[#eeeeee] transition shrink-0 cursor-pointer"
+          className="flex size-10 shrink-0 items-center justify-center rounded-full text-neutral-700 transition hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800 lg:hidden"
           title="Open menu"
           aria-label="Open menu"
         >
-          <Menu className="w-4 h-4" />
+          <Menu className="size-5" />
         </button>
 
-        {/* Modern Google Material 3 Omnibox Search Bar */}
-        <div className="relative w-full">
-          <Search className="w-4 h-4 text-[#444746] absolute left-3.5 top-1/2 -translate-y-1/2" />
+        <label className="relative hidden min-w-0 flex-1 md:block">
+          <span className="sr-only">Search resources and services</span>
+          <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-neutral-500" aria-hidden="true" />
           <input
-            type="text"
+            type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search resources, services, and docs (/)..."
-            className="w-full pl-10 pr-12 py-2 rounded-full bg-[#f4f4f4] hover:bg-[#eeeeee] focus:bg-white border border-transparent focus:border-[#1ed760] focus:ring-1 focus:ring-[#1ed760] text-[13px] text-[#1F1F1F] placeholder-[#444746] transition font-normal min-w-0 outline-none"
+            placeholder="Search resources, services, and docs..."
+            className="h-10 w-full rounded-full bg-neutral-100 pl-11 pr-14 text-sm text-neutral-900 outline-none ring-neutral-900/10 transition placeholder:text-neutral-500 focus:bg-white focus:ring-2 dark:bg-neutral-800 dark:text-white dark:focus:bg-neutral-900"
           />
-          <div className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 items-center gap-0.5 px-2 py-0.5 rounded-full bg-white border border-[#e2e2e2] text-[10px] font-semibold text-[#444746]">
-            <span>/</span>
-          </div>
-        </div>
+          <span className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-md border border-neutral-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-neutral-500 sm:block">/</span>
+        </label>
       </div>
 
-      {/* Right Controls */}
-      <div className="flex items-center gap-1.5 sm:gap-3.5 shrink-0">
-        {/* Tiwlo Cloud Credits & Billing Pill (Direct Link to Billing Page, No Popup) */}
+      <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
         <button
           type="button"
           onClick={() => {
@@ -110,96 +102,54 @@ export default function CloudHeader({
             else if (onOpenSettings) onOpenSettings('billing');
             else showToast?.('Opening Tiwlo Cloud Billing Console...');
           }}
-          className="group flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#e2e2e2] dark:border-[#3f3f3f] bg-[#f4f4f4] hover:bg-[#eeeeee] dark:bg-[#212121] dark:hover:bg-[#313131] transition-all duration-150 cursor-pointer select-none active:scale-95"
+          className="hidden h-10 items-center gap-2 rounded-full bg-neutral-100 px-4 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700 sm:flex"
           title="Tiwlo Cloud Credits & Billing Account"
         >
-          {/* Official Tiwlo Icon */}
-          <div className="w-4 h-4 shrink-0 flex items-center justify-center">
-            <img src="/tiwlo-icon.png" alt="Tiwlo" className="w-3.5 h-3.5 object-contain dark:hidden" />
-            <img src="/tiwlo-icon-dark.png" alt="Tiwlo" className="w-3.5 h-3.5 object-contain hidden dark:block" />
-          </div>
-
-          {/* Clean Google Material Style live credit balance */}
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="font-semibold text-[#000000] dark:text-[#b0b0b0]">
-              {headerCredits === null ? '—' : `$${headerCredits.toFixed(2)}`}
-            </span>
-            <span className="text-[11px] text-[#444746] dark:text-[#9f9f9f] hidden sm:inline font-normal">
-              Credits
-            </span>
-          </div>
+          <img src="/tiwlo-icon.png" alt="" className="size-4 object-contain" />
+          Credits <span className="font-bold">{headerCredits === null ? '—' : `$${headerCredits.toFixed(2)}`}</span>
         </button>
 
-        {/* Notification Bell with Red Badge */}
+        <button
+          type="button"
+          onClick={onOpenCreateDroplet}
+          className="flex h-10 items-center gap-1.5 rounded-full bg-black px-4 text-sm font-bold text-white transition hover:bg-black/80"
+        >
+          <Plus className="size-4" aria-hidden="true" />
+          <span className="hidden sm:inline">Create</span>
+        </button>
+
         <div className="relative">
           <button
             onClick={() => {
               setShowNotifications(!showNotifications);
               setShowProfileMenu(false);
             }}
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-gray-800 transition cursor-pointer relative"
+            type="button"
+            aria-label="Notifications"
+            className="relative flex size-10 items-center justify-center rounded-full text-neutral-700 transition hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
           >
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-gray-900 animate-pulse"></span>
+            <Bell className="size-5" />
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 rounded-2xl bg-white dark:bg-gray-900 border border-neutral-200 dark:border-gray-800 shadow-xl p-4 text-xs z-50 animate-in fade-in">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-bold text-neutral-900 dark:text-white">Notifications</span>
-                <span className="text-[10px] font-semibold text-neutral-600 bg-neutral-50 dark:bg-neutral-900/30 px-2 py-0.5 rounded-full">
-                  1 new
-                </span>
-              </div>
-              <div className="p-2.5 rounded-xl bg-neutral-50 dark:bg-gray-800/60 border border-neutral-100 dark:border-gray-700 flex items-start gap-2.5">
-                <div className="w-2 h-2 rounded-full bg-neutral-500 mt-1.5 shrink-0"></div>
-                <div>
-                  <p className="font-semibold text-neutral-800 dark:text-neutral-200">
-                    Infrastructure Backup Finished
-                  </p>
-                  <p className="text-[11px] text-neutral-400 mt-0.5">
-                    Droplet db-backup snapshot succeeded at 10:24 AM.
-                  </p>
-                </div>
-              </div>
+            <div className="absolute right-0 z-50 mt-2 w-72 rounded-2xl border border-neutral-200 bg-white p-4 text-sm shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
+              <p className="font-semibold text-neutral-900 dark:text-white">Notifications</p>
+              <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The notification center is not available yet.</p>
             </div>
           )}
         </div>
 
-        {/* Dark Mode Toggle */}
-        <button
-          onClick={toggleDarkMode}
-          className="w-9 h-9 rounded-xl flex items-center justify-center text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-gray-800 transition cursor-pointer"
-          title="Toggle Theme"
-        >
-          {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
-        </button>
-
-        {/* User Profile matching eCommerce Tiwi ID & Settings menu */}
         <div className="relative">
           <button
-            onClick={() => setShowProfileMenu(!showProfileMenu)}
-            className="flex items-center space-x-2.5 p-1 pl-1.5 pr-2.5 rounded-xl hover:bg-neutral-50 dark:hover:bg-gray-800/80 transition border border-transparent hover:border-neutral-200 dark:hover:border-gray-700 cursor-pointer select-none"
+            type="button"
+            onClick={() => {
+              setShowProfileMenu(!showProfileMenu);
+              setShowNotifications(false);
+            }}
+            aria-label="Account settings"
+            className="flex size-10 items-center justify-center rounded-full bg-[#1ed760] text-sm font-bold text-black transition hover:brightness-95"
           >
-            <div className="relative">
-              <img
-                src={resolveAvatarUrl(currentUser?.avatar)}
-                alt="Profile"
-                className="w-8 h-8 rounded-full object-cover ring-2 ring-neutral-500/20"
-              />
-              <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-gray-900"></span>
-            </div>
-
-            <div className="text-left hidden sm:block">
-              <h2 className="text-xs font-bold text-neutral-900 dark:text-white leading-tight">
-                {displayName}
-              </h2>
-              <p className="text-[10px] text-neutral-600 dark:text-neutral-400 font-bold font-mono">
-                Tiwi ID: {tiwiId}
-              </p>
-            </div>
-
-            <ChevronDown className="w-3.5 h-3.5 text-neutral-400 ml-0.5" />
+            {(displayName.match(/\b\w/g) || ['T', 'W']).slice(0, 2).join('').toUpperCase()}
           </button>
 
           {/* Profile Menu Dropdown (Exact match to eCommerce Tiwi ID & Settings) */}
@@ -232,6 +182,17 @@ export default function CloudHeader({
 
               {/* Action Links */}
               <div className="py-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    toggleTheme();
+                    setShowProfileMenu(false);
+                  }}
+                  className="w-full flex items-center px-4 py-2 text-xs text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-gray-800 transition cursor-pointer"
+                >
+                  {isDark ? <Sun className="w-4 h-4 mr-2.5 text-neutral-500" /> : <Moon className="w-4 h-4 mr-2.5 text-neutral-500" />}
+                  <span>{isDark ? 'Light theme' : 'Dark theme'}</span>
+                </button>
                 {onOpenStore && (
                   <button
                     onClick={() => {

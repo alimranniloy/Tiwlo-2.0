@@ -31,6 +31,7 @@ export default function UsageOverviewCard({ metrics }) {
       color: '#939393'
     }
   ];
+  const hasLiveMetrics = rings.some((ring) => Number.isFinite(ring.percent));
 
   // Circle SVG math
   const radius = 24;
@@ -44,7 +45,9 @@ export default function UsageOverviewCard({ metrics }) {
           Usage Overview
         </h3>
 
-        <span className="text-[11px] text-neutral-500 dark:text-neutral-400">Live data unavailable</span>
+        <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+          {hasLiveMetrics ? 'Live metrics' : 'No live metrics'}
+        </span>
       </div>
 
       {/* 4 Circular Rings in a row or 2x2 grid */}

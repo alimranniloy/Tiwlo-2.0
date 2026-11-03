@@ -9,19 +9,22 @@ import {
   CreditCard,
   Settings,
   ChevronDown,
+  ChevronsUpDown,
   Plus,
   Store,
   ExternalLink,
   Mail,
   Fingerprint,
   IdCard,
-  X
+  X,
+  Sparkles
 } from 'lucide-react';
 
 export default function CloudSidebar({
   activeNav = 'dashboard',
   setActiveNav,
   userStores = [],
+  currentStore,
   onOpenCreateStore,
   onOpenCreateDroplet,
   onNavigateTab,
@@ -90,22 +93,22 @@ export default function CloudSidebar({
       )}
 
       <aside className={`
-        tiwi-v3-sidebar w-[260px] sm:w-[270px] lg:w-[250px] h-screen overflow-y-auto bg-white border-r border-[#e2e2e2] flex flex-col p-4 select-none transition-all duration-300 ease-in-out shrink-0 font-sans
+        tiwi-v3-sidebar w-64 h-dvh overflow-y-auto bg-black flex flex-col gap-6 p-4 select-none transition-all duration-300 ease-in-out shrink-0 font-sans
         fixed inset-y-0 left-0 z-50
         lg:static lg:translate-x-0 lg:z-20 lg:sticky lg:top-0
         ${mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
       `}>
-        <div>
+        <div className="flex min-h-0 flex-1 flex-col gap-6">
           {/* Brand Header using Official Tiwlo Logo & Mobile Close Button */}
-          <div className="flex items-center justify-between mb-5 px-2">
+          <div className="flex items-center justify-between px-2 pt-2">
             <div
               onClick={() => handleNavSelect('dashboard')}
-              className="h-9 flex items-center shrink-0 cursor-pointer"
+              className="flex h-8 items-center shrink-0 cursor-pointer"
             >
               <img
-                src="/tiwlologo.png"
-                alt="Tiwlo"
-                className="h-8 w-auto object-contain"
+                src="/tiwlo-dark-bg-logo.png"
+                alt="Tiwlo Cloud"
+                className="h-7 w-auto max-w-[150px] object-contain"
               />
             </div>
 
@@ -120,7 +123,26 @@ export default function CloudSidebar({
             </button>
           </div>
 
-        <nav aria-label="Main navigation" className="space-y-5">
+          <button
+            type="button"
+            onClick={() => handleNavSelect('my-online-store')}
+            className="flex w-full items-center gap-3 rounded-xl bg-white/5 p-2.5 text-left ring-1 ring-white/10 transition hover:bg-white/10"
+          >
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#1ed760] text-sm font-bold text-black">
+              {(currentStore?.storeName || userStores[0]?.storeName || 'TW').slice(0, 2).toUpperCase()}
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-sm font-semibold text-white">
+                {currentStore?.storeName || userStores[0]?.storeName || 'Tiwlo Workspace'}
+              </span>
+              <span className="truncate text-xs text-white/50">
+                Cloud · {currentStore?.planName || currentStore?.planId || 'Workspace'}
+              </span>
+            </span>
+            <ChevronsUpDown className="size-4 shrink-0 text-white/50" aria-hidden="true" />
+          </button>
+
+        <nav aria-label="Main navigation" className="-mx-1 flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-1">
           <section className="space-y-1">
             <p className="tiwi-v3-nav-label px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#747775] dark:text-neutral-500">
               Overview
@@ -237,6 +259,25 @@ export default function CloudSidebar({
             {renderNavItem({ id: 'settings', label: 'Settings', icon: Settings, navigateTab: true })}
           </section>
         </nav>
+        <div className="rounded-2xl bg-[#1ed760] p-4 text-black">
+          <div className="flex items-center gap-2 text-sm font-bold">
+            <Sparkles className="size-4" aria-hidden="true" />
+            Create a store
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-black/70">
+            Launch a storefront with your Tiwlo workspace.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setMobileOpen?.(false);
+              onOpenCreateStore?.();
+            }}
+            className="mt-3 inline-flex h-8 items-center rounded-full bg-black px-4 text-xs font-bold text-white transition hover:bg-black/80"
+          >
+            Open store
+          </button>
+        </div>
       </div>
 
     </aside>
