@@ -74,7 +74,7 @@ export default function QuickActions({
         </div>
 
         {/* Grid of 6 buttons */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6">
           {actions.map((act) => {
             const Icon = act.icon;
             return (

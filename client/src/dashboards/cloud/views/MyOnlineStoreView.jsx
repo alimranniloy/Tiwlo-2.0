@@ -1,11 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  Store,
+  ArrowUpRight,
+  Globe,
   Plus,
-  ExternalLink,
-  MapPin,
-  LayoutDashboard,
-  ArrowRight,
+  Search,
+  Store,
 } from 'lucide-react';
 import { STORE_DOMAIN, getStoreUrl } from '../../../config/platformConfig';
 
@@ -16,268 +15,193 @@ function getStoreHost(subdomain) {
   return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(value) ? `${value}.${STORE_DOMAIN}` : '';
 }
 
+function StatCard({ label, value, icon: Icon, tone = 'default' }) {
+  const tones = {
+    ink: 'bg-black text-white ring-black',
+    primary: 'bg-[#1ed760] text-black ring-[#1ed760]',
+    default: 'bg-white text-neutral-950 ring-neutral-200 dark:bg-neutral-900 dark:text-white dark:ring-neutral-800',
+  };
+  return (
+    <div className={`flex flex-col justify-between gap-6 rounded-3xl p-5 ring-1 ${tones[tone]}`}>
+      <div className="flex items-center justify-between">
+        <span className={`text-sm font-medium ${tone === 'default' ? 'text-neutral-500 dark:text-neutral-400' : 'opacity-70'}`}>
+          {label}
+        </span>
+        <span className={`flex size-9 items-center justify-center rounded-full ${
+          tone === 'ink' ? 'bg-white/10' : tone === 'primary' ? 'bg-black/10' : 'bg-neutral-100 dark:bg-neutral-800'
+        }`}>
+          <Icon className="size-4" aria-hidden="true" />
+        </span>
+      </div>
+      <p className="text-3xl font-bold tracking-tight">{value}</p>
+    </div>
+  );
+}
+
 export default function MyOnlineStoreView({
-  currentUser,
   userStores = [],
   currentStore,
   onSelectStore,
   onOpenStoreDashboard,
   onOpenCreateStore
 }) {
-  // Safe fallback if user has no stores yet
+  const [search, setSearch] = useState('');
   const stores = userStores.length > 0 ? userStores : (currentStore ? [currentStore] : []);
+  const query = search.trim().toLowerCase();
+  const filteredStores = query
+    ? stores.filter((store) => [
+      store.storeName,
+      store.tiwiId,
+      store.category,
+      store.subdomain,
+      store.status,
+    ].some((value) => String(value || '').toLowerCase().includes(query)))
+    : stores;
+  const liveStores = stores.filter((store) => ['active', 'live', 'running'].includes(String(store.status || '').toLowerCase())).length;
+  const configuredDomains = stores.filter((store) => Boolean(getStoreHost(store.subdomain))).length;
+
+  const openStore = (store) => {
+    onSelectStore?.(store);
+    onOpenStoreDashboard?.(store);
+  };
 
   return (
-    <div className="space-y-7 animate-in fade-in duration-200">
-      {/* ======================================================== */}
-      {/* 1. FULL-WIDTH PANORAMIC OCEAN BANNER (Compact & Clean) */}
-      {/* ======================================================== */}
-      <div className="relative rounded-3xl overflow-hidden border border-neutral-200/80 dark:border-white/10 shadow-lg min-h-[160px] flex items-center">
-        {/* Full-width Ocean Background Image spanning the entire section */}
-        <img
-          src="/waves/ocean_waves_blue.jpg"
-          alt="Ocean Waves Background"
-          className="absolute inset-0 w-full h-full object-cover object-center"
-        />
-
-        {/* Dark Vignette / Frosted Overlay for high readability */}
-        <div className="absolute inset-0 bg-gradient-to-r from-neutral-950/95 via-neutral-900/80 to-neutral-950/70" />
-
-        {/* Content Container */}
-        <div className="relative z-10 w-full px-4 sm:px-8 py-5 sm:py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1 sm:space-y-1.5 max-w-xl">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-white">
-              My Online Store
-            </h1>
-            <p className="text-xs sm:text-sm text-neutral-300 font-normal leading-relaxed">
-              Create and manage your online storefronts, POS terminals, and multi-channel inventory.
-            </p>
-          </div>
-
-          {/* Quick Action Button */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 shrink-0">
-            <button
-              onClick={onOpenCreateStore}
-              className="px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl bg-white hover:bg-neutral-100 text-neutral-950 text-xs font-bold shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
-            >
-              <Plus className="w-4 h-4 text-neutral-600 stroke-[3]" />
-              <span>Create New Store</span>
-            </button>
-
-            {currentStore && (
-              <button
-                onClick={() => onOpenStoreDashboard?.(currentStore)}
-                className="px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/20 text-white text-xs font-semibold border border-white/25 backdrop-blur-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <span>Launch {currentStore.storeName || 'Store'}</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ======================================================== */}
-      {/* 2. STORES SECTION HEADER & QUICK '+' ACTION */}
-      {/* ======================================================== */}
-      <div className="flex items-center justify-between">
+    <div className="mx-auto flex max-w-7xl flex-col gap-8">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-lg font-bold tracking-tight text-neutral-900 dark:text-white flex items-center gap-2">
-            <span>Your Active Storefronts</span>
-            <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-neutral-100 text-neutral-700 dark:bg-neutral-950/60 dark:text-neutral-300">
-              {stores.length} {stores.length === 1 ? 'Store' : 'Stores'}
-            </span>
-          </h2>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-            Isolated to your account ({currentUser?.email || currentUser?.tiwiId || 'Active Account'}).
+          <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500">Products</p>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight text-neutral-950 dark:text-white sm:text-4xl">
+            Online store
+          </h1>
+          <p className="mt-2 max-w-2xl text-neutral-600 dark:text-neutral-400">
+            All stores registered to this account.
           </p>
         </div>
-
         <button
+          type="button"
           onClick={onOpenCreateStore}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-neutral-600 hover:bg-neutral-700 text-white text-xs font-bold shadow-sm shadow-neutral-500/20 transition-all active:scale-95 cursor-pointer"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[#1ed760] px-5 text-sm font-bold text-black transition hover:bg-[#16c653]"
         >
-          <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-          <span>Add New Store</span>
+          <Plus className="size-4" aria-hidden="true" />
+          Create store
         </button>
+      </header>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+        <StatCard label="Stores" value={stores.length} icon={Store} tone="ink" />
+        <StatCard label="Live stores" value={liveStores} icon={Store} />
+        <div className="col-span-2 lg:col-span-1">
+          <StatCard label="Domains configured" value={configuredDomains} icon={Globe} tone="primary" />
+        </div>
       </div>
 
-      {/* ======================================================== */}
-      {/* 3. STORE CARDS GRID */}
-      {/* ======================================================== */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {stores.map((st, idx) => {
-          const isActive = currentStore?.tiwiId === st.tiwiId;
-          const billing = st.billingDetails || {};
-          const storeHost = getStoreHost(st.subdomain);
+      <section className="rounded-3xl bg-white p-5 ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800 sm:p-6">
+        <div className="mb-5">
+          <label className="relative block max-w-md">
+            <span className="sr-only">Search stores</span>
+            <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-neutral-500" aria-hidden="true" />
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search stores"
+              className="h-10 w-full rounded-full bg-neutral-100 pl-11 pr-4 text-sm text-neutral-900 outline-none ring-neutral-900/10 transition placeholder:text-neutral-500 focus:bg-white focus:ring-2 dark:bg-neutral-800 dark:text-white dark:focus:bg-neutral-950"
+            />
+          </label>
+        </div>
 
-          return (
-            <div
-              key={st.tiwiId || idx}
-              className={`relative rounded-3xl p-5 transition-all duration-200 flex flex-col justify-between ${
-                isActive
-                  ? 'bg-white dark:bg-[#181818] border-2 border-neutral-500/80 shadow-lg shadow-neutral-500/5'
-                  : 'bg-white dark:bg-[#181818] border border-neutral-200/80 dark:border-gray-800 shadow-2xs hover:shadow-sm'
-              }`}
-            >
-              <div>
-                {/* Top Row: App Icon & Default Badge */}
-                <div className="flex items-center justify-between mb-3.5">
-                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-neutral-600 to-neutral-600 text-white flex items-center justify-center shadow-sm">
-                    <Store className="w-5 h-5" />
-                  </div>
-                  {isActive && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-800">
-                      Selected Store
-                    </span>
-                  )}
-                </div>
-
-                {/* Store Name & Category */}
-                <div className="space-y-1 mb-3.5">
-                  <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate">
-                    {st.storeName || 'Unnamed Store'}
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-gray-800 text-neutral-600 dark:text-neutral-300">
-                      {st.tiwiId || ''}
-                    </span>
-                    <span className="text-xs text-neutral-400">
-                      {st.category || 'General Retail'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Subdomain URL & Billing Address */}
-                <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-gray-800/60 border border-neutral-100 dark:border-gray-700/60 mb-4 space-y-2">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-neutral-400 font-medium">Domain:</span>
-                    <a
-                      href={storeHost ? getStoreUrl(storeHost.slice(0, -(STORE_DOMAIN.length + 1))) : undefined}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-mono text-neutral-600 dark:text-neutral-400 hover:underline flex items-center gap-1"
-                    >
-                      <span className="truncate max-w-[150px]">{storeHost || 'No domain assigned'}</span>
-                      <ExternalLink className="w-3 h-3 shrink-0" />
-                    </a>
-                  </div>
-
-                  {(billing.city || billing.country || billing.address) && (
-                    <div className="flex items-start gap-1.5 text-[11px] text-neutral-500 dark:text-neutral-400 pt-1.5 border-t border-neutral-200/50 dark:border-gray-700/50">
-                      <MapPin className="w-3 h-3 text-neutral-400 shrink-0 mt-0.5" />
-                      <span className="truncate">
-                        {[billing.address, billing.city, billing.country].filter(Boolean).join(', ')}
+        <div className="-mx-5 overflow-x-auto sm:-mx-6">
+          <table className="w-full min-w-[680px] text-left text-sm">
+            <thead>
+              <tr className="border-b border-neutral-200 text-xs uppercase tracking-wider text-neutral-500 dark:border-neutral-800">
+                <th className="px-5 pb-3 font-semibold sm:px-6">Store</th>
+                <th className="pb-3 font-semibold">Domain</th>
+                <th className="pb-3 font-semibold">Category</th>
+                <th className="pb-3 font-semibold">Status</th>
+                <th className="px-5 pb-3 text-right font-semibold sm:px-6">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredStores.map((store, index) => {
+                const host = getStoreHost(store.subdomain);
+                const active = currentStore?.tiwiId === store.tiwiId;
+                const status = store.status || 'Unknown';
+                const isLive = ['active', 'live', 'running'].includes(String(status).toLowerCase());
+                return (
+                  <tr key={store.tiwiId || store.id || index} className="border-b border-neutral-100 last:border-0 dark:border-neutral-800">
+                    <td className="px-5 py-4 sm:px-6">
+                      <div className="flex items-center gap-3">
+                        <span className={`flex size-10 items-center justify-center rounded-xl ${
+                          active ? 'bg-black text-[#1ed760]' : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
+                        }`}>
+                          <Store className="size-4" aria-hidden="true" />
+                        </span>
+                        <div>
+                          <p className="font-semibold text-neutral-950 dark:text-white">{store.storeName || 'Unnamed Store'}</p>
+                          <p className="text-xs text-neutral-500">{store.tiwiId || 'Store ID unavailable'}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-4">
+                      {host ? (
+                        <a
+                          href={getStoreUrl(host.slice(0, -(STORE_DOMAIN.length + 1)))}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 font-mono text-xs text-neutral-600 hover:text-black dark:text-neutral-300 dark:hover:text-white"
+                        >
+                          <span>{host}</span>
+                          <ArrowUpRight className="size-3.5" aria-hidden="true" />
+                        </a>
+                      ) : <span className="text-xs text-neutral-500">No domain assigned</span>}
+                    </td>
+                    <td className="py-4 text-neutral-600 dark:text-neutral-300">{store.category || '—'}</td>
+                    <td className="py-4">
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        isLive
+                          ? 'bg-[#1ed760]/15 text-[#0f7a37] dark:text-[#1ed760]'
+                          : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'
+                      }`}>
+                        <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
+                        {status}
                       </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Action Button: Launch Store Console with clean Dashboard icon */}
-              <div className="pt-2 border-t border-neutral-100 dark:border-gray-800/80">
-                <button
-                  onClick={() => {
-                    onSelectStore?.(st);
-                    onOpenStoreDashboard?.(st);
-                  }}
-                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-neutral-600 to-neutral-600 hover:from-neutral-700 hover:to-neutral-700 text-white text-xs font-bold shadow-xs hover:shadow-md transition-all active:scale-98 cursor-pointer flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-2">
-                    <LayoutDashboard className="w-3.5 h-3.5" />
-                    <span>Launch Store Console</span>
-                  </div>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          );
-        })}
-
-        {/* Clean "Add Another Store" Card */}
-        <div
-          onClick={onOpenCreateStore}
-          className="rounded-3xl p-6 border-2 border-dashed border-neutral-200 dark:border-gray-800 hover:border-neutral-500/60 dark:hover:border-neutral-500/60 bg-neutral-50/40 dark:bg-gray-800/20 hover:bg-neutral-50/20 dark:hover:bg-neutral-950/20 transition-all duration-200 flex flex-col items-center justify-center text-center cursor-pointer min-h-[220px] group"
-        >
-          <div className="w-12 h-12 rounded-2xl bg-white dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 flex items-center justify-center text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-400 group-hover:border-neutral-500/40 shadow-2xs mb-2.5 transition-colors">
-            <Plus className="w-6 h-6 stroke-[2.5]" />
-          </div>
-          <h4 className="text-xs font-bold text-neutral-800 dark:text-neutral-200 group-hover:text-neutral-600 dark:group-hover:text-neutral-400 transition">
-            Create Another Store
-          </h4>
-          <p className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5 max-w-[180px]">
-            Launch a separate branch with its own catalog and database.
-          </p>
+                    </td>
+                    <td className="px-5 py-4 text-right sm:px-6">
+                      <button
+                        type="button"
+                        onClick={() => openStore(store)}
+                        className="inline-flex h-8 items-center rounded-full bg-neutral-100 px-3 text-xs font-bold transition hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
+                      >
+                        Open dashboard
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredStores.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-5 py-12 text-center sm:px-6">
+                    <Store className="mx-auto size-8 text-neutral-400" aria-hidden="true" />
+                    <p className="mt-3 text-sm font-semibold text-neutral-800 dark:text-neutral-200">
+                      {stores.length ? 'No stores match your search' : 'No stores yet'}
+                    </p>
+                    {!stores.length && (
+                      <button
+                        type="button"
+                        onClick={onOpenCreateStore}
+                        className="mt-4 inline-flex h-9 items-center gap-2 rounded-full bg-black px-4 text-xs font-bold text-white"
+                      >
+                        <Plus className="size-4" aria-hidden="true" />
+                        Create store
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-      </div>
-
-      {/* ======================================================== */}
-      {/* 4. VISUAL FEATURE MODULES (Graphics Cards with Real Images) */}
-      {/* ======================================================== */}
-      <div className="pt-2">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-3.5">
-          Store Capabilities & Ecosystem
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {/* Card 1: Point of Sale Terminal */}
-          <div className="rounded-3xl overflow-hidden bg-white dark:bg-[#181818] border border-neutral-200/80 dark:border-gray-800 shadow-2xs flex flex-col">
-            <div className="h-36 overflow-hidden relative">
-              <img
-                src="/pos-banner-terminal.jpg"
-                alt="Point of Sale Terminal"
-                className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-              />
-            </div>
-            <div className="p-4 space-y-1">
-              <h4 className="text-xs font-bold text-neutral-900 dark:text-white">
-                Point of Sale (POS)
-              </h4>
-              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                Barcode scanning, quick cart checkout, and thermal receipt printing.
-              </p>
-            </div>
-          </div>
-
-          {/* Card 2: Storefront & Catalog */}
-          <div className="rounded-3xl overflow-hidden bg-white dark:bg-[#181818] border border-neutral-200/80 dark:border-gray-800 shadow-2xs flex flex-col">
-            <div className="h-36 overflow-hidden relative">
-              <img
-                src="/seller-booth.jpg"
-                alt="Storefront and Catalog"
-                className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-              />
-            </div>
-            <div className="p-4 space-y-1">
-              <h4 className="text-xs font-bold text-neutral-900 dark:text-white">
-                Storefront & Catalog
-              </h4>
-              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                Organized categories, subdomains, and customer order management.
-              </p>
-            </div>
-          </div>
-
-          {/* Card 3: Logistics & Fulfillment */}
-          <div className="rounded-3xl overflow-hidden bg-white dark:bg-[#181818] border border-neutral-200/80 dark:border-gray-800 shadow-2xs flex flex-col">
-            <div className="h-36 overflow-hidden relative">
-              <img
-                src="/hero-shipping.jpg"
-                alt="Logistics & Dispatch"
-                className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-              />
-            </div>
-            <div className="p-4 space-y-1">
-              <h4 className="text-xs font-bold text-neutral-900 dark:text-white">
-                Orders & Fulfillment
-              </h4>
-              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                Integrated order tracking, invoice receipts, and inventory control.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      </section>
     </div>
   );
 }

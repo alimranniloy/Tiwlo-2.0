@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  Search,
   Bell,
-  Moon,
-  Sun,
   ChevronDown,
-  User,
   LogOut,
+  Menu,
+  Moon,
+  Plus,
+  Search,
   ShieldCheck,
-  Sparkles,
-  Menu
+  Sun,
+  UserRound,
 } from 'lucide-react';
 import { resolveAvatarUrl } from '../utils/mediaUtils';
 import { useTheme } from '../config/themeConfig';
@@ -17,195 +17,166 @@ import { useTheme } from '../config/themeConfig';
 export default function Header({
   searchQuery,
   setSearchQuery,
-  onOpenSearchModal,
   onUpgrade,
-  showToast,
   currentUser,
   onLogout,
-  onToggleMobileMenu
+  onToggleMobileMenu,
+  onNewProduct
 }) {
   const { isDark, toggleTheme } = useTheme();
-  const setIsDark = toggleTheme;
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  // Keyboard shortcut ⌘K or Ctrl+K
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        const searchInput = document.getElementById('global-search-input');
-        if (searchInput) searchInput.focus();
+    const handleKeyDown = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        document.getElementById('global-search-input')?.focus();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const displayName = currentUser?.storeName || currentUser?.name || 'Tiwlo Store';
+
   return (
-    <header className="tiwi-v3-topbar h-16 px-3 sm:px-6 lg:px-8 flex items-center justify-between border-b border-[#f1f1f1] dark:border-gray-800 bg-white/80 dark:bg-[#181818]/80 backdrop-blur-md sticky top-0 z-30 transition-colors duration-200">
-      {/* Left: Mobile Menu Toggle & Search Bar */}
-      <div className="flex items-center flex-1 max-w-xl min-w-0 mr-2 sm:mr-4">
-        {/* Mobile Hamburger Button */}
+    <header className="tiwi-v3-topbar sticky top-0 z-30 flex h-[68px] items-center justify-between gap-3 border-b border-neutral-200/70 bg-white/90 px-4 backdrop-blur-xl transition-colors sm:px-7">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <button
           type="button"
           onClick={onToggleMobileMenu}
-          className="lg:hidden mr-2 p-2 rounded-xl border border-neutral-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-gray-700 transition shadow-2xs shrink-0 cursor-pointer"
-          title="Open menu"
+          className="flex size-9 shrink-0 items-center justify-center rounded-full text-neutral-700 transition hover:bg-neutral-100 lg:hidden"
           aria-label="Open menu"
         >
-          <Menu className="w-4 h-4" />
+          <Menu className="size-5" />
         </button>
-
-        {/* Search Bar */}
-        <div className="w-full relative">
-          <div className="flex items-center w-full bg-[#f4f4f4] dark:bg-gray-800/80 hover:bg-[#eeeeee] dark:hover:bg-gray-800 focus-within:bg-white dark:focus-within:bg-gray-800 focus-within:ring-2 focus-within:ring-[#1ed760]/20 border border-transparent focus-within:border-[#1ed760] rounded-full px-4 py-1.5 sm:py-2 transition-all duration-150">
-            <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-400 mr-2 shrink-0" />
-            <input
-              id="global-search-input"
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search products, SKU..."
-              className="w-full bg-transparent text-xs sm:text-sm text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 focus:outline-none min-w-0"
-            />
-            <div className="hidden sm:flex items-center space-x-1 pl-2 shrink-0">
-              <kbd className="px-1.5 py-0.5 text-[11px] font-semibold text-neutral-400 dark:text-neutral-400 bg-white dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-md shadow-2xs font-mono">
-                ⌘ K
-              </kbd>
-            </div>
-          </div>
-        </div>
+        <label className="flex h-10 w-full max-w-[500px] items-center gap-2.5 rounded-full bg-[#f4f4f4] px-4 transition focus-within:bg-white focus-within:ring-1 focus-within:ring-black/10">
+          <Search className="size-4 shrink-0 text-neutral-500" aria-hidden="true" />
+          <input
+            id="global-search-input"
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search products, orders..."
+            aria-label="Search products and orders"
+            className="min-w-0 flex-1 bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-500"
+          />
+          <kbd className="hidden rounded-md border border-neutral-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-neutral-500 sm:inline">
+            ⌘ K
+          </kbd>
+        </label>
       </div>
 
-      {/* Right Action Icons & Profile */}
-      <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
-        {/* Premium Upgrade Button */}
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <button
           type="button"
           onClick={onUpgrade}
-          className="relative group flex items-center space-x-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full bg-[#1ed760] hover:bg-[#18b953] text-[#121212] text-xs font-bold shadow-xs transition-all duration-200 active:scale-95 cursor-pointer shrink-0"
-          title="Upgrade your Tiwlo workspace"
+          className="hidden h-9 items-center gap-2 rounded-full bg-[#1ed760] px-4 text-xs font-bold text-black transition hover:bg-[#18c755] sm:inline-flex"
         >
-          <Sparkles className="w-3.5 h-3.5 fill-white/20 group-hover:rotate-12 transition-transform duration-300" />
-          <span className="tracking-wide hidden sm:inline">Upgrade</span>
+          Upgrade <span className="rounded-full bg-black/10 px-1.5 py-0.5 text-[9px]">PRO</span>
+        </button>
+        <button
+          type="button"
+          onClick={onNewProduct}
+          className="flex h-9 items-center gap-2 rounded-full bg-black px-4 text-xs font-semibold text-white transition hover:bg-neutral-800"
+        >
+          <Plus className="size-4" aria-hidden="true" />
+          <span className="hidden sm:inline">New Product</span>
         </button>
 
-        {/* Notifications */}
         <div className="relative">
           <button
-            onClick={() => setShowNotifications(!showNotifications)}
-            className="w-9 h-9 rounded-xl border border-neutral-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-neutral-50 dark:hover:bg-gray-700 text-neutral-600 dark:text-neutral-300 flex items-center justify-center transition shadow-2xs relative cursor-pointer"
-            title="Notifications"
+            type="button"
+            onClick={() => {
+              setShowNotifications((shown) => !shown);
+              setShowProfileMenu(false);
+            }}
+            className="flex size-9 items-center justify-center rounded-full text-neutral-700 transition hover:bg-neutral-100"
+            aria-label="Notifications"
+            aria-expanded={showNotifications}
           >
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-gray-800"></span>
+            <Bell className="size-[18px]" />
           </button>
-
-          {/* Notifications Dropdown */}
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 rounded-2xl shadow-xl p-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-              <div className="flex items-center justify-between pb-2 border-b border-neutral-100 dark:border-gray-700">
-                <span className="text-xs font-bold text-neutral-800 dark:text-white">Notifications</span>
-                <span className="text-[10px] bg-rose-100 text-rose-600 font-semibold px-1.5 py-0.5 rounded-full">3 new</span>
-              </div>
-              <div className="space-y-2 mt-2 text-xs">
-                <div className="p-2 rounded-lg bg-neutral-50/50 dark:bg-neutral-900/20 text-neutral-700 dark:text-neutral-300">
-                  <p className="font-semibold text-neutral-600 dark:text-neutral-400">Restock recommended</p>
-                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Wireless Headphones low stock (45 left)</p>
-                </div>
-                <div className="p-2 rounded-lg bg-neutral-50 dark:bg-gray-700/50 text-neutral-700 dark:text-neutral-300">
-                  <p className="font-semibold text-neutral-800 dark:text-white">New Sale Received</p>
-                  <p className="text-[11px] text-neutral-500">Order #INV-10024 completed</p>
-                </div>
-              </div>
+            <div className="absolute right-0 top-12 z-50 w-64 rounded-2xl border border-neutral-200 bg-white p-4 shadow-xl">
+              <p className="text-sm font-semibold text-neutral-900">Notifications</p>
+              <p className="mt-2 text-xs text-neutral-500">You’re all caught up.</p>
             </div>
           )}
         </div>
 
-        {/* Dark/Light Mode Toggle */}
         <button
-          onClick={() => setIsDark(!isDark)}
-          className="w-9 h-9 rounded-xl border border-neutral-200/80 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-neutral-50 dark:hover:bg-gray-700 text-neutral-600 dark:text-neutral-300 flex items-center justify-center transition shadow-2xs cursor-pointer"
-          title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          type="button"
+          onClick={toggleTheme}
+          className="flex size-9 items-center justify-center rounded-full text-neutral-700 transition hover:bg-neutral-100"
+          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
         >
-          {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
+          {isDark ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}
         </button>
 
-        {/* User Profile */}
         <div className="relative">
           <button
-            onClick={() => setShowProfileMenu(!showProfileMenu)}
-            className="flex items-center space-x-3 p-1 pl-1.5 pr-2 rounded-xl hover:bg-neutral-50 dark:hover:bg-gray-800/80 transition border border-transparent hover:border-neutral-200 dark:hover:border-gray-700 cursor-pointer"
+            type="button"
+            onClick={() => {
+              setShowProfileMenu((shown) => !shown);
+              setShowNotifications(false);
+            }}
+            className="flex items-center gap-2 rounded-full p-1 transition hover:bg-neutral-100"
+            aria-label="Open account menu"
+            aria-expanded={showProfileMenu}
           >
-            <div className="relative">
-              <img
-                src={resolveAvatarUrl(currentUser?.avatar)}
-                alt={currentUser?.storeName || currentUser?.name || 'Tiwlo Store'}
-                className="w-8 h-8 rounded-full object-cover ring-2 ring-neutral-500/20"
-              />
-              <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-white"></span>
-            </div>
-            <div className="text-left hidden sm:block">
-              <h2 className="text-xs font-bold text-neutral-900 dark:text-white leading-tight">
-                {currentUser?.storeName || currentUser?.name || 'Tiwlo Store'}
-              </h2>
-              <p className="text-[10px] text-neutral-600 dark:text-neutral-400 font-bold font-mono">
-                Tiwi ID: {currentUser?.tiwiId || currentUser?.storeId || ''}
-              </p>
-            </div>
-            <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
+            <img
+              src={resolveAvatarUrl(currentUser?.avatar)}
+              alt=""
+              className="size-8 rounded-full object-cover"
+            />
+            <span className="hidden max-w-36 truncate text-left text-xs font-semibold text-neutral-800 md:block">
+              {displayName}
+            </span>
+            <ChevronDown className="hidden size-3.5 text-neutral-500 md:block" />
           </button>
-
-          {/* Profile Menu Dropdown */}
           {showProfileMenu && (
-            <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 rounded-2xl shadow-xl py-1.5 z-50 animate-in fade-in duration-150">
-              <div className="px-3.5 py-2 border-b border-neutral-100 dark:border-gray-700">
-                <p className="text-xs font-bold text-neutral-800 dark:text-white truncate">
-                  {currentUser?.storeName || currentUser?.name || 'Tiwlo Store'}
-                </p>
-                <p className="text-[10px] text-neutral-400 truncate">
-                  {currentUser?.email || ''}
-                </p>
-                <div className="mt-1 flex items-center justify-between text-[10px]">
-                  <span className="font-mono font-bold text-neutral-600 dark:text-neutral-400">
-                    Tiwi ID: {currentUser?.tiwiId || currentUser?.storeId || ''}
-                  </span>
-                  <span className="px-1.5 py-0.2 rounded bg-neutral-100 dark:bg-gray-700 text-neutral-600 dark:text-neutral-300 font-semibold">
-                    {currentUser?.planName || 'Free Starter'}
-                  </span>
-                </div>
+            <div className="absolute right-0 top-12 z-50 w-60 overflow-hidden rounded-2xl border border-neutral-200 bg-white py-1 shadow-xl">
+              <div className="border-b border-neutral-100 px-4 py-3">
+                <p className="truncate text-sm font-semibold text-neutral-900">{displayName}</p>
+                <p className="truncate text-xs text-neutral-500">{currentUser?.email || ''}</p>
+                {currentUser?.tiwiId && (
+                  <p className="mt-1 text-[10px] font-medium text-neutral-400">Tiwlo ID: {currentUser.tiwiId}</p>
+                )}
               </div>
               <button
+                type="button"
                 onClick={() => setShowProfileMenu(false)}
-                className="w-full flex items-center px-3.5 py-2 text-xs text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-gray-700 transition"
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-xs text-neutral-700 transition hover:bg-neutral-50"
               >
-                <User className="w-3.5 h-3.5 mr-2 text-neutral-400" />
-                Profile Settings
+                <UserRound className="size-4 text-neutral-500" />
+                Profile settings
               </button>
               <button
+                type="button"
                 onClick={() => setShowProfileMenu(false)}
-                className="w-full flex items-center px-3.5 py-2 text-xs text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-gray-700 transition"
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-xs text-neutral-700 transition hover:bg-neutral-50"
               >
-                <ShieldCheck className="w-3.5 h-3.5 mr-2 text-neutral-400" />
-                Security & Roles
+                <ShieldCheck className="size-4 text-neutral-500" />
+                Security & roles
               </button>
-              <div className="border-t border-neutral-100 dark:border-gray-700 my-1"></div>
               <button
+                type="button"
                 onClick={() => {
                   setShowProfileMenu(false);
                   onLogout?.();
                 }}
-                className="w-full flex items-center px-3.5 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer"
+                className="flex w-full items-center gap-2.5 border-t border-neutral-100 px-4 py-2.5 text-left text-xs font-medium text-red-600 transition hover:bg-red-50"
               >
-                <LogOut className="w-3.5 h-3.5 mr-2" />
-                Sign Out / Switch Store
+                <LogOut className="size-4" />
+                Sign out / switch store
               </button>
             </div>
           )}
         </div>
       </div>
-
     </header>
   );
 }

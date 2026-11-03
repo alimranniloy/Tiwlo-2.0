@@ -1,364 +1,242 @@
 import React from 'react';
 import {
-  LayoutDashboard,
-  Package,
-  Layers,
-  Boxes,
-  ShoppingCart,
-  Receipt,
-  Users,
-  Truck,
-  FileText,
+  BadgePercent,
   BarChart3,
-  Settings,
-  Box,
-  Server,
-  Store,
-  Globe,
-  ExternalLink,
-  Sparkles,
-  LayoutGrid,
-  HelpCircle,
-  ArrowLeft,
-  Mail,
-  X,
-  BriefcaseBusiness,
+  Boxes,
   CreditCard,
-  Tag,
-  MessageSquareText,
-  UserRound,
-  Wallet
+  FileText,
+  Globe,
+  Gem,
+  LayoutGrid,
+  LifeBuoy,
+  Mail,
+  MonitorSmartphone,
+  Package,
+  PanelTop,
+  Receipt,
+  Settings2,
+  ShoppingCart,
+  Sparkles,
+  Star,
+  Store,
+  Truck,
+  UserCog,
+  Users,
+  Wallet,
+  X,
 } from 'lucide-react';
+
+const navigation = [
+  {
+    section: 'Workspace',
+    items: [
+      { id: 'subscription', label: 'Upgrade & Plans', icon: Gem, badge: 'PRO' },
+      { id: 'ecommerce-dashboard', label: 'Store Dashboard', icon: LayoutGrid },
+      { id: 'workspace', label: 'Workspace', icon: Boxes },
+    ],
+  },
+  {
+    section: 'Store management',
+    items: [
+      { id: 'email', label: 'Tiwi Mail', icon: Mail },
+      { id: 'pos', label: 'POS System', icon: MonitorSmartphone, badge: 'POS' },
+      { id: 'products', label: 'Products', icon: Package },
+      { id: 'categories', label: 'Categories & Subs', icon: Boxes },
+      { id: 'inventory', label: 'Inventory Control', icon: Boxes },
+      { id: 'purchases', label: 'Purchases (PO)', icon: ShoppingCart },
+      { id: 'sales', label: 'Sales & Orders', icon: Receipt },
+      { id: 'store-reviews', label: 'Product Reviews', icon: Star },
+      { id: 'courier', label: 'Courier', icon: Truck, badge: 'Ship' },
+      { id: 'customers', label: 'Customers', icon: Users },
+      { id: 'suppliers', label: 'Suppliers', icon: Truck },
+    ],
+  },
+  {
+    section: 'People & payroll',
+    items: [
+      { id: 'staff-management', label: 'Staff Management', icon: UserCog },
+      { id: 'hr-management', label: 'HR & Company Finance', icon: Wallet },
+    ],
+  },
+  {
+    section: 'Insights',
+    items: [
+      { id: 'reports', label: 'Reports Ledger', icon: FileText },
+      { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+    ],
+  },
+  {
+    section: 'Settings & support',
+    items: [
+      { id: 'settings', label: 'Settings', icon: Settings2 },
+      { id: 'store-settings', label: 'Storefront & Theme', icon: Store },
+      { id: 'help-support', label: 'Help & Support', icon: LifeBuoy },
+    ],
+  },
+  {
+    section: 'Store settings',
+    items: [
+      { id: 'store-pages', label: 'Pages & Menus', icon: PanelTop },
+      { id: 'payments', label: 'Payments', icon: CreditCard },
+      { id: 'shipping', label: 'Shipping', icon: Truck },
+    ],
+  },
+  {
+    section: 'Marketing',
+    items: [{ id: 'promotions', label: 'Promo Codes', icon: BadgePercent }],
+  },
+];
 
 export default function Sidebar({
   activeTab,
   setActiveTab,
   onVisitSite,
   onBackToCloud,
+  currentStore,
   mobileOpen = false,
   setMobileOpen
 }) {
+  const closeMenu = () => setMobileOpen?.(false);
+  const storeName = String(currentStore?.storeName || currentStore?.name || 'Tiwlo Store');
+
   const handleNavClick = (tabId) => {
-    if (tabId === 'help-support') {
-      window.dispatchEvent(new CustomEvent('tiwlo:open-support'));
+    closeMenu();
+    if (tabId === 'workspace') {
+      onBackToCloud?.();
+      return;
     }
     setActiveTab(tabId);
-    setMobileOpen?.(false);
   };
-
-  const navItems = [
-    { id: 'subscription', name: 'Upgrade & Plans', icon: Sparkles, isUpgrade: true, section: 'Workspace' },
-    { id: 'ecommerce-dashboard', name: 'Store Dashboard', icon: LayoutDashboard, section: 'Workspace' },
-    { id: 'workspace', name: 'Workspace', icon: BriefcaseBusiness, section: 'Workspace' },
-    { id: 'email', name: 'Tiwi Mail', icon: Mail, isNew: true, section: 'Store management' },
-    { id: 'pos', name: 'POS System', icon: Store, isNew: true, section: 'Store management' },
-    { id: 'products', name: 'Products', icon: Package, section: 'Store management' },
-    { id: 'categories', name: 'Categories & Subs', icon: Layers, section: 'Store management' },
-    { id: 'inventory', name: 'Inventory Control', icon: Boxes, section: 'Store management' },
-    { id: 'purchases', name: 'Purchases (PO)', icon: ShoppingCart, section: 'Store management' },
-    { id: 'sales', name: 'Sales & Orders', icon: Receipt, section: 'Store management' },
-    { id: 'store-reviews', name: 'Product Reviews', icon: MessageSquareText, section: 'Store management' },
-    { id: 'courier', name: 'Courier', icon: Truck, isCourier: true, section: 'Store management' },
-    { id: 'customers', name: 'Customers', icon: Users, section: 'Store management' },
-    { id: 'suppliers', name: 'Suppliers', icon: Truck, section: 'Store management' },
-    { id: 'staff-management', name: 'Staff Management', icon: UserRound, section: 'People & payroll' },
-    { id: 'hr-management', name: 'HR & Company Finance', icon: Wallet, section: 'People & payroll' },
-    { id: 'reports', name: 'Reports Ledger', icon: FileText, section: 'Insights' },
-    { id: 'analytics', name: 'Analytics', icon: BarChart3, section: 'Insights' },
-    { id: 'settings', name: 'Settings', icon: Server, section: 'Settings & support' },
-    { id: 'store-settings', name: 'Storefront & Theme', icon: Settings, section: 'Settings & support' },
-    { id: 'store-pages', name: 'Pages & Menus', icon: FileText, section: 'Store settings' },
-    { id: 'payments', name: 'Payments', icon: CreditCard, section: 'Store settings' },
-    { id: 'shipping', name: 'Shipping', icon: Truck, section: 'Store settings' },
-    { id: 'promotions', name: 'Promo Codes', icon: Tag, section: 'Marketing' },
-    { id: 'help-support', name: 'Help & Support', icon: HelpCircle, section: 'Settings & support' },
-  ];
-  const ecommerceTabs = new Set([
-    'ecommerce-dashboard',
-    'pos',
-    'products',
-    'add-product',
-    'categories',
-    'inventory',
-    'purchases',
-    'sales',
-    'store-reviews',
-    'courier',
-    'customers',
-    'suppliers',
-    'staff-management',
-    'hr-management',
-    'reports',
-    'analytics',
-    'store-settings',
-    'store-pages',
-    'store-identity',
-    'store-banners',
-    'payments',
-    'shipping',
-    'promotions'
-  ]);
-  const visibleNavItems = ecommerceTabs.has(activeTab)
-    ? navItems.filter(item => item.id !== 'workspace' && item.id !== 'email')
-    : navItems;
 
   return (
     <>
-      {/* Mobile Backdrop Overlay */}
       {mobileOpen && (
-        <div
-          onClick={() => setMobileOpen?.(false)}
-          className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs z-40 lg:hidden transition-opacity duration-300"
-          aria-hidden="true"
+        <button
+          type="button"
+          onClick={closeMenu}
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          aria-label="Close navigation"
         />
       )}
 
-      <aside className={`
-        tiwi-v3-sidebar w-[270px] sm:w-[280px] lg:w-[260px] h-screen overflow-y-auto bg-white dark:bg-[#181818] border-r border-[#f1f1f1] dark:border-gray-800 flex flex-col justify-between p-5 select-none transition-all duration-300 ease-in-out shrink-0
-        fixed inset-y-0 left-0 z-50
-        lg:static lg:translate-x-0 lg:z-20 lg:sticky lg:top-0
-        ${mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
-      `}>
-        <div>
-          {/* Top Bar: macOS Window Controls & Mobile Close Button */}
-          <div className="flex items-center justify-between mb-5 pt-1">
-            <div className="hidden items-center space-x-2">
-              <div className="w-3 h-3 rounded-full bg-[#FF5F56] border border-[#E0443E] hover:opacity-80 cursor-pointer shadow-xs"></div>
-              <div className="w-3 h-3 rounded-full bg-[#FFBD2E] border border-[#DEA123] hover:opacity-80 cursor-pointer shadow-xs"></div>
-              <div className="w-3 h-3 rounded-full bg-[#27C93F] border border-[#1AAB29] hover:opacity-80 cursor-pointer shadow-xs"></div>
-            </div>
-
-            {/* Mobile Close Button */}
-            <button
-              type="button"
-              onClick={() => setMobileOpen?.(false)}
-              className="lg:hidden p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-gray-800 transition"
-              aria-label="Close menu"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-        {/* Brand Logo & Name */}
-        <div
-          onClick={() => setActiveTab('dashboard')}
-          className="flex items-center space-x-3 mb-7 px-1 cursor-pointer group"
-        >
-          <div className="w-10 h-10 rounded-xl bg-white dark:bg-gray-800 border border-neutral-200/80 dark:border-gray-700/80 flex items-center justify-center p-1.5 shadow-xs group-hover:scale-105 group-hover:border-neutral-500/40 transition shrink-0">
-            <img
-              src="/tiwlo-icon.png"
-              alt="Tiwlo"
-              className="w-full h-full object-contain dark:hidden"
-            />
-            <img
-              src="/tiwlo-icon-dark.png"
-              alt="Tiwlo"
-              className="w-full h-full object-contain hidden dark:block"
-            />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center space-x-1.5">
-              <h1 className="text-[17px] font-black text-white tracking-tight leading-tight">
-                Tiwlo
-              </h1>
-              <span className="text-[9px] font-extrabold tracking-wider uppercase px-1.5 py-0.5 rounded bg-white/10 text-white/70 border border-white/10">
-                PRO
-              </span>
-            </div>
-            <p className="text-[11px] font-medium text-white/45 truncate">
-              Inventory Enterprise
-            </p>
-          </div>
+      <aside className={`tiwi-v3-sidebar fixed inset-y-0 left-0 z-50 flex h-dvh w-64 shrink-0 flex-col gap-6 overflow-hidden bg-black p-4 text-white transition-transform duration-200 lg:sticky lg:top-0 lg:translate-x-0 ${
+        mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
+      }`}>
+        <div className="flex items-center justify-between px-2 pt-2">
+          <button
+            type="button"
+            onClick={() => handleNavClick('ecommerce-dashboard')}
+            className="flex h-8 items-center"
+            aria-label="Tiwlo Store dashboard"
+          >
+            <img src="/tiwlo-dark-bg-logo.png" alt="Tiwlo" className="h-7 w-auto max-w-[150px] object-contain" />
+            <span className="ml-1.5 text-sm font-medium text-white/50">Store</span>
+          </button>
+          <button
+            type="button"
+            onClick={closeMenu}
+            className="flex size-8 items-center justify-center rounded-full text-white/70 transition hover:bg-white/10 lg:hidden"
+            aria-label="Close menu"
+          >
+            <X className="size-4" />
+          </button>
         </div>
 
-        {/* Switch to Main Control Center */}
         <button
-          onClick={() => {
-            setMobileOpen?.(false);
-            if (onBackToCloud) onBackToCloud();
-            else setActiveTab('dashboard');
-          }}
-          className="w-full mb-4 px-3 py-2 rounded-xl bg-white/5 text-white/75 border border-white/10 text-xs font-bold hover:bg-white/10 transition cursor-pointer flex items-center justify-between group"
+          type="button"
+          onClick={() => handleNavClick('ecommerce-dashboard')}
+          className="flex w-full items-center gap-3 rounded-xl bg-white/5 p-2.5 text-left ring-1 ring-white/10 transition hover:bg-white/10"
         >
-          <div className="flex items-center gap-2">
-            <LayoutGrid className="w-4 h-4 text-[#1ed760]" />
-            <span>Main Control Center</span>
-          </div>
-          <ArrowLeft className="w-3.5 h-3.5 rotate-180 text-white/50 group-hover:translate-x-0.5 transition" />
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#1ed760] text-sm font-bold text-black">
+            {storeName.slice(0, 2).toUpperCase()}
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-sm font-semibold text-white">
+              {storeName}
+            </span>
+            <span className="truncate text-xs text-white/50">Online store · Workspace</span>
+          </span>
+          <span className="text-sm text-white/50" aria-hidden="true">⌄</span>
         </button>
 
-        {/* Navigation Items */}
-        <nav className="space-y-1">
-          {visibleNavItems.map((item, index) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id ||
-              (item.id === 'products' && activeTab === 'add-product') ||
-              (item.id === 'store-settings' && ['store-identity', 'store-banners'].includes(activeTab));
-            const showSectionHeading = index === 0 || visibleNavItems[index - 1].section !== item.section;
-
-            return (
-              <div key={item.id}>
-                {showSectionHeading && (
-                  <p className={`tiwi-v3-nav-label px-3.5 ${index === 0 ? 'pt-1' : 'pt-4'} pb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-neutral-400 dark:text-neutral-500`}>
-                    {item.section}
-                  </p>
-                )}
-                <button
-                  onClick={() => handleNavClick(item.id, item.hasSub)}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
-                    isActive
-                      ? 'bg-white text-[#121212] shadow-xs'
-                      : 'text-white/65 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <Icon
-                      className={`w-[18px] h-[18px] ${
-                        isActive
-                          ? 'text-[#121212] stroke-[2.2]'
-                          : 'text-white/50'
-                      }`}
-                    />
-                    <span className="truncate">{item.name}</span>
-                  </div>
-
-                  {item.isNew && (
-                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-neutral-600 text-white shadow-xs">
-                      POS
-                    </span>
-                  )}
-
-                  {item.isCourier && (
-                    <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                      Ship
-                    </span>
-                  )}
-
-                  {item.isUpgrade && (
-                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs flex items-center gap-1">
-                      <Sparkles className="w-2.5 h-2.5 fill-white" />
-                      PRO
-                    </span>
-                  )}
-
-                </button>
-              </div>
-            );
-          })}
+        <nav
+          aria-label="Store navigation"
+          className="-mx-1 flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {navigation.map((group) => (
+            <section key={group.section}>
+              <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-widest text-white/40">
+                {group.section}
+              </p>
+              <ul className="flex flex-col gap-0.5">
+                {group.items.map(({ id, label, icon: Icon, badge }) => {
+                  const active = activeTab === id ||
+                    (id === 'subscription' && ['pricing', 'upgrade'].includes(activeTab)) ||
+                    (id === 'products' && activeTab === 'add-product') ||
+                    (id === 'store-settings' && ['store-identity', 'store-banners'].includes(activeTab));
+                  return (
+                    <li key={id}>
+                      <button
+                        type="button"
+                        onClick={() => handleNavClick(id)}
+                        aria-current={active ? 'page' : undefined}
+                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition ${
+                          active ? 'bg-white text-black' : 'text-white/65 hover:bg-white/5 hover:text-white'
+                        }`}
+                      >
+                        <Icon className="size-[18px] shrink-0" aria-hidden="true" />
+                        <span className="min-w-0 flex-1 truncate">{label}</span>
+                        {badge && (
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            badge === 'PRO'
+                              ? 'bg-[#1ed760] text-black'
+                              : active
+                                ? 'bg-black text-white'
+                                : 'bg-white/10 text-white/70'
+                          }`}>
+                            {badge}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
         </nav>
 
-        {/* Visit Site Button matching user request: System Settings এর নিচে Visit Site */}
-        <div className="pt-3 mt-3 border-t border-neutral-100 dark:border-gray-800/80 flex flex-col gap-2">
-          {/* Tiwi Social Web Button */}
-          <div
-            onClick={() => {
-              setMobileOpen?.(false);
-              setActiveTab('tiwi');
-            }}
-            className="group relative w-full p-2.5 rounded-xl bg-gradient-to-r from-[#1ed760] to-[#18b953] hover:from-[#35e476] hover:to-[#1ed760] text-[#121212] shadow-md shadow-[#1ed760]/20 cursor-pointer transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 select-none"
-            title="Open Tiwi Social Media Experience"
+        <div className="rounded-2xl bg-[#1ed760] p-4 text-black">
+          <div className="flex items-center gap-2 text-sm font-bold">
+            <Sparkles className="size-4" aria-hidden="true" />
+            Upgrade & Plans
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-black/70">
+            Find the plan that fits your store and explore available features.
+          </p>
+          <button
+            type="button"
+            onClick={() => handleNavClick('subscription')}
+            className="mt-3 inline-flex h-8 items-center rounded-full bg-black px-4 text-xs font-bold text-white transition hover:bg-black/80"
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-7 h-7 rounded-lg bg-white/20 backdrop-blur-xs flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition font-extrabold text-sm">
-                  T
-                </div>
-                <div className="text-left">
-                  <div className="flex items-center space-x-1.5">
-                    <span className="text-xs font-bold tracking-tight">Tiwi Social</span>
-                    <span className="flex h-1.5 w-1.5 relative">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neutral-300 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-neutral-400"></span>
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-neutral-100 font-medium leading-none mt-0.5">
-                    Social Media & Ecosystem
-                  </p>
-                </div>
-              </div>
-              <div className="w-6 h-6 rounded-md bg-white/10 group-hover:bg-white/25 flex items-center justify-center transition shrink-0">
-                <ExternalLink className="w-3.5 h-3.5 text-white" />
-              </div>
-            </div>
-          </div>
+            Upgrade now
+          </button>
+        </div>
 
-          <div
+        {onVisitSite && (
+          <button
+            type="button"
             onClick={() => {
-              setMobileOpen?.(false);
-              if (onVisitSite) {
-                onVisitSite();
-              } else {
-                window.open('/?view=store', '_blank');
-              }
+              closeMenu();
+              onVisitSite();
             }}
-            className="group relative w-full p-2.5 rounded-xl bg-gradient-to-r from-neutral-600 via-neutral-600 to-neutral-700 hover:from-neutral-500 hover:to-neutral-500 text-white shadow-md shadow-neutral-500/20 cursor-pointer transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 select-none"
-            title="Open TiwiMart Online eCommerce Store"
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-white/10 text-xs font-semibold text-white/80 transition hover:bg-white/15"
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-7 h-7 rounded-lg bg-white/20 backdrop-blur-xs flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition">
-                  <Globe className="w-4 h-4" />
-                </div>
-                <div className="text-left">
-                  <div className="flex items-center space-x-1.5">
-                    <span className="text-xs font-bold tracking-tight">Visit Site</span>
-                    <span className="flex h-1.5 w-1.5 relative">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-neutral-100 font-medium leading-none mt-0.5">
-                    TiwiMart Global Store
-                  </p>
-                </div>
-              </div>
-              <div className="w-6 h-6 rounded-md bg-white/10 group-hover:bg-white/25 flex items-center justify-center transition shrink-0">
-                <ExternalLink className="w-3.5 h-3.5 text-white" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom Promo & Status */}
-      <div className="space-y-4 pt-4 border-t border-neutral-100 dark:border-gray-800/80">
-        {/* Smart Inventory Card */}
-        <div
-          onClick={() => setActiveTab('settings')}
-          className="bg-gradient-to-br from-[#fafafa] via-[#f4f4f4] to-[#f2f2f2] dark:from-gray-800/80 dark:to-gray-800/30 border border-neutral-200/70 dark:border-gray-700/60 rounded-2xl p-3 shadow-xs cursor-pointer hover:border-neutral-300 transition"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-white dark:bg-gray-700 shadow-xs flex items-center justify-center shrink-0 border border-neutral-100 dark:border-gray-600">
-              <Box className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-neutral-800 dark:text-white leading-tight">
-                Enterprise v3.2.0
-              </p>
-              <p className="text-[10px] text-neutral-400 font-medium">
-                JSON DB Connected
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* System Online Status */}
-        <div className="flex items-center justify-between px-1 text-xs">
-          <div className="flex items-center space-x-2">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span className="font-semibold text-neutral-600 dark:text-neutral-300 text-[11px]">
-              Database Online
-            </span>
-          </div>
-          <span className="text-[10px] font-mono text-neutral-400 dark:text-neutral-500">
-            Port: 5000
-          </span>
-        </div>
-      </div>
-    </aside>
-  </>
-);
+            <Globe className="size-4" aria-hidden="true" />
+            Visit Site
+          </button>
+        )}
+      </aside>
+    </>
+  );
 }

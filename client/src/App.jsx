@@ -2305,13 +2305,14 @@ export default function App() {
           showToast={showToast}
         />
       ) : (
-        <div className="flex min-h-screen bg-[#f4f4f4] dark:bg-[#0f0f0f] text-[#282828] dark:text-[#e7e7e7] transition-colors">
+        <div className="tiwi-v3-app tiwi-v3-store flex min-h-screen bg-[#f4f4f4] text-[#282828] transition-colors">
           {/* Left Sidebar */}
           <Sidebar
             activeTab={activeTab}
             setActiveTab={handleTabChange}
             onVisitSite={handleVisitSite}
             onBackToCloud={() => handleTabChange('dashboard')}
+            currentStore={selectedStore || currentUser}
             mobileOpen={mobileMenuOpen}
             setMobileOpen={setMobileMenuOpen}
           />
@@ -2322,22 +2323,22 @@ export default function App() {
             <Header
               searchQuery={globalSearch}
               setSearchQuery={setGlobalSearch}
-              onOpenSearchModal={() => setIsBarcodeModalOpen(true)}
               onUpgrade={() => handleTabChange('pricing')}
-              showToast={showToast}
               currentUser={currentUser}
               onLogout={handleLogout}
               onToggleMobileMenu={() => setMobileMenuOpen(true)}
+              onNewProduct={() => handleTabChange('add-product')}
             />
 
             {/* Scrollable Body */}
-            <main className="tiwi-v3-content flex-1 px-3 sm:px-6 lg:px-8 py-4 sm:py-7 overflow-y-auto min-w-0">
+            <main className="tiwi-v3-content tiwi-v3-store-content flex-1 px-4 py-6 sm:px-7 lg:px-9 sm:py-8 overflow-y-auto min-w-0">
               {/* TAB: ECOMMERCE DASHBOARD */}
               {activeTab === 'ecommerce-dashboard' && (
                 <EcommerceDashboard
                   stats={stats}
                   dataLoadError={dataLoadError}
                   onReloadData={handleReloadData}
+                  currentUser={currentUser}
                   filteredProducts={filteredProducts}
                   tableSearch={tableSearch}
                   setTableSearch={setTableSearch}
@@ -2365,8 +2366,6 @@ export default function App() {
                   onImportCsv={() => handleTabChange('inventory')}
                   onGenerateReport={() => handleTabChange('reports')}
                   onDeleteActivity={handleDeleteActivity}
-                  onBackToCloud={() => handleTabChange('dashboard')}
-                  currentStore={selectedStore || currentUser}
                   products={products}
                   categories={categories}
                   inventoryLoading={loading}

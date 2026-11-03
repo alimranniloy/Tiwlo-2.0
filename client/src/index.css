@@ -991,3 +991,54 @@ border-radius: 0.75rem;
   transform-origin: center;
   animation: dot-sketch-triple 3.0s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
+
+/* Tiwi 3.0 store workspace surfaces */
+.tiwi-v3-store {
+  --tiwi-v3-background: #f4f4f4;
+  --tiwi-v3-ink: #121212;
+  --tiwi-v3-green: #1ed760;
+  background: var(--tiwi-v3-background);
+  color: var(--tiwi-v3-ink);
+}
+
+.tiwi-v3-store-content {
+  background: var(--tiwi-v3-background);
+}
+
+.tiwi-v3-store-content :is(section, article, div)[class*="rounded-2xl"][class~="bg-white"],
+.tiwi-v3-store-content :is(section, article, div)[class*="rounded-3xl"][class~="bg-white"] {
+  border-color: #e4e4e4;
+  box-shadow: 0 1px 2px rgb(18 18 18 / 4%);
+}
+
+.tiwi-v3-store-content :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  border-radius: 0.75rem;
+}
+
+.tiwi-v3-store-content :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus {
+  box-shadow: 0 0 0 2px rgb(30 215 96 / 16%);
+}
+
+.dark .tiwi-v3-store {
+  --tiwi-v3-background: #111111;
+  --tiwi-v3-ink: #f4f4f4;
+  background: var(--tiwi-v3-background);
+  color: var(--tiwi-v3-ink);
+}
+
+.dark .tiwi-v3-store-content :is(section, article, div)[class*="rounded-2xl"][class~="bg-white"],
+.dark .tiwi-v3-store-content :is(section, article, div)[class*="rounded-3xl"][class~="bg-white"] {
+  background-color: #181818;
+  border-color: #303030;
+  box-shadow: none;
+}
+
+.dark .tiwi-v3-store-content [class*="text-neutral-900"],
+.dark .tiwi-v3-store-content [class*="text-neutral-800"] {
+  color: #f4f4f4;
+}
+
+.dark .tiwi-v3-store-content [class*="text-neutral-700"],
+.dark .tiwi-v3-store-content [class*="text-neutral-600"] {
+  color: #d4d4d4;
+}

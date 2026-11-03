@@ -1,25 +1,18 @@
 import React, { useState } from 'react';
 import {
   ArrowLeft,
-  Server,
-  Cpu,
-  HardDrive,
-  Globe,
-  CheckCircle2,
-  Sparkles,
+  Check,
   Zap,
-  Layers,
-  ChevronRight
 } from 'lucide-react';
 
 const REGIONS = [
-  { id: 'fra1', name: 'Frankfurt', country: 'Germany', flag: '🇩🇪', ping: '24ms', code: 'FRA1' },
-  { id: 'nyc1', name: 'New York', country: 'United States', flag: '🇺🇸', ping: '86ms', code: 'NYC1' },
-  { id: 'sgp1', name: 'Singapore', country: 'Singapore', flag: '🇸🇬', ping: '42ms', code: 'SGP1' },
-  { id: 'lon1', name: 'London', country: 'United Kingdom', flag: '🇬🇧', ping: '31ms', code: 'LON1' },
-  { id: 'dhk1', name: 'Dhaka', country: 'Bangladesh', flag: '🇧🇩', ping: '8ms', code: 'DHK1' },
-  { id: 'tyo1', name: 'Tokyo', country: 'Japan', flag: '🇯🇵', ping: '68ms', code: 'TYO1' },
-  { id: 'tor1', name: 'Toronto', country: 'Canada', flag: '🇨🇦', ping: '92ms', code: 'TOR1' }
+  { id: 'fra1', name: 'Frankfurt', country: 'Germany', flag: '🇩🇪', code: 'FRA1' },
+  { id: 'nyc1', name: 'New York', country: 'United States', flag: '🇺🇸', code: 'NYC1' },
+  { id: 'sgp1', name: 'Singapore', country: 'Singapore', flag: '🇸🇬', code: 'SGP1' },
+  { id: 'lon1', name: 'London', country: 'United Kingdom', flag: '🇬🇧', code: 'LON1' },
+  { id: 'dhk1', name: 'Dhaka', country: 'Bangladesh', flag: '🇧🇩', code: 'DHK1' },
+  { id: 'tyo1', name: 'Tokyo', country: 'Japan', flag: '🇯🇵', code: 'TYO1' },
+  { id: 'tor1', name: 'Toronto', country: 'Canada', flag: '🇨🇦', code: 'TOR1' }
 ];
 
 const OS_IMAGES = [
@@ -34,517 +27,273 @@ const OS_IMAGES = [
 ];
 
 const DROPLET_TIERS = [
-  {
-    id: 'standard-basic',
-    name: 'Basic Standard',
-    category: 'Standard',
-    vcpus: 1,
-    memory: '1 GB',
-    storage: '25 GB NVMe',
-    bandwidth: '1 TB Transfer',
-    monthlyPrice: 6,
-    hourlyPrice: 0.009
-  },
-  {
-    id: 'standard-pro',
-    name: 'Standard Pro',
-    category: 'Standard',
-    vcpus: 2,
-    memory: '4 GB',
-    storage: '80 GB NVMe',
-    bandwidth: '3 TB Transfer',
-    monthlyPrice: 18,
-    hourlyPrice: 0.027,
-    popular: true
-  },
-  {
-    id: 'general-purpose',
-    name: 'General Purpose',
-    category: 'Performance',
-    vcpus: 4,
-    memory: '8 GB',
-    storage: '160 GB NVMe',
-    bandwidth: '5 TB Transfer',
-    monthlyPrice: 36,
-    hourlyPrice: 0.054
-  },
-  {
-    id: 'cpu-optimized',
-    name: 'CPU Optimized',
-    category: 'Performance',
-    vcpus: 8,
-    memory: '16 GB',
-    storage: '320 GB NVMe',
-    bandwidth: '7 TB Transfer',
-    monthlyPrice: 72,
-    hourlyPrice: 0.107
-  },
-  {
-    id: 'memory-optimized',
-    name: 'High Memory',
-    category: 'Enterprise',
-    vcpus: 16,
-    memory: '32 GB',
-    storage: '640 GB NVMe',
-    bandwidth: '10 TB Transfer',
-    monthlyPrice: 144,
-    hourlyPrice: 0.214
-  }
+  { id: 'standard-basic', name: 'Basic Standard', category: 'Standard', vcpus: 1, memory: '1 GB', storage: '25 GB NVMe', bandwidth: '1 TB Transfer', monthlyPrice: 6, hourlyPrice: 0.009 },
+  { id: 'standard-pro', name: 'Standard Pro', category: 'Standard', vcpus: 2, memory: '4 GB', storage: '80 GB NVMe', bandwidth: '3 TB Transfer', monthlyPrice: 18, hourlyPrice: 0.027, popular: true },
+  { id: 'general-purpose', name: 'General Purpose', category: 'Performance', vcpus: 4, memory: '8 GB', storage: '160 GB NVMe', bandwidth: '5 TB Transfer', monthlyPrice: 36, hourlyPrice: 0.054 },
+  { id: 'cpu-optimized', name: 'CPU Optimized', category: 'Performance', vcpus: 8, memory: '16 GB', storage: '320 GB NVMe', bandwidth: '7 TB Transfer', monthlyPrice: 72, hourlyPrice: 0.107 },
+  { id: 'memory-optimized', name: 'High Memory', category: 'Enterprise', vcpus: 16, memory: '32 GB', storage: '640 GB NVMe', bandwidth: '10 TB Transfer', monthlyPrice: 144, hourlyPrice: 0.214 }
 ];
+
+function Choice({ title, sub, active, onClick, badge }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`relative flex min-w-0 flex-col items-start gap-1 rounded-2xl p-4 text-left ring-1 transition ${
+        active
+          ? 'bg-black text-white ring-black'
+          : 'bg-white text-neutral-950 ring-neutral-200 hover:bg-neutral-50 dark:bg-neutral-900 dark:text-white dark:ring-neutral-800 dark:hover:bg-neutral-800'
+      }`}
+    >
+      {active && (
+        <span className="absolute right-3 top-3 flex size-5 items-center justify-center rounded-full bg-[#1ed760] text-black">
+          <Check className="size-3" aria-hidden="true" />
+        </span>
+      )}
+      {badge && (
+        <span className={`mb-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+          active ? 'bg-white/10 text-[#1ed760]' : 'bg-[#1ed760]/15 text-[#0f7a37]'
+        }`}>
+          {badge}
+        </span>
+      )}
+      <span className="pr-6 text-sm font-bold">{title}</span>
+      {sub && <span className={`text-xs ${active ? 'text-white/60' : 'text-neutral-500 dark:text-neutral-400'}`}>{sub}</span>}
+    </button>
+  );
+}
+
+function Panel({ title, children, className = '' }) {
+  return (
+    <section className={`rounded-3xl bg-white p-5 ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800 sm:p-6 ${className}`}>
+      {title && <h2 className="mb-5 text-lg font-bold tracking-tight text-neutral-950 dark:text-white">{title}</h2>}
+      {children}
+    </section>
+  );
+}
 
 export default function CreateDropletView({ onBack, initialImage = 'Ubuntu 24.04 LTS' }) {
   const [selectedRegion, setSelectedRegion] = useState(REGIONS[0]);
-  const [selectedImage, setSelectedImage] = useState(() => {
-    const found = OS_IMAGES.find(img => img.name === initialImage || img.id === initialImage);
-    return found || OS_IMAGES[0];
-  });
-  const [activeImageTab, setActiveImageTab] = useState('os'); // 'os' | 'app'
-  const [selectedTier, setSelectedTier] = useState(DROPLET_TIERS[1]); // Standard Pro
-  const [hostname, setHostname] = useState(() => `tiwlo-${selectedRegion.code.toLowerCase()}-${Math.floor(100 + Math.random() * 900)}`);
+  const [selectedImage, setSelectedImage] = useState(() => (
+    OS_IMAGES.find((image) => image.name === initialImage || image.id === initialImage) || OS_IMAGES[0]
+  ));
+  const [activeImageTab, setActiveImageTab] = useState('os');
+  const [selectedTier, setSelectedTier] = useState(DROPLET_TIERS[1]);
+  const [hostname, setHostname] = useState(() => `tiwlo-${REGIONS[0].code.toLowerCase()}-${Math.floor(100 + Math.random() * 900)}`);
   const [tags, setTags] = useState('production, web');
   const [enableBackups, setEnableBackups] = useState(true);
   const [enableIpv6, setEnableIpv6] = useState(true);
   const [enableMonitoring, setEnableMonitoring] = useState(true);
 
-  const calculateTotalMonthly = () => {
-    let total = selectedTier.monthlyPrice;
-    if (enableBackups) total += 3;
-    return total;
-  };
+  const totalMonthly = selectedTier.monthlyPrice + (enableBackups ? 3 : 0);
 
-  const handleRegionChange = (reg) => {
-    setSelectedRegion(reg);
-    setHostname(prev => {
-      const parts = prev.split('-');
-      if (parts.length >= 2) {
-        return `tiwlo-${reg.code.toLowerCase()}-${parts[parts.length - 1]}`;
-      }
-      return `tiwlo-${reg.code.toLowerCase()}-${Math.floor(100 + Math.random() * 900)}`;
+  const selectRegion = (region) => {
+    setSelectedRegion(region);
+    setHostname((previous) => {
+      const suffix = previous.split('-').at(-1);
+      return `tiwlo-${region.code.toLowerCase()}-${suffix || Math.floor(100 + Math.random() * 900)}`;
     });
   };
 
   return (
-    <div className="max-w-[1400px] mx-auto pb-16 space-y-8 animate-in fade-in duration-200">
-      {/* Top Navigation & Breadcrumb */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-neutral-700 dark:text-neutral-300 bg-white dark:bg-[#181818] border border-neutral-200/80 dark:border-gray-800 hover:bg-neutral-50 dark:hover:bg-gray-800 transition shadow-xs cursor-pointer w-fit"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to Droplets</span>
-        </button>
-
-        <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
-          <span>Cloud Infrastructure</span>
-          <ChevronRight className="w-3.5 h-3.5" />
-          <span className="font-semibold text-neutral-600 dark:text-neutral-400">Create Droplet</span>
-        </div>
-      </div>
-
-      {/* Main Title Banner (Google-Style) */}
-      <div className="bg-white dark:bg-[#181818] rounded-2xl border border-neutral-200/80 dark:border-gray-800 p-6 sm:p-8 shadow-[0_1px_3px_rgba(60,64,67,0.08)]">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 flex items-center justify-center font-bold">
-            <Server className="w-5 h-5" />
-          </div>
+    <div className="mx-auto flex max-w-7xl flex-col gap-8 pb-16">
+      <header>
+        <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500">Infrastructure</p>
+        <div className="mt-1 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white tracking-tight">
-              Create New Cloud Droplet
-            </h1>
-            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
-              Deploy high-performance NVMe virtual machines with global low-latency data centers and 1-click stacks.
+            <h1 className="text-3xl font-bold tracking-tight text-neutral-950 dark:text-white sm:text-4xl">Create Droplet</h1>
+            <p className="mt-2 max-w-2xl text-neutral-600 dark:text-neutral-400">
+              Pick an image, region and hardware plan, then name your server.
             </p>
           </div>
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex h-10 w-fit items-center gap-2 rounded-full bg-neutral-100 px-5 text-sm font-bold text-neutral-900 transition hover:bg-neutral-200 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700"
+          >
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            My Droplets
+          </button>
         </div>
+      </header>
+
+      <div role="status" className="rounded-2xl bg-neutral-100 px-4 py-3 text-sm text-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
+        Cloud provisioning is not connected yet. Configuration is available to review, but this page cannot create a server.
       </div>
 
-      <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100">
-        Cloud provisioning is not connected yet. You can review the configuration, but this page cannot create a server.
-      </div>
-
-      {/* 2-Column Responsive Layout: Wizard Steps on Left (8 cols) & Pricing Summary on Right (4 cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Configuration Sections */}
-        <div className="lg:col-span-8 space-y-8">
-          {/* STEP 1: Choose Datacenter Region */}
-          <section className="bg-white dark:bg-[#181818] rounded-2xl border border-neutral-200/80 dark:border-gray-800 p-6 shadow-[0_1px_3px_rgba(60,64,67,0.08)] space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <span className="w-6 h-6 rounded-full bg-neutral-100 dark:bg-neutral-900/40 text-neutral-700 dark:text-neutral-300 text-xs font-bold flex items-center justify-center">
-                  1
-                </span>
-                <h2 className="text-base font-bold text-neutral-900 dark:text-white">
-                  Choose Datacenter Region
-                </h2>
-              </div>
-              <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                Selected: <strong className="text-neutral-800 dark:text-neutral-200">{selectedRegion.name} ({selectedRegion.code})</strong>
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {REGIONS.map(reg => {
-                const isSelected = selectedRegion.id === reg.id;
-                return (
+      <div className="grid items-start gap-6 lg:grid-cols-3">
+        <div className="flex flex-col gap-6 lg:col-span-2">
+          <Panel title="1. Choose an image">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">Select an operating system or preconfigured stack.</p>
+              <div className="flex rounded-full bg-neutral-100 p-1 dark:bg-neutral-800">
+                {[
+                  { id: 'os', label: 'OS Distributions' },
+                  { id: 'app', label: '1-Click Applications' },
+                ].map((tab) => (
                   <button
-                    key={reg.id}
+                    key={tab.id}
                     type="button"
-                    onClick={() => handleRegionChange(reg)}
-                    className={`p-3.5 rounded-xl border text-left transition relative cursor-pointer ${
-                      isSelected
-                        ? 'border-neutral-600 bg-neutral-50/60 dark:bg-neutral-950/30 text-neutral-900 dark:text-neutral-200 shadow-xs'
-                        : 'border-neutral-200 dark:border-gray-800 hover:border-neutral-300 dark:hover:border-gray-700 bg-white dark:bg-[#181818]'
+                    onClick={() => setActiveImageTab(tab.id)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      activeImageTab === tab.id
+                        ? 'bg-black text-white dark:bg-white dark:text-black'
+                        : 'text-neutral-600 hover:text-neutral-950 dark:text-neutral-300 dark:hover:text-white'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xl">{reg.flag}</span>
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
-                        {reg.ping}
-                      </span>
-                    </div>
-                    <div className="font-semibold text-xs text-neutral-900 dark:text-white truncate">
-                      {reg.name}
-                    </div>
-                    <div className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                      {reg.code}
-                    </div>
+                    {tab.label}
                   </button>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* STEP 2: Choose an Image */}
-          <section className="bg-white dark:bg-[#181818] rounded-2xl border border-neutral-200/80 dark:border-gray-800 p-6 shadow-[0_1px_3px_rgba(60,64,67,0.08)] space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <span className="w-6 h-6 rounded-full bg-neutral-100 dark:bg-neutral-900/40 text-neutral-700 dark:text-neutral-300 text-xs font-bold flex items-center justify-center">
-                  2
-                </span>
-                <h2 className="text-base font-bold text-neutral-900 dark:text-white">
-                  Choose Operating System / Stack
-                </h2>
-              </div>
-
-              {/* Tabs */}
-              <div className="flex items-center p-1 bg-neutral-100 dark:bg-gray-800/80 rounded-xl w-fit">
-                <button
-                  type="button"
-                  onClick={() => setActiveImageTab('os')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                    activeImageTab === 'os'
-                      ? 'bg-white dark:bg-[#181818] text-neutral-900 dark:text-white shadow-xs'
-                      : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900'
-                  }`}
-                >
-                  OS Distributions
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveImageTab('app')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                    activeImageTab === 'app'
-                      ? 'bg-white dark:bg-[#181818] text-neutral-900 dark:text-white shadow-xs'
-                      : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900'
-                  }`}
-                >
-                  1-Click Applications
-                </button>
+                ))}
               </div>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {OS_IMAGES.filter(img => img.type === activeImageTab).map(img => {
-                const isSelected = selectedImage.id === img.id;
-                return (
-                  <button
-                    key={img.id}
-                    type="button"
-                    onClick={() => setSelectedImage(img)}
-                    className={`p-4 rounded-xl border text-left transition flex items-start justify-between cursor-pointer ${
-                      isSelected
-                        ? 'border-neutral-600 bg-neutral-50/60 dark:bg-neutral-950/30 shadow-xs'
-                        : 'border-neutral-200 dark:border-gray-800 hover:border-neutral-300 dark:hover:border-gray-700 bg-white dark:bg-[#181818]'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-bold text-xs text-neutral-900 dark:text-white">
-                          {img.name}
-                        </span>
-                        {img.badge && (
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-900/50 text-neutral-700 dark:text-neutral-300">
-                            {img.badge}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                        {img.version}
-                      </p>
-                    </div>
-                    {isSelected && (
-                      <CheckCircle2 className="w-5 h-5 text-neutral-600 dark:text-neutral-400 shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {OS_IMAGES.filter((image) => image.type === activeImageTab).map((image) => (
+                <Choice
+                  key={image.id}
+                  title={image.name}
+                  sub={image.version}
+                  badge={image.badge}
+                  active={selectedImage.id === image.id}
+                  onClick={() => setSelectedImage(image)}
+                />
+              ))}
             </div>
-          </section>
+          </Panel>
 
-          {/* STEP 3: Choose Size & Plan */}
-          <section className="bg-white dark:bg-[#181818] rounded-2xl border border-neutral-200/80 dark:border-gray-800 p-6 shadow-[0_1px_3px_rgba(60,64,67,0.08)] space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <span className="w-6 h-6 rounded-full bg-neutral-100 dark:bg-neutral-900/40 text-neutral-700 dark:text-neutral-300 text-xs font-bold flex items-center justify-center">
-                  3
-                </span>
-                <h2 className="text-base font-bold text-neutral-900 dark:text-white">
-                  Choose Hardware & Plan
-                </h2>
+          <Panel title="2. Choose a region">
+            <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">Choose where this droplet will be hosted.</p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              {REGIONS.slice(0, 5).map((region) => (
+                <Choice
+                  key={region.id}
+                  title={`${region.flag} ${region.name}`}
+                  sub={region.code}
+                  active={selectedRegion.id === region.id}
+                  onClick={() => selectRegion(region)}
+                />
+              ))}
+            </div>
+            {REGIONS.length > 5 && (
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                {REGIONS.slice(5).map((region) => (
+                  <Choice
+                    key={region.id}
+                    title={`${region.flag} ${region.name}`}
+                    sub={region.code}
+                    active={selectedRegion.id === region.id}
+                    onClick={() => selectRegion(region)}
+                  />
+                ))}
               </div>
-              <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                100% NVMe SSD Storage Included
-              </span>
+            )}
+          </Panel>
+
+          <Panel title="3. Hardware plan">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {DROPLET_TIERS.map((tier) => (
+                <Choice
+                  key={tier.id}
+                  title={tier.name}
+                  sub={`${tier.vcpus} vCPU · ${tier.memory} · ${tier.storage} · $${tier.monthlyPrice}/mo`}
+                  badge={tier.popular ? 'Popular' : undefined}
+                  active={selectedTier.id === tier.id}
+                  onClick={() => setSelectedTier(tier)}
+                />
+              ))}
             </div>
+          </Panel>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
-              {DROPLET_TIERS.map(tier => {
-                const isSelected = selectedTier.id === tier.id;
-                return (
-                  <button
-                    key={tier.id}
-                    type="button"
-                    onClick={() => setSelectedTier(tier)}
-                    className={`p-4 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer relative ${
-                      isSelected
-                        ? 'border-neutral-600 bg-neutral-50/60 dark:bg-neutral-950/30 shadow-xs'
-                        : 'border-neutral-200 dark:border-gray-800 hover:border-neutral-300 dark:hover:border-gray-700 bg-white dark:bg-[#181818]'
-                    }`}
-                  >
-                    {tier.popular && (
-                      <span className="absolute top-3 right-3 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400">
-                        Popular
-                      </span>
-                    )}
-
-                    <div>
-                      <div className="font-bold text-sm text-neutral-900 dark:text-white mb-1">
-                        {tier.name}
-                      </div>
-                      <div className="text-lg font-extrabold text-neutral-600 dark:text-neutral-400">
-                        ${tier.monthlyPrice}<span className="text-xs font-normal text-neutral-500">/mo</span>
-                      </div>
-                      <div className="text-[11px] text-neutral-400 mb-3">
-                        ${tier.hourlyPrice}/hr
-                      </div>
-
-                      <div className="space-y-1.5 text-xs text-neutral-600 dark:text-neutral-300 pt-3 border-t border-neutral-100 dark:border-gray-800">
-                        <div className="flex items-center gap-1.5">
-                          <Cpu className="w-3.5 h-3.5 text-neutral-400" />
-                          <span>{tier.vcpus} vCPU Core{tier.vcpus > 1 ? 's' : ''}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <Layers className="w-3.5 h-3.5 text-neutral-400" />
-                          <span>{tier.memory} RAM</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <HardDrive className="w-3.5 h-3.5 text-neutral-400" />
-                          <span>{tier.storage}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-[11px] text-neutral-400">
-                          <Globe className="w-3.5 h-3.5 text-neutral-400" />
-                          <span>{tier.bandwidth}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* STEP 4: Authentication Method */}
-          <section className="bg-white dark:bg-[#181818] rounded-2xl border border-neutral-200/80 dark:border-gray-800 p-6 shadow-[0_1px_3px_rgba(60,64,67,0.08)] space-y-4">
-            <div className="flex items-center gap-2.5">
-              <span className="w-6 h-6 rounded-full bg-neutral-100 dark:bg-neutral-900/40 text-neutral-700 dark:text-neutral-300 text-xs font-bold flex items-center justify-center">
-                4
-              </span>
-              <h2 className="text-base font-bold text-neutral-900 dark:text-white">
-                Authentication & Server Security
-              </h2>
-            </div>
-
-            <p className="rounded-xl bg-neutral-50 p-4 text-xs leading-5 text-neutral-600 dark:bg-gray-900 dark:text-neutral-300">
-              Passwords and SSH keys are not collected here because cloud provisioning is not connected.
-            </p>
-          </section>
-
-          {/* STEP 5: Add-ons & Hostname */}
-          <section className="bg-white dark:bg-[#181818] rounded-2xl border border-neutral-200/80 dark:border-gray-800 p-6 shadow-[0_1px_3px_rgba(60,64,67,0.08)] space-y-4">
-            <div className="flex items-center gap-2.5">
-              <span className="w-6 h-6 rounded-full bg-neutral-100 dark:bg-neutral-900/40 text-neutral-700 dark:text-neutral-300 text-xs font-bold flex items-center justify-center">
-                5
-              </span>
-              <h2 className="text-base font-bold text-neutral-900 dark:text-white">
-                Finalize & Additional Options
-              </h2>
-            </div>
-
-            {/* Checkboxes */}
-            <div className="space-y-2.5">
-              <label className="flex items-center justify-between p-3 rounded-xl border border-neutral-200 dark:border-gray-800 hover:bg-neutral-50/50 dark:hover:bg-gray-800/40 transition cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={enableBackups}
-                    onChange={(e) => setEnableBackups(e.target.checked)}
-                    className="w-4 h-4 text-neutral-600 rounded-md border-neutral-300 focus:ring-neutral-500"
-                  />
-                  <div>
-                    <div className="text-xs font-semibold text-neutral-900 dark:text-white">Enable Automated Weekly Backups</div>
-                    <div className="text-[11px] text-neutral-500">20% of droplet price, retained for 4 weeks</div>
-                  </div>
-                </div>
-                <span className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">+$3.00/mo</span>
-              </label>
-
-              <label className="flex items-center justify-between p-3 rounded-xl border border-neutral-200 dark:border-gray-800 hover:bg-neutral-50/50 dark:hover:bg-gray-800/40 transition cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={enableIpv6}
-                    onChange={(e) => setEnableIpv6(e.target.checked)}
-                    className="w-4 h-4 text-neutral-600 rounded-md border-neutral-300 focus:ring-neutral-500"
-                  />
-                  <div>
-                    <div className="text-xs font-semibold text-neutral-900 dark:text-white">Enable IPv6 Address</div>
-                    <div className="text-[11px] text-neutral-500">Next-generation dual-stack public routing</div>
-                  </div>
-                </div>
-                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Free</span>
-              </label>
-
-              <label className="flex items-center justify-between p-3 rounded-xl border border-neutral-200 dark:border-gray-800 hover:bg-neutral-50/50 dark:hover:bg-gray-800/40 transition cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={enableMonitoring}
-                    onChange={(e) => setEnableMonitoring(e.target.checked)}
-                    className="w-4 h-4 text-neutral-600 rounded-md border-neutral-300 focus:ring-neutral-500"
-                  />
-                  <div>
-                    <div className="text-xs font-semibold text-neutral-900 dark:text-white">Tiwlo Health & CPU Monitoring Agent</div>
-                    <div className="text-[11px] text-neutral-500">Real-time alerts, memory metrics & automated diagnostics</div>
-                  </div>
-                </div>
-                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Free</span>
-              </label>
-            </div>
-
-            {/* Hostname & Tags */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                  Droplet Hostname
-                </label>
+          <Panel title="4. Resource details">
+            <div className="grid gap-5 sm:grid-cols-2">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300" htmlFor="droplet-hostname">
+                Hostname
                 <input
+                  id="droplet-hostname"
                   type="text"
                   value={hostname}
-                  onChange={(e) => setHostname(e.target.value)}
-                  placeholder="e.g. ubuntu-s-2vcpu-4gb-fra1"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-800 bg-neutral-50/50 dark:bg-gray-900 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-neutral-500 font-mono"
+                  onChange={(event) => setHostname(event.target.value)}
+                  className="mt-2 h-10 w-full rounded-xl bg-neutral-100 px-3 text-sm font-normal text-neutral-950 outline-none ring-neutral-900/10 transition focus:bg-white focus:ring-2 dark:bg-neutral-800 dark:text-white dark:focus:bg-neutral-950"
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                  Tags (comma separated)
-                </label>
+              </label>
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300" htmlFor="droplet-tags">
+                Tags
                 <input
+                  id="droplet-tags"
                   type="text"
                   value={tags}
-                  onChange={(e) => setTags(e.target.value)}
-                  placeholder="production, web, api"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-800 bg-neutral-50/50 dark:bg-gray-900 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-neutral-500"
+                  onChange={(event) => setTags(event.target.value)}
+                  placeholder="production, web"
+                  className="mt-2 h-10 w-full rounded-xl bg-neutral-100 px-3 text-sm font-normal text-neutral-950 outline-none ring-neutral-900/10 transition focus:bg-white focus:ring-2 dark:bg-neutral-800 dark:text-white dark:focus:bg-neutral-950"
                 />
-              </div>
+              </label>
             </div>
-          </section>
+            <div className="mt-4 divide-y divide-neutral-200 dark:divide-neutral-800">
+              <label className="flex items-center justify-between gap-4 py-4">
+                <span>
+                  <span className="block text-sm font-semibold text-neutral-900 dark:text-white">Enable automated backups</span>
+                  <span className="mt-1 block text-xs text-neutral-500 dark:text-neutral-400">Weekly backups, retained for 4 weeks</span>
+                </span>
+                <input type="checkbox" checked={enableBackups} onChange={(event) => setEnableBackups(event.target.checked)} className="size-4 accent-[#1ed760]" />
+              </label>
+              <label className="flex items-center justify-between gap-4 py-4">
+                <span>
+                  <span className="block text-sm font-semibold text-neutral-900 dark:text-white">Enable IPv6</span>
+                  <span className="mt-1 block text-xs text-neutral-500 dark:text-neutral-400">Dual-stack public routing</span>
+                </span>
+                <input type="checkbox" checked={enableIpv6} onChange={(event) => setEnableIpv6(event.target.checked)} className="size-4 accent-[#1ed760]" />
+              </label>
+              <label className="flex items-center justify-between gap-4 py-4">
+                <span>
+                  <span className="block text-sm font-semibold text-neutral-900 dark:text-white">Enable monitoring</span>
+                  <span className="mt-1 block text-xs text-neutral-500 dark:text-neutral-400">Collect CPU, memory and disk metrics</span>
+                </span>
+                <input type="checkbox" checked={enableMonitoring} onChange={(event) => setEnableMonitoring(event.target.checked)} className="size-4 accent-[#1ed760]" />
+              </label>
+            </div>
+          </Panel>
         </div>
 
-        {/* Right Column: Sticky Google-Style Order Summary */}
-        <div className="lg:col-span-4 sticky top-6 space-y-4">
-          <div className="bg-white dark:bg-[#181818] rounded-2xl border border-neutral-200/80 dark:border-gray-800 p-6 shadow-[0_1px_3px_rgba(60,64,67,0.08)] space-y-5">
-            <h3 className="text-base font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
-              <span>Droplet Summary</span>
-            </h3>
-
-            <div className="space-y-3 text-xs border-b border-neutral-100 dark:border-gray-800 pb-4">
-              <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
-                <span>Region</span>
-                <span className="font-semibold text-neutral-900 dark:text-white flex items-center gap-1.5">
-                  <span>{selectedRegion.flag}</span>
-                  <span>{selectedRegion.name}</span>
-                </span>
+        <Panel title="Summary" className="h-fit lg:sticky lg:top-24">
+          <dl className="divide-y divide-neutral-200 dark:divide-neutral-800">
+            {[
+              ['Image', selectedImage.name],
+              ['Region', `${selectedRegion.flag} ${selectedRegion.name}`],
+              ['Plan', selectedTier.name],
+              ['CPU', `${selectedTier.vcpus} vCPU`],
+              ['Memory', selectedTier.memory],
+              ['Storage', selectedTier.storage],
+              ['Backups', enableBackups ? '+$3.00/mo' : 'Off'],
+              ['IPv6', enableIpv6 ? 'Enabled' : 'Off'],
+              ['Monitoring', enableMonitoring ? 'Enabled' : 'Off'],
+            ].map(([label, value]) => (
+              <div key={label} className="flex items-center justify-between gap-4 py-3 text-sm">
+                <dt className="text-neutral-500 dark:text-neutral-400">{label}</dt>
+                <dd className="text-right font-semibold text-neutral-950 dark:text-white">{value}</dd>
               </div>
-
-              <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
-                <span>Operating System</span>
-                <span className="font-semibold text-neutral-900 dark:text-white">{selectedImage.name}</span>
-              </div>
-
-              <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
-                <span>Configuration</span>
-                <span className="font-semibold text-neutral-900 dark:text-white">
-                  {selectedTier.vcpus} vCPU • {selectedTier.memory} RAM
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
-                <span>NVMe Storage</span>
-                <span className="font-semibold text-neutral-900 dark:text-white">{selectedTier.storage}</span>
-              </div>
-
-              {enableBackups && (
-                <div className="flex justify-between items-center text-neutral-600 dark:text-neutral-400">
-                  <span>Automated Backups</span>
-                  <span className="font-semibold text-neutral-900 dark:text-white">$3.00/mo</span>
-                </div>
-              )}
-            </div>
-
-            {/* Total Price */}
-            <div>
-              <div className="text-xs text-neutral-500 mb-1">Illustrative monthly estimate</div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-neutral-600 dark:text-neutral-400">
-                  ${calculateTotalMonthly()}
-                </span>
-                <span className="text-xs font-semibold text-neutral-500">/ month</span>
-                <span className="text-[11px] text-neutral-400 ml-auto">
-                  ~${((calculateTotalMonthly() / 720)).toFixed(3)}/hr
-                </span>
-              </div>
-            </div>
-
-            {/* Deploy Action Button */}
-            <button
-              type="button"
-              disabled
-              className="w-full py-3.5 px-4 rounded-xl bg-neutral-400 text-white text-sm font-semibold flex items-center justify-center gap-2 cursor-not-allowed"
-            >
-              <Zap className="w-4 h-4" />
-              <span>Provisioning unavailable</span>
-            </button>
-
-            <p className="text-[11px] text-center text-neutral-400 dark:text-neutral-500">
-              No server is created and no cloud-provider charge is initiated from this page.
+            ))}
+          </dl>
+          <div className="mt-5 border-t border-neutral-200 pt-5 dark:border-neutral-800">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">Illustrative monthly estimate</p>
+            <p className="mt-1 text-3xl font-bold tracking-tight text-neutral-950 dark:text-white">
+              ${totalMonthly}<span className="ml-1 text-sm font-medium text-neutral-500">/mo</span>
+            </p>
+            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+              ~${(totalMonthly / 720).toFixed(3)}/hr
             </p>
           </div>
-        </div>
+          <button
+            type="button"
+            disabled
+            className="mt-6 inline-flex h-10 w-full cursor-not-allowed items-center justify-center gap-2 rounded-full bg-neutral-300 px-5 text-sm font-bold text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300"
+          >
+            <Zap className="size-4" aria-hidden="true" />
+            Provisioning unavailable
+          </button>
+          <p className="mt-3 text-center text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+            No server is created and no cloud-provider charge is initiated from this page.
+          </p>
+        </Panel>
       </div>
     </div>
   );

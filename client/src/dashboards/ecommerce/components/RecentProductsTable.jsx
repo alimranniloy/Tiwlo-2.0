@@ -10,12 +10,12 @@ import {
   Trash2,
   Plus,
   Minus,
-  AlertCircle,
   Printer
 } from 'lucide-react';
 
 export default function RecentProductsTable({
   products,
+  categories: availableCategories = [],
   onEditProduct,
   onDeleteProduct,
   onQuickStockChange,
@@ -30,12 +30,9 @@ export default function RecentProductsTable({
 
   const categories = [
     'All Categories',
-    'Clothing',
-    'Footwear',
-    'Electronics',
-    'Accessories',
-    'Beauty & Health',
-    'Home & Living'
+    ...new Set(availableCategories
+      .map(category => typeof category === 'string' ? category : category?.name)
+      .filter(category => typeof category === 'string' && category.trim()))
   ];
 
   // Helper for category badge styling
