@@ -8,8 +8,8 @@ export default function SystemInfoCard({ info }) {
   ];
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/70 dark:border-slate-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between">
-      <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4">
+    <div className="bg-white dark:bg-neutral-900 rounded-2xl p-5 border border-neutral-200/70 dark:border-neutral-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between">
+      <h3 className="text-base font-bold text-neutral-900 dark:text-white mb-4">
         System Information
       </h3>
 
@@ -17,12 +17,12 @@ export default function SystemInfoCard({ info }) {
         {specs.map((spec, idx) => (
           <div
             key={idx}
-            className="flex items-center justify-between text-xs py-1 border-b border-slate-100 dark:border-slate-800/80 last:border-b-0"
+            className="flex items-center justify-between text-xs py-1 border-b border-neutral-100 dark:border-neutral-800/80 last:border-b-0"
           >
-            <span className="text-slate-400 dark:text-slate-500 font-medium">
+            <span className="text-neutral-400 dark:text-neutral-500 font-medium">
               {spec.label}
             </span>
-            <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
+            <span className="font-mono font-semibold text-neutral-800 dark:text-neutral-200">
               {spec.value}
             </span>
           </div>

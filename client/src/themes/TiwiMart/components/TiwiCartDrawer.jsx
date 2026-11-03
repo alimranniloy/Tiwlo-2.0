@@ -24,22 +24,22 @@ export default function TiwiCartDrawer({
       {/* Backdrop */}
       <div
         onClick={onClose}
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+        className="absolute inset-0 bg-neutral-900/60 backdrop-blur-xs transition-opacity"
       ></div>
 
       <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
         <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col">
           {/* Drawer Header */}
-          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+          <div className="p-5 border-b border-neutral-100 flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <ShoppingBag className="w-5 h-5 text-[#2563eb]" />
-              <h3 className="font-bold text-base text-slate-900">
+              <ShoppingBag className="w-5 h-5 text-[#000000]" />
+              <h3 className="font-bold text-base text-neutral-900">
                 Shopping Cart ({cartItems.reduce((acc, i) => acc + i.quantity, 0)})
               </h3>
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+              className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition"
             >
               <X className="w-5 h-5" />
             </button>
@@ -48,42 +48,42 @@ export default function TiwiCartDrawer({
           {/* Cart Items List */}
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
             {cartItems.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
-                <ShoppingBag className="w-12 h-12 stroke-[1.2] mb-3 text-slate-300" />
-                <p className="font-bold text-slate-700 text-sm">Your cart is empty</p>
-                <p className="text-xs text-slate-400 mt-1">Add items to your cart to continue.</p>
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-neutral-400">
+                <ShoppingBag className="w-12 h-12 stroke-[1.2] mb-3 text-neutral-300" />
+                <p className="font-bold text-neutral-700 text-sm">Your cart is empty</p>
+                <p className="text-xs text-neutral-400 mt-1">Add items to your cart to continue.</p>
               </div>
             ) : (
               cartItems.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center space-x-3.5 p-3 rounded-xl border border-slate-100 bg-slate-50/50"
+                  className="flex items-center space-x-3.5 p-3 rounded-xl border border-neutral-100 bg-neutral-50/50"
                 >
                   <img
                     src={item.image}
                     alt={item.name}
-                    className="w-16 h-16 object-contain rounded-lg bg-white p-1 border border-slate-200"
+                    className="w-16 h-16 object-contain rounded-lg bg-white p-1 border border-neutral-200"
                   />
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-xs font-bold text-slate-900 truncate">
+                    <h4 className="text-xs font-bold text-neutral-900 truncate">
                       {item.name}
                     </h4>
-                    <p className="text-xs font-black text-[#2563eb] mt-0.5">
+                    <p className="text-xs font-black text-[#000000] mt-0.5">
                       {formatStoreCurrency(item.price, storeSettings)}
                     </p>
                     <div className="flex items-center space-x-2 mt-2">
                       <button
                         onClick={() => onUpdateQty(item.id, item.quantity - 1)}
-                        className="w-6 h-6 rounded bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100"
+                        className="w-6 h-6 rounded bg-white border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-neutral-100"
                       >
                         <Minus className="w-3 h-3" />
                       </button>
-                      <span className="text-xs font-bold text-slate-800 px-1">
+                      <span className="text-xs font-bold text-neutral-800 px-1">
                         {item.quantity}
                       </span>
                       <button
                         onClick={() => onUpdateQty(item.id, item.quantity + 1)}
-                        className="w-6 h-6 rounded bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100"
+                        className="w-6 h-6 rounded bg-white border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-neutral-100"
                       >
                         <Plus className="w-3 h-3" />
                       </button>
@@ -91,7 +91,7 @@ export default function TiwiCartDrawer({
                   </div>
                   <button
                     onClick={() => onRemoveItem(item.id)}
-                    className="text-slate-400 hover:text-rose-500 p-1 transition"
+                    className="text-neutral-400 hover:text-rose-500 p-1 transition"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -102,32 +102,32 @@ export default function TiwiCartDrawer({
 
           {/* Drawer Footer / Checkout */}
           {cartItems.length > 0 && (
-            <div className="p-5 border-t border-slate-100 bg-slate-50 space-y-3">
-              <div className="space-y-1.5 text-xs text-slate-600">
+            <div className="p-5 border-t border-neutral-100 bg-neutral-50 space-y-3">
+              <div className="space-y-1.5 text-xs text-neutral-600">
                 <div className="flex justify-between">
                   <span>Subtotal</span>
-                  <span className="font-semibold text-slate-900">{formatStoreCurrency(subtotal, storeSettings)}</span>
+                  <span className="font-semibold text-neutral-900">{formatStoreCurrency(subtotal, storeSettings)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Estimated tax</span>
-                  <span className="font-semibold text-slate-900">{formatStoreCurrency(tax, storeSettings)}</span>
+                  <span className="font-semibold text-neutral-900">{formatStoreCurrency(tax, storeSettings)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Shipping</span>
-                  <span className="font-semibold text-slate-900">
+                  <span className="font-semibold text-neutral-900">
                     {shipping === null ? 'Not configured' : shipping === 0 ? 'Free' : formatStoreCurrency(shipping, storeSettings)}
                   </span>
                 </div>
-                {shipping === null && <p className="text-[10px] text-slate-500">Shipping is not included in this estimate.</p>}
-                <div className="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-slate-200">
+                {shipping === null && <p className="text-[10px] text-neutral-500">Shipping is not included in this estimate.</p>}
+                <div className="flex justify-between text-sm font-black text-neutral-900 pt-2 border-t border-neutral-200">
                   <span>Total</span>
-                  <span className="text-[#2563eb]">{formatStoreCurrency(total, storeSettings)}</span>
+                  <span className="text-[#000000]">{formatStoreCurrency(total, storeSettings)}</span>
                 </div>
               </div>
 
               <button
                 onClick={onCheckout}
-                className="w-full py-3 px-4 rounded-xl bg-[#2563eb] hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center space-x-2 transition shadow-md shadow-blue-500/20"
+                className="w-full py-3 px-4 rounded-xl bg-[#000000] hover:bg-neutral-700 text-white font-bold text-xs flex items-center justify-center space-x-2 transition shadow-md shadow-neutral-500/20"
               >
                 <span>Proceed to Checkout</span>
                 <ArrowRight className="w-4 h-4" />

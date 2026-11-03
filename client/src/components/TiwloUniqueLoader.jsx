@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 
 /**
- * Tiwlo Typography Logo (Pure Text "tiwlo." with trailing blue dot)
+ * Tiwlo Typography Logo (Pure Text "tiwlo." with trailing black dot)
  * Optically centered: Word "tiwlo" is strictly centered on the X-axis (x=78 in viewBox 160x52),
- * and the blue dot rests naturally on the right baseline without shifting the word off-center.
+ * and the black dot rests naturally on the right baseline without shifting the word off-center.
  */
 export function TiwloTextLogo({ className = '', isDrawing = true }) {
   return (
@@ -19,7 +19,7 @@ export function TiwloTextLogo({ className = '', isDrawing = true }) {
           x="78"
           y="39"
           textAnchor="middle"
-          className={`fill-[#0A1128] dark:fill-white stroke-[#0A1128] dark:stroke-white ${
+          className={`fill-[#000000] dark:fill-white stroke-[#000000] dark:stroke-white ${
             isDrawing ? 'tiwlo-text-draw' : ''
           }`}
         >
@@ -32,8 +32,8 @@ export function TiwloTextLogo({ className = '', isDrawing = true }) {
           cy="37"
           r="3.2"
           className={isDrawing ? 'tiwlo-logo-dot-draw' : ''}
-          fill="#0066FF"
-          stroke="#0066FF"
+          fill="#000000"
+          stroke="#000000"
           strokeWidth="1.2"
         />
       </svg>
@@ -47,13 +47,13 @@ export const TiwloVectorLogo = TiwloTextLogo;
 /**
  * Tiwlo Compact Indeterminate Circular Spinner
  * Smooth, 100% borderless, compact rotating arc with expanding/contracting stroke dash.
- * Themed to Tiwlo's official palette: #0066FF (Electric Blue), #38BDF8 (Sky Cyan), #0B57D0 (Deep Cloud Blue), #2563EB (Royal Blue).
+ * Themed to Tiwlo's monochrome palette: black with neutral-gray accents.
  * NO background card borders, NO grey container boxes.
  */
 export function TiwloMaterialSpinner({
   size = 34,
   strokeWidth = 3.2,
-  variant = 'theme', // 'theme' (Tiwlo 4-blue morph) | 'blue' (solid Tiwlo electric blue)
+  variant = 'theme', // 'theme' (Tiwlo monochrome morph) | 'blue' (solid black, kept for compatibility)
   className = ''
 }) {
   return (
@@ -66,9 +66,9 @@ export function TiwloMaterialSpinner({
         viewBox="0 0 66 66"
         xmlns="http://www.w3.org/2000/svg"
       >
-        {/* Subtle borderless background circular track (Google soft pale blue track) */}
+        {/* Subtle borderless background circular track */}
         <circle
-          className="text-[#E8F0FE]"
+          className="text-[#efefef]"
           fill="none"
           stroke="currentColor"
           strokeWidth={strokeWidth}
@@ -96,7 +96,7 @@ export const GoogleMaterialSpinner = TiwloMaterialSpinner;
 export const MorphLoader = TiwloMaterialSpinner;
 
 /**
- * Tiwlo 4-Dots Pulse (Website Theme Colors: #0066FF, #38BDF8, #0B57D0, #2563EB)
+ * Tiwlo 4-Dots Pulse (Website Theme Colors: #000000, #737373, #000000, #000000)
  */
 export function TiwloDotPulse({ className = '' }) {
   return (

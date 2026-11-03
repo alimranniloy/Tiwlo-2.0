@@ -109,7 +109,7 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
   // only after all hooks have been declared.
   if (!isAuthorizedAdmin) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0B0F19] text-slate-600 dark:text-slate-400 font-sans">
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-[#0f0f0f] text-neutral-600 dark:text-neutral-400 font-sans">
         <p className="text-sm">Redirecting to user workspace...</p>
       </div>
     );
@@ -125,7 +125,7 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
     now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-[#f4f7fc] text-slate-900'} font-sans antialiased transition-colors duration-200`}>
+    <div className={`min-h-screen ${isDarkMode ? 'dark bg-neutral-950 text-neutral-100' : 'bg-[#f7f7f7] text-neutral-900'} font-sans antialiased transition-colors duration-200`}>
       {/* Top Header */}
       <AdminHeader
         currentUser={currentUser}
@@ -203,15 +203,15 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
               {/* Welcome Banner Row matching screenshot */}
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 text-xs font-semibold mb-2">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-neutral-50 dark:bg-neutral-900/40 text-neutral-600 dark:text-neutral-300 text-xs font-semibold mb-2">
                     <Sparkles className="w-3.5 h-3.5" />
                     <span>Welcome back, {currentUser?.name?.split(' ')[0] || 'Administrator'}!</span>
                   </div>
 
-                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">
                     Admin Dashboard
                   </h1>
-                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-1">
                     Manage your e-commerce and cloud services from one place.
                   </p>
                 </div>
@@ -219,25 +219,25 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
                 {/* Right Status Cards */}
                 <div className="flex flex-wrap items-center gap-3">
                   {/* Date Card */}
-                  <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
-                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400">
+                  <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/70 dark:border-neutral-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+                    <div className="w-9 h-9 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 dark:text-neutral-400">
                       <Calendar className="w-4 h-4" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{dateFormatted}</p>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500">{timeFormatted}</p>
+                      <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">{dateFormatted}</p>
+                      <p className="text-[10px] text-neutral-400 dark:text-neutral-500">{timeFormatted}</p>
                     </div>
                   </div>
 
                   {/* System Status Card */}
-                  <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+                  <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200/70 dark:border-neutral-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
                     <div className={`w-2.5 h-2.5 rounded-full ml-1 ${
                       !adminData && !overviewError ? 'bg-amber-500 ring-4 ring-amber-500/20' :
                       overviewError || !adminData?.systemInfo?.operational ? 'bg-rose-500 ring-4 ring-rose-500/20' :
                       'bg-emerald-500 ring-4 ring-emerald-500/20'
                     }`} />
                     <div>
-                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200">System Status</p>
+                      <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">System Status</p>
                       <p className={`text-[10px] font-medium ${
                         !adminData && !overviewError ? 'text-amber-600 dark:text-amber-400' :
                         overviewError || !adminData?.systemInfo?.operational ? 'text-rose-600 dark:text-rose-400' :
@@ -303,7 +303,7 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
           )}
 
           {/* Minimalist Clean Footer */}
-          <footer className="pt-6 pb-2 border-t border-slate-200/60 dark:border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 dark:text-slate-500 gap-2">
+          <footer className="pt-6 pb-2 border-t border-neutral-200/60 dark:border-neutral-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-neutral-400 dark:text-neutral-500 gap-2">
             <div>
               <span>Tiwlo Admin Panel</span>
               <span className="mx-2">•</span>

@@ -46,18 +46,18 @@ export default function StudioHero({ onNavigateAuth, onNavigateTab }) {
     },
     {
       name: 'Amazon Music',
-      color: '#00A8E1',
+      color: '#888888',
       icon: (
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="#00A8E1">
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="#888888">
           <path d="M13.958 10.09c0 1.25-.05 2.29-.684 3.395-.53.94-1.378 1.547-2.35 1.547-1.353 0-2.07-.99-2.07-2.457 0-2.89 2.45-3.412 5.104-3.412v.927zm3.766 6.815c-.247-.212-.39-.537-.367-.866l.092-1.33c-.768.913-1.63 1.564-2.736 1.942-1.07.364-2.203.413-3.328.14-1.23-.3-2.29-1.01-2.955-2.06-.665-1.047-.845-2.338-.507-3.535.48-1.7 1.815-2.94 3.49-3.39 1.637-.44 3.447-.25 4.954.53V7.8c0-.75-.152-1.393-.666-1.89-.513-.497-1.29-.696-2.05-.696-1.127 0-2.18.43-2.98 1.22-.24.237-.585.346-.913.29-.328-.057-.604-.265-.733-.556L8.44 4.195c-.172-.37-.098-.813.185-1.11 1.6-1.677 3.82-2.317 6.13-2.08 1.48.15 2.82.87 3.73 1.99.91 1.12 1.34 2.58 1.34 4.07v6.62c0 .484.22.846.6 1.096.38.25.43.68.21 1.03l-1.62 2.09c-.28.36-.81.44-1.29.1z" />
         </svg>
       )
     },
     {
       name: 'Deezer',
-      color: '#A238FF',
+      color: '#5d5d5d',
       icon: (
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="#A238FF">
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="#5d5d5d">
           <path d="M18.8 6.4h3.6v2.4h-3.6V6.4zm0 3.6h3.6v2.4h-3.6v-2.4zm0 3.6h3.6v2.4h-3.6v-2.4zm0 3.6h3.6v2.4h-3.6v-2.4zm-4.8-3.6h3.6v2.4H14v-2.4zm0 3.6h3.6v2.4H14v-2.4zm-4.8 0h3.6v2.4H9.2v-2.4zm-4.8 0H8v2.4H4.4v-2.4zm-4.4 0h3.6v2.4H0v-2.4z" />
         </svg>
       )
@@ -67,8 +67,8 @@ export default function StudioHero({ onNavigateAuth, onNavigateTab }) {
   return (
     <section id="home" className="relative pt-6 pb-20 md:pt-12 md:pb-32 overflow-hidden">
       {/* Background Subtle Ambient Glows */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-gradient-to-tr from-blue-100/60 via-indigo-50/50 to-purple-100/40 blur-3xl pointer-events-none -z-10 rounded-full" />
-      <div className="absolute top-10 right-10 w-[450px] h-[450px] bg-sky-100/40 blur-3xl pointer-events-none -z-10 rounded-full" />
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-gradient-to-tr from-neutral-100/60 via-neutral-50/50 to-purple-100/40 blur-3xl pointer-events-none -z-10 rounded-full" />
+      <div className="absolute top-10 right-10 w-[450px] h-[450px] bg-neutral-100/40 blur-3xl pointer-events-none -z-10 rounded-full" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
@@ -76,26 +76,26 @@ export default function StudioHero({ onNavigateAuth, onNavigateTab }) {
           {/* Left Hero Content Column */}
           <div className="lg:col-span-7 flex flex-col items-start text-left z-10">
             {/* Pill Badge */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50/90 border border-blue-200/60 shadow-xs mb-6 text-slate-700 text-xs sm:text-sm font-medium">
-              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-500/15 text-blue-600">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neutral-50/90 border border-neutral-200/60 shadow-xs mb-6 text-neutral-700 text-xs sm:text-sm font-medium">
+              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-neutral-500/15 text-neutral-600">
                 <AudioWaveform className="w-3.5 h-3.5" />
               </span>
               <span>Music Level</span>
-              <span className="text-slate-300">•</span>
-              <span className="text-slate-900 font-semibold">Music Distribution</span>
+              <span className="text-neutral-300">•</span>
+              <span className="text-neutral-900 font-semibold">Music Distribution</span>
             </div>
 
             {/* Main Headline */}
-            <h1 className="text-4xl sm:text-6xl lg:text-[72px] font-extrabold tracking-tight text-slate-950 leading-[1.08] mb-6">
+            <h1 className="text-4xl sm:text-6xl lg:text-[72px] font-extrabold tracking-tight text-neutral-950 leading-[1.08] mb-6">
               Your Music.
               <br />
-              <span className="bg-gradient-to-r from-[#6366F1] via-[#818CF8] to-[#38BDF8] bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-[#6f6f6f] via-[#919191] to-[#737373] bg-clip-text text-transparent">
                 Our Platform.
               </span>
             </h1>
 
             {/* Description Subtitle */}
-            <p className="text-base sm:text-lg text-slate-600 max-w-xl font-normal leading-relaxed mb-8">
+            <p className="text-base sm:text-lg text-neutral-600 max-w-xl font-normal leading-relaxed mb-8">
               Tiwlo Studio is now your complete music level and distribution platform. Create, grow and get your music heard — worldwide.
             </p>
 
@@ -103,7 +103,7 @@ export default function StudioHero({ onNavigateAuth, onNavigateTab }) {
             <div className="flex flex-wrap items-center gap-4 mb-14">
               <button
                 onClick={handleStartNow}
-                className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-slate-950 text-white text-base font-semibold shadow-md hover:bg-slate-800 active:scale-98 transition-all cursor-pointer group"
+                className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-neutral-950 text-white text-base font-semibold shadow-md hover:bg-neutral-800 active:scale-98 transition-all cursor-pointer group"
               >
                 <span>Start Now</span>
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
@@ -111,9 +111,9 @@ export default function StudioHero({ onNavigateAuth, onNavigateTab }) {
 
               <button
                 onClick={() => setShowVideoModal(true)}
-                className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-full bg-white/90 hover:bg-white text-slate-900 border border-slate-200/80 shadow-xs text-base font-semibold transition-all cursor-pointer group"
+                className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-full bg-white/90 hover:bg-white text-neutral-900 border border-neutral-200/80 shadow-xs text-base font-semibold transition-all cursor-pointer group"
               >
-                <span className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center transition-transform group-hover:scale-110">
+                <span className="w-6 h-6 rounded-full bg-neutral-900 text-white flex items-center justify-center transition-transform group-hover:scale-110">
                   <Play className="w-3 h-3 fill-current translate-x-0.5" />
                 </span>
                 <span>Watch Intro</span>
@@ -121,29 +121,29 @@ export default function StudioHero({ onNavigateAuth, onNavigateTab }) {
             </div>
 
             {/* Stats Metrics Row */}
-            <div className="w-full pt-8 border-t border-slate-200/70 grid grid-cols-3 gap-4 sm:gap-8">
+            <div className="w-full pt-8 border-t border-neutral-200/70 grid grid-cols-3 gap-4 sm:gap-8">
               <div>
-                <p className="text-xs font-medium text-slate-500 mb-1">Global Reach</p>
-                <div className="text-2xl sm:text-3xl font-bold text-slate-950 tracking-tight">
+                <p className="text-xs font-medium text-neutral-500 mb-1">Global Reach</p>
+                <div className="text-2xl sm:text-3xl font-bold text-neutral-950 tracking-tight">
                   +200
                 </div>
-                <p className="text-xs text-slate-500">Platforms</p>
+                <p className="text-xs text-neutral-500">Platforms</p>
               </div>
 
-              <div className="border-l border-slate-200/60 pl-4 sm:pl-8">
-                <p className="text-xs font-medium text-slate-500 mb-1">For Artists</p>
-                <div className="text-2xl sm:text-3xl font-bold text-slate-950 tracking-tight">
+              <div className="border-l border-neutral-200/60 pl-4 sm:pl-8">
+                <p className="text-xs font-medium text-neutral-500 mb-1">For Artists</p>
+                <div className="text-2xl sm:text-3xl font-bold text-neutral-950 tracking-tight">
                   100%
                 </div>
-                <p className="text-xs text-slate-500">Your Rights</p>
+                <p className="text-xs text-neutral-500">Your Rights</p>
               </div>
 
-              <div className="border-l border-slate-200/60 pl-4 sm:pl-8">
-                <p className="text-xs font-medium text-slate-500 mb-1">Fast Delivery</p>
-                <div className="text-2xl sm:text-3xl font-bold text-slate-950 tracking-tight">
+              <div className="border-l border-neutral-200/60 pl-4 sm:pl-8">
+                <p className="text-xs font-medium text-neutral-500 mb-1">Fast Delivery</p>
+                <div className="text-2xl sm:text-3xl font-bold text-neutral-950 tracking-tight">
                   &lt; 7 Days
                 </div>
-                <p className="text-xs text-slate-500">To Stores</p>
+                <p className="text-xs text-neutral-500">To Stores</p>
               </div>
             </div>
           </div>
@@ -166,19 +166,19 @@ export default function StudioHero({ onNavigateAuth, onNavigateTab }) {
 
             {/* Floating "Available on" Glass Badge */}
             <div className="absolute top-6 right-0 sm:-right-6 md:-right-8 z-30 bg-white/85 backdrop-blur-xl border border-white/80 shadow-[0_15px_35px_-5px_rgba(15,23,42,0.12)] rounded-2xl p-4 w-44 sm:w-48 animate-in fade-in zoom-in-95 duration-700">
-              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2.5">
+              <p className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider mb-2.5">
                 Available on
               </p>
               <div className="space-y-2">
                 {platforms.map((plat) => (
                   <div key={plat.name} className="flex items-center gap-2.5">
                     <span className="shrink-0">{plat.icon}</span>
-                    <span className="text-xs font-semibold text-slate-800 leading-none">
+                    <span className="text-xs font-semibold text-neutral-800 leading-none">
                       {plat.name}
                     </span>
                   </div>
                 ))}
-                <div className="pt-1 border-t border-slate-100 flex items-center gap-1.5 text-slate-500 text-[11px] font-medium hover:text-slate-900 cursor-pointer">
+                <div className="pt-1 border-t border-neutral-100 flex items-center gap-1.5 text-neutral-500 text-[11px] font-medium hover:text-neutral-900 cursor-pointer">
                   <span>+ More</span>
                 </div>
               </div>
@@ -191,25 +191,25 @@ export default function StudioHero({ onNavigateAuth, onNavigateTab }) {
       {/* Inline Video Player Panel (No popup rule compliant) */}
       {showVideoModal && (
         <div className="max-w-4xl mx-auto px-4 mt-12 animate-in fade-in duration-300">
-          <div className="bg-slate-950 text-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-800">
+          <div className="bg-neutral-950 text-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-neutral-800">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-blue-400" />
+                <Sparkles className="w-5 h-5 text-neutral-400" />
                 <h3 className="text-lg font-bold">Tiwlo Studio Overview</h3>
               </div>
               <button
                 onClick={() => setShowVideoModal(false)}
-                className="text-xs px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
+                className="text-xs px-3 py-1.5 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-300 cursor-pointer"
               >
                 Close Preview
               </button>
             </div>
-            <div className="relative aspect-video rounded-2xl bg-slate-900 flex flex-col items-center justify-center p-6 text-center border border-slate-800">
-              <div className="w-16 h-16 rounded-full bg-blue-600/30 text-blue-400 flex items-center justify-center mb-4 ring-8 ring-blue-500/10">
+            <div className="relative aspect-video rounded-2xl bg-neutral-900 flex flex-col items-center justify-center p-6 text-center border border-neutral-800">
+              <div className="w-16 h-16 rounded-full bg-neutral-600/30 text-neutral-400 flex items-center justify-center mb-4 ring-8 ring-neutral-500/10">
                 <Disc className="w-8 h-8 animate-spin" />
               </div>
               <h4 className="text-xl font-bold mb-2">Welcome to Tiwlo Studio</h4>
-              <p className="text-sm text-slate-400 max-w-md">
+              <p className="text-sm text-neutral-400 max-w-md">
                 Learn how independent creators distribute tracks to over 200 platforms worldwide while keeping 100% of master royalties and creative control.
               </p>
             </div>

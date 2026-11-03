@@ -81,55 +81,55 @@ export default function AdminSubView({ viewId, onBackToDashboard, onNavigate }) 
   if (viewId === 'system-settings') {
     return (
       <div className="space-y-6">
-        <div className="rounded-2xl border border-slate-200/70 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-2xl border border-neutral-200/70 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
           <button
             onClick={onBackToDashboard}
-            className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
+            className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-neutral-600 hover:underline dark:text-neutral-400"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Back to Dashboard
           </button>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white">System Settings</h2>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          <h2 className="text-xl font-bold text-neutral-900 dark:text-white">System Settings</h2>
+          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
             Manage authentication and platform-wide configuration.
           </p>
         </div>
         <button
           type="button"
           onClick={() => onNavigate?.('social-login')}
-          className="flex w-full items-center justify-between rounded-2xl border border-slate-200/70 bg-white p-5 text-left transition hover:border-blue-300 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-800"
+          className="flex w-full items-center justify-between rounded-2xl border border-neutral-200/70 bg-white p-5 text-left transition hover:border-neutral-300 hover:shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-800"
         >
           <span className="flex items-center gap-4">
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-neutral-50 text-neutral-700 dark:bg-neutral-950/50 dark:text-neutral-300">
               <ShieldCheck className="h-5 w-5" />
             </span>
             <span>
-              <span className="block font-semibold text-slate-900 dark:text-white">Social Login</span>
-              <span className="mt-1 block text-sm text-slate-500 dark:text-slate-400">
+              <span className="block font-semibold text-neutral-900 dark:text-white">Social Login</span>
+              <span className="mt-1 block text-sm text-neutral-500 dark:text-neutral-400">
                 Configure Google and GitHub OAuth client credentials and callback URLs.
               </span>
             </span>
           </span>
-          <ArrowRight className="h-5 w-5 text-slate-400" />
+          <ArrowRight className="h-5 w-5 text-neutral-400" />
         </button>
         <button
           type="button"
           onClick={() => onNavigate?.('google-maps')}
-          className="flex w-full items-center justify-between rounded-2xl border border-slate-200/70 bg-white p-5 text-left transition hover:border-blue-300 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-800"
+          className="flex w-full items-center justify-between rounded-2xl border border-neutral-200/70 bg-white p-5 text-left transition hover:border-neutral-300 hover:shadow-sm dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-800"
         >
           <span className="flex items-center gap-4">
             <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
               <Map className="h-5 w-5" />
             </span>
             <span>
-              <span className="block font-semibold text-slate-900 dark:text-white">Google Maps API</span>
-              <span className="mt-1 block text-sm text-slate-500 dark:text-slate-400">
+              <span className="block font-semibold text-neutral-900 dark:text-white">Google Maps API</span>
+              <span className="mt-1 block text-sm text-neutral-500 dark:text-neutral-400">
                 Configure the Google Maps API key and manage its PostgreSQL-backed setting.
               </span>
             </span>
           </span>
           <span className="flex items-center gap-2">
-            <KeyRound className="h-4 w-4 text-slate-400" />
-            <ArrowRight className="h-5 w-5 text-slate-400" />
+            <KeyRound className="h-4 w-4 text-neutral-400" />
+            <ArrowRight className="h-5 w-5 text-neutral-400" />
           </span>
         </button>
       </div>
@@ -138,16 +138,16 @@ export default function AdminSubView({ viewId, onBackToDashboard, onNavigate }) 
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/70 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-neutral-900 p-5 rounded-2xl border border-neutral-200/70 dark:border-neutral-800">
         <div>
           <button
             onClick={onBackToDashboard}
-            className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline mb-2"
+            className="flex items-center gap-1.5 text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:underline mb-2"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Back to Dashboard
           </button>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white">{config.title}</h2>
-          <p className="text-xs text-slate-400 mt-1">
+          <h2 className="text-xl font-bold text-neutral-900 dark:text-white">{config.title}</h2>
+          <p className="text-xs text-neutral-400 mt-1">
             {connected ? 'Records loaded from the connected data source.' : 'Data source status is shown below.'}
           </p>
         </div>
@@ -155,14 +155,14 @@ export default function AdminSubView({ viewId, onBackToDashboard, onNavigate }) 
           <button
             onClick={refreshData}
             disabled={loading}
-            className="p-2 text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50"
+            className="p-2 text-neutral-600 dark:text-neutral-300 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50"
           >
             <RefreshCw className="w-3.5 h-3.5" /> Refresh
           </button>
         )}
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/70 dark:border-slate-800">
+      <div className="bg-white dark:bg-neutral-900 rounded-2xl p-5 border border-neutral-200/70 dark:border-neutral-800">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
           <span className={`px-2 py-1 text-[11px] font-bold rounded-lg ${
             connected
@@ -173,39 +173,39 @@ export default function AdminSubView({ viewId, onBackToDashboard, onNavigate }) 
           </span>
           {endpoint && (
             <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
               <input
                 type="search"
                 value={search}
                 onChange={event => setSearch(event.target.value)}
                 placeholder={`Search ${config.title.toLowerCase()}...`}
-                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                className="w-full pl-9 pr-3 py-2 text-xs bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl"
               />
             </div>
           )}
         </div>
 
         {loading ? (
-          <p className="py-12 text-center text-xs text-slate-500">Loading {config.title}...</p>
+          <p className="py-12 text-center text-xs text-neutral-500">Loading {config.title}...</p>
         ) : error || unavailableMessage ? (
-          <p className={`py-12 text-center text-sm ${error ? 'text-rose-600' : 'text-slate-500 dark:text-slate-400'}`}>
+          <p className={`py-12 text-center text-sm ${error ? 'text-rose-600' : 'text-neutral-500 dark:text-neutral-400'}`}>
             {error || unavailableMessage}
           </p>
         ) : viewId === 'orders' ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead><tr className="text-[11px] font-semibold text-slate-400 border-b border-slate-100 dark:border-slate-800">
+              <thead><tr className="text-[11px] font-semibold text-neutral-400 border-b border-neutral-100 dark:border-neutral-800">
                 <th className="py-2.5">Order</th><th className="py-2.5">Store / Customer</th>
                 <th className="py-2.5 text-center">Items</th><th className="py-2.5">Date</th>
                 <th className="py-2.5 text-right">Total</th><th className="py-2.5 text-center">Status</th>
               </tr></thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/60">
                 {filteredData.map(order => (
                   <tr key={order.rowKey || order.id || `${order.store}:${order.date}`}>
-                    <td className="py-3 font-mono font-bold text-blue-600">{order.id || 'ID unavailable'}</td>
-                    <td className="py-3"><span className="font-semibold">{order.customer}</span><span className="block text-[10px] text-slate-400">{order.store}</span></td>
+                    <td className="py-3 font-mono font-bold text-neutral-600">{order.id || 'ID unavailable'}</td>
+                    <td className="py-3"><span className="font-semibold">{order.customer}</span><span className="block text-[10px] text-neutral-400">{order.store}</span></td>
                     <td className="py-3 text-center">{order.items}</td>
-                    <td className="py-3 text-slate-500">{order.date ? new Date(order.date).toLocaleString() : 'Date unavailable'}</td>
+                    <td className="py-3 text-neutral-500">{order.date ? new Date(order.date).toLocaleString() : 'Date unavailable'}</td>
                     <td className="py-3 text-right">
                       {order.total == null ? '—' : `${order.currency || ''} ${Number(order.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
                     </td>
@@ -214,16 +214,16 @@ export default function AdminSubView({ viewId, onBackToDashboard, onNavigate }) 
                 ))}
               </tbody>
             </table>
-            {!filteredData.length && <p className="py-8 text-center text-xs text-slate-400">No matching orders are recorded.</p>}
+            {!filteredData.length && <p className="py-8 text-center text-xs text-neutral-400">No matching orders are recorded.</p>}
           </div>
         ) : viewId === 'products' ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead><tr className="text-[11px] font-semibold text-slate-400 border-b border-slate-100 dark:border-slate-800">
+              <thead><tr className="text-[11px] font-semibold text-neutral-400 border-b border-neutral-100 dark:border-neutral-800">
                 <th className="py-2.5">Product</th><th className="py-2.5">Store</th><th className="py-2.5">SKU</th>
                 <th className="py-2.5">Category</th><th className="py-2.5 text-right">Price</th><th className="py-2.5 text-right">Stock</th>
               </tr></thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/60">
                 {filteredData.map(product => (
                   <tr key={`${product.storeId}:${product.id}`}>
                     <td className="py-3 font-semibold">{product.name}</td><td className="py-3">{product.storeName}</td>
@@ -234,15 +234,15 @@ export default function AdminSubView({ viewId, onBackToDashboard, onNavigate }) 
                 ))}
               </tbody>
             </table>
-            {!filteredData.length && <p className="py-8 text-center text-xs text-slate-400">No matching products are recorded.</p>}
+            {!filteredData.length && <p className="py-8 text-center text-xs text-neutral-400">No matching products are recorded.</p>}
           </div>
         ) : ['users', 'customers', 'vendors'].includes(viewId) ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead><tr className="text-[11px] font-semibold text-slate-400 border-b border-slate-100 dark:border-slate-800">
+              <thead><tr className="text-[11px] font-semibold text-neutral-400 border-b border-neutral-100 dark:border-neutral-800">
                 <th className="py-2.5">Name</th><th className="py-2.5">Email</th><th className="py-2.5">Role</th><th className="py-2.5">Plan</th><th className="py-2.5">Status</th>
               </tr></thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/60">
                 {filteredData.map(user => (
                   <tr key={user.id}><td className="py-3 font-semibold">{user.name}</td><td className="py-3">{user.email}</td>
                     <td className="py-3">{user.role}</td><td className="py-3">{user.planName}</td>
@@ -251,13 +251,13 @@ export default function AdminSubView({ viewId, onBackToDashboard, onNavigate }) 
                 ))}
               </tbody>
             </table>
-            {!filteredData.length && <p className="py-8 text-center text-xs text-slate-400">No matching accounts are recorded.</p>}
+            {!filteredData.length && <p className="py-8 text-center text-xs text-neutral-400">No matching accounts are recorded.</p>}
           </div>
         ) : (
           <div className="py-12 text-center max-w-md mx-auto">
-            <Layers className="w-8 h-8 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
-            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{config.title}</p>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+            <Layers className="w-8 h-8 mx-auto mb-3 text-neutral-300 dark:text-neutral-600" />
+            <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">{config.title}</p>
+            <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
               This module is not connected to a live data source. No records or actions are simulated.
             </p>
           </div>

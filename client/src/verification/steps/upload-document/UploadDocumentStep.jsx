@@ -116,10 +116,10 @@ export default function UploadDocumentStep({ onNext = null, onBack = null }) {
 
         {/* Title & Description */}
         <div className="text-center mb-5">
-          <h2 className="text-[24px] font-bold text-slate-900 tracking-tight leading-snug">
+          <h2 className="text-[24px] font-bold text-neutral-900 tracking-tight leading-snug">
             Upload your document
           </h2>
-          <p className="text-[13.5px] text-slate-500 font-normal mt-2 leading-relaxed px-2">
+          <p className="text-[13.5px] text-neutral-500 font-normal mt-2 leading-relaxed px-2">
             Take a clear photo or upload a scanned copy of your passport, national ID card or Aadhaar card. Make sure all details are visible and readable.
           </p>
         </div>
@@ -142,34 +142,34 @@ export default function UploadDocumentStep({ onNext = null, onBack = null }) {
             onDragLeave={handleDragLeave}
             className={`w-full py-8 px-4 rounded-2xl border-2 border-dashed transition-all duration-200 flex flex-col items-center justify-center cursor-pointer active:scale-[0.99] ${
               isDragging
-                ? 'border-blue-500 bg-blue-50/70 shadow-sm'
-                : 'border-blue-300/80 bg-slate-50/60 hover:bg-blue-50/30 hover:border-blue-400'
+                ? 'border-neutral-500 bg-neutral-50/70 shadow-sm'
+                : 'border-neutral-300/80 bg-neutral-50/60 hover:bg-neutral-50/30 hover:border-neutral-400'
             }`}
           >
             {/* Blue Cloud Upload Icon */}
-            <div className="w-12 h-12 rounded-full bg-blue-100/70 flex items-center justify-center text-blue-600 mb-3 shadow-2xs">
-              <UploadCloud className="w-6 h-6 text-blue-600" strokeWidth={2} />
+            <div className="w-12 h-12 rounded-full bg-neutral-100/70 flex items-center justify-center text-neutral-600 mb-3 shadow-2xs">
+              <UploadCloud className="w-6 h-6 text-neutral-600" strokeWidth={2} />
             </div>
 
-            <p className="text-[15px] font-semibold text-slate-800">
+            <p className="text-[15px] font-semibold text-neutral-800">
               Tap to upload
             </p>
-            <p className="text-[12px] text-slate-400 mt-0.5">
+            <p className="text-[12px] text-neutral-400 mt-0.5">
               JPG, PNG or WebP • Max 10MB
             </p>
           </div>
         ) : (
           /* File Uploaded Preview Card */
-          <div className="w-full p-4 rounded-2xl border border-blue-200 bg-blue-50/40 flex items-center justify-between shadow-2xs">
+          <div className="w-full p-4 rounded-2xl border border-neutral-200 bg-neutral-50/40 flex items-center justify-between shadow-2xs">
             <div className="flex items-center space-x-3 min-w-0 pr-2">
-              <div className="w-11 h-11 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <div className="w-11 h-11 rounded-xl bg-neutral-600 text-white flex items-center justify-center shrink-0 shadow-xs">
                 <FileCheck className="w-6 h-6" />
               </div>
               <div className="min-w-0">
-                <p className="text-[14px] font-semibold text-slate-900 truncate">
+                <p className="text-[14px] font-semibold text-neutral-900 truncate">
                   {documentFile.name || `${selectedDocument.toUpperCase()}_document.jpg`}
                 </p>
-                <p className="text-[12px] text-slate-500">
+                <p className="text-[12px] text-neutral-500">
                   {documentFile.size ? `${(documentFile.size / (1024 * 1024)).toFixed(2)} MB` : 'Ready to verify'}
                 </p>
               </div>
@@ -178,7 +178,7 @@ export default function UploadDocumentStep({ onNext = null, onBack = null }) {
             <button
               onClick={handleRemoveFile}
               type="button"
-              className="p-1.5 rounded-full hover:bg-blue-100 text-slate-500 hover:text-slate-700 transition-colors"
+              className="p-1.5 rounded-full hover:bg-neutral-100 text-neutral-500 hover:text-neutral-700 transition-colors"
               aria-label="Remove document"
             >
               <X className="w-4 h-4" />
@@ -193,12 +193,12 @@ export default function UploadDocumentStep({ onNext = null, onBack = null }) {
             <span>{errorMessage}</span>
           </div>
         )}
-        <label className="mt-4 flex items-start space-x-2.5 px-1 text-[12px] text-slate-500 leading-relaxed">
+        <label className="mt-4 flex items-start space-x-2.5 px-1 text-[12px] text-neutral-500 leading-relaxed">
           <input
             type="checkbox"
             checked={consentAccepted}
             onChange={(event) => setConsentAccepted(event.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 accent-blue-600"
+            className="mt-0.5 h-4 w-4 shrink-0 accent-neutral-600"
           />
           <span>
             I agree to temporarily process this document image and selfie to compare their faces.
@@ -212,7 +212,7 @@ export default function UploadDocumentStep({ onNext = null, onBack = null }) {
         <button
           onClick={handleContinue}
           type="button"
-          className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-[15px] rounded-xl shadow-sm hover:shadow transition-all duration-150 active:scale-[0.98] cursor-pointer"
+          className="w-full py-3.5 px-4 bg-neutral-600 hover:bg-neutral-700 active:bg-neutral-800 text-white font-semibold text-[15px] rounded-xl shadow-sm hover:shadow transition-all duration-150 active:scale-[0.98] cursor-pointer"
         >
           Continue
         </button>
@@ -221,7 +221,7 @@ export default function UploadDocumentStep({ onNext = null, onBack = null }) {
           <button
             type="button"
             onClick={() => alert("Need assistance? Please ensure your document has adequate lighting, without reflections or blur.")}
-            className="text-[13.5px] font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+            className="text-[13.5px] font-medium text-neutral-600 hover:text-neutral-700 hover:underline cursor-pointer"
           >
             Need help?
           </button>

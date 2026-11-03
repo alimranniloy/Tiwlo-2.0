@@ -19,14 +19,14 @@ export default function BottomNav() {
       <button
         type="button"
         onClick={() => navigateTo('create-post')}
-        className="fixed right-4 bottom-[72px] w-12 h-12 rounded-2xl bg-[#1E75FF] hover:bg-[#1864DB] text-white flex items-center justify-center shadow-lg shadow-[#1E75FF]/30 hover:scale-105 active:scale-95 transition-all sm:hidden z-30 cursor-pointer"
+        className="fixed right-4 bottom-[72px] w-12 h-12 rounded-2xl bg-[#6c6c6c] hover:bg-[#5c5c5c] text-white flex items-center justify-center shadow-lg shadow-[#6c6c6c]/30 hover:scale-105 active:scale-95 transition-all sm:hidden z-30 cursor-pointer"
         title="Create Post"
       >
         <Plus className="w-6 h-6 stroke-[2.5]" />
       </button>
 
       {/* Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#111319]/95 backdrop-blur-xl border-t border-[#EAECF0] dark:border-[#1E232F] sm:hidden h-[60px] px-2 flex items-center justify-around safe-area-pb">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#131313]/95 backdrop-blur-xl border-t border-[#ececec] dark:border-[#232323] sm:hidden h-[60px] px-2 flex items-center justify-around safe-area-pb">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -41,8 +41,8 @@ export default function BottomNav() {
               <div
                 className={`flex items-center justify-center px-4 py-1 rounded-xl transition-all duration-200 ${
                   isActive
-                    ? 'text-[#1E75FF]'
-                    : 'text-[#6B7280] dark:text-[#9CA3AF] group-hover:text-[#111827] dark:group-hover:text-white'
+                    ? 'text-[#6c6c6c]'
+                    : 'text-[#727272] dark:text-[#a2a2a2] group-hover:text-[#181818] dark:group-hover:text-white'
                 }`}
               >
                 <Icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${isActive ? 'stroke-[2.3]' : 'stroke-[1.8]'}`} />
@@ -52,7 +52,7 @@ export default function BottomNav() {
                   </span>
                 )}
               </div>
-              <span className={`text-[10px] font-medium mt-0.5 transition-colors ${isActive ? 'text-[#1E75FF] font-bold' : 'text-[#9CA3AF]'}`}>
+              <span className={`text-[10px] font-medium mt-0.5 transition-colors ${isActive ? 'text-[#6c6c6c] font-bold' : 'text-[#a2a2a2]'}`}>
                 {item.label}
               </span>
             </button>

@@ -65,8 +65,8 @@ function EvidenceFileCard({ file, userId }) {
   };
 
   return (
-    <article className="overflow-hidden rounded-2xl bg-[#F8F9FA] ring-1 ring-[#DADCE0] dark:bg-slate-800 dark:ring-slate-700">
-      <div className="flex h-56 items-center justify-center overflow-hidden bg-[#ECEFF1] dark:bg-slate-950">
+    <article className="overflow-hidden rounded-2xl bg-[#F8F9FA] ring-1 ring-[#dcdcdc] dark:bg-neutral-800 dark:ring-neutral-700">
+      <div className="flex h-56 items-center justify-center overflow-hidden bg-[#efefef] dark:bg-neutral-950">
         {url && file.contentType?.startsWith('image/') ? (
           <img src={url} alt={file.name} className="h-full w-full object-contain" />
         ) : url && file.contentType?.startsWith('video/') ? (
@@ -74,13 +74,13 @@ function EvidenceFileCard({ file, userId }) {
         ) : (
           <div className="text-center">
             {file.contentType?.startsWith('video/')
-              ? <FileVideo className="mx-auto h-10 w-10 text-[#5F6368]" aria-hidden="true" />
-              : <FileImage className="mx-auto h-10 w-10 text-[#5F6368]" aria-hidden="true" />}
+              ? <FileVideo className="mx-auto h-10 w-10 text-[#636363]" aria-hidden="true" />
+              : <FileImage className="mx-auto h-10 w-10 text-[#636363]" aria-hidden="true" />}
             <button
               type="button"
               onClick={openFile}
               disabled={loading}
-              className="mt-3 rounded-full bg-white px-4 py-2 text-sm font-medium text-[#1A73E8] shadow-sm hover:bg-[#E8F0FE] disabled:opacity-50 dark:bg-slate-800"
+              className="mt-3 rounded-full bg-white px-4 py-2 text-sm font-medium text-[#696969] shadow-sm hover:bg-[#efefef] disabled:opacity-50 dark:bg-neutral-800"
             >
               {loading ? 'Opening…' : 'Open protected file'}
             </button>
@@ -90,14 +90,14 @@ function EvidenceFileCard({ file, userId }) {
       <div className="p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-[#202124] dark:text-white">{file.name}</p>
-            <p className="mt-1 truncate text-xs text-[#5F6368] dark:text-slate-400">{file.originalFilename}</p>
+            <p className="truncate text-sm font-medium text-[#212121] dark:text-white">{file.name}</p>
+            <p className="mt-1 truncate text-xs text-[#636363] dark:text-neutral-400">{file.originalFilename}</p>
           </div>
           {url && (
             <a
               href={url}
               download={file.originalFilename}
-              className="rounded-full p-2 text-[#1A73E8] hover:bg-[#E8F0FE]"
+              className="rounded-full p-2 text-[#696969] hover:bg-[#efefef]"
               aria-label={`Download ${file.name}`}
             >
               <Download className="h-4 w-4" aria-hidden="true" />
@@ -105,7 +105,7 @@ function EvidenceFileCard({ file, userId }) {
           )}
         </div>
         {error && <p role="alert" className="mt-2 text-xs text-[#B3261E]">{error}</p>}
-        <div className="mt-3 flex justify-between text-xs text-[#5F6368] dark:text-slate-400">
+        <div className="mt-3 flex justify-between text-xs text-[#636363] dark:text-neutral-400">
           <span>{formatBytes(file.size)}</span>
           <span>{formatDate(file.createdAt)}</span>
         </div>
@@ -218,25 +218,25 @@ export default function AdminIdentityVerificationPage({
 
   return (
     <div className="space-y-5 font-sans">
-      <header className="flex flex-col gap-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70 dark:bg-slate-900 dark:ring-slate-800 sm:flex-row sm:items-center sm:justify-between">
+      <header className="flex flex-col gap-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-neutral-200/70 dark:bg-neutral-900 dark:ring-neutral-800 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <button
             type="button"
             onClick={onBackToCustomers}
-            className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-[#1A73E8] hover:underline"
+            className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-[#696969] hover:underline"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             Back to customers
           </button>
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#E8F0FE] text-[#1A73E8]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#efefef] text-[#696969]">
               <UserRound className="h-6 w-6" aria-hidden="true" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-[#202124] dark:text-white">
+              <h1 className="text-xl font-semibold text-[#212121] dark:text-white">
                 {user?.name || 'Identity verification'}
               </h1>
-              <p className="mt-0.5 text-sm text-[#5F6368] dark:text-slate-400">
+              <p className="mt-0.5 text-sm text-[#636363] dark:text-neutral-400">
                 {user?.email || 'Loading account details…'}
                 {user?.tiwiId ? ` · ${user.tiwiId}` : ''}
               </p>
@@ -260,7 +260,7 @@ export default function AdminIdentityVerificationPage({
               type="button"
               disabled={actionLoading}
               onClick={() => setUnverifyConfirm(true)}
-              className="rounded-full border border-[#DADCE0] px-4 py-2 text-sm font-medium text-[#B3261E] transition hover:bg-[#FCE8E6] disabled:opacity-50 dark:border-slate-700"
+              className="rounded-full border border-[#dcdcdc] px-4 py-2 text-sm font-medium text-[#B3261E] transition hover:bg-[#FCE8E6] disabled:opacity-50 dark:border-neutral-700"
             >
               Mark unverified
             </button>
@@ -269,7 +269,7 @@ export default function AdminIdentityVerificationPage({
             type="button"
             disabled={actionLoading || files.length === 0}
             onClick={handleDeleteEvidence}
-            className="inline-flex items-center gap-2 rounded-full border border-[#DADCE0] px-4 py-2 text-sm font-medium text-[#5F6368] transition hover:bg-[#F1F3F4] disabled:opacity-50 dark:border-slate-700 dark:text-slate-300"
+            className="inline-flex items-center gap-2 rounded-full border border-[#dcdcdc] px-4 py-2 text-sm font-medium text-[#636363] transition hover:bg-[#F1F3F4] disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300"
           >
             <Trash2 className="h-4 w-4" aria-hidden="true" />
             Delete files
@@ -283,18 +283,18 @@ export default function AdminIdentityVerificationPage({
           { label: 'Account ID', value: user?.tiwiId || '—' },
           { label: 'Verification status', value: user?.identityVerified ? 'Verified' : 'Unverified' }
         ].map(item => (
-          <div key={item.label} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/70 dark:bg-slate-900 dark:ring-slate-800">
-            <p className="text-xs font-medium uppercase tracking-wide text-[#5F6368] dark:text-slate-400">{item.label}</p>
-            <p className="mt-2 truncate text-lg font-semibold text-[#202124] dark:text-white">{item.value}</p>
+          <div key={item.label} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-neutral-200/70 dark:bg-neutral-900 dark:ring-neutral-800">
+            <p className="text-xs font-medium uppercase tracking-wide text-[#636363] dark:text-neutral-400">{item.label}</p>
+            <p className="mt-2 truncate text-lg font-semibold text-[#212121] dark:text-white">{item.value}</p>
           </div>
         ))}
       </section>
 
-      <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70 dark:bg-slate-900 dark:ring-slate-800">
+      <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-neutral-200/70 dark:bg-neutral-900 dark:ring-neutral-800">
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-[#202124] dark:text-white">Verification files</h2>
-            <p className="mt-1 text-sm text-[#5F6368] dark:text-slate-400">
+            <h2 className="text-lg font-semibold text-[#212121] dark:text-white">Verification files</h2>
+            <p className="mt-1 text-sm text-[#636363] dark:text-neutral-400">
               Files are grouped by evidence type and stored under this account’s Tiwlo ID.
             </p>
           </div>
@@ -306,24 +306,24 @@ export default function AdminIdentityVerificationPage({
               loadRecords();
             }}
             disabled={loading}
-            className="rounded-full px-4 py-2 text-sm font-medium text-[#1A73E8] hover:bg-[#E8F0FE] disabled:opacity-50"
+            className="rounded-full px-4 py-2 text-sm font-medium text-[#696969] hover:bg-[#efefef] disabled:opacity-50"
           >
             Refresh
           </button>
         </div>
 
         {loading ? (
-          <div className="flex min-h-48 items-center justify-center gap-3 text-sm text-[#5F6368]">
-            <LoaderCircle className="h-5 w-5 animate-spin text-[#1A73E8]" aria-hidden="true" />
+          <div className="flex min-h-48 items-center justify-center gap-3 text-sm text-[#636363]">
+            <LoaderCircle className="h-5 w-5 animate-spin text-[#696969]" aria-hidden="true" />
             Loading protected verification files…
           </div>
         ) : error ? (
           <div role="alert" className="rounded-2xl bg-[#FCE8E6] p-4 text-sm text-[#B3261E]">{error}</div>
         ) : files.length === 0 ? (
-          <div className="rounded-2xl bg-[#F8F9FA] p-8 text-center dark:bg-slate-800">
-            <FileImage className="mx-auto h-8 w-8 text-[#5F6368]" aria-hidden="true" />
-            <p className="mt-3 font-medium text-[#202124] dark:text-white">No verification files saved</p>
-            <p className="mt-1 text-sm text-[#5F6368] dark:text-slate-400">Evidence is saved after a successful identity check.</p>
+          <div className="rounded-2xl bg-[#F8F9FA] p-8 text-center dark:bg-neutral-800">
+            <FileImage className="mx-auto h-8 w-8 text-[#636363]" aria-hidden="true" />
+            <p className="mt-3 font-medium text-[#212121] dark:text-white">No verification files saved</p>
+            <p className="mt-1 text-sm text-[#636363] dark:text-neutral-400">Evidence is saved after a successful identity check.</p>
           </div>
         ) : (
           <div className="space-y-6">
@@ -333,8 +333,8 @@ export default function AdminIdentityVerificationPage({
               return (
                 <div key={group.key}>
                   <div className="mb-3">
-                    <h3 className="font-medium text-[#202124] dark:text-white">{group.title}</h3>
-                    <p className="text-xs text-[#5F6368] dark:text-slate-400">{group.subtitle}</p>
+                    <h3 className="font-medium text-[#212121] dark:text-white">{group.title}</h3>
+                    <p className="text-xs text-[#636363] dark:text-neutral-400">{group.subtitle}</p>
                   </div>
                   <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {groupFiles.map(file => (
@@ -349,18 +349,18 @@ export default function AdminIdentityVerificationPage({
       </section>
 
       {unverifyConfirm && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#202124]/40 p-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#212121]/40 p-4">
           <section
             role="dialog"
             aria-modal="true"
             aria-labelledby="unverify-title"
-            className="w-full max-w-md rounded-[28px] bg-white p-6 text-[#202124] shadow-xl dark:bg-slate-900 dark:text-white"
+            className="w-full max-w-md rounded-[28px] bg-white p-6 text-[#212121] shadow-xl dark:bg-neutral-900 dark:text-white"
           >
             <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#FCE8E6] text-[#B3261E]">
               <ShieldAlert className="h-6 w-6" aria-hidden="true" />
             </div>
             <h2 id="unverify-title" className="text-xl font-medium">Mark this account unverified?</h2>
-            <p className="mt-3 text-sm leading-6 text-[#5F6368] dark:text-slate-300">
+            <p className="mt-3 text-sm leading-6 text-[#636363] dark:text-neutral-300">
               {user?.name || user?.email} will be signed out and locked until identity verification is completed again. Saved evidence files will not be deleted.
             </p>
             <div className="mt-7 flex justify-end gap-2">
@@ -368,7 +368,7 @@ export default function AdminIdentityVerificationPage({
                 type="button"
                 disabled={actionLoading}
                 onClick={() => setUnverifyConfirm(false)}
-                className="min-h-10 rounded-full px-5 text-sm font-medium text-[#1A73E8] hover:bg-[#F1F3F4] disabled:opacity-50"
+                className="min-h-10 rounded-full px-5 text-sm font-medium text-[#696969] hover:bg-[#F1F3F4] disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -376,7 +376,7 @@ export default function AdminIdentityVerificationPage({
                 type="button"
                 disabled={actionLoading}
                 onClick={handleUnverify}
-                className="min-h-10 rounded-full bg-[#1A73E8] px-5 text-sm font-medium text-white hover:bg-[#1765CC] disabled:opacity-50"
+                className="min-h-10 rounded-full bg-[#696969] px-5 text-sm font-medium text-white hover:bg-[#5c5c5c] disabled:opacity-50"
               >
                 {actionLoading ? 'Updating…' : 'Mark unverified'}
               </button>

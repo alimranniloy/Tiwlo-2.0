@@ -76,8 +76,8 @@ export default function BotDetailView({ botId, onBack, onBotUpdated, onBotDelete
 
   if (loading) {
     return (
-      <div className="bg-white border border-[#E0E2EC] rounded-2xl p-16 text-center max-w-4xl mx-auto shadow-none">
-        <RotateCw className="w-6 h-6 text-[#0B57D0] animate-spin mx-auto mb-3" />
+      <div className="bg-white border border-[#e2e2e2] rounded-2xl p-16 text-center max-w-4xl mx-auto shadow-none">
+        <RotateCw className="w-6 h-6 text-[#000000] animate-spin mx-auto mb-3" />
         <p className="text-[13px] text-[#747775]">Loading bot configuration...</p>
       </div>
     );
@@ -85,13 +85,13 @@ export default function BotDetailView({ botId, onBack, onBotUpdated, onBotDelete
 
   if (!bot) {
     return (
-      <div className="bg-white border border-[#E0E2EC] rounded-2xl p-12 text-center max-w-xl mx-auto space-y-4 shadow-none">
+      <div className="bg-white border border-[#e2e2e2] rounded-2xl p-12 text-center max-w-xl mx-auto space-y-4 shadow-none">
         <AlertTriangle className="w-10 h-10 text-[#B3261E] mx-auto" />
         <h2 className="text-lg font-medium text-[#1F1F1F]">Bot Not Found</h2>
         <p className="text-[13px] text-[#747775]">This bot may have been deleted or moved.</p>
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0B57D0] hover:bg-[#0842A0] text-white text-[13px] font-medium rounded-full transition-colors cursor-pointer"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#000000] hover:bg-[#3c3c3c] text-white text-[13px] font-medium rounded-full transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Bots</span>
@@ -103,11 +103,11 @@ export default function BotDetailView({ botId, onBack, onBotUpdated, onBotDelete
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-16 font-sans bg-white">
       {/* 1. Modern Google Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#E0E2EC] pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#e2e2e2] pb-5">
         <div>
           <button
             onClick={onBack}
-            className="inline-flex items-center gap-2 text-[13px] font-medium text-[#0B57D0] hover:text-[#0842A0] cursor-pointer mb-2.5"
+            className="inline-flex items-center gap-2 text-[13px] font-medium text-[#000000] hover:text-[#3c3c3c] cursor-pointer mb-2.5"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>My Bots</span>
@@ -144,8 +144,8 @@ export default function BotDetailView({ botId, onBack, onBotUpdated, onBotDelete
       )}
 
       {/* 2. Modern Google Material 3 Form Card */}
-      <form onSubmit={handleSave} className="bg-white border border-[#E0E2EC] rounded-2xl p-6 sm:p-8 space-y-5 shadow-none">
-        <h2 className="text-[16px] font-medium text-[#1F1F1F] border-b border-[#F0F4F9] pb-3">
+      <form onSubmit={handleSave} className="bg-white border border-[#e2e2e2] rounded-2xl p-6 sm:p-8 space-y-5 shadow-none">
+        <h2 className="text-[16px] font-medium text-[#1F1F1F] border-b border-[#f4f4f4] pb-3">
           Bot Configuration
         </h2>
 
@@ -159,7 +159,7 @@ export default function BotDetailView({ botId, onBack, onBotUpdated, onBotDelete
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#0B57D0] transition-colors"
+            className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
           />
         </div>
 
@@ -172,7 +172,7 @@ export default function BotDetailView({ botId, onBack, onBotUpdated, onBotDelete
             type="text"
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
-            className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] font-mono focus:outline-none focus:bg-white focus:border-[#0B57D0] transition-colors"
+            className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] font-mono focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
           />
         </div>
 
@@ -185,7 +185,7 @@ export default function BotDetailView({ botId, onBack, onBotUpdated, onBotDelete
             type="password"
             value={token}
             onChange={(e) => setToken(e.target.value)}
-            className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] font-mono focus:outline-none focus:bg-white focus:border-[#0B57D0] transition-colors"
+            className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] font-mono focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
           />
         </div>
 
@@ -199,7 +199,7 @@ export default function BotDetailView({ botId, onBack, onBotUpdated, onBotDelete
               type="text"
               value={prefix}
               onChange={(e) => setPrefix(e.target.value)}
-              className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] font-mono focus:outline-none focus:bg-white focus:border-[#0B57D0] transition-colors"
+              className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] font-mono focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
             />
           </div>
 
@@ -210,7 +210,7 @@ export default function BotDetailView({ botId, onBack, onBotUpdated, onBotDelete
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#0B57D0] transition-colors"
+              className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
             >
               <option value="online">Online</option>
               <option value="idle">Idle</option>
@@ -229,23 +229,23 @@ export default function BotDetailView({ botId, onBack, onBotUpdated, onBotDelete
             rows="3"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#0B57D0] transition-colors"
+            className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
           />
         </div>
 
         {/* Actions */}
-        <div className="pt-4 border-t border-[#F0F4F9] flex items-center justify-end gap-3">
+        <div className="pt-4 border-t border-[#f4f4f4] flex items-center justify-end gap-3">
           <button
             type="button"
             onClick={onBack}
-            className="px-5 py-2.5 text-[13px] font-medium text-[#444746] bg-white border border-[#747775]/30 hover:bg-[#F0F4F9] rounded-full"
+            className="px-5 py-2.5 text-[13px] font-medium text-[#444746] bg-white border border-[#747775]/30 hover:bg-[#f4f4f4] rounded-full"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex items-center gap-1.5 px-6 py-2.5 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-colors disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-6 py-2.5 text-[13px] font-medium text-white bg-[#000000] hover:bg-[#3c3c3c] rounded-full transition-colors disabled:opacity-50 cursor-pointer"
           >
             {saving ? <RotateCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             <span>Save Configuration</span>

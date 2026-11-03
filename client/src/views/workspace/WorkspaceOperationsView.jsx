@@ -45,11 +45,11 @@ export default function WorkspaceOperationsView({ onBack }) {
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-16 font-sans bg-white">
       {/* 1. Modern Google Material 3 Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#E0E2EC] pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#e2e2e2] pb-5">
         <div>
           <button
             onClick={onBack}
-            className="inline-flex items-center gap-2 text-[13px] font-medium text-[#0B57D0] hover:text-[#0842A0] cursor-pointer mb-2.5"
+            className="inline-flex items-center gap-2 text-[13px] font-medium text-[#000000] hover:text-[#3c3c3c] cursor-pointer mb-2.5"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Workspace</span>
@@ -68,7 +68,7 @@ export default function WorkspaceOperationsView({ onBack }) {
         <button
           onClick={() => loadOps(true)}
           disabled={refreshing}
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-[#0B57D0] bg-white border border-[#747775]/30 hover:bg-[#F0F4F9] rounded-full transition-colors cursor-pointer disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-[#000000] bg-white border border-[#747775]/30 hover:bg-[#f4f4f4] rounded-full transition-colors cursor-pointer disabled:opacity-50"
         >
           <RotateCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
           <span>Refresh</span>
@@ -76,9 +76,9 @@ export default function WorkspaceOperationsView({ onBack }) {
       </div>
 
       {/* 2. Google Material 3 Table Container */}
-      <div className="bg-white border border-[#E0E2EC] rounded-2xl overflow-hidden shadow-none">
-        <div className="flex items-center justify-between border-b border-[#E0E2EC] px-5 py-3 bg-[#FFFFFF]">
-          <div className="flex items-center gap-2.5 flex-1 max-w-lg bg-[#F0F4F9] rounded-full px-4 py-2 border border-transparent focus-within:bg-white focus-within:border-[#0B57D0] transition-all">
+      <div className="bg-white border border-[#e2e2e2] rounded-2xl overflow-hidden shadow-none">
+        <div className="flex items-center justify-between border-b border-[#e2e2e2] px-5 py-3 bg-[#FFFFFF]">
+          <div className="flex items-center gap-2.5 flex-1 max-w-lg bg-[#f4f4f4] rounded-full px-4 py-2 border border-transparent focus-within:bg-white focus-within:border-[#000000] transition-all">
             <Search className="w-4 h-4 text-[#747775] shrink-0" />
             <input
               type="text"
@@ -91,7 +91,7 @@ export default function WorkspaceOperationsView({ onBack }) {
           {search && (
             <button
               onClick={() => setSearch('')}
-              className="text-[12px] text-[#0B57D0] hover:underline cursor-pointer ml-3 font-medium"
+              className="text-[12px] text-[#000000] hover:underline cursor-pointer ml-3 font-medium"
             >
               Clear
             </button>
@@ -102,18 +102,18 @@ export default function WorkspaceOperationsView({ onBack }) {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[13px] border-collapse min-w-[650px]">
             <thead>
-              <tr className="border-b border-[#E0E2EC] bg-[#F0F4F9]/60 text-[11px] font-medium text-[#747775] uppercase tracking-wider">
+              <tr className="border-b border-[#e2e2e2] bg-[#f4f4f4]/60 text-[11px] font-medium text-[#747775] uppercase tracking-wider">
                 <th className="py-3 px-5">Operation Event</th>
                 <th className="py-3 px-5">Service Resource</th>
                 <th className="py-3 px-5">Result</th>
                 <th className="py-3 px-5 text-right pr-6">Recorded Timestamp</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E0E2EC]/60">
+            <tbody className="divide-y divide-[#e2e2e2]/60">
               {loading ? (
                 <tr>
                   <td colSpan="4" className="py-12 text-center text-[#747775]">
-                    <RotateCw className="w-5 h-5 text-[#0B57D0] animate-spin mx-auto mb-2" />
+                    <RotateCw className="w-5 h-5 text-[#000000] animate-spin mx-auto mb-2" />
                     <span>Loading audit records...</span>
                   </td>
                 </tr>
@@ -126,15 +126,15 @@ export default function WorkspaceOperationsView({ onBack }) {
                 </tr>
               ) : (
                 filtered.map((op) => (
-                  <tr key={op.id} className="hover:bg-[#F0F4F9]/40 transition-colors">
+                  <tr key={op.id} className="hover:bg-[#f4f4f4]/40 transition-colors">
                     <td className="py-3.5 px-5 font-medium text-[#1F1F1F]">
                       {op.operation || op.action}
                     </td>
                     <td className="py-3.5 px-5">
-                      <span className="font-medium text-[#0B57D0]">{op.serviceName || op.targetService}</span>
+                      <span className="font-medium text-[#000000]">{op.serviceName || op.targetService}</span>
                     </td>
                     <td className="py-3.5 px-5">
-                      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#444746] bg-[#F0F4F9] px-3 py-1 rounded-full">
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#444746] bg-[#f4f4f4] px-3 py-1 rounded-full">
                         <span>{op.result || op.status || '—'}</span>
                       </span>
                     </td>

@@ -10,7 +10,7 @@ export default function OneProfileTemplatesView({ onNavigateTab }) {
       name: 'Minimal Clean',
       desc: 'Simple typography-driven layout ideal for developers and technical founders.',
       category: 'minimal',
-      color: 'bg-slate-950 text-white',
+      color: 'bg-neutral-950 text-white',
       badge: 'Active'
     },
     {
@@ -26,7 +26,7 @@ export default function OneProfileTemplatesView({ onNavigateTab }) {
       name: 'Modern Studio',
       desc: 'High contrast dark theme with animated glass cards and link aggregators.',
       category: 'modern',
-      color: 'bg-indigo-950 text-white',
+      color: 'bg-neutral-950 text-white',
       badge: 'Trending'
     },
     {
@@ -34,7 +34,7 @@ export default function OneProfileTemplatesView({ onNavigateTab }) {
       name: 'Executive Business',
       desc: 'Formal corporate layout with services, contact form, and client testimonials.',
       category: 'business',
-      color: 'bg-blue-900 text-white',
+      color: 'bg-neutral-900 text-white',
       badge: 'Corporate'
     },
     {
@@ -50,7 +50,7 @@ export default function OneProfileTemplatesView({ onNavigateTab }) {
       name: 'Startup MVP Landing',
       desc: 'Clean product showcase with feature bullets, early access CTA, and roadmap.',
       category: 'business',
-      color: 'bg-slate-900 text-white',
+      color: 'bg-neutral-900 text-white',
       badge: 'New'
     }
   ];
@@ -70,8 +70,8 @@ export default function OneProfileTemplatesView({ onNavigateTab }) {
     <div className="w-full space-y-6 pb-12 text-left">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Website Templates</h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">Select and switch themes for your live UIDs website with one click.</p>
+          <h2 className="text-2xl font-extrabold text-neutral-900 tracking-tight">Website Templates</h2>
+          <p className="text-xs sm:text-sm text-neutral-500 mt-1">Select and switch themes for your live UIDs website with one click.</p>
         </div>
       </div>
 
@@ -84,8 +84,8 @@ export default function OneProfileTemplatesView({ onNavigateTab }) {
             onClick={() => setSelectedCategory(c.id)}
             className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition ${
               selectedCategory === c.id
-                ? 'bg-slate-900 text-white shadow-2xs'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                ? 'bg-neutral-900 text-white shadow-2xs'
+                : 'bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-50'
             }`}
           >
             {c.label}
@@ -96,7 +96,7 @@ export default function OneProfileTemplatesView({ onNavigateTab }) {
       {/* Templates Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {filtered.map((t) => (
-          <div key={t.id} className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-2xs hover:shadow-xs transition flex flex-col justify-between">
+          <div key={t.id} className="bg-white rounded-2xl border border-neutral-200/90 overflow-hidden shadow-2xs hover:shadow-xs transition flex flex-col justify-between">
             <div>
               {/* Preview header thumbnail */}
               <div className={`h-36 ${t.color} p-4 flex flex-col justify-between relative`}>
@@ -113,24 +113,24 @@ export default function OneProfileTemplatesView({ onNavigateTab }) {
 
               {/* Template Meta */}
               <div className="p-4">
-                <h3 className="font-extrabold text-sm text-slate-900 mb-1">{t.name}</h3>
-                <p className="text-xs text-slate-500 leading-relaxed">{t.desc}</p>
+                <h3 className="font-extrabold text-sm text-neutral-900 mb-1">{t.name}</h3>
+                <p className="text-xs text-neutral-500 leading-relaxed">{t.desc}</p>
               </div>
             </div>
 
-            <div className="p-4 pt-0 border-t border-slate-100 flex items-center gap-2 mt-2">
+            <div className="p-4 pt-0 border-t border-neutral-100 flex items-center gap-2 mt-2">
               <button
                 type="button"
                 onClick={() => onNavigateTab('website')}
-                className="flex-1 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition"
+                className="flex-1 py-2 rounded-xl bg-neutral-600 hover:bg-neutral-700 text-white font-bold text-xs transition"
               >
                 Apply to My Site
               </button>
               <button
                 type="button"
-                className="px-3 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold text-xs flex items-center gap-1 transition"
+                className="px-3 py-2 rounded-xl border border-neutral-200 text-neutral-700 hover:bg-neutral-50 font-semibold text-xs flex items-center gap-1 transition"
               >
-                <Eye className="w-3.5 h-3.5 text-slate-400" />
+                <Eye className="w-3.5 h-3.5 text-neutral-400" />
                 <span>Preview</span>
               </button>
             </div>

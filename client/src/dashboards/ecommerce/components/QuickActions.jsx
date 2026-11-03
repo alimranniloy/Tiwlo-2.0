@@ -22,7 +22,7 @@ export default function QuickActions({
       id: 'add_product',
       title: 'Add Product',
       icon: Plus,
-      iconContainer: 'bg-blue-600 text-white shadow-md shadow-blue-500/20',
+      iconContainer: 'bg-neutral-600 text-white shadow-md shadow-neutral-500/20',
       action: onAddProduct
     },
     {
@@ -50,7 +50,7 @@ export default function QuickActions({
       id: 'import_csv',
       title: 'Import CSV',
       icon: UploadCloud,
-      iconContainer: 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-400 border border-cyan-100 dark:border-cyan-800/40',
+      iconContainer: 'bg-neutral-50 dark:bg-neutral-950/40 text-neutral-600 dark:text-neutral-400 border border-neutral-100 dark:border-neutral-800/40',
       action: onImportCsv
     },
     {
@@ -67,8 +67,8 @@ export default function QuickActions({
       <div className="relative z-1">
         {/* Header */}
         <div className="flex items-center space-x-2 mb-4">
-          <SlidersHorizontal className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+          <SlidersHorizontal className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
+          <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
             Quick Actions
           </h3>
         </div>
@@ -81,14 +81,14 @@ export default function QuickActions({
               <button
                 key={act.id}
                 onClick={act.action}
-                className="flex flex-col items-center justify-center p-3.5 bg-slate-50/60 dark:bg-gray-800/60 hover:bg-white dark:hover:bg-gray-700/80 border border-slate-200/80 dark:border-gray-700/80 rounded-xl transition duration-150 group hover:shadow-xs cursor-pointer text-center"
+                className="flex flex-col items-center justify-center p-3.5 bg-neutral-50/60 dark:bg-gray-800/60 hover:bg-white dark:hover:bg-gray-700/80 border border-neutral-200/80 dark:border-gray-700/80 rounded-xl transition duration-150 group hover:shadow-xs cursor-pointer text-center"
               >
                 <div
                   className={`w-9 h-9 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 ${act.iconContainer}`}
                 >
                   <Icon className="w-4 h-4 stroke-[2]" />
                 </div>
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 mt-2.5 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                <span className="text-xs font-semibold text-neutral-700 dark:text-neutral-200 mt-2.5 group-hover:text-neutral-600 dark:group-hover:text-neutral-400 transition-colors">
                   {act.title}
                 </span>
               </button>

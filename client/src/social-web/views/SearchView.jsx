@@ -82,7 +82,7 @@ export default function SearchView() {
   return (
     <div className="w-full flex flex-col min-h-screen">
       {/* 1. Modern Header with Floating Search Input & Pill Tabs */}
-      <div className="sticky top-0 z-20 bg-[#f0f2f5]/90 dark:bg-[#0a0a0f]/90 backdrop-blur-xl pb-3 mb-3 border-b border-black/[0.05] dark:border-white/[0.06]">
+      <div className="sticky top-0 z-20 bg-[#f2f2f2]/90 dark:bg-[#0a0a0a]/90 backdrop-blur-xl pb-3 mb-3 border-b border-black/[0.05] dark:border-white/[0.06]">
         <div className="flex items-center gap-2.5 pt-2 pb-1 px-1">
           {isSearchMode && (
             <button
@@ -90,7 +90,7 @@ export default function SearchView() {
                 setQuery('');
                 setResults({ posts: [], users: [] });
               }}
-              className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] transition cursor-pointer active:scale-95"
+              className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#676767] dark:text-[#b3b3b3] transition cursor-pointer active:scale-95"
               title="Clear"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -98,21 +98,21 @@ export default function SearchView() {
           )}
 
           <form onSubmit={handleSearchSubmit} className="flex-1">
-            <div className="flex items-center h-11 bg-white dark:bg-[#16161f] rounded-2xl px-4 text-[#1c1e21] dark:text-[#e4e6eb] border border-black/[0.06] dark:border-white/[0.08] focus-within:ring-2 focus-within:ring-violet-500/40 focus-within:border-transparent shadow-xs transition-all">
-              <Search className="w-4 h-4 text-[#65676b] dark:text-[#8a8d91] mr-3 flex-shrink-0" />
+            <div className="flex items-center h-11 bg-white dark:bg-[#171717] rounded-2xl px-4 text-[#1e1e1e] dark:text-[#e6e6e6] border border-black/[0.06] dark:border-white/[0.08] focus-within:ring-2 focus-within:ring-violet-500/40 focus-within:border-transparent shadow-xs transition-all">
+              <Search className="w-4 h-4 text-[#676767] dark:text-[#8d8d8d] mr-3 flex-shrink-0" />
               <input
                 type="text"
                 placeholder="Search topics, creators, or keywords..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="bg-transparent text-[14px] outline-none w-full placeholder-[#65676b] dark:placeholder-[#8a8d91]"
+                className="bg-transparent text-[14px] outline-none w-full placeholder-[#676767] dark:placeholder-[#8d8d8d]"
               />
             </div>
           </form>
 
           <button
             onClick={() => navigateTo('settings')}
-            className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] transition cursor-pointer active:scale-95"
+            className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#676767] dark:text-[#b3b3b3] transition cursor-pointer active:scale-95"
             title="Settings"
           >
             <Settings className="w-5 h-5" />
@@ -142,7 +142,7 @@ export default function SearchView() {
                 className={`px-4 py-1.5 rounded-xl text-[13px] font-medium transition-all cursor-pointer whitespace-nowrap ${
                   isActive
                     ? 'bg-violet-600 text-white shadow-md shadow-violet-500/20 font-semibold'
-                    : 'bg-white dark:bg-[#16161f] text-[#65676b] dark:text-[#b0b3b8] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] border border-black/[0.05] dark:border-white/[0.06]'
+                    : 'bg-white dark:bg-[#171717] text-[#676767] dark:text-[#b3b3b3] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] border border-black/[0.05] dark:border-white/[0.06]'
                 }`}
               >
                 {tab.label}
@@ -161,7 +161,7 @@ export default function SearchView() {
         ) : isSearchMode ? (
           <div className="flex flex-col gap-3">
             {activeTab === 'people' && results.users?.length > 0 && (
-              <div className="bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-2 shadow-sm space-y-1">
+              <div className="bg-white dark:bg-[#171717] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-2 shadow-sm space-y-1">
                 {results.users.map((u) => {
                   const isFollowing = followedMap[u.id];
                   return (
@@ -177,13 +177,13 @@ export default function SearchView() {
                           className="w-11 h-11 rounded-xl object-cover ring-1 ring-black/10 dark:ring-white/10"
                         />
                         <div className="flex flex-col min-w-0 leading-tight">
-                          <div className="flex items-center gap-1 font-semibold text-[14px] text-[#1c1e21] dark:text-[#e4e6eb] truncate">
+                          <div className="flex items-center gap-1 font-semibold text-[14px] text-[#1e1e1e] dark:text-[#e6e6e6] truncate">
                             <span className="truncate">{u.name}</span>
                             {u.isVerified && (
                               <CheckCircle2 className="w-3.5 h-3.5 text-violet-500 fill-current inline flex-shrink-0" />
                             )}
                           </div>
-                          <span className="text-[12px] text-[#65676b] dark:text-[#8a8d91] truncate">
+                          <span className="text-[12px] text-[#676767] dark:text-[#8d8d8d] truncate">
                             @{u.handle}
                           </span>
                         </div>
@@ -196,8 +196,8 @@ export default function SearchView() {
                         }}
                         className={`text-[12.5px] font-semibold px-4 py-2 rounded-xl transition active:scale-95 flex-shrink-0 cursor-pointer shadow-sm ${
                           isFollowing
-                            ? 'bg-black/[0.05] dark:bg-white/[0.08] text-[#1c1e21] dark:text-[#e4e6eb]'
-                            : 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:opacity-95 shadow-violet-500/20'
+                            ? 'bg-black/[0.05] dark:bg-white/[0.08] text-[#1e1e1e] dark:text-[#e6e6e6]'
+                            : 'bg-gradient-to-r from-violet-600 to-neutral-600 text-white hover:opacity-95 shadow-violet-500/20'
                         }`}
                       >
                         {isFollowing ? 'Following' : 'Follow'}
@@ -211,11 +211,11 @@ export default function SearchView() {
             {results.posts?.length > 0 ? (
               results.posts.map((post) => <PostCard key={post.id} post={post} />)
             ) : (
-              <div className="py-20 text-center bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-8 shadow-sm">
-                <h3 className="font-semibold text-[16px] text-[#1c1e21] dark:text-[#e4e6eb] mb-1">
+              <div className="py-20 text-center bg-white dark:bg-[#171717] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-8 shadow-sm">
+                <h3 className="font-semibold text-[16px] text-[#1e1e1e] dark:text-[#e6e6e6] mb-1">
                   No matching results for "{query}"
                 </h3>
-                <p className="text-[13px] text-[#65676b] dark:text-[#8a8d91]">
+                <p className="text-[13px] text-[#676767] dark:text-[#8d8d8d]">
                   Try searching for different keywords, topics, or creator handles.
                 </p>
               </div>
@@ -224,16 +224,16 @@ export default function SearchView() {
         ) : (
           <div className="flex flex-col gap-4">
             {/* Trending Card */}
-            <div className="bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-5 shadow-sm">
+            <div className="bg-white dark:bg-[#171717] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-3 pb-3 border-b border-black/[0.05] dark:border-white/[0.06]">
                 <div className="w-8 h-8 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center">
                   <TrendingUp className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-[15px] text-[#1c1e21] dark:text-[#e4e6eb]">
+                  <h3 className="font-bold text-[15px] text-[#1e1e1e] dark:text-[#e6e6e6]">
                     What’s trending across Tiwi
                   </h3>
-                  <p className="text-[11px] text-[#65676b] dark:text-[#8a8d91]">Curated top topics updated every hour</p>
+                  <p className="text-[11px] text-[#676767] dark:text-[#8d8d8d]">Curated top topics updated every hour</p>
                 </div>
               </div>
 
@@ -253,13 +253,13 @@ export default function SearchView() {
                         #{i + 1}
                       </span>
                       <div className="flex flex-col">
-                        <span className="text-[11px] text-[#65676b] dark:text-[#8a8d91] font-medium">
+                        <span className="text-[11px] text-[#676767] dark:text-[#8d8d8d] font-medium">
                           {topic.category}
                         </span>
-                        <span className="font-bold text-[14px] text-[#1c1e21] dark:text-[#e4e6eb] group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                        <span className="font-bold text-[14px] text-[#1e1e1e] dark:text-[#e6e6e6] group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
                           {topic.tag || topic.title}
                         </span>
-                        <span className="text-[11px] text-[#65676b] dark:text-[#8a8d91]">
+                        <span className="text-[11px] text-[#676767] dark:text-[#8d8d8d]">
                           {topic.count || '25K posts'}
                         </span>
                       </div>

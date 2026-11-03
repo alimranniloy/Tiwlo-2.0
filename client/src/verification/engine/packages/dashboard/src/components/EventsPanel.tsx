@@ -129,7 +129,7 @@ export function EventsPanel() {
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
+              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-neutral-500 transition-colors"
             >
               <option value="">All types</option>
               {EVENT_TYPES.map((t) => (
@@ -140,7 +140,7 @@ export function EventsPanel() {
               <div
                 onClick={() => setAutoRefresh((v) => !v)}
                 className={`w-8 h-4.5 rounded-full transition-colors relative cursor-pointer ${
-                  autoRefresh ? 'bg-indigo-600' : 'bg-gray-700'
+                  autoRefresh ? 'bg-neutral-600' : 'bg-gray-700'
                 }`}
               >
                 <div className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white transition-transform ${
@@ -165,7 +165,7 @@ export function EventsPanel() {
                   <span className="text-xs text-gray-500 font-mono w-40 shrink-0">
                     {new Date(evt.timestamp).toLocaleString()}
                   </span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 shrink-0">
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-600/20 text-neutral-400 border border-neutral-500/30 shrink-0">
                     {evt.type}
                   </span>
                   <span className="text-xs text-gray-500 shrink-0">{evt.source}</span>
@@ -198,7 +198,7 @@ export function EventsPanel() {
                 value={webhookUrl}
                 onChange={(e) => setWebhookUrl(e.target.value)}
                 placeholder="https://example.com/webhook"
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-neutral-500 transition-colors"
               />
             </div>
             <div>
@@ -208,7 +208,7 @@ export function EventsPanel() {
                 value={webhookSecret}
                 onChange={(e) => setWebhookSecret(e.target.value)}
                 placeholder="webhook-secret"
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-neutral-500 transition-colors"
               />
             </div>
           </div>
@@ -222,7 +222,7 @@ export function EventsPanel() {
                   onClick={() => toggleEventType(type)}
                   className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                     webhookEventTypes.includes(type)
-                      ? 'bg-indigo-600/20 text-indigo-400 border-indigo-500/30'
+                      ? 'bg-neutral-600/20 text-neutral-400 border-neutral-500/30'
                       : 'bg-gray-900 text-gray-500 border-gray-700 hover:border-gray-500'
                   }`}
                 >
@@ -235,7 +235,7 @@ export function EventsPanel() {
           <button
             onClick={handleRegisterWebhook}
             disabled={!webhookUrl.trim() || webhookEventTypes.length === 0 || webhookLoading}
-            className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm font-medium transition-colors"
+            className="px-6 py-2.5 bg-neutral-600 hover:bg-neutral-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm font-medium transition-colors"
           >
             {webhookLoading ? 'Registering...' : 'Register Webhook'}
           </button>

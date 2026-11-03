@@ -70,19 +70,19 @@ export default function EventsHubView() {
   return (
     <div className="w-full flex flex-col gap-5 pb-20">
       {/* 1. Header Card */}
-      <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-[#1E75FF]/10 text-[#1E75FF] flex items-center justify-center flex-shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-[#6c6c6c]/10 text-[#6c6c6c] flex items-center justify-center flex-shrink-0">
             <Calendar className="w-6 h-6 stroke-[2]" />
           </div>
           <div>
-            <h1 className="text-[20px] font-extrabold text-[#111827] dark:text-white tracking-tight flex items-center gap-2">
+            <h1 className="text-[20px] font-extrabold text-[#181818] dark:text-white tracking-tight flex items-center gap-2">
               Events Hub
-              <span className="text-[12px] font-semibold bg-[#1E75FF]/10 text-[#1E75FF] px-2.5 py-0.5 rounded-full">
+              <span className="text-[12px] font-semibold bg-[#6c6c6c]/10 text-[#6c6c6c] px-2.5 py-0.5 rounded-full">
                 10 Events Invites
               </span>
             </h1>
-            <p className="text-[13px] text-[#6B7280] dark:text-[#9CA3AF]">
+            <p className="text-[13px] text-[#727272] dark:text-[#a2a2a2]">
               Discover meetups, private invitations, live keynotes, and community celebrations
             </p>
           </div>
@@ -91,7 +91,7 @@ export default function EventsHubView() {
         <button
           type="button"
           onClick={() => showToast('Create Event dialog opened', 'info')}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1E75FF] hover:bg-[#1A66E5] text-white text-[12.5px] font-bold shadow-xs transition cursor-pointer"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#6c6c6c] hover:bg-[#5f5f5f] text-white text-[12.5px] font-bold shadow-xs transition cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Create Event</span>
@@ -105,7 +105,7 @@ export default function EventsHubView() {
           return (
             <div
               key={ev.id}
-              className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between hover:shadow-md transition group"
+              className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between hover:shadow-md transition group"
             >
               <div className="relative aspect-[16/9] bg-gray-100 dark:bg-gray-800 overflow-hidden">
                 <img
@@ -117,7 +117,7 @@ export default function EventsHubView() {
                   {ev.category}
                 </span>
                 {ev.isInvite && (
-                  <span className="absolute top-3 right-3 bg-[#1E75FF] text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                  <span className="absolute top-3 right-3 bg-[#6c6c6c] text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
                     <Gift className="w-3 h-3" />
                     <span>Personal Invite</span>
                   </span>
@@ -126,23 +126,23 @@ export default function EventsHubView() {
 
               <div className="p-5 flex-1 flex flex-col justify-between gap-3">
                 <div>
-                  <div className="flex items-center gap-1.5 text-[12px] font-bold text-[#1E75FF] mb-1">
+                  <div className="flex items-center gap-1.5 text-[12px] font-bold text-[#6c6c6c] mb-1">
                     <Clock className="w-3.5 h-3.5" />
                     <span>{ev.date}</span>
                   </div>
 
-                  <h3 className="font-bold text-[16px] text-[#111827] dark:text-white leading-snug group-hover:text-[#1E75FF] transition-colors">
+                  <h3 className="font-bold text-[16px] text-[#181818] dark:text-white leading-snug group-hover:text-[#6c6c6c] transition-colors">
                     {ev.title}
                   </h3>
 
-                  <p className="text-[12.5px] text-[#6B7280] dark:text-[#9CA3AF] flex items-center gap-1.5 mt-2">
+                  <p className="text-[12.5px] text-[#727272] dark:text-[#a2a2a2] flex items-center gap-1.5 mt-2">
                     <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
                     <span className="truncate">{ev.location}</span>
                   </p>
                 </div>
 
-                <div className="pt-4 border-t border-[#F2F4F7] dark:border-[#1E232F] flex items-center justify-between">
-                  <span className="text-[12px] font-medium text-[#6B7280] dark:text-[#9CA3AF]">
+                <div className="pt-4 border-t border-[#f4f4f4] dark:border-[#232323] flex items-center justify-between">
+                  <span className="text-[12px] font-medium text-[#727272] dark:text-[#a2a2a2]">
                     {ev.attendeesCount} people going
                   </span>
 
@@ -152,7 +152,7 @@ export default function EventsHubView() {
                     className={`px-4 py-1.5 rounded-xl text-[12.5px] font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
                       isAttending
                         ? 'bg-[#10B981] text-white'
-                        : 'bg-[#1E75FF] hover:bg-[#1A66E5] text-white'
+                        : 'bg-[#6c6c6c] hover:bg-[#5f5f5f] text-white'
                     }`}
                   >
                     {isAttending ? (

@@ -27,7 +27,7 @@ export default function AudioVideoCallView() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto w-full h-[calc(100vh-7.5rem)] bg-gradient-to-b from-[#181824] to-[#0c0c12] rounded-3xl border border-white/10 p-6 sm:p-8 flex flex-col justify-between items-center text-white shadow-2xl relative overflow-hidden">
+    <div className="max-w-2xl mx-auto w-full h-[calc(100vh-7.5rem)] bg-gradient-to-b from-[#191919] to-[#0c0c0c] rounded-3xl border border-white/10 p-6 sm:p-8 flex flex-col justify-between items-center text-white shadow-2xl relative overflow-hidden">
       {/* Top Header */}
       <div className="w-full flex items-center justify-between text-xs text-white/70">
         <div className="flex items-center gap-1.5 bg-white/10 px-3.5 py-1.5 rounded-full backdrop-blur-md border border-white/10">
@@ -49,7 +49,7 @@ export default function AudioVideoCallView() {
               className="w-full h-full object-cover"
             />
           </div>
-          <span className="absolute bottom-1 right-2 w-4 h-4 bg-emerald-500 rounded-full ring-3 ring-[#181824]" />
+          <span className="absolute bottom-1 right-2 w-4 h-4 bg-emerald-500 rounded-full ring-3 ring-[#191919]" />
         </div>
 
         <div>

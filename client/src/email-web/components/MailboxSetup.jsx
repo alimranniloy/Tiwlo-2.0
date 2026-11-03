@@ -50,7 +50,7 @@ export default function MailboxSetup() {
 
   return (
     <div className="min-h-screen bg-[#ffffff] sm:bg-[#f8f9fa] flex flex-col justify-between py-6 sm:py-12 px-4 sm:px-6 font-sans antialiased text-[#1f1f1f] select-none">
-      <div className="w-full max-w-[1040px] mx-auto my-auto bg-white sm:border sm:border-[#dadce0] sm:rounded-[28px] p-6 sm:p-10 lg:p-12 sm:shadow-[0_1px_3px_0_rgba(60,64,67,0.15)]">
+      <div className="w-full max-w-[1040px] mx-auto my-auto bg-white sm:border sm:border-[#dcdcdc] sm:rounded-[28px] p-6 sm:p-10 lg:p-12 sm:shadow-[0_1px_3px_0_rgba(60,64,67,0.15)]">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14 items-start">
           <div className="flex flex-col justify-between lg:min-h-[420px]">
             <div>
@@ -66,7 +66,7 @@ export default function MailboxSetup() {
                     }}
                   />
                   <div className="hidden items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-[#0b57d0] text-white font-bold flex items-center justify-center text-sm">
+                    <div className="w-7 h-7 rounded-lg bg-[#000000] text-white font-bold flex items-center justify-center text-sm">
                       T
                     </div>
                     <span className="font-semibold text-lg text-[#1f1f1f] tracking-tight">Tiwlo</span>
@@ -87,18 +87,18 @@ export default function MailboxSetup() {
                 <span>Choose your email address</span>
                 <span className="font-mono text-[#747775]">Step 1 of 1</span>
               </div>
-              <div className="w-full bg-[#e0e2ec] h-1 rounded-full overflow-hidden">
-                <div className="bg-[#0b57d0] h-full w-full rounded-full" />
+              <div className="w-full bg-[#e2e2e2] h-1 rounded-full overflow-hidden">
+                <div className="bg-[#000000] h-full w-full rounded-full" />
               </div>
             </div>
           </div>
 
           <div className="flex flex-col justify-between lg:min-h-[420px]">
             <div className="space-y-4">
-              <div className="p-3 rounded-[8px] bg-[#e8f0fe] border border-[#d2e3fc] flex items-center justify-between text-xs">
+              <div className="p-3 rounded-[8px] bg-[#efefef] border border-[#e1e1e1] flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="w-2 h-2 rounded-full bg-[#1a73e8] shrink-0" />
-                  <span className="font-medium text-[#1a73e8] truncate">
+                  <span className="w-2 h-2 rounded-full bg-[#696969] shrink-0" />
+                  <span className="font-medium text-[#696969] truncate">
                     Signed in as {currentUser?.email || 'your Tiwlo account'}
                   </span>
                 </div>
@@ -130,10 +130,10 @@ export default function MailboxSetup() {
                           ? 'border-[#d93025] focus:border-[#d93025] focus:ring-1 focus:ring-[#d93025]'
                           : availability?.available
                             ? 'border-[#137333] focus:border-[#137333] focus:ring-1 focus:ring-[#137333]'
-                            : 'border-[#747775] focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0]'
+                            : 'border-[#747775] focus:border-[#000000] focus:ring-1 focus:ring-[#000000]'
                       }`}
                     />
-                    <span className="flex items-center px-3 border border-l-0 border-[#747775] rounded-r-[4px] bg-[#f8f9fa] text-[14px] text-[#5f6368]">
+                    <span className="flex items-center px-3 border border-l-0 border-[#747775] rounded-r-[4px] bg-[#f8f9fa] text-[14px] text-[#636363]">
                       @{PLATFORM_DOMAIN}
                     </span>
                     {isChecking && (
@@ -161,7 +161,7 @@ export default function MailboxSetup() {
                   <button
                     type="submit"
                     disabled={!availability?.available || isChecking || isCreating}
-                    className="bg-[#0b57d0] hover:bg-[#0842a0] active:bg-[#062e6f] disabled:opacity-45 disabled:cursor-not-allowed text-white rounded-full px-7 h-10 font-medium text-[14px] shadow-xs cursor-pointer inline-flex items-center gap-2 transition-all"
+                    className="bg-[#000000] hover:bg-[#3c3c3c] active:bg-[#2a2a2a] disabled:opacity-45 disabled:cursor-not-allowed text-white rounded-full px-7 h-10 font-medium text-[14px] shadow-xs cursor-pointer inline-flex items-center gap-2 transition-all"
                   >
                     <span>{isCreating ? 'Creating…' : 'Create address'}</span>
                     {!isCreating && <ArrowRight className="w-4 h-4" />}
@@ -173,7 +173,7 @@ export default function MailboxSetup() {
         </div>
       </div>
 
-      <footer className="w-full max-w-[1040px] mx-auto pt-6 flex flex-col sm:flex-row items-center justify-between text-[12px] text-[#5f6368] gap-3">
+      <footer className="w-full max-w-[1040px] mx-auto pt-6 flex flex-col sm:flex-row items-center justify-between text-[12px] text-[#636363] gap-3">
         <span>English (United States)</span>
         <div className="flex items-center gap-6">
           <a href={getPlatformUrl()} className="hover:text-[#1f1f1f] transition-colors">Help</a>

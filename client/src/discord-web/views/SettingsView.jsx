@@ -5,10 +5,10 @@ export default function SettingsView({ currentUser, onNavigate }) {
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-16 font-sans bg-white">
       {/* 1. Modern Google Header */}
-      <div className="border-b border-[#E0E2EC] pb-5">
+      <div className="border-b border-[#e2e2e2] pb-5">
         <button
           onClick={() => onNavigate('/discord')}
-          className="inline-flex items-center gap-2 text-[13px] font-medium text-[#0B57D0] hover:text-[#0842A0] cursor-pointer mb-2.5"
+          className="inline-flex items-center gap-2 text-[13px] font-medium text-[#000000] hover:text-[#3c3c3c] cursor-pointer mb-2.5"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Console Overview</span>
@@ -24,7 +24,7 @@ export default function SettingsView({ currentUser, onNavigate }) {
         </p>
       </div>
 
-      <div className="bg-white border border-[#E0E2EC] rounded-2xl p-6 sm:p-8 space-y-4">
+      <div className="bg-white border border-[#e2e2e2] rounded-2xl p-6 sm:p-8 space-y-4">
         <h2 className="text-[16px] font-medium text-[#1F1F1F]">Account</h2>
         <p className="text-[13px] text-[#444746]">Name: {currentUser?.name || currentUser?.storeName || 'Not provided'}</p>
         <p className="text-[13px] text-[#444746]">Email: {currentUser?.email || 'Not provided'}</p>

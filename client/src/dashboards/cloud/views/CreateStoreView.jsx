@@ -78,30 +78,30 @@ export default function CreateStoreView({ onBack, onCreateStore }) {
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-gray-800 hover:bg-slate-50 dark:hover:bg-gray-800 transition shadow-xs cursor-pointer"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-neutral-700 dark:text-neutral-300 bg-white dark:bg-[#181818] border border-neutral-200/80 dark:border-gray-800 hover:bg-neutral-50 dark:hover:bg-gray-800 transition shadow-xs cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Online Stores</span>
         </button>
 
-        <div className="flex items-center gap-2 text-xs text-slate-500">
+        <div className="flex items-center gap-2 text-xs text-neutral-500">
           <span>Commerce</span>
           <ChevronRight className="w-3.5 h-3.5" />
-          <span className="font-semibold text-blue-600 dark:text-blue-400">Create New Store</span>
+          <span className="font-semibold text-neutral-600 dark:text-neutral-400">Create New Store</span>
         </div>
       </div>
 
       {/* Main Header Card */}
-      <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-gray-800 p-6 sm:p-8 shadow-[0_1px_3px_rgba(60,64,67,0.08)]">
+      <div className="bg-white dark:bg-[#181818] rounded-2xl border border-neutral-200/80 dark:border-gray-800 p-6 sm:p-8 shadow-[0_1px_3px_rgba(60,64,67,0.08)]">
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
+          <div className="w-10 h-10 rounded-xl bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 flex items-center justify-center font-bold">
             <Store className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white tracking-tight">
               Create New Online Store
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
               Launch a full multi-channel eCommerce store with POS terminal, automated WhatsApp alerts, and inventory sync.
             </p>
           </div>
@@ -116,10 +116,10 @@ export default function CreateStoreView({ onBack, onCreateStore }) {
       )}
 
       {/* Form Card */}
-      <form onSubmit={handleSubmit} className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-gray-800 p-6 sm:p-8 shadow-[0_1px_3px_rgba(60,64,67,0.08)] space-y-6">
+      <form onSubmit={handleSubmit} className="bg-white dark:bg-[#181818] rounded-2xl border border-neutral-200/80 dark:border-gray-800 p-6 sm:p-8 shadow-[0_1px_3px_rgba(60,64,67,0.08)] space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
               Store / Business Name *
             </label>
             <input
@@ -128,18 +128,18 @@ export default function CreateStoreView({ onBack, onCreateStore }) {
               value={storeName}
               onChange={(e) => handleStoreNameChange(e.target.value)}
               placeholder="e.g. Dhaka Gadget Hub"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-800 bg-slate-50/50 dark:bg-gray-900 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-800 bg-neutral-50/50 dark:bg-gray-900 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
               Store Category / Industry
             </label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-800 bg-slate-50/50 dark:bg-gray-900 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-800 bg-neutral-50/50 dark:bg-gray-900 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition"
             >
               {STORE_CATEGORIES.map((c, i) => (
                 <option key={i} value={c}>{c}</option>
@@ -150,24 +150,24 @@ export default function CreateStoreView({ onBack, onCreateStore }) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
               Store Web Subdomain
             </label>
             <div className="relative">
-              <Globe className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Globe className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={subdomain}
                 onChange={(e) => setSubdomain(normalizeStoreSubdomainInput(e.target.value))}
                 placeholder="storename"
                 aria-invalid={['invalid', 'unavailable', 'error'].includes(subdomainAvailability.status)}
-                className="w-full pl-9 pr-28 py-2.5 rounded-xl border border-slate-200 dark:border-gray-800 bg-slate-50/50 dark:bg-gray-900 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-mono transition"
+                className="w-full pl-9 pr-28 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-800 bg-neutral-50/50 dark:bg-gray-900 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-neutral-500 font-mono transition"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-slate-400 pointer-events-none">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-neutral-400 pointer-events-none">
                 .{STORE_DOMAIN}
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">
+            <p className="text-[11px] text-neutral-400 mt-1">
               Choose a subdomain label. The .{STORE_DOMAIN} domain is fixed and cannot be changed.
             </p>
             {subdomainAvailability.message && (
@@ -177,7 +177,7 @@ export default function CreateStoreView({ onBack, onCreateStore }) {
                   subdomainAvailability.status === 'available'
                     ? 'text-emerald-600 dark:text-emerald-400'
                     : subdomainAvailability.status === 'checking'
-                      ? 'text-slate-400'
+                      ? 'text-neutral-400'
                       : 'text-rose-600 dark:text-rose-400'
                 }`}
               >
@@ -187,13 +187,13 @@ export default function CreateStoreView({ onBack, onCreateStore }) {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
               Primary Currency
             </label>
             <select
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-800 bg-slate-50/50 dark:bg-gray-900 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-800 bg-neutral-50/50 dark:bg-gray-900 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition"
             >
               <option value="BDT (৳)">BDT - Bangladeshi Taka (৳)</option>
               <option value="USD ($)">USD - US Dollar ($)</option>
@@ -205,7 +205,7 @@ export default function CreateStoreView({ onBack, onCreateStore }) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
               Business Email
             </label>
             <input
@@ -213,12 +213,12 @@ export default function CreateStoreView({ onBack, onCreateStore }) {
               value={businessEmail}
               onChange={(e) => setBusinessEmail(e.target.value)}
               placeholder="orders@yourstore.com"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-800 bg-slate-50/50 dark:bg-gray-900 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-800 bg-neutral-50/50 dark:bg-gray-900 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
               Customer Support Phone
             </label>
             <input
@@ -226,13 +226,13 @@ export default function CreateStoreView({ onBack, onCreateStore }) {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+880 1700-000000"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-800 bg-slate-50/50 dark:bg-gray-900 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-800 bg-neutral-50/50 dark:bg-gray-900 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+          <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
             Store Description / Slogan
           </label>
           <textarea
@@ -240,15 +240,15 @@ export default function CreateStoreView({ onBack, onCreateStore }) {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Tell customers about your business..."
-            className="w-full p-3 rounded-xl border border-slate-200 dark:border-gray-800 bg-slate-50/50 dark:bg-gray-900 text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition"
+            className="w-full p-3 rounded-xl border border-neutral-200 dark:border-gray-800 bg-neutral-50/50 dark:bg-gray-900 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition"
           />
         </div>
 
-        <div className="pt-4 border-t border-slate-100 dark:border-gray-800 flex items-center justify-end gap-3">
+        <div className="pt-4 border-t border-neutral-100 dark:border-gray-800 flex items-center justify-end gap-3">
           <button
             type="button"
             onClick={onBack}
-            className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition cursor-pointer"
+            className="px-4 py-2.5 rounded-xl text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-gray-800 transition cursor-pointer"
           >
             Cancel
           </button>
@@ -256,7 +256,7 @@ export default function CreateStoreView({ onBack, onCreateStore }) {
           <button
             type="submit"
             disabled={submitting || subdomainAvailability.status !== 'available'}
-            className="py-2.5 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs sm:text-sm font-semibold transition shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+            className="py-2.5 px-6 rounded-xl bg-neutral-600 hover:bg-neutral-700 active:bg-neutral-800 text-white text-xs sm:text-sm font-semibold transition shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
           >
             {submitting ? (
               <>

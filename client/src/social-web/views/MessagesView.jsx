@@ -137,7 +137,7 @@ export default function MessagesView() {
   const activeConv = conversations.find((c) => c.id === activeConvId);
 
   return (
-    <div className="w-full flex h-[calc(100vh-6.5rem)] rounded-2xl bg-white dark:bg-[#16161f] border border-black/[0.05] dark:border-white/[0.06] overflow-hidden shadow-sm dark:shadow-black/20">
+    <div className="w-full flex h-[calc(100vh-6.5rem)] rounded-2xl bg-white dark:bg-[#171717] border border-black/[0.05] dark:border-white/[0.06] overflow-hidden shadow-sm dark:shadow-black/20">
       {/* 1. Left Panel: Conversations List */}
       <div
         className={`w-full sm:w-[320px] md:w-[340px] flex-shrink-0 border-r border-black/[0.05] dark:border-white/[0.06] flex flex-col h-full ${
@@ -146,12 +146,12 @@ export default function MessagesView() {
       >
         {/* Header */}
         <div className="h-14 px-4 border-b border-black/[0.05] dark:border-white/[0.06] flex items-center justify-between">
-          <h1 className="text-[18px] font-bold text-[#1c1e21] dark:text-[#e4e6eb] tracking-tight">
+          <h1 className="text-[18px] font-bold text-[#1e1e1e] dark:text-[#e6e6e6] tracking-tight">
             Messages
           </h1>
           <button
             onClick={() => navigateTo('settings')}
-            className="w-8 h-8 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] transition-all cursor-pointer"
+            className="w-8 h-8 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#676767] dark:text-[#b3b3b3] transition-all cursor-pointer"
             title="Settings"
           >
             <Settings className="w-4 h-4" />
@@ -160,14 +160,14 @@ export default function MessagesView() {
 
         {/* Search Bar */}
         <div className="p-3 border-b border-black/[0.05] dark:border-white/[0.06]">
-          <div className="flex items-center h-9 bg-black/[0.04] dark:bg-white/[0.05] rounded-xl px-3 text-[#1c1e21] dark:text-[#e4e6eb] focus-within:ring-2 focus-within:ring-violet-500/30 transition-all">
-            <Search className="w-3.5 h-3.5 text-[#65676b] dark:text-[#8a8d91] mr-2 flex-shrink-0" />
+          <div className="flex items-center h-9 bg-black/[0.04] dark:bg-white/[0.05] rounded-xl px-3 text-[#1e1e1e] dark:text-[#e6e6e6] focus-within:ring-2 focus-within:ring-violet-500/30 transition-all">
+            <Search className="w-3.5 h-3.5 text-[#676767] dark:text-[#8d8d8d] mr-2 flex-shrink-0" />
             <input
               type="text"
               placeholder="Search conversations"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent text-[13px] outline-none w-full placeholder-[#65676b] dark:placeholder-[#8a8d91]"
+              className="bg-transparent text-[13px] outline-none w-full placeholder-[#676767] dark:placeholder-[#8d8d8d]"
             />
           </div>
         </div>
@@ -183,7 +183,7 @@ export default function MessagesView() {
                 className={`p-3 rounded-xl flex items-center gap-3 cursor-pointer transition-all duration-150 ${
                   isSelected
                     ? 'bg-violet-500/10 dark:bg-violet-500/15 text-violet-900 dark:text-violet-100'
-                    : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.04] text-[#1c1e21] dark:text-[#e4e6eb]'
+                    : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.04] text-[#1e1e1e] dark:text-[#e6e6e6]'
                 }`}
               >
                 <div className="relative flex-shrink-0">
@@ -193,7 +193,7 @@ export default function MessagesView() {
                     className="w-11 h-11 rounded-xl object-cover ring-1 ring-black/10 dark:ring-white/10"
                   />
                   {c.online && (
-                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-[#16161f]" />
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-[#171717]" />
                   )}
                 </div>
 
@@ -207,11 +207,11 @@ export default function MessagesView() {
                         <CheckCircle2 className="w-3.5 h-3.5 text-violet-500 fill-current inline flex-shrink-0" />
                       )}
                     </div>
-                    <span className="text-[11px] text-[#65676b] dark:text-[#8a8d91] flex-shrink-0">
+                    <span className="text-[11px] text-[#676767] dark:text-[#8d8d8d] flex-shrink-0">
                       {c.lastMessageTime}
                     </span>
                   </div>
-                  <p className="text-[12px] text-[#65676b] dark:text-[#8a8d91] truncate mt-0.5">
+                  <p className="text-[12px] text-[#676767] dark:text-[#8d8d8d] truncate mt-0.5">
                     {c.lastMessage}
                   </p>
                 </div>
@@ -223,18 +223,18 @@ export default function MessagesView() {
 
       {/* 2. Right Panel: Active Chat Thread */}
       <div
-        className={`flex-1 flex flex-col h-full bg-[#f8f9fa] dark:bg-[#111118] ${
+        className={`flex-1 flex flex-col h-full bg-[#f8f9fa] dark:bg-[#121212] ${
           !activeConvId ? 'hidden sm:flex' : 'flex'
         }`}
       >
         {activeConv ? (
           <>
             {/* Chat Top Bar */}
-            <div className="h-14 px-4 bg-white dark:bg-[#16161f] border-b border-black/[0.05] dark:border-white/[0.06] flex items-center justify-between">
+            <div className="h-14 px-4 bg-white dark:bg-[#171717] border-b border-black/[0.05] dark:border-white/[0.06] flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setActiveConvId(null)}
-                  className="sm:hidden p-1.5 rounded-xl hover:bg-black/[0.04] text-[#65676b]"
+                  className="sm:hidden p-1.5 rounded-xl hover:bg-black/[0.04] text-[#676767]"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
@@ -245,15 +245,15 @@ export default function MessagesView() {
                     className="w-9 h-9 rounded-xl object-cover ring-1 ring-black/10 dark:ring-white/10"
                   />
                   {activeConv.online && (
-                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-[#16161f]" />
+                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-[#171717]" />
                   )}
                 </div>
                 <div className="flex flex-col leading-tight">
-                  <span className="font-semibold text-[14px] text-[#1c1e21] dark:text-[#e4e6eb] flex items-center gap-1">
+                  <span className="font-semibold text-[14px] text-[#1e1e1e] dark:text-[#e6e6e6] flex items-center gap-1">
                     {activeConv.name}
                     {activeConv.isVerified && <CheckCircle2 className="w-3.5 h-3.5 text-violet-500 fill-current inline" />}
                   </span>
-                  <span className="text-[11px] text-[#65676b] dark:text-[#8a8d91]">
+                  <span className="text-[11px] text-[#676767] dark:text-[#8d8d8d]">
                     @{activeConv.handle} · {activeConv.online ? 'Online' : 'Offline'}
                   </span>
                 </div>
@@ -263,21 +263,21 @@ export default function MessagesView() {
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => navigateTo('call')}
-                  className="w-8 h-8 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] hover:text-violet-600 transition-all cursor-pointer"
+                  className="w-8 h-8 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#676767] dark:text-[#b3b3b3] hover:text-violet-600 transition-all cursor-pointer"
                   title="Voice Call"
                 >
                   <Phone className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => navigateTo('call')}
-                  className="w-8 h-8 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] hover:text-violet-600 transition-all cursor-pointer"
+                  className="w-8 h-8 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#676767] dark:text-[#b3b3b3] hover:text-violet-600 transition-all cursor-pointer"
                   title="Video Call"
                 >
                   <Video className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => navigateTo('profile', activeConv.handle)}
-                  className="w-8 h-8 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] transition-all cursor-pointer"
+                  className="w-8 h-8 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#676767] dark:text-[#b3b3b3] transition-all cursor-pointer"
                   title="Profile Info"
                 >
                   <Info className="w-4 h-4" />
@@ -299,13 +299,13 @@ export default function MessagesView() {
                     <div
                       className={`px-4 py-2.5 text-[13.5px] leading-relaxed shadow-xs ${
                         isMine
-                          ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-2xl rounded-br-xs'
-                          : 'bg-white dark:bg-[#1a1a26] text-[#1c1e21] dark:text-[#e4e6eb] rounded-2xl rounded-bl-xs border border-black/[0.05] dark:border-white/[0.06]'
+                          ? 'bg-gradient-to-r from-violet-600 to-neutral-600 text-white rounded-2xl rounded-br-xs'
+                          : 'bg-white dark:bg-[#1b1b1b] text-[#1e1e1e] dark:text-[#e6e6e6] rounded-2xl rounded-bl-xs border border-black/[0.05] dark:border-white/[0.06]'
                       }`}
                     >
                       {msg.text}
                     </div>
-                    <span className="text-[10px] text-[#65676b] dark:text-[#8a8d91] mt-1 px-1">
+                    <span className="text-[10px] text-[#676767] dark:text-[#8d8d8d] mt-1 px-1">
                       {msg.createdAt || 'Just now'}
                     </span>
                   </div>
@@ -317,7 +317,7 @@ export default function MessagesView() {
             {/* Message Composer Bar */}
             <form
               onSubmit={handleSendMessage}
-              className="p-3 bg-white dark:bg-[#16161f] border-t border-black/[0.05] dark:border-white/[0.06] flex items-center gap-2"
+              className="p-3 bg-white dark:bg-[#171717] border-t border-black/[0.05] dark:border-white/[0.06] flex items-center gap-2"
             >
               <div className="flex-1 flex items-center bg-black/[0.04] dark:bg-white/[0.05] rounded-xl px-3.5 py-1.5 focus-within:ring-2 focus-within:ring-violet-500/30 transition-all">
                 <input
@@ -325,14 +325,14 @@ export default function MessagesView() {
                   placeholder="Type a message..."
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  className="bg-transparent text-[13.5px] text-[#1c1e21] dark:text-[#e4e6eb] outline-none w-full placeholder-[#65676b] dark:placeholder-[#8a8d91]"
+                  className="bg-transparent text-[13.5px] text-[#1e1e1e] dark:text-[#e6e6e6] outline-none w-full placeholder-[#676767] dark:placeholder-[#8d8d8d]"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={!inputText.trim()}
-                className="w-10 h-10 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 disabled:opacity-40 text-white flex items-center justify-center transition-all shadow-md shadow-violet-500/20 active:scale-95 cursor-pointer flex-shrink-0"
+                className="w-10 h-10 rounded-xl bg-gradient-to-r from-violet-600 to-neutral-600 hover:from-violet-700 hover:to-neutral-700 disabled:opacity-40 text-white flex items-center justify-center transition-all shadow-md shadow-violet-500/20 active:scale-95 cursor-pointer flex-shrink-0"
               >
                 <Send className="w-4 h-4" />
               </button>
@@ -341,7 +341,7 @@ export default function MessagesView() {
         ) : (
           <div className="flex-1 flex items-center justify-center text-center p-8">
             <div>
-              <p className="text-sm text-[#65676b] dark:text-[#8a8d91]">Select a conversation to start chatting</p>
+              <p className="text-sm text-[#676767] dark:text-[#8d8d8d]">Select a conversation to start chatting</p>
             </div>
           </div>
         )}

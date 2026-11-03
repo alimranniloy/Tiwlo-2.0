@@ -41,25 +41,25 @@ export default function GreetingBar({ currentUser }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7">
       <div>
-        <h2 className="text-2xl sm:text-[26px] font-bold text-slate-900 dark:text-white tracking-tight flex items-center">
+        <h2 className="text-2xl sm:text-[26px] font-bold text-neutral-900 dark:text-white tracking-tight flex items-center">
           Good Morning, {displayName}{' '}
           <span className="ml-2 inline-block text-2xl">☀️</span>
         </h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-normal">
+        <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1 font-normal">
           Here's what's happening with your inventory today.
         </p>
       </div>
 
       {/* Date & Time Badge */}
-      <div className="flex items-center space-x-3 bg-white dark:bg-gray-800 border border-slate-200/90 dark:border-gray-700/80 rounded-2xl px-4 py-2.5 shadow-[0_2px_4px_rgba(0,0,0,0.02)] shrink-0 self-start sm:self-auto">
-        <div className="w-8 h-8 rounded-xl bg-slate-50 dark:bg-gray-700/60 flex items-center justify-center text-slate-500 dark:text-slate-400">
+      <div className="flex items-center space-x-3 bg-white dark:bg-gray-800 border border-neutral-200/90 dark:border-gray-700/80 rounded-2xl px-4 py-2.5 shadow-[0_2px_4px_rgba(0,0,0,0.02)] shrink-0 self-start sm:self-auto">
+        <div className="w-8 h-8 rounded-xl bg-neutral-50 dark:bg-gray-700/60 flex items-center justify-center text-neutral-500 dark:text-neutral-400">
           <Calendar className="w-4 h-4" />
         </div>
         <div className="text-left">
-          <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 leading-tight">
+          <p className="text-xs font-semibold text-neutral-700 dark:text-neutral-200 leading-tight">
             {currentDateTime.date}
           </p>
-          <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400">
+          <p className="text-[11px] font-medium text-neutral-400 dark:text-neutral-400">
             {currentDateTime.time}
           </p>
         </div>

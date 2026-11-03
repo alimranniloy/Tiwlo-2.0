@@ -801,13 +801,13 @@ export default function LoginView({
   };
 
   return (
-    <div className="min-h-screen bg-[#F0F4F9] dark:bg-[#131314] flex flex-col justify-center items-center py-8 sm:py-12 px-4 selection:bg-[#0B57D0] selection:text-white transition-colors duration-200">
+    <div className="min-h-screen bg-[#f4f4f4] dark:bg-[#131313] flex flex-col justify-center items-center py-8 sm:py-12 px-4 selection:bg-[#000000] selection:text-white transition-colors duration-200">
       {/* Liquid Page Loader */}
       {loading && <TiwloPageLoader />}
 
       {/* Main Google Material 3 Styled Card */}
       <div className="w-full max-w-[448px]">
-        <div className="bg-white dark:bg-[#1E1F20] border border-[#DADCE0] dark:border-[#3C4043] rounded-[28px] p-7 sm:p-9 shadow-none space-y-5">
+        <div className="bg-white dark:bg-[#1f1f1f] border border-[#dcdcdc] dark:border-[#3f3f3f] rounded-[28px] p-7 sm:p-9 shadow-none space-y-5">
           
           {/* Top Brand Logo */}
           <div className="flex items-center">
@@ -842,7 +842,7 @@ export default function LoginView({
                 />
               )}
               {socialProfile.email && (
-                <p className="text-sm text-slate-600 dark:text-slate-300">{socialProfile.email}</p>
+                <p className="text-sm text-neutral-600 dark:text-neutral-300">{socialProfile.email}</p>
               )}
               {errorMsg && (
                 <div role="alert" className="rounded-lg bg-rose-50 p-3 text-[13px] font-medium text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
@@ -851,7 +851,7 @@ export default function LoginView({
               )}
 
               {socialProfileLoading ? (
-                <p className="text-sm text-slate-500">Loading your profile details…</p>
+                <p className="text-sm text-neutral-500">Loading your profile details…</p>
               ) : (
                 <form onSubmit={handleCompleteSocialProfile} className="space-y-4">
                   <div>
@@ -868,7 +868,7 @@ export default function LoginView({
                       placeholder="First and last name"
                       maxLength={255}
                       required
-                      className="w-full rounded-[4px] border border-[#747775] px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
+                      className="w-full rounded-[4px] border border-[#747775] px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] placeholder:text-[#747775]"
                     />
                   </div>
 
@@ -889,7 +889,7 @@ export default function LoginView({
                         minLength={3}
                         maxLength={30}
                         required
-                        className="w-full rounded-[4px] border border-[#747775] py-3 pl-8 pr-3.5 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
+                        className="w-full rounded-[4px] border border-[#747775] py-3 pl-8 pr-3.5 text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] placeholder:text-[#747775]"
                       />
                     </div>
                   </div>
@@ -910,7 +910,7 @@ export default function LoginView({
                         }))}
                         required
                         aria-label="Birth month"
-                        className="w-full cursor-pointer rounded-[4px] border border-[#747775] bg-white px-3 py-2.5 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0]"
+                        className="w-full cursor-pointer rounded-[4px] border border-[#747775] bg-white px-3 py-2.5 text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000]"
                       >
                         <option value="">Month</option>
                         {MONTH_OPTIONS.map(month => (
@@ -930,7 +930,7 @@ export default function LoginView({
                         placeholder="Day"
                         required
                         aria-label="Birth day"
-                        className="w-full rounded-[4px] border border-[#747775] px-3 py-2.5 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
+                        className="w-full rounded-[4px] border border-[#747775] px-3 py-2.5 text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] placeholder:text-[#747775]"
                       />
                       <input
                         type="text"
@@ -945,7 +945,7 @@ export default function LoginView({
                         placeholder="Year"
                         required
                         aria-label="Birth year"
-                        className="w-full rounded-[4px] border border-[#747775] px-3 py-2.5 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
+                        className="w-full rounded-[4px] border border-[#747775] px-3 py-2.5 text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] placeholder:text-[#747775]"
                       />
                     </div>
                   </div>
@@ -961,7 +961,7 @@ export default function LoginView({
                         country: event.target.value
                       }))}
                       required
-                      className="w-full cursor-pointer rounded-[4px] border border-[#747775] bg-white px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0]"
+                      className="w-full cursor-pointer rounded-[4px] border border-[#747775] bg-white px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000]"
                     >
                       {COUNTRY_OPTIONS.map(country => (
                         <option key={country.code} value={country.name}>
@@ -975,8 +975,8 @@ export default function LoginView({
                     <label className="mb-1.5 block text-[13px] font-medium text-[#1f1f1f] dark:text-[#E3E3E3]">
                       Phone number <span className="text-[#d93025]">*</span>
                     </label>
-                    <div className="flex overflow-hidden rounded-[4px] border border-[#747775] focus-within:border-[#0b57d0] focus-within:ring-1 focus-within:ring-[#0b57d0]">
-                      <span className="flex shrink-0 items-center border-r border-[#dadce0] bg-[#f8f9fa] px-3 text-[13px] text-[#1f1f1f]">
+                    <div className="flex overflow-hidden rounded-[4px] border border-[#747775] focus-within:border-[#000000] focus-within:ring-1 focus-within:ring-[#000000]">
+                      <span className="flex shrink-0 items-center border-r border-[#dcdcdc] bg-[#f8f9fa] px-3 text-[13px] text-[#1f1f1f]">
                         {COUNTRY_OPTIONS.find(option => option.name === socialProfile.country)?.dial || '+880'}
                       </span>
                       <input
@@ -1009,7 +1009,7 @@ export default function LoginView({
                       }))}
                       placeholder="Street address, P.O. box, company name, c/o"
                       required
-                      className="w-full rounded-[4px] border border-[#747775] px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
+                      className="w-full rounded-[4px] border border-[#747775] px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] placeholder:text-[#747775]"
                     />
                   </div>
 
@@ -1025,7 +1025,7 @@ export default function LoginView({
                         addressLine2: event.target.value
                       }))}
                       placeholder="Apt, Suite, Unit, Building, Floor, etc."
-                      className="w-full rounded-[4px] border border-[#747775] px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
+                      className="w-full rounded-[4px] border border-[#747775] px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] placeholder:text-[#747775]"
                     />
                   </div>
 
@@ -1043,7 +1043,7 @@ export default function LoginView({
                         }))}
                         placeholder="Dhaka"
                         required
-                        className="w-full rounded-[4px] border border-[#747775] px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
+                        className="w-full rounded-[4px] border border-[#747775] px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] placeholder:text-[#747775]"
                       />
                     </div>
                     <div>
@@ -1058,7 +1058,7 @@ export default function LoginView({
                           postalCode: event.target.value
                         }))}
                         placeholder="1212"
-                        className="w-full rounded-[4px] border border-[#747775] px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
+                        className="w-full rounded-[4px] border border-[#747775] px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] placeholder:text-[#747775]"
                       />
                     </div>
                   </div>
@@ -1073,7 +1073,7 @@ export default function LoginView({
                         ...current,
                         gender: event.target.value
                       }))}
-                      className="w-full cursor-pointer rounded-[4px] border border-[#747775] bg-white px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0]"
+                      className="w-full cursor-pointer rounded-[4px] border border-[#747775] bg-white px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000]"
                     >
                       <option value="">Select gender</option>
                       <option value="Male">Male</option>
@@ -1085,7 +1085,7 @@ export default function LoginView({
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full rounded-full bg-[#0B57D0] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#0842A0] disabled:opacity-50"
+                    className="w-full rounded-full bg-[#000000] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#3c3c3c] disabled:opacity-50"
                   >
                     {loading ? 'Saving…' : 'Continue'}
                   </button>
@@ -1119,7 +1119,7 @@ export default function LoginView({
                     className="flex items-center justify-center space-x-2 py-2 px-3 rounded-full border border-[#747775]/40 text-[#1F1F1F] dark:text-[#E3E3E3] text-[13px] font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.66-5.17 3.66-9.12z"/>
+                      <path fill="#7f7f7f" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.66-5.17 3.66-9.12z"/>
                       <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.03c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.13C3.27 21.41 7.34 24 12 24z"/>
                       <path fill="#FBBC05" d="M5.28 14.29c-.25-.72-.38-1.49-.38-2.29s.13-1.57.38-2.29V6.57H1.25C.45 8.16 0 9.98 0 12s.45 3.84 1.25 5.43l4.03-3.14z"/>
                       <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.27 2.59 1.25 6.57l4.03 3.14c.95-2.83 3.6-4.96 6.72-4.96z"/>
@@ -1150,9 +1150,9 @@ export default function LoginView({
 
                 <div className="relative my-4 flex items-center justify-center">
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-[#DADCE0] dark:border-[#3C4043]" />
+                    <div className="w-full border-t border-[#dcdcdc] dark:border-[#3f3f3f]" />
                   </div>
-                  <div className="relative bg-white dark:bg-[#1E1F20] px-3 text-[11px] text-[#747775]">
+                  <div className="relative bg-white dark:bg-[#1f1f1f] px-3 text-[11px] text-[#747775]">
                     or
                   </div>
                 </div>
@@ -1178,7 +1178,7 @@ export default function LoginView({
                       onChange={(e) => setIdentifier(e.target.value)}
                       placeholder="Email or Tiwi ID"
                       required
-                      className="w-full px-4 py-3.5 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#0B57D0] focus:ring-1 focus:ring-[#0B57D0] transition placeholder:text-[#747775]"
+                      className="w-full px-4 py-3.5 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition placeholder:text-[#747775]"
                     />
                   </div>
                 </div>
@@ -1192,7 +1192,7 @@ export default function LoginView({
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Enter your password"
                       required
-                      className="w-full pl-4 pr-11 py-3.5 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#0B57D0] focus:ring-1 focus:ring-[#0B57D0] transition placeholder:text-[#747775]"
+                      className="w-full pl-4 pr-11 py-3.5 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition placeholder:text-[#747775]"
                     />
                     <button
                       type="button"
@@ -1209,7 +1209,7 @@ export default function LoginView({
                         setErrorMsg('');
                         setViewMode('forgot_request');
                       }}
-                      className="text-[13px] font-medium text-[#0B57D0] dark:text-[#A8C7FA] hover:underline cursor-pointer"
+                      className="text-[13px] font-medium text-[#000000] dark:text-[#c4c4c4] hover:underline cursor-pointer"
                     >
                       Forgot password?
                     </button>
@@ -1221,7 +1221,7 @@ export default function LoginView({
                   <button
                     type="button"
                     onClick={onNavigateToRegister}
-                    className="text-[14px] font-medium text-[#0B57D0] dark:text-[#A8C7FA] hover:bg-[#0B57D0]/10 px-3 py-2 rounded-full transition cursor-pointer"
+                    className="text-[14px] font-medium text-[#000000] dark:text-[#c4c4c4] hover:bg-[#000000]/10 px-3 py-2 rounded-full transition cursor-pointer"
                   >
                     Create account
                   </button>
@@ -1229,7 +1229,7 @@ export default function LoginView({
                   <button
                     type="submit"
                     disabled={loading}
-                    className="px-6 py-2.5 rounded-full bg-[#0B57D0] hover:bg-[#0842A0] text-white font-medium text-[14px] transition cursor-pointer disabled:opacity-50"
+                    className="px-6 py-2.5 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white font-medium text-[14px] transition cursor-pointer disabled:opacity-50"
                   >
                     {loading ? 'Checking...' : 'Next'}
                   </button>
@@ -1254,7 +1254,7 @@ export default function LoginView({
 
               {/* Google Style Account Chip with Change Email button */}
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#747775]/40 bg-transparent text-[13px] font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
-                <span className="w-5 h-5 rounded-full bg-[#0B57D0]/10 text-[#0B57D0] dark:text-[#A8C7FA] flex items-center justify-center text-xs font-bold uppercase">
+                <span className="w-5 h-5 rounded-full bg-[#000000]/10 text-[#000000] dark:text-[#c4c4c4] flex items-center justify-center text-xs font-bold uppercase">
                   {(emailVerifyData.email || 'U').charAt(0)}
                 </span>
                 <span className="truncate max-w-[200px]">{emailVerifyData.email}</span>
@@ -1264,7 +1264,7 @@ export default function LoginView({
                     setIsChangingEmail(!isChangingEmail);
                     setErrorMsg('');
                   }}
-                  className="text-[12px] font-semibold text-[#0B57D0] dark:text-[#A8C7FA] hover:underline ml-1 cursor-pointer"
+                  className="text-[12px] font-semibold text-[#000000] dark:text-[#c4c4c4] hover:underline ml-1 cursor-pointer"
                 >
                   {isChangingEmail ? 'Cancel' : 'Change'}
                 </button>
@@ -1292,7 +1292,7 @@ export default function LoginView({
                       placeholder="name@example.com"
                       required
                       autoFocus
-                      className="w-full px-4 py-3 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#0B57D0] focus:ring-1 focus:ring-[#0B57D0]"
+                      className="w-full px-4 py-3 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000]"
                     />
                   </div>
 
@@ -1307,7 +1307,7 @@ export default function LoginView({
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      className="w-full px-4 py-3 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#0B57D0] focus:ring-1 focus:ring-[#0B57D0]"
+                      className="w-full px-4 py-3 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000]"
                     />
                   </div>
 
@@ -1315,14 +1315,14 @@ export default function LoginView({
                     <button
                       type="button"
                       onClick={() => setIsChangingEmail(false)}
-                      className="text-[14px] font-medium text-[#747775] hover:bg-[#F0F4F9] dark:hover:bg-[#28292A] px-3 py-2 rounded-full cursor-pointer"
+                      className="text-[14px] font-medium text-[#747775] hover:bg-[#f4f4f4] dark:hover:bg-[#292929] px-3 py-2 rounded-full cursor-pointer"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={loading || !newEmailInput.trim()}
-                      className="px-6 py-2.5 rounded-full bg-[#0B57D0] hover:bg-[#0842A0] text-white font-medium text-[14px] transition cursor-pointer disabled:opacity-50"
+                      className="px-6 py-2.5 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white font-medium text-[14px] transition cursor-pointer disabled:opacity-50"
                     >
                       {loading ? 'Updating...' : 'Update & Send Code'}
                     </button>
@@ -1352,7 +1352,7 @@ export default function LoginView({
                         placeholder="Enter code"
                         autoFocus
                         required
-                        className="w-full pl-12 pr-4 py-3.5 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-lg font-medium tracking-[0.25em] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#0B57D0] focus:ring-1 focus:ring-[#0B57D0] transition"
+                        className="w-full pl-12 pr-4 py-3.5 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-lg font-medium tracking-[0.25em] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition"
                       />
                     </div>
                   </div>
@@ -1362,7 +1362,7 @@ export default function LoginView({
                       type="button"
                       onClick={handleResendEmailVerification}
                       disabled={resendCountdown > 0 || loading}
-                      className="text-[14px] font-medium text-[#0B57D0] dark:text-[#A8C7FA] hover:bg-[#0B57D0]/10 px-3 py-2 rounded-full cursor-pointer disabled:opacity-50 flex items-center space-x-1"
+                      className="text-[14px] font-medium text-[#000000] dark:text-[#c4c4c4] hover:bg-[#000000]/10 px-3 py-2 rounded-full cursor-pointer disabled:opacity-50 flex items-center space-x-1"
                     >
                       <RotateCw className={`w-3.5 h-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} />
                       <span>{resendCountdown > 0 ? `Resend in ${resendCountdown}s` : 'Resend code'}</span>
@@ -1371,7 +1371,7 @@ export default function LoginView({
                     <button
                       type="submit"
                       disabled={loading || emailVerifyData.code.length !== 6}
-                      className="px-6 py-2.5 rounded-full bg-[#0B57D0] hover:bg-[#0842A0] text-white font-medium text-[14px] transition cursor-pointer disabled:opacity-50"
+                      className="px-6 py-2.5 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white font-medium text-[14px] transition cursor-pointer disabled:opacity-50"
                     >
                       {loading ? 'Verifying...' : 'Next'}
                     </button>
@@ -1397,7 +1397,7 @@ export default function LoginView({
 
               {/* User Chip */}
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#747775]/40 bg-transparent text-[13px] font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
-                <span className="w-5 h-5 rounded-full bg-[#0B57D0]/10 text-[#0B57D0] dark:text-[#A8C7FA] flex items-center justify-center text-xs font-bold uppercase">
+                <span className="w-5 h-5 rounded-full bg-[#000000]/10 text-[#000000] dark:text-[#c4c4c4] flex items-center justify-center text-xs font-bold uppercase">
                   {(twoFactorData.emailMasked || 'U').charAt(0)}
                 </span>
                 <span>{twoFactorData.emailMasked}</span>
@@ -1433,7 +1433,7 @@ export default function LoginView({
                       placeholder="Enter code"
                       autoFocus
                       required
-                      className="w-full pl-12 pr-4 py-3.5 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-lg font-medium tracking-[0.25em] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#0B57D0] focus:ring-1 focus:ring-[#0B57D0] transition"
+                      className="w-full pl-12 pr-4 py-3.5 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-lg font-medium tracking-[0.25em] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition"
                     />
                   </div>
                 </div>
@@ -1443,7 +1443,7 @@ export default function LoginView({
                     type="button"
                     onClick={handleResend2FA}
                     disabled={resendCountdown > 0 || loading}
-                    className="text-[14px] font-medium text-[#0B57D0] dark:text-[#A8C7FA] hover:bg-[#0B57D0]/10 px-3 py-2 rounded-full cursor-pointer disabled:opacity-50 flex items-center space-x-1"
+                    className="text-[14px] font-medium text-[#000000] dark:text-[#c4c4c4] hover:bg-[#000000]/10 px-3 py-2 rounded-full cursor-pointer disabled:opacity-50 flex items-center space-x-1"
                   >
                     <RotateCw className={`w-3.5 h-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} />
                     <span>{resendCountdown > 0 ? `Resend in ${resendCountdown}s` : 'Resend code'}</span>
@@ -1452,21 +1452,21 @@ export default function LoginView({
                   <button
                     type="submit"
                     disabled={loading || twoFactorData.code.length !== 6}
-                    className="px-6 py-2.5 rounded-full bg-[#0B57D0] hover:bg-[#0842A0] text-white font-medium text-[14px] transition cursor-pointer disabled:opacity-50"
+                    className="px-6 py-2.5 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white font-medium text-[14px] transition cursor-pointer disabled:opacity-50"
                   >
                     {loading ? 'Verifying...' : 'Next'}
                   </button>
                 </div>
               </form>
 
-              <div className="pt-2 text-left border-t border-[#DADCE0] dark:border-[#3C4043]">
+              <div className="pt-2 text-left border-t border-[#dcdcdc] dark:border-[#3f3f3f]">
                 <button
                   type="button"
                   onClick={() => {
                     setErrorMsg('');
                     setViewMode('login');
                   }}
-                  className="text-[13px] text-[#0B57D0] dark:text-[#A8C7FA] hover:underline cursor-pointer"
+                  className="text-[13px] text-[#000000] dark:text-[#c4c4c4] hover:underline cursor-pointer"
                 >
                   Try another way / Back to sign in
                 </button>
@@ -1480,7 +1480,7 @@ export default function LoginView({
           {viewMode === 'setup_2fa' && (
             <div className="space-y-4">
               <div>
-                <div className="w-10 h-10 rounded-full bg-[#0B57D0]/10 text-[#0B57D0] dark:text-[#A8C7FA] flex items-center justify-center mb-3">
+                <div className="w-10 h-10 rounded-full bg-[#000000]/10 text-[#000000] dark:text-[#c4c4c4] flex items-center justify-center mb-3">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <h1 className="text-[24px] font-normal text-[#1F1F1F] dark:text-[#E3E3E3] leading-tight">
@@ -1493,7 +1493,7 @@ export default function LoginView({
 
               {/* User Chip */}
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#747775]/40 bg-transparent text-[13px] font-medium text-[#1F1F1F] dark:text-[#E3E3E3]">
-                <span className="w-5 h-5 rounded-full bg-[#0B57D0]/10 text-[#0B57D0] dark:text-[#A8C7FA] flex items-center justify-center text-xs font-bold uppercase">
+                <span className="w-5 h-5 rounded-full bg-[#000000]/10 text-[#000000] dark:text-[#c4c4c4] flex items-center justify-center text-xs font-bold uppercase">
                   {(setup2FAData.emailMasked || 'U').charAt(0)}
                 </span>
                 <span>{setup2FAData.emailMasked}</span>
@@ -1529,7 +1529,7 @@ export default function LoginView({
                       placeholder="Enter code"
                       autoFocus
                       required
-                      className="w-full pl-12 pr-4 py-3.5 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-lg font-medium tracking-[0.25em] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#0B57D0] focus:ring-1 focus:ring-[#0B57D0] transition"
+                      className="w-full pl-12 pr-4 py-3.5 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-lg font-medium tracking-[0.25em] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition"
                     />
                   </div>
                 </div>
@@ -1539,7 +1539,7 @@ export default function LoginView({
                     type="button"
                     onClick={handleResendSetup2FA}
                     disabled={resendCountdown > 0 || loading}
-                    className="text-[14px] font-medium text-[#0B57D0] dark:text-[#A8C7FA] hover:bg-[#0B57D0]/10 px-3 py-2 rounded-full cursor-pointer disabled:opacity-50 flex items-center space-x-1"
+                    className="text-[14px] font-medium text-[#000000] dark:text-[#c4c4c4] hover:bg-[#000000]/10 px-3 py-2 rounded-full cursor-pointer disabled:opacity-50 flex items-center space-x-1"
                   >
                     <RotateCw className={`w-3.5 h-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} />
                     <span>{resendCountdown > 0 ? `Resend in ${resendCountdown}s` : 'Resend code'}</span>
@@ -1548,21 +1548,21 @@ export default function LoginView({
                   <button
                     type="submit"
                     disabled={loading || setup2FAData.code.length !== 6}
-                    className="px-6 py-2.5 rounded-full bg-[#0B57D0] hover:bg-[#0842A0] text-white font-medium text-[14px] transition cursor-pointer disabled:opacity-50"
+                    className="px-6 py-2.5 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white font-medium text-[14px] transition cursor-pointer disabled:opacity-50"
                   >
                     {loading ? 'Activating...' : 'Turn on 2FA'}
                   </button>
                 </div>
               </form>
 
-              <div className="pt-2 text-left border-t border-[#DADCE0] dark:border-[#3C4043]">
+              <div className="pt-2 text-left border-t border-[#dcdcdc] dark:border-[#3f3f3f]">
                 <button
                   type="button"
                   onClick={() => {
                     setErrorMsg('');
                     setViewMode('login');
                   }}
-                  className="text-[13px] text-[#0B57D0] dark:text-[#A8C7FA] hover:underline cursor-pointer"
+                  className="text-[13px] text-[#000000] dark:text-[#c4c4c4] hover:underline cursor-pointer"
                 >
                   Back to sign in
                 </button>
@@ -1600,7 +1600,7 @@ export default function LoginView({
                     placeholder="Email or Tiwi ID"
                     required
                     autoFocus
-                    className="w-full px-4 py-3.5 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#0B57D0] focus:ring-1 focus:ring-[#0B57D0] transition placeholder:text-[#747775]"
+                    className="w-full px-4 py-3.5 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition placeholder:text-[#747775]"
                   />
                 </div>
 
@@ -1611,7 +1611,7 @@ export default function LoginView({
                       setErrorMsg('');
                       setViewMode('login');
                     }}
-                    className="text-[14px] font-medium text-[#747775] hover:bg-[#F0F4F9] dark:hover:bg-[#28292A] px-3 py-2 rounded-full cursor-pointer"
+                    className="text-[14px] font-medium text-[#747775] hover:bg-[#f4f4f4] dark:hover:bg-[#292929] px-3 py-2 rounded-full cursor-pointer"
                   >
                     Back
                   </button>
@@ -1619,7 +1619,7 @@ export default function LoginView({
                   <button
                     type="submit"
                     disabled={loading || !identifier.trim()}
-                    className="px-6 py-2.5 rounded-full bg-[#0B57D0] hover:bg-[#0842A0] text-white font-medium text-[14px] transition cursor-pointer disabled:opacity-50"
+                    className="px-6 py-2.5 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white font-medium text-[14px] transition cursor-pointer disabled:opacity-50"
                   >
                     {loading ? 'Sending...' : 'Next'}
                   </button>
@@ -1668,7 +1668,7 @@ export default function LoginView({
                       placeholder="6-digit recovery code"
                       autoFocus
                       required
-                      className="w-full pl-12 pr-4 py-3 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-base font-medium tracking-[0.2em] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#0B57D0] focus:ring-1 focus:ring-[#0B57D0]"
+                      className="w-full pl-12 pr-4 py-3 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-base font-medium tracking-[0.2em] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000]"
                     />
                   </div>
                 </div>
@@ -1681,7 +1681,7 @@ export default function LoginView({
                       onChange={(e) => setResetData(prev => ({ ...prev, newPassword: e.target.value }))}
                       placeholder="New password (min 6 characters)"
                       required
-                      className="w-full pl-4 pr-11 py-3 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#0B57D0] focus:ring-1 focus:ring-[#0B57D0]"
+                      className="w-full pl-4 pr-11 py-3 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000]"
                     />
                     <button
                       type="button"
@@ -1700,7 +1700,7 @@ export default function LoginView({
                     onChange={(e) => setResetData(prev => ({ ...prev, confirmNewPassword: e.target.value }))}
                     placeholder="Confirm new password"
                     required
-                    className="w-full px-4 py-3 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#0B57D0] focus:ring-1 focus:ring-[#0B57D0]"
+                    className="w-full px-4 py-3 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000]"
                   />
                 </div>
 
@@ -1711,7 +1711,7 @@ export default function LoginView({
                       setErrorMsg('');
                       setViewMode('login');
                     }}
-                    className="text-[14px] font-medium text-[#747775] hover:bg-[#F0F4F9] dark:hover:bg-[#28292A] px-3 py-2 rounded-full cursor-pointer"
+                    className="text-[14px] font-medium text-[#747775] hover:bg-[#f4f4f4] dark:hover:bg-[#292929] px-3 py-2 rounded-full cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -1719,7 +1719,7 @@ export default function LoginView({
                   <button
                     type="submit"
                     disabled={loading || resetData.code.length !== 6 || resetData.newPassword.length < 6}
-                    className="px-6 py-2.5 rounded-full bg-[#0B57D0] hover:bg-[#0842A0] text-white font-medium text-[14px] transition cursor-pointer disabled:opacity-50"
+                    className="px-6 py-2.5 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white font-medium text-[14px] transition cursor-pointer disabled:opacity-50"
                   >
                     {loading ? 'Resetting...' : 'Change password'}
                   </button>

@@ -119,12 +119,12 @@ export default function ReportsView({
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Top Banner */}
-      <div className="bg-white dark:bg-[#111827] p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#181818] p-4 sm:p-5 rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-start space-x-3">
           {onBackToDashboard && (
             <button
               onClick={onBackToDashboard}
-              className="mt-0.5 p-2 rounded-xl bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-600 dark:text-slate-300 transition shadow-xs cursor-pointer"
+              className="mt-0.5 p-2 rounded-xl bg-neutral-100 dark:bg-gray-800 hover:bg-neutral-200 dark:hover:bg-gray-700 text-neutral-600 dark:text-neutral-300 transition shadow-xs cursor-pointer"
               title="Back to Dashboard"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -132,14 +132,14 @@ export default function ReportsView({
           )}
           <div>
             <div className="flex items-center space-x-2.5">
-              <span className="p-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 shrink-0">
+              <span className="p-2 rounded-xl bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 shrink-0">
                 <FileText className="w-5 h-5" />
               </span>
-              <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+              <h1 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-white tracking-tight">
                 Reports & Executive BI Ledger
               </h1>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 pl-1">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 pl-1">
               Generate formal accounting reports, inventory asset valuations, and restock schedules.
             </p>
           </div>
@@ -148,15 +148,15 @@ export default function ReportsView({
         <div className="flex items-center space-x-2.5 shrink-0">
           <button
             onClick={handlePrint}
-            className="flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-gray-700 shadow-xs transition cursor-pointer"
+            className="flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border border-neutral-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-gray-700 shadow-xs transition cursor-pointer"
           >
-            <Printer className="w-3.5 h-3.5 text-slate-500" />
+            <Printer className="w-3.5 h-3.5 text-neutral-500" />
             <span>Print Report</span>
           </button>
 
           <button
             onClick={handleExportReportCSV}
-            className="flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition cursor-pointer"
+            className="flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-neutral-600 hover:bg-neutral-700 text-white shadow-xs transition cursor-pointer"
           >
             <Download className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>Export CSV</span>
@@ -165,14 +165,14 @@ export default function ReportsView({
       </div>
 
       {/* Report Switcher & Filter Bar */}
-      <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center bg-slate-100 dark:bg-gray-800 p-1 rounded-xl overflow-x-auto max-w-full">
+      <div className="bg-white dark:bg-[#181818] p-3.5 sm:p-4 rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center bg-neutral-100 dark:bg-gray-800 p-1 rounded-xl overflow-x-auto max-w-full">
           <button
             onClick={() => setReportType('inventory-valuation')}
             className={`whitespace-nowrap px-3.5 py-1.5 text-xs font-bold rounded-lg transition ${
               reportType === 'inventory-valuation'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                ? 'bg-white dark:bg-gray-700 text-neutral-600 dark:text-neutral-400 shadow-xs'
+                : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
             }`}
           >
             Stock Valuation Audit
@@ -181,8 +181,8 @@ export default function ReportsView({
             onClick={() => setReportType('low-stock-reorder')}
             className={`whitespace-nowrap px-3.5 py-1.5 text-xs font-bold rounded-lg transition ${
               reportType === 'low-stock-reorder'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                ? 'bg-white dark:bg-gray-700 text-neutral-600 dark:text-neutral-400 shadow-xs'
+                : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
             }`}
           >
             Low Stock & Reorder Plan
@@ -191,8 +191,8 @@ export default function ReportsView({
             onClick={() => setReportType('category-matrix')}
             className={`whitespace-nowrap px-3.5 py-1.5 text-xs font-bold rounded-lg transition ${
               reportType === 'category-matrix'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                ? 'bg-white dark:bg-gray-700 text-neutral-600 dark:text-neutral-400 shadow-xs'
+                : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
             }`}
           >
             Category Distribution Matrix
@@ -200,11 +200,11 @@ export default function ReportsView({
         </div>
 
         <div className="flex items-center space-x-2 text-xs">
-          <Calendar className="w-3.5 h-3.5 text-slate-400" />
+          <Calendar className="w-3.5 h-3.5 text-neutral-400" />
           <select
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value)}
-            className="px-3 py-1.5 bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-700 dark:text-slate-200 font-medium focus:outline-none"
+            className="px-3 py-1.5 bg-neutral-50 dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 rounded-xl text-neutral-700 dark:text-neutral-200 font-medium focus:outline-none"
           >
             <option value="This Month">Current Accounting Month</option>
             <option value="This Quarter">Fiscal Q3 2025</option>
@@ -217,20 +217,20 @@ export default function ReportsView({
       {reportType === 'inventory-valuation' && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-[#111827] p-4 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-              <span className="text-xs text-slate-400 font-medium">Total Units Audited</span>
-              <p className="text-xl font-bold text-slate-900 dark:text-white mt-1">{totalUnits.toLocaleString()}</p>
+            <div className="bg-white dark:bg-[#181818] p-4 rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs">
+              <span className="text-xs text-neutral-400 font-medium">Total Units Audited</span>
+              <p className="text-xl font-bold text-neutral-900 dark:text-white mt-1">{totalUnits.toLocaleString()}</p>
             </div>
-            <div className="bg-white dark:bg-[#111827] p-4 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-              <span className="text-xs text-slate-400 font-medium">Total Retail Valuation</span>
-              <p className="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">{totalRetailVal === null ? 'Unavailable' : formatStoreCurrency(totalRetailVal, storeSettings)}</p>
+            <div className="bg-white dark:bg-[#181818] p-4 rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs">
+              <span className="text-xs text-neutral-400 font-medium">Total Retail Valuation</span>
+              <p className="text-xl font-bold text-neutral-600 dark:text-neutral-400 mt-1">{totalRetailVal === null ? 'Unavailable' : formatStoreCurrency(totalRetailVal, storeSettings)}</p>
             </div>
-            <div className="bg-white dark:bg-[#111827] p-4 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-              <span className="text-xs text-slate-400 font-medium">Recorded Cost Valuation</span>
-              <p className="text-xl font-bold text-slate-700 dark:text-slate-300 mt-1">{totalCostVal === null ? 'Incomplete' : formatStoreCurrency(totalCostVal, storeSettings)}</p>
+            <div className="bg-white dark:bg-[#181818] p-4 rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs">
+              <span className="text-xs text-neutral-400 font-medium">Recorded Cost Valuation</span>
+              <p className="text-xl font-bold text-neutral-700 dark:text-neutral-300 mt-1">{totalCostVal === null ? 'Incomplete' : formatStoreCurrency(totalCostVal, storeSettings)}</p>
             </div>
-            <div className="bg-white dark:bg-[#111827] p-4 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-              <span className="text-xs text-slate-400 font-medium">Estimated Gross Margin</span>
+            <div className="bg-white dark:bg-[#181818] p-4 rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs">
+              <span className="text-xs text-neutral-400 font-medium">Estimated Gross Margin</span>
               <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{totalGrossMargin === null ? '—' : formatStoreCurrency(totalGrossMargin, storeSettings)}</p>
             </div>
           </div>
@@ -238,10 +238,10 @@ export default function ReportsView({
             {valuation.unvaluedProductCount} stocked product(s) have no valid cost price, so total cost and margin cannot be calculated reliably.
           </p>}
 
-          <div className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/80 dark:border-gray-800 overflow-hidden shadow-xs">
+          <div className="bg-white dark:bg-[#181818] rounded-3xl border border-neutral-200/80 dark:border-gray-800 overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs min-w-[740px]">
-              <thead className="bg-[#F8FAFC] dark:bg-gray-800/60 border-b border-slate-100 dark:border-gray-800 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+              <thead className="bg-[#fafafa] dark:bg-gray-800/60 border-b border-neutral-100 dark:border-gray-800 text-neutral-400 font-semibold uppercase tracking-wider text-[11px]">
                 <tr>
                   <th className="py-3.5 px-4">Item & SKU</th>
                   <th className="py-3.5 px-4">Category</th>
@@ -253,7 +253,7 @@ export default function ReportsView({
                   <th className="py-3.5 px-4 text-right">Potential Profit</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-gray-800 font-medium">
+              <tbody className="divide-y divide-neutral-100 dark:divide-gray-800 font-medium">
                 {products.map((p) => {
                   const line = getInventoryLine(p);
                   const totalCost = line.costValueCents === null ? null : line.costValueCents / 100;
@@ -261,17 +261,17 @@ export default function ReportsView({
                   const margin = totalCost === null || totalRetail === null ? null : totalRetail - totalCost;
 
                   return (
-                    <tr key={p.id} className="hover:bg-slate-50/70 dark:hover:bg-gray-800/40">
+                    <tr key={p.id} className="hover:bg-neutral-50/70 dark:hover:bg-gray-800/40">
                       <td className="py-3.5 px-4">
-                        <span className="font-bold text-slate-900 dark:text-white block">{p.name}</span>
-                        <span className="font-mono text-[10px] text-slate-400">{p.sku}</span>
+                        <span className="font-bold text-neutral-900 dark:text-white block">{p.name}</span>
+                        <span className="font-mono text-[10px] text-neutral-400">{p.sku}</span>
                       </td>
-                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">{p.category}</td>
-                      <td className="py-3.5 px-4 font-bold text-slate-800 dark:text-white">{p.stock}</td>
-                      <td className="py-3.5 px-4 text-slate-500">{line.costCents === null ? 'Not recorded' : formatStoreCurrency(line.costCents / 100, storeSettings)}</td>
-                      <td className="py-3.5 px-4 text-slate-900 dark:text-white">{line.retailCents === null ? 'Invalid price' : formatStoreCurrency(line.retailCents / 100, storeSettings)}</td>
-                      <td className="py-3.5 px-4 text-slate-700 dark:text-slate-300">{totalCost === null ? '—' : formatStoreCurrency(totalCost, storeSettings)}</td>
-                      <td className="py-3.5 px-4 font-bold text-blue-600 dark:text-blue-400">{totalRetail === null ? '—' : formatStoreCurrency(totalRetail, storeSettings)}</td>
+                      <td className="py-3.5 px-4 text-neutral-600 dark:text-neutral-300">{p.category}</td>
+                      <td className="py-3.5 px-4 font-bold text-neutral-800 dark:text-white">{p.stock}</td>
+                      <td className="py-3.5 px-4 text-neutral-500">{line.costCents === null ? 'Not recorded' : formatStoreCurrency(line.costCents / 100, storeSettings)}</td>
+                      <td className="py-3.5 px-4 text-neutral-900 dark:text-white">{line.retailCents === null ? 'Invalid price' : formatStoreCurrency(line.retailCents / 100, storeSettings)}</td>
+                      <td className="py-3.5 px-4 text-neutral-700 dark:text-neutral-300">{totalCost === null ? '—' : formatStoreCurrency(totalCost, storeSettings)}</td>
+                      <td className="py-3.5 px-4 font-bold text-neutral-600 dark:text-neutral-400">{totalRetail === null ? '—' : formatStoreCurrency(totalRetail, storeSettings)}</td>
                       <td className="py-3.5 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">
                         {margin === null ? '—' : formatStoreCurrency(margin, storeSettings)}
                       </td>
@@ -286,15 +286,15 @@ export default function ReportsView({
       )}
 
       {reportType === 'low-stock-reorder' && (
-        <div className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/80 dark:border-gray-800 overflow-hidden shadow-xs">
-          <div className="p-4 border-b border-slate-100 dark:border-gray-800">
-            <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+        <div className="bg-white dark:bg-[#181818] rounded-3xl border border-neutral-200/80 dark:border-gray-800 overflow-hidden shadow-xs">
+          <div className="p-4 border-b border-neutral-100 dark:border-gray-800">
+            <h3 className="font-bold text-neutral-900 dark:text-white text-sm">
               Critical Reorder List ({lowStockProducts.length} items below minimum safety threshold)
             </h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs min-w-[700px]">
-            <thead className="bg-[#F8FAFC] dark:bg-gray-800/60 border-b border-slate-100 dark:border-gray-800 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+            <thead className="bg-[#fafafa] dark:bg-gray-800/60 border-b border-neutral-100 dark:border-gray-800 text-neutral-400 font-semibold uppercase tracking-wider text-[11px]">
               <tr>
                 <th className="py-3.5 px-4">Item & SKU</th>
                 <th className="py-3.5 px-4">Category</th>
@@ -305,20 +305,20 @@ export default function ReportsView({
                 <th className="py-3.5 px-4 text-right">Vendor Partner</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-gray-800 font-medium">
+            <tbody className="divide-y divide-neutral-100 dark:divide-gray-800 font-medium">
               {lowStockProducts.map((p) => {
                 const deficit = (p.minStock || 30) - p.stock;
                 const suggestedQty = Math.max(50, ((p.minStock || 30) * 2) - p.stock);
 
                 return (
-                  <tr key={p.id} className="hover:bg-slate-50/70 dark:hover:bg-gray-800/40">
-                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">{p.name} ({p.sku})</td>
-                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">{p.category}</td>
+                  <tr key={p.id} className="hover:bg-neutral-50/70 dark:hover:bg-gray-800/40">
+                    <td className="py-3.5 px-4 font-bold text-neutral-900 dark:text-white">{p.name} ({p.sku})</td>
+                    <td className="py-3.5 px-4 text-neutral-600 dark:text-neutral-300">{p.category}</td>
                     <td className="py-3.5 px-4 font-bold text-rose-600">{p.stock} units</td>
-                    <td className="py-3.5 px-4 text-slate-500">{p.minStock || 30} units</td>
+                    <td className="py-3.5 px-4 text-neutral-500">{p.minStock || 30} units</td>
                     <td className="py-3.5 px-4 font-bold text-amber-600">-{deficit}</td>
-                    <td className="py-3.5 px-4 font-bold text-blue-600">+{suggestedQty} units</td>
-                    <td className="py-3.5 px-4 text-right text-slate-600 dark:text-slate-300">
+                    <td className="py-3.5 px-4 font-bold text-neutral-600">+{suggestedQty} units</td>
+                    <td className="py-3.5 px-4 text-right text-neutral-600 dark:text-neutral-300">
                       {p.supplierName || 'Primary Supplier'}
                     </td>
                   </tr>
@@ -331,10 +331,10 @@ export default function ReportsView({
       )}
 
       {reportType === 'category-matrix' && (
-        <div className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/80 dark:border-gray-800 overflow-hidden shadow-xs">
+        <div className="bg-white dark:bg-[#181818] rounded-3xl border border-neutral-200/80 dark:border-gray-800 overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs min-w-[620px]">
-            <thead className="bg-[#F8FAFC] dark:bg-gray-800/60 border-b border-slate-100 dark:border-gray-800 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+            <thead className="bg-[#fafafa] dark:bg-gray-800/60 border-b border-neutral-100 dark:border-gray-800 text-neutral-400 font-semibold uppercase tracking-wider text-[11px]">
               <tr>
                 <th className="py-3.5 px-4">Category Name</th>
                 <th className="py-3.5 px-4">Active SKUs</th>
@@ -343,7 +343,7 @@ export default function ReportsView({
                 <th className="py-3.5 px-4 text-right">Retail Value ({currencyCode})</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-gray-800 font-medium">
+            <tbody className="divide-y divide-neutral-100 dark:divide-gray-800 font-medium">
               {categories.map((c) => {
                 const prods = products.filter(p => String(p.category || '').toLowerCase() === String(c.name || '').toLowerCase());
                 const units = prods.reduce((sum, p) => sum + (p.stock || 0), 0);
@@ -351,22 +351,22 @@ export default function ReportsView({
                 const percent = totalUnits > 0 ? Math.round((units / totalUnits) * 100) : 0;
 
                 return (
-                  <tr key={c.id} className="hover:bg-slate-50/70 dark:hover:bg-gray-800/40">
-                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white flex items-center space-x-2">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c.color || '#3B82F6' }}></span>
+                  <tr key={c.id} className="hover:bg-neutral-50/70 dark:hover:bg-gray-800/40">
+                    <td className="py-3.5 px-4 font-bold text-neutral-900 dark:text-white flex items-center space-x-2">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c.color || '#7b7b7b' }}></span>
                       <span>{c.name}</span>
                     </td>
-                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">{prods.length} products</td>
-                    <td className="py-3.5 px-4 font-bold text-slate-800 dark:text-white">{units} units</td>
+                    <td className="py-3.5 px-4 text-neutral-600 dark:text-neutral-300">{prods.length} products</td>
+                    <td className="py-3.5 px-4 font-bold text-neutral-800 dark:text-white">{units} units</td>
                     <td className="py-3.5 px-4">
                       <div className="flex items-center space-x-2">
-                        <div className="w-24 bg-slate-100 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${percent}%`, backgroundColor: c.color || '#3B82F6' }}></div>
+                        <div className="w-24 bg-neutral-100 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${percent}%`, backgroundColor: c.color || '#7b7b7b' }}></div>
                         </div>
-                        <span className="text-[11px] font-semibold text-slate-500">{percent}%</span>
+                        <span className="text-[11px] font-semibold text-neutral-500">{percent}%</span>
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 text-right font-bold text-blue-600 dark:text-blue-400">
+                    <td className="py-3.5 px-4 text-right font-bold text-neutral-600 dark:text-neutral-400">
                       {categoryValuation ? formatStoreCurrency(categoryValuation.retailValueCents / 100, storeSettings) : 'Unavailable'}
                     </td>
                   </tr>

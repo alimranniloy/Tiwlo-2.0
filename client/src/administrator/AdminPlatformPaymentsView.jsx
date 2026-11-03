@@ -147,9 +147,9 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
   const gatewayList = [
     { id: 'bkash', name: 'bKash', badge: 'Regular Checkout (URL)', color: '#E2136E' },
     { id: 'nagad', name: 'Nagad', badge: 'Direct Checkout', color: '#F7941D' },
-    { id: 'sslcommerz', name: 'SSLCOMMERZ', badge: 'Multi-card Hosted', color: '#006699' },
-    { id: 'paypal', name: 'PayPal', badge: 'Global Wallet', color: '#003087' },
-    { id: 'stripe', name: 'Stripe', badge: 'Credit / Debit Cards', color: '#635BFF' }
+    { id: 'sslcommerz', name: 'SSLCOMMERZ', badge: 'Multi-card Hosted', color: '#545454' },
+    { id: 'paypal', name: 'PayPal', badge: 'Global Wallet', color: '#2c2c2c' },
+    { id: 'stripe', name: 'Stripe', badge: 'Credit / Debit Cards', color: '#696969' }
   ];
 
   const currentGw = gateways[activeTab] || {};
@@ -159,27 +159,27 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
     <div className="space-y-6 font-sans antialiased text-[#1F1F1F] dark:text-[#E3E3E3] animate-in fade-in duration-150">
       
       {/* Top Header Card — Pure White Material */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 sm:p-7 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31]">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 sm:p-7 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
         <div className="flex items-center gap-3.5">
           <button
             type="button"
             onClick={onBackToDashboard}
-            className="w-9 h-9 rounded-full flex items-center justify-center bg-[#F0F4F9] hover:bg-[#E9EEF6] dark:bg-[#2C2D31] text-[#444746] dark:text-[#C4C7C5] transition cursor-pointer"
+            className="w-9 h-9 rounded-full flex items-center justify-center bg-[#f4f4f4] hover:bg-[#eeeeee] dark:bg-[#2d2d2d] text-[#444746] dark:text-[#C4C7C5] transition cursor-pointer"
             title="Back to Admin Dashboard"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <div className="flex items-center gap-2 text-[11px] font-medium tracking-wide text-[#5F6368] dark:text-[#9AA0A6]">
+            <div className="flex items-center gap-2 text-[11px] font-medium tracking-wide text-[#636363] dark:text-[#9f9f9f]">
               <span>Admin Console</span>
               <span className="text-[#C4C7C5] dark:text-[#444746]">/</span>
-              <span className="text-[#0B57D0] dark:text-[#8AB4F8]">Platform Billing</span>
+              <span className="text-[#000000] dark:text-[#b0b0b0]">Platform Billing</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-[#1F1F1F] dark:text-white mt-0.5 flex items-center gap-2.5">
-              <CreditCard className="w-6 h-6 text-[#0B57D0] dark:text-[#8AB4F8]" />
+              <CreditCard className="w-6 h-6 text-[#000000] dark:text-[#b0b0b0]" />
               <span>Platform Payment Gateways</span>
             </h1>
-            <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] mt-0.5">
+            <p className="text-xs text-[#636363] dark:text-[#9f9f9f] mt-0.5">
               Configure centralized payment credentials for Tiwlo Cloud Billing and user credit checkouts.
             </p>
           </div>
@@ -190,7 +190,7 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
             type="button"
             onClick={fetchGateways}
             disabled={loading || saving}
-            className="w-9 h-9 rounded-full flex items-center justify-center bg-[#F0F4F9] hover:bg-[#E9EEF6] dark:bg-[#2C2D31] text-[#444746] dark:text-[#C4C7C5] transition cursor-pointer"
+            className="w-9 h-9 rounded-full flex items-center justify-center bg-[#f4f4f4] hover:bg-[#eeeeee] dark:bg-[#2d2d2d] text-[#444746] dark:text-[#C4C7C5] transition cursor-pointer"
             title="Reload from database"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -199,7 +199,7 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
             type="button"
             onClick={handleSave}
             disabled={loading || saving}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#0B57D0] hover:bg-[#0842A0] text-white text-xs font-semibold shadow-xs transition cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white text-xs font-semibold shadow-xs transition cursor-pointer disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
             <span>{saving ? 'Saving...' : 'Save Configuration'}</span>
@@ -229,7 +229,7 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                 ? `${enabledCount} Payment Gateway(s) Active & Verified`
                 : 'No verified payment gateway configured'}
             </span>
-            <span className="mx-2 text-[#74777F] opacity-60">•</span>
+            <span className="mx-2 text-[#777777] opacity-60">•</span>
             <span className="font-normal opacity-90 text-xs">
               {enabledCount > 0
                 ? 'Users can top up Tiwlo Cloud Credits using these active gateway channels.'
@@ -254,8 +254,8 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                 onClick={() => setActiveTab(gw.id)}
                 className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
                   isSelected
-                    ? 'bg-white dark:bg-[#1E1F22] border-[#0B57D0] shadow-xs'
-                    : 'bg-white dark:bg-[#1E1F22] border-[#EDF0F5] dark:border-[#2C2D31] hover:bg-[#F8FAFD] dark:hover:bg-[#2C2D31]/40'
+                    ? 'bg-white dark:bg-[#1f1f1f] border-[#000000] shadow-xs'
+                    : 'bg-white dark:bg-[#1f1f1f] border-[#f0f0f0] dark:border-[#2d2d2d] hover:bg-[#fafafa] dark:hover:bg-[#2d2d2d]/40'
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -272,7 +272,7 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                         <span className="w-2 h-2 rounded-full bg-[#188038]" />
                       )}
                     </div>
-                    <div className="text-[11px] text-[#5F6368] dark:text-[#9AA0A6]">
+                    <div className="text-[11px] text-[#636363] dark:text-[#9f9f9f]">
                       {gw.badge}
                     </div>
                   </div>
@@ -282,11 +282,11 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                   <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
                     isEnabled
                       ? 'bg-[#E6F4EA] text-[#137333] border border-[#CEEAD6]'
-                      : 'bg-[#F0F4F9] text-[#5F6368] dark:bg-[#2C2D31] dark:text-[#9AA0A6]'
+                      : 'bg-[#f4f4f4] text-[#636363] dark:bg-[#2d2d2d] dark:text-[#9f9f9f]'
                   }`}>
                     {isEnabled ? 'Active' : 'Disabled'}
                   </span>
-                  <span className="text-[10px] text-[#5F6368] dark:text-[#9AA0A6] font-mono uppercase">
+                  <span className="text-[10px] text-[#636363] dark:text-[#9f9f9f] font-mono uppercase">
                     {mode}
                   </span>
                 </div>
@@ -296,27 +296,27 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
         </div>
 
         {/* Right Configuration Form — PURE WHITE */}
-        <div className="lg:col-span-8 bg-white dark:bg-[#1E1F22] rounded-2xl p-6 sm:p-8 border border-[#EDF0F5] dark:border-[#2C2D31]">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-[#F0F2F5] dark:border-[#2C2D31]">
+        <div className="lg:col-span-8 bg-white dark:bg-[#1f1f1f] rounded-2xl p-6 sm:p-8 border border-[#f0f0f0] dark:border-[#2d2d2d]">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-[#f2f2f2] dark:border-[#2d2d2d]">
             <div>
               <h2 className="text-lg font-semibold text-[#1F1F1F] dark:text-white tracking-tight">
                 {currentGw.name || activeTab.toUpperCase()}
               </h2>
-              <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] mt-0.5">
+              <p className="text-xs text-[#636363] dark:text-[#9f9f9f] mt-0.5">
                 Supported currencies: {currentGw.currencies?.join(', ') || 'USD'}
               </p>
             </div>
 
             <div className="flex items-center gap-4">
               {/* Mode Switcher */}
-              <div className="inline-flex p-1 bg-[#F0F4F9] dark:bg-[#2C2D31] rounded-full border border-[#E0E2EC] dark:border-[#3C4043]">
+              <div className="inline-flex p-1 bg-[#f4f4f4] dark:bg-[#2d2d2d] rounded-full border border-[#e2e2e2] dark:border-[#3f3f3f]">
                 <button
                   type="button"
                   onClick={() => handleFieldChange(activeTab, 'mode', activeTab === 'stripe' ? 'test' : 'sandbox')}
                   className={`px-3 py-1 rounded-full text-xs font-medium transition cursor-pointer ${
                     currentGw.mode !== 'live'
-                      ? 'bg-white dark:bg-[#1E1F22] text-[#0B57D0] dark:text-[#8AB4F8] shadow-2xs font-semibold'
-                      : 'text-[#5F6368] hover:text-[#1F1F1F]'
+                      ? 'bg-white dark:bg-[#1f1f1f] text-[#000000] dark:text-[#b0b0b0] shadow-2xs font-semibold'
+                      : 'text-[#636363] hover:text-[#1F1F1F]'
                   }`}
                 >
                   {activeTab === 'stripe' ? 'Test Mode' : 'Sandbox'}
@@ -326,8 +326,8 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                   onClick={() => handleFieldChange(activeTab, 'mode', 'live')}
                   className={`px-3 py-1 rounded-full text-xs font-medium transition cursor-pointer ${
                     currentGw.mode === 'live'
-                      ? 'bg-white dark:bg-[#1E1F22] text-[#0B57D0] dark:text-[#8AB4F8] shadow-2xs font-semibold'
-                      : 'text-[#5F6368] hover:text-[#1F1F1F]'
+                      ? 'bg-white dark:bg-[#1f1f1f] text-[#000000] dark:text-[#b0b0b0] shadow-2xs font-semibold'
+                      : 'text-[#636363] hover:text-[#1F1F1F]'
                   }`}
                 >
                   Live Production
@@ -342,7 +342,7 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                   aria-checked={Boolean(currentGw.enabled)}
                   onClick={() => handleFieldChange(activeTab, 'enabled', !currentGw.enabled)}
                   className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                    currentGw.enabled ? 'bg-[#188038]' : 'bg-[#E0E2EC] dark:bg-[#3C4043]'
+                    currentGw.enabled ? 'bg-[#188038]' : 'bg-[#e2e2e2] dark:bg-[#3f3f3f]'
                   }`}
                 >
                   <span
@@ -363,7 +363,7 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
             {activeTab === 'bkash' && (
               <>
                 <div>
-                  <label className="block text-xs font-medium text-[#5F6368] dark:text-[#9AA0A6] mb-1.5">
+                  <label className="block text-xs font-medium text-[#636363] dark:text-[#9f9f9f] mb-1.5">
                     bKash App Key
                   </label>
                   <input
@@ -371,12 +371,12 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                     value={currentGw.appKey || ''}
                     onChange={(e) => handleFieldChange('bkash', 'appKey', e.target.value)}
                     placeholder="e.g. 4fxxxxxxxxxxxxxxxx"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#0B57D0]"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#e2e2e2] dark:border-[#3f3f3f] bg-[#fafafa] dark:bg-[#2d2d2d] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#000000]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-[#5F6368] dark:text-[#9AA0A6] mb-1.5">
+                  <label className="block text-xs font-medium text-[#636363] dark:text-[#9f9f9f] mb-1.5">
                     bKash App Secret
                   </label>
                   <div className="relative">
@@ -385,12 +385,12 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                       value={currentGw.appSecret || ''}
                       onChange={(e) => handleFieldChange('bkash', 'appSecret', e.target.value)}
                       placeholder="Enter bKash App Secret"
-                      className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#0B57D0]"
+                      className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-[#e2e2e2] dark:border-[#3f3f3f] bg-[#fafafa] dark:bg-[#2d2d2d] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#000000]"
                     />
                     <button
                       type="button"
                       onClick={() => toggleShowSecret('bkashSecret')}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#5F6368] hover:text-[#1F1F1F]"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#636363] hover:text-[#1F1F1F]"
                     >
                       {showSecrets.bkashSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -399,7 +399,7 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-[#5F6368] dark:text-[#9AA0A6] mb-1.5">
+                    <label className="block text-xs font-medium text-[#636363] dark:text-[#9f9f9f] mb-1.5">
                       Username
                     </label>
                     <input
@@ -407,11 +407,11 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                       value={currentGw.username || ''}
                       onChange={(e) => handleFieldChange('bkash', 'username', e.target.value)}
                       placeholder="Merchant username"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs text-[#1F1F1F] dark:text-white outline-none focus:border-[#0B57D0]"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#e2e2e2] dark:border-[#3f3f3f] bg-[#fafafa] dark:bg-[#2d2d2d] text-xs text-[#1F1F1F] dark:text-white outline-none focus:border-[#000000]"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-[#5F6368] dark:text-[#9AA0A6] mb-1.5">
+                    <label className="block text-xs font-medium text-[#636363] dark:text-[#9f9f9f] mb-1.5">
                       Password
                     </label>
                     <div className="relative">
@@ -420,12 +420,12 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                         value={currentGw.password || ''}
                         onChange={(e) => handleFieldChange('bkash', 'password', e.target.value)}
                         placeholder="Merchant password"
-                        className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs text-[#1F1F1F] dark:text-white outline-none focus:border-[#0B57D0]"
+                        className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-[#e2e2e2] dark:border-[#3f3f3f] bg-[#fafafa] dark:bg-[#2d2d2d] text-xs text-[#1F1F1F] dark:text-white outline-none focus:border-[#000000]"
                       />
                       <button
                         type="button"
                         onClick={() => toggleShowSecret('bkashPassword')}
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#5F6368] hover:text-[#1F1F1F]"
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#636363] hover:text-[#1F1F1F]"
                       >
                         {showSecrets.bkashPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -438,7 +438,7 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
             {activeTab === 'nagad' && (
               <>
                 <div>
-                  <label className="block text-xs font-medium text-[#5F6368] dark:text-[#9AA0A6] mb-1.5">
+                  <label className="block text-xs font-medium text-[#636363] dark:text-[#9f9f9f] mb-1.5">
                     Nagad Merchant ID
                   </label>
                   <input
@@ -446,12 +446,12 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                     value={currentGw.merchantId || ''}
                     onChange={(e) => handleFieldChange('nagad', 'merchantId', e.target.value)}
                     placeholder="e.g. 68xxxxxxxx"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#0B57D0]"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#e2e2e2] dark:border-[#3f3f3f] bg-[#fafafa] dark:bg-[#2d2d2d] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#000000]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-[#5F6368] dark:text-[#9AA0A6] mb-1.5">
+                  <label className="block text-xs font-medium text-[#636363] dark:text-[#9f9f9f] mb-1.5">
                     Merchant Private Key
                   </label>
                   <textarea
@@ -459,12 +459,12 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                     value={currentGw.merchantPrivateKey || ''}
                     onChange={(e) => handleFieldChange('nagad', 'merchantPrivateKey', e.target.value)}
                     placeholder="-----BEGIN RSA PRIVATE KEY-----"
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#0B57D0]"
+                    className="w-full px-3.5 py-2 rounded-xl border border-[#e2e2e2] dark:border-[#3f3f3f] bg-[#fafafa] dark:bg-[#2d2d2d] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#000000]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-[#5F6368] dark:text-[#9AA0A6] mb-1.5">
+                  <label className="block text-xs font-medium text-[#636363] dark:text-[#9f9f9f] mb-1.5">
                     Nagad Public Key
                   </label>
                   <textarea
@@ -472,7 +472,7 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                     value={currentGw.nagadPublicKey || ''}
                     onChange={(e) => handleFieldChange('nagad', 'nagadPublicKey', e.target.value)}
                     placeholder="-----BEGIN PUBLIC KEY-----"
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#0B57D0]"
+                    className="w-full px-3.5 py-2 rounded-xl border border-[#e2e2e2] dark:border-[#3f3f3f] bg-[#fafafa] dark:bg-[#2d2d2d] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#000000]"
                   />
                 </div>
               </>
@@ -481,7 +481,7 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
             {activeTab === 'sslcommerz' && (
               <>
                 <div>
-                  <label className="block text-xs font-medium text-[#5F6368] dark:text-[#9AA0A6] mb-1.5">
+                  <label className="block text-xs font-medium text-[#636363] dark:text-[#9f9f9f] mb-1.5">
                     SSLCOMMERZ Store ID
                   </label>
                   <input
@@ -489,12 +489,12 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                     value={currentGw.storeId || ''}
                     onChange={(e) => handleFieldChange('sslcommerz', 'storeId', e.target.value)}
                     placeholder="e.g. tiwlolive001"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#0B57D0]"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#e2e2e2] dark:border-[#3f3f3f] bg-[#fafafa] dark:bg-[#2d2d2d] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#000000]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-[#5F6368] dark:text-[#9AA0A6] mb-1.5">
+                  <label className="block text-xs font-medium text-[#636363] dark:text-[#9f9f9f] mb-1.5">
                     Store Password
                   </label>
                   <div className="relative">
@@ -503,12 +503,12 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                       value={currentGw.storePassword || ''}
                       onChange={(e) => handleFieldChange('sslcommerz', 'storePassword', e.target.value)}
                       placeholder="Store password / API key"
-                      className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#0B57D0]"
+                      className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-[#e2e2e2] dark:border-[#3f3f3f] bg-[#fafafa] dark:bg-[#2d2d2d] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#000000]"
                     />
                     <button
                       type="button"
                       onClick={() => toggleShowSecret('sslPass')}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#5F6368] hover:text-[#1F1F1F]"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#636363] hover:text-[#1F1F1F]"
                     >
                       {showSecrets.sslPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -520,7 +520,7 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
             {activeTab === 'paypal' && (
               <>
                 <div>
-                  <label className="block text-xs font-medium text-[#5F6368] dark:text-[#9AA0A6] mb-1.5">
+                  <label className="block text-xs font-medium text-[#636363] dark:text-[#9f9f9f] mb-1.5">
                     PayPal Client ID
                   </label>
                   <input
@@ -528,12 +528,12 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                     value={currentGw.clientId || ''}
                     onChange={(e) => handleFieldChange('paypal', 'clientId', e.target.value)}
                     placeholder="e.g. Axxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#0B57D0]"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#e2e2e2] dark:border-[#3f3f3f] bg-[#fafafa] dark:bg-[#2d2d2d] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#000000]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-[#5F6368] dark:text-[#9AA0A6] mb-1.5">
+                  <label className="block text-xs font-medium text-[#636363] dark:text-[#9f9f9f] mb-1.5">
                     PayPal Client Secret
                   </label>
                   <div className="relative">
@@ -542,12 +542,12 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                       value={currentGw.clientSecret || ''}
                       onChange={(e) => handleFieldChange('paypal', 'clientSecret', e.target.value)}
                       placeholder="Client Secret"
-                      className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#0B57D0]"
+                      className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-[#e2e2e2] dark:border-[#3f3f3f] bg-[#fafafa] dark:bg-[#2d2d2d] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#000000]"
                     />
                     <button
                       type="button"
                       onClick={() => toggleShowSecret('paypalSecret')}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#5F6368] hover:text-[#1F1F1F]"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#636363] hover:text-[#1F1F1F]"
                     >
                       {showSecrets.paypalSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -559,7 +559,7 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
             {activeTab === 'stripe' && (
               <>
                 <div>
-                  <label className="block text-xs font-medium text-[#5F6368] dark:text-[#9AA0A6] mb-1.5">
+                  <label className="block text-xs font-medium text-[#636363] dark:text-[#9f9f9f] mb-1.5">
                     Stripe Publishable Key
                   </label>
                   <input
@@ -567,12 +567,12 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                     value={currentGw.publishableKey || ''}
                     onChange={(e) => handleFieldChange('stripe', 'publishableKey', e.target.value)}
                     placeholder="pk_live_... or pk_test_..."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#0B57D0]"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#e2e2e2] dark:border-[#3f3f3f] bg-[#fafafa] dark:bg-[#2d2d2d] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#000000]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-[#5F6368] dark:text-[#9AA0A6] mb-1.5">
+                  <label className="block text-xs font-medium text-[#636363] dark:text-[#9f9f9f] mb-1.5">
                     Stripe Secret Key
                   </label>
                   <div className="relative">
@@ -581,12 +581,12 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                       value={currentGw.secretKey || ''}
                       onChange={(e) => handleFieldChange('stripe', 'secretKey', e.target.value)}
                       placeholder="sk_live_... or sk_test_..."
-                      className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#0B57D0]"
+                      className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-[#e2e2e2] dark:border-[#3f3f3f] bg-[#fafafa] dark:bg-[#2d2d2d] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#000000]"
                     />
                     <button
                       type="button"
                       onClick={() => toggleShowSecret('stripeSecret')}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#5F6368] hover:text-[#1F1F1F]"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#636363] hover:text-[#1F1F1F]"
                     >
                       {showSecrets.stripeSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -594,7 +594,7 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-[#5F6368] dark:text-[#9AA0A6] mb-1.5">
+                  <label className="block text-xs font-medium text-[#636363] dark:text-[#9f9f9f] mb-1.5">
                     Stripe Webhook Signing Secret
                   </label>
                   <div className="relative">
@@ -603,17 +603,17 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
                       value={currentGw.webhookSecret || ''}
                       onChange={(e) => handleFieldChange('stripe', 'webhookSecret', e.target.value)}
                       placeholder="whsec_..."
-                      className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#0B57D0]"
+                      className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-[#e2e2e2] dark:border-[#3f3f3f] bg-[#fafafa] dark:bg-[#2d2d2d] text-xs font-mono text-[#1F1F1F] dark:text-white outline-none focus:border-[#000000]"
                     />
                     <button
                       type="button"
                       onClick={() => toggleShowSecret('stripeWebhook')}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#5F6368] hover:text-[#1F1F1F]"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#636363] hover:text-[#1F1F1F]"
                     >
                       {showSecrets.stripeWebhook ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  <p className="mt-1.5 text-[11px] text-[#5F6368] dark:text-[#9AA0A6]">
+                  <p className="mt-1.5 text-[11px] text-[#636363] dark:text-[#9f9f9f]">
                     Stripe credit top-up webhook endpoint: <span className="font-mono">{window.location.origin}/api/cloud/billing/credits/stripe/webhook</span>
                   </p>
                 </div>
@@ -622,9 +622,9 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
           </div>
 
           {/* Security & Action Footer */}
-          <div className="mt-8 pt-6 border-t border-[#F0F2F5] dark:border-[#2C2D31] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-xs text-[#5F6368] dark:text-[#9AA0A6]">
-              <Lock className="w-3.5 h-3.5 text-[#0B57D0] shrink-0" />
+          <div className="mt-8 pt-6 border-t border-[#f2f2f2] dark:border-[#2d2d2d] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-2 text-xs text-[#636363] dark:text-[#9f9f9f]">
+              <Lock className="w-3.5 h-3.5 text-[#000000] shrink-0" />
               <span>Credentials persist encrypted directly in PostgreSQL system_settings.</span>
             </div>
 
@@ -632,7 +632,7 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
               type="button"
               onClick={handleSave}
               disabled={loading || saving}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#0B57D0] hover:bg-[#0842A0] text-white text-xs font-semibold shadow-xs transition cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white text-xs font-semibold shadow-xs transition cursor-pointer disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
               <span>{saving ? 'Saving...' : 'Save Configuration'}</span>

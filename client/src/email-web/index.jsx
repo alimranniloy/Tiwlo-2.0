@@ -25,7 +25,7 @@ function OutlookEmailLayout() {
 
   if (mailboxLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0F172A] text-sm text-slate-500">
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-[#171717] text-sm text-neutral-500">
         Checking your Tiwlo Mail account…
       </div>
     );
@@ -33,9 +33,9 @@ function OutlookEmailLayout() {
 
   if (mailboxError) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-slate-50 dark:bg-[#0F172A] px-6 text-center">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-neutral-50 dark:bg-[#171717] px-6 text-center">
         <p className="max-w-md text-sm text-red-600 dark:text-red-300">{mailboxError}</p>
-        <button type="button" onClick={refreshMailbox} className="rounded-lg bg-[#0078D4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#106EBE]">
+        <button type="button" onClick={refreshMailbox} className="rounded-lg bg-[#656565] px-4 py-2 text-sm font-semibold text-white hover:bg-[#606060]">
           Retry connection
         </button>
       </div>
@@ -45,7 +45,7 @@ function OutlookEmailLayout() {
   if (!mailbox) return <MailboxSetup />;
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#F8FAFC] dark:bg-[#0F172A] text-slate-800 dark:text-slate-100 font-sans antialiased overflow-hidden">
+    <div className="h-screen w-screen flex flex-col bg-[#fafafa] dark:bg-[#171717] text-neutral-800 dark:text-neutral-100 font-sans antialiased overflow-hidden">
       {/* 1. Top App Header */}
       <OutlookHeader onSignOut={onSignOut} />
 
@@ -68,8 +68,8 @@ function OutlookEmailLayout() {
               className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
             />
             {/* Drawer */}
-            <div className="relative w-[280px] max-w-[85vw] h-full bg-white dark:bg-[#18181B] shadow-2xl flex flex-col z-10 animate-slideRight">
-              <div className="p-3.5 bg-[#0078D4] text-white flex items-center justify-between">
+            <div className="relative w-[280px] max-w-[85vw] h-full bg-white dark:bg-[#181818] shadow-2xl flex flex-col z-10 animate-slideRight">
+              <div className="p-3.5 bg-[#656565] text-white flex items-center justify-between">
                 <span className="font-bold text-[14px]">Mail Folders</span>
                 <button
                   type="button"

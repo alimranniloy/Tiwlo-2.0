@@ -91,8 +91,8 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
 
   if (loading) {
     return (
-      <div className="bg-white border border-[#E0E2EC] rounded-2xl p-16 text-center max-w-4xl mx-auto shadow-none">
-        <RotateCw className="w-6 h-6 text-[#0B57D0] animate-spin mx-auto mb-3" />
+      <div className="bg-white border border-[#e2e2e2] rounded-2xl p-16 text-center max-w-4xl mx-auto shadow-none">
+        <RotateCw className="w-6 h-6 text-[#000000] animate-spin mx-auto mb-3" />
         <p className="text-[13px] text-[#444746]">Loading service details...</p>
       </div>
     );
@@ -100,13 +100,13 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
 
   if (!service) {
     return (
-      <div className="bg-white border border-[#E0E2EC] rounded-2xl p-12 text-center max-w-2xl mx-auto space-y-4 shadow-none">
+      <div className="bg-white border border-[#e2e2e2] rounded-2xl p-12 text-center max-w-2xl mx-auto space-y-4 shadow-none">
         <AlertTriangle className="w-10 h-10 text-[#B3261E] mx-auto" />
         <h2 className="text-lg font-medium text-[#1F1F1F]">Service Not Found</h2>
         <p className="text-[13px] text-[#444746]">The requested workspace service does not exist.</p>
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0B57D0] hover:bg-[#0842A0] text-white text-[13px] font-medium rounded-full transition-colors cursor-pointer"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#000000] hover:bg-[#3c3c3c] text-white text-[13px] font-medium rounded-full transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Workspace</span>
@@ -118,11 +118,11 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-16 font-sans bg-white">
       {/* 1. Modern Google Header with Material 3 Breadcrumbs */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#E0E2EC] pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#e2e2e2] pb-5">
         <div>
           <button
             onClick={onBack}
-            className="inline-flex items-center gap-2 text-[13px] font-medium text-[#0B57D0] hover:text-[#0842A0] cursor-pointer mb-2.5"
+            className="inline-flex items-center gap-2 text-[13px] font-medium text-[#000000] hover:text-[#3c3c3c] cursor-pointer mb-2.5"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Workspace</span>
@@ -132,9 +132,9 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
 
           <div className="flex items-center gap-3">
             {service.logoUrl ? (
-              <img src={service.logoUrl} alt="" className="w-10 h-10 rounded-xl object-contain bg-white border border-[#E0E2EC] p-1" />
+              <img src={service.logoUrl} alt="" className="w-10 h-10 rounded-xl object-contain bg-white border border-[#e2e2e2] p-1" />
             ) : (
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white ${service.iconType === 'discord' ? 'bg-[#5865F2]' : service.iconType === 'whatsapp' ? 'bg-[#25D366]' : 'bg-[#0B57D0]'}`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white ${service.iconType === 'discord' ? 'bg-[#6c6c6c]' : service.iconType === 'whatsapp' ? 'bg-[#25D366]' : 'bg-[#000000]'}`}>
                 <ProductIcon className="w-5 h-5" />
               </div>
             )}
@@ -142,7 +142,7 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium ${
               String(service.status).toLowerCase() === 'active'
                 ? 'bg-[#C4EED0] text-[#072711]'
-                : 'bg-[#F0F4F9] text-[#444746]'
+                : 'bg-[#f4f4f4] text-[#444746]'
             }`}>
               <span className={`w-2 h-2 rounded-full ${
                 String(service.status).toLowerCase() === 'active' ? 'bg-[#137333]' : 'bg-[#747775]'
@@ -150,7 +150,7 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
               {service.status || 'Status unavailable'}
             </span>
           </div>
-          <p className="text-xs text-[#5F6368] mt-1">
+          <p className="text-xs text-[#636363] mt-1">
             Product: <span className="font-medium text-[#1F1F1F]">{service.productName || service.category || 'Workspace service'}</span>
             <span className="text-[#747775]"> · Enabled in Workspace (provider connection is separate)</span>
           </p>
@@ -163,7 +163,7 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
             <button
               type="button"
               onClick={() => onNavigate?.(service.managePath)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-[#000000] hover:bg-[#3c3c3c] rounded-full transition-colors cursor-pointer"
             >
               <ExternalLink className="w-3.5 h-3.5" />
               <span>Manage {service.productName || 'product'}</span>
@@ -171,14 +171,14 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
           )}
           <button
             onClick={() => onNavigate?.('workspace/billing')}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-[#0B57D0] bg-white border border-[#747775]/30 hover:bg-[#F0F4F9] rounded-full transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-[#000000] bg-white border border-[#747775]/30 hover:bg-[#f4f4f4] rounded-full transition-colors cursor-pointer"
           >
-            <CreditCard className="w-3.5 h-3.5 text-[#0B57D0]" />
+            <CreditCard className="w-3.5 h-3.5 text-[#000000]" />
             <span>Plan & billing</span>
           </button>
           <button
             onClick={() => onNavigate?.('workspace/operations')}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-[#444746] bg-white border border-[#747775]/30 hover:bg-[#F0F4F9] rounded-full transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-[#444746] bg-white border border-[#747775]/30 hover:bg-[#f4f4f4] rounded-full transition-colors cursor-pointer"
           >
             <Activity className="w-3.5 h-3.5 text-[#444746]" />
             <span>Audit log</span>
@@ -198,8 +198,8 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
             onClick={() => setActiveTab(t.id)}
             className={`px-4 py-2 rounded-full font-medium cursor-pointer transition-colors ${
               activeTab === t.id
-                ? 'bg-[#C2E7FF] text-[#001D35]'
-                : 'text-[#444746] hover:bg-[#F0F4F9]'
+                ? 'bg-[#e1e1e1] text-[#191919]'
+                : 'text-[#444746] hover:bg-[#f4f4f4]'
             }`}
           >
             {t.label}
@@ -229,8 +229,8 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
       {activeTab === 'overview' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-2 space-y-6">
-            <div className="bg-white border border-[#E0E2EC] rounded-2xl p-6 space-y-4 shadow-none">
-              <h2 className="text-[15px] font-medium text-[#1F1F1F] border-b border-[#F0F4F9] pb-3">
+            <div className="bg-white border border-[#e2e2e2] rounded-2xl p-6 space-y-4 shadow-none">
+              <h2 className="text-[15px] font-medium text-[#1F1F1F] border-b border-[#f4f4f4] pb-3">
                 Service Properties
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-[13px]">
@@ -253,8 +253,8 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
               </div>
             </div>
 
-            <div className="bg-white border border-[#E0E2EC] rounded-2xl p-6 space-y-3 shadow-none">
-              <h2 className="text-[15px] font-medium text-[#1F1F1F] border-b border-[#F0F4F9] pb-3">
+            <div className="bg-white border border-[#e2e2e2] rounded-2xl p-6 space-y-3 shadow-none">
+              <h2 className="text-[15px] font-medium text-[#1F1F1F] border-b border-[#f4f4f4] pb-3">
                 Health & SLA Telemetry
               </h2>
               <div className="flex items-center gap-3 text-[13px] text-[#444746]">
@@ -266,17 +266,17 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
 
           {/* Quick Actions sidebar */}
           <div className="space-y-4">
-            <div className="bg-white border border-[#E0E2EC] rounded-2xl p-5 space-y-3 shadow-none">
+            <div className="bg-white border border-[#e2e2e2] rounded-2xl p-5 space-y-3 shadow-none">
               <h3 className="text-[14px] font-medium text-[#1F1F1F]">Quick Actions</h3>
               <button
                 onClick={() => setActiveTab('configuration')}
-                className="w-full text-left py-2 px-3 text-[13px] rounded-xl hover:bg-[#F0F4F9] text-[#0B57D0] font-medium transition-colors"
+                className="w-full text-left py-2 px-3 text-[13px] rounded-xl hover:bg-[#f4f4f4] text-[#000000] font-medium transition-colors"
               >
                 Edit configuration →
               </button>
               <button
                 onClick={() => onNavigate?.('workspace/operations')}
-                className="w-full text-left py-2 px-3 text-[13px] rounded-xl hover:bg-[#F0F4F9] text-[#444746] transition-colors"
+                className="w-full text-left py-2 px-3 text-[13px] rounded-xl hover:bg-[#f4f4f4] text-[#444746] transition-colors"
               >
                 View audit history →
               </button>
@@ -287,8 +287,8 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
 
       {/* 5. Tab: Configuration Form */}
       {activeTab === 'configuration' && (
-        <form onSubmit={handleSave} className="bg-white border border-[#E0E2EC] rounded-2xl p-6 sm:p-7 max-w-2xl space-y-5 shadow-none">
-          <h2 className="text-[16px] font-medium text-[#1F1F1F] border-b border-[#F0F4F9] pb-3">
+        <form onSubmit={handleSave} className="bg-white border border-[#e2e2e2] rounded-2xl p-6 sm:p-7 max-w-2xl space-y-5 shadow-none">
+          <h2 className="text-[16px] font-medium text-[#1F1F1F] border-b border-[#f4f4f4] pb-3">
             Update Service Settings
           </h2>
 
@@ -299,7 +299,7 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:bg-white focus:border-[#0B57D0] focus:outline-none transition-colors"
+              className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:bg-white focus:border-[#000000] focus:outline-none transition-colors"
             >
               <option value="Active">Active in Workspace</option>
               <option value="Paused">Paused in Workspace</option>
@@ -319,7 +319,7 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
                   const s = servers.find((item) => item.id === e.target.value);
                   if (s) setServerName(s.name);
                 }}
-                className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:bg-white focus:border-[#0B57D0] focus:outline-none transition-colors"
+                className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:bg-white focus:border-[#000000] focus:outline-none transition-colors"
               >
                 <option value="">No Discord server selected</option>
                 {servers.map((s) => (
@@ -338,7 +338,7 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
             <select
               value={plan}
               onChange={(e) => setPlan(e.target.value)}
-              className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:bg-white focus:border-[#0B57D0] focus:outline-none transition-colors"
+              className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:bg-white focus:border-[#000000] focus:outline-none transition-colors"
             >
               <option value="Free">Free Community Tier</option>
               <option value="Standard">Standard Tier ($9.99/mo)</option>
@@ -346,18 +346,18 @@ export default function WorkspaceServiceDetailView({ serviceId, onBack, onNaviga
             </select>
           </div>
 
-          <div className="pt-4 border-t border-[#F0F4F9] flex items-center justify-end gap-3">
+          <div className="pt-4 border-t border-[#f4f4f4] flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={() => setActiveTab('overview')}
-              className="px-4 py-2 text-[13px] font-medium text-[#444746] bg-white border border-[#747775]/30 hover:bg-[#F0F4F9] rounded-full"
+              className="px-4 py-2 text-[13px] font-medium text-[#444746] bg-white border border-[#747775]/30 hover:bg-[#f4f4f4] rounded-full"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-1.5 px-5 py-2 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-colors disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-5 py-2 text-[13px] font-medium text-white bg-[#000000] hover:bg-[#3c3c3c] rounded-full transition-colors disabled:opacity-50 cursor-pointer"
             >
               {saving ? <RotateCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               <span>Save Configuration</span>

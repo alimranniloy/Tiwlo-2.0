@@ -41,14 +41,14 @@ export default function SocialRightPanel() {
   return (
     <div className="w-full flex flex-col gap-5 select-none">
       {/* 1. Sosmed Stories Card matching screenshot */}
-      <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+      <div className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-[14.5px] text-[#111827] dark:text-white">
+          <h3 className="font-bold text-[14.5px] text-[#181818] dark:text-white">
             Sosmed Stories
           </h3>
           <button
             type="button"
-            className="text-[#9CA3AF] hover:text-[#111827] dark:hover:text-white transition cursor-pointer"
+            className="text-[#a2a2a2] hover:text-[#181818] dark:hover:text-white transition cursor-pointer"
           >
             <MoreHorizontal className="w-4 h-4" />
           </button>
@@ -59,14 +59,14 @@ export default function SocialRightPanel() {
           onClick={() => navigateTo('create-story')}
           className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition cursor-pointer mb-2"
         >
-          <div className="w-10 h-10 rounded-full border-2 border-[#1E75FF] text-[#1E75FF] flex items-center justify-center flex-shrink-0">
+          <div className="w-10 h-10 rounded-full border-2 border-[#6c6c6c] text-[#6c6c6c] flex items-center justify-center flex-shrink-0">
             <Plus className="w-5 h-5 stroke-[2.5]" />
           </div>
           <div className="flex flex-col min-w-0 leading-tight">
-            <span className="font-bold text-[13px] text-[#111827] dark:text-white">
+            <span className="font-bold text-[13px] text-[#181818] dark:text-white">
               Create Your Story
             </span>
-            <span className="text-[11px] text-[#9CA3AF] truncate">
+            <span className="text-[11px] text-[#a2a2a2] truncate">
               Click button beside to create yours.
             </span>
           </div>
@@ -83,13 +83,13 @@ export default function SocialRightPanel() {
               <img
                 src={story.avatar}
                 alt={story.name}
-                className="w-10 h-10 rounded-full object-cover ring-2 ring-transparent hover:ring-[#1E75FF] transition flex-shrink-0"
+                className="w-10 h-10 rounded-full object-cover ring-2 ring-transparent hover:ring-[#6c6c6c] transition flex-shrink-0"
               />
               <div className="flex flex-col min-w-0 leading-tight">
-                <span className="font-bold text-[13px] text-[#111827] dark:text-white truncate">
+                <span className="font-bold text-[13px] text-[#181818] dark:text-white truncate">
                   {story.name}
                 </span>
-                <span className="text-[11px] text-[#9CA3AF] truncate mt-0.5">
+                <span className="text-[11px] text-[#a2a2a2] truncate mt-0.5">
                   {story.time}
                 </span>
               </div>
@@ -101,21 +101,21 @@ export default function SocialRightPanel() {
         <button
           type="button"
           onClick={() => showToast('All stories loaded', 'info')}
-          className="w-full py-2.5 rounded-xl bg-[#F0F5FF] dark:bg-[#1E75FF]/10 hover:bg-[#E5EFFF] dark:hover:bg-[#1E75FF]/20 text-[#1E75FF] font-bold text-[11.5px] uppercase tracking-wider transition-colors cursor-pointer text-center"
+          className="w-full py-2.5 rounded-xl bg-[#f5f5f5] dark:bg-[#6c6c6c]/10 hover:bg-[#eeeeee] dark:hover:bg-[#6c6c6c]/20 text-[#6c6c6c] font-bold text-[11.5px] uppercase tracking-wider transition-colors cursor-pointer text-center"
         >
           See All
         </button>
       </div>
 
       {/* 2. Events Card matching screenshot */}
-      <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+      <div className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-[14.5px] text-[#111827] dark:text-white">
+          <h3 className="font-bold text-[14.5px] text-[#181818] dark:text-white">
             Events
           </h3>
           <button
             type="button"
-            className="text-[#9CA3AF] hover:text-[#111827] dark:hover:text-white transition cursor-pointer"
+            className="text-[#a2a2a2] hover:text-[#181818] dark:hover:text-white transition cursor-pointer"
           >
             <MoreHorizontal className="w-4 h-4" />
           </button>
@@ -126,8 +126,8 @@ export default function SocialRightPanel() {
             onClick={() => navigateTo('events')}
             className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition cursor-pointer text-left"
           >
-            <Calendar className="w-4 h-4 text-[#9CA3AF] flex-shrink-0 stroke-[1.8]" />
-            <span className="text-[13px] font-medium text-[#374151] dark:text-[#D1D5DB] truncate">
+            <Calendar className="w-4 h-4 text-[#a2a2a2] flex-shrink-0 stroke-[1.8]" />
+            <span className="text-[13px] font-medium text-[#404040] dark:text-[#d5d5d5] truncate">
               10 Events Invites
             </span>
           </div>
@@ -136,8 +136,8 @@ export default function SocialRightPanel() {
             onClick={() => navigateTo('events')}
             className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition cursor-pointer text-left"
           >
-            <Gift className="w-4 h-4 text-[#9CA3AF] flex-shrink-0 stroke-[1.8]" />
-            <span className="text-[13px] font-medium text-[#374151] dark:text-[#D1D5DB] truncate">
+            <Gift className="w-4 h-4 text-[#a2a2a2] flex-shrink-0 stroke-[1.8]" />
+            <span className="text-[13px] font-medium text-[#404040] dark:text-[#d5d5d5] truncate">
               Prada's Invitation Birthday
             </span>
           </div>
@@ -145,15 +145,15 @@ export default function SocialRightPanel() {
       </div>
 
       {/* 3. Suggested Pages Card matching screenshot */}
-      <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+      <div className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold text-[14.5px] text-[#111827] dark:text-white">
+          <h3 className="font-bold text-[14.5px] text-[#181818] dark:text-white">
             Suggested Pages
           </h3>
           <button
             type="button"
             onClick={() => navigateTo('communities')}
-            className="text-[#1E75FF] font-bold text-[11px] uppercase tracking-wider hover:underline cursor-pointer"
+            className="text-[#6c6c6c] font-bold text-[11px] uppercase tracking-wider hover:underline cursor-pointer"
           >
             See All
           </button>
@@ -162,14 +162,14 @@ export default function SocialRightPanel() {
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
             {/* Colorful gradient circle logo for Sebo Studio */}
-            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-xs shadow-xs flex-shrink-0">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-neutral-400 via-neutral-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-xs shadow-xs flex-shrink-0">
               S
             </div>
             <div className="flex flex-col leading-tight">
-              <span className="font-bold text-[13.5px] text-[#111827] dark:text-white">
+              <span className="font-bold text-[13.5px] text-[#181818] dark:text-white">
                 Sebo Studio
               </span>
-              <span className="text-[11.5px] text-[#9CA3AF]">
+              <span className="text-[11.5px] text-[#a2a2a2]">
                 Design Studio
               </span>
             </div>

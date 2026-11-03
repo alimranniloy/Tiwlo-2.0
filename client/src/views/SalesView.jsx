@@ -127,7 +127,7 @@ export default function SalesView({
         height: 48,
         margin: 8,
         background: '#ffffff',
-        lineColor: '#111827'
+        lineColor: '#181818'
       });
       dataUrl = canvas.toDataURL('image/png');
     } catch (barcodeError) {
@@ -441,28 +441,28 @@ export default function SalesView({
         <div className="flex items-center space-x-3 mb-2">
           <button
             onClick={() => setIsNewSaleOpen(false)}
-            className="p-2 rounded-xl bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-600 dark:text-slate-300 transition shadow-xs cursor-pointer"
+            className="p-2 rounded-xl bg-neutral-100 dark:bg-gray-800 hover:bg-neutral-200 dark:hover:bg-gray-700 text-neutral-600 dark:text-neutral-300 transition shadow-xs cursor-pointer"
             title="Back to Sales"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white">New Point of Sale Order</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Process in-store checkout, select payment method, and generate invoice</p>
+            <h1 className="text-xl font-bold text-neutral-900 dark:text-white">New Point of Sale Order</h1>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">Process in-store checkout, select payment method, and generate invoice</p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-gray-800 p-6 shadow-xs">
+        <div className="bg-white dark:bg-[#181818] rounded-2xl border border-neutral-200/80 dark:border-gray-800 p-6 shadow-xs">
           <form onSubmit={handleCreateSale} className="space-y-4 text-xs">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                   Customer
                 </label>
                 <select
                   value={saleCustomerId}
                   onChange={(e) => setSaleCustomerId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white"
+                  className="w-full px-3 py-2 bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl text-neutral-800 dark:text-white"
                 >
                   <option value="">Walk-in Customer</option>
                   {customers.map((c) => (
@@ -474,7 +474,7 @@ export default function SalesView({
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                   Payment Method
                 </label>
                 <select
@@ -483,7 +483,7 @@ export default function SalesView({
                     setSalePaymentMethod(e.target.value);
                     setSalePaymentReference('');
                   }}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white"
+                  className="w-full px-3 py-2 bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl text-neutral-800 dark:text-white"
                 >
                   <option value="Cash">Cash</option>
                   <option value="Credit Card">Credit Card</option>
@@ -493,7 +493,7 @@ export default function SalesView({
               </div>
               {salePaymentMethod !== 'Cash' && (
                 <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                  <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                     External transaction reference
                   </label>
                   <input
@@ -502,7 +502,7 @@ export default function SalesView({
                     value={salePaymentReference}
                     onChange={event => setSalePaymentReference(event.target.value)}
                     placeholder="Receipt or transaction number"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
+                    className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
                   />
                   <p className="mt-1 text-[11px] text-amber-700">This records your external payment confirmation; Tiwlo does not charge or verify it.</p>
                 </div>
@@ -511,13 +511,13 @@ export default function SalesView({
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="font-semibold text-slate-700 dark:text-slate-200">
+                <label className="font-semibold text-neutral-700 dark:text-neutral-200">
                   Cart Items
                 </label>
                 <button
                   type="button"
                   onClick={handleAddItemRow}
-                  className="text-blue-600 dark:text-blue-400 font-semibold hover:underline cursor-pointer"
+                  className="text-neutral-600 dark:text-neutral-400 font-semibold hover:underline cursor-pointer"
                 >
                   + Add Item
                 </button>
@@ -525,7 +525,7 @@ export default function SalesView({
 
               <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                 {saleItems.map((item, idx) => (
-                  <div key={idx} className="flex items-center space-x-2 bg-slate-50 dark:bg-gray-800 p-2.5 rounded-xl border border-slate-100 dark:border-gray-700">
+                  <div key={idx} className="flex items-center space-x-2 bg-neutral-50 dark:bg-gray-800 p-2.5 rounded-xl border border-neutral-100 dark:border-gray-700">
                     <select
                       value={item.productId}
                       onChange={(e) => {
@@ -536,7 +536,7 @@ export default function SalesView({
                         if (found?.price) updated[idx].unitPrice = found.price;
                         setSaleItems(updated);
                       }}
-                      className="flex-1 px-2.5 py-1.5 bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-lg text-slate-800 dark:text-white"
+                      className="flex-1 px-2.5 py-1.5 bg-white dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-lg text-neutral-800 dark:text-white"
                     >
                       {products.map((p) => (
                         <option key={p.id} value={p.id} disabled={p.stock <= 0}>
@@ -554,10 +554,10 @@ export default function SalesView({
                         updated[idx].quantity = parseInt(e.target.value) || 1;
                         setSaleItems(updated);
                       }}
-                      className="w-16 px-2 py-1.5 bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-lg text-center font-bold"
+                      className="w-16 px-2 py-1.5 bg-white dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-lg text-center font-bold"
                     />
 
-                    <span className="w-20 font-bold text-right text-slate-800 dark:text-white">
+                    <span className="w-20 font-bold text-right text-neutral-800 dark:text-white">
                       {formatStoreCurrency(item.quantity * item.unitPrice, storeSettings)}
                     </span>
 
@@ -565,7 +565,7 @@ export default function SalesView({
                       <button
                         type="button"
                         onClick={() => setSaleItems(saleItems.filter((_, i) => i !== idx))}
-                        className="p-1 text-slate-400 hover:text-rose-500 cursor-pointer"
+                        className="p-1 text-neutral-400 hover:text-rose-500 cursor-pointer"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -577,7 +577,7 @@ export default function SalesView({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                   Discount ($)
                 </label>
                 <input
@@ -586,11 +586,11 @@ export default function SalesView({
                   step="0.5"
                   value={saleDiscount}
                   onChange={(e) => setSaleDiscount(parseFloat(e.target.value) || 0)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white"
+                  className="w-full px-3 py-2 bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl text-neutral-800 dark:text-white"
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                   Notes
                 </label>
                 <input
@@ -598,22 +598,22 @@ export default function SalesView({
                   placeholder="e.g. Counter #2 sale"
                   value={saleNotes}
                   onChange={(e) => setSaleNotes(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white"
+                  className="w-full px-3 py-2 bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl text-neutral-800 dark:text-white"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100 dark:border-gray-800">
+            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-neutral-100 dark:border-gray-800">
               <button
                 type="button"
                 onClick={() => setIsNewSaleOpen(false)}
-                className="px-4 py-2 font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-800 rounded-xl transition cursor-pointer"
+                className="px-4 py-2 font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-gray-800 rounded-xl transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition cursor-pointer"
+                className="px-5 py-2 font-semibold text-white bg-neutral-600 hover:bg-neutral-700 rounded-xl shadow-xs transition cursor-pointer"
               >
                 Process Sale
               </button>
@@ -629,55 +629,55 @@ export default function SalesView({
     return (
       <div className="max-w-3xl mx-auto space-y-5">
         <div className="flex items-center gap-3">
-          <button onClick={() => setManagingOrder(null)} className="rounded-xl bg-slate-100 p-2 text-slate-600" aria-label="Back to orders">
+          <button onClick={() => setManagingOrder(null)} className="rounded-xl bg-neutral-100 p-2 text-neutral-600" aria-label="Back to orders">
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Manage order {managingOrder.invoiceNumber}</h1>
-            <p className="text-xs text-slate-500">{managingOrder.customerName} · {managingOrder.customerPhone || 'No phone number'}</p>
+            <h1 className="text-xl font-bold text-neutral-900 dark:text-white">Manage order {managingOrder.invoiceNumber}</h1>
+            <p className="text-xs text-neutral-500">{managingOrder.customerName} · {managingOrder.customerPhone || 'No phone number'}</p>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
-          <div className="flex items-start gap-2 rounded-xl bg-blue-50 p-3 text-xs text-blue-900">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5 space-y-4">
+          <div className="flex items-start gap-2 rounded-xl bg-neutral-50 p-3 text-xs text-neutral-900">
             <Truck className="h-4 w-4 shrink-0" />
             <p>Bangladesh couriers are available for manual booking. Create the shipment in your courier account, then save its service, tracking number and public tracking URL here. International courier integrations can be offered later as marketplace plugins.</p>
           </div>
           {managingOrder.deliveryAddress && (
-            <div className="flex items-start gap-2 text-xs text-slate-600">
-              <MapPin className="h-4 w-4 shrink-0 text-slate-400" />
+            <div className="flex items-start gap-2 text-xs text-neutral-600">
+              <MapPin className="h-4 w-4 shrink-0 text-neutral-400" />
               <span>{managingOrder.deliveryAddress}</span>
             </div>
           )}
           <form onSubmit={saveOrderUpdates} className="grid sm:grid-cols-2 gap-3">
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-neutral-700">
               Order status
-              <select name="status" value={orderForm.status} onChange={updateField} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5">
+              <select name="status" value={orderForm.status} onChange={updateField} className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5">
                 {['Pending', 'Confirmed', 'Processing', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled', 'Returned'].map(status => (
                   <option key={status} value={status}>{status}</option>
                 ))}
               </select>
             </label>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
-              <p className="font-semibold text-slate-700">Payment: {managingOrder.paymentStatus || 'Pending'}</p>
-              <p className="mt-1 text-[11px] text-slate-500">Payment status is system-controlled. Gateway payments update after verification; collect COD from this order after delivery.</p>
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-xs">
+              <p className="font-semibold text-neutral-700">Payment: {managingOrder.paymentStatus || 'Pending'}</p>
+              <p className="mt-1 text-[11px] text-neutral-500">Payment status is system-controlled. Gateway payments update after verification; collect COD from this order after delivery.</p>
             </div>
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-neutral-700">
               Customer name
-              <input name="customerName" value={orderForm.customerName} disabled={!['Pending', 'Confirmed'].includes(managingOrder.status || 'Pending')} onChange={updateField} maxLength={120} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 disabled:bg-slate-50" />
+              <input name="customerName" value={orderForm.customerName} disabled={!['Pending', 'Confirmed'].includes(managingOrder.status || 'Pending')} onChange={updateField} maxLength={120} className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5 disabled:bg-neutral-50" />
             </label>
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-neutral-700">
               Customer phone
-              <input name="customerPhone" value={orderForm.customerPhone} disabled={!['Pending', 'Confirmed'].includes(managingOrder.status || 'Pending')} onChange={updateField} maxLength={40} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 disabled:bg-slate-50" />
+              <input name="customerPhone" value={orderForm.customerPhone} disabled={!['Pending', 'Confirmed'].includes(managingOrder.status || 'Pending')} onChange={updateField} maxLength={40} className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5 disabled:bg-neutral-50" />
             </label>
-            <label className="text-xs font-semibold text-slate-700 sm:col-span-2">
+            <label className="text-xs font-semibold text-neutral-700 sm:col-span-2">
               Customer email
-              <input type="email" name="customerEmail" value={orderForm.customerEmail} disabled={!['Pending', 'Confirmed'].includes(managingOrder.status || 'Pending')} onChange={updateField} maxLength={254} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 disabled:bg-slate-50" />
+              <input type="email" name="customerEmail" value={orderForm.customerEmail} disabled={!['Pending', 'Confirmed'].includes(managingOrder.status || 'Pending')} onChange={updateField} maxLength={254} className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5 disabled:bg-neutral-50" />
             </label>
-            <div className="sm:col-span-2 grid gap-3 rounded-xl border border-slate-200 p-3 sm:grid-cols-2">
-              <h3 className="sm:col-span-2 text-xs font-bold text-slate-800">Delivery address</h3>
+            <div className="sm:col-span-2 grid gap-3 rounded-xl border border-neutral-200 p-3 sm:grid-cols-2">
+              <h3 className="sm:col-span-2 text-xs font-bold text-neutral-800">Delivery address</h3>
               {['street', 'city', 'region', 'postalCode', 'country'].map(field => (
-                <label key={field} className="text-[11px] font-semibold capitalize text-slate-600">
+                <label key={field} className="text-[11px] font-semibold capitalize text-neutral-600">
                   {field}
                   <input
                     value={orderForm.shippingAddress?.[field] || ''}
@@ -686,11 +686,11 @@ export default function SalesView({
                       ...current,
                       shippingAddress: { ...current.shippingAddress, [field]: event.target.value }
                     }))}
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-2 disabled:bg-slate-50"
+                    className="mt-1 w-full rounded-lg border border-neutral-300 px-2.5 py-2 disabled:bg-neutral-50"
                   />
                 </label>
               ))}
-              <label className="sm:col-span-2 flex items-center gap-2 text-[11px] font-semibold text-slate-600">
+              <label className="sm:col-span-2 flex items-center gap-2 text-[11px] font-semibold text-neutral-600">
                 <input type="checkbox" checked={Boolean(orderForm.billingAddress)} disabled={!['Pending', 'Confirmed'].includes(managingOrder.status || 'Pending')} onChange={event => setOrderForm(current => ({
                   ...current,
                   billingAddress: event.target.checked
@@ -700,7 +700,7 @@ export default function SalesView({
                 Separate billing address
               </label>
               {orderForm.billingAddress && ['street', 'city', 'region', 'postalCode', 'country'].map(field => (
-                <label key={`billing-${field}`} className="text-[11px] font-semibold capitalize text-slate-600">
+                <label key={`billing-${field}`} className="text-[11px] font-semibold capitalize text-neutral-600">
                   Billing {field}
                   <input
                     value={orderForm.billingAddress[field] || ''}
@@ -709,14 +709,14 @@ export default function SalesView({
                       ...current,
                       billingAddress: { ...current.billingAddress, [field]: event.target.value }
                     }))}
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-2.5 py-2 disabled:bg-slate-50"
+                    className="mt-1 w-full rounded-lg border border-neutral-300 px-2.5 py-2 disabled:bg-neutral-50"
                   />
                 </label>
               ))}
             </div>
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-neutral-700">
               Courier service
-              <select name="courierService" value={orderForm.courierService} onChange={updateField} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5">
+              <select name="courierService" value={orderForm.courierService} onChange={updateField} className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5">
                 <option value="">Not assigned</option>
                 {BANGLADESH_COURIER_SERVICES.map(service => (
                   <option key={service} value={service}>{service}</option>
@@ -726,24 +726,24 @@ export default function SalesView({
                 )}
               </select>
             </label>
-            <label className="text-xs font-semibold text-slate-700">
+            <label className="text-xs font-semibold text-neutral-700">
               Tracking number
-              <input name="trackingNumber" value={orderForm.trackingNumber} onChange={updateField} maxLength={120} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5" />
+              <input name="trackingNumber" value={orderForm.trackingNumber} onChange={updateField} maxLength={120} className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5" />
             </label>
-            <label className="text-xs font-semibold text-slate-700 sm:col-span-2">
+            <label className="text-xs font-semibold text-neutral-700 sm:col-span-2">
               Courier tracking URL (HTTPS)
-              <input type="url" name="trackingUrl" value={orderForm.trackingUrl} onChange={updateField} maxLength={500} placeholder="https://courier.example/track/..." className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5" />
+              <input type="url" name="trackingUrl" value={orderForm.trackingUrl} onChange={updateField} maxLength={500} placeholder="https://courier.example/track/..." className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5" />
             </label>
-            <button disabled={savingOrder} className="sm:col-span-2 inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-xs font-bold text-white disabled:opacity-60">
+            <button disabled={savingOrder} className="sm:col-span-2 inline-flex items-center justify-center gap-2 rounded-xl bg-neutral-600 px-4 py-3 text-xs font-bold text-white disabled:opacity-60">
               <Save className="h-4 w-4" />
               {savingOrder ? 'Saving...' : 'Save order update'}
             </button>
           </form>
-          <div className="border-t border-slate-100 pt-4">
-            <h2 className="mb-3 text-xs font-bold text-slate-800">Status history</h2>
+          <div className="border-t border-neutral-100 pt-4">
+            <h2 className="mb-3 text-xs font-bold text-neutral-800">Status history</h2>
             <ol className="space-y-2">
               {(managingOrder.statusHistory || [{ status: managingOrder.status, at: managingOrder.date }]).map((entry, index) => (
-                <li key={`${entry.status}-${entry.at}-${index}`} className="flex justify-between gap-3 text-xs text-slate-600">
+                <li key={`${entry.status}-${entry.at}-${index}`} className="flex justify-between gap-3 text-xs text-neutral-600">
                   <span>{entry.status}</span>
                   <time dateTime={entry.at}>{entry.at ? new Date(entry.at).toLocaleString() : ''}</time>
                 </li>
@@ -751,28 +751,28 @@ export default function SalesView({
             </ol>
           </div>
           {(managingOrder.orderEditHistory || []).length > 0 && (
-            <div className="border-t border-slate-100 pt-4">
-              <h2 className="mb-3 text-xs font-bold text-slate-800">Order detail change history</h2>
+            <div className="border-t border-neutral-100 pt-4">
+              <h2 className="mb-3 text-xs font-bold text-neutral-800">Order detail change history</h2>
               <ol className="space-y-2">
                 {managingOrder.orderEditHistory.map((entry, index) => (
-                  <li key={`${entry.at}-${index}`} className="text-xs text-slate-600">
+                  <li key={`${entry.at}-${index}`} className="text-xs text-neutral-600">
                     <span className="font-semibold capitalize">{entry.actorType}</span> changed {entry.changedFields?.join(', ')} · {entry.at ? new Date(entry.at).toLocaleString() : ''}
                   </li>
                 ))}
               </ol>
             </div>
           )}
-          <div className="border-t border-slate-100 pt-4">
-            <h2 className="mb-2 text-xs font-bold text-slate-800">Refund requests & processing history</h2>
-            <p className="mb-3 text-[10px] text-slate-500">Approved bKash, Stripe and PayPal refunds can be sent to the gateway. Other methods remain manual. If a gateway response is uncertain, verify the provider dashboard before recording a manual result.</p>
+          <div className="border-t border-neutral-100 pt-4">
+            <h2 className="mb-2 text-xs font-bold text-neutral-800">Refund requests & processing history</h2>
+            <p className="mb-3 text-[10px] text-neutral-500">Approved bKash, Stripe and PayPal refunds can be sent to the gateway. Other methods remain manual. If a gateway response is uncertain, verify the provider dashboard before recording a manual result.</p>
             {(managingOrder.refundHistory || []).map(refund => (
-              <div key={refund.id} className="mb-3 rounded-xl border border-slate-200 p-3">
+              <div key={refund.id} className="mb-3 rounded-xl border border-neutral-200 p-3">
                 <div className="flex flex-wrap justify-between gap-2 text-xs">
                   <strong>{formatStoreCurrency(refund.amount, { ...storeSettings, currency: refund.currency || storeSettings.currency })}</strong>
-                  <span className="font-semibold capitalize text-slate-600">{refund.status.replaceAll('_', ' ')}</span>
+                  <span className="font-semibold capitalize text-neutral-600">{refund.status.replaceAll('_', ' ')}</span>
                 </div>
-                <p className="mt-1 text-xs text-slate-600">{refund.reason}</p>
-                <ol className="mt-2 space-y-1 text-[10px] text-slate-500">
+                <p className="mt-1 text-xs text-neutral-600">{refund.reason}</p>
+                <ol className="mt-2 space-y-1 text-[10px] text-neutral-500">
                   {(refund.events || []).map((event, index) => <li key={`${event.at}-${index}`}>{event.action.replaceAll('-', ' ')} · {event.at ? new Date(event.at).toLocaleString() : ''}{event.note ? ` · ${event.note}` : ''}{event.reference ? ` · Ref ${event.reference}` : ''}</li>)}
                 </ol>
                 {['requested', 'approved', 'gateway_unknown', 'gateway_pending'].includes(refund.status) && (
@@ -791,12 +791,12 @@ export default function SalesView({
                               type="button"
                               disabled={savingOrder}
                               onClick={() => updateRefund(refund, 'gateway-process')}
-                              className="rounded-lg bg-blue-600 px-3 py-1.5 text-[10px] font-bold text-white disabled:opacity-50"
+                              className="rounded-lg bg-neutral-600 px-3 py-1.5 text-[10px] font-bold text-white disabled:opacity-50"
                             >
                               Refund via {managingOrder.paymentGateway.provider}
                             </button>
                           )}
-                        <input value={refundReference} onChange={event => setRefundReference(event.target.value)} maxLength={160} placeholder="External/manual refund reference" className="min-w-48 flex-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[10px]" />
+                        <input value={refundReference} onChange={event => setRefundReference(event.target.value)} maxLength={160} placeholder="External/manual refund reference" className="min-w-48 flex-1 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-[10px]" />
                         <button type="button" disabled={savingOrder || refundReference.trim().length < 3} onClick={() => updateRefund(refund, 'manual-process')} className="rounded-lg bg-amber-600 px-3 py-1.5 text-[10px] font-bold text-white disabled:opacity-50">Record manual refund</button>
                       </>
                     )}
@@ -805,7 +805,7 @@ export default function SalesView({
                         <p className="basis-full text-[10px] text-amber-700">
                           Verify this refund in {refund.gatewayProvider || managingOrder.paymentGateway?.provider || 'the payment provider'} before recording it manually. Do not start a duplicate gateway refund.
                         </p>
-                        <input value={refundReference} onChange={event => setRefundReference(event.target.value)} maxLength={160} placeholder="Verified provider refund reference" className="min-w-48 flex-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[10px]" />
+                        <input value={refundReference} onChange={event => setRefundReference(event.target.value)} maxLength={160} placeholder="Verified provider refund reference" className="min-w-48 flex-1 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-[10px]" />
                         <button type="button" disabled={savingOrder || refundReference.trim().length < 3} onClick={() => updateRefund(refund, 'manual-process')} className="rounded-lg bg-amber-600 px-3 py-1.5 text-[10px] font-bold text-white disabled:opacity-50">Record verified refund</button>
                       </>
                     )}
@@ -813,14 +813,14 @@ export default function SalesView({
                 )}
               </div>
             ))}
-            {(managingOrder.refundHistory || []).length === 0 && <p className="text-xs text-slate-500">No refund requests recorded.</p>}
+            {(managingOrder.refundHistory || []).length === 0 && <p className="text-xs text-neutral-500">No refund requests recorded.</p>}
           </div>
           {managingOrder.trackingUrl && (
             <a
               href={managingOrder.trackingUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:underline"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-600 hover:underline"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Open courier tracking page
@@ -837,27 +837,27 @@ export default function SalesView({
         <div className="flex items-center space-x-3 mb-2">
           <button
             onClick={() => setViewingInvoice(null)}
-            className="p-2 rounded-xl bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-600 dark:text-slate-300 transition shadow-xs cursor-pointer"
+            className="p-2 rounded-xl bg-neutral-100 dark:bg-gray-800 hover:bg-neutral-200 dark:hover:bg-gray-700 text-neutral-600 dark:text-neutral-300 transition shadow-xs cursor-pointer"
             title="Back to Sales"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Invoice: {viewingInvoice.invoiceNumber}</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Order date: {new Date(viewingInvoice.date).toLocaleString()}</p>
+            <h1 className="text-xl font-bold text-neutral-900 dark:text-white">Invoice: {viewingInvoice.invoiceNumber}</h1>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">Order date: {new Date(viewingInvoice.date).toLocaleString()}</p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-gray-800 p-6 shadow-xs">
-          <div className="border-b border-slate-200 dark:border-gray-800 pb-4 mb-4 flex justify-between items-start">
+        <div className="bg-white dark:bg-[#181818] rounded-2xl border border-neutral-200/80 dark:border-gray-800 p-6 shadow-xs">
+          <div className="border-b border-neutral-200 dark:border-gray-800 pb-4 mb-4 flex justify-between items-start">
             <div>
               <div className="flex items-center space-x-2">
                 <img src="/tiwlo-icon.png" alt="Tiwlo" className="w-5 h-5 object-contain dark:hidden" />
                 <img src="/tiwlo-icon-dark.png" alt="Tiwlo" className="w-5 h-5 object-contain hidden dark:block" />
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Tiwlo Commerce</h2>
+                <h2 className="text-xl font-bold text-neutral-900 dark:text-white tracking-tight">Tiwlo Commerce</h2>
               </div>
-              <p className="text-[11px] text-slate-400">Invoice: <strong>{viewingInvoice.invoiceNumber}</strong></p>
-              <p className="text-[11px] text-slate-500">Date: {new Date(viewingInvoice.date).toLocaleString()}</p>
+              <p className="text-[11px] text-neutral-400">Invoice: <strong>{viewingInvoice.invoiceNumber}</strong></p>
+              <p className="text-[11px] text-neutral-500">Date: {new Date(viewingInvoice.date).toLocaleString()}</p>
             </div>
             <div className="text-right">
               <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
@@ -867,14 +867,14 @@ export default function SalesView({
               }`}>
                 {viewingInvoice.paymentStatus || viewingInvoice.status || 'Pending'}
               </span>
-              <p className="text-[11px] text-slate-500 mt-1">Customer:</p>
-              <p className="text-xs font-bold text-slate-800 dark:text-white">{viewingInvoice.customerName}</p>
-              {viewingInvoice.customerEmail && <p className="text-[10px] text-slate-500">{viewingInvoice.customerEmail}</p>}
+              <p className="text-[11px] text-neutral-500 mt-1">Customer:</p>
+              <p className="text-xs font-bold text-neutral-800 dark:text-white">{viewingInvoice.customerName}</p>
+              {viewingInvoice.customerEmail && <p className="text-[10px] text-neutral-500">{viewingInvoice.customerEmail}</p>}
             </div>
           </div>
 
-          <div className="my-4 rounded-xl border border-slate-100 bg-white px-3 py-2 text-center">
-            <div className="mb-1 flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+          <div className="my-4 rounded-xl border border-neutral-100 bg-white px-3 py-2 text-center">
+            <div className="mb-1 flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
               <Barcode className="h-3.5 w-3.5" /> Machine-readable invoice code
             </div>
             {invoiceBarcode.dataUrl && <img src={invoiceBarcode.dataUrl} role="img" alt={`Barcode for invoice ${viewingInvoice.invoiceNumber}`} className="mx-auto max-w-full" />}
@@ -882,23 +882,23 @@ export default function SalesView({
           </div>
 
           <div className="space-y-2 py-2 text-xs">
-            <div className="border-b border-slate-100 dark:border-gray-800 pb-1 flex justify-between font-semibold text-slate-500">
+            <div className="border-b border-neutral-100 dark:border-gray-800 pb-1 flex justify-between font-semibold text-neutral-500">
               <span>Item</span>
               <span>Amount</span>
             </div>
             {viewingInvoice.items?.map((item, i) => (
               <div key={i} className="flex justify-between py-1.5">
                 <div>
-                  <span className="font-semibold text-slate-800 dark:text-white">{item.productName}</span>
-                  <span className="text-[11px] text-slate-400 ml-1.5">x{item.quantity}</span>
+                  <span className="font-semibold text-neutral-800 dark:text-white">{item.productName}</span>
+                  <span className="text-[11px] text-neutral-400 ml-1.5">x{item.quantity}</span>
                 </div>
-                <span className="font-mono text-slate-800 dark:text-white">{formatAmount(item.total, viewingInvoice)}</span>
+                <span className="font-mono text-neutral-800 dark:text-white">{formatAmount(item.total, viewingInvoice)}</span>
               </div>
             ))}
           </div>
 
-          <div className="border-t border-slate-200 dark:border-gray-800 pt-3 space-y-1 text-xs">
-            <div className="flex justify-between text-slate-500">
+          <div className="border-t border-neutral-200 dark:border-gray-800 pt-3 space-y-1 text-xs">
+            <div className="flex justify-between text-neutral-500">
               <span>Subtotal:</span>
               <span>{formatAmount(viewingInvoice.subtotal, viewingInvoice)}</span>
             </div>
@@ -908,15 +908,15 @@ export default function SalesView({
                 <span>-{formatAmount(viewingInvoice.discount, viewingInvoice)}</span>
               </div>
             )}
-            <div className="flex justify-between text-slate-500">
+            <div className="flex justify-between text-neutral-500">
               <span>Estimated Tax:</span>
               <span>{formatAmount(viewingInvoice.tax, viewingInvoice)}</span>
             </div>
-            <div className="flex justify-between font-bold text-base text-slate-900 dark:text-white pt-2 border-t border-slate-100 dark:border-gray-800">
+            <div className="flex justify-between font-bold text-base text-neutral-900 dark:text-white pt-2 border-t border-neutral-100 dark:border-gray-800">
               <span>Total:</span>
-              <span className="text-blue-600 dark:text-blue-400">{formatAmount(viewingInvoice.totalAmount, viewingInvoice)}</span>
+              <span className="text-neutral-600 dark:text-neutral-400">{formatAmount(viewingInvoice.totalAmount, viewingInvoice)}</span>
             </div>
-            <div className="flex justify-between text-slate-600">
+            <div className="flex justify-between text-neutral-600">
               <span>Paid:</span>
               <span>{formatAmount(viewingInvoice.paidAmount ?? (viewingInvoice.paymentStatus === 'Paid' ? viewingInvoice.totalAmount : 0), viewingInvoice)}</span>
             </div>
@@ -924,18 +924,18 @@ export default function SalesView({
               <span>Outstanding due:</span>
               <span>{formatAmount(viewingInvoice.dueAmount ?? Math.max(0, Number(viewingInvoice.totalAmount || 0) - Number(viewingInvoice.paidAmount || 0)), viewingInvoice)}</span>
             </div>
-            <div className="text-[11px] text-slate-400 pt-1">
+            <div className="text-[11px] text-neutral-400 pt-1">
               Payment Method: {viewingInvoice.paymentMethod}
             </div>
             {viewingInvoice.invoiceNotes && (
-              <div className="pt-2 text-[11px] text-slate-500">Invoice note: {viewingInvoice.invoiceNotes}</div>
+              <div className="pt-2 text-[11px] text-neutral-500">Invoice note: {viewingInvoice.invoiceNotes}</div>
             )}
           </div>
           {Array.isArray(viewingInvoice.payments) && viewingInvoice.payments.length > 0 && (
-            <div className="mt-3 space-y-1 border-t border-slate-100 pt-3">
+            <div className="mt-3 space-y-1 border-t border-neutral-100 pt-3">
               <h3 className="text-xs font-bold">Payment history</h3>
               {viewingInvoice.payments.map(payment => (
-                <div key={payment.id} className="flex justify-between text-[11px] text-slate-600">
+                <div key={payment.id} className="flex justify-between text-[11px] text-neutral-600">
                   <span>{new Date(payment.createdAt).toLocaleString()} · {payment.method}{payment.reference ? ` · ${payment.reference}` : ''}</span>
                   <strong>{formatAmount(payment.amount, viewingInvoice)}</strong>
                 </div>
@@ -945,44 +945,44 @@ export default function SalesView({
           {viewingInvoice.channel !== 'storefront' && viewingInvoice.customerId &&
             Number(viewingInvoice.dueAmount ?? Math.max(0, Number(viewingInvoice.totalAmount || 0) - Number(viewingInvoice.paidAmount || 0))) > 0 && (
             <form onSubmit={recordCustomerPayment} className="mt-4 space-y-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
-              <h3 className="text-xs font-bold text-slate-800">Record customer due payment</h3>
+              <h3 className="text-xs font-bold text-neutral-800">Record customer due payment</h3>
               <div className="grid gap-2 sm:grid-cols-3">
-                <input required type="number" min="0.01" max={Number(viewingInvoice.dueAmount ?? Math.max(0, Number(viewingInvoice.totalAmount || 0) - Number(viewingInvoice.paidAmount || 0)))} step="0.01" value={customerPaymentAmount} onChange={event => setCustomerPaymentAmount(event.target.value)} placeholder="Amount received" className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs" />
-                <select value={customerPaymentMethod} onChange={event => setCustomerPaymentMethod(event.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs">
+                <input required type="number" min="0.01" max={Number(viewingInvoice.dueAmount ?? Math.max(0, Number(viewingInvoice.totalAmount || 0) - Number(viewingInvoice.paidAmount || 0)))} step="0.01" value={customerPaymentAmount} onChange={event => setCustomerPaymentAmount(event.target.value)} placeholder="Amount received" className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs" />
+                <select value={customerPaymentMethod} onChange={event => setCustomerPaymentMethod(event.target.value)} className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs">
                   <option>Cash</option><option>Bank transfer</option><option>Card</option><option>Mobile payment</option>
                 </select>
-                <input required={customerPaymentMethod !== 'Cash'} maxLength={120} value={customerPaymentReference} onChange={event => setCustomerPaymentReference(event.target.value)} placeholder={customerPaymentMethod === 'Cash' ? 'Optional note / receipt no.' : 'Required transaction reference'} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs" />
+                <input required={customerPaymentMethod !== 'Cash'} maxLength={120} value={customerPaymentReference} onChange={event => setCustomerPaymentReference(event.target.value)} placeholder={customerPaymentMethod === 'Cash' ? 'Optional note / receipt no.' : 'Required transaction reference'} className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs" />
               </div>
-              <button type="submit" disabled={recordingCustomerPayment} className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{recordingCustomerPayment ? 'Saving…' : 'Save customer payment'}</button>
+              <button type="submit" disabled={recordingCustomerPayment} className="rounded-lg bg-neutral-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{recordingCustomerPayment ? 'Saving…' : 'Save customer payment'}</button>
             </form>
           )}
 
           {editingInvoice && invoiceDraft ? (
-            <form onSubmit={saveInvoiceEdits} className="mt-4 grid gap-3 border-t border-slate-100 pt-4">
-              <p className="text-[10px] text-slate-500">Invoice number, date, line items, and totals cannot be edited to preserve the order and payment record.</p>
-              <label className="text-[11px] font-semibold text-slate-600">
+            <form onSubmit={saveInvoiceEdits} className="mt-4 grid gap-3 border-t border-neutral-100 pt-4">
+              <p className="text-[10px] text-neutral-500">Invoice number, date, line items, and totals cannot be edited to preserve the order and payment record.</p>
+              <label className="text-[11px] font-semibold text-neutral-600">
                 Customer name
-                <input required maxLength={120} value={invoiceDraft.customerName} onChange={event => setInvoiceDraft(current => ({ ...current, customerName: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" />
+                <input required maxLength={120} value={invoiceDraft.customerName} onChange={event => setInvoiceDraft(current => ({ ...current, customerName: event.target.value }))} className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2" />
               </label>
-              <label className="text-[11px] font-semibold text-slate-600">
+              <label className="text-[11px] font-semibold text-neutral-600">
                 Customer email
-                <input type="email" maxLength={254} value={invoiceDraft.customerEmail} onChange={event => setInvoiceDraft(current => ({ ...current, customerEmail: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" />
+                <input type="email" maxLength={254} value={invoiceDraft.customerEmail} onChange={event => setInvoiceDraft(current => ({ ...current, customerEmail: event.target.value }))} className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2" />
               </label>
-              <label className="text-[11px] font-semibold text-slate-600">
+              <label className="text-[11px] font-semibold text-neutral-600">
                 Invoice note
-                <textarea maxLength={500} rows={2} value={invoiceDraft.invoiceNotes} onChange={event => setInvoiceDraft(current => ({ ...current, invoiceNotes: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" />
+                <textarea maxLength={500} rows={2} value={invoiceDraft.invoiceNotes} onChange={event => setInvoiceDraft(current => ({ ...current, invoiceNotes: event.target.value }))} className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2" />
               </label>
               <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setEditingInvoice(false)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs">Cancel</button>
-                <button type="submit" disabled={savingOrder} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">Save invoice details</button>
+                <button type="button" onClick={() => setEditingInvoice(false)} className="rounded-lg border border-neutral-200 px-3 py-2 text-xs">Cancel</button>
+                <button type="submit" disabled={savingOrder} className="rounded-lg bg-neutral-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">Save invoice details</button>
               </div>
             </form>
           ) : (
-          <div className="flex justify-between items-center pt-5 border-t border-slate-100 dark:border-gray-800 mt-4">
+          <div className="flex justify-between items-center pt-5 border-t border-neutral-100 dark:border-gray-800 mt-4">
             <button
               type="button"
               onClick={openInvoiceEditor}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200"
+              className="rounded-xl border border-neutral-200 px-3 py-2 text-xs font-semibold text-neutral-700 dark:text-neutral-200"
             >
               Edit details
             </button>
@@ -991,20 +991,20 @@ export default function SalesView({
               onClick={emailInvoice}
               disabled={sendingInvoice || !viewingInvoice.customerEmail}
               title={!viewingInvoice.customerEmail ? 'Add a customer email before sending this invoice.' : 'Email invoice to the customer'}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50 dark:text-slate-200"
+              className="rounded-xl border border-neutral-200 px-3 py-2 text-xs font-semibold text-neutral-700 disabled:opacity-50 dark:text-neutral-200"
             >
               {sendingInvoice ? 'Sending…' : 'Email invoice'}
             </button>
             <button
               onClick={handlePrint}
-              className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center space-x-1.5 shadow-xs transition cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold bg-neutral-600 hover:bg-neutral-700 text-white rounded-xl flex items-center space-x-1.5 shadow-xs transition cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Print Receipt</span>
             </button>
             <button
               onClick={() => setViewingInvoice(null)}
-              className="px-4 py-2 text-xs font-semibold bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-700 dark:text-slate-200 rounded-xl transition cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold bg-neutral-100 dark:bg-gray-800 hover:bg-neutral-200 dark:hover:bg-gray-700 text-neutral-700 dark:text-neutral-200 rounded-xl transition cursor-pointer"
             >
               Close
             </button>
@@ -1018,12 +1018,12 @@ export default function SalesView({
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Top Banner */}
-      <div className="bg-white dark:bg-[#111827] p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#181818] p-4 sm:p-5 rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-start space-x-3">
           {onBackToDashboard && (
             <button
               onClick={onBackToDashboard}
-              className="mt-0.5 p-2 rounded-xl bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-600 dark:text-slate-300 transition shadow-xs shrink-0 cursor-pointer"
+              className="mt-0.5 p-2 rounded-xl bg-neutral-100 dark:bg-gray-800 hover:bg-neutral-200 dark:hover:bg-gray-700 text-neutral-600 dark:text-neutral-300 transition shadow-xs shrink-0 cursor-pointer"
               title="Back to Dashboard"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -1031,14 +1031,14 @@ export default function SalesView({
           )}
           <div>
             <div className="flex items-center space-x-2.5">
-              <span className="p-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 shrink-0">
+              <span className="p-2 rounded-xl bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 shrink-0">
                 <Receipt className="w-5 h-5" />
               </span>
-              <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+              <h1 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-white tracking-tight">
                 {courierMode ? 'Courier & Delivery Management' : 'Sales & POS Invoicing Terminal'}
               </h1>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 pl-1">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 pl-1">
               {courierMode
                 ? 'Review storefront deliveries, assign a courier, and save shipment tracking details.'
                 : 'Track customer sales orders, POS receipts, tax calculations, and printable invoices.'}
@@ -1054,7 +1054,7 @@ export default function SalesView({
             ]);
             setIsNewSaleOpen(true);
           }}
-          className="flex items-center justify-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition cursor-pointer w-full sm:w-auto"
+          className="flex items-center justify-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-neutral-600 hover:bg-neutral-700 text-white shadow-xs transition cursor-pointer w-full sm:w-auto"
         >
           <Plus className="w-4 h-4 stroke-[2.5]" />
           <span>New Sale / POS Order</span>
@@ -1063,50 +1063,50 @@ export default function SalesView({
 
       {/* KPI Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-4">
-        <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{courierMode ? 'Storefront Deliveries' : 'Total Sales Revenue'}</span>
-          <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1.5">
+        <div className="bg-white dark:bg-[#181818] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs">
+          <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{courierMode ? 'Storefront Deliveries' : 'Total Sales Revenue'}</span>
+          <div className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white mt-1.5">
             {courierMode ? courierOrders.length : formatAmount(totalRevenue)}
           </div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">{courierMode ? 'Orders placed through your storefront' : 'From processed invoices'}</div>
+          <div className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">{courierMode ? 'Orders placed through your storefront' : 'From processed invoices'}</div>
         </div>
 
-        <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{courierMode ? 'Courier assigned' : 'Total Invoices'}</span>
-          <div className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1.5">{courierMode ? courierOrders.filter(sale => sale.courierService).length : sales.length}</div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">{courierMode ? 'Orders with a saved courier' : 'Generated receipts'}</div>
+        <div className="bg-white dark:bg-[#181818] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs">
+          <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{courierMode ? 'Courier assigned' : 'Total Invoices'}</span>
+          <div className="text-xl sm:text-2xl font-bold text-neutral-600 dark:text-neutral-400 mt-1.5">{courierMode ? courierOrders.filter(sale => sale.courierService).length : sales.length}</div>
+          <div className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">{courierMode ? 'Orders with a saved courier' : 'Generated receipts'}</div>
         </div>
 
-        <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{courierMode ? 'Tracking saved' : 'Avg. Order Value'}</span>
+        <div className="bg-white dark:bg-[#181818] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs">
+          <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{courierMode ? 'Tracking saved' : 'Avg. Order Value'}</span>
           <div className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1.5">
             {courierMode ? courierOrders.filter(sale => sale.trackingNumber || sale.trackingUrl).length : formatAmount(avgOrder)}
           </div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">{courierMode ? 'Tracking number or URL recorded' : 'Per customer purchase'}</div>
+          <div className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">{courierMode ? 'Tracking number or URL recorded' : 'Per customer purchase'}</div>
         </div>
 
-        <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{courierMode ? 'Needs courier' : 'Refunds needing review'}</span>
-          <div className="text-xl sm:text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1.5">
+        <div className="bg-white dark:bg-[#181818] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs">
+          <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{courierMode ? 'Needs courier' : 'Refunds needing review'}</span>
+          <div className="text-xl sm:text-2xl font-bold text-neutral-600 dark:text-neutral-400 mt-1.5">
           {courierMode
             ? courierOrders.filter(s => !s.courierService && !['Delivered', 'Cancelled', 'Returned'].includes(s.status)).length
             : sales.reduce((count, sale) => count + (sale.refundHistory || []).filter(refund => refund.status === 'requested').length, 0)}
           </div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">{courierMode ? 'Storefront orders not yet assigned' : 'Open them from Sales & Orders → Manage'}</div>
+          <div className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">{courierMode ? 'Storefront orders not yet assigned' : 'Open them from Sales & Orders → Manage'}</div>
         </div>
-        <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-amber-200 dark:border-amber-900 shadow-xs">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{courierMode ? 'Delivery payments' : 'Customer Due'}</span>
+        <div className="bg-white dark:bg-[#181818] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-amber-200 dark:border-amber-900 shadow-xs">
+          <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{courierMode ? 'Delivery payments' : 'Customer Due'}</span>
           <div className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1.5">
             {courierMode ? '—' : formatAmount(customerDueTotal)}
           </div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">{courierMode ? 'Storefront settlement status' : 'Open invoice and record customer payments'}</div>
+          <div className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">{courierMode ? 'Storefront settlement status' : 'Open invoice and record customer payments'}</div>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white dark:bg-[#111827] p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-white dark:bg-[#181818] p-3 sm:p-4 rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         {courierMode && (
-          <p className="text-[11px] text-slate-500 sm:max-w-md">
+          <p className="text-[11px] text-neutral-500 sm:max-w-md">
             Courier bookings are made in your courier account. Assign the service here, then save its tracking details. Live courier booking APIs are not connected.
           </p>
         )}
@@ -1116,7 +1116,7 @@ export default function SalesView({
               value={courierFilter}
               onChange={event => setCourierFilter(event.target.value)}
               aria-label="Filter courier orders"
-              className="w-full sm:w-auto px-3 py-1.5 bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-700 dark:text-slate-200 font-medium focus:outline-none"
+              className="w-full sm:w-auto px-3 py-1.5 bg-neutral-50 dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 rounded-xl text-neutral-700 dark:text-neutral-200 font-medium focus:outline-none"
             >
               <option value="all">All deliveries</option>
               <option value="needs-assignment">Needs courier</option>
@@ -1129,46 +1129,46 @@ export default function SalesView({
                 value={methodFilter}
                 onChange={event => setMethodFilter(event.target.value)}
                 aria-label="Filter by payment method"
-                className="w-full sm:w-auto px-3 py-1.5 bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-700 dark:text-slate-200 font-medium focus:outline-none"
+                className="w-full sm:w-auto px-3 py-1.5 bg-neutral-50 dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 rounded-xl text-neutral-700 dark:text-neutral-200 font-medium focus:outline-none"
               >
                 <option value="All">All Payment Methods</option>
                 <option value="Cash">Cash</option>
                 <option value="Credit Card">Credit Card</option>
                 <option value="Mobile Banking / bKash">Mobile Banking / bKash</option>
               </select>
-              <select value={paymentFilter} onChange={event => setPaymentFilter(event.target.value)} aria-label="Filter customer payment balance" className="w-full sm:w-auto px-3 py-1.5 bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-700 dark:text-slate-200 font-medium focus:outline-none">
+              <select value={paymentFilter} onChange={event => setPaymentFilter(event.target.value)} aria-label="Filter customer payment balance" className="w-full sm:w-auto px-3 py-1.5 bg-neutral-50 dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 rounded-xl text-neutral-700 dark:text-neutral-200 font-medium focus:outline-none">
                 <option value="all">All balances</option>
                 <option value="due">Customer due only</option>
                 <option value="paid">Paid invoices</option>
               </select>
-              <select value={refundFilter} onChange={event => setRefundFilter(event.target.value)} aria-label="Filter refund requests" className="w-full sm:w-auto px-3 py-1.5 bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-700 dark:text-slate-200 font-medium focus:outline-none">
+              <select value={refundFilter} onChange={event => setRefundFilter(event.target.value)} aria-label="Filter refund requests" className="w-full sm:w-auto px-3 py-1.5 bg-neutral-50 dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 rounded-xl text-neutral-700 dark:text-neutral-200 font-medium focus:outline-none">
                 <option value="all">All refund states</option>
                 <option value="needs-review">Refunds needing review</option>
                 <option value="in-progress">Refunds in progress</option>
               </select>
-              <label className="flex items-center gap-1 text-[10px] text-slate-500">From<input type="date" value={dateFrom} onChange={event => setDateFrom(event.target.value)} className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-slate-700" /></label>
-              <label className="flex items-center gap-1 text-[10px] text-slate-500">To<input type="date" value={dateTo} onChange={event => setDateTo(event.target.value)} className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-slate-700" /></label>
+              <label className="flex items-center gap-1 text-[10px] text-neutral-500">From<input type="date" value={dateFrom} onChange={event => setDateFrom(event.target.value)} className="rounded-lg border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-neutral-700" /></label>
+              <label className="flex items-center gap-1 text-[10px] text-neutral-500">To<input type="date" value={dateTo} onChange={event => setDateTo(event.target.value)} className="rounded-lg border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-neutral-700" /></label>
             </>
           )}
         </div>
 
         <div className="relative w-full sm:w-72">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder={courierMode ? 'Search order, customer, courier, tracking…' : 'Search invoice #, customer, email, refund...'}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none"
+            className="w-full pl-8 pr-3 py-1.5 bg-neutral-50 dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-800 dark:text-white placeholder-neutral-400 focus:outline-none"
           />
         </div>
       </div>
 
       {/* Sales Invoices Table */}
-      <div className="bg-white dark:bg-[#111827] rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-gray-800 overflow-hidden shadow-xs">
+      <div className="bg-white dark:bg-[#181818] rounded-2xl sm:rounded-3xl border border-neutral-200/80 dark:border-gray-800 overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs min-w-[760px]">
-            <thead className="bg-[#F8FAFC] dark:bg-gray-800/60 border-b border-slate-100 dark:border-gray-800 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+            <thead className="bg-[#fafafa] dark:bg-gray-800/60 border-b border-neutral-100 dark:border-gray-800 text-neutral-400 font-semibold uppercase tracking-wider text-[11px]">
               <tr>
                 <th className="py-3.5 px-4">Invoice #</th>
                 <th className="py-3.5 px-4">Customer</th>
@@ -1181,10 +1181,10 @@ export default function SalesView({
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-gray-800 font-medium">
+            <tbody className="divide-y divide-neutral-100 dark:divide-gray-800 font-medium">
               {filteredSales.length === 0 && (
                 <tr>
-                  <td colSpan="9" className="px-4 py-12 text-center text-sm font-normal text-slate-500">
+                  <td colSpan="9" className="px-4 py-12 text-center text-sm font-normal text-neutral-500">
                     {courierMode
                       ? (courierFilter === 'needs-assignment' ? 'No deliveries need a courier right now.' : 'No storefront deliveries match this filter.')
                       : 'No sales or orders match your search.'}
@@ -1194,53 +1194,53 @@ export default function SalesView({
               {filteredSales.map((sale) => (
                 <tr
                   key={sale.id}
-                  className="hover:bg-slate-50/70 dark:hover:bg-gray-800/40 transition duration-150"
+                  className="hover:bg-neutral-50/70 dark:hover:bg-gray-800/40 transition duration-150"
                 >
                   <td className="py-3.5 px-4">
                     <div className="flex items-center space-x-2">
-                      <Receipt className="w-4 h-4 text-indigo-500" />
-                      <span className="font-mono font-bold text-slate-900 dark:text-white">
+                      <Receipt className="w-4 h-4 text-neutral-500" />
+                      <span className="font-mono font-bold text-neutral-900 dark:text-white">
                         {sale.invoiceNumber}
                       </span>
                     </div>
                   </td>
 
                   <td className="py-3.5 px-4">
-                    <p className="font-bold text-slate-800 dark:text-white leading-tight">
+                    <p className="font-bold text-neutral-800 dark:text-white leading-tight">
                       {sale.customerName}
                     </p>
                   </td>
 
-                  <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">
+                  <td className="py-3.5 px-4 text-neutral-500 dark:text-neutral-400">
                     {new Date(sale.date).toLocaleDateString()}
                   </td>
 
                   <td className="py-3.5 px-4">
-                    <div className="text-[11px] text-slate-700 dark:text-slate-300 max-w-xs truncate">
+                    <div className="text-[11px] text-neutral-700 dark:text-neutral-300 max-w-xs truncate">
                       {Array.isArray(sale.items)
                         ? sale.items.map(i => `${i.quantity}x ${i.productName}`).join(', ')
                         : 'Store goods'}
                     </div>
                   </td>
 
-                  <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">
+                  <td className="py-3.5 px-4 text-neutral-600 dark:text-neutral-300">
                     <div>{formatAmount(parseFloat(sale.subtotal || sale.totalAmount), sale)}</div>
-                    <div className="text-[10px] text-slate-400">Tax: {formatAmount(parseFloat(sale.tax || 0), sale)}</div>
+                    <div className="text-[10px] text-neutral-400">Tax: {formatAmount(parseFloat(sale.tax || 0), sale)}</div>
                   </td>
 
-                  <td className="py-3.5 px-4 font-bold text-sm text-slate-900 dark:text-white">
+                  <td className="py-3.5 px-4 font-bold text-sm text-neutral-900 dark:text-white">
                     {formatAmount(parseFloat(sale.totalAmount || 0), sale)}
                   </td>
 
                   <td className="py-3.5 px-4">
-                    <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-slate-300">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-neutral-100 dark:bg-gray-800 text-neutral-700 dark:text-neutral-300">
                       {sale.paymentMethod || 'Cash'}
                     </span>
                   </td>
 
                   <td className="py-3.5 px-4">
                     <div className="flex flex-col items-start gap-1">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 text-neutral-700">
                         {sale.status || 'Completed'}
                       </span>
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${
@@ -1257,7 +1257,7 @@ export default function SalesView({
                         </span>
                       )}
                       {sale.channel === 'storefront' && (
-                        <span className="text-[10px] text-slate-500">
+                        <span className="text-[10px] text-neutral-500">
                           {sale.courierService ? `${sale.courierService}${sale.trackingNumber ? ` · ${sale.trackingNumber}` : ''}` : 'Courier not assigned'}
                         </span>
                       )}
@@ -1273,7 +1273,7 @@ export default function SalesView({
                       )}
                       <button
                         onClick={() => openInvoice(sale)}
-                        className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-semibold hover:bg-blue-100 transition flex items-center space-x-1"
+                        className="px-2.5 py-1 rounded-lg bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 font-semibold hover:bg-neutral-100 transition flex items-center space-x-1"
                         title="View & Print Invoice Receipt"
                       >
                         <Printer className="w-3.5 h-3.5" />

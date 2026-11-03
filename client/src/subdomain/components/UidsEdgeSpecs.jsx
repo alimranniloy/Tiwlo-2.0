@@ -22,14 +22,14 @@ export default function UidsEdgeSpecs() {
     {
       title: 'Account Control',
       desc: 'Your domains and records are managed from your authenticated dashboard.',
-      icon: <ShieldCheck className="w-4 h-4 text-blue-600" />,
-      bg: 'bg-blue-50'
+      icon: <ShieldCheck className="w-4 h-4 text-neutral-600" />,
+      bg: 'bg-neutral-50'
     },
     {
       title: 'DNS Records',
       desc: 'Add A, CNAME, and TXT records for your registered domain.',
-      icon: <RefreshCw className="w-4 h-4 text-indigo-600" />,
-      bg: 'bg-indigo-50'
+      icon: <RefreshCw className="w-4 h-4 text-neutral-600" />,
+      bg: 'bg-neutral-50'
     },
     {
       title: 'No Expiry',
@@ -40,21 +40,21 @@ export default function UidsEdgeSpecs() {
     {
       title: 'Simple Management',
       desc: 'A focused interface for checking, registering, and managing names.',
-      icon: <Cpu className="w-4 h-4 text-slate-800" />,
-      bg: 'bg-slate-100'
+      icon: <Cpu className="w-4 h-4 text-neutral-800" />,
+      bg: 'bg-neutral-100'
     }
   ];
 
   return (
     <section id="features" className="w-full max-w-5xl mx-auto px-4">
       <div className="text-center max-w-xl mx-auto mb-6 sm:mb-8">
-        <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200/80 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+        <span className="text-[10px] font-bold text-neutral-700 bg-neutral-50 border border-neutral-200/80 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
           Edge Infrastructure
         </span>
-        <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight mt-2 mb-1">
+        <h2 className="text-xl sm:text-2xl font-extrabold text-neutral-900 tracking-tight mt-2 mb-1">
           Engineered for Speed & Reliability
         </h2>
-        <p className="text-xs sm:text-sm text-slate-600">
+        <p className="text-xs sm:text-sm text-neutral-600">
           Built-in performance and security so your projects stay fast and secure.
         </p>
       </div>
@@ -63,15 +63,15 @@ export default function UidsEdgeSpecs() {
         {specs.map((s, i) => (
           <div
             key={i}
-            className="bg-white border border-slate-200 hover:border-slate-300 rounded-xl p-4 shadow-2xs hover:shadow-xs transition-all duration-150 text-left"
+            className="bg-white border border-neutral-200 hover:border-neutral-300 rounded-xl p-4 shadow-2xs hover:shadow-xs transition-all duration-150 text-left"
           >
             <div className={`w-8 h-8 rounded-lg ${s.bg} flex items-center justify-center mb-3`}>
               {s.icon}
             </div>
-            <h3 className="text-sm font-bold text-slate-900 mb-1">
+            <h3 className="text-sm font-bold text-neutral-900 mb-1">
               {s.title}
             </h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-neutral-600 leading-relaxed">
               {s.desc}
             </p>
           </div>

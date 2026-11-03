@@ -65,26 +65,26 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg max-h-[92vh] bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/80 dark:border-gray-800 shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-950/60 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="relative w-full max-w-lg max-h-[92vh] bg-white dark:bg-[#181818] rounded-3xl border border-neutral-200/80 dark:border-gray-800 shadow-2xl overflow-hidden flex flex-col">
         {/* Header - Apple iOS style */}
-        <div className="flex items-center justify-between px-6 py-4.5 border-b border-slate-100 dark:border-gray-800 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4.5 border-b border-neutral-100 dark:border-gray-800 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-neutral-600 via-neutral-600 to-violet-600 text-white flex items-center justify-center shadow-md shadow-neutral-500/20">
               <Store className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+              <h2 className="text-base font-bold text-neutral-900 dark:text-white tracking-tight">
                 Create New Store
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
                 Launch a dedicated, isolated storefront on Tiwlo
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-gray-800 transition cursor-pointer"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-gray-800 transition cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -100,7 +100,7 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
           {/* Section 1: Store Basics */}
           <div className="space-y-3.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
                 Store Information
               </span>
               <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
@@ -109,7 +109,7 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                 Store Name <span className="text-rose-500">*</span>
               </label>
               <input
@@ -118,13 +118,13 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
                 placeholder="e.g. Tiwlo Fashion Hub"
                 value={storeName}
                 onChange={(e) => handleNameChange(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50/60 dark:bg-gray-800/60 text-slate-900 dark:text-white text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-medium transition"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 bg-neutral-50/60 dark:bg-gray-800/60 text-neutral-900 dark:text-white text-sm focus:outline-hidden focus:ring-2 focus:ring-neutral-500 font-medium transition"
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                   Subdomain URL
                 </label>
                 <div className="relative">
@@ -133,22 +133,22 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
                     placeholder={`fashionhub.${STORE_DOMAIN}`}
                     value={subdomain}
                     onChange={(e) => setSubdomain(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50/60 dark:bg-gray-800/60 text-slate-900 dark:text-white text-xs font-mono focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 bg-neutral-50/60 dark:bg-gray-800/60 text-neutral-900 dark:text-white text-xs font-mono focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition"
                   />
                 </div>
-                <p className="mt-1 text-[10px] text-slate-400">
+                <p className="mt-1 text-[10px] text-neutral-400">
                   Use a label or a full hostname under {STORE_DOMAIN}.
                 </p>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                   Store Category
                 </label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50/60 dark:bg-gray-800/60 text-slate-900 dark:text-white text-xs font-medium focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition cursor-pointer"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 bg-neutral-50/60 dark:bg-gray-800/60 text-neutral-900 dark:text-white text-xs font-medium focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition cursor-pointer"
                 >
                   <option value="Fashion & Apparel">Fashion & Apparel</option>
                   <option value="Electronics & Tech">Electronics & Tech</option>
@@ -161,13 +161,13 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                 Store Default Currency
               </label>
               <select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50/60 dark:bg-gray-800/60 text-slate-900 dark:text-white text-xs font-medium focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition cursor-pointer"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 bg-neutral-50/60 dark:bg-gray-800/60 text-neutral-900 dark:text-white text-xs font-medium focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition cursor-pointer"
               >
                 <option value="USD ($)">USD ($) - US Dollar</option>
                 <option value="BDT (৳)">BDT (৳) - Bangladeshi Taka</option>
@@ -178,16 +178,16 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
           </div>
 
           {/* Section 2: Billing Address (Explicitly requested by user) */}
-          <div className="pt-2 border-t border-slate-100 dark:border-gray-800 space-y-3">
+          <div className="pt-2 border-t border-neutral-100 dark:border-gray-800 space-y-3">
             <div className="flex items-center gap-2">
-              <MapPin className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              <MapPin className="w-3.5 h-3.5 text-neutral-600 dark:text-neutral-400" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
                 Billing Address & Invoicing
               </span>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                 Street Address
               </label>
               <input
@@ -195,13 +195,13 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
                 placeholder="House 42, Road 11, Banani"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50/60 dark:bg-gray-800/60 text-slate-900 dark:text-white text-xs focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 bg-neutral-50/60 dark:bg-gray-800/60 text-neutral-900 dark:text-white text-xs focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                   City
                 </label>
                 <input
@@ -209,12 +209,12 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
                   placeholder="Dhaka"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50/60 dark:bg-gray-800/60 text-slate-900 dark:text-white text-xs focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 bg-neutral-50/60 dark:bg-gray-800/60 text-neutral-900 dark:text-white text-xs focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                   Postal Code
                 </label>
                 <input
@@ -222,14 +222,14 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
                   placeholder="1213"
                   value={postalCode}
                   onChange={(e) => setPostalCode(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50/60 dark:bg-gray-800/60 text-slate-900 dark:text-white text-xs focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 bg-neutral-50/60 dark:bg-gray-800/60 text-neutral-900 dark:text-white text-xs focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                   Country
                 </label>
                 <input
@@ -237,12 +237,12 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
                   placeholder="Bangladesh"
                   value={country}
                   onChange={(e) => setCountry(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50/60 dark:bg-gray-800/60 text-slate-900 dark:text-white text-xs focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 bg-neutral-50/60 dark:bg-gray-800/60 text-neutral-900 dark:text-white text-xs focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                   Billing Phone Number
                 </label>
                 <input
@@ -250,15 +250,15 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
                   placeholder="+880 1700-000000"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50/60 dark:bg-gray-800/60 text-slate-900 dark:text-white text-xs focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 bg-neutral-50/60 dark:bg-gray-800/60 text-neutral-900 dark:text-white text-xs focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition"
                 />
               </div>
             </div>
           </div>
 
           {/* Section 3: Plan Selection */}
-          <div className="pt-2 border-t border-slate-100 dark:border-gray-800 space-y-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+          <div className="pt-2 border-t border-neutral-100 dark:border-gray-800 space-y-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
               Subscription Tier
             </span>
             <div className="grid grid-cols-2 gap-2.5">
@@ -267,44 +267,44 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
                 onClick={() => setPlanId('free')}
                 className={`p-3 rounded-2xl border text-left cursor-pointer transition ${
                   planId === 'free'
-                    ? 'border-blue-600 bg-blue-50/60 dark:bg-blue-900/20 text-blue-600 ring-1 ring-blue-600'
-                    : 'border-slate-200 dark:border-gray-800 bg-white dark:bg-gray-800/60 text-slate-700 dark:text-slate-300'
+                    ? 'border-neutral-600 bg-neutral-50/60 dark:bg-neutral-900/20 text-neutral-600 ring-1 ring-neutral-600'
+                    : 'border-neutral-200 dark:border-gray-800 bg-white dark:bg-gray-800/60 text-neutral-700 dark:text-neutral-300'
                 }`}
               >
                 <p className="text-xs font-bold">Standard Store</p>
-                <p className="text-[11px] text-slate-400">Unlimited POS & Orders</p>
+                <p className="text-[11px] text-neutral-400">Unlimited POS & Orders</p>
               </button>
               <button
                 type="button"
                 onClick={() => setPlanId('pro')}
                 className={`p-3 rounded-2xl border text-left cursor-pointer transition ${
                   planId === 'pro'
-                    ? 'border-blue-600 bg-blue-50/60 dark:bg-blue-900/20 text-blue-600 ring-1 ring-blue-600'
-                    : 'border-slate-200 dark:border-gray-800 bg-white dark:bg-gray-800/60 text-slate-700 dark:text-slate-300'
+                    ? 'border-neutral-600 bg-neutral-50/60 dark:bg-neutral-900/20 text-neutral-600 ring-1 ring-neutral-600'
+                    : 'border-neutral-200 dark:border-gray-800 bg-white dark:bg-gray-800/60 text-neutral-700 dark:text-neutral-300'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-bold">Pro Multi-Branch</p>
                   <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                 </div>
-                <p className="text-[11px] text-slate-400">Custom Domain & API</p>
+                <p className="text-[11px] text-neutral-400">Custom Domain & API</p>
               </button>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="pt-3 border-t border-slate-100 dark:border-gray-800 flex items-center justify-end gap-2.5">
+          <div className="pt-3 border-t border-neutral-100 dark:border-gray-800 flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-800 transition cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-gray-800 transition cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || !storeName.trim()}
-              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              className="px-5 py-2.5 rounded-xl bg-neutral-600 hover:bg-neutral-700 text-white text-xs font-bold shadow-md shadow-neutral-500/20 transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
             >
               {loading ? 'Creating Store...' : 'Launch New Store'}
               <ArrowRight className="w-3.5 h-3.5" />

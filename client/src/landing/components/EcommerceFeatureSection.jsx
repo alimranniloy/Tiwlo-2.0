@@ -19,7 +19,7 @@ export default function EcommerceFeatureSection({ onNavigate }) {
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight">
               Your Store, Your Brand.
             </h2>
-            <p className="text-slate-400 text-sm sm:text-base leading-relaxed font-normal">
+            <p className="text-neutral-400 text-sm sm:text-base leading-relaxed font-normal">
               Create a stunning online store with powerful tools, flexible customization, and seamless payment options. Turn your ideas into a profitable business.
             </p>
             <div className="pt-2">
@@ -35,16 +35,16 @@ export default function EcommerceFeatureSection({ onNavigate }) {
 
           {/* Right Column: Mac Browser Window Mockup */}
           <div className="lg:col-span-7">
-            <div className="relative rounded-2xl overflow-hidden border border-white/15 bg-[#0e1320] shadow-2xl shadow-purple-950/40 group">
+            <div className="relative rounded-2xl overflow-hidden border border-white/15 bg-[#131313] shadow-2xl shadow-purple-950/40 group">
               {/* Browser Window Header Chrome */}
-              <div className="px-4 py-3 bg-[#090d16] border-b border-white/10 flex items-center gap-2">
+              <div className="px-4 py-3 bg-[#0d0d0d] border-b border-white/10 flex items-center gap-2">
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 rounded-full bg-[#ff5f56]" />
                   <div className="w-3 h-3 rounded-full bg-[#ffbd2e]" />
                   <div className="w-3 h-3 rounded-full bg-[#27c93f]" />
                 </div>
                 <div className="flex-1 flex justify-center">
-                  <div className="px-4 py-1 rounded-full bg-white/[0.04] border border-white/5 text-[11px] text-slate-400 font-mono tracking-tight flex items-center gap-2">
+                  <div className="px-4 py-1 rounded-full bg-white/[0.04] border border-white/5 text-[11px] text-neutral-400 font-mono tracking-tight flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                     <span>{PLATFORM_DOMAIN}/store</span>
                   </div>

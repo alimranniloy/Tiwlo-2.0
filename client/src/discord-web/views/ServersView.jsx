@@ -12,11 +12,11 @@ export default function ServersView({ servers = [], onNavigate, onReload }) {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16 font-sans bg-white">
       {/* 1. Modern Google Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#E0E2EC] pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#e2e2e2] pb-5">
         <div>
           <button
             onClick={() => onNavigate('/discord')}
-            className="inline-flex items-center gap-2 text-[13px] font-medium text-[#0B57D0] hover:text-[#0842A0] cursor-pointer mb-2.5"
+            className="inline-flex items-center gap-2 text-[13px] font-medium text-[#000000] hover:text-[#3c3c3c] cursor-pointer mb-2.5"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Console Overview</span>
@@ -34,7 +34,7 @@ export default function ServersView({ servers = [], onNavigate, onReload }) {
 
         <button
           onClick={() => onNavigate('/discord/servers/new')}
-          className="inline-flex items-center gap-1.5 px-5 py-2.5 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-5 py-2.5 text-[13px] font-medium text-white bg-[#000000] hover:bg-[#3c3c3c] rounded-full transition-colors cursor-pointer"
         >
           <Plus className="w-4 h-4 stroke-[2.5]" />
           <span>Connect server</span>
@@ -42,8 +42,8 @@ export default function ServersView({ servers = [], onNavigate, onReload }) {
       </div>
 
       {/* 2. Filter Toolbar */}
-      <div className="bg-white border border-[#E0E2EC] rounded-2xl p-4 flex items-center justify-between shadow-none">
-        <div className="flex items-center gap-2.5 flex-1 max-w-md bg-[#F0F4F9] rounded-full px-4 py-2 border border-transparent focus-within:bg-white focus-within:border-[#0B57D0] transition-all">
+      <div className="bg-white border border-[#e2e2e2] rounded-2xl p-4 flex items-center justify-between shadow-none">
+        <div className="flex items-center gap-2.5 flex-1 max-w-md bg-[#f4f4f4] rounded-full px-4 py-2 border border-transparent focus-within:bg-white focus-within:border-[#000000] transition-all">
           <Search className="w-4 h-4 text-[#747775] shrink-0" />
           <input
             type="text"
@@ -56,7 +56,7 @@ export default function ServersView({ servers = [], onNavigate, onReload }) {
         {search && (
           <button
             onClick={() => setSearch('')}
-            className="text-[12px] text-[#0B57D0] hover:underline cursor-pointer ml-3 font-medium"
+            className="text-[12px] text-[#000000] hover:underline cursor-pointer ml-3 font-medium"
           >
             Clear
           </button>
@@ -70,15 +70,15 @@ export default function ServersView({ servers = [], onNavigate, onReload }) {
             <div
               key={server.id}
               onClick={() => onNavigate(`/discord/servers/${server.id}`)}
-              className="bg-white border border-[#E0E2EC] hover:border-[#0B57D0] rounded-2xl p-6 flex flex-col justify-between transition-all hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] cursor-pointer group"
+              className="bg-white border border-[#e2e2e2] hover:border-[#000000] rounded-2xl p-6 flex flex-col justify-between transition-all hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] cursor-pointer group"
             >
               <div>
                 <div className="flex items-center gap-3.5">
-                  <div className="w-11 h-11 rounded-2xl bg-[#C2E7FF] text-[#001D35] font-semibold text-base flex items-center justify-center shrink-0">
+                  <div className="w-11 h-11 rounded-2xl bg-[#e1e1e1] text-[#191919] font-semibold text-base flex items-center justify-center shrink-0">
                     {server.name.charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-[15px] font-medium text-[#1F1F1F] truncate group-hover:text-[#0B57D0] transition-colors">
+                    <h3 className="text-[15px] font-medium text-[#1F1F1F] truncate group-hover:text-[#000000] transition-colors">
                       {server.name}
                     </h3>
                     <p className="text-[12px] text-[#747775]">
@@ -87,7 +87,7 @@ export default function ServersView({ servers = [], onNavigate, onReload }) {
                   </div>
                 </div>
 
-                <div className="mt-5 pt-3.5 border-t border-[#F0F4F9]">
+                <div className="mt-5 pt-3.5 border-t border-[#f4f4f4]">
                   <div className="text-[11px] font-medium text-[#747775] uppercase tracking-wider mb-2.5">
                     Active bots
                   </div>
@@ -96,7 +96,7 @@ export default function ServersView({ servers = [], onNavigate, onReload }) {
                       {server.bots.map((b) => (
                         <span
                           key={b.id || b.name}
-                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium bg-[#F0F4F9] text-[#1F1F1F]"
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium bg-[#f4f4f4] text-[#1F1F1F]"
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-[#137333]" />
                           {b.name}
@@ -109,7 +109,7 @@ export default function ServersView({ servers = [], onNavigate, onReload }) {
                 </div>
               </div>
 
-              <div className="mt-5 pt-3.5 border-t border-[#F0F4F9] flex items-center justify-between text-[12px] font-medium text-[#0B57D0]">
+              <div className="mt-5 pt-3.5 border-t border-[#f4f4f4] flex items-center justify-between text-[12px] font-medium text-[#000000]">
                 <span>Server settings & automations</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </div>
@@ -117,13 +117,13 @@ export default function ServersView({ servers = [], onNavigate, onReload }) {
           ))}
         </div>
       ) : (
-        <div className="bg-white border border-[#E0E2EC] rounded-2xl p-16 text-center shadow-none">
+        <div className="bg-white border border-[#e2e2e2] rounded-2xl p-16 text-center shadow-none">
           <Server className="w-8 h-8 text-[#C4C7C5] mx-auto mb-2" />
           <h3 className="text-base font-medium text-[#1F1F1F]">No servers match your search</h3>
           <p className="text-[13px] text-[#747775] mt-1">Connect your Discord community server to begin automation.</p>
           <button
             onClick={() => onNavigate('/discord/servers/new')}
-            className="mt-4 px-5 py-2.5 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-colors cursor-pointer"
+            className="mt-4 px-5 py-2.5 text-[13px] font-medium text-white bg-[#000000] hover:bg-[#3c3c3c] rounded-full transition-colors cursor-pointer"
           >
             Connect server
           </button>

@@ -18,13 +18,13 @@ export default function MainHeader({
   const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
   const { storeSettings } = useStoreSettings();
 
-  const primaryColor = storeSettings?.themeColor || '#2563eb';
+  const primaryColor = storeSettings?.themeColor || '#000000';
   const storeName = storeSettings?.storeName || 'TiwloMart';
   const storeTagline = storeSettings?.storeTagline || '';
   const storeLogo = storeSettings?.storeLogo;
 
   return (
-    <div className="bg-white border-b border-slate-100 py-4 px-4 lg:px-8 sticky top-0 z-30 shadow-xs">
+    <div className="bg-white border-b border-neutral-100 py-4 px-4 lg:px-8 sticky top-0 z-30 shadow-xs">
       <div className="max-w-[1440px] mx-auto flex items-center justify-between gap-4 lg:gap-8">
         {/* Brand Logo matching user configuration */}
         <button
@@ -62,11 +62,11 @@ export default function MainHeader({
             )}
             <div>
               <div className="flex items-center">
-                <span className="text-[25px] font-black tracking-tight text-slate-900 leading-none">
+                <span className="text-[25px] font-black tracking-tight text-neutral-900 leading-none">
                   {storeName}
                 </span>
               </div>
-              {storeTagline && <p className="text-[10px] font-medium text-slate-500 tracking-normal mt-0.5">
+              {storeTagline && <p className="text-[10px] font-medium text-neutral-500 tracking-normal mt-0.5">
                 {storeTagline}
               </p>}
             </div>
@@ -88,29 +88,29 @@ export default function MainHeader({
                 onNavigateHome?.();
               }}
               placeholder="Search for products, brands and sellers..."
-              className="flex-1 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none"
+              className="flex-1 px-4 py-2.5 text-sm text-neutral-800 placeholder-neutral-400 outline-none"
             />
 
             {/* Category Dropdown Selector */}
-            <div className="relative border-l border-slate-200 shrink-0">
+            <div className="relative border-l border-neutral-200 shrink-0">
               <button
                 type="button"
                 onClick={() => setIsCatDropdownOpen(!isCatDropdownOpen)}
-                className="flex items-center space-x-2 px-3.5 py-2.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-white"
+                className="flex items-center space-x-2 px-3.5 py-2.5 text-xs font-medium text-neutral-600 hover:text-neutral-900 bg-white"
               >
                 <span className="max-w-[110px] truncate">{selectedCategory || 'All Categories'}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
               </button>
 
               {isCatDropdownOpen && (
-                <div className="absolute right-0 mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 z-50 max-h-60 overflow-y-auto">
+                <div className="absolute right-0 mt-1 w-48 bg-white border border-neutral-200 rounded-xl shadow-xl py-1.5 z-50 max-h-60 overflow-y-auto">
                   <button
                     onClick={() => {
                       setSelectedCategory('All Categories');
                       setIsCatDropdownOpen(false);
                       onNavigateHome?.();
                     }}
-                    className="w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-blue-50 text-slate-700 hover:text-blue-600 transition"
+                    className="w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-neutral-50 text-neutral-700 hover:text-neutral-600 transition"
                   >
                     All Categories
                   </button>
@@ -122,7 +122,7 @@ export default function MainHeader({
                         setIsCatDropdownOpen(false);
                         onNavigateHome?.();
                       }}
-                      className="w-full text-left px-3.5 py-1.5 text-xs hover:bg-blue-50 text-slate-600 hover:text-blue-600 transition"
+                      className="w-full text-left px-3.5 py-1.5 text-xs hover:bg-neutral-50 text-neutral-600 hover:text-neutral-600 transition"
                     >
                       {c.name}
                     </button>
@@ -148,27 +148,27 @@ export default function MainHeader({
           <button
             type="button"
             onClick={onOpenAccount}
-            className="flex items-center gap-1.5 text-slate-700 transition hover:text-[#2563eb] group"
+            className="flex items-center gap-1.5 text-neutral-700 transition hover:text-[#000000] group"
             aria-label="Customer account"
           >
-            <UserRound className="h-5 w-5 text-slate-600 group-hover:text-[#2563eb]" />
+            <UserRound className="h-5 w-5 text-neutral-600 group-hover:text-[#000000]" />
             <span className="hidden sm:inline text-xs font-medium">Account</span>
           </button>
 
           {/* Wishlist */}
           <button
             onClick={onOpenWishlist}
-            className="flex items-center space-x-1.5 text-slate-700 hover:text-[#2563eb] transition group"
+            className="flex items-center space-x-1.5 text-neutral-700 hover:text-[#000000] transition group"
           >
             <div className="relative">
-              <Heart className="w-5 h-5 text-slate-600 group-hover:text-[#2563eb] transition stroke-[1.8]" />
+              <Heart className="w-5 h-5 text-neutral-600 group-hover:text-[#000000] transition stroke-[1.8]" />
               {wishlistCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                   {wishlistCount}
                 </span>
               )}
             </div>
-            <span className="hidden sm:inline text-xs font-medium text-slate-700 group-hover:text-[#2563eb]">
+            <span className="hidden sm:inline text-xs font-medium text-neutral-700 group-hover:text-[#000000]">
               Wishlist
             </span>
           </button>
@@ -176,15 +176,15 @@ export default function MainHeader({
           {/* Cart */}
           <button
             onClick={onOpenCart}
-            className="flex items-center space-x-1.5 text-slate-700 hover:text-[#2563eb] transition group"
+            className="flex items-center space-x-1.5 text-neutral-700 hover:text-[#000000] transition group"
           >
             <div className="relative">
-              <ShoppingCart className="w-5 h-5 text-slate-600 group-hover:text-[#2563eb] transition stroke-[1.8]" />
+              <ShoppingCart className="w-5 h-5 text-neutral-600 group-hover:text-[#000000] transition stroke-[1.8]" />
               <span className="absolute -top-2 -right-2 bg-[#ef4444] text-white text-[10px] font-black px-1.5 py-0.2 rounded-full min-w-4 text-center shadow-xs">
                 {cartCount}
               </span>
             </div>
-            <span className="hidden sm:inline text-xs font-medium text-slate-700 group-hover:text-[#2563eb]">
+            <span className="hidden sm:inline text-xs font-medium text-neutral-700 group-hover:text-[#000000]">
               Cart
             </span>
           </button>
@@ -193,8 +193,8 @@ export default function MainHeader({
       </div>
 
       {/* Mobile Search Input Row */}
-      <div className="md:hidden mt-3 pt-3 border-t border-slate-100">
-        <div className="flex items-center border border-slate-300 rounded-xl overflow-hidden bg-white shadow-xs">
+      <div className="md:hidden mt-3 pt-3 border-t border-neutral-100">
+        <div className="flex items-center border border-neutral-300 rounded-xl overflow-hidden bg-white shadow-xs">
           <input
             type="text"
             value={searchQuery}
@@ -203,9 +203,9 @@ export default function MainHeader({
               onNavigateHome?.();
             }}
             placeholder="Search products, brands..."
-            className="flex-1 px-3 py-2 text-xs text-slate-800 outline-none"
+            className="flex-1 px-3 py-2 text-xs text-neutral-800 outline-none"
           />
-          <button type="button" onClick={onNavigateHome} className="bg-[#2563eb] text-white px-3.5 py-2">
+          <button type="button" onClick={onNavigateHome} className="bg-[#000000] text-white px-3.5 py-2">
             <Search className="w-3.5 h-3.5" />
           </button>
         </div>

@@ -64,7 +64,7 @@ export function VerifyPanel() {
             step="0.05"
             value={threshold}
             onChange={(e) => setThreshold(parseFloat(e.target.value))}
-            className="w-32 accent-indigo-500"
+            className="w-32 accent-neutral-500"
           />
           <span className="text-sm font-mono text-gray-300 w-10">{threshold.toFixed(2)}</span>
         </div>
@@ -72,7 +72,7 @@ export function VerifyPanel() {
         <button
           onClick={handleVerify}
           disabled={!file1 || !file2 || loading}
-          className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm font-medium transition-colors"
+          className="px-6 py-2.5 bg-neutral-600 hover:bg-neutral-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm font-medium transition-colors"
         >
           {loading ? 'Verifying...' : 'Verify'}
         </button>

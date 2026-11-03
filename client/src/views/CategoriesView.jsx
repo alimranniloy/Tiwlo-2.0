@@ -48,7 +48,7 @@ export default function CategoriesView({
   const [deletingSub, setDeletingSub] = useState(null);
 
   // Form states
-  const [catForm, setCatForm] = useState({ name: '', description: '', color: '#3B82F6', icon: 'FolderTree' });
+  const [catForm, setCatForm] = useState({ name: '', description: '', color: '#7b7b7b', icon: 'FolderTree' });
   const [subForm, setSubForm] = useState({ categoryId: '', name: '', description: '' });
 
   const totalProductsCount = products.length;
@@ -81,7 +81,7 @@ export default function CategoriesView({
       await onAddCategory(catForm);
       setIsAddCatModalOpen(false);
     }
-    setCatForm({ name: '', description: '', color: '#3B82F6', icon: 'FolderTree' });
+    setCatForm({ name: '', description: '', color: '#7b7b7b', icon: 'FolderTree' });
   };
 
   // Handle Save Subcategory
@@ -111,7 +111,7 @@ export default function CategoriesView({
   ];
 
   const colorOptions = [
-    '#3B82F6', '#10B981', '#F59E0B', '#F43F5E', '#8B5CF6', '#EC4899', '#06B6D4', '#64748B'
+    '#7b7b7b', '#10B981', '#F59E0B', '#F43F5E', '#717171', '#EC4899', '#939393', '#727272'
   ];
 
   if (isAddCatModalOpen || editingCat) {
@@ -123,25 +123,25 @@ export default function CategoriesView({
               setIsAddCatModalOpen(false);
               setEditingCat(null);
             }}
-            className="p-2 rounded-xl bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-600 dark:text-slate-300 transition shadow-xs cursor-pointer"
+            className="p-2 rounded-xl bg-neutral-100 dark:bg-gray-800 hover:bg-neutral-200 dark:hover:bg-gray-700 text-neutral-600 dark:text-neutral-300 transition shadow-xs cursor-pointer"
             title="Back to Categories"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+            <h1 className="text-xl font-bold text-neutral-900 dark:text-white">
               {editingCat ? 'Edit Category' : 'Create New Category'}
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
               {editingCat ? `Editing settings for ${editingCat.name}` : 'Set up a top-level classification category'}
             </p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-gray-800 p-6 shadow-xs">
+        <div className="bg-white dark:bg-[#181818] rounded-2xl border border-neutral-200/80 dark:border-gray-800 p-6 shadow-xs">
           <form onSubmit={handleSaveCategory} className="space-y-4 text-xs">
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+              <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                 Category Name *
               </label>
               <input
@@ -150,12 +150,12 @@ export default function CategoriesView({
                 placeholder="e.g. Smart Wearables"
                 value={catForm.name}
                 onChange={(e) => setCatForm({ ...catForm, name: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white"
+                className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl text-neutral-800 dark:text-white"
               />
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+              <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                 Description
               </label>
               <textarea
@@ -163,12 +163,12 @@ export default function CategoriesView({
                 placeholder="Brief category summary"
                 value={catForm.description}
                 onChange={(e) => setCatForm({ ...catForm, description: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white resize-none"
+                className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl text-neutral-800 dark:text-white resize-none"
               />
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1.5">
+              <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1.5">
                 Theme Color Badge
               </label>
               <div className="flex items-center space-x-2">
@@ -189,20 +189,20 @@ export default function CategoriesView({
               </div>
             </div>
 
-            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100 dark:border-gray-800">
+            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-neutral-100 dark:border-gray-800">
               <button
                 type="button"
                 onClick={() => {
                   setIsAddCatModalOpen(false);
                   setEditingCat(null);
                 }}
-                className="px-4 py-2 font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-800 rounded-xl transition cursor-pointer"
+                className="px-4 py-2 font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-gray-800 rounded-xl transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition cursor-pointer"
+                className="px-5 py-2 font-semibold text-white bg-neutral-600 hover:bg-neutral-700 rounded-xl shadow-xs transition cursor-pointer"
               >
                 {editingCat ? 'Save Changes' : 'Create Category'}
               </button>
@@ -222,32 +222,32 @@ export default function CategoriesView({
               setIsAddSubModalOpen(false);
               setEditingSub(null);
             }}
-            className="p-2 rounded-xl bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-600 dark:text-slate-300 transition shadow-xs cursor-pointer"
+            className="p-2 rounded-xl bg-neutral-100 dark:bg-gray-800 hover:bg-neutral-200 dark:hover:bg-gray-700 text-neutral-600 dark:text-neutral-300 transition shadow-xs cursor-pointer"
             title="Back to Categories"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+            <h1 className="text-xl font-bold text-neutral-900 dark:text-white">
               {editingSub ? 'Edit Subcategory' : 'Add New Subcategory'}
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
               {editingSub ? `Editing subcategory ${editingSub.name}` : 'Attach a targeted subcategory to a parent category'}
             </p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-gray-800 p-6 shadow-xs">
+        <div className="bg-white dark:bg-[#181818] rounded-2xl border border-neutral-200/80 dark:border-gray-800 p-6 shadow-xs">
           <form onSubmit={handleSaveSubcategory} className="space-y-4 text-xs">
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+              <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                 Parent Category *
               </label>
               <select
                 required
                 value={subForm.categoryId}
                 onChange={(e) => setSubForm({ ...subForm, categoryId: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white"
+                className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl text-neutral-800 dark:text-white"
               >
                 <option value="">Select Parent Category</option>
                 {categories.map((c) => (
@@ -259,7 +259,7 @@ export default function CategoriesView({
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+              <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                 Subcategory Name *
               </label>
               <input
@@ -268,12 +268,12 @@ export default function CategoriesView({
                 placeholder="e.g. Wireless Audio"
                 value={subForm.name}
                 onChange={(e) => setSubForm({ ...subForm, name: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white"
+                className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl text-neutral-800 dark:text-white"
               />
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+              <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                 Description
               </label>
               <textarea
@@ -281,24 +281,24 @@ export default function CategoriesView({
                 placeholder="Brief subcategory details"
                 value={subForm.description}
                 onChange={(e) => setSubForm({ ...subForm, description: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white resize-none"
+                className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl text-neutral-800 dark:text-white resize-none"
               />
             </div>
 
-            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100 dark:border-gray-800">
+            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-neutral-100 dark:border-gray-800">
               <button
                 type="button"
                 onClick={() => {
                   setIsAddSubModalOpen(false);
                   setEditingSub(null);
                 }}
-                className="px-4 py-2 font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-800 rounded-xl transition cursor-pointer"
+                className="px-4 py-2 font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-gray-800 rounded-xl transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition cursor-pointer"
+                className="px-5 py-2 font-semibold text-white bg-neutral-600 hover:bg-neutral-700 rounded-xl shadow-xs transition cursor-pointer"
               >
                 {editingSub ? 'Save Changes' : 'Create Subcategory'}
               </button>
@@ -312,12 +312,12 @@ export default function CategoriesView({
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Top Banner (Google-Inspired Clean UI) */}
-      <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-gray-800 p-5 sm:p-6 shadow-[0_1px_3px_rgba(60,64,67,0.08)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#181818] rounded-2xl border border-neutral-200/80 dark:border-gray-800 p-5 sm:p-6 shadow-[0_1px_3px_rgba(60,64,67,0.08)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-start space-x-3">
           {onBackToDashboard && (
             <button
               onClick={onBackToDashboard}
-              className="mt-0.5 p-2 rounded-xl bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-600 dark:text-slate-300 transition shadow-xs shrink-0 cursor-pointer"
+              className="mt-0.5 p-2 rounded-xl bg-neutral-100 dark:bg-gray-800 hover:bg-neutral-200 dark:hover:bg-gray-700 text-neutral-600 dark:text-neutral-300 transition shadow-xs shrink-0 cursor-pointer"
               title="Back to Dashboard"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -325,14 +325,14 @@ export default function CategoriesView({
           )}
           <div>
             <div className="flex items-center space-x-2.5">
-              <span className="p-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 shrink-0">
+              <span className="p-2 rounded-xl bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 shrink-0">
                 <FolderTree className="w-5 h-5" />
               </span>
-              <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+              <h1 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-white tracking-tight">
                 Categories & Subcategories Architecture
               </h1>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 pl-1">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 pl-1">
               Organize inventory items hierarchically into parent categories and targeted subcategories.
             </p>
           </div>
@@ -348,18 +348,18 @@ export default function CategoriesView({
               });
               setIsAddSubModalOpen(true);
             }}
-            className="flex-1 sm:flex-none justify-center flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-gray-700 shadow-xs transition cursor-pointer"
+            className="flex-1 sm:flex-none justify-center flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border border-neutral-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-gray-700 shadow-xs transition cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5 text-slate-500" />
+            <Plus className="w-3.5 h-3.5 text-neutral-500" />
             <span>Add Subcategory</span>
           </button>
 
           <button
             onClick={() => {
-              setCatForm({ name: '', description: '', color: '#3B82F6', icon: 'FolderTree' });
+              setCatForm({ name: '', description: '', color: '#7b7b7b', icon: 'FolderTree' });
               setIsAddCatModalOpen(true);
             }}
-            className="flex-1 sm:flex-none justify-center flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition cursor-pointer"
+            className="flex-1 sm:flex-none justify-center flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-neutral-600 hover:bg-neutral-700 text-white shadow-xs transition cursor-pointer"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>New Category</span>
@@ -369,53 +369,53 @@ export default function CategoriesView({
 
       {/* KPI Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
-        <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
+        <div className="bg-white dark:bg-[#181818] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Categories</span>
-            <Layers className="w-4 h-4 text-blue-500" />
+            <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Total Categories</span>
+            <Layers className="w-4 h-4 text-neutral-500" />
           </div>
-          <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1.5">{categories.length}</div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Primary groups</div>
+          <div className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white mt-1.5">{categories.length}</div>
+          <div className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Primary groups</div>
         </div>
 
-        <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
+        <div className="bg-white dark:bg-[#181818] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Subcategories</span>
+            <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Total Subcategories</span>
             <Tag className="w-4 h-4 text-emerald-500" />
           </div>
-          <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1.5">{subcategories.length}</div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Nested segments</div>
+          <div className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white mt-1.5">{subcategories.length}</div>
+          <div className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Nested segments</div>
         </div>
 
-        <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
+        <div className="bg-white dark:bg-[#181818] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Cataloged Items</span>
+            <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Cataloged Items</span>
             <Package className="w-4 h-4 text-amber-500" />
           </div>
-          <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1.5">{totalProductsCount}</div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Assigned to categories</div>
+          <div className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white mt-1.5">{totalProductsCount}</div>
+          <div className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Assigned to categories</div>
         </div>
 
-        <div className="bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
+        <div className="bg-white dark:bg-[#181818] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Stock Units</span>
-            <Boxes className="w-4 h-4 text-indigo-500" />
+            <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Total Stock Units</span>
+            <Boxes className="w-4 h-4 text-neutral-500" />
           </div>
-          <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1.5">{totalUnits.toLocaleString()}</div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Across all categories</div>
+          <div className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white mt-1.5">{totalUnits.toLocaleString()}</div>
+          <div className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Across all categories</div>
         </div>
       </div>
 
       {/* Navigation Tabs & Search */}
-      <div className="bg-white dark:bg-[#111827] p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div className="bg-white dark:bg-[#181818] p-3 sm:p-4 rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
         {/* Tabs */}
-        <div className="flex items-center bg-slate-100 dark:bg-gray-800/80 p-1 rounded-xl overflow-x-auto max-w-full">
+        <div className="flex items-center bg-neutral-100 dark:bg-gray-800/80 p-1 rounded-xl overflow-x-auto max-w-full">
           <button
             onClick={() => setActiveTab('categories')}
             className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap transition ${
               activeTab === 'categories'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                ? 'bg-white dark:bg-gray-700 text-neutral-600 dark:text-neutral-400 shadow-xs'
+                : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
             }`}
           >
             Categories ({categories.length})
@@ -424,8 +424,8 @@ export default function CategoriesView({
             onClick={() => setActiveTab('subcategories')}
             className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap transition ${
               activeTab === 'subcategories'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                ? 'bg-white dark:bg-gray-700 text-neutral-600 dark:text-neutral-400 shadow-xs'
+                : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
             }`}
           >
             Subcategories ({subcategories.length})
@@ -434,8 +434,8 @@ export default function CategoriesView({
             onClick={() => setActiveTab('hierarchy')}
             className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap transition ${
               activeTab === 'hierarchy'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                ? 'bg-white dark:bg-gray-700 text-neutral-600 dark:text-neutral-400 shadow-xs'
+                : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
             }`}
           >
             Hierarchy Tree View
@@ -448,7 +448,7 @@ export default function CategoriesView({
             <select
               value={filterParentCat}
               onChange={(e) => setFilterParentCat(e.target.value)}
-              className="px-3 py-1.5 bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-700 dark:text-slate-200 font-medium focus:outline-none flex-1 sm:flex-none"
+              className="px-3 py-1.5 bg-neutral-50 dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 rounded-xl text-neutral-700 dark:text-neutral-200 font-medium focus:outline-none flex-1 sm:flex-none"
             >
               <option value="All">All Parent Categories</option>
               {categories.map((c) => (
@@ -460,13 +460,13 @@ export default function CategoriesView({
           )}
 
           <div className="relative flex-1 md:flex-none md:w-60">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search category or sub..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="w-full pl-8 pr-3 py-1.5 bg-neutral-50 dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-800 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-500/20"
             />
           </div>
         </div>
@@ -487,7 +487,7 @@ export default function CategoriesView({
             return (
               <div
                 key={cat.id}
-                className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/80 dark:border-gray-800 p-5 shadow-xs hover:shadow-md transition duration-200 flex flex-col justify-between"
+                className="bg-white dark:bg-[#181818] rounded-3xl border border-neutral-200/80 dark:border-gray-800 p-5 shadow-xs hover:shadow-md transition duration-200 flex flex-col justify-between"
               >
                 <div>
                   {/* Header: Color badge + actions */}
@@ -495,15 +495,15 @@ export default function CategoriesView({
                     <div className="flex items-center space-x-3">
                       <div
                         className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-xs font-bold"
-                        style={{ backgroundColor: cat.color || '#3B82F6' }}
+                        style={{ backgroundColor: cat.color || '#7b7b7b' }}
                       >
                         <Layers className="w-5 h-5" />
                       </div>
                       <div>
-                        <h3 className="font-bold text-slate-900 dark:text-white text-base leading-tight">
+                        <h3 className="font-bold text-neutral-900 dark:text-white text-base leading-tight">
                           {cat.name}
                         </h3>
-                        <span className="font-mono text-[10px] text-slate-400 bg-slate-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md">
+                        <span className="font-mono text-[10px] text-neutral-400 bg-neutral-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md">
                           /{cat.slug}
                         </span>
                       </div>
@@ -516,18 +516,18 @@ export default function CategoriesView({
                           setCatForm({
                             name: cat.name,
                             description: cat.description || '',
-                            color: cat.color || '#3B82F6',
+                            color: cat.color || '#7b7b7b',
                             icon: cat.icon || 'FolderTree'
                           });
                         }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition"
+                        className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-900/30 transition"
                         title="Edit Category"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => setDeletingCat(cat)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition"
+                        className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition"
                         title="Delete Category"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -535,23 +535,23 @@ export default function CategoriesView({
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-1">
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2 mt-1">
                     {cat.description || 'No description provided.'}
                   </p>
 
                   {/* Subcategories tags list */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-gray-800">
-                    <span className="text-[11px] font-semibold text-slate-400 block mb-2">
+                  <div className="mt-4 pt-3 border-t border-neutral-100 dark:border-gray-800">
+                    <span className="text-[11px] font-semibold text-neutral-400 block mb-2">
                       Subcategories ({catSubs.length}):
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {catSubs.length === 0 ? (
-                        <span className="text-[11px] text-slate-400 italic">No subcategories linked</span>
+                        <span className="text-[11px] text-neutral-400 italic">No subcategories linked</span>
                       ) : (
                         catSubs.map(s => (
                           <span
                             key={s.id}
-                            className="inline-flex items-center text-[10px] font-medium bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-md"
+                            className="inline-flex items-center text-[10px] font-medium bg-neutral-100 dark:bg-gray-800 text-neutral-700 dark:text-neutral-300 px-2 py-0.5 rounded-md"
                           >
                             {s.name}
                           </span>
@@ -562,13 +562,13 @@ export default function CategoriesView({
                 </div>
 
                 {/* Footer Metrics */}
-                <div className="mt-5 pt-3 border-t border-slate-100 dark:border-gray-800 flex items-center justify-between text-xs">
-                  <div className="flex items-center space-x-1.5 text-slate-600 dark:text-slate-300 font-semibold">
-                    <Package className="w-3.5 h-3.5 text-blue-500" />
+                <div className="mt-5 pt-3 border-t border-neutral-100 dark:border-gray-800 flex items-center justify-between text-xs">
+                  <div className="flex items-center space-x-1.5 text-neutral-600 dark:text-neutral-300 font-semibold">
+                    <Package className="w-3.5 h-3.5 text-neutral-500" />
                     <span>{catProducts.length} Products</span>
                   </div>
-                  <div className="text-slate-500 dark:text-slate-400 text-[11px]">
-                    <span className="font-bold text-slate-800 dark:text-white">{catUnits}</span> units in stock
+                  <div className="text-neutral-500 dark:text-neutral-400 text-[11px]">
+                    <span className="font-bold text-neutral-800 dark:text-white">{catUnits}</span> units in stock
                   </div>
                 </div>
               </div>
@@ -579,10 +579,10 @@ export default function CategoriesView({
 
       {/* TAB 2: SUBCATEGORIES TABLE */}
       {activeTab === 'subcategories' && (
-        <div className="bg-white dark:bg-[#111827] rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-gray-800 overflow-hidden shadow-xs">
+        <div className="bg-white dark:bg-[#181818] rounded-2xl sm:rounded-3xl border border-neutral-200/80 dark:border-gray-800 overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs min-w-[640px]">
-              <thead className="bg-[#F8FAFC] dark:bg-gray-800/60 border-b border-slate-100 dark:border-gray-800 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+              <thead className="bg-[#fafafa] dark:bg-gray-800/60 border-b border-neutral-100 dark:border-gray-800 text-neutral-400 font-semibold uppercase tracking-wider text-[11px]">
                 <tr>
                   <th className="py-3.5 px-4">Subcategory Name</th>
                   <th className="py-3.5 px-4">Parent Category</th>
@@ -592,7 +592,7 @@ export default function CategoriesView({
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-gray-800 font-medium">
+              <tbody className="divide-y divide-neutral-100 dark:divide-gray-800 font-medium">
                 {filteredSubcategories.map((sub) => {
                   const parent = categories.find(c => c.id === sub.categoryId || c.name.toLowerCase() === sub.categoryName.toLowerCase());
                   const linkedProducts = products.filter(product =>
@@ -603,12 +603,12 @@ export default function CategoriesView({
                   return (
                     <tr
                       key={sub.id}
-                      className="hover:bg-slate-50/70 dark:hover:bg-gray-800/40 transition duration-150"
+                      className="hover:bg-neutral-50/70 dark:hover:bg-gray-800/40 transition duration-150"
                     >
                       <td className="py-3.5 px-4">
                         <div className="flex items-center space-x-2.5">
-                          <Tag className="w-4 h-4 text-indigo-500 shrink-0" />
-                          <span className="font-bold text-slate-900 dark:text-white">
+                          <Tag className="w-4 h-4 text-neutral-500 shrink-0" />
+                          <span className="font-bold text-neutral-900 dark:text-white">
                             {sub.name}
                           </span>
                         </div>
@@ -617,22 +617,22 @@ export default function CategoriesView({
                       <td className="py-3.5 px-4">
                         <span
                           className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-white shadow-xs"
-                          style={{ backgroundColor: parent?.color || '#3B82F6' }}
+                          style={{ backgroundColor: parent?.color || '#7b7b7b' }}
                         >
                           {sub.categoryName}
                         </span>
                       </td>
 
-                      <td className="py-3.5 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                      <td className="py-3.5 px-4 font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
                         {sub.slug || sub.name.toLowerCase().replace(/\s+/g, '-')}
                       </td>
 
-                      <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 max-w-xs truncate">
+                      <td className="py-3.5 px-4 text-neutral-500 dark:text-neutral-400 max-w-xs truncate">
                         {sub.description || '—'}
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <span className="font-bold text-slate-800 dark:text-white bg-slate-100 dark:bg-gray-800 px-2 py-0.5 rounded-md">
+                        <span className="font-bold text-neutral-800 dark:text-white bg-neutral-100 dark:bg-gray-800 px-2 py-0.5 rounded-md">
                           {linkedProducts.length} items
                         </span>
                       </td>
@@ -648,14 +648,14 @@ export default function CategoriesView({
                                 description: sub.description || ''
                               });
                             }}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition"
+                            className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-900/30 transition"
                             title="Edit Subcategory"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => setDeletingSub(sub)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition"
+                            className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition"
                             title="Delete Subcategory"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -673,12 +673,12 @@ export default function CategoriesView({
 
       {/* TAB 3: HIERARCHY TREE VIEW */}
       {activeTab === 'hierarchy' && (
-        <div className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/80 dark:border-gray-800 p-6 shadow-xs space-y-6">
-          <div className="border-b border-slate-100 dark:border-gray-800 pb-3">
-            <h3 className="font-bold text-slate-900 dark:text-white text-base">
+        <div className="bg-white dark:bg-[#181818] rounded-3xl border border-neutral-200/80 dark:border-gray-800 p-6 shadow-xs space-y-6">
+          <div className="border-b border-neutral-100 dark:border-gray-800 pb-3">
+            <h3 className="font-bold text-neutral-900 dark:text-white text-base">
               Full Category Hierarchy & Linked Products
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-neutral-400 mt-0.5">
               Live tree view linking parent categories to nested subcategories and inventory products.
             </p>
           </div>
@@ -694,50 +694,50 @@ export default function CategoriesView({
               return (
                 <div
                   key={cat.id}
-                  className="border border-slate-200/70 dark:border-gray-800 rounded-2xl p-4 bg-slate-50/50 dark:bg-gray-800/30"
+                  className="border border-neutral-200/70 dark:border-gray-800 rounded-2xl p-4 bg-neutral-50/50 dark:bg-gray-800/30"
                 >
                   {/* Parent Row */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div
                         className="w-8 h-8 rounded-xl flex items-center justify-center text-white font-bold text-xs shadow-xs"
-                        style={{ backgroundColor: cat.color || '#3B82F6' }}
+                        style={{ backgroundColor: cat.color || '#7b7b7b' }}
                       >
                         <Layers className="w-4 h-4" />
                       </div>
                       <div>
-                        <span className="font-bold text-slate-900 dark:text-white text-sm">
+                        <span className="font-bold text-neutral-900 dark:text-white text-sm">
                           {cat.name}
                         </span>
-                        <span className="ml-2 text-[10px] text-slate-400 font-mono">
+                        <span className="ml-2 text-[10px] text-neutral-400 font-mono">
                           ({catSubs.length} subcategories, {catProds.length} products)
                         </span>
                       </div>
                     </div>
 
-                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">
                       Total stock: {catUnits} units
                     </span>
                   </div>
 
                   {/* Nested Subcategories */}
-                  <div className="pl-6 mt-3 space-y-3 border-l-2 border-slate-200 dark:border-gray-700 ml-4">
+                  <div className="pl-6 mt-3 space-y-3 border-l-2 border-neutral-200 dark:border-gray-700 ml-4">
                     {catSubs.map((sub) => {
                       const subProds = catProds.filter(p => (p.subCategory || '').toLowerCase() === sub.name.toLowerCase());
 
                       return (
-                        <div key={sub.id} className="bg-white dark:bg-gray-800/80 p-3 rounded-xl border border-slate-200/50 dark:border-gray-700/60">
+                        <div key={sub.id} className="bg-white dark:bg-gray-800/80 p-3 rounded-xl border border-neutral-200/50 dark:border-gray-700/60">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
-                              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                              <span className="font-bold text-slate-800 dark:text-slate-100 text-xs">
+                              <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
+                              <span className="font-bold text-neutral-800 dark:text-neutral-100 text-xs">
                                 {sub.name}
                               </span>
-                              <span className="text-[10px] text-slate-400">
+                              <span className="text-[10px] text-neutral-400">
                                 ({subProds.length} products)
                               </span>
                             </div>
-                            <span className="text-[10px] font-mono text-slate-400">{sub.slug}</span>
+                            <span className="text-[10px] font-mono text-neutral-400">{sub.slug}</span>
                           </div>
 
                           {/* List of products in subcategory */}
@@ -746,17 +746,17 @@ export default function CategoriesView({
                               {subProds.map((prod) => (
                                 <div
                                   key={prod.id}
-                                  className="flex items-center space-x-2 bg-slate-50 dark:bg-gray-700 px-2.5 py-1 rounded-lg border border-slate-100 dark:border-gray-600 text-[11px]"
+                                  className="flex items-center space-x-2 bg-neutral-50 dark:bg-gray-700 px-2.5 py-1 rounded-lg border border-neutral-100 dark:border-gray-600 text-[11px]"
                                 >
                                   <img
                                     src={prod.image || '/default-product.svg'}
                                     alt={prod.name}
                                     className="w-4 h-4 rounded-full object-cover"
                                   />
-                                  <span className="font-medium text-slate-700 dark:text-slate-200">
+                                  <span className="font-medium text-neutral-700 dark:text-neutral-200">
                                     {prod.name}
                                   </span>
-                                  <span className="font-bold text-blue-600 dark:text-blue-400">
+                                  <span className="font-bold text-neutral-600 dark:text-neutral-400">
                                     {prod.stock} in stock
                                   </span>
                                 </div>
@@ -786,7 +786,7 @@ export default function CategoriesView({
           <div className="flex items-center space-x-2 shrink-0">
             <button
               onClick={() => setDeletingCat(null)}
-              className="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition cursor-pointer"
+              className="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-white dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 transition cursor-pointer"
             >
               Cancel
             </button>
@@ -815,7 +815,7 @@ export default function CategoriesView({
           <div className="flex items-center space-x-2 shrink-0">
             <button
               onClick={() => setDeletingSub(null)}
-              className="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition cursor-pointer"
+              className="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-white dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 transition cursor-pointer"
             >
               Cancel
             </button>

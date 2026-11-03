@@ -103,31 +103,31 @@ export default function CreateTicketView({ currentUser, onBack, onTicketCreated 
       <div className="flex items-center gap-3 pt-1">
         <button
           onClick={onBack}
-          className="w-9 h-9 rounded-full bg-white dark:bg-gray-800 hover:bg-slate-50 dark:hover:bg-gray-700 text-slate-600 dark:text-slate-300 flex items-center justify-center transition border border-slate-200/80 dark:border-gray-700 shadow-2xs cursor-pointer group"
+          className="w-9 h-9 rounded-full bg-white dark:bg-gray-800 hover:bg-neutral-50 dark:hover:bg-gray-700 text-neutral-600 dark:text-neutral-300 flex items-center justify-center transition border border-neutral-200/80 dark:border-gray-700 shadow-2xs cursor-pointer group"
           title="Back"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />
         </button>
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-white tracking-tight">
             Create Ticket
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">
             Tell us what you need help with
           </p>
         </div>
       </div>
 
       {/* Form Card (Full Width Content matching screenshot View 3) */}
-      <div className="bg-white dark:bg-gray-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-8 border border-slate-200/80 dark:border-gray-700/80 shadow-xs">
+      <div className="bg-white dark:bg-gray-800/80 rounded-2xl sm:rounded-3xl p-4 sm:p-8 border border-neutral-200/80 dark:border-gray-700/80 shadow-xs">
         <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
           {/* Subject Field */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <label className="font-semibold text-slate-700 dark:text-slate-300">
+              <label className="font-semibold text-neutral-700 dark:text-neutral-300">
                 Subject <span className="text-red-500">*</span>
               </label>
-              <span className="text-[11px] text-slate-400 font-mono">
+              <span className="text-[11px] text-neutral-400 font-mono">
                 {subject.length}/100
               </span>
             </div>
@@ -137,24 +137,24 @@ export default function CreateTicketView({ currentUser, onBack, onTicketCreated 
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Enter a short subject..."
-              className="w-full px-4 py-3 rounded-xl text-xs sm:text-sm bg-white dark:bg-gray-900/80 border border-slate-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition placeholder-slate-400 dark:placeholder-slate-500 text-slate-800 dark:text-slate-100 shadow-2xs"
+              className="w-full px-4 py-3 rounded-xl text-xs sm:text-sm bg-white dark:bg-gray-900/80 border border-neutral-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-neutral-500/20 focus:border-neutral-500 transition placeholder-neutral-400 dark:placeholder-neutral-500 text-neutral-800 dark:text-neutral-100 shadow-2xs"
               required
             />
           </div>
 
           {/* Category Dropdown */}
           <div className="space-y-2">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
               Category <span className="text-red-500">*</span>
             </label>
             <div className="relative">
-              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">
                 <Folder className="w-4 h-4" />
               </div>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full pl-10 pr-10 py-3 rounded-xl text-xs sm:text-sm bg-white dark:bg-gray-900/80 border border-slate-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition appearance-none cursor-pointer text-slate-700 dark:text-slate-200 shadow-2xs"
+                className="w-full pl-10 pr-10 py-3 rounded-xl text-xs sm:text-sm bg-white dark:bg-gray-900/80 border border-neutral-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-neutral-500/20 focus:border-neutral-500 transition appearance-none cursor-pointer text-neutral-700 dark:text-neutral-200 shadow-2xs"
                 required
               >
                 <option value="" disabled>Select a category</option>
@@ -162,7 +162,7 @@ export default function CreateTicketView({ currentUser, onBack, onTicketCreated 
                   <option key={idx} value={cat}>{cat}</option>
                 ))}
               </select>
-              <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+              <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">
                 <ChevronDown className="w-4 h-4" />
               </div>
             </div>
@@ -170,7 +170,7 @@ export default function CreateTicketView({ currentUser, onBack, onTicketCreated 
 
           {/* Priority Toggles matching screenshot View 3 */}
           <div className="space-y-2">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
               Priority
             </label>
             <div className="grid grid-cols-3 gap-3">
@@ -181,7 +181,7 @@ export default function CreateTicketView({ currentUser, onBack, onTicketCreated 
                 className={`py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 border transition-all cursor-pointer ${
                   priority === 'Low'
                     ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-400 dark:border-emerald-600 shadow-2xs'
-                    : 'bg-white dark:bg-gray-900/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-800'
+                    : 'bg-white dark:bg-gray-900/60 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-gray-700 hover:bg-neutral-50 dark:hover:bg-gray-800'
                 }`}
               >
                 <ArrowDown className="w-3.5 h-3.5 text-emerald-500" />
@@ -194,11 +194,11 @@ export default function CreateTicketView({ currentUser, onBack, onTicketCreated 
                 onClick={() => setPriority('Medium')}
                 className={`py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 border transition-all cursor-pointer ${
                   priority === 'Medium'
-                    ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border-blue-400 dark:border-blue-600 shadow-2xs'
-                    : 'bg-white dark:bg-gray-900/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-800'
+                    ? 'bg-neutral-50 dark:bg-neutral-950/50 text-neutral-600 dark:text-neutral-400 border-neutral-400 dark:border-neutral-600 shadow-2xs'
+                    : 'bg-white dark:bg-gray-900/60 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-gray-700 hover:bg-neutral-50 dark:hover:bg-gray-800'
                 }`}
               >
-                <Info className="w-3.5 h-3.5 text-blue-500" />
+                <Info className="w-3.5 h-3.5 text-neutral-500" />
                 <span>Medium</span>
               </button>
 
@@ -209,7 +209,7 @@ export default function CreateTicketView({ currentUser, onBack, onTicketCreated 
                 className={`py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 border transition-all cursor-pointer ${
                   priority === 'High'
                     ? 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-400 dark:border-red-600 shadow-2xs'
-                    : 'bg-white dark:bg-gray-900/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-800'
+                    : 'bg-white dark:bg-gray-900/60 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-gray-700 hover:bg-neutral-50 dark:hover:bg-gray-800'
                 }`}
               >
                 <Flame className="w-3.5 h-3.5 text-red-500" />
@@ -221,10 +221,10 @@ export default function CreateTicketView({ currentUser, onBack, onTicketCreated 
           {/* Description Textarea */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <label className="font-semibold text-slate-700 dark:text-slate-300">
+              <label className="font-semibold text-neutral-700 dark:text-neutral-300">
                 Description <span className="text-red-500">*</span>
               </label>
-              <span className="text-[11px] text-slate-400 font-mono">
+              <span className="text-[11px] text-neutral-400 font-mono">
                 {description.length}/1000
               </span>
             </div>
@@ -234,19 +234,19 @@ export default function CreateTicketView({ currentUser, onBack, onTicketCreated 
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe your issue in detail..."
-              className="w-full px-4 py-3 rounded-xl text-xs sm:text-sm bg-white dark:bg-gray-900/80 border border-slate-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition placeholder-slate-400 dark:placeholder-slate-500 text-slate-800 dark:text-slate-100 resize-none shadow-2xs"
+              className="w-full px-4 py-3 rounded-xl text-xs sm:text-sm bg-white dark:bg-gray-900/80 border border-neutral-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-neutral-500/20 focus:border-neutral-500 transition placeholder-neutral-400 dark:placeholder-neutral-500 text-neutral-800 dark:text-neutral-100 resize-none shadow-2xs"
               required
             />
           </div>
 
           {/* Attachments Dropzone */}
           <div className="space-y-2">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
               Attachments (optional)
             </label>
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-slate-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600 rounded-2xl p-6 text-center cursor-pointer transition bg-slate-50/50 dark:bg-gray-900/30 hover:bg-blue-50/20"
+              className="border-2 border-dashed border-neutral-200 dark:border-gray-700 hover:border-neutral-400 dark:hover:border-neutral-600 rounded-2xl p-6 text-center cursor-pointer transition bg-neutral-50/50 dark:bg-gray-900/30 hover:bg-neutral-50/20"
             >
               <input
                 ref={fileInputRef}
@@ -257,13 +257,13 @@ export default function CreateTicketView({ currentUser, onBack, onTicketCreated 
                 accept=".jpg,.jpeg,.png,.pdf,.zip"
               />
               <div className="flex flex-col items-center justify-center gap-2">
-                <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-neutral-50 dark:bg-neutral-950/40 text-neutral-600 dark:text-neutral-400 flex items-center justify-center">
                   <UploadCloud className="w-5 h-5" />
                 </div>
-                <div className="text-xs text-slate-600 dark:text-slate-300">
-                  <span className="font-semibold text-blue-600 dark:text-blue-400">Drag and drop files here</span>, or click to browse
+                <div className="text-xs text-neutral-600 dark:text-neutral-300">
+                  <span className="font-semibold text-neutral-600 dark:text-neutral-400">Drag and drop files here</span>, or click to browse
                 </div>
-                <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
                   Supports: JPG, PNG, PDF, ZIP (Max 10MB)
                 </p>
               </div>
@@ -274,15 +274,15 @@ export default function CreateTicketView({ currentUser, onBack, onTicketCreated 
                 {attachments.map((file, idx) => (
                   <div
                     key={idx}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-gray-800 text-xs text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-gray-700"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-neutral-100 dark:bg-gray-800 text-xs text-neutral-700 dark:text-neutral-200 border border-neutral-200 dark:border-gray-700"
                   >
-                    <FileText className="w-3.5 h-3.5 text-blue-500" />
+                    <FileText className="w-3.5 h-3.5 text-neutral-500" />
                     <span className="truncate max-w-[150px]">{file.name}</span>
-                    <span className="text-[10px] text-slate-400">({file.size})</span>
+                    <span className="text-[10px] text-neutral-400">({file.size})</span>
                     <button
                       type="button"
                       onClick={() => handleRemoveFile(idx)}
-                      className="text-slate-400 hover:text-red-500 transition ml-1"
+                      className="text-neutral-400 hover:text-red-500 transition ml-1"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -297,7 +297,7 @@ export default function CreateTicketView({ currentUser, onBack, onTicketCreated 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3.5 px-6 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.99] text-white text-xs sm:text-sm font-bold shadow-md shadow-blue-600/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full py-3.5 px-6 rounded-xl bg-neutral-600 hover:bg-neutral-500 active:scale-[0.99] text-white text-xs sm:text-sm font-bold shadow-md shadow-neutral-600/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               <Send className="w-4 h-4" />
               <span>{isSubmitting ? 'Creating Ticket...' : 'Create Ticket'}</span>

@@ -1974,7 +1974,7 @@ export default function App() {
   });
 
   return (
-    <div className="min-h-screen bg-[#F6F8FB] dark:bg-[#0B0F17] font-sans antialiased text-slate-800 dark:text-slate-100">
+    <div className="min-h-screen bg-[#f8f8f8] dark:bg-[#0f0f0f] font-sans antialiased text-neutral-800 dark:text-neutral-100">
       {/* Top Laser Progress Beam for Unique Reload Indication */}
       {activeTab !== 'mobile-help-support' && activeTab !== 'help-support/mobile' && (
         <TiwloTopSyncBar active={loading || manualReload} />
@@ -2182,7 +2182,7 @@ export default function App() {
         />
       ) : activeTab === 'store' ? (
         isStorefrontSubdomainHost() && publicStorefrontLoading ? (
-          <div className="min-h-screen flex items-center justify-center text-slate-600">Loading storefront...</div>
+          <div className="min-h-screen flex items-center justify-center text-neutral-600">Loading storefront...</div>
         ) : isStorefrontSubdomainHost() && publicStorefrontError ? (
           <div className="min-h-screen flex items-center justify-center p-6 text-center text-rose-700" role="alert">
             {publicStorefrontError}
@@ -2305,7 +2305,7 @@ export default function App() {
           showToast={showToast}
         />
       ) : (
-        <div className="flex min-h-screen bg-[#F6F8FB] dark:bg-[#0B0F17] text-[#1E293B] dark:text-[#E2E8F0] transition-colors">
+        <div className="flex min-h-screen bg-[#f8f8f8] dark:bg-[#0f0f0f] text-[#282828] dark:text-[#e7e7e7] transition-colors">
           {/* Left Sidebar */}
           <Sidebar
             activeTab={activeTab}

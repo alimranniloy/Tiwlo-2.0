@@ -57,8 +57,8 @@ export default function MarketplaceProductDetailView({ productId, onBack, onNavi
 
   if (loading) {
     return (
-      <div className="bg-white border border-[#E0E2EC] rounded-2xl p-16 text-center max-w-4xl mx-auto">
-        <RotateCw className="w-6 h-6 text-[#0B57D0] animate-spin mx-auto mb-3" />
+      <div className="bg-white border border-[#e2e2e2] rounded-2xl p-16 text-center max-w-4xl mx-auto">
+        <RotateCw className="w-6 h-6 text-[#000000] animate-spin mx-auto mb-3" />
         <p className="text-[13px] text-[#444746]">Loading solution specifications...</p>
       </div>
     );
@@ -66,13 +66,13 @@ export default function MarketplaceProductDetailView({ productId, onBack, onNavi
 
   if (!product) {
     return (
-      <div className="bg-white border border-[#E0E2EC] rounded-2xl p-12 text-center max-w-2xl mx-auto space-y-4">
+      <div className="bg-white border border-[#e2e2e2] rounded-2xl p-12 text-center max-w-2xl mx-auto space-y-4">
         <AlertCircle className="w-10 h-10 text-[#B3261E] mx-auto" />
         <h2 className="text-lg font-medium text-[#1F1F1F]">Solution Not Found</h2>
         <p className="text-[13px] text-[#444746]">The requested solution could not be located in the catalog.</p>
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0B57D0] hover:bg-[#0842A0] text-white text-[13px] font-medium rounded-full transition-colors"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#000000] hover:bg-[#3c3c3c] text-white text-[13px] font-medium rounded-full transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Marketplace</span>
@@ -84,10 +84,10 @@ export default function MarketplaceProductDetailView({ productId, onBack, onNavi
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-16 font-sans bg-white">
       {/* 1. Google Subheader with Breadcrumbs */}
-      <div className="flex items-center justify-between border-b border-[#E0E2EC] pb-4">
+      <div className="flex items-center justify-between border-b border-[#e2e2e2] pb-4">
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-2 text-[13px] font-medium text-[#0B57D0] hover:underline cursor-pointer"
+          className="inline-flex items-center gap-2 text-[13px] font-medium text-[#000000] hover:underline cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Marketplace</span>
@@ -101,15 +101,15 @@ export default function MarketplaceProductDetailView({ productId, onBack, onNavi
       </div>
 
       {/* 2. Modern Google Product Hero Card */}
-      <div className="bg-white border border-[#E0E2EC] rounded-2xl p-6 sm:p-8 shadow-xs">
+      <div className="bg-white border border-[#e2e2e2] rounded-2xl p-6 sm:p-8 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
           <div className="flex items-start gap-4">
             {product.logoUrl ? <img src={product.logoUrl} alt="" className="w-16 h-16 rounded-2xl object-contain shrink-0" /> : (
               <div
                 className={`w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 ${
-                  product.iconType === 'discord' ? 'bg-[#5865F2] text-white'
+                  product.iconType === 'discord' ? 'bg-[#6c6c6c] text-white'
                     : product.iconType === 'whatsapp' ? 'bg-[#25D366] text-white'
-                    : 'bg-[#E8F0FE] text-[#0B57D0]'
+                    : 'bg-[#efefef] text-[#000000]'
                 }`}
               >
                 {product.iconType === 'discord'
@@ -124,8 +124,8 @@ export default function MarketplaceProductDetailView({ productId, onBack, onNavi
               <div className="flex items-center gap-2.5">
                 <h1 className="text-2xl sm:text-3xl font-normal text-[#1F1F1F] tracking-tight">{product.name}</h1>
                 {product.verified && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#0B57D0] bg-[#E8F0FE] px-2.5 py-0.5 rounded-full">
-                    <CheckCircle2 className="w-3.5 h-3.5 fill-[#0B57D0] text-white" />
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#000000] bg-[#efefef] px-2.5 py-0.5 rounded-full">
+                    <CheckCircle2 className="w-3.5 h-3.5 fill-[#000000] text-white" />
                     Verified
                   </span>
                 )}
@@ -144,7 +144,7 @@ export default function MarketplaceProductDetailView({ productId, onBack, onNavi
           </div>
 
           {/* Pricing & Deployment Panel */}
-          <div className="bg-[#F8FAFD] border border-[#E0E2EC] rounded-2xl p-5 min-w-[280px]">
+          <div className="bg-[#fafafa] border border-[#e2e2e2] rounded-2xl p-5 min-w-[280px]">
             <div className="text-xs text-[#444746]">Pricing Model</div>
             <div className="text-2xl font-normal text-[#1F1F1F] mt-0.5">
               {product.price || 'Pricing not specified'}
@@ -161,16 +161,16 @@ export default function MarketplaceProductDetailView({ productId, onBack, onNavi
               value={serviceName}
               onChange={(event) => setServiceName(event.target.value)}
               maxLength={255}
-              className="mt-1.5 w-full rounded-xl border border-[#E0E2EC] px-3 py-2 text-[13px] text-[#1F1F1F] focus:border-[#0B57D0] focus:outline-none"
+              className="mt-1.5 w-full rounded-xl border border-[#e2e2e2] px-3 py-2 text-[13px] text-[#1F1F1F] focus:border-[#000000] focus:outline-none"
             />
-            <p className="mt-2 text-[11px] text-[#5F6368]">
+            <p className="mt-2 text-[11px] text-[#636363]">
               Enablement adds this product to your Workspace. Provider deployment or connection is separate.
             </p>
             <button
               type="button"
               onClick={handleEnable}
               disabled={enabling || !serviceName.trim()}
-              className="mt-4 w-full px-4 py-2.5 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-colors cursor-pointer disabled:opacity-60"
+              className="mt-4 w-full px-4 py-2.5 text-[13px] font-medium text-white bg-[#000000] hover:bg-[#3c3c3c] rounded-full transition-colors cursor-pointer disabled:opacity-60"
             >
               {enabling ? 'Enabling…' : 'Enable in Workspace'}
             </button>
@@ -199,8 +199,8 @@ export default function MarketplaceProductDetailView({ productId, onBack, onNavi
       {/* 4. Specifications & Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
-          <div className="bg-white border border-[#E0E2EC] rounded-2xl p-6 space-y-4 shadow-xs">
-            <h2 className="text-[16px] font-medium text-[#1F1F1F] border-b border-[#F1F3F8] pb-3">
+          <div className="bg-white border border-[#e2e2e2] rounded-2xl p-6 space-y-4 shadow-xs">
+            <h2 className="text-[16px] font-medium text-[#1F1F1F] border-b border-[#f3f3f3] pb-3">
               Overview & Capabilities
             </h2>
             <p className="text-[13px] text-[#444746] leading-relaxed">
@@ -220,8 +220,8 @@ export default function MarketplaceProductDetailView({ productId, onBack, onNavi
 
         {/* Sidebar Info */}
         <div className="space-y-4">
-          <div className="bg-white border border-[#E0E2EC] rounded-2xl p-6 space-y-3.5 text-[13px] shadow-xs">
-            <h3 className="text-[14px] font-medium text-[#1F1F1F] border-b border-[#F1F3F8] pb-2">
+          <div className="bg-white border border-[#e2e2e2] rounded-2xl p-6 space-y-3.5 text-[13px] shadow-xs">
+            <h3 className="text-[14px] font-medium text-[#1F1F1F] border-b border-[#f3f3f3] pb-2">
               Metadata
             </h3>
             <div className="flex justify-between">

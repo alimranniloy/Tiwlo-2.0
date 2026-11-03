@@ -232,14 +232,14 @@ export default function MobileHelpSupportView({
   const avatarUrl = getOptimalMediaUrl(currentUser?.avatar) || '/default-avatar.svg';
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-between max-w-lg mx-auto shadow-2xl relative">
+    <div className="min-h-screen bg-neutral-900 text-neutral-100 flex flex-col justify-between max-w-lg mx-auto shadow-2xl relative">
       {/* 1. TOP MOBILE APP HEADER */}
-      <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-xl border-b border-slate-800/80 px-4 py-3">
+      <header className="sticky top-0 z-40 bg-neutral-900/90 backdrop-blur-xl border-b border-neutral-800/80 px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <button
               onClick={handleBack}
-              className="w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-200 transition-colors"
+              className="w-9 h-9 rounded-full bg-neutral-800 hover:bg-neutral-700 flex items-center justify-center text-neutral-200 transition-colors"
               title="Back"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -255,13 +255,13 @@ export default function MobileHelpSupportView({
           </div>
 
           {/* User Profile Badge */}
-          <div className="flex items-center gap-2 bg-slate-800/80 px-2.5 py-1 rounded-full border border-slate-700/60">
+          <div className="flex items-center gap-2 bg-neutral-800/80 px-2.5 py-1 rounded-full border border-neutral-700/60">
             <img
               src={avatarUrl}
               alt="Avatar"
-              className="w-6 h-6 rounded-full object-cover border border-slate-600"
+              className="w-6 h-6 rounded-full object-cover border border-neutral-600"
             />
-            <span className="text-xs font-semibold text-slate-200 max-w-[80px] truncate">
+            <span className="text-xs font-semibold text-neutral-200 max-w-[80px] truncate">
               {currentUser?.name || currentUser?.storeName || 'User'}
             </span>
           </div>
@@ -280,13 +280,13 @@ export default function MobileHelpSupportView({
         </div>
 
         {/* 2. SEGMENTED TABS */}
-        <div className="grid grid-cols-4 gap-1 mt-2.5 bg-slate-800/80 p-1 rounded-xl border border-slate-700/60">
+        <div className="grid grid-cols-4 gap-1 mt-2.5 bg-neutral-800/80 p-1 rounded-xl border border-neutral-700/60">
           <button
             onClick={() => setActiveTab('chat')}
             className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
               activeTab === 'chat'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-neutral-600 text-white shadow-md shadow-neutral-500/20'
+                : 'text-neutral-400 hover:text-neutral-200'
             }`}
           >
             <MessageSquare className="w-3.5 h-3.5" />
@@ -296,8 +296,8 @@ export default function MobileHelpSupportView({
             onClick={() => setActiveTab('tickets')}
             className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
               activeTab === 'tickets'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-neutral-600 text-white shadow-md shadow-neutral-500/20'
+                : 'text-neutral-400 hover:text-neutral-200'
             }`}
           >
             <Ticket className="w-3.5 h-3.5" />
@@ -307,8 +307,8 @@ export default function MobileHelpSupportView({
             onClick={() => setActiveTab('new-ticket')}
             className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
               activeTab === 'new-ticket'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-neutral-600 text-white shadow-md shadow-neutral-500/20'
+                : 'text-neutral-400 hover:text-neutral-200'
             }`}
           >
             <PlusCircle className="w-3.5 h-3.5" />
@@ -318,8 +318,8 @@ export default function MobileHelpSupportView({
             onClick={() => setActiveTab('faq')}
             className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
               activeTab === 'faq'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-neutral-600 text-white shadow-md shadow-neutral-500/20'
+                : 'text-neutral-400 hover:text-neutral-200'
             }`}
           >
             <HelpCircle className="w-3.5 h-3.5" />
@@ -344,9 +344,9 @@ export default function MobileHelpSupportView({
                 <button
                   key={idx}
                   onClick={() => handleSendMessage(suggestion)}
-                  className="shrink-0 text-xs px-2.5 py-1 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors flex items-center gap-1"
+                  className="shrink-0 text-xs px-2.5 py-1 rounded-full bg-neutral-800/90 hover:bg-neutral-700 text-neutral-300 border border-neutral-700/60 transition-colors flex items-center gap-1"
                 >
-                  <Sparkles className="w-3 h-3 text-blue-400" />
+                  <Sparkles className="w-3 h-3 text-neutral-400" />
                   <span>{suggestion}</span>
                 </button>
               ))}
@@ -363,25 +363,25 @@ export default function MobileHelpSupportView({
                 >
                   {msg.sender === 'agent' && (
                     <div className="flex items-center gap-1.5 mb-1 px-1">
-                      <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-[9px] font-bold text-white">
+                      <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-neutral-600 to-neutral-500 flex items-center justify-center text-[9px] font-bold text-white">
                         T
                       </div>
-                      <span className="text-[11px] font-semibold text-slate-300">{msg.name}</span>
-                      <span className="text-[10px] text-slate-500">• {msg.role}</span>
+                      <span className="text-[11px] font-semibold text-neutral-300">{msg.name}</span>
+                      <span className="text-[10px] text-neutral-500">• {msg.role}</span>
                     </div>
                   )}
 
                   <div
                     className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed shadow-sm ${
                       msg.sender === 'user'
-                        ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-br-none'
-                        : 'bg-slate-800 text-slate-200 border border-slate-700/80 rounded-bl-none'
+                        ? 'bg-gradient-to-r from-neutral-600 to-neutral-500 text-white rounded-br-none'
+                        : 'bg-neutral-800 text-neutral-200 border border-neutral-700/80 rounded-bl-none'
                     }`}
                   >
                     <p className="whitespace-pre-wrap">{msg.text}</p>
                     <span
                       className={`block text-[10px] mt-1 text-right ${
-                        msg.sender === 'user' ? 'text-blue-200' : 'text-slate-400'
+                        msg.sender === 'user' ? 'text-neutral-200' : 'text-neutral-400'
                       }`}
                     >
                       {msg.time}
@@ -391,8 +391,8 @@ export default function MobileHelpSupportView({
               ))}
 
               {isTyping && (
-                <div className="flex items-center gap-2 text-slate-400 text-xs px-2 py-1">
-                  <div className="w-2 h-2 rounded-full bg-blue-500 animate-ping" />
+                <div className="flex items-center gap-2 text-neutral-400 text-xs px-2 py-1">
+                  <div className="w-2 h-2 rounded-full bg-neutral-500 animate-ping" />
                   <span>Sarah is analyzing your system metrics...</span>
                 </div>
               )}
@@ -406,20 +406,20 @@ export default function MobileHelpSupportView({
                 e.preventDefault();
                 handleSendMessage();
               }}
-              className="sticky bottom-0 bg-slate-900/95 backdrop-blur-md pt-2"
+              className="sticky bottom-0 bg-neutral-900/95 backdrop-blur-md pt-2"
             >
-              <div className="flex items-center gap-2 bg-slate-800/90 border border-slate-700/80 rounded-2xl px-3 py-1.5 focus-within:border-blue-500 transition-colors">
+              <div className="flex items-center gap-2 bg-neutral-800/90 border border-neutral-700/80 rounded-2xl px-3 py-1.5 focus-within:border-neutral-500 transition-colors">
                 <input
                   type="text"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   placeholder="Ask Tiwi AI or request agent handover..."
-                  className="flex-1 bg-transparent text-xs text-white placeholder-slate-400 focus:outline-none py-1.5"
+                  className="flex-1 bg-transparent text-xs text-white placeholder-neutral-400 focus:outline-none py-1.5"
                 />
                 <button
                   type="submit"
                   disabled={!inputText.trim() || isTyping}
-                  className="w-8 h-8 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 flex items-center justify-center text-white transition-colors"
+                  className="w-8 h-8 rounded-xl bg-neutral-600 hover:bg-neutral-500 disabled:opacity-40 flex items-center justify-center text-white transition-colors"
                 >
                   <Send className="w-4 h-4" />
                 </button>

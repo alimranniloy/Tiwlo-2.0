@@ -65,26 +65,26 @@ export default function CreateDropletModal({ isOpen, onClose, onCreateDroplet, i
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl bg-white dark:bg-[#111827] rounded-3xl border border-slate-200 dark:border-gray-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="relative w-full max-w-2xl bg-white dark:bg-[#181818] rounded-3xl border border-neutral-200 dark:border-gray-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-gray-800">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-100 dark:border-gray-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+            <div className="w-10 h-10 rounded-2xl bg-neutral-600 text-white flex items-center justify-center shadow-xs">
               <Server className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+              <h2 className="text-lg font-bold text-neutral-900 dark:text-white">
                 Create New Droplet
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
                 Configure specs, choose region, and launch cloud server in seconds.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-gray-800 transition cursor-pointer"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-gray-800 transition cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -94,7 +94,7 @@ export default function CreateDropletModal({ isOpen, onClose, onCreateDroplet, i
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Server Name */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
               Droplet Hostname / Name
             </label>
             <input
@@ -103,14 +103,14 @@ export default function CreateDropletModal({ isOpen, onClose, onCreateDroplet, i
               onChange={(e) => setName(e.target.value)}
               required
               placeholder="e.g. web-server-02"
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50/50 dark:bg-gray-800/50 text-slate-900 dark:text-white text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-medium"
+              className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 bg-neutral-50/50 dark:bg-gray-800/50 text-neutral-900 dark:text-white text-sm focus:outline-hidden focus:ring-2 focus:ring-neutral-500 font-medium"
             />
           </div>
 
           {/* Choose Region */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1.5">
-              <Globe className="w-3.5 h-3.5 text-blue-500" />
+            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2 flex items-center gap-1.5">
+              <Globe className="w-3.5 h-3.5 text-neutral-500" />
               Choose Datacenter Region
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
@@ -123,8 +123,8 @@ export default function CreateDropletModal({ isOpen, onClose, onCreateDroplet, i
                     onClick={() => setRegion(r)}
                     className={`flex items-center gap-2.5 p-3 rounded-xl border text-left transition cursor-pointer ${
                       isSelected
-                        ? 'border-blue-600 bg-blue-50/60 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 ring-1 ring-blue-600 font-semibold'
-                        : 'border-slate-200 dark:border-gray-800 bg-white dark:bg-gray-800 text-slate-700 dark:text-slate-200 hover:border-slate-300'
+                        ? 'border-neutral-600 bg-neutral-50/60 dark:bg-neutral-900/20 text-neutral-600 dark:text-neutral-400 ring-1 ring-neutral-600 font-semibold'
+                        : 'border-neutral-200 dark:border-gray-800 bg-white dark:bg-gray-800 text-neutral-700 dark:text-neutral-200 hover:border-neutral-300'
                     }`}
                   >
                     <span className="text-xl shrink-0">{r.flag}</span>
@@ -139,7 +139,7 @@ export default function CreateDropletModal({ isOpen, onClose, onCreateDroplet, i
 
           {/* OS Distribution */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1.5">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2 flex items-center gap-1.5">
               <Zap className="w-3.5 h-3.5 text-amber-500" />
               Choose OS Distribution Image
             </label>
@@ -153,22 +153,22 @@ export default function CreateDropletModal({ isOpen, onClose, onCreateDroplet, i
                     onClick={() => setImage(img.name)}
                     className={`p-3 rounded-xl border text-left transition cursor-pointer flex items-center justify-between ${
                       isSelected
-                        ? 'border-blue-600 bg-blue-50/60 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 ring-1 ring-blue-600'
-                        : 'border-slate-200 dark:border-gray-800 bg-white dark:bg-gray-800 text-slate-700 dark:text-slate-200 hover:border-slate-300'
+                        ? 'border-neutral-600 bg-neutral-50/60 dark:bg-neutral-900/20 text-neutral-600 dark:text-neutral-400 ring-1 ring-neutral-600'
+                        : 'border-neutral-200 dark:border-gray-800 bg-white dark:bg-gray-800 text-neutral-700 dark:text-neutral-200 hover:border-neutral-300'
                     }`}
                   >
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <p className="text-xs font-bold text-slate-900 dark:text-white">{img.name}</p>
+                        <p className="text-xs font-bold text-neutral-900 dark:text-white">{img.name}</p>
                         {img.badge && (
-                          <span className="px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider rounded-md bg-blue-600 text-white shadow-2xs">
+                          <span className="px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider rounded-md bg-neutral-600 text-white shadow-2xs">
                             {img.badge}
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-slate-400">{img.desc}</p>
+                      <p className="text-[11px] text-neutral-400">{img.desc}</p>
                     </div>
-                    {isSelected && <Check className="w-4 h-4 text-blue-600 shrink-0 ml-2" />}
+                    {isSelected && <Check className="w-4 h-4 text-neutral-600 shrink-0 ml-2" />}
                   </button>
                 );
               })}
@@ -177,7 +177,7 @@ export default function CreateDropletModal({ isOpen, onClose, onCreateDroplet, i
 
           {/* Plan & Specs */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1.5">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2 flex items-center gap-1.5">
               <Cpu className="w-3.5 h-3.5 text-emerald-500" />
               Choose Droplet Size & Compute Specs
             </label>
@@ -191,20 +191,20 @@ export default function CreateDropletModal({ isOpen, onClose, onCreateDroplet, i
                     onClick={() => setPlan(p)}
                     className={`p-3.5 rounded-xl border text-left transition cursor-pointer relative ${
                       isSelected
-                        ? 'border-blue-600 bg-blue-50/60 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 ring-1 ring-blue-600'
-                        : 'border-slate-200 dark:border-gray-800 bg-white dark:bg-gray-800 text-slate-700 dark:text-slate-200 hover:border-slate-300'
+                        ? 'border-neutral-600 bg-neutral-50/60 dark:bg-neutral-900/20 text-neutral-600 dark:text-neutral-400 ring-1 ring-neutral-600'
+                        : 'border-neutral-200 dark:border-gray-800 bg-white dark:bg-gray-800 text-neutral-700 dark:text-neutral-200 hover:border-neutral-300'
                     }`}
                   >
                     {p.popular && (
-                      <span className="absolute top-2 right-2 text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-600 text-white uppercase tracking-wider">
+                      <span className="absolute top-2 right-2 text-[9px] font-bold px-2 py-0.5 rounded-full bg-neutral-600 text-white uppercase tracking-wider">
                         Recommended
                       </span>
                     )}
                     <div className="flex items-baseline justify-between mb-1">
-                      <span className="text-xs font-bold text-slate-900 dark:text-white">{p.label}</span>
-                      <span className="text-xs font-extrabold text-blue-600 dark:text-blue-400">{p.price}</span>
+                      <span className="text-xs font-bold text-neutral-900 dark:text-white">{p.label}</span>
+                      <span className="text-xs font-extrabold text-neutral-600 dark:text-neutral-400">{p.price}</span>
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">
                       {p.vcpus} vCPU • {p.memory} RAM • {p.storage} NVMe SSD
                     </p>
                   </button>
@@ -214,22 +214,22 @@ export default function CreateDropletModal({ isOpen, onClose, onCreateDroplet, i
           </div>
 
           {/* Footer Submit */}
-          <div className="pt-4 border-t border-slate-100 dark:border-gray-800 flex items-center justify-between">
-            <div className="text-xs text-slate-500">
-              Selected: <span className="font-semibold text-slate-900 dark:text-white">{plan.vcpus} vCPU, {plan.memory}</span> in <span className="font-semibold text-slate-900 dark:text-white">{region.code}</span>
+          <div className="pt-4 border-t border-neutral-100 dark:border-gray-800 flex items-center justify-between">
+            <div className="text-xs text-neutral-500">
+              Selected: <span className="font-semibold text-neutral-900 dark:text-white">{plan.vcpus} vCPU, {plan.memory}</span> in <span className="font-semibold text-neutral-900 dark:text-white">{region.code}</span>
             </div>
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-800 transition cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-gray-800 transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition cursor-pointer flex items-center gap-2"
+                className="px-5 py-2.5 rounded-xl bg-neutral-600 hover:bg-neutral-700 text-white text-xs font-bold shadow-md shadow-neutral-500/20 transition cursor-pointer flex items-center gap-2"
               >
                 {loading ? 'Provisioning...' : 'Deploy Droplet Now'}
               </button>

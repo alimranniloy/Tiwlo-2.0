@@ -82,37 +82,37 @@ export default function AdminSidebar({
   ];
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-[#f8fafc] dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 select-none">
+    <div className="flex flex-col h-full bg-[#fafafa] dark:bg-neutral-900 border-r border-neutral-200/80 dark:border-neutral-800 select-none">
       {/* Mobile Header in Drawer */}
-      <div className="lg:hidden flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
+      <div className="lg:hidden flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-800">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm">
+          <div className="w-7 h-7 rounded-lg bg-neutral-600 flex items-center justify-center text-white font-bold text-sm">
             T
           </div>
-          <span className="font-bold text-slate-900 dark:text-white">Tiwlo Admin</span>
+          <span className="font-bold text-neutral-900 dark:text-white">Tiwlo Admin</span>
         </div>
         <button
           onClick={onCloseMobile}
-          className="p-1 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+          className="p-1 rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
         >
           <X className="w-5 h-5" />
         </button>
       </div>
 
       {/* Navigation Scroll Area */}
-      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700">
+      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6 scrollbar-thin scrollbar-thumb-neutral-200 dark:scrollbar-thumb-neutral-700">
         {/* Main Dashboard item */}
         <div>
           <button
             onClick={() => { onNavigate('dashboard'); onCloseMobile?.(); }}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-semibold transition-all ${
               activeView === 'dashboard'
-                ? 'bg-[#e8f0fe] dark:bg-blue-900/40 text-[#1a73e8] dark:text-blue-400 shadow-2xs'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800 hover:text-slate-900'
+                ? 'bg-[#efefef] dark:bg-neutral-900/40 text-[#696969] dark:text-neutral-400 shadow-2xs'
+                : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100/80 dark:hover:bg-neutral-800 hover:text-neutral-900'
             }`}
           >
             <div className="flex items-center gap-3">
-              <LayoutDashboard className={`w-4 h-4 ${activeView === 'dashboard' ? 'text-[#1a73e8] dark:text-blue-400' : 'text-slate-500'}`} />
+              <LayoutDashboard className={`w-4 h-4 ${activeView === 'dashboard' ? 'text-[#696969] dark:text-neutral-400' : 'text-neutral-500'}`} />
               <span>Dashboard</span>
             </div>
           </button>
@@ -121,7 +121,7 @@ export default function AdminSidebar({
         {/* Categorized Groups */}
         {navSections.map((sec) => (
           <div key={sec.title} className="space-y-1">
-            <h3 className="px-3 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+            <h3 className="px-3 text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
               {sec.title}
             </h3>
             <div className="space-y-0.5 pt-1">
@@ -134,25 +134,25 @@ export default function AdminSidebar({
                     onClick={() => { onNavigate(item.id); onCloseMobile?.(); }}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
                       isActive
-                        ? 'bg-[#e8f0fe] dark:bg-blue-900/40 text-[#1a73e8] dark:text-blue-400 font-semibold shadow-2xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/70 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
+                        ? 'bg-[#efefef] dark:bg-neutral-900/40 text-[#696969] dark:text-neutral-400 font-semibold shadow-2xs'
+                        : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100/70 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-200'
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <IconComponent className={`w-4 h-4 transition-colors ${
-                        isActive ? 'text-[#1a73e8] dark:text-blue-400' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'
+                        isActive ? 'text-[#696969] dark:text-neutral-400' : 'text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300'
                       }`} />
                       <span>{item.label}</span>
                     </div>
 
                     <div className="flex items-center gap-1.5">
                       {item.badge && (
-                        <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300">
+                        <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-neutral-100 text-neutral-700 dark:bg-neutral-900/60 dark:text-neutral-300">
                           {item.badge}
                         </span>
                       )}
-                      <ChevronRight className={`w-3.5 h-3.5 text-slate-300 dark:text-slate-600 transition-transform ${
-                        isActive ? 'text-[#1a73e8] dark:text-blue-400 rotate-90' : 'group-hover:translate-x-0.5'
+                      <ChevronRight className={`w-3.5 h-3.5 text-neutral-300 dark:text-neutral-600 transition-transform ${
+                        isActive ? 'text-[#696969] dark:text-neutral-400 rotate-90' : 'group-hover:translate-x-0.5'
                       }`} />
                     </div>
                   </button>
@@ -164,14 +164,14 @@ export default function AdminSidebar({
       </div>
 
       {/* Bottom Tiwlo Branding Card */}
-      <div className="p-3 border-t border-slate-200/80 dark:border-slate-800">
-        <div className="flex items-center gap-3 p-2.5 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50/60 dark:from-slate-800 dark:to-slate-800/80 border border-blue-100/80 dark:border-slate-700/80">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-sky-500 flex items-center justify-center text-white shadow-sm shadow-blue-500/25">
+      <div className="p-3 border-t border-neutral-200/80 dark:border-neutral-800">
+        <div className="flex items-center gap-3 p-2.5 rounded-xl bg-gradient-to-r from-neutral-50 to-neutral-50/60 dark:from-neutral-800 dark:to-neutral-800/80 border border-neutral-100/80 dark:border-neutral-700/80">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-neutral-600 to-neutral-500 flex items-center justify-center text-white shadow-sm shadow-neutral-500/25">
             <span className="font-bold text-base">T</span>
           </div>
           <div>
-            <h4 className="text-xs font-bold text-slate-800 dark:text-white">Tiwlo</h4>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Build • Sell • Grow</p>
+            <h4 className="text-xs font-bold text-neutral-800 dark:text-white">Tiwlo</h4>
+            <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-medium">Build • Sell • Grow</p>
           </div>
         </div>
       </div>
@@ -189,10 +189,10 @@ export default function AdminSidebar({
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
-            className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-neutral-900/40 backdrop-blur-xs transition-opacity"
             onClick={onCloseMobile}
           />
-          <div className="fixed inset-y-0 left-0 w-72 max-w-[85vw] bg-white dark:bg-slate-900 shadow-2xl z-50 animate-in slide-in-from-left duration-200">
+          <div className="fixed inset-y-0 left-0 w-72 max-w-[85vw] bg-white dark:bg-neutral-900 shadow-2xl z-50 animate-in slide-in-from-left duration-200">
             {sidebarContent}
           </div>
         </div>

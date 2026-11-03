@@ -178,12 +178,12 @@ export default function SecurityCheckupView({ user, onComplete }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#ffffff] font-sans antialiased text-[#202124] flex flex-col justify-between select-none">
+    <div className="min-h-screen bg-[#ffffff] font-sans antialiased text-[#212121] flex flex-col justify-between select-none">
       
       {/* ============================================================== */}
       {/* 1. TOP ACCOUNT NAVIGATION BAR                                  */}
       {/* ============================================================== */}
-      <header className="sticky top-0 z-40 bg-white border-b border-[#dadce0] h-16 px-4 sm:px-8 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-white border-b border-[#dcdcdc] h-16 px-4 sm:px-8 flex items-center justify-between">
         {/* Left: Tiwlo Brand + Account Label */}
         <div className="flex items-center gap-3">
           <a href={getPlatformUrl()} className="flex items-center gap-2.5 transition-opacity hover:opacity-90">
@@ -197,27 +197,27 @@ export default function SecurityCheckupView({ user, onComplete }) {
               }}
             />
             <div className="hidden items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-[#1a73e8] text-white font-bold flex items-center justify-center text-sm">
+              <div className="w-7 h-7 rounded-lg bg-[#696969] text-white font-bold flex items-center justify-center text-sm">
                 T
               </div>
-              <span className="font-semibold text-lg text-[#202124] tracking-tight">Tiwlo</span>
+              <span className="font-semibold text-lg text-[#212121] tracking-tight">Tiwlo</span>
             </div>
           </a>
-          <span className="text-[18px] text-[#5f6368] font-normal pl-3 border-l border-[#dadce0] hidden sm:inline-block leading-none">
+          <span className="text-[18px] text-[#636363] font-normal pl-3 border-l border-[#dcdcdc] hidden sm:inline-block leading-none">
             Account
           </span>
         </div>
 
         {/* Right: Authenticated User Chip & Real Avatar */}
         <div className="flex items-center gap-3">
-          <div className="hidden md:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#f1f3f4] text-[#3c4043] text-xs font-normal border border-[#dadce0]">
-            <UserCheck className="w-3.5 h-3.5 text-[#5f6368]" />
+          <div className="hidden md:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#f1f3f4] text-[#3f3f3f] text-xs font-normal border border-[#dcdcdc]">
+            <UserCheck className="w-3.5 h-3.5 text-[#636363]" />
             <span className="max-w-[220px] truncate font-medium">{email}</span>
           </div>
 
           <div
             title={`${name} (${email})`}
-            className="w-9 h-9 rounded-full bg-[#1a73e8] text-white flex items-center justify-center text-sm font-medium shadow-xs ring-2 ring-blue-50 cursor-pointer overflow-hidden relative"
+            className="w-9 h-9 rounded-full bg-[#696969] text-white flex items-center justify-center text-sm font-medium shadow-xs ring-2 ring-neutral-50 cursor-pointer overflow-hidden relative"
           >
             {avatar ? (
               <>
@@ -230,7 +230,7 @@ export default function SecurityCheckupView({ user, onComplete }) {
                     if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
                   }}
                 />
-                <div className="hidden w-full h-full items-center justify-center bg-[#1a73e8] text-white font-medium text-sm">
+                <div className="hidden w-full h-full items-center justify-center bg-[#696969] text-white font-medium text-sm">
                   {userInitial}
                 </div>
               </>
@@ -252,7 +252,7 @@ export default function SecurityCheckupView({ user, onComplete }) {
             <ShieldCheck className="w-10 h-10 sm:w-11 sm:h-11" strokeWidth={2.2} />
           </div>
 
-          <h1 className="text-[28px] sm:text-[34px] font-normal text-[#202124] tracking-tight mt-4 sm:mt-5 leading-tight">
+          <h1 className="text-[28px] sm:text-[34px] font-normal text-[#212121] tracking-tight mt-4 sm:mt-5 leading-tight">
             Security Checkup
           </h1>
 
@@ -261,7 +261,7 @@ export default function SecurityCheckupView({ user, onComplete }) {
             <span>No recommended actions</span>
           </div>
 
-          <p className="text-[14px] text-[#5f6368] max-w-[500px] mx-auto mt-2 leading-[22px]">
+          <p className="text-[14px] text-[#636363] max-w-[500px] mx-auto mt-2 leading-[22px]">
             We checked your Tiwlo Account and confirmed that your credentials, active sessions, and store services are protected.
           </p>
         </div>
@@ -270,7 +270,7 @@ export default function SecurityCheckupView({ user, onComplete }) {
         <div className="space-y-3">
 
           {/* CARD 1: Recent Security Activity */}
-          <div className="bg-white border border-[#dadce0] rounded-[8px] overflow-hidden transition-all duration-200 hover:border-[#bdc1c6] shadow-[0_1px_2px_0_rgba(60,64,67,0.15)]">
+          <div className="bg-white border border-[#dcdcdc] rounded-[8px] overflow-hidden transition-all duration-200 hover:border-[#c1c1c1] shadow-[0_1px_2px_0_rgba(60,64,67,0.15)]">
             <button
               type="button"
               onClick={() => toggleCard('activity')}
@@ -281,33 +281,33 @@ export default function SecurityCheckupView({ user, onComplete }) {
                   <Check className="w-4 h-4 stroke-[3]" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-[15px] sm:text-[16px] font-medium text-[#202124] leading-snug">
+                  <h3 className="text-[15px] sm:text-[16px] font-medium text-[#212121] leading-snug">
                     Recent security activity
                   </h3>
-                  <p className="text-[13px] text-[#5f6368] mt-0.5 leading-snug truncate">
+                  <p className="text-[13px] text-[#636363] mt-0.5 leading-snug truncate">
                     1 security event reviewed • Access restored
                   </p>
                 </div>
               </div>
 
-              <div className="p-1 rounded-full text-[#5f6368] hover:bg-[#e8eaed] shrink-0 ml-2">
+              <div className="p-1 rounded-full text-[#636363] hover:bg-[#eaeaea] shrink-0 ml-2">
                 {expandedCards.activity ? (
-                  <ChevronUp className="w-5 h-5 text-[#5f6368]" />
+                  <ChevronUp className="w-5 h-5 text-[#636363]" />
                 ) : (
-                  <ChevronDown className="w-5 h-5 text-[#5f6368]" />
+                  <ChevronDown className="w-5 h-5 text-[#636363]" />
                 )}
               </div>
             </button>
 
             {expandedCards.activity && (
-              <div className="px-5 pb-5 pt-1 border-t border-[#dadce0] bg-[#ffffff] space-y-3.5 text-xs text-[#3c4043]">
+              <div className="px-5 pb-5 pt-1 border-t border-[#dcdcdc] bg-[#ffffff] space-y-3.5 text-xs text-[#3f3f3f]">
                 <div className="pt-3 flex items-start justify-between gap-3">
                   <div className="space-y-1">
-                    <div className="font-medium text-[#202124] text-[13px] flex items-center gap-1.5">
+                    <div className="font-medium text-[#212121] text-[13px] flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-[#137333]" />
                       Account access restored & verified
                     </div>
-                    <p className="text-[#5f6368] text-[12px] leading-relaxed">
+                    <p className="text-[#636363] text-[12px] leading-relaxed">
                       Your appeal was formally reviewed and approved by the Tiwlo Account Security Team. Automated compliance holds have been lifted and account privileges are restored.
                     </p>
                   </div>
@@ -316,18 +316,18 @@ export default function SecurityCheckupView({ user, onComplete }) {
                   </span>
                 </div>
 
-                <div className="space-y-2 p-3 rounded-[6px] bg-[#f8f9fa] border border-[#e8eaed]">
+                <div className="space-y-2 p-3 rounded-[6px] bg-[#f8f9fa] border border-[#eaeaea]">
                   <div className="flex items-center justify-between text-[12px]">
-                    <span className="text-[#5f6368]">Audit Timestamp:</span>
-                    <span className="font-medium text-[#202124]">{formattedAuditTime}</span>
+                    <span className="text-[#636363]">Audit Timestamp:</span>
+                    <span className="font-medium text-[#212121]">{formattedAuditTime}</span>
                   </div>
                   <div className="flex items-center justify-between text-[12px]">
-                    <span className="text-[#5f6368]">Resolution Action:</span>
+                    <span className="text-[#636363]">Resolution Action:</span>
                     <span className="text-[#137333] font-medium">Compliance Hold Cleared</span>
                   </div>
                   <div className="flex items-center justify-between text-[12px]">
-                    <span className="text-[#5f6368]">Security Reviewer:</span>
-                    <span className="text-[#202124]">Tiwlo Integrity & Verification Specialist</span>
+                    <span className="text-[#636363]">Security Reviewer:</span>
+                    <span className="text-[#212121]">Tiwlo Integrity & Verification Specialist</span>
                   </div>
                 </div>
               </div>
@@ -335,7 +335,7 @@ export default function SecurityCheckupView({ user, onComplete }) {
           </div>
 
           {/* CARD 2: Your Devices */}
-          <div className="bg-white border border-[#dadce0] rounded-[8px] overflow-hidden transition-all duration-200 hover:border-[#bdc1c6] shadow-[0_1px_2px_0_rgba(60,64,67,0.15)]">
+          <div className="bg-white border border-[#dcdcdc] rounded-[8px] overflow-hidden transition-all duration-200 hover:border-[#c1c1c1] shadow-[0_1px_2px_0_rgba(60,64,67,0.15)]">
             <button
               type="button"
               onClick={() => toggleCard('devices')}
@@ -346,44 +346,44 @@ export default function SecurityCheckupView({ user, onComplete }) {
                   <Check className="w-4 h-4 stroke-[3]" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-[15px] sm:text-[16px] font-medium text-[#202124] leading-snug">
+                  <h3 className="text-[15px] sm:text-[16px] font-medium text-[#212121] leading-snug">
                     Your devices
                   </h3>
-                  <p className="text-[13px] text-[#5f6368] mt-0.5 leading-snug truncate">
+                  <p className="text-[13px] text-[#636363] mt-0.5 leading-snug truncate">
                     1 active session on {deviceInfo.browser}
                   </p>
                 </div>
               </div>
 
-              <div className="p-1 rounded-full text-[#5f6368] hover:bg-[#e8eaed] shrink-0 ml-2">
+              <div className="p-1 rounded-full text-[#636363] hover:bg-[#eaeaea] shrink-0 ml-2">
                 {expandedCards.devices ? (
-                  <ChevronUp className="w-5 h-5 text-[#5f6368]" />
+                  <ChevronUp className="w-5 h-5 text-[#636363]" />
                 ) : (
-                  <ChevronDown className="w-5 h-5 text-[#5f6368]" />
+                  <ChevronDown className="w-5 h-5 text-[#636363]" />
                 )}
               </div>
             </button>
 
             {expandedCards.devices && (
-              <div className="px-5 pb-5 pt-1 border-t border-[#dadce0] bg-[#ffffff] space-y-3 text-xs text-[#3c4043]">
+              <div className="px-5 pb-5 pt-1 border-t border-[#dcdcdc] bg-[#ffffff] space-y-3 text-xs text-[#3f3f3f]">
                 <div className="pt-3 flex items-start gap-3.5">
-                  <div className="p-2 rounded-lg bg-[#f1f3f4] text-[#5f6368] mt-0.5">
+                  <div className="p-2 rounded-lg bg-[#f1f3f4] text-[#636363] mt-0.5">
                     {deviceInfo.isMobile ? <Smartphone className="w-5 h-5" /> : <Laptop className="w-5 h-5" />}
                   </div>
                   <div className="flex-1 min-w-0 space-y-0.5">
-                    <div className="font-medium text-[#202124] text-[13px] flex items-center gap-2">
+                    <div className="font-medium text-[#212121] text-[13px] flex items-center gap-2">
                       <span>{deviceInfo.os}</span>
                       <span className="text-[11px] text-[#137333] bg-[#e6f4ea] px-2 py-0.2 rounded-full font-medium">
                         This device
                       </span>
                     </div>
-                    <div className="text-[12px] text-[#5f6368]">
+                    <div className="text-[12px] text-[#636363]">
                       {deviceInfo.browser} • Active now • Web session verified
                     </div>
                   </div>
                 </div>
 
-                <div className="p-3 rounded-[6px] bg-[#f8f9fa] border border-[#e8eaed] text-[12px] text-[#5f6368]">
+                <div className="p-3 rounded-[6px] bg-[#f8f9fa] border border-[#eaeaea] text-[12px] text-[#636363]">
                   Suspicious session tokens from unverified endpoints were automatically purged during the security reset.
                 </div>
               </div>
@@ -391,7 +391,7 @@ export default function SecurityCheckupView({ user, onComplete }) {
           </div>
 
           {/* CARD 3: 2-Step Verification & Sign-in */}
-          <div className="bg-white border border-[#dadce0] rounded-[8px] overflow-hidden transition-all duration-200 hover:border-[#bdc1c6] shadow-[0_1px_2px_0_rgba(60,64,67,0.15)]">
+          <div className="bg-white border border-[#dcdcdc] rounded-[8px] overflow-hidden transition-all duration-200 hover:border-[#c1c1c1] shadow-[0_1px_2px_0_rgba(60,64,67,0.15)]">
             <button
               type="button"
               onClick={() => toggleCard('auth')}
@@ -402,44 +402,44 @@ export default function SecurityCheckupView({ user, onComplete }) {
                   <Check className="w-4 h-4 stroke-[3]" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-[15px] sm:text-[16px] font-medium text-[#202124] leading-snug">
+                  <h3 className="text-[15px] sm:text-[16px] font-medium text-[#212121] leading-snug">
                     Sign-in & recovery
                   </h3>
-                  <p className="text-[13px] text-[#5f6368] mt-0.5 leading-snug truncate">
+                  <p className="text-[13px] text-[#636363] mt-0.5 leading-snug truncate">
                     Password and cryptographic security active
                   </p>
                 </div>
               </div>
 
-              <div className="p-1 rounded-full text-[#5f6368] hover:bg-[#e8eaed] shrink-0 ml-2">
+              <div className="p-1 rounded-full text-[#636363] hover:bg-[#eaeaea] shrink-0 ml-2">
                 {expandedCards.auth ? (
-                  <ChevronUp className="w-5 h-5 text-[#5f6368]" />
+                  <ChevronUp className="w-5 h-5 text-[#636363]" />
                 ) : (
-                  <ChevronDown className="w-5 h-5 text-[#5f6368]" />
+                  <ChevronDown className="w-5 h-5 text-[#636363]" />
                 )}
               </div>
             </button>
 
             {expandedCards.auth && (
-              <div className="px-5 pb-5 pt-1 border-t border-[#dadce0] bg-[#ffffff] space-y-3 text-xs text-[#3c4043]">
+              <div className="px-5 pb-5 pt-1 border-t border-[#dcdcdc] bg-[#ffffff] space-y-3 text-xs text-[#3f3f3f]">
                 <div className="pt-3 space-y-2.5">
                   <div className="flex items-center justify-between py-1.5 border-b border-[#f1f3f4]">
-                    <span className="text-[13px] text-[#202124]">Account Password</span>
+                    <span className="text-[13px] text-[#212121]">Account Password</span>
                     <span className="text-[12px] text-[#137333] font-medium flex items-center gap-1">
                       <Check className="w-3.5 h-3.5" />
                       Encrypted & Protected (scrypt)
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-1.5 border-b border-[#f1f3f4]">
-                    <span className="text-[13px] text-[#202124]">Recovery Email Address</span>
-                    <span className="text-[12px] font-medium text-[#202124]">{email}</span>
+                    <span className="text-[13px] text-[#212121]">Recovery Email Address</span>
+                    <span className="text-[12px] font-medium text-[#212121]">{email}</span>
                   </div>
                   <div className="flex items-center justify-between py-1.5 border-b border-[#f1f3f4]">
-                    <span className="text-[13px] text-[#202124]">Merchant Tiwi ID</span>
-                    <span className="text-[12px] font-mono text-[#5f6368]">{tiwiId}</span>
+                    <span className="text-[13px] text-[#212121]">Merchant Tiwi ID</span>
+                    <span className="text-[12px] font-mono text-[#636363]">{tiwiId}</span>
                   </div>
                   <div className="flex items-center justify-between py-1.5">
-                    <span className="text-[13px] text-[#202124]">Two-Step Verification (2FA)</span>
+                    <span className="text-[13px] text-[#212121]">Two-Step Verification (2FA)</span>
                     <span className="text-[12px] text-[#137333] font-medium flex items-center gap-1">
                       <Check className="w-3.5 h-3.5" />
                       {resolvedUser?.twoFactorEnabled ? 'Active (Authenticator / Email OTP)' : 'Protected by Tiwlo Secure Sign-in'}
@@ -451,7 +451,7 @@ export default function SecurityCheckupView({ user, onComplete }) {
           </div>
 
           {/* CARD 4: Third-Party Access & Cloud Data */}
-          <div className="bg-white border border-[#dadce0] rounded-[8px] overflow-hidden transition-all duration-200 hover:border-[#bdc1c6] shadow-[0_1px_2px_0_rgba(60,64,67,0.15)]">
+          <div className="bg-white border border-[#dcdcdc] rounded-[8px] overflow-hidden transition-all duration-200 hover:border-[#c1c1c1] shadow-[0_1px_2px_0_rgba(60,64,67,0.15)]">
             <button
               type="button"
               onClick={() => toggleCard('cloud')}
@@ -462,46 +462,46 @@ export default function SecurityCheckupView({ user, onComplete }) {
                   <Check className="w-4 h-4 stroke-[3]" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-[15px] sm:text-[16px] font-medium text-[#202124] leading-snug">
+                  <h3 className="text-[15px] sm:text-[16px] font-medium text-[#212121] leading-snug">
                     Third-party access & cloud data
                   </h3>
-                  <p className="text-[13px] text-[#5f6368] mt-0.5 leading-snug truncate">
+                  <p className="text-[13px] text-[#636363] mt-0.5 leading-snug truncate">
                     No unverified apps or services have access to your data
                   </p>
                 </div>
               </div>
 
-              <div className="p-1 rounded-full text-[#5f6368] hover:bg-[#e8eaed] shrink-0 ml-2">
+              <div className="p-1 rounded-full text-[#636363] hover:bg-[#eaeaea] shrink-0 ml-2">
                 {expandedCards.cloud ? (
-                  <ChevronUp className="w-5 h-5 text-[#5f6368]" />
+                  <ChevronUp className="w-5 h-5 text-[#636363]" />
                 ) : (
-                  <ChevronDown className="w-5 h-5 text-[#5f6368]" />
+                  <ChevronDown className="w-5 h-5 text-[#636363]" />
                 )}
               </div>
             </button>
 
             {expandedCards.cloud && (
-              <div className="px-5 pb-5 pt-1 border-t border-[#dadce0] bg-[#ffffff] space-y-3 text-xs text-[#3c4043]">
+              <div className="px-5 pb-5 pt-1 border-t border-[#dcdcdc] bg-[#ffffff] space-y-3 text-xs text-[#3f3f3f]">
                 <div className="pt-3 space-y-2.5">
-                  <p className="text-[13px] text-[#5f6368] leading-relaxed">
+                  <p className="text-[13px] text-[#636363] leading-relaxed">
                     All store databases, product catalogs, customer transaction logs, and cloud micro-instances have been audited and resumed normal operations.
                   </p>
-                  <div className="space-y-2 p-3 rounded-[6px] bg-[#f8f9fa] border border-[#e8eaed]">
+                  <div className="space-y-2 p-3 rounded-[6px] bg-[#f8f9fa] border border-[#eaeaea]">
                     <div className="flex items-center justify-between">
-                      <span className="text-[12px] text-[#5f6368]">Store Name:</span>
-                      <span className="text-[12px] text-[#202124] font-medium">{storeName}</span>
+                      <span className="text-[12px] text-[#636363]">Store Name:</span>
+                      <span className="text-[12px] text-[#212121] font-medium">{storeName}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[12px] text-[#5f6368]">Store Database Status:</span>
+                      <span className="text-[12px] text-[#636363]">Store Database Status:</span>
                       <span className="text-[12px] text-[#137333] font-semibold">100% Operational (Isolated)</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[12px] text-[#5f6368]">POS & Catalog Sync:</span>
+                      <span className="text-[12px] text-[#636363]">POS & Catalog Sync:</span>
                       <span className="text-[12px] text-[#137333] font-medium">Synchronized</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[12px] text-[#5f6368]">Third-Party Apps Granted:</span>
-                      <span className="text-[12px] text-[#202124]">0 untrusted applications</span>
+                      <span className="text-[12px] text-[#636363]">Third-Party Apps Granted:</span>
+                      <span className="text-[12px] text-[#212121]">0 untrusted applications</span>
                     </div>
                   </div>
                 </div>
@@ -518,14 +518,14 @@ export default function SecurityCheckupView({ user, onComplete }) {
           <button
             type="button"
             onClick={onComplete}
-            className="w-full sm:w-auto min-w-[220px] h-10 px-8 bg-[#1a73e8] hover:bg-[#1b66c9] active:bg-[#1756a9] text-white rounded-full text-[14px] font-medium shadow-xs cursor-pointer inline-flex items-center justify-center gap-2 transition-all"
+            className="w-full sm:w-auto min-w-[220px] h-10 px-8 bg-[#696969] hover:bg-[#5d5d5d] active:bg-[#4f4f4f] text-white rounded-full text-[14px] font-medium shadow-xs cursor-pointer inline-flex items-center justify-center gap-2 transition-all"
           >
             <span>Continue to Dashboard</span>
             <ArrowRight className="w-4 h-4" />
           </button>
 
           <div>
-            <span className="text-[12px] text-[#5f6368]">
+            <span className="text-[12px] text-[#636363]">
               Your account status is fully synchronized and protected.
             </span>
           </div>
@@ -536,17 +536,17 @@ export default function SecurityCheckupView({ user, onComplete }) {
       {/* ============================================================== */}
       {/* 4. STANDARD ACCOUNT FOOTER                                     */}
       {/* ============================================================== */}
-      <footer className="border-t border-[#dadce0] bg-[#ffffff] py-4 px-4 sm:px-8">
-        <div className="max-w-[680px] mx-auto flex flex-col sm:flex-row items-center justify-between text-[12px] text-[#5f6368] gap-3">
+      <footer className="border-t border-[#dcdcdc] bg-[#ffffff] py-4 px-4 sm:px-8">
+        <div className="max-w-[680px] mx-auto flex flex-col sm:flex-row items-center justify-between text-[12px] text-[#636363] gap-3">
           <div className="flex items-center gap-2">
-            <Globe className="w-4 h-4 text-[#5f6368]" />
-            <span className="hover:text-[#202124] cursor-pointer">English (United States)</span>
+            <Globe className="w-4 h-4 text-[#636363]" />
+            <span className="hover:text-[#212121] cursor-pointer">English (United States)</span>
           </div>
 
           <div className="flex items-center gap-6">
-            <a href={getPlatformUrl()} className="hover:text-[#202124] transition-colors">Help</a>
-            <a href={getPlatformUrl()} className="hover:text-[#202124] transition-colors">Privacy</a>
-            <a href={getPlatformUrl()} className="hover:text-[#202124] transition-colors">Terms</a>
+            <a href={getPlatformUrl()} className="hover:text-[#212121] transition-colors">Help</a>
+            <a href={getPlatformUrl()} className="hover:text-[#212121] transition-colors">Privacy</a>
+            <a href={getPlatformUrl()} className="hover:text-[#212121] transition-colors">Terms</a>
             <span>&copy; 2026 Tiwlo, Inc.</span>
           </div>
         </div>

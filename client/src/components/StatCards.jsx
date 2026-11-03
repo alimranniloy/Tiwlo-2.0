@@ -11,8 +11,8 @@ export default function StatCards({ stats }) {
       isUp: true,
       color: 'blue',
       icon: Box,
-      iconBg: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800/40',
-      sparklineColor: '#3B82F6',
+      iconBg: 'bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 border border-neutral-100 dark:border-neutral-800/40',
+      sparklineColor: '#7b7b7b',
       sparklinePoints: 'M0 24 C 20 20, 35 32, 55 18 C 75 8, 90 22, 110 14 C 130 6, 145 20, 165 10'
     },
     {
@@ -36,7 +36,7 @@ export default function StatCards({ stats }) {
       color: 'purple',
       icon: ShoppingCart,
       iconBg: 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-800/40',
-      sparklineColor: '#A855F7',
+      sparklineColor: '#727272',
       sparklinePoints: 'M0 28 C 30 25, 45 30, 75 16 C 100 6, 120 22, 140 12 C 155 4, 160 8, 165 2'
     },
     {
@@ -61,7 +61,7 @@ export default function StatCards({ stats }) {
         const percentageText = trendParts[0].trim();
 
         const borderGlowClass = {
-          blue: 'hover:border-blue-400/60 dark:hover:border-blue-500/60 hover:shadow-blue-500/5',
+          blue: 'hover:border-neutral-400/60 dark:hover:border-neutral-500/60 hover:shadow-neutral-500/5',
           emerald: 'hover:border-emerald-400/60 dark:hover:border-emerald-500/60 hover:shadow-emerald-500/5',
           purple: 'hover:border-purple-400/60 dark:hover:border-purple-500/60 hover:shadow-purple-500/5',
           amber: 'hover:border-amber-400/60 dark:hover:border-amber-500/60 hover:shadow-amber-500/5'
@@ -70,7 +70,7 @@ export default function StatCards({ stats }) {
         return (
           <div
             key={card.id}
-            className={`bg-white dark:bg-gray-800 border border-slate-200/80 dark:border-gray-700/80 rounded-2xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)] relative flex flex-col justify-between overflow-hidden group hover:shadow-md transition-all duration-200 ${borderGlowClass}`}
+            className={`bg-white dark:bg-gray-800 border border-neutral-200/80 dark:border-gray-700/80 rounded-2xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)] relative flex flex-col justify-between overflow-hidden group hover:shadow-md transition-all duration-200 ${borderGlowClass}`}
           >
             <div>
               {/* Header with Icon and Title */}
@@ -80,13 +80,13 @@ export default function StatCards({ stats }) {
                 >
                   <Icon className="w-5 h-5" />
                 </div>
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
                   {card.title}
                 </span>
               </div>
 
               {/* Stat Value */}
-              <div className="text-[28px] font-extrabold text-slate-900 dark:text-white tracking-tight leading-none mb-3">
+              <div className="text-[28px] font-extrabold text-neutral-900 dark:text-white tracking-tight leading-none mb-3">
                 {card.value}
               </div>
 
@@ -103,7 +103,7 @@ export default function StatCards({ stats }) {
                     {percentageText.replace('↓', '').trim()}
                   </span>
                 )}
-                <span className="text-slate-400 dark:text-slate-400 ml-1.5 font-normal">
+                <span className="text-neutral-400 dark:text-neutral-400 ml-1.5 font-normal">
                   vs last month
                 </span>
               </div>

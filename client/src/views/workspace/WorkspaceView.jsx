@@ -101,7 +101,7 @@ function WorkspaceRowMenu({ service, onNavigate, onOpenStoreDashboard, onToggle,
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
         className={`p-2 rounded-xl transition-colors cursor-pointer ${
-          open ? 'bg-[#E8F0FE] text-[#0B57D0]' : 'text-[#5F6368] hover:bg-[#F0F4F9] hover:text-[#1F1F1F]'
+          open ? 'bg-[#efefef] text-[#000000]' : 'text-[#636363] hover:bg-[#f4f4f4] hover:text-[#1F1F1F]'
         }`}
       >
         <MoreVertical className="w-4 h-4" />
@@ -119,15 +119,15 @@ function WorkspaceRowMenu({ service, onNavigate, onOpenStoreDashboard, onToggle,
             role="menu"
             aria-label={`${service.name} actions`}
             style={{ top: position.top, left: position.left }}
-            className="fixed z-[81] w-[280px] max-w-[calc(100vw-24px)] rounded-xl border border-[#E8EAED] bg-white p-2 shadow-[0_4px_12px_rgba(60,64,67,0.16)]"
+            className="fixed z-[81] w-[280px] max-w-[calc(100vw-24px)] rounded-xl border border-[#eaeaea] bg-white p-2 shadow-[0_4px_12px_rgba(60,64,67,0.16)]"
           >
             <div className="px-3 py-3">
-              <p className="truncate text-sm font-medium text-[#202124]">{service.name}</p>
-              <p className="mt-1 text-xs text-[#5F6368]">
+              <p className="truncate text-sm font-medium text-[#212121]">{service.name}</p>
+              <p className="mt-1 text-xs text-[#636363]">
                 {service.workspaceItemType === 'store' ? 'Store' : service.workspaceItemType === 'droplet' ? 'Cloud droplet' : 'Marketplace service'} · Workspace
               </p>
             </div>
-            <div className="my-1 border-t border-[#E8EAED]" />
+            <div className="my-1 border-t border-[#eaeaea]" />
             {menuItems.map(({ label, icon: Icon, destructive, onClick }) => (
               <button
                 key={label}
@@ -137,10 +137,10 @@ function WorkspaceRowMenu({ service, onNavigate, onOpenStoreDashboard, onToggle,
                 className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition-colors ${
                   destructive
                     ? 'text-[#B3261E] hover:bg-[#FCE8E6]'
-                    : 'text-[#3C4043] hover:bg-[#F1F3F4]'
+                    : 'text-[#3f3f3f] hover:bg-[#F1F3F4]'
                 }`}
               >
-                <Icon className="h-[18px] w-[18px] shrink-0 text-[#5F6368]" />
+                <Icon className="h-[18px] w-[18px] shrink-0 text-[#636363]" />
                 <span>{label}</span>
               </button>
             ))}
@@ -180,7 +180,7 @@ function WorkspaceActionDialog({ dialog, value, setValue, busy, error, onClose, 
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#202124]/32 p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#212121]/32 p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !busy) onClose();
       }}
@@ -189,18 +189,18 @@ function WorkspaceActionDialog({ dialog, value, setValue, busy, error, onClose, 
         role="dialog"
         aria-modal="true"
         aria-labelledby="workspace-action-title"
-        className="w-full max-w-[440px] overflow-hidden rounded-[28px] border border-[#E8EAED] bg-white shadow-[0_8px_24px_rgba(60,64,67,0.16)]"
+        className="w-full max-w-[440px] overflow-hidden rounded-[28px] border border-[#eaeaea] bg-white shadow-[0_8px_24px_rgba(60,64,67,0.16)]"
       >
         <div className="flex items-start gap-4 px-6 pt-6">
           <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-            isRename ? 'bg-[#E8F0FE] text-[#1A73E8]' : 'bg-[#FCE8E6] text-[#B3261E]'
+            isRename ? 'bg-[#efefef] text-[#696969]' : 'bg-[#FCE8E6] text-[#B3261E]'
           }`}>
             {isRename ? <Pencil className="h-[18px] w-[18px]" /> : <AlertTriangle className="h-[18px] w-[18px]" />}
           </div>
           <div className="min-w-0 flex-1">
-            <h2 id="workspace-action-title" className="text-[22px] font-normal leading-7 tracking-[-0.2px] text-[#202124]">{title}</h2>
-            <p className="mt-2 text-sm leading-5 text-[#5F6368]">{description}</p>
-            <p className="mt-4 truncate rounded-xl bg-[#F8F9FA] px-3 py-2.5 text-sm font-medium text-[#3C4043]">
+            <h2 id="workspace-action-title" className="text-[22px] font-normal leading-7 tracking-[-0.2px] text-[#212121]">{title}</h2>
+            <p className="mt-2 text-sm leading-5 text-[#636363]">{description}</p>
+            <p className="mt-4 truncate rounded-xl bg-[#F8F9FA] px-3 py-2.5 text-sm font-medium text-[#3f3f3f]">
               {dialog.service.name}
             </p>
           </div>
@@ -209,7 +209,7 @@ function WorkspaceActionDialog({ dialog, value, setValue, busy, error, onClose, 
             onClick={onClose}
             disabled={busy}
             aria-label="Close dialog"
-            className="rounded-full p-2 text-[#5F6368] transition hover:bg-[#F1F3F4] hover:text-[#202124] disabled:opacity-50"
+            className="rounded-full p-2 text-[#636363] transition hover:bg-[#F1F3F4] hover:text-[#212121] disabled:opacity-50"
           >
             <X className="h-[18px] w-[18px]" />
           </button>
@@ -223,14 +223,14 @@ function WorkspaceActionDialog({ dialog, value, setValue, busy, error, onClose, 
           className="px-6 pb-6 pt-5"
         >
           {isRename && (
-            <label className="block text-sm font-medium text-[#3C4043]">
+            <label className="block text-sm font-medium text-[#3f3f3f]">
               New Workspace name
               <input
                 autoFocus
                 value={value}
                 onChange={(event) => setValue(event.target.value)}
                 maxLength={80}
-                className="mt-2 w-full rounded-xl border border-[#747775] bg-white px-4 py-3 text-sm text-[#202124] outline-none transition placeholder:text-[#80868B] hover:border-[#5F6368] focus:border-2 focus:border-[#1A73E8]"
+                className="mt-2 w-full rounded-xl border border-[#747775] bg-white px-4 py-3 text-sm text-[#212121] outline-none transition placeholder:text-[#858585] hover:border-[#636363] focus:border-2 focus:border-[#696969]"
                 placeholder="Enter a name"
               />
             </label>
@@ -245,7 +245,7 @@ function WorkspaceActionDialog({ dialog, value, setValue, busy, error, onClose, 
               type="button"
               onClick={onClose}
               disabled={busy}
-              className="min-h-10 rounded-full px-5 text-sm font-medium text-[#1A73E8] transition hover:bg-[#F1F3F4] disabled:opacity-50"
+              className="min-h-10 rounded-full px-5 text-sm font-medium text-[#696969] transition hover:bg-[#F1F3F4] disabled:opacity-50"
             >
               Cancel
             </button>
@@ -254,7 +254,7 @@ function WorkspaceActionDialog({ dialog, value, setValue, busy, error, onClose, 
               disabled={!canSubmit}
               className={`inline-flex min-h-10 items-center gap-2 rounded-full px-5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
                 isRename
-                  ? 'bg-[#1A73E8] text-white hover:bg-[#1765CC]'
+                  ? 'bg-[#696969] text-white hover:bg-[#5c5c5c]'
                   : 'bg-[#B3261E] text-white hover:bg-[#8C1D18]'
               }`}
             >
@@ -396,19 +396,19 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
     switch (iconType) {
       case 'store':
         return (
-          <div className="w-10 h-10 rounded-xl bg-[#E8F0FE] text-[#0B57D0] flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-[#efefef] text-[#000000] flex items-center justify-center shrink-0">
             <Store className="w-5 h-5 stroke-[2]" />
           </div>
         );
       case 'cloud':
         return (
-          <div className="w-10 h-10 rounded-xl bg-[#E8F0FE] text-[#0B57D0] flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-[#efefef] text-[#000000] flex items-center justify-center shrink-0">
             <Server className="w-5 h-5 stroke-[2]" />
           </div>
         );
       case 'discord':
         return (
-          <div className="w-10 h-10 rounded-xl bg-[#5865F2] text-white flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-[#6c6c6c] text-white flex items-center justify-center shrink-0">
             <Bot className="w-5 h-5 stroke-[2]" />
           </div>
         );
@@ -420,7 +420,7 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
         );
       case 'shield':
         return (
-          <div className="w-10 h-10 rounded-xl bg-[#E8F0FE] text-[#0B57D0] flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-[#efefef] text-[#000000] flex items-center justify-center shrink-0">
             <Shield className="w-5 h-5 stroke-[2]" />
           </div>
         );
@@ -438,7 +438,7 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
         );
       default:
         return (
-          <div className="w-10 h-10 rounded-xl bg-[#F0F4F9] text-[#444746] flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-[#f4f4f4] text-[#444746] flex items-center justify-center shrink-0">
             <Layers className="w-5 h-5 stroke-[2]" />
           </div>
         );
@@ -448,13 +448,13 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16 font-sans bg-white">
       {/* 1. Modern Google Workspace Header & Action Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#E0E2EC] pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#e2e2e2] pb-5">
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl sm:text-3xl font-normal text-[#1F1F1F] tracking-tight">
               Workspace
             </h1>
-            <span className="text-xs px-3 py-1 rounded-full bg-[#E8F0FE] text-[#0B57D0] font-medium">
+            <span className="text-xs px-3 py-1 rounded-full bg-[#efefef] text-[#000000] font-medium">
               Enterprise Hub
             </span>
           </div>
@@ -468,7 +468,7 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
           {/* Primary: browse Marketplace */}
           <button
             onClick={() => onNavigate?.('marketplace')}
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-all shadow-xs hover:shadow cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-[13px] font-medium text-white bg-[#000000] hover:bg-[#3c3c3c] rounded-full transition-all shadow-xs hover:shadow cursor-pointer"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>Add service</span>
@@ -478,7 +478,7 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
           <button
             onClick={() => loadWorkspace(true)}
             disabled={refreshing}
-            className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-[#0B57D0] bg-white border border-[#747775]/30 hover:bg-[#F2F6FC] rounded-full transition-colors cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-[#000000] bg-white border border-[#747775]/30 hover:bg-[#f6f6f6] rounded-full transition-colors cursor-pointer disabled:opacity-50"
           >
             <RotateCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
@@ -487,7 +487,7 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
           {/* Secondary: BILLING */}
           <button
             onClick={() => onNavigate?.('workspace/billing')}
-            className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-[#1F1F1F] bg-white border border-[#747775]/30 hover:bg-[#F2F6FC] rounded-full transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-[#1F1F1F] bg-white border border-[#747775]/30 hover:bg-[#f6f6f6] rounded-full transition-colors cursor-pointer"
           >
             <CreditCard className="w-3.5 h-3.5 text-[#444746]" />
             <span>Billing</span>
@@ -496,7 +496,7 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
           {/* Secondary: AUDIT LOG */}
           <button
             onClick={() => onNavigate?.('workspace/operations')}
-            className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-[#1F1F1F] bg-white border border-[#747775]/30 hover:bg-[#F2F6FC] rounded-full transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-[#1F1F1F] bg-white border border-[#747775]/30 hover:bg-[#f6f6f6] rounded-full transition-colors cursor-pointer"
           >
             <Activity className="w-3.5 h-3.5 text-[#444746]" />
             <span>Audit log</span>
@@ -511,7 +511,7 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
       )}
 
       {/* 2. Modern Google Summary Status Card */}
-      <div className="bg-[#F8FAFD] border border-[#E0E2EC] rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[13px]">
+      <div className="bg-[#fafafa] border border-[#e2e2e2] rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[13px]">
         <div className="text-[#444746] flex items-center gap-3">
           <span className="font-semibold text-[#1F1F1F] text-base">{stats.totalServices}</span> Workspace resources
           <span className="text-[#C4C7C5]">•</span>
@@ -526,11 +526,11 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
       </div>
 
       {/* 3. Modern Google Table Card Container */}
-      <div className="bg-white border border-[#E0E2EC] rounded-2xl shadow-xs overflow-hidden">
+      <div className="bg-white border border-[#e2e2e2] rounded-2xl shadow-xs overflow-hidden">
         {/* Modern Pill Omnibox Filter Toolbar */}
         <form
           onSubmit={handleSearchSubmit}
-          className="p-4 bg-white border-b border-[#E0E2EC] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+          className="p-4 bg-white border-b border-[#e2e2e2] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
         >
           <div className="relative flex-1 max-w-lg">
             <Search className="w-4 h-4 text-[#444746] absolute left-4 top-1/2 -translate-y-1/2" />
@@ -539,7 +539,7 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search services by name, cluster, plan or status..."
-              className="w-full bg-[#F0F4F9] hover:bg-[#E9EEF6] focus:bg-white border border-transparent focus:border-[#0B57D0] focus:ring-1 focus:ring-[#0B57D0] rounded-full pl-11 pr-4 py-2.5 text-[13px] text-[#1F1F1F] placeholder-[#444746] transition-all outline-none"
+              className="w-full bg-[#f4f4f4] hover:bg-[#eeeeee] focus:bg-white border border-transparent focus:border-[#000000] focus:ring-1 focus:ring-[#000000] rounded-full pl-11 pr-4 py-2.5 text-[13px] text-[#1F1F1F] placeholder-[#444746] transition-all outline-none"
             />
           </div>
 
@@ -548,7 +548,7 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
               <button
                 type="button"
                 onClick={() => { setSearch(''); loadWorkspace(); }}
-                className="text-[12px] font-medium text-[#0B57D0] hover:underline px-2 py-1 cursor-pointer"
+                className="text-[12px] font-medium text-[#000000] hover:underline px-2 py-1 cursor-pointer"
               >
                 Clear filter
               </button>
@@ -556,7 +556,7 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
             <button
               type="button"
               onClick={() => loadWorkspace(true)}
-              className="p-2 hover:bg-[#F0F4F9] text-[#444746] hover:text-[#1F1F1F] rounded-full transition-colors cursor-pointer"
+              className="p-2 hover:bg-[#f4f4f4] text-[#444746] hover:text-[#1F1F1F] rounded-full transition-colors cursor-pointer"
               title="Refresh table"
             >
               <RotateCw className="w-4 h-4" />
@@ -568,13 +568,13 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[13px] border-collapse min-w-[840px]">
             <thead>
-              <tr className="border-b border-[#E0E2EC] bg-[#F8FAFD] text-[11px] font-medium text-[#444746] uppercase tracking-wider">
+              <tr className="border-b border-[#e2e2e2] bg-[#fafafa] text-[11px] font-medium text-[#444746] uppercase tracking-wider">
                 <th className="py-3.5 px-5 w-12">
                   <input
                     type="checkbox"
                     checked={services.length > 0 && selectedIds.length === services.length}
                     onChange={handleSelectAll}
-                    className="w-4 h-4 rounded border-[#C4C7C5] accent-[#0B57D0] cursor-pointer"
+                    className="w-4 h-4 rounded border-[#C4C7C5] accent-[#000000] cursor-pointer"
                   />
                 </th>
                 <th
@@ -594,11 +594,11 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
                 <th className="py-3.5 px-5 font-medium text-right pr-6">Manage</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#F1F3F8]">
+            <tbody className="divide-y divide-[#f3f3f3]">
               {loading ? (
                 <tr>
                   <td colSpan="8" className="py-16 text-center text-[#444746]">
-                    <RotateCw className="w-6 h-6 text-[#0B57D0] animate-spin mx-auto mb-3" />
+                    <RotateCw className="w-6 h-6 text-[#000000] animate-spin mx-auto mb-3" />
                     <span>Loading workspace services...</span>
                   </td>
                 </tr>
@@ -611,7 +611,7 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
                     <p className="font-medium text-[#1F1F1F] text-base">{search ? 'No services match your search' : 'No Marketplace services activated'}</p>
                     <button
                       onClick={() => { setSearch(''); loadWorkspace(); }}
-                      className="mt-3 px-4 py-1.5 rounded-full text-[13px] font-medium text-[#0B57D0] border border-[#747775]/30 hover:bg-[#F2F6FC] transition-colors"
+                      className="mt-3 px-4 py-1.5 rounded-full text-[13px] font-medium text-[#000000] border border-[#747775]/30 hover:bg-[#f6f6f6] transition-colors"
                     >
                       Clear search
                     </button>
@@ -623,7 +623,7 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
                   return (
                     <tr
                       key={service.id}
-                      className={`hover:bg-[#F8FAFD] transition-colors ${isSelected ? 'bg-[#E8F0FE]/50' : ''}`}
+                      className={`hover:bg-[#fafafa] transition-colors ${isSelected ? 'bg-[#efefef]/50' : ''}`}
                     >
                       {/* Checkbox */}
                       <td className="py-4 px-5">
@@ -631,7 +631,7 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => handleToggleSelect(service.id)}
-                          className="w-4 h-4 rounded border-[#C4C7C5] accent-[#0B57D0] cursor-pointer"
+                          className="w-4 h-4 rounded border-[#C4C7C5] accent-[#000000] cursor-pointer"
                         />
                       </td>
 
@@ -650,7 +650,7 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
                                 else if (service.workspaceItemType === 'droplet') onNavigate?.('dashboard');
                                 else onNavigate?.(`workspace/service/${service.id}`);
                               }}
-                              className="font-medium text-[#0B57D0] hover:underline text-left leading-tight cursor-pointer text-[14px] disabled:text-[#747775] disabled:no-underline disabled:cursor-not-allowed"
+                              className="font-medium text-[#000000] hover:underline text-left leading-tight cursor-pointer text-[14px] disabled:text-[#747775] disabled:no-underline disabled:cursor-not-allowed"
                             >
                               {service.name}
                             </button>
@@ -666,7 +666,7 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
 
                       {/* Status */}
                       <td className="py-4 px-5 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium ${service.status?.toLowerCase() === 'active' ? 'bg-[#C4EED0] text-[#072711]' : 'bg-[#F0F4F9] text-[#444746]'}`}>
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium ${service.status?.toLowerCase() === 'active' ? 'bg-[#C4EED0] text-[#072711]' : 'bg-[#f4f4f4] text-[#444746]'}`}>
                           {service.status?.toLowerCase() === 'active' && <span className="w-1.5 h-1.5 rounded-full bg-[#072711]" />}
                           <span>{service.status || 'Status unavailable'}</span>
                         </span>
@@ -679,7 +679,7 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
 
                       {/* Plan */}
                       <td className="py-4 px-5">
-                        <span className="inline-block px-3 py-1 rounded-full text-[11px] font-medium bg-[#F0F4F9] text-[#1F1F1F]">
+                        <span className="inline-block px-3 py-1 rounded-full text-[11px] font-medium bg-[#f4f4f4] text-[#1F1F1F]">
                           {service.plan || '—'}
                         </span>
                       </td>
@@ -713,7 +713,7 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
         </div>
 
         {/* Table Pagination Footer */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-t border-[#E0E2EC] px-6 py-4 bg-white text-[12px] text-[#444746] gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-t border-[#e2e2e2] px-6 py-4 bg-white text-[12px] text-[#444746] gap-3">
           <div className="flex items-center gap-2">
             <span>Rows per page:</span>
             <span className="font-semibold text-[#1F1F1F]">10</span>
@@ -724,13 +724,13 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
             <div className="flex items-center gap-1">
               <button
                 disabled
-                className="p-1.5 rounded-full hover:bg-[#F0F4F9] text-[#C4C7C5] disabled:cursor-not-allowed cursor-pointer"
+                className="p-1.5 rounded-full hover:bg-[#f4f4f4] text-[#C4C7C5] disabled:cursor-not-allowed cursor-pointer"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 disabled
-                className="p-1.5 rounded-full hover:bg-[#F0F4F9] text-[#C4C7C5] disabled:cursor-not-allowed cursor-pointer"
+                className="p-1.5 rounded-full hover:bg-[#f4f4f4] text-[#C4C7C5] disabled:cursor-not-allowed cursor-pointer"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -740,8 +740,8 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
       </div>
 
       {/* 4. Modern Google Operations Audit Card */}
-      <div className="bg-white border border-[#E0E2EC] rounded-2xl p-6 shadow-xs">
-        <div className="flex items-center justify-between border-b border-[#F1F3F8] pb-4 mb-4">
+      <div className="bg-white border border-[#e2e2e2] rounded-2xl p-6 shadow-xs">
+        <div className="flex items-center justify-between border-b border-[#f3f3f3] pb-4 mb-4">
           <div>
             <h2 className="text-[16px] font-medium text-[#1F1F1F]">
               Recent Lifecycle Operations
@@ -752,7 +752,7 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
           </div>
           <button
             onClick={() => onNavigate?.('workspace/operations')}
-            className="text-[13px] font-medium text-[#0B57D0] hover:underline cursor-pointer"
+            className="text-[13px] font-medium text-[#000000] hover:underline cursor-pointer"
           >
             View all logs →
           </button>
@@ -761,7 +761,7 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[12px] border-collapse">
             <thead>
-              <tr className="border-b border-[#E0E2EC] text-[#444746] uppercase text-[11px] font-medium">
+              <tr className="border-b border-[#e2e2e2] text-[#444746] uppercase text-[11px] font-medium">
                 <th className="py-2.5 px-4">Timestamp</th>
                 <th className="py-2.5 px-4">Operation</th>
                 <th className="py-2.5 px-4">Target Service</th>
@@ -769,17 +769,17 @@ export default function WorkspaceView({ onNavigate, onOpenStoreDashboard, showTo
                 <th className="py-2.5 px-4 text-right">Result</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#F1F3F8]">
+            <tbody className="divide-y divide-[#f3f3f3]">
               {operations.length === 0 ? (
                 <tr><td colSpan="5" className="py-8 text-center text-[#747775]">No lifecycle operations recorded.</td></tr>
               ) : (operations.slice(0, 4)).map((op) => (
-                <tr key={op.id} className="hover:bg-[#F8FAFD] transition-colors">
+                <tr key={op.id} className="hover:bg-[#fafafa] transition-colors">
                   <td className="py-3 px-4 text-[#444746] font-mono">{op.createdAt ? new Date(op.createdAt).toLocaleString() : '—'}</td>
                   <td className="py-3 px-4 font-medium text-[#1F1F1F]">{op.operation}</td>
-                  <td className="py-3 px-4 text-[#0B57D0] font-medium">{op.serviceName || '—'}</td>
+                  <td className="py-3 px-4 text-[#000000] font-medium">{op.serviceName || '—'}</td>
                   <td className="py-3 px-4 text-[#444746]">—</td>
                   <td className="py-3 px-4 text-right">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#F0F4F9] text-[#444746]">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#f4f4f4] text-[#444746]">
                       {op.result || '—'}
                     </span>
                   </td>

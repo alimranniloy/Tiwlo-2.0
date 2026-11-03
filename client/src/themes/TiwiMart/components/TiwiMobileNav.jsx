@@ -11,11 +11,11 @@ export default function TiwiMobileNav({
   onOpenCart
 }) {
   return (
-    <div className="lg:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-200 py-2 px-3 z-40 shadow-lg">
+    <div className="lg:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-neutral-200 py-2 px-3 z-40 shadow-lg">
       <div className="flex items-center justify-around">
         <button
           onClick={onOpenHome}
-          className="flex flex-col items-center text-slate-700 hover:text-[#2563eb]"
+          className="flex flex-col items-center text-neutral-700 hover:text-[#000000]"
         >
           <Home className="w-5 h-5" />
           <span className="text-[10px] font-medium mt-0.5">Home</span>
@@ -23,7 +23,7 @@ export default function TiwiMobileNav({
 
         <button
           onClick={onOpenCategories}
-          className="flex flex-col items-center text-slate-700 hover:text-[#2563eb]"
+          className="flex flex-col items-center text-neutral-700 hover:text-[#000000]"
         >
           <LayoutGrid className="w-5 h-5" />
           <span className="text-[10px] font-medium mt-0.5">Categories</span>
@@ -39,7 +39,7 @@ export default function TiwiMobileNav({
 
         <button
           onClick={onOpenWishlist}
-          className="flex flex-col items-center text-slate-700 hover:text-[#2563eb] relative"
+          className="flex flex-col items-center text-neutral-700 hover:text-[#000000] relative"
         >
           <Heart className="w-5 h-5" />
           {wishlistCount > 0 && (
@@ -52,7 +52,7 @@ export default function TiwiMobileNav({
 
         <button
           onClick={onOpenCart}
-          className="flex flex-col items-center text-slate-700 hover:text-[#2563eb] relative"
+          className="flex flex-col items-center text-neutral-700 hover:text-[#000000] relative"
         >
           <ShoppingBag className="w-5 h-5" />
           {cartCount > 0 && (

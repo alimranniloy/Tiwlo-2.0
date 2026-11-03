@@ -59,13 +59,13 @@ function renderFormattedMessage(text) {
 
           if (match[2] !== undefined) {
             parts.push(
-              <strong key={partIdx++} className="font-semibold text-[#202124] dark:text-[#f1f3f4]">
+              <strong key={partIdx++} className="font-semibold text-[#212121] dark:text-[#f1f3f4]">
                 {match[2]}
               </strong>
             );
           } else if (match[3] !== undefined) {
             parts.push(
-              <code key={partIdx++} className="px-1.5 py-0.5 rounded-md bg-[#e8eaed] dark:bg-[#3c4043] text-[#1a73e8] dark:text-[#8ab4f8] font-mono text-[11px]">
+              <code key={partIdx++} className="px-1.5 py-0.5 rounded-md bg-[#eaeaea] dark:bg-[#3f3f3f] text-[#696969] dark:text-[#b0b0b0] font-mono text-[11px]">
                 {match[3]}
               </code>
             );
@@ -77,7 +77,7 @@ function renderFormattedMessage(text) {
         if (isBullet) {
           return (
             <div key={lineIdx} className="flex items-start gap-2 pl-1 my-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#1a73e8] mt-1.5 shrink-0" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#696969] mt-1.5 shrink-0" />
               <div className="flex-1">{parts}</div>
             </div>
           );
@@ -459,7 +459,7 @@ export default function LiveSupportWidget({ currentUser }) {
       <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 animate-in fade-in slide-in-from-bottom-2 max-w-[calc(100vw-32px)]">
         <button
           onClick={() => setMinimized(false)}
-          className="flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-full bg-[#1a73e8] hover:bg-[#1557b0] text-white transition-all cursor-pointer"
+          className="flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-full bg-[#696969] hover:bg-[#4f4f4f] text-white transition-all cursor-pointer"
         >
           <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg">
             <path
@@ -497,7 +497,7 @@ export default function LiveSupportWidget({ currentUser }) {
             setMinimized(false);
             setWidgetView('home');
           }}
-          className="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-[#1a73e8] hover:bg-[#1557b0] active:scale-95 text-white flex items-center justify-center transition-transform cursor-pointer outline-none"
+          className="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-[#696969] hover:bg-[#4f4f4f] active:scale-95 text-white flex items-center justify-center transition-transform cursor-pointer outline-none"
           title="Tiwlo Support"
           aria-label="Open Tiwlo Support"
         >
@@ -525,7 +525,7 @@ export default function LiveSupportWidget({ currentUser }) {
   // ====================================================================
   return (
     <div
-      className={`fixed inset-x-2.5 bottom-2.5 sm:inset-auto sm:bottom-6 sm:right-6 z-50 rounded-[24px] bg-white dark:bg-[#1e1f20] border border-[#dadce0] dark:border-[#3c4043] shadow-[0_4px_24px_rgba(0,0,0,0.14),0_1px_4px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex flex-col overflow-hidden transition-all duration-200 ease-out animate-in fade-in slide-in-from-bottom-4 ${
+      className={`fixed inset-x-2.5 bottom-2.5 sm:inset-auto sm:bottom-6 sm:right-6 z-50 rounded-[24px] bg-white dark:bg-[#1f1f1f] border border-[#dcdcdc] dark:border-[#3f3f3f] shadow-[0_4px_24px_rgba(0,0,0,0.14),0_1px_4px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex flex-col overflow-hidden transition-all duration-200 ease-out animate-in fade-in slide-in-from-bottom-4 ${
         widgetView === 'home'
           ? 'sm:w-[380px] h-[85dvh] sm:h-[540px] max-h-[600px]'
           : 'sm:w-[410px] h-[88dvh] sm:h-[610px] max-h-[660px]'
@@ -536,11 +536,11 @@ export default function LiveSupportWidget({ currentUser }) {
       {/* VIEW A: GOOGLE-STYLE WELCOME / HOME SCREEN */}
       {/* ================================================================ */}
       {widgetView === 'home' && (
-        <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-[#1e1f20]">
+        <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-[#1f1f1f]">
           {/* Google Clean Header App Bar */}
-          <div className="p-3.5 px-4 bg-white dark:bg-[#1e1f20] border-b border-[#dadce0] dark:border-[#3c4043] flex items-center justify-between shrink-0">
+          <div className="p-3.5 px-4 bg-white dark:bg-[#1f1f1f] border-b border-[#dcdcdc] dark:border-[#3f3f3f] flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#1a73e8] via-[#2563eb] to-[#38bdf8] text-white flex items-center justify-center shrink-0 shadow-xs">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#696969] via-[#000000] to-[#737373] text-white flex items-center justify-center shrink-0 shadow-xs">
                 <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg">
                   <path
                     d="M12 21C16.97 21 21 16.97 21 12C21 7.03 16.97 3 12 3C7.03 3 3 7.03 3 12C3 13.88 3.5 15.58 4.44 17.01L3.25 20.46C3.12 20.82 3.47 21.17 3.83 21.05L7.28 19.85C8.71 20.8 10.42 21 12 21Z"
@@ -556,7 +556,7 @@ export default function LiveSupportWidget({ currentUser }) {
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-semibold text-[#202124] dark:text-[#e8eaed]">Tiwlo Support</span>
+                  <span className="text-xs font-semibold text-[#212121] dark:text-[#eaeaea]">Tiwlo Support</span>
                   <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-[#e6f4ea] dark:bg-[#137333]/20 text-[#137333] dark:text-[#81c995] text-[10px] font-medium">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#1e8e3e]" />
                     <span>Live</span>
@@ -570,25 +570,25 @@ export default function LiveSupportWidget({ currentUser }) {
               {isLoggedIn && (
                 <button
                   onClick={() => setWidgetView('history')}
-                  className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#303134] text-[#5f6368] dark:text-[#9aa0a6] hover:text-[#202124] dark:hover:text-[#e8eaed] flex items-center justify-center transition cursor-pointer relative"
+                  className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#313131] text-[#636363] dark:text-[#9f9f9f] hover:text-[#212121] dark:hover:text-[#eaeaea] flex items-center justify-center transition cursor-pointer relative"
                   title="Recent Conversations"
                 >
                   <Clock className="w-4 h-4" />
                   {userConversations.length > 0 && (
-                    <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#1a73e8]" />
+                    <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#696969]" />
                   )}
                 </button>
               )}
               <button
                 onClick={() => setMinimized(true)}
-                className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#303134] text-[#5f6368] dark:text-[#9aa0a6] hover:text-[#202124] dark:hover:text-[#e8eaed] flex items-center justify-center transition cursor-pointer"
+                className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#313131] text-[#636363] dark:text-[#9f9f9f] hover:text-[#212121] dark:hover:text-[#eaeaea] flex items-center justify-center transition cursor-pointer"
                 title="Minimize"
               >
                 <Minimize2 className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#303134] text-[#5f6368] dark:text-[#9aa0a6] hover:text-[#202124] dark:hover:text-[#e8eaed] flex items-center justify-center transition cursor-pointer"
+                className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#313131] text-[#636363] dark:text-[#9f9f9f] hover:text-[#212121] dark:hover:text-[#eaeaea] flex items-center justify-center transition cursor-pointer"
                 title="Close"
               >
                 <X className="w-4 h-4" />
@@ -600,16 +600,16 @@ export default function LiveSupportWidget({ currentUser }) {
           <div className="flex-1 overflow-y-auto p-5 flex flex-col justify-between">
             <div>
               {/* Account Context Banner (Explicitly shows Ticket Linking) */}
-              <div className="mb-4 p-2.5 px-3 rounded-xl bg-[#f8fafd] dark:bg-[#282a2d] border border-[#dadce0]/80 dark:border-[#3c4043] flex items-center justify-between gap-2">
+              <div className="mb-4 p-2.5 px-3 rounded-xl bg-[#fafafa] dark:bg-[#2a2a2a] border border-[#dcdcdc]/80 dark:border-[#3f3f3f] flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-6 h-6 rounded-full bg-[#e8f0fe] dark:bg-[#1a73e8]/20 text-[#1a73e8] dark:text-[#8ab4f8] flex items-center justify-center shrink-0 text-xs font-semibold">
+                  <div className="w-6 h-6 rounded-full bg-[#efefef] dark:bg-[#696969]/20 text-[#696969] dark:text-[#b0b0b0] flex items-center justify-center shrink-0 text-xs font-semibold">
                     {isLoggedIn ? (userName[0]?.toUpperCase() || 'U') : 'G'}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold text-[#202124] dark:text-[#e8eaed] truncate">
+                    <p className="text-[11px] font-semibold text-[#212121] dark:text-[#eaeaea] truncate">
                       {isLoggedIn ? userName : 'Guest Visitor'}
                     </p>
-                    <p className="text-[10px] text-[#5f6368] dark:text-[#9aa0a6] truncate">
+                    <p className="text-[10px] text-[#636363] dark:text-[#9f9f9f] truncate">
                       {isLoggedIn ? (storeName ? `${storeName} Store` : (userEmail || 'Active Account')) : 'Unauthenticated Session'}
                     </p>
                   </div>
@@ -629,25 +629,25 @@ export default function LiveSupportWidget({ currentUser }) {
                       key={idx}
                       src={spec.avatar}
                       alt={spec.name}
-                      className="w-8 h-8 rounded-full border-2 border-white dark:border-[#1e1f20] object-cover shadow-2xs"
+                      className="w-8 h-8 rounded-full border-2 border-white dark:border-[#1f1f1f] object-cover shadow-2xs"
                     />
                   ))}
-                  <div className="w-8 h-8 rounded-full border-2 border-white dark:border-[#1e1f20] bg-[#f1f3f4] dark:bg-[#303134] text-[#5f6368] dark:text-[#9aa0a6] text-[10px] font-semibold flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full border-2 border-white dark:border-[#1f1f1f] bg-[#f1f3f4] dark:bg-[#313131] text-[#636363] dark:text-[#9f9f9f] text-[10px] font-semibold flex items-center justify-center">
                     +4
                   </div>
                 </div>
 
-                <h2 className="text-lg font-semibold text-[#202124] dark:text-[#e8eaed] tracking-tight">
+                <h2 className="text-lg font-semibold text-[#212121] dark:text-[#eaeaea] tracking-tight">
                   {isLoggedIn ? `Hi ${userName},` : 'Welcome to Tiwlo Support,'}
                 </h2>
-                <p className="text-xs text-[#5f6368] dark:text-[#9aa0a6] mt-0.5">
+                <p className="text-xs text-[#636363] dark:text-[#9f9f9f] mt-0.5">
                   {isLoggedIn ? 'How can we help you today?' : 'How can we assist you with your account or store?'}
                 </p>
               </div>
 
               {/* Material 3 Prompt Starter Chips */}
               <div className="space-y-1.5 mb-5">
-                <p className="text-[10px] font-medium uppercase tracking-wider text-[#80868b] dark:text-[#9aa0a6]">
+                <p className="text-[10px] font-medium uppercase tracking-wider text-[#858585] dark:text-[#9f9f9f]">
                   Suggested topics
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -655,7 +655,7 @@ export default function LiveSupportWidget({ currentUser }) {
                     <button
                       key={idx}
                       onClick={() => handleStartNewChat(item.prompt)}
-                      className="text-left px-3 py-1.5 rounded-full text-[11px] font-medium bg-[#f1f3f4] dark:bg-[#282a2d] hover:bg-[#e8eaed] dark:hover:bg-[#3c4043] text-[#3c4043] dark:text-[#e8eaed] border border-transparent hover:border-[#dadce0] dark:hover:border-[#5f6368] transition cursor-pointer"
+                      className="text-left px-3 py-1.5 rounded-full text-[11px] font-medium bg-[#f1f3f4] dark:bg-[#2a2a2a] hover:bg-[#eaeaea] dark:hover:bg-[#3f3f3f] text-[#3f3f3f] dark:text-[#eaeaea] border border-transparent hover:border-[#dcdcdc] dark:hover:border-[#636363] transition cursor-pointer"
                     >
                       {item.label}
                     </button>
@@ -665,18 +665,18 @@ export default function LiveSupportWidget({ currentUser }) {
             </div>
 
             {/* Primary Action Button (Start Chat with Real Ticket Creation Notice) */}
-            <div className="space-y-2 pt-2 border-t border-[#dadce0]/70 dark:border-[#3c4043]/70">
+            <div className="space-y-2 pt-2 border-t border-[#dcdcdc]/70 dark:border-[#3f3f3f]/70">
               <button
                 onClick={() => handleStartNewChat()}
-                className="w-full py-2.5 px-4 rounded-full bg-[#1a73e8] hover:bg-[#1557b0] active:scale-[0.99] text-white text-xs font-medium shadow-xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer group"
+                className="w-full py-2.5 px-4 rounded-full bg-[#696969] hover:bg-[#4f4f4f] active:scale-[0.99] text-white text-xs font-medium shadow-xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer group"
               >
                 <MessageSquare className="w-4 h-4 stroke-[2.2]" />
                 <span>Start a chat</span>
                 <ArrowRight className="w-3.5 h-3.5 opacity-80 group-hover:translate-x-0.5 transition-transform" />
               </button>
 
-              <div className="flex items-center justify-center gap-1.5 text-[11px] text-[#5f6368] dark:text-[#9aa0a6] text-center">
-                <Ticket className="w-3 h-3 text-[#1a73e8]" />
+              <div className="flex items-center justify-center gap-1.5 text-[11px] text-[#636363] dark:text-[#9f9f9f] text-center">
+                <Ticket className="w-3 h-3 text-[#696969]" />
                 <span>
                   {isLoggedIn
                     ? 'Creates an official support ticket linked to your account'
@@ -687,7 +687,7 @@ export default function LiveSupportWidget({ currentUser }) {
               {isLoggedIn && userConversations.length > 0 && (
                 <button
                   onClick={() => setWidgetView('history')}
-                  className="w-full py-1.5 px-3 rounded-lg text-[11px] font-medium text-[#1a73e8] dark:text-[#8ab4f8] hover:bg-[#f1f3f4] dark:hover:bg-[#282a2d] transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="w-full py-1.5 px-3 rounded-lg text-[11px] font-medium text-[#696969] dark:text-[#b0b0b0] hover:bg-[#f1f3f4] dark:hover:bg-[#2a2a2a] transition flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Clock className="w-3 h-3" />
                   <span>View previous chats ({userConversations.length})</span>
@@ -702,31 +702,31 @@ export default function LiveSupportWidget({ currentUser }) {
       {/* VIEW B: RECENT CONVERSATIONS SCREEN (Google List View) */}
       {/* ================================================================ */}
       {widgetView === 'history' && (
-        <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-[#1e1f20]">
+        <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-[#1f1f1f]">
           {/* Header */}
-          <div className="p-3.5 px-4 bg-white dark:bg-[#1e1f20] border-b border-[#dadce0] dark:border-[#3c4043] flex items-center justify-between shrink-0">
+          <div className="p-3.5 px-4 bg-white dark:bg-[#1f1f1f] border-b border-[#dcdcdc] dark:border-[#3f3f3f] flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5">
               <button
                 onClick={() => setWidgetView('home')}
-                className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#303134] text-[#5f6368] dark:text-[#9aa0a6] hover:text-[#202124] dark:hover:text-[#e8eaed] flex items-center justify-center transition cursor-pointer"
+                className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#313131] text-[#636363] dark:text-[#9f9f9f] hover:text-[#212121] dark:hover:text-[#eaeaea] flex items-center justify-center transition cursor-pointer"
                 title="Back to Support Home"
               >
                 <ArrowLeft className="w-4 h-4" />
               </button>
-              <h3 className="text-xs font-semibold text-[#202124] dark:text-[#e8eaed]">Your Conversations</h3>
+              <h3 className="text-xs font-semibold text-[#212121] dark:text-[#eaeaea]">Your Conversations</h3>
             </div>
 
             <div className="flex items-center gap-0.5">
               <button
                 onClick={() => setMinimized(true)}
-                className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#303134] text-[#5f6368] dark:text-[#9aa0a6] hover:text-[#202124] dark:hover:text-[#e8eaed] flex items-center justify-center transition cursor-pointer"
+                className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#313131] text-[#636363] dark:text-[#9f9f9f] hover:text-[#212121] dark:hover:text-[#eaeaea] flex items-center justify-center transition cursor-pointer"
                 title="Minimize"
               >
                 <Minimize2 className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#303134] text-[#5f6368] dark:text-[#9aa0a6] hover:text-[#202124] dark:hover:text-[#e8eaed] flex items-center justify-center transition cursor-pointer"
+                className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#313131] text-[#636363] dark:text-[#9f9f9f] hover:text-[#212121] dark:hover:text-[#eaeaea] flex items-center justify-center transition cursor-pointer"
                 title="Close"
               >
                 <X className="w-4 h-4" />
@@ -738,28 +738,28 @@ export default function LiveSupportWidget({ currentUser }) {
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
             {!isLoggedIn ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
-                <div className="w-12 h-12 rounded-full bg-[#e8f0fe] dark:bg-[#1a73e8]/20 text-[#1a73e8] dark:text-[#8ab4f8] flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-[#efefef] dark:bg-[#696969]/20 text-[#696969] dark:text-[#b0b0b0] flex items-center justify-center">
                   <ShieldCheck className="w-6 h-6 stroke-[1.8]" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold text-[#202124] dark:text-[#e8eaed]">Account Sign-In Required</h4>
-                  <p className="text-xs text-[#5f6368] dark:text-[#9aa0a6] mt-1">Please sign in to your store account to view your past conversation history and support tickets.</p>
+                  <h4 className="text-sm font-semibold text-[#212121] dark:text-[#eaeaea]">Account Sign-In Required</h4>
+                  <p className="text-xs text-[#636363] dark:text-[#9f9f9f] mt-1">Please sign in to your store account to view your past conversation history and support tickets.</p>
                 </div>
                 <a
                   href={getAuthUrl('/login')}
-                  className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#1a73e8] text-white text-xs font-medium hover:bg-[#1557b0] transition shadow-xs"
+                  className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#696969] text-white text-xs font-medium hover:bg-[#4f4f4f] transition shadow-xs"
                 >
                   Sign In to Account
                 </a>
               </div>
             ) : userConversations.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
-                <div className="w-12 h-12 rounded-full bg-[#f1f3f4] dark:bg-[#282a2d] text-[#1a73e8] flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-[#f1f3f4] dark:bg-[#2a2a2a] text-[#696969] flex items-center justify-center">
                   <MessageSquare className="w-6 h-6 stroke-[1.8]" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold text-[#202124] dark:text-[#e8eaed]">No previous conversations</h4>
-                  <p className="text-xs text-[#5f6368] dark:text-[#9aa0a6] mt-1">Start a chat to get assistance from our support specialists.</p>
+                  <h4 className="text-sm font-semibold text-[#212121] dark:text-[#eaeaea]">No previous conversations</h4>
+                  <p className="text-xs text-[#636363] dark:text-[#9f9f9f] mt-1">Start a chat to get assistance from our support specialists.</p>
                 </div>
               </div>
             ) : (
@@ -767,32 +767,32 @@ export default function LiveSupportWidget({ currentUser }) {
                 <div
                   key={conv.id}
                   onClick={() => handleSelectConversation(conv)}
-                  className="p-3.5 rounded-2xl bg-white dark:bg-[#282a2d] border border-[#dadce0] dark:border-[#3c4043] hover:border-[#1a73e8] dark:hover:border-[#8ab4f8] transition cursor-pointer shadow-2xs group flex items-center justify-between gap-3"
+                  className="p-3.5 rounded-2xl bg-white dark:bg-[#2a2a2a] border border-[#dcdcdc] dark:border-[#3f3f3f] hover:border-[#696969] dark:hover:border-[#b0b0b0] transition cursor-pointer shadow-2xs group flex items-center justify-between gap-3"
                 >
                   <div className="min-w-0 flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-[#e8f0fe] dark:bg-[#1a73e8]/20 text-[#1a73e8] dark:text-[#8ab4f8] flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-[#efefef] dark:bg-[#696969]/20 text-[#696969] dark:text-[#b0b0b0] flex items-center justify-center shrink-0">
                       <MessageSquare className="w-4 h-4" />
                     </div>
                     <div className="min-w-0">
-                      <h4 className="text-xs font-semibold text-[#202124] dark:text-[#e8eaed] truncate group-hover:text-[#1a73e8] dark:group-hover:text-[#8ab4f8] transition-colors">
+                      <h4 className="text-xs font-semibold text-[#212121] dark:text-[#eaeaea] truncate group-hover:text-[#696969] dark:group-hover:text-[#b0b0b0] transition-colors">
                         {conv.name || conv.lastMessage || 'Support Session'}
                       </h4>
-                      <p className="text-[10px] text-[#5f6368] dark:text-[#9aa0a6] truncate mt-0.5">
+                      <p className="text-[10px] text-[#636363] dark:text-[#9f9f9f] truncate mt-0.5">
                         {conv.time || 'Recent'} &bull; {conv.ticketId || conv.serialNumber || '#TWTK-1008'}
                       </p>
                     </div>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-[#80868b] group-hover:translate-x-0.5 group-hover:text-[#1a73e8] transition shrink-0" />
+                  <ChevronRight className="w-4 h-4 text-[#858585] group-hover:translate-x-0.5 group-hover:text-[#696969] transition shrink-0" />
                 </div>
               ))
             )}
           </div>
 
           {/* Bottom Action Button */}
-          <div className="p-3.5 border-t border-[#dadce0] dark:border-[#3c4043] bg-white dark:bg-[#1e1f20]">
+          <div className="p-3.5 border-t border-[#dcdcdc] dark:border-[#3f3f3f] bg-white dark:bg-[#1f1f1f]">
             <button
               onClick={() => handleStartNewChat()}
-              className="w-full py-2.5 px-4 rounded-full bg-[#1a73e8] hover:bg-[#1557b0] text-white text-xs font-medium transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+              className="w-full py-2.5 px-4 rounded-full bg-[#696969] hover:bg-[#4f4f4f] text-white text-xs font-medium transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
             >
               <Plus className="w-4 h-4" />
               <span>Start New Conversation</span>
@@ -805,14 +805,14 @@ export default function LiveSupportWidget({ currentUser }) {
       {/* VIEW C: ACTIVE CHAT SCREEN (Google Messages / Gemini Style) */}
       {/* ================================================================ */}
       {widgetView === 'chat' && (
-        <div className="flex-1 flex flex-col overflow-hidden relative bg-white dark:bg-[#1e1f20]">
+        <div className="flex-1 flex flex-col overflow-hidden relative bg-white dark:bg-[#1f1f1f]">
           {/* Header Bar */}
-          <div className="p-3 px-4 bg-white dark:bg-[#1e1f20] border-b border-[#dadce0] dark:border-[#3c4043] flex items-center justify-between shrink-0">
+          <div className="p-3 px-4 bg-white dark:bg-[#1f1f1f] border-b border-[#dcdcdc] dark:border-[#3f3f3f] flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
               {/* Back Button */}
               <button
                 onClick={() => setWidgetView('home')}
-                className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#303134] text-[#5f6368] dark:text-[#9aa0a6] hover:text-[#202124] dark:hover:text-[#e8eaed] flex items-center justify-center transition cursor-pointer shrink-0"
+                className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#313131] text-[#636363] dark:text-[#9f9f9f] hover:text-[#212121] dark:hover:text-[#eaeaea] flex items-center justify-center transition cursor-pointer shrink-0"
                 title="Back to Home"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -820,27 +820,27 @@ export default function LiveSupportWidget({ currentUser }) {
 
               {/* Agent Avatar */}
               <div className="relative shrink-0">
-                <div className="w-8.5 h-8.5 rounded-full overflow-hidden bg-[#e8f0fe] dark:bg-[#282a2d] border border-[#dadce0] dark:border-[#3c4043] flex items-center justify-center">
+                <div className="w-8.5 h-8.5 rounded-full overflow-hidden bg-[#efefef] dark:bg-[#2a2a2a] border border-[#dcdcdc] dark:border-[#3f3f3f] flex items-center justify-center">
                   {assignedAgent?.avatar ? (
                     <img src={assignedAgent.avatar} alt={assignedAgent.name} className="w-full h-full object-cover" />
                   ) : (
-                    <Headphones className="w-4 h-4 text-[#1a73e8]" />
+                    <Headphones className="w-4 h-4 text-[#696969]" />
                   )}
                 </div>
-                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#1e8e3e] ring-2 ring-white dark:ring-[#1e1f20]" />
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#1e8e3e] ring-2 ring-white dark:ring-[#1f1f1f]" />
               </div>
 
               {/* Agent Details & Ticket Chip */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <h3 className="text-xs font-semibold text-[#202124] dark:text-[#e8eaed] truncate">
+                  <h3 className="text-xs font-semibold text-[#212121] dark:text-[#eaeaea] truncate">
                     {assignedAgent?.name || 'Sarah Jenkins'}
                   </h3>
-                  <span className="text-[10px] font-mono font-semibold px-2 py-0.2 rounded-full bg-[#e8f0fe] dark:bg-[#1a73e8]/20 text-[#1a73e8] dark:text-[#8ab4f8] shrink-0">
+                  <span className="text-[10px] font-mono font-semibold px-2 py-0.2 rounded-full bg-[#efefef] dark:bg-[#696969]/20 text-[#696969] dark:text-[#b0b0b0] shrink-0">
                     {ticketInfo?.serialNumber || '#TWTK-1008'}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 text-[10px] text-[#5f6368] dark:text-[#9aa0a6] mt-0.5">
+                <div className="flex items-center gap-1.5 text-[10px] text-[#636363] dark:text-[#9f9f9f] mt-0.5">
                   <span className="text-[#1e8e3e] font-medium">Online</span>
                   <span>&bull;</span>
                   <span className="truncate">{assignedAgent?.tierTitle || 'Support Specialist'}</span>
@@ -853,7 +853,7 @@ export default function LiveSupportWidget({ currentUser }) {
               <button
                 onClick={() => setShowHistoryDrawer(!showHistoryDrawer)}
                 className={`w-8 h-8 rounded-full flex items-center justify-center transition cursor-pointer ${
-                  showHistoryDrawer ? 'bg-[#e8f0fe] text-[#1a73e8] dark:bg-[#1a73e8]/30 dark:text-[#8ab4f8]' : 'hover:bg-[#f1f3f4] dark:hover:bg-[#303134] text-[#5f6368] dark:text-[#9aa0a6]'
+                  showHistoryDrawer ? 'bg-[#efefef] text-[#696969] dark:bg-[#696969]/30 dark:text-[#b0b0b0]' : 'hover:bg-[#f1f3f4] dark:hover:bg-[#313131] text-[#636363] dark:text-[#9f9f9f]'
                 }`}
                 title="History Drawer"
               >
@@ -861,14 +861,14 @@ export default function LiveSupportWidget({ currentUser }) {
               </button>
               <button
                 onClick={() => setMinimized(true)}
-                className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#303134] text-[#5f6368] dark:text-[#9aa0a6] hover:text-[#202124] dark:hover:text-[#e8eaed] flex items-center justify-center transition cursor-pointer"
+                className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#313131] text-[#636363] dark:text-[#9f9f9f] hover:text-[#212121] dark:hover:text-[#eaeaea] flex items-center justify-center transition cursor-pointer"
                 title="Minimize"
               >
                 <Minimize2 className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#303134] text-[#5f6368] dark:text-[#9aa0a6] hover:text-[#202124] dark:hover:text-[#e8eaed] flex items-center justify-center transition cursor-pointer"
+                className="w-8 h-8 rounded-full hover:bg-[#f1f3f4] dark:hover:bg-[#313131] text-[#636363] dark:text-[#9f9f9f] hover:text-[#212121] dark:hover:text-[#eaeaea] flex items-center justify-center transition cursor-pointer"
                 title="Close"
               >
                 <X className="w-4 h-4" />
@@ -878,15 +878,15 @@ export default function LiveSupportWidget({ currentUser }) {
 
           {/* History Drawer Overlay */}
           {showHistoryDrawer && (
-            <div className="absolute top-14 left-0 bottom-0 w-64 bg-white dark:bg-[#1e1f20] border-r border-[#dadce0] dark:border-[#3c4043] z-20 p-4 space-y-3 shadow-lg animate-in slide-in-from-left duration-200 overflow-y-auto">
-              <div className="flex items-center justify-between pb-2 border-b border-[#dadce0] dark:border-[#3c4043]">
-                <span className="text-xs font-semibold text-[#202124] dark:text-[#e8eaed] flex items-center gap-1.5">
-                  <History className="w-3.5 h-3.5 text-[#1a73e8]" />
+            <div className="absolute top-14 left-0 bottom-0 w-64 bg-white dark:bg-[#1f1f1f] border-r border-[#dcdcdc] dark:border-[#3f3f3f] z-20 p-4 space-y-3 shadow-lg animate-in slide-in-from-left duration-200 overflow-y-auto">
+              <div className="flex items-center justify-between pb-2 border-b border-[#dcdcdc] dark:border-[#3f3f3f]">
+                <span className="text-xs font-semibold text-[#212121] dark:text-[#eaeaea] flex items-center gap-1.5">
+                  <History className="w-3.5 h-3.5 text-[#696969]" />
                   <span>Your Tickets</span>
                 </span>
                 <button
                   onClick={() => setShowHistoryDrawer(false)}
-                  className="text-[#5f6368] hover:text-[#202124] dark:hover:text-[#e8eaed] cursor-pointer"
+                  className="text-[#636363] hover:text-[#212121] dark:hover:text-[#eaeaea] cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -894,7 +894,7 @@ export default function LiveSupportWidget({ currentUser }) {
 
               <button
                 onClick={() => handleStartNewChat()}
-                className="w-full py-2 px-3 rounded-full bg-[#1a73e8] hover:bg-[#1557b0] text-white text-xs font-medium transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                className="w-full py-2 px-3 rounded-full bg-[#696969] hover:bg-[#4f4f4f] text-white text-xs font-medium transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>+ New Conversation</span>
@@ -905,12 +905,12 @@ export default function LiveSupportWidget({ currentUser }) {
                   <div
                     key={c.id}
                     onClick={() => handleSelectConversation(c)}
-                    className="p-2.5 rounded-xl hover:bg-[#f1f3f4] dark:hover:bg-[#282a2d] transition cursor-pointer text-left space-y-0.5 border border-transparent hover:border-[#dadce0] dark:hover:border-[#3c4043]"
+                    className="p-2.5 rounded-xl hover:bg-[#f1f3f4] dark:hover:bg-[#2a2a2a] transition cursor-pointer text-left space-y-0.5 border border-transparent hover:border-[#dcdcdc] dark:hover:border-[#3f3f3f]"
                   >
-                    <div className="text-xs font-medium text-[#202124] dark:text-[#e8eaed] truncate">
+                    <div className="text-xs font-medium text-[#212121] dark:text-[#eaeaea] truncate">
                       {c.name || c.lastMessage}
                     </div>
-                    <div className="text-[10px] text-[#5f6368] dark:text-[#9aa0a6]">
+                    <div className="text-[10px] text-[#636363] dark:text-[#9f9f9f]">
                       {c.time || 'Recent'} &bull; {c.ticketId || '#TWTK-1008'}
                     </div>
                   </div>
@@ -929,17 +929,17 @@ export default function LiveSupportWidget({ currentUser }) {
 
           {/* Transfer Notification Banner */}
           {isTransferring && (
-            <div className="px-4 py-2 bg-[#e8f0fe] dark:bg-[#1a73e8]/20 border-b border-[#d2e3fc] dark:border-[#1a73e8]/40 text-[#1a73e8] dark:text-[#8ab4f8] text-xs font-medium flex items-center gap-2 animate-in fade-in">
+            <div className="px-4 py-2 bg-[#efefef] dark:bg-[#696969]/20 border-b border-[#e1e1e1] dark:border-[#696969]/40 text-[#696969] dark:text-[#b0b0b0] text-xs font-medium flex items-center gap-2 animate-in fade-in">
               <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
               <span>{transferNotice}</span>
             </div>
           )}
 
           {/* Ticket Context Pinned Strip */}
-          <div className="px-4 py-1.5 bg-[#f8fafd] dark:bg-[#282a2d] border-b border-[#dadce0]/60 dark:border-[#3c4043]/60 flex items-center justify-between text-[11px] text-[#5f6368] dark:text-[#9aa0a6]">
+          <div className="px-4 py-1.5 bg-[#fafafa] dark:bg-[#2a2a2a] border-b border-[#dcdcdc]/60 dark:border-[#3f3f3f]/60 flex items-center justify-between text-[11px] text-[#636363] dark:text-[#9f9f9f]">
             <div className="flex items-center gap-1.5">
-              <Ticket className="w-3.5 h-3.5 text-[#1a73e8]" />
-              <span className="font-medium text-[#202124] dark:text-[#e8eaed]">
+              <Ticket className="w-3.5 h-3.5 text-[#696969]" />
+              <span className="font-medium text-[#212121] dark:text-[#eaeaea]">
                 Ticket {ticketInfo?.serialNumber || '#TWTK-1008'}
               </span>
               <span>&bull;</span>
@@ -949,12 +949,12 @@ export default function LiveSupportWidget({ currentUser }) {
           </div>
 
           {/* Messages Stream */}
-          <div className="flex-1 overflow-y-auto overscroll-contain touch-pan-y p-3.5 sm:p-4 space-y-3 bg-[#ffffff] dark:bg-[#1e1f20]">
+          <div className="flex-1 overflow-y-auto overscroll-contain touch-pan-y p-3.5 sm:p-4 space-y-3 bg-[#ffffff] dark:bg-[#1f1f1f]">
             {messages.map((msg) => {
               if (msg.isSystemNotice) {
                 return (
                   <div key={msg.id} className="text-center py-1">
-                    <span className="inline-block px-3 py-1 rounded-full text-[10px] font-medium bg-[#f1f3f4] dark:bg-[#282a2d] text-[#5f6368] dark:text-[#9aa0a6] border border-[#dadce0] dark:border-[#3c4043]">
+                    <span className="inline-block px-3 py-1 rounded-full text-[10px] font-medium bg-[#f1f3f4] dark:bg-[#2a2a2a] text-[#636363] dark:text-[#9f9f9f] border border-[#dcdcdc] dark:border-[#3f3f3f]">
                       {msg.text}
                     </span>
                   </div>
@@ -968,7 +968,7 @@ export default function LiveSupportWidget({ currentUser }) {
                   className={`flex items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}
                 >
                   {!isUser && (
-                    <div className="w-6 h-6 rounded-full overflow-hidden bg-[#e8f0fe] text-[#1a73e8] flex items-center justify-center shrink-0 mb-1 border border-[#dadce0] dark:border-[#3c4043]">
+                    <div className="w-6 h-6 rounded-full overflow-hidden bg-[#efefef] text-[#696969] flex items-center justify-center shrink-0 mb-1 border border-[#dcdcdc] dark:border-[#3f3f3f]">
                       {msg.avatar ? (
                         <img src={msg.avatar} alt="Agent" className="w-full h-full object-cover" />
                       ) : (
@@ -981,16 +981,16 @@ export default function LiveSupportWidget({ currentUser }) {
                     <div
                       className={`p-3 rounded-[18px] text-xs leading-relaxed ${
                         isUser
-                          ? 'bg-[#1a73e8] text-white rounded-br-xs shadow-2xs'
-                          : 'bg-[#f1f3f4] dark:bg-[#282a2d] text-[#202124] dark:text-[#e8eaed] border border-[#dadce0]/70 dark:border-[#3c4043]/70 rounded-bl-xs'
+                          ? 'bg-[#696969] text-white rounded-br-xs shadow-2xs'
+                          : 'bg-[#f1f3f4] dark:bg-[#2a2a2a] text-[#212121] dark:text-[#eaeaea] border border-[#dcdcdc]/70 dark:border-[#3f3f3f]/70 rounded-bl-xs'
                       }`}
                     >
                       {renderFormattedMessage(msg.text)}
                     </div>
 
-                    <div className={`flex items-center gap-1 text-[10px] text-[#80868b] dark:text-[#9aa0a6] px-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`flex items-center gap-1 text-[10px] text-[#858585] dark:text-[#9f9f9f] px-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
                       <span>{msg.time}</span>
-                      {isUser && <CheckCheck className="w-3 h-3 text-[#1a73e8] stroke-[2.5]" />}
+                      {isUser && <CheckCheck className="w-3 h-3 text-[#696969] stroke-[2.5]" />}
                     </div>
                   </div>
                 </div>
@@ -999,13 +999,13 @@ export default function LiveSupportWidget({ currentUser }) {
 
             {isTyping && (
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-[#e8f0fe] text-[#1a73e8] flex items-center justify-center shrink-0 border border-[#dadce0] dark:border-[#3c4043]">
+                <div className="w-6 h-6 rounded-full bg-[#efefef] text-[#696969] flex items-center justify-center shrink-0 border border-[#dcdcdc] dark:border-[#3f3f3f]">
                   <Headphones className="w-3 h-3" />
                 </div>
-                <div className="px-3.5 py-2 rounded-[18px] bg-[#f1f3f4] dark:bg-[#282a2d] border border-[#dadce0]/70 dark:border-[#3c4043]/70 text-[#5f6368] text-xs flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#1a73e8] animate-bounce" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#1a73e8] animate-bounce [animation-delay:0.2s]" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#1a73e8] animate-bounce [animation-delay:0.4s]" />
+                <div className="px-3.5 py-2 rounded-[18px] bg-[#f1f3f4] dark:bg-[#2a2a2a] border border-[#dcdcdc]/70 dark:border-[#3f3f3f]/70 text-[#636363] text-xs flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#696969] animate-bounce" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#696969] animate-bounce [animation-delay:0.2s]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#696969] animate-bounce [animation-delay:0.4s]" />
                 </div>
               </div>
             )}
@@ -1015,13 +1015,13 @@ export default function LiveSupportWidget({ currentUser }) {
 
           {/* Quick Specialist Escalation Options */}
           {currentTier < 3 && (
-            <div className="px-4 py-1.5 bg-[#f8fafd] dark:bg-[#282a2d] border-t border-[#dadce0]/60 dark:border-[#3c4043]/60 flex items-center justify-between text-[11px]">
-              <span className="text-[#5f6368] dark:text-[#9aa0a6] text-[10px]">Escalate to specialist:</span>
+            <div className="px-4 py-1.5 bg-[#fafafa] dark:bg-[#2a2a2a] border-t border-[#dcdcdc]/60 dark:border-[#3f3f3f]/60 flex items-center justify-between text-[11px]">
+              <span className="text-[#636363] dark:text-[#9f9f9f] text-[10px]">Escalate to specialist:</span>
               <div className="flex items-center gap-1.5">
                 {currentTier === 1 && (
                   <button
                     onClick={() => handleTransferTier(2)}
-                    className="px-2.5 py-0.5 rounded-full bg-white dark:bg-[#1e1f20] hover:bg-[#e8eaed] dark:hover:bg-[#3c4043] text-[#1a73e8] dark:text-[#8ab4f8] border border-[#dadce0] dark:border-[#3c4043] font-medium transition cursor-pointer text-[10px]"
+                    className="px-2.5 py-0.5 rounded-full bg-white dark:bg-[#1f1f1f] hover:bg-[#eaeaea] dark:hover:bg-[#3f3f3f] text-[#696969] dark:text-[#b0b0b0] border border-[#dcdcdc] dark:border-[#3f3f3f] font-medium transition cursor-pointer text-[10px]"
                   >
                     &rarr; Tier-2 Cloud Ops
                   </button>
@@ -1029,7 +1029,7 @@ export default function LiveSupportWidget({ currentUser }) {
                 {currentTier <= 2 && (
                   <button
                     onClick={() => handleTransferTier(3)}
-                    className="px-2.5 py-0.5 rounded-full bg-white dark:bg-[#1e1f20] hover:bg-[#e8eaed] dark:hover:bg-[#3c4043] text-[#7627bb] dark:text-[#c58af9] border border-[#dadce0] dark:border-[#3c4043] font-medium transition cursor-pointer text-[10px]"
+                    className="px-2.5 py-0.5 rounded-full bg-white dark:bg-[#1f1f1f] hover:bg-[#eaeaea] dark:hover:bg-[#3f3f3f] text-[#424242] dark:text-[#9f9f9f] border border-[#dcdcdc] dark:border-[#3f3f3f] font-medium transition cursor-pointer text-[10px]"
                   >
                     &rarr; Tier-3 Architect
                   </button>
@@ -1041,23 +1041,23 @@ export default function LiveSupportWidget({ currentUser }) {
           {/* Google Search-Style Pill Input Bar */}
           <form
             onSubmit={handleSendMessage}
-            className="p-3 border-t border-[#dadce0] dark:border-[#3c4043] bg-white dark:bg-[#1e1f20] flex items-center gap-2"
+            className="p-3 border-t border-[#dcdcdc] dark:border-[#3f3f3f] bg-white dark:bg-[#1f1f1f] flex items-center gap-2"
           >
-            <div className="flex-1 rounded-full bg-[#f1f3f4] dark:bg-[#282a2d] border border-transparent focus-within:border-[#1a73e8] focus-within:bg-white dark:focus-within:bg-[#1e1f20] px-4 py-1.5 flex items-center gap-2 transition-all">
+            <div className="flex-1 rounded-full bg-[#f1f3f4] dark:bg-[#2a2a2a] border border-transparent focus-within:border-[#696969] focus-within:bg-white dark:focus-within:bg-[#1f1f1f] px-4 py-1.5 flex items-center gap-2 transition-all">
               <input
                 ref={inputRef}
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder="Ask about your store, orders, or server..."
-                className="flex-1 text-xs bg-transparent text-[#202124] dark:text-[#e8eaed] placeholder-[#80868b] focus:outline-none"
+                className="flex-1 text-xs bg-transparent text-[#212121] dark:text-[#eaeaea] placeholder-[#858585] focus:outline-none"
               />
             </div>
 
             <button
               type="submit"
               disabled={!inputText.trim() || isTyping}
-              className="w-8 h-8 rounded-full bg-[#1a73e8] hover:bg-[#1557b0] text-white flex items-center justify-center transition disabled:opacity-35 cursor-pointer shrink-0"
+              className="w-8 h-8 rounded-full bg-[#696969] hover:bg-[#4f4f4f] text-white flex items-center justify-center transition disabled:opacity-35 cursor-pointer shrink-0"
               title="Send message"
             >
               <Send className="w-3.5 h-3.5" />

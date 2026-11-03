@@ -17,19 +17,19 @@ export const THEME_CONFIG = {
   // Mobile Browser Status Bar / Address Bar Theme Colors (controls top mobile browser area above URL)
   statusBar: {
     light: import.meta.env?.VITE_STATUS_BAR_LIGHT || '#FFFFFF',
-    dark: import.meta.env?.VITE_STATUS_BAR_DARK || '#0B0F17'
+    dark: import.meta.env?.VITE_STATUS_BAR_DARK || '#0f0f0f'
   },
 
   // Mobile Header & Top Navbar Backgrounds
   header: {
     light: import.meta.env?.VITE_HEADER_BG_LIGHT || '#FFFFFF',
-    dark: import.meta.env?.VITE_HEADER_BG_DARK || '#111827'
+    dark: import.meta.env?.VITE_HEADER_BG_DARK || '#181818'
   },
 
   // Dashboard Page Backgrounds
   dashboard: {
-    light: import.meta.env?.VITE_DASHBOARD_BG_LIGHT || '#F6F8FB',
-    dark: import.meta.env?.VITE_DASHBOARD_BG_DARK || '#0B0F17'
+    light: import.meta.env?.VITE_DASHBOARD_BG_LIGHT || '#f8f8f8',
+    dark: import.meta.env?.VITE_DASHBOARD_BG_DARK || '#0f0f0f'
   },
 
   // iOS Safari Mobile Web App Status Bar Style
@@ -39,7 +39,7 @@ export const THEME_CONFIG = {
   },
 
   // Brand Accent
-  primary: import.meta.env?.VITE_THEME_PRIMARY || '#0B57D0'
+  primary: import.meta.env?.VITE_THEME_PRIMARY || '#000000'
 };
 
 /**

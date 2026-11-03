@@ -134,19 +134,19 @@ export default function WatchVideosView() {
   return (
     <div className="w-full flex flex-col gap-5 pb-20">
       {/* 1. Header Card */}
-      <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-[#1E75FF]/10 text-[#1E75FF] flex items-center justify-center flex-shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-[#6c6c6c]/10 text-[#6c6c6c] flex items-center justify-center flex-shrink-0">
             <PlaySquare className="w-6 h-6 stroke-[2]" />
           </div>
           <div>
-            <h1 className="text-[20px] font-extrabold text-[#111827] dark:text-white tracking-tight flex items-center gap-2">
+            <h1 className="text-[20px] font-extrabold text-[#181818] dark:text-white tracking-tight flex items-center gap-2">
               Watch Videos
-              <span className="text-[11px] font-bold bg-[#1E75FF] text-white px-2 py-0.5 rounded-full uppercase tracking-wider">
+              <span className="text-[11px] font-bold bg-[#6c6c6c] text-white px-2 py-0.5 rounded-full uppercase tracking-wider">
                 HD
               </span>
             </h1>
-            <p className="text-[13px] text-[#6B7280] dark:text-[#9CA3AF]">
+            <p className="text-[13px] text-[#727272] dark:text-[#a2a2a2]">
               High quality streams, tech workshops, creative keynotes, and curated video feeds
             </p>
           </div>
@@ -161,8 +161,8 @@ export default function WatchVideosView() {
               onClick={() => setSelectedCategory(cat)}
               className={`px-3 py-1.5 rounded-xl text-[12.5px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
                 selectedCategory === cat
-                  ? 'bg-[#1E75FF] text-white shadow-xs'
-                  : 'bg-[#F4F5F7] dark:bg-[#1A1D27] text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#111827]'
+                  ? 'bg-[#6c6c6c] text-white shadow-xs'
+                  : 'bg-[#F4F5F7] dark:bg-[#1d1d1d] text-[#727272] dark:text-[#a2a2a2] hover:text-[#181818]'
               }`}
             >
               {cat}
@@ -172,7 +172,7 @@ export default function WatchVideosView() {
       </div>
 
       {/* 2. Featured Theater Player Card */}
-      <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+      <div className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
         <div className="relative aspect-[16/9] sm:aspect-[21/9] bg-black overflow-hidden flex items-center justify-center group">
           {isPlaying ? (
             <video
@@ -193,7 +193,7 @@ export default function WatchVideosView() {
               <button
                 type="button"
                 onClick={() => setIsPlaying(true)}
-                className="absolute inset-0 m-auto w-16 h-16 rounded-2xl bg-[#1E75FF] hover:bg-[#1A66E5] text-white flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all cursor-pointer"
+                className="absolute inset-0 m-auto w-16 h-16 rounded-2xl bg-[#6c6c6c] hover:bg-[#5f5f5f] text-white flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all cursor-pointer"
                 title="Play Video"
               >
                 <Play className="w-8 h-8 fill-current ml-1" />
@@ -209,11 +209,11 @@ export default function WatchVideosView() {
 
         {/* Video Info Row */}
         <div className="p-5 flex flex-col gap-3">
-          <h2 className="text-[17px] font-bold text-[#111827] dark:text-white leading-snug">
+          <h2 className="text-[17px] font-bold text-[#181818] dark:text-white leading-snug">
             {activeVideo.title}
           </h2>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-[#F2F4F7] dark:border-[#1E232F]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-[#f4f4f4] dark:border-[#232323]">
             <div className="flex items-center gap-3">
               <img
                 src={activeVideo.channelAvatar}
@@ -221,11 +221,11 @@ export default function WatchVideosView() {
                 className="w-10 h-10 rounded-full object-cover ring-1 ring-black/5"
               />
               <div>
-                <span className="font-bold text-[14px] text-[#111827] dark:text-white flex items-center gap-1.5">
+                <span className="font-bold text-[14px] text-[#181818] dark:text-white flex items-center gap-1.5">
                   {activeVideo.channel}
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#1E75FF] fill-current" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#6c6c6c] fill-current" />
                 </span>
-                <span className="text-[12px] text-[#9CA3AF]">
+                <span className="text-[12px] text-[#a2a2a2]">
                   {activeVideo.views} views • {activeVideo.timeAgo}
                 </span>
               </div>
@@ -235,7 +235,7 @@ export default function WatchVideosView() {
               <button
                 type="button"
                 onClick={() => showToast('Liked video', 'info')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F4F5F7] dark:bg-[#1A1D27] hover:bg-gray-200 dark:hover:bg-gray-800 text-[12.5px] font-semibold text-[#374151] dark:text-[#D1D5DB] transition cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F4F5F7] dark:bg-[#1d1d1d] hover:bg-gray-200 dark:hover:bg-gray-800 text-[12.5px] font-semibold text-[#404040] dark:text-[#d5d5d5] transition cursor-pointer"
               >
                 <Heart className="w-4 h-4" />
                 <span>{activeVideo.likes || '12K'}</span>
@@ -246,7 +246,7 @@ export default function WatchVideosView() {
                   navigator.clipboard?.writeText(window.location.href);
                   showToast('Video link copied!', 'info');
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F4F5F7] dark:bg-[#1A1D27] hover:bg-gray-200 dark:hover:bg-gray-800 text-[12.5px] font-semibold text-[#374151] dark:text-[#D1D5DB] transition cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F4F5F7] dark:bg-[#1d1d1d] hover:bg-gray-200 dark:hover:bg-gray-800 text-[12.5px] font-semibold text-[#404040] dark:text-[#d5d5d5] transition cursor-pointer"
               >
                 <Share2 className="w-4 h-4" />
                 <span>Share</span>
@@ -254,7 +254,7 @@ export default function WatchVideosView() {
               <button
                 type="button"
                 onClick={() => showToast('Saved to Watch Later', 'info')}
-                className="p-2 rounded-xl bg-[#F4F5F7] dark:bg-[#1A1D27] hover:bg-gray-200 dark:hover:bg-gray-800 text-[#374151] dark:text-[#D1D5DB] transition cursor-pointer"
+                className="p-2 rounded-xl bg-[#F4F5F7] dark:bg-[#1d1d1d] hover:bg-gray-200 dark:hover:bg-gray-800 text-[#404040] dark:text-[#d5d5d5] transition cursor-pointer"
                 title="Save"
               >
                 <Bookmark className="w-4 h-4" />
@@ -265,10 +265,10 @@ export default function WatchVideosView() {
       </div>
 
       {/* 3. Up Next / Video Feed Grid */}
-      <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
-        <h3 className="text-[16px] font-bold text-[#111827] dark:text-white mb-4 flex items-center gap-2">
+      <div className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+        <h3 className="text-[16px] font-bold text-[#181818] dark:text-white mb-4 flex items-center gap-2">
           <span>More Recommended Videos</span>
-          <span className="text-[12px] font-medium text-[#9CA3AF]">
+          <span className="text-[12px] font-medium text-[#a2a2a2]">
             ({filteredVideos.length})
           </span>
         </h3>
@@ -295,7 +295,7 @@ export default function WatchVideosView() {
 
                 {/* Play button hover overlay */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <div className="w-12 h-12 rounded-full bg-[#1E75FF] text-white flex items-center justify-center shadow-lg">
+                  <div className="w-12 h-12 rounded-full bg-[#6c6c6c] text-white flex items-center justify-center shadow-lg">
                     <Play className="w-5 h-5 fill-current ml-0.5" />
                   </div>
                 </div>
@@ -308,13 +308,13 @@ export default function WatchVideosView() {
                   className="w-9 h-9 rounded-full object-cover ring-1 ring-black/5 flex-shrink-0"
                 />
                 <div className="flex flex-col min-w-0">
-                  <h4 className="font-bold text-[13.5px] text-[#111827] dark:text-white group-hover:text-[#1E75FF] line-clamp-2 leading-snug transition-colors">
+                  <h4 className="font-bold text-[13.5px] text-[#181818] dark:text-white group-hover:text-[#6c6c6c] line-clamp-2 leading-snug transition-colors">
                     {video.title}
                   </h4>
-                  <span className="text-[12px] text-[#6B7280] dark:text-[#9CA3AF] mt-1">
+                  <span className="text-[12px] text-[#727272] dark:text-[#a2a2a2] mt-1">
                     {video.channel}
                   </span>
-                  <span className="text-[11px] text-[#9CA3AF]">
+                  <span className="text-[11px] text-[#a2a2a2]">
                     {video.views} • {video.timeAgo}
                   </span>
                 </div>

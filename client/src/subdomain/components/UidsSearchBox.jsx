@@ -108,11 +108,11 @@ export default function UidsSearchBox({
     <div className="relative w-full max-w-xl sm:max-w-2xl mx-auto px-3.5 sm:px-0 mt-4 sm:mt-5 z-30">
       <form
         onSubmit={handleSubmit}
-        className="relative flex items-center bg-white rounded-full border border-slate-200 hover:border-slate-300 focus-within:border-emerald-500 shadow-xs focus-within:ring-2 focus-within:ring-emerald-500/15 p-1.5 sm:p-2 transition-all duration-150"
+        className="relative flex items-center bg-white rounded-full border border-neutral-200 hover:border-neutral-300 focus-within:border-emerald-500 shadow-xs focus-within:ring-2 focus-within:ring-emerald-500/15 p-1.5 sm:p-2 transition-all duration-150"
       >
         {/* Left Search Icon */}
-        <div className="pl-3 pr-2 text-slate-400 shrink-0">
-          <Search className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
+        <div className="pl-3 pr-2 text-neutral-400 shrink-0">
+          <Search className="w-4 h-4 sm:w-5 sm:h-5 text-neutral-400" />
         </div>
 
         {/* Subdomain Input with Dynamic Animated Placeholder */}
@@ -125,26 +125,26 @@ export default function UidsSearchBox({
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck="false"
-            className="w-full bg-transparent text-sm sm:text-base font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none tracking-normal truncate"
+            className="w-full bg-transparent text-sm sm:text-base font-medium text-neutral-900 placeholder:text-neutral-400 focus:outline-none tracking-normal truncate"
           />
         </div>
 
         {/* Dropdown Selector (.uids.app ⌄) */}
-        <div className="relative shrink-0 border-l border-slate-200 pl-2.5 pr-1.5 sm:px-3">
+        <div className="relative shrink-0 border-l border-neutral-200 pl-2.5 pr-1.5 sm:px-3">
           <button
             type="button"
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-1 py-1 text-xs sm:text-sm font-semibold text-slate-700 hover:text-slate-900 transition-colors select-none"
+            className="flex items-center gap-1 py-1 text-xs sm:text-sm font-semibold text-neutral-700 hover:text-neutral-900 transition-colors select-none"
             aria-expanded={dropdownOpen}
           >
             <span>{selectedSuffix}</span>
-            <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-150 ${dropdownOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-3.5 h-3.5 text-neutral-500 transition-transform duration-150 ${dropdownOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {/* Suffix Dropdown Menu */}
           {dropdownOpen && (
-            <div className="absolute right-0 top-full mt-2 w-36 bg-white rounded-xl border border-slate-200 shadow-lg py-1.5 z-50 animate-in fade-in duration-100">
-              <div className="px-3 py-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+            <div className="absolute right-0 top-full mt-2 w-36 bg-white rounded-xl border border-neutral-200 shadow-lg py-1.5 z-50 animate-in fade-in duration-100">
+              <div className="px-3 py-1 text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
                 Select Suffix
               </div>
               {availableSuffixes.map((suffix) => (
@@ -158,7 +158,7 @@ export default function UidsSearchBox({
                   className={`w-full text-left px-3 py-1.5 text-xs font-medium transition-colors flex items-center justify-between ${
                     selectedSuffix === suffix
                       ? 'bg-emerald-50 text-emerald-800 font-semibold'
-                      : 'text-slate-700 hover:bg-slate-50'
+                      : 'text-neutral-700 hover:bg-neutral-50'
                   }`}
                 >
                   <span>{suffix}</span>
@@ -174,7 +174,7 @@ export default function UidsSearchBox({
         {/* Black Right Arrow Submit Button */}
         <button
           type="submit"
-          className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-900 hover:bg-slate-800 active:bg-black text-white flex items-center justify-center transition-all duration-150 shadow-2xs hover:shadow-xs active:scale-95 shrink-0"
+          className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-neutral-900 hover:bg-neutral-800 active:bg-black text-white flex items-center justify-center transition-all duration-150 shadow-2xs hover:shadow-xs active:scale-95 shrink-0"
           aria-label="Search and claim subdomain"
         >
           <ArrowRight className="w-4 h-4 text-white" />
@@ -187,13 +187,13 @@ export default function UidsSearchBox({
           </span>
           {availability.suggestions?.length > 0 && (
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className="text-slate-500">Recommended:</span>
+              <span className="text-neutral-500">Recommended:</span>
               {availability.suggestions.map((suggestion) => (
                 <button
                   key={suggestion.name}
                   type="button"
                   onClick={() => setSubdomain(suggestion.name)}
-                  className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-semibold text-slate-700 hover:border-emerald-400 hover:text-emerald-700"
+                  className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 font-semibold text-neutral-700 hover:border-emerald-400 hover:text-emerald-700"
                 >
                   {suggestion.name}
                 </button>

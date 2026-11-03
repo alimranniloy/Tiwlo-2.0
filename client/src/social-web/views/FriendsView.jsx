@@ -173,33 +173,33 @@ export default function FriendsView() {
   return (
     <div className="w-full flex flex-col gap-5 pb-20">
       {/* 1. Header Card */}
-      <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-[#1E75FF]/10 text-[#1E75FF] flex items-center justify-center flex-shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-[#6c6c6c]/10 text-[#6c6c6c] flex items-center justify-center flex-shrink-0">
             <Users className="w-6 h-6 stroke-[2]" />
           </div>
           <div>
-            <h1 className="text-[20px] font-extrabold text-[#111827] dark:text-white tracking-tight flex items-center gap-2">
+            <h1 className="text-[20px] font-extrabold text-[#181818] dark:text-white tracking-tight flex items-center gap-2">
               Friends Hub
-              <span className="text-[12px] font-semibold bg-[#1E75FF]/10 text-[#1E75FF] px-2.5 py-0.5 rounded-full">
+              <span className="text-[12px] font-semibold bg-[#6c6c6c]/10 text-[#6c6c6c] px-2.5 py-0.5 rounded-full">
                 {friendsList.length} Connected
               </span>
             </h1>
-            <p className="text-[13px] text-[#6B7280] dark:text-[#9CA3AF]">
+            <p className="text-[13px] text-[#727272] dark:text-[#a2a2a2]">
               Connect, discover mutual friends, and grow your professional network
             </p>
           </div>
         </div>
 
         {/* Tab Buttons */}
-        <div className="flex items-center bg-[#F4F5F7] dark:bg-[#1A1D27] p-1 rounded-xl w-full sm:w-auto">
+        <div className="flex items-center bg-[#F4F5F7] dark:bg-[#1d1d1d] p-1 rounded-xl w-full sm:w-auto">
           <button
             type="button"
             onClick={() => setActiveTab('all')}
             className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[13px] font-semibold transition-all cursor-pointer ${
               activeTab === 'all'
-                ? 'bg-white dark:bg-[#161822] text-[#1E75FF] shadow-xs'
-                : 'text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#111827]'
+                ? 'bg-white dark:bg-[#181818] text-[#6c6c6c] shadow-xs'
+                : 'text-[#727272] dark:text-[#a2a2a2] hover:text-[#181818]'
             }`}
           >
             All Friends ({friendsList.length})
@@ -209,8 +209,8 @@ export default function FriendsView() {
             onClick={() => setActiveTab('requests')}
             className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[13px] font-semibold transition-all cursor-pointer relative ${
               activeTab === 'requests'
-                ? 'bg-white dark:bg-[#161822] text-[#1E75FF] shadow-xs'
-                : 'text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#111827]'
+                ? 'bg-white dark:bg-[#181818] text-[#6c6c6c] shadow-xs'
+                : 'text-[#727272] dark:text-[#a2a2a2] hover:text-[#181818]'
             }`}
           >
             Requests
@@ -225,8 +225,8 @@ export default function FriendsView() {
             onClick={() => setActiveTab('suggestions')}
             className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[13px] font-semibold transition-all cursor-pointer ${
               activeTab === 'suggestions'
-                ? 'bg-white dark:bg-[#161822] text-[#1E75FF] shadow-xs'
-                : 'text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#111827]'
+                ? 'bg-white dark:bg-[#181818] text-[#6c6c6c] shadow-xs'
+                : 'text-[#727272] dark:text-[#a2a2a2] hover:text-[#181818]'
             }`}
           >
             Suggestions
@@ -236,9 +236,9 @@ export default function FriendsView() {
 
       {/* 2. Friend Requests Section (Shown when active or has pending requests) */}
       {(activeTab === 'requests' || (activeTab === 'all' && requests.length > 0)) && (
-        <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+        <div className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-[16px] font-bold text-[#111827] dark:text-white flex items-center gap-2">
+            <h2 className="text-[16px] font-bold text-[#181818] dark:text-white flex items-center gap-2">
               <span>Friend Requests</span>
               <span className="text-[12px] font-semibold text-[#FF3B30] bg-[#FF3B30]/10 px-2 py-0.5 rounded-full">
                 {requests.length} New
@@ -253,7 +253,7 @@ export default function FriendsView() {
               {requests.map((req) => (
                 <div
                   key={req.id}
-                  className="p-3.5 rounded-xl border border-[#EAECF0] dark:border-[#1E232F] bg-[#FAFBFD] dark:bg-[#14161F] flex flex-col justify-between gap-3 hover:border-gray-300 dark:hover:border-gray-700 transition"
+                  className="p-3.5 rounded-xl border border-[#ececec] dark:border-[#232323] bg-[#FAFBFD] dark:bg-[#161616] flex flex-col justify-between gap-3 hover:border-gray-300 dark:hover:border-gray-700 transition"
                 >
                   <div className="flex items-center gap-3">
                     <img
@@ -262,13 +262,13 @@ export default function FriendsView() {
                       className="w-12 h-12 rounded-xl object-cover ring-1 ring-black/5"
                     />
                     <div className="flex flex-col min-w-0">
-                      <span className="font-bold text-[14px] text-[#111827] dark:text-white truncate">
+                      <span className="font-bold text-[14px] text-[#181818] dark:text-white truncate">
                         {req.name}
                       </span>
-                      <span className="text-[11.5px] text-[#9CA3AF] truncate">
+                      <span className="text-[11.5px] text-[#a2a2a2] truncate">
                         @{req.handle}
                       </span>
-                      <span className="text-[11px] text-[#1E75FF] font-medium mt-0.5">
+                      <span className="text-[11px] text-[#6c6c6c] font-medium mt-0.5">
                         {req.mutualCount} mutual friends
                       </span>
                     </div>
@@ -278,7 +278,7 @@ export default function FriendsView() {
                     <button
                       type="button"
                       onClick={() => handleAcceptRequest(req.id, req.name)}
-                      className="flex-1 py-1.5 rounded-lg bg-[#1E75FF] hover:bg-[#1A66E5] text-white text-[12.5px] font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                      className="flex-1 py-1.5 rounded-lg bg-[#6c6c6c] hover:bg-[#5f5f5f] text-white text-[12.5px] font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       <Check className="w-3.5 h-3.5" />
                       Confirm
@@ -300,10 +300,10 @@ export default function FriendsView() {
 
       {/* 3. People You May Know / Suggestions */}
       {(activeTab === 'suggestions' || activeTab === 'all') && (
-        <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+        <div className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-[16px] font-bold text-[#111827] dark:text-white flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#1E75FF]" />
+            <h2 className="text-[16px] font-bold text-[#181818] dark:text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#6c6c6c]" />
               <span>People You May Know</span>
             </h2>
           </div>
@@ -312,21 +312,21 @@ export default function FriendsView() {
             {suggestions.map((sug) => (
               <div
                 key={sug.id}
-                className="p-4 rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] bg-white dark:bg-[#161822] flex flex-col items-center text-center gap-2 hover:shadow-md transition group"
+                className="p-4 rounded-2xl border border-[#ececec] dark:border-[#232323] bg-white dark:bg-[#181818] flex flex-col items-center text-center gap-2 hover:shadow-md transition group"
               >
                 <img
                   src={sug.avatar}
                   alt={sug.name}
-                  className="w-16 h-16 rounded-2xl object-cover ring-2 ring-[#1E75FF]/20 group-hover:scale-105 transition-transform"
+                  className="w-16 h-16 rounded-2xl object-cover ring-2 ring-[#6c6c6c]/20 group-hover:scale-105 transition-transform"
                 />
                 <div className="flex flex-col min-w-0 mt-1">
-                  <span className="font-bold text-[14px] text-[#111827] dark:text-white truncate">
+                  <span className="font-bold text-[14px] text-[#181818] dark:text-white truncate">
                     {sug.name}
                   </span>
-                  <span className="text-[11.5px] text-[#9CA3AF] truncate">
+                  <span className="text-[11.5px] text-[#a2a2a2] truncate">
                     {sug.role}
                   </span>
-                  <span className="text-[11px] text-[#6B7280] dark:text-[#9CA3AF] mt-1 font-medium">
+                  <span className="text-[11px] text-[#727272] dark:text-[#a2a2a2] mt-1 font-medium">
                     {sug.mutualCount} mutual friends
                   </span>
                 </div>
@@ -334,7 +334,7 @@ export default function FriendsView() {
                 <button
                   type="button"
                   onClick={() => handleAddFriend(sug.id, sug.name)}
-                  className="w-full mt-2 py-2 rounded-xl bg-[#1E75FF]/10 hover:bg-[#1E75FF] text-[#1E75FF] hover:text-white text-[12.5px] font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="w-full mt-2 py-2 rounded-xl bg-[#6c6c6c]/10 hover:bg-[#6c6c6c] text-[#6c6c6c] hover:text-white text-[12.5px] font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
                   Add Friend
@@ -347,11 +347,11 @@ export default function FriendsView() {
 
       {/* 4. All Connected Friends Grid */}
       {(activeTab === 'all') && (
-        <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+        <div className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-            <h2 className="text-[16px] font-bold text-[#111827] dark:text-white flex items-center gap-2">
+            <h2 className="text-[16px] font-bold text-[#181818] dark:text-white flex items-center gap-2">
               <span>All Friends</span>
-              <span className="text-[12px] font-medium text-[#9CA3AF]">
+              <span className="text-[12px] font-medium text-[#a2a2a2]">
                 ({filteredFriends.length})
               </span>
             </h2>
@@ -363,9 +363,9 @@ export default function FriendsView() {
                 placeholder="Search friends..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-[36px] pl-9 pr-3 bg-[#F4F5F7] dark:bg-[#1A1D27] text-[13px] rounded-xl outline-none focus:ring-2 focus:ring-[#1E75FF]/30 transition"
+                className="w-full h-[36px] pl-9 pr-3 bg-[#F4F5F7] dark:bg-[#1d1d1d] text-[13px] rounded-xl outline-none focus:ring-2 focus:ring-[#6c6c6c]/30 transition"
               />
-              <Search className="w-4 h-4 text-[#9CA3AF] absolute left-3 top-2.5" />
+              <Search className="w-4 h-4 text-[#a2a2a2] absolute left-3 top-2.5" />
             </div>
           </div>
 
@@ -373,7 +373,7 @@ export default function FriendsView() {
             {filteredFriends.map((friend) => (
               <div
                 key={friend.id}
-                className="p-3.5 rounded-xl border border-[#EAECF0] dark:border-[#1E232F] bg-[#FAFBFD] dark:bg-[#14161F] flex items-center justify-between gap-3 hover:border-gray-300 dark:hover:border-gray-700 transition"
+                className="p-3.5 rounded-xl border border-[#ececec] dark:border-[#232323] bg-[#FAFBFD] dark:bg-[#161616] flex items-center justify-between gap-3 hover:border-gray-300 dark:hover:border-gray-700 transition"
               >
                 <div
                   onClick={() => navigateTo('profile', friend.handle)}
@@ -386,14 +386,14 @@ export default function FriendsView() {
                       className="w-11 h-11 rounded-full object-cover"
                     />
                     {friend.isOnline && (
-                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-[#10B981] rounded-full ring-2 ring-white dark:ring-[#161822]" />
+                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-[#10B981] rounded-full ring-2 ring-white dark:ring-[#181818]" />
                     )}
                   </div>
                   <div className="flex flex-col min-w-0">
-                    <span className="font-bold text-[13.5px] text-[#111827] dark:text-white truncate hover:text-[#1E75FF] transition-colors">
+                    <span className="font-bold text-[13.5px] text-[#181818] dark:text-white truncate hover:text-[#6c6c6c] transition-colors">
                       {friend.name}
                     </span>
-                    <span className="text-[11.5px] text-[#9CA3AF] truncate">
+                    <span className="text-[11.5px] text-[#a2a2a2] truncate">
                       @{friend.handle}
                     </span>
                     <span className="text-[10.5px] text-[#10B981] font-medium">
@@ -405,7 +405,7 @@ export default function FriendsView() {
                 <button
                   type="button"
                   onClick={() => navigateTo('messages', friend.id)}
-                  className="p-2 rounded-lg bg-white dark:bg-[#1C202C] text-[#6B7280] hover:text-[#1E75FF] border border-[#EAECF0] dark:border-[#1E232F] shadow-xs cursor-pointer transition"
+                  className="p-2 rounded-lg bg-white dark:bg-[#202020] text-[#727272] hover:text-[#6c6c6c] border border-[#ececec] dark:border-[#232323] shadow-xs cursor-pointer transition"
                   title="Send Message"
                 >
                   <MessageCircle className="w-4 h-4 stroke-[1.8]" />

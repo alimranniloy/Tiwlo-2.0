@@ -37,19 +37,19 @@ export default function FaqSection({ onNavigate }) {
         
         {/* Header */}
         <div className="text-center mb-10 space-y-2.5">
-          <span className="text-[12px] font-semibold tracking-wider text-[#0b57d0] uppercase">
+          <span className="text-[12px] font-semibold tracking-wider text-[#000000] uppercase">
             FREQUENTLY ASKED QUESTIONS
           </span>
           <h2 className="text-3xl sm:text-4xl font-normal tracking-[-0.02em] text-[#1f1f1f]">
             Frequently asked questions
           </h2>
-          <p className="text-[15px] sm:text-[16px] text-[#5f6368]">
+          <p className="text-[15px] sm:text-[16px] text-[#636363]">
             Everything you need to know about getting started with the Tiwlo platform.
           </p>
         </div>
 
         {/* Minimal Accordion with Hairline Dividers */}
-        <div className="divide-y divide-[#dadce0]/60 border-t border-b border-[#dadce0]/60">
+        <div className="divide-y divide-[#dcdcdc]/60 border-t border-b border-[#dcdcdc]/60">
           {faqs.map((faq, index) => {
             const isOpen = openIndex === index;
             return (
@@ -60,18 +60,18 @@ export default function FaqSection({ onNavigate }) {
                   className="w-full flex items-center justify-between text-left gap-4 cursor-pointer group"
                 >
                   <span className={`text-[16px] font-medium transition-colors ${
-                    isOpen ? 'text-[#0b57d0]' : 'text-[#1f1f1f] group-hover:text-[#0b57d0]'
+                    isOpen ? 'text-[#000000]' : 'text-[#1f1f1f] group-hover:text-[#000000]'
                   }`}>
                     {faq.q}
                   </span>
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-transform duration-200 ${
-                    isOpen ? 'rotate-180 bg-[#e8f0fe] text-[#0b57d0]' : 'bg-[#f1f3f4] text-[#5f6368]'
+                    isOpen ? 'rotate-180 bg-[#efefef] text-[#000000]' : 'bg-[#f1f3f4] text-[#636363]'
                   }`}>
                     <ChevronDown className="w-4 h-4" />
                   </div>
                 </button>
                 {isOpen && (
-                  <div className="mt-3 pr-10 text-[14px] text-[#5f6368] leading-relaxed animate-in fade-in duration-150">
+                  <div className="mt-3 pr-10 text-[14px] text-[#636363] leading-relaxed animate-in fade-in duration-150">
                     {faq.a}
                   </div>
                 )}
@@ -81,11 +81,11 @@ export default function FaqSection({ onNavigate }) {
         </div>
 
         {/* Support Help Center Link */}
-        <div className="mt-10 text-center text-[14px] text-[#5f6368]">
+        <div className="mt-10 text-center text-[14px] text-[#636363]">
           Have more questions?{' '}
           <button
             onClick={() => onNavigate('help-support')}
-            className="text-[#0b57d0] font-medium hover:underline cursor-pointer"
+            className="text-[#000000] font-medium hover:underline cursor-pointer"
           >
             Visit our 24/7 Support Center
           </button>

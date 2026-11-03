@@ -168,12 +168,12 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
   ];
 
   return (
-    <div className="min-h-screen bg-[#ffffff] font-sans antialiased text-[#202124] flex flex-col justify-between select-none">
+    <div className="min-h-screen bg-[#ffffff] font-sans antialiased text-[#212121] flex flex-col justify-between select-none">
       
       {/* ============================================================== */}
       {/* 1. TOP ACCOUNT NAVIGATION BAR (UNIFIED DESIGN SYSTEM)          */}
       {/* ============================================================== */}
-      <header className="sticky top-0 z-40 bg-white border-b border-[#dadce0] h-16 px-4 sm:px-8 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-white border-b border-[#dcdcdc] h-16 px-4 sm:px-8 flex items-center justify-between">
         {/* Left: Tiwlo Brand + Account Label */}
         <div className="flex items-center gap-3">
           <a href={getPlatformUrl()} className="flex items-center gap-2.5 transition-opacity hover:opacity-90">
@@ -187,13 +187,13 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
               }}
             />
             <div className="hidden items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-[#1a73e8] text-white font-bold flex items-center justify-center text-sm">
+              <div className="w-7 h-7 rounded-lg bg-[#696969] text-white font-bold flex items-center justify-center text-sm">
                 T
               </div>
-              <span className="font-semibold text-lg text-[#202124] tracking-tight">Tiwlo</span>
+              <span className="font-semibold text-lg text-[#212121] tracking-tight">Tiwlo</span>
             </div>
           </a>
-          <span className="text-[18px] text-[#5f6368] font-normal pl-3 border-l border-[#dadce0] hidden sm:inline-block leading-none">
+          <span className="text-[18px] text-[#636363] font-normal pl-3 border-l border-[#dcdcdc] hidden sm:inline-block leading-none">
             Account
           </span>
         </div>
@@ -201,8 +201,8 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
         {/* Right: Authenticated User Chip & Real Avatar */}
         <div className="flex items-center gap-3">
           {email && (
-            <div className="hidden md:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#f1f3f4] text-[#3c4043] text-xs font-normal border border-[#dadce0]">
-              <UserCheck className="w-3.5 h-3.5 text-[#5f6368]" />
+            <div className="hidden md:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#f1f3f4] text-[#3f3f3f] text-xs font-normal border border-[#dcdcdc]">
+              <UserCheck className="w-3.5 h-3.5 text-[#636363]" />
               <span className="max-w-[220px] truncate font-medium">{email}</span>
             </div>
           )}
@@ -239,7 +239,7 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
       <main className="flex-1 w-full max-w-[520px] mx-auto px-4 sm:px-6 pt-10 sm:pt-14 pb-16 flex flex-col items-center justify-center">
         
         {/* Main Card */}
-        <div className="w-full bg-white border border-[#dadce0] rounded-[8px] p-6 sm:p-10 shadow-[0_1px_2px_0_rgba(60,64,67,0.15)] text-center transition-all">
+        <div className="w-full bg-white border border-[#dcdcdc] rounded-[8px] p-6 sm:p-10 shadow-[0_1px_2px_0_rgba(60,64,67,0.15)] text-center transition-all">
           
           {/* Circular Red Shield Icon */}
           <div className="w-[72px] h-[72px] sm:w-[80px] sm:h-[80px] rounded-full bg-[#fce8e6] flex items-center justify-center mx-auto text-[#d93025] mb-5 shadow-xs transition-transform hover:scale-105 duration-300">
@@ -247,33 +247,33 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
           </div>
 
           {/* Title */}
-          <h1 className="text-[26px] sm:text-[30px] font-normal text-[#202124] tracking-tight leading-tight mb-2">
+          <h1 className="text-[26px] sm:text-[30px] font-normal text-[#212121] tracking-tight leading-tight mb-2">
             Your Tiwlo Account is disabled
           </h1>
 
           {/* User Chip */}
           {email && (
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f1f3f4] text-[#3c4043] text-xs font-normal border border-[#dadce0] mb-4">
-              <UserCheck className="w-3.5 h-3.5 text-[#5f6368]" />
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f1f3f4] text-[#3f3f3f] text-xs font-normal border border-[#dcdcdc] mb-4">
+              <UserCheck className="w-3.5 h-3.5 text-[#636363]" />
               <span className="font-medium">{email}</span>
             </div>
           )}
 
           {/* Body Description */}
-          <p className="text-[14px] text-[#5f6368] leading-[22px] mb-5">
+          <p className="text-[14px] text-[#636363] leading-[22px] mb-5">
             Account access is restricted. If you think this happened by mistake, submit an appeal for review by our account security team.
           </p>
 
           {/* Reason Notice Box */}
           {reason && (
-            <div className="p-4 rounded-[6px] bg-[#f8f9fa] border border-[#dadce0] text-left mb-6 space-y-1">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-[#5f6368] block">
+            <div className="p-4 rounded-[6px] bg-[#f8f9fa] border border-[#dcdcdc] text-left mb-6 space-y-1">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-[#636363] block">
                 Notice from Compliance Team
               </span>
-              <span className="text-[13px] text-[#202124] leading-relaxed block font-normal">
+              <span className="text-[13px] text-[#212121] leading-relaxed block font-normal">
                 {reason}
               </span>
-              <span className="text-[11px] text-[#70757a] block pt-1">
+              <span className="text-[11px] text-[#747474] block pt-1">
                 If you believe this restriction is incorrect, you can request a review below.
               </span>
             </div>
@@ -284,7 +284,7 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
             <button
               type="button"
               onClick={() => setShowAiModal(true)}
-              className="w-full h-10 px-8 bg-[#1a73e8] hover:bg-[#1b66c9] active:bg-[#1756a9] text-white rounded-full text-[14px] font-medium shadow-xs cursor-pointer inline-flex items-center justify-center gap-2 transition-all"
+              className="w-full h-10 px-8 bg-[#696969] hover:bg-[#5d5d5d] active:bg-[#4f4f4f] text-white rounded-full text-[14px] font-medium shadow-xs cursor-pointer inline-flex items-center justify-center gap-2 transition-all"
             >
               <span>Submit an appeal</span>
               <ArrowRight className="w-4 h-4" />
@@ -293,7 +293,7 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
             <button
               type="button"
               onClick={onSignOut}
-              className="w-full h-10 px-8 text-[#1a73e8] hover:bg-[#f8f9fa] rounded-full text-[14px] font-medium inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+              className="w-full h-10 px-8 text-[#696969] hover:bg-[#f8f9fa] rounded-full text-[14px] font-medium inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
             >
               <LogOut className="w-4 h-4" />
               <span>Sign out</span>
@@ -301,15 +301,15 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
           </div>
 
           {/* Bottom Security Link */}
-          <div className="mt-6 pt-5 border-t border-[#dadce0] flex items-center justify-between text-xs text-[#5f6368]">
+          <div className="mt-6 pt-5 border-t border-[#dcdcdc] flex items-center justify-between text-xs text-[#636363]">
             <div className="flex items-center gap-1.5">
-              <Shield className="w-4 h-4 text-[#1a73e8]" />
-              <span className="font-medium text-[#202124]">Account Security Team</span>
+              <Shield className="w-4 h-4 text-[#696969]" />
+              <span className="font-medium text-[#212121]">Account Security Team</span>
             </div>
             <button
               type="button"
               onClick={() => setShowAiModal(true)}
-              className="text-[#1a73e8] hover:underline font-medium flex items-center gap-1 cursor-pointer"
+              className="text-[#696969] hover:underline font-medium flex items-center gap-1 cursor-pointer"
             >
               <span>Request Formal Review</span>
               <ChevronRight className="w-3.5 h-3.5" />
@@ -322,17 +322,17 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
       {/* ============================================================== */}
       {/* 3. STANDARD ACCOUNT FOOTER (MATCHING SECURITY CHECKUP)         */}
       {/* ============================================================== */}
-      <footer className="border-t border-[#dadce0] bg-[#ffffff] py-4 px-4 sm:px-8">
-        <div className="max-w-[680px] mx-auto flex flex-col sm:flex-row items-center justify-between text-[12px] text-[#5f6368] gap-3">
+      <footer className="border-t border-[#dcdcdc] bg-[#ffffff] py-4 px-4 sm:px-8">
+        <div className="max-w-[680px] mx-auto flex flex-col sm:flex-row items-center justify-between text-[12px] text-[#636363] gap-3">
           <div className="flex items-center gap-2">
-            <Globe className="w-4 h-4 text-[#5f6368]" />
-            <span className="hover:text-[#202124] cursor-pointer">English (United States)</span>
+            <Globe className="w-4 h-4 text-[#636363]" />
+            <span className="hover:text-[#212121] cursor-pointer">English (United States)</span>
           </div>
 
           <div className="flex items-center gap-6">
-            <a href={getPlatformUrl()} className="hover:text-[#202124] transition-colors">Help</a>
-            <a href={getPlatformUrl()} className="hover:text-[#202124] transition-colors">Privacy</a>
-            <a href={getPlatformUrl()} className="hover:text-[#202124] transition-colors">Terms</a>
+            <a href={getPlatformUrl()} className="hover:text-[#212121] transition-colors">Help</a>
+            <a href={getPlatformUrl()} className="hover:text-[#212121] transition-colors">Privacy</a>
+            <a href={getPlatformUrl()} className="hover:text-[#212121] transition-colors">Terms</a>
             <span>&copy; 2026 Tiwlo, Inc.</span>
           </div>
         </div>
@@ -342,24 +342,24 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
       {/* 4. SECURITY REVIEW SPECIALIST APPEAL MODAL                     */}
       {/* ============================================================== */}
       {showAiModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-[500px] h-[580px] bg-white rounded-[12px] shadow-2xl flex flex-col border border-[#dadce0] overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-neutral-900/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-[500px] h-[580px] bg-white rounded-[12px] shadow-2xl flex flex-col border border-[#dcdcdc] overflow-hidden">
             
             {/* Modal Header */}
-            <div className="px-5 py-4 border-b border-[#dadce0] bg-[#f8f9fa] flex items-center justify-between">
+            <div className="px-5 py-4 border-b border-[#dcdcdc] bg-[#f8f9fa] flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-[#1a73e8]">
+                <div className="w-9 h-9 rounded-full bg-neutral-100 flex items-center justify-center text-[#696969]">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-medium text-sm text-[#202124]">Account appeal</h3>
-                  <p className="text-[11px] text-[#5f6368]">Reviewed by the Tiwlo account security team</p>
+                  <h3 className="font-medium text-sm text-[#212121]">Account appeal</h3>
+                  <p className="text-[11px] text-[#636363]">Reviewed by the Tiwlo account security team</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowAiModal(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+                className="p-1.5 text-neutral-400 hover:text-neutral-600 rounded-lg hover:bg-neutral-100 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -375,14 +375,14 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
                   <div
                     className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed whitespace-pre-wrap ${
                       msg.sender === 'user'
-                        ? 'bg-[#1a73e8] text-white rounded-br-none'
-                        : 'bg-[#f1f3f4] text-[#202124] rounded-bl-none border border-[#e8eaed]'
+                        ? 'bg-[#696969] text-white rounded-br-none'
+                        : 'bg-[#f1f3f4] text-[#212121] rounded-bl-none border border-[#eaeaea]'
                     }`}
                   >
                     {msg.text}
                     <div
                       className={`text-[10px] mt-1 text-right ${
-                        msg.sender === 'user' ? 'text-blue-100' : 'text-[#70757a]'
+                        msg.sender === 'user' ? 'text-neutral-100' : 'text-[#747474]'
                       }`}
                     >
                       {msg.timestamp}
@@ -394,8 +394,8 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
               {/* Appeal submission status */}
               {isReviewing && (
                 <div className="flex justify-start">
-                  <div className="bg-[#f1f3f4] border border-[#e8eaed] rounded-2xl rounded-bl-none px-4 py-3 text-xs flex items-center gap-2.5 text-[#3c4043] animate-pulse">
-                    <div className="w-4 h-4 rounded-full border-2 border-[#1a73e8] border-t-transparent animate-spin shrink-0" />
+                  <div className="bg-[#f1f3f4] border border-[#eaeaea] rounded-2xl rounded-bl-none px-4 py-3 text-xs flex items-center gap-2.5 text-[#3f3f3f] animate-pulse">
+                    <div className="w-4 h-4 rounded-full border-2 border-[#696969] border-t-transparent animate-spin shrink-0" />
                     <span className="text-[11px] font-medium">{reviewStepText || 'Evaluating case...'}</span>
                   </div>
                 </div>
@@ -430,13 +430,13 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
 
             {/* Quick Prompt Chips (If not restored yet) */}
             {!isRestored && !isAppealSubmitted && messages.length <= 3 && (
-              <div className="px-4 py-2 bg-[#f8f9fa] border-t border-[#e8eaed] flex flex-wrap gap-1.5">
+              <div className="px-4 py-2 bg-[#f8f9fa] border-t border-[#eaeaea] flex flex-wrap gap-1.5">
                 {quickPrompts.map((prompt, idx) => (
                   <button
                     key={idx}
                     type="button"
                     onClick={() => handleSendMessage(prompt)}
-                    className="text-[11px] bg-white border border-[#dadce0] hover:border-blue-400 hover:text-blue-600 text-[#3c4043] px-2.5 py-1 rounded-full transition-all cursor-pointer"
+                    className="text-[11px] bg-white border border-[#dcdcdc] hover:border-neutral-400 hover:text-neutral-600 text-[#3f3f3f] px-2.5 py-1 rounded-full transition-all cursor-pointer"
                   >
                     {prompt}
                   </button>
@@ -445,7 +445,7 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
             )}
 
             {/* Input Bar */}
-            <div className="p-3 border-t border-[#dadce0] bg-white">
+            <div className="p-3 border-t border-[#dcdcdc] bg-white">
               {!isRestored && !isAppealSubmitted ? (
                 <form
                   onSubmit={(e) => {
@@ -460,18 +460,18 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
                     onChange={(e) => setInputText(e.target.value)}
                     placeholder="Type your explanation or question..."
                     disabled={isReviewing || isAppealSubmitted}
-                    className="flex-1 text-xs px-3.5 py-2.5 bg-[#f1f3f4] rounded-full border border-transparent focus:border-blue-500 focus:bg-white focus:outline-none transition-all placeholder-[#70757a]"
+                    className="flex-1 text-xs px-3.5 py-2.5 bg-[#f1f3f4] rounded-full border border-transparent focus:border-neutral-500 focus:bg-white focus:outline-none transition-all placeholder-[#747474]"
                   />
                   <button
                     type="submit"
                     disabled={!inputText.trim() || isReviewing || isAppealSubmitted}
-                    className="w-9 h-9 rounded-full bg-[#1a73e8] hover:bg-[#1b66c9] disabled:bg-slate-200 text-white flex items-center justify-center transition-all cursor-pointer disabled:cursor-not-allowed shrink-0"
+                    className="w-9 h-9 rounded-full bg-[#696969] hover:bg-[#5d5d5d] disabled:bg-neutral-200 text-white flex items-center justify-center transition-all cursor-pointer disabled:cursor-not-allowed shrink-0"
                   >
                     <Send className="w-4 h-4" />
                   </button>
                 </form>
               ) : isAppealSubmitted ? (
-                <p className="text-center text-xs text-[#5f6368] py-2">
+                <p className="text-center text-xs text-[#636363] py-2">
                   Appeal received. The account security team will review your case.
                 </p>
               ) : (
@@ -481,7 +481,7 @@ export default function AccountDisabledView({ bannedInfo, onSignOut, onAccountRe
                     setShowAiModal(false);
                     onAccountRestored?.(restoredData);
                   }}
-                  className="w-full py-2.5 bg-[#1a73e8] hover:bg-[#1b66c9] text-white rounded-full text-xs font-semibold cursor-pointer"
+                  className="w-full py-2.5 bg-[#696969] hover:bg-[#5d5d5d] text-white rounded-full text-xs font-semibold cursor-pointer"
                 >
                   Proceed to Security Checkup & Dashboard
                 </button>

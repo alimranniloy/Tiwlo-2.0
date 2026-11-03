@@ -40,7 +40,7 @@ export default function UidsNavbar({
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-1.5 rounded-full bg-white/95 border border-slate-200/90 text-slate-700 hover:bg-slate-50 transition shadow-2xs"
+              className="p-1.5 rounded-full bg-white/95 border border-neutral-200/90 text-neutral-700 hover:bg-neutral-50 transition shadow-2xs"
               aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
@@ -48,7 +48,7 @@ export default function UidsNavbar({
           </div>
 
           {/* Desktop Left Nav Links */}
-          <nav className="hidden md:flex items-center gap-6 text-[13px] font-medium text-slate-600">
+          <nav className="hidden md:flex items-center gap-6 text-[13px] font-medium text-neutral-600">
             {navLinks.map((link) => {
               const isActive = activeSection === link.id;
               return (
@@ -56,8 +56,8 @@ export default function UidsNavbar({
                   key={link.id}
                   type="button"
                   onClick={() => handleLinkClick(link.id)}
-                  className={`relative py-1 transition-colors hover:text-slate-900 ${
-                    isActive ? 'text-slate-950 font-semibold' : 'text-slate-600'
+                  className={`relative py-1 transition-colors hover:text-neutral-900 ${
+                    isActive ? 'text-neutral-950 font-semibold' : 'text-neutral-600'
                   }`}
                 >
                   {link.label}
@@ -75,7 +75,7 @@ export default function UidsNavbar({
           className="absolute left-1/2 -translate-x-1/2 flex items-center cursor-pointer select-none"
           onClick={() => handleLinkClick('home')}
         >
-          <div className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 flex items-center">
+          <div className="text-xl sm:text-2xl font-extrabold tracking-tight text-neutral-900 flex items-center">
             <span>uids</span>
             <span className="text-[#00C261]">.app</span>
           </div>
@@ -87,7 +87,7 @@ export default function UidsNavbar({
           <button
             type="button"
             onClick={() => onNavigateAuth && onNavigateAuth('login')}
-            className="px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-slate-700 hover:text-slate-950 rounded-full hover:bg-slate-100/90 transition-colors"
+            className="px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-neutral-700 hover:text-neutral-950 rounded-full hover:bg-neutral-100/90 transition-colors"
           >
             Login
           </button>
@@ -96,17 +96,17 @@ export default function UidsNavbar({
           <button
             type="button"
             onClick={() => onNavigateAuth && onNavigateAuth('signup')}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 active:bg-black rounded-full shadow-2xs hover:shadow-xs transition-all duration-150 active:scale-95"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white bg-neutral-900 hover:bg-neutral-800 active:bg-black rounded-full shadow-2xs hover:shadow-xs transition-all duration-150 active:scale-95"
           >
             <span>Sign Up</span>
-            <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
+            <ArrowRight className="w-3.5 h-3.5 text-neutral-300" />
           </button>
         </div>
       </div>
 
       {/* Mobile Menu Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden mt-2 p-3.5 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-lg animate-in slide-in-from-top-2 duration-150">
+        <div className="md:hidden mt-2 p-3.5 bg-white/95 backdrop-blur-md rounded-2xl border border-neutral-200/90 shadow-lg animate-in slide-in-from-top-2 duration-150">
           <nav className="flex flex-col gap-1.5">
             {navLinks.map((link) => {
               const isActive = activeSection === link.id;
@@ -116,7 +116,7 @@ export default function UidsNavbar({
                   type="button"
                   onClick={() => handleLinkClick(link.id)}
                   className={`flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-medium transition ${
-                    isActive ? 'bg-emerald-50 text-emerald-800 font-semibold' : 'text-slate-700 hover:bg-slate-50'
+                    isActive ? 'bg-emerald-50 text-emerald-800 font-semibold' : 'text-neutral-700 hover:bg-neutral-50'
                   }`}
                 >
                   <span>{link.label}</span>
@@ -124,14 +124,14 @@ export default function UidsNavbar({
                 </button>
               );
             })}
-            <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
+            <div className="pt-2 border-t border-neutral-100 flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setMobileMenuOpen(false);
                   onNavigateAuth && onNavigateAuth('login');
                 }}
-                className="flex-1 py-1.5 text-center text-xs font-semibold text-slate-700 bg-slate-100 rounded-full"
+                className="flex-1 py-1.5 text-center text-xs font-semibold text-neutral-700 bg-neutral-100 rounded-full"
               >
                 Login
               </button>
@@ -141,7 +141,7 @@ export default function UidsNavbar({
                   setMobileMenuOpen(false);
                   onNavigateAuth && onNavigateAuth('signup');
                 }}
-                className="flex-1 py-1.5 text-center text-xs font-semibold text-white bg-slate-900 rounded-full"
+                className="flex-1 py-1.5 text-center text-xs font-semibold text-white bg-neutral-900 rounded-full"
               >
                 Sign Up
               </button>

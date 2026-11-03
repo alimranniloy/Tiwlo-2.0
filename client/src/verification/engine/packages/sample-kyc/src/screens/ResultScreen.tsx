@@ -47,18 +47,18 @@ export function ResultScreen({ data, onRestart }: Props) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-slate-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-50 flex items-center justify-center p-4">
         <div className="text-center">
           <Spinner />
-          <p className="mt-4 text-indigo-600 font-semibold">Verifying identity...</p>
-          <p className="text-sm text-slate-500 mt-1">Comparing document photo with selfie</p>
+          <p className="mt-4 text-neutral-600 font-semibold">Verifying identity...</p>
+          <p className="text-sm text-neutral-500 mt-1">Comparing document photo with selfie</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-slate-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-50 flex items-center justify-center p-4">
       <div className="max-w-2xl w-full">
         {/* Header badge */}
         <div className="text-center mb-6">
@@ -85,7 +85,7 @@ export function ResultScreen({ data, onRestart }: Props) {
                 : 'Verification Failed'}
           </h1>
           {verification && (
-            <p className="text-slate-500 mt-1">
+            <p className="text-neutral-500 mt-1">
               Similarity: {(similarity * 100).toFixed(1)}%
             </p>
           )}
@@ -114,7 +114,7 @@ export function ResultScreen({ data, onRestart }: Props) {
                 <Row label="MRZ Valid" value={mrz.check_digits_valid ? 'Yes' : 'No'} />
               </div>
             ) : (
-              <p className="text-sm text-slate-500">No MRZ data extracted</p>
+              <p className="text-sm text-neutral-500">No MRZ data extracted</p>
             )}
           </SummaryCard>
 
@@ -161,7 +161,7 @@ export function ResultScreen({ data, onRestart }: Props) {
                 <Row label="Similarity" value={`${(similarity * 100).toFixed(1)}%`} />
               </div>
             ) : (
-              <p className="text-sm text-slate-500">Not available</p>
+              <p className="text-sm text-neutral-500">Not available</p>
             )}
           </SummaryCard>
         </div>
@@ -170,7 +170,7 @@ export function ResultScreen({ data, onRestart }: Props) {
         <div className="text-center">
           <button
             onClick={onRestart}
-            className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors shadow-md cursor-pointer"
+            className="px-8 py-3 bg-neutral-600 hover:bg-neutral-700 text-white font-semibold rounded-xl transition-colors shadow-md cursor-pointer"
           >
             Start New Verification
           </button>
@@ -199,7 +199,7 @@ function SummaryCard({
     >
       <div className="flex items-center gap-2 mb-3">
         <span className="text-xl" dangerouslySetInnerHTML={{ __html: icon }} />
-        <h3 className="font-semibold text-slate-800">{title}</h3>
+        <h3 className="font-semibold text-neutral-800">{title}</h3>
         <span
           className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${
             ok ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
@@ -216,15 +216,15 @@ function SummaryCard({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between">
-      <span className="text-slate-500">{label}</span>
-      <span className="font-medium text-slate-800">{value}</span>
+      <span className="text-neutral-500">{label}</span>
+      <span className="font-medium text-neutral-800">{value}</span>
     </div>
   );
 }
 
 function Spinner() {
   return (
-    <svg className="animate-spin h-12 w-12 text-indigo-600 mx-auto" viewBox="0 0 24 24" fill="none">
+    <svg className="animate-spin h-12 w-12 text-neutral-600 mx-auto" viewBox="0 0 24 24" fill="none">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>

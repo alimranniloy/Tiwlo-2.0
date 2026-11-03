@@ -21,7 +21,7 @@ export default function RecentActivity({ activities, onDeleteActivity, onViewAll
       case 'stock':
         return {
           icon: Box,
-          bg: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800/40'
+          bg: 'bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 border border-neutral-100 dark:border-neutral-800/40'
         };
       case 'purchase':
         return {
@@ -83,18 +83,18 @@ export default function RecentActivity({ activities, onDeleteActivity, onViewAll
   const items = activities && activities.length > 0 ? activities.slice(0, 6) : defaultActivities;
 
   return (
-    <div className="bg-white dark:bg-gray-800 border border-slate-200/80 dark:border-gray-700/80 rounded-2xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+    <div className="bg-white dark:bg-gray-800 border border-neutral-200/80 dark:border-gray-700/80 rounded-2xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
-          <Clock className="w-4 h-4 text-slate-400" />
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+          <Clock className="w-4 h-4 text-neutral-400" />
+          <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
             Recent Activity
           </h3>
         </div>
         <button
           onClick={onViewAll}
-          className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 flex items-center space-x-1 group"
+          className="text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-neutral-700 flex items-center space-x-1 group"
         >
           <span>View All</span>
           <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -108,7 +108,7 @@ export default function RecentActivity({ activities, onDeleteActivity, onViewAll
           return (
             <div
               key={act.id}
-              className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-gray-700/30 transition group"
+              className="flex items-center justify-between p-1.5 rounded-xl hover:bg-neutral-50 dark:hover:bg-gray-700/30 transition group"
             >
               <div className="flex items-center space-x-3 min-w-0">
                 <div
@@ -117,23 +117,23 @@ export default function RecentActivity({ activities, onDeleteActivity, onViewAll
                   <Icon className="w-4 h-4 stroke-[2.2]" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-slate-800 dark:text-white truncate leading-tight">
+                  <p className="text-xs font-bold text-neutral-800 dark:text-white truncate leading-tight">
                     {act.title}
                   </p>
-                  <p className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
+                  <p className="text-[11px] text-neutral-400 font-medium truncate mt-0.5">
                     {act.subtitle}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center space-x-2 shrink-0 ml-2">
-                <span className="text-[11px] font-medium text-slate-400">
+                <span className="text-[11px] font-medium text-neutral-400">
                   {act.time}
                 </span>
                 {onDeleteActivity && (
                   <button
                     onClick={() => onDeleteActivity(act.id)}
-                    className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 p-1 transition"
+                    className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-rose-500 p-1 transition"
                     title="Delete activity"
                   >
                     <Trash2 className="w-3 h-3" />

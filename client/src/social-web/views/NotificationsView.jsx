@@ -113,7 +113,7 @@ export default function NotificationsView() {
         );
       case 'follow':
         return (
-          <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-xl bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 flex items-center justify-center">
             <UserPlus className="w-4 h-4" />
           </div>
         );
@@ -143,10 +143,10 @@ export default function NotificationsView() {
   return (
     <div className="w-full flex flex-col min-h-screen">
       {/* 1. Header Bar with Modern Floating Pills */}
-      <div className="sticky top-0 z-20 bg-[#f0f2f5]/90 dark:bg-[#0a0a0f]/90 backdrop-blur-xl pb-3 mb-3 border-b border-black/[0.05] dark:border-white/[0.06]">
+      <div className="sticky top-0 z-20 bg-[#f2f2f2]/90 dark:bg-[#0a0a0a]/90 backdrop-blur-xl pb-3 mb-3 border-b border-black/[0.05] dark:border-white/[0.06]">
         <div className="h-14 flex items-center justify-between px-1">
           <div className="flex items-center gap-2.5">
-            <h1 className="text-[20px] font-bold text-[#1c1e21] dark:text-[#e4e6eb] tracking-tight">
+            <h1 className="text-[20px] font-bold text-[#1e1e1e] dark:text-[#e6e6e6] tracking-tight">
               Notifications
             </h1>
             {unreadCount > 0 && (
@@ -159,7 +159,7 @@ export default function NotificationsView() {
           <div className="flex items-center gap-1.5">
             <button
               onClick={handleMarkAllRead}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] text-[#65676b] dark:text-[#b0b3b8] hover:text-violet-600 dark:hover:text-violet-400 text-xs font-semibold transition cursor-pointer active:scale-95"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] text-[#676767] dark:text-[#b3b3b3] hover:text-violet-600 dark:hover:text-violet-400 text-xs font-semibold transition cursor-pointer active:scale-95"
               title="Mark all as read"
             >
               <CheckCheck className="w-4 h-4" />
@@ -167,7 +167,7 @@ export default function NotificationsView() {
             </button>
             <button
               onClick={() => navigateTo('settings', 'notifications')}
-              className="p-2 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] text-[#65676b] dark:text-[#b0b3b8] transition cursor-pointer active:scale-95"
+              className="p-2 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] text-[#676767] dark:text-[#b3b3b3] transition cursor-pointer active:scale-95"
               title="Settings"
             >
               <Settings className="w-4 h-4" />
@@ -191,7 +191,7 @@ export default function NotificationsView() {
                 className={`px-4 py-1.5 rounded-xl text-[13px] font-medium transition-all cursor-pointer ${
                   isActive
                     ? 'bg-violet-600 text-white shadow-md shadow-violet-500/20 font-semibold'
-                    : 'bg-white dark:bg-[#16161f] text-[#65676b] dark:text-[#b0b3b8] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] border border-black/[0.05] dark:border-white/[0.06]'
+                    : 'bg-white dark:bg-[#171717] text-[#676767] dark:text-[#b3b3b3] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] border border-black/[0.05] dark:border-white/[0.06]'
                 }`}
               >
                 {tab.label}
@@ -218,7 +218,7 @@ export default function NotificationsView() {
                   if (notif.postId) navigateTo('post-detail', notif.postId);
                   else if (notif.senderHandle) navigateTo('profile', notif.senderHandle);
                 }}
-                className={`group bg-white dark:bg-[#16161f] rounded-2xl border p-4 transition-all duration-200 cursor-pointer flex items-start gap-3.5 hover:shadow-md dark:hover:shadow-black/30 hover:-translate-y-[1px] ${
+                className={`group bg-white dark:bg-[#171717] rounded-2xl border p-4 transition-all duration-200 cursor-pointer flex items-start gap-3.5 hover:shadow-md dark:hover:shadow-black/30 hover:-translate-y-[1px] ${
                   isUnread
                     ? 'border-violet-500/30 bg-violet-500/[0.02] dark:bg-violet-500/[0.03]'
                     : 'border-black/[0.05] dark:border-white/[0.06]'
@@ -237,10 +237,10 @@ export default function NotificationsView() {
                       alt={notif.senderName}
                       className="w-5 h-5 rounded-lg object-cover ring-1 ring-black/10 dark:ring-white/10"
                     />
-                    <span className="font-semibold text-[13.5px] text-[#1c1e21] dark:text-[#e4e6eb] truncate">
+                    <span className="font-semibold text-[13.5px] text-[#1e1e1e] dark:text-[#e6e6e6] truncate">
                       {notif.senderName}
                     </span>
-                    <span className="text-[11.5px] text-[#65676b] dark:text-[#8a8d91]">
+                    <span className="text-[11.5px] text-[#676767] dark:text-[#8d8d8d]">
                       · {notif.timeAgo || 'recently'}
                     </span>
                     {isUnread && (
@@ -248,7 +248,7 @@ export default function NotificationsView() {
                     )}
                   </div>
 
-                  <p className="text-[13px] text-[#4b4f56] dark:text-[#b0b3b8] leading-relaxed">
+                  <p className="text-[13px] text-[#4f4f4f] dark:text-[#b3b3b3] leading-relaxed">
                     {notif.text}
                   </p>
                 </div>
@@ -260,14 +260,14 @@ export default function NotificationsView() {
             );
           })
         ) : (
-          <div className="py-20 text-center bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-8 shadow-sm">
+          <div className="py-20 text-center bg-white dark:bg-[#171717] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-8 shadow-sm">
             <div className="w-14 h-14 rounded-2xl bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center mx-auto mb-3">
               <Bell className="w-7 h-7" />
             </div>
-            <h3 className="font-semibold text-[16px] text-[#1c1e21] dark:text-[#e4e6eb] mb-1">
+            <h3 className="font-semibold text-[16px] text-[#1e1e1e] dark:text-[#e6e6e6] mb-1">
               You're all caught up
             </h3>
-            <p className="text-[13px] text-[#65676b] dark:text-[#8a8d91] max-w-sm mx-auto">
+            <p className="text-[13px] text-[#676767] dark:text-[#8d8d8d] max-w-sm mx-auto">
               New alerts regarding your posts, mentions, and stream interactions will appear here in real-time.
             </p>
           </div>

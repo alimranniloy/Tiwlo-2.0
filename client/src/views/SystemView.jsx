@@ -127,12 +127,12 @@ export default function SystemView({ showToast, onBackToDashboard }) {
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Top Banner */}
-      <div className="bg-white dark:bg-[#111827] p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#181818] p-4 sm:p-5 rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-start space-x-3">
           {onBackToDashboard && (
             <button
               onClick={onBackToDashboard}
-              className="mt-0.5 p-2 rounded-xl bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-600 dark:text-slate-300 transition shadow-xs flex items-center space-x-1 font-semibold text-xs cursor-pointer"
+              className="mt-0.5 p-2 rounded-xl bg-neutral-100 dark:bg-gray-800 hover:bg-neutral-200 dark:hover:bg-gray-700 text-neutral-600 dark:text-neutral-300 transition shadow-xs flex items-center space-x-1 font-semibold text-xs cursor-pointer"
               title="Back to Dashboard"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -141,14 +141,14 @@ export default function SystemView({ showToast, onBackToDashboard }) {
           )}
           <div>
             <div className="flex items-center space-x-2.5">
-              <span className="p-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 shrink-0">
+              <span className="p-2 rounded-xl bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 shrink-0">
                 <Server className="w-5 h-5" />
               </span>
-              <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+              <h1 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-white tracking-tight">
                 System Control & Architecture
               </h1>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 pl-1">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 pl-1">
               Server diagnostics, persistent database backups, global company preferences, and real-time audit trail.
             </p>
           </div>
@@ -156,7 +156,7 @@ export default function SystemView({ showToast, onBackToDashboard }) {
 
         <button
           onClick={fetchSystemData}
-          className="flex items-center justify-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition cursor-pointer"
+          className="flex items-center justify-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-neutral-600 hover:bg-neutral-700 text-white shadow-xs transition cursor-pointer"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           <span>Refresh Diagnostics</span>
@@ -164,13 +164,13 @@ export default function SystemView({ showToast, onBackToDashboard }) {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white dark:bg-[#111827] p-2.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs flex items-center overflow-x-auto max-w-full gap-2">
+      <div className="bg-white dark:bg-[#181818] p-2.5 sm:p-4 rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs flex items-center overflow-x-auto max-w-full gap-2">
         <button
           onClick={() => setActiveTab('diagnostics')}
           className={`whitespace-nowrap px-3.5 sm:px-4 py-2 text-xs font-bold rounded-xl transition ${
             activeTab === 'diagnostics'
-              ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-800'
+              ? 'bg-neutral-600 text-white shadow-md shadow-neutral-500/20'
+              : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-gray-800'
           }`}
         >
           Diagnostics & Telemetry
@@ -179,8 +179,8 @@ export default function SystemView({ showToast, onBackToDashboard }) {
           onClick={() => setActiveTab('settings')}
           className={`whitespace-nowrap px-3.5 sm:px-4 py-2 text-xs font-bold rounded-xl transition ${
             activeTab === 'settings'
-              ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-800'
+              ? 'bg-neutral-600 text-white shadow-md shadow-neutral-500/20'
+              : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-gray-800'
           }`}
         >
           Company & Store Settings
@@ -189,8 +189,8 @@ export default function SystemView({ showToast, onBackToDashboard }) {
           onClick={() => setActiveTab('backup')}
           className={`whitespace-nowrap px-3.5 sm:px-4 py-2 text-xs font-bold rounded-xl transition ${
             activeTab === 'backup'
-              ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-800'
+              ? 'bg-neutral-600 text-white shadow-md shadow-neutral-500/20'
+              : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-gray-800'
           }`}
         >
           Database Backup & Storage
@@ -199,8 +199,8 @@ export default function SystemView({ showToast, onBackToDashboard }) {
           onClick={() => setActiveTab('audit')}
           className={`whitespace-nowrap px-3.5 sm:px-4 py-2 text-xs font-bold rounded-xl transition ${
             activeTab === 'audit'
-              ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-800'
+              ? 'bg-neutral-600 text-white shadow-md shadow-neutral-500/20'
+              : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-gray-800'
           }`}
         >
           Live Audit Logs ({activities.length})
@@ -209,9 +209,9 @@ export default function SystemView({ showToast, onBackToDashboard }) {
 
       {/* TAB 1: DIAGNOSTICS & TELEMETRY */}
       {activeTab === 'diagnostics' && (
-        <div className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/80 dark:border-gray-800 p-6 shadow-xs">
-          <h3 className="font-bold text-slate-900 dark:text-white text-base mb-1">Diagnostic Details</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+        <div className="bg-white dark:bg-[#181818] rounded-3xl border border-neutral-200/80 dark:border-gray-800 p-6 shadow-xs">
+          <h3 className="font-bold text-neutral-900 dark:text-white text-base mb-1">Diagnostic Details</h3>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
             Infrastructure metrics and database record counts are not available in this workspace.
           </p>
         </div>
@@ -219,12 +219,12 @@ export default function SystemView({ showToast, onBackToDashboard }) {
 
       {/* TAB 2: COMPANY & STORE SETTINGS */}
       {activeTab === 'settings' && (
-        <div className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/80 dark:border-gray-800 p-4 sm:p-6 shadow-xs max-w-3xl">
-          <div className="border-b border-slate-100 dark:border-gray-800 pb-4 mb-6">
-            <h3 className="font-bold text-slate-900 dark:text-white text-base">
+        <div className="bg-white dark:bg-[#181818] rounded-3xl border border-neutral-200/80 dark:border-gray-800 p-4 sm:p-6 shadow-xs max-w-3xl">
+          <div className="border-b border-neutral-100 dark:border-gray-800 pb-4 mb-6">
+            <h3 className="font-bold text-neutral-900 dark:text-white text-base">
               Company & Inventory Parameters
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-neutral-400 mt-0.5">
               Customize company naming, tax rates, currency symbol, and automatic stock alerts.
             </p>
           </div>
@@ -232,7 +232,7 @@ export default function SystemView({ showToast, onBackToDashboard }) {
           <form onSubmit={handleSaveSettings} className="space-y-4 text-xs">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                   Company / Organization Name
                 </label>
                 <input
@@ -240,12 +240,12 @@ export default function SystemView({ showToast, onBackToDashboard }) {
                   required
                   value={settings.companyName}
                   onChange={(e) => setSettings({ ...settings, companyName: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl text-neutral-800 dark:text-white"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                   Official Support Email
                 </label>
                 <input
@@ -253,14 +253,14 @@ export default function SystemView({ showToast, onBackToDashboard }) {
                   required
                   value={settings.storeEmail}
                   onChange={(e) => setSettings({ ...settings, storeEmail: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl text-neutral-800 dark:text-white"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                   Currency Symbol
                 </label>
                 <select
@@ -273,7 +273,7 @@ export default function SystemView({ showToast, onBackToDashboard }) {
                       currency: currencyBySymbol[e.target.value] || 'USD'
                     });
                   }}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white font-bold"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl text-neutral-800 dark:text-white font-bold"
                 >
                   <option value="$">USD ($)</option>
                   <option value="৳">BDT (৳)</option>
@@ -283,7 +283,7 @@ export default function SystemView({ showToast, onBackToDashboard }) {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                   Default Sales Tax (%)
                 </label>
                 <input
@@ -291,12 +291,12 @@ export default function SystemView({ showToast, onBackToDashboard }) {
                   step="0.1"
                   value={settings.taxRate}
                   onChange={(e) => setSettings({ ...settings, taxRate: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl text-neutral-800 dark:text-white"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                   Low Stock Alert Threshold
                 </label>
                 <input
@@ -304,33 +304,33 @@ export default function SystemView({ showToast, onBackToDashboard }) {
                   min="5"
                   value={settings.lowStockThreshold}
                   onChange={(e) => setSettings({ ...settings, lowStockThreshold: parseInt(e.target.value) || 20 })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white font-bold"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl text-neutral-800 dark:text-white font-bold"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                   Main Warehouse Facility
                 </label>
                 <input
                   type="text"
                   value={settings.warehouseName}
                   onChange={(e) => setSettings({ ...settings, warehouseName: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl text-neutral-800 dark:text-white"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                   Facility Location
                 </label>
                 <input
                   type="text"
                   value={settings.warehouseLocation}
                   onChange={(e) => setSettings({ ...settings, warehouseLocation: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl text-neutral-800 dark:text-white"
                 />
               </div>
             </div>
@@ -339,7 +339,7 @@ export default function SystemView({ showToast, onBackToDashboard }) {
               <button
                 type="submit"
                 disabled={savingSettings}
-                className="px-6 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-500/20 transition flex items-center space-x-1.5"
+                className="px-6 py-2.5 text-xs font-bold text-white bg-neutral-600 hover:bg-neutral-700 rounded-xl shadow-md shadow-neutral-500/20 transition flex items-center space-x-1.5"
               >
                 <Save className="w-3.5 h-3.5" />
                 <span>{savingSettings ? 'Saving...' : 'Save Settings'}</span>
@@ -352,13 +352,13 @@ export default function SystemView({ showToast, onBackToDashboard }) {
       {/* TAB 3: DATABASE BACKUP & STORAGE */}
       {activeTab === 'backup' && (
         <div className="space-y-5 max-w-3xl">
-          <div className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/80 dark:border-gray-800 p-4 sm:p-6 shadow-xs">
+          <div className="bg-white dark:bg-[#181818] rounded-3xl border border-neutral-200/80 dark:border-gray-800 p-4 sm:p-6 shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
               <div>
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">
+                <h3 className="font-bold text-neutral-900 dark:text-white text-base">
                   Full Database Snapshot Export
                 </h3>
-                <p className="text-xs text-slate-400 mt-1 max-w-lg">
+                <p className="text-xs text-neutral-400 mt-1 max-w-lg">
                   Instantly package and download all 8 local database tables (Products, Categories, Subcategories, Purchases, Sales, Customers, Suppliers, Audit Logs) into a single standalone JSON file for disaster recovery.
                 </p>
               </div>
@@ -373,11 +373,11 @@ export default function SystemView({ showToast, onBackToDashboard }) {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/80 dark:border-gray-800 p-6 shadow-xs">
-            <h3 className="font-bold text-slate-900 dark:text-white text-base text-rose-600">
+          <div className="bg-white dark:bg-[#181818] rounded-3xl border border-neutral-200/80 dark:border-gray-800 p-6 shadow-xs">
+            <h3 className="font-bold text-neutral-900 dark:text-white text-base text-rose-600">
               Maintenance Actions
             </h3>
-            <p className="text-xs text-slate-400 mt-1 mb-4">
+            <p className="text-xs text-neutral-400 mt-1 mb-4">
               Careful: Cleans temporary data or resets system logs.
             </p>
 
@@ -395,15 +395,15 @@ export default function SystemView({ showToast, onBackToDashboard }) {
       {/* TAB 4: AUDIT ACTIVITY LOG */}
       {activeTab === 'audit' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-[#111827] p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-[#181818] p-3.5 sm:p-4 rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs">
             <div className="relative w-full sm:w-80">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Search audit trail by action or item..."
                 value={auditSearch}
                 onChange={(e) => setAuditSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-2 sm:py-1.5 bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none"
+                className="w-full pl-8 pr-3 py-2 sm:py-1.5 bg-neutral-50 dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-800 dark:text-white placeholder-neutral-400 focus:outline-none"
               />
             </div>
 
@@ -415,34 +415,34 @@ export default function SystemView({ showToast, onBackToDashboard }) {
             </button>
           </div>
 
-          <div className="bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/80 dark:border-gray-800 overflow-hidden shadow-xs divide-y divide-slate-100 dark:divide-gray-800">
+          <div className="bg-white dark:bg-[#181818] rounded-3xl border border-neutral-200/80 dark:border-gray-800 overflow-hidden shadow-xs divide-y divide-neutral-100 dark:divide-gray-800">
             {filteredActivities.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-400">
+              <div className="p-8 text-center text-xs text-neutral-400">
                 No activity records found matching search.
               </div>
             ) : (
               filteredActivities.map((act) => (
-                <div key={act.id} className="p-4 flex items-center justify-between hover:bg-slate-50/60 dark:hover:bg-gray-800/40 transition">
+                <div key={act.id} className="p-4 flex items-center justify-between hover:bg-neutral-50/60 dark:hover:bg-gray-800/40 transition">
                   <div className="flex items-center space-x-3">
-                    <span className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-gray-800 flex items-center justify-center text-xs font-bold text-slate-600 dark:text-slate-300">
-                      <Activity className="w-4 h-4 text-blue-500" />
+                    <span className="w-8 h-8 rounded-xl bg-neutral-100 dark:bg-gray-800 flex items-center justify-center text-xs font-bold text-neutral-600 dark:text-neutral-300">
+                      <Activity className="w-4 h-4 text-neutral-500" />
                     </span>
                     <div>
-                      <p className="font-bold text-slate-900 dark:text-white text-xs leading-tight">
+                      <p className="font-bold text-neutral-900 dark:text-white text-xs leading-tight">
                         {act.title}
                       </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
                         {act.subtitle}
                       </p>
                     </div>
                   </div>
 
                   <div className="text-right">
-                    <span className="text-[10px] text-slate-400 font-mono">
+                    <span className="text-[10px] text-neutral-400 font-mono">
                       {new Date(act.timestamp).toLocaleString()}
                     </span>
                     <div>
-                      <span className="inline-block px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-gray-800 text-slate-500">
+                      <span className="inline-block px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-neutral-100 dark:bg-gray-800 text-neutral-500">
                         {act.type}
                       </span>
                     </div>

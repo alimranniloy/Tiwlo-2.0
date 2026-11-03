@@ -113,7 +113,7 @@ function AddCameraCard({ onAdd }: { onAdd: (source: string, id?: string) => Prom
           value={source}
           onChange={(e) => setSource(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-          className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-sm text-gray-200 placeholder-gray-600 focus:border-cyan-600 focus:outline-none"
+          className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-sm text-gray-200 placeholder-gray-600 focus:border-neutral-600 focus:outline-none"
         />
         <input
           type="text"
@@ -121,12 +121,12 @@ function AddCameraCard({ onAdd }: { onAdd: (source: string, id?: string) => Prom
           value={cameraId}
           onChange={(e) => setCameraId(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-          className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-sm text-gray-200 placeholder-gray-600 focus:border-cyan-600 focus:outline-none"
+          className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-sm text-gray-200 placeholder-gray-600 focus:border-neutral-600 focus:outline-none"
         />
         <button
           onClick={handleSubmit}
           disabled={loading || !source.trim()}
-          className="w-full bg-cyan-700 hover:bg-cyan-600 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm font-medium rounded px-3 py-1.5 transition-colors"
+          className="w-full bg-neutral-700 hover:bg-neutral-600 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm font-medium rounded px-3 py-1.5 transition-colors"
         >
           {loading ? 'Connecting...' : 'Connect'}
         </button>
@@ -172,7 +172,7 @@ export default function CameraGrid() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -184,7 +184,7 @@ export default function CameraGrid() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
         </svg>
         <p className="text-sm">{error}</p>
-        <button onClick={refresh} className="text-xs text-cyan-400 hover:underline">Retry</button>
+        <button onClick={refresh} className="text-xs text-neutral-400 hover:underline">Retry</button>
       </div>
     )
   }

@@ -49,7 +49,7 @@ export default function LandingFooter({ onNavigate }) {
   ];
 
   return (
-    <footer className="bg-[#f8f9fa] border-t border-[#f1f3f4] text-[13px] text-[#5f6368]">
+    <footer className="bg-[#f8f9fa] border-t border-[#f1f3f4] text-[13px] text-[#636363]">
       <div className="max-w-[1300px] mx-auto px-4 sm:px-6 lg:px-8 py-14">
         
         {/* Top Header Strip with Language / Region Selector */}
@@ -73,16 +73,16 @@ export default function LandingFooter({ onNavigate }) {
                 Tiwlo
               </span>
             )}
-            <span className="text-[14px] text-[#5f6368] pl-2 border-l border-[#e0e2ec]">
+            <span className="text-[14px] text-[#636363] pl-2 border-l border-[#e2e2e2]">
               Cloud Platform
             </span>
           </div>
 
           {/* Google-Style Language Selector */}
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#e0e2ec] text-[12px] text-[#444746] hover:bg-[#f1f3f4] transition-colors cursor-pointer">
-            <Globe className="w-3.5 h-3.5 text-[#5f6368]" />
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#e2e2e2] text-[12px] text-[#444746] hover:bg-[#f1f3f4] transition-colors cursor-pointer">
+            <Globe className="w-3.5 h-3.5 text-[#636363]" />
             <span>{selectedLanguage}</span>
-            <ChevronDown className="w-3 h-3 text-[#5f6368]" />
+            <ChevronDown className="w-3 h-3 text-[#636363]" />
           </div>
         </div>
 
@@ -99,7 +99,7 @@ export default function LandingFooter({ onNavigate }) {
                     <button
                       type="button"
                       onClick={link.action}
-                      className="text-[#5f6368] hover:text-[#0b57d0] hover:underline text-left transition-colors cursor-pointer"
+                      className="text-[#636363] hover:text-[#000000] hover:underline text-left transition-colors cursor-pointer"
                     >
                       {link.label}
                     </button>

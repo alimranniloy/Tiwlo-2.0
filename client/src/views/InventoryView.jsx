@@ -140,28 +140,28 @@ function InventoryViewContent({
         <div className="flex items-center space-x-3 mb-2">
           <button
             onClick={() => setIsAdjModalOpen(false)}
-            className="p-2 rounded-xl bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-600 dark:text-slate-300 transition shadow-xs cursor-pointer"
+            className="p-2 rounded-xl bg-neutral-100 dark:bg-gray-800 hover:bg-neutral-200 dark:hover:bg-gray-700 text-neutral-600 dark:text-neutral-300 transition shadow-xs cursor-pointer"
             title="Back to Inventory"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Record Stock Adjustment</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Reconcile physical stock counts, log damage, or restock inventory</p>
+            <h1 className="text-xl font-bold text-neutral-900 dark:text-white">Record Stock Adjustment</h1>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">Reconcile physical stock counts, log damage, or restock inventory</p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200/80 dark:border-gray-800 p-6 shadow-xs">
+        <div className="bg-white dark:bg-[#181818] rounded-2xl border border-neutral-200/80 dark:border-gray-800 p-6 shadow-xs">
           <form onSubmit={handleAdjustmentSubmit} className="space-y-4 text-xs">
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+              <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                 Target Product *
               </label>
               <select
                 required
                 value={adjForm.productId}
                 onChange={(e) => setAdjForm({ ...adjForm, productId: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white"
+                className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl text-neutral-800 dark:text-white"
               >
                 {products.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -173,13 +173,13 @@ function InventoryViewContent({
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                   Action Type *
                 </label>
                 <select
                   value={adjForm.type}
                   onChange={(e) => setAdjForm({ ...adjForm, type: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl text-neutral-800 dark:text-white"
                 >
                   <option value="Add">Add Stock (+)</option>
                   <option value="Remove">Remove Stock (-)</option>
@@ -189,7 +189,7 @@ function InventoryViewContent({
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                   Quantity *
                 </label>
                 <input
@@ -198,13 +198,13 @@ function InventoryViewContent({
                   required
                   value={adjForm.quantity}
                   onChange={(e) => setAdjForm({ ...adjForm, quantity: parseInt(e.target.value) || 0 })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white font-bold"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl text-neutral-800 dark:text-white font-bold"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+              <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                 Reason / Audit Justification *
               </label>
               <textarea
@@ -213,21 +213,21 @@ function InventoryViewContent({
                 placeholder="e.g. Unloaded supplier restock, found damaged unit during aisle inspection"
                 value={adjForm.reason}
                 onChange={(e) => setAdjForm({ ...adjForm, reason: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl text-slate-800 dark:text-white resize-none"
+                className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl text-neutral-800 dark:text-white resize-none"
               />
             </div>
 
-            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100 dark:border-gray-700">
+            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-neutral-100 dark:border-gray-700">
               <button
                 type="button"
                 onClick={() => setIsAdjModalOpen(false)}
-                className="px-4 py-2 font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-xl transition cursor-pointer"
+                className="px-4 py-2 font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-gray-700 rounded-xl transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition cursor-pointer"
+                className="px-5 py-2 font-semibold text-white bg-neutral-600 hover:bg-neutral-700 rounded-xl shadow-xs transition cursor-pointer"
               >
                 Commit Adjustment
               </button>
@@ -241,12 +241,12 @@ function InventoryViewContent({
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Header Banner */}
-      <div className="bg-white dark:bg-[#111827] p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#181818] p-4 sm:p-5 rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-start space-x-3">
           {onBackToDashboard && (
             <button
               onClick={onBackToDashboard}
-              className="mt-0.5 p-2 rounded-xl bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-600 dark:text-slate-300 transition shadow-xs shrink-0 cursor-pointer"
+              className="mt-0.5 p-2 rounded-xl bg-neutral-100 dark:bg-gray-800 hover:bg-neutral-200 dark:hover:bg-gray-700 text-neutral-600 dark:text-neutral-300 transition shadow-xs shrink-0 cursor-pointer"
               title="Back to Dashboard"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -254,14 +254,14 @@ function InventoryViewContent({
           )}
           <div>
             <div className="flex items-center space-x-2.5">
-              <span className="p-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 shrink-0">
+              <span className="p-2 rounded-xl bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 shrink-0">
                 <Boxes className="w-5 h-5" />
               </span>
-              <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+              <h1 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-white tracking-tight">
                 Inventory & Valuation Control
               </h1>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 pl-1">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 pl-1">
               Real-time stock valuation, reorder alerts, location bin tracking, and reconciliation audits.
             </p>
           </div>
@@ -278,7 +278,7 @@ function InventoryViewContent({
               });
               setIsAdjModalOpen(true);
             }}
-            className="flex items-center justify-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition cursor-pointer w-full sm:w-auto"
+            className="flex items-center justify-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-neutral-600 hover:bg-neutral-700 text-white shadow-xs transition cursor-pointer w-full sm:w-auto"
           >
             <SlidersHorizontal className="w-4 h-4" />
             <span>Stock Adjustment</span>
@@ -290,32 +290,32 @@ function InventoryViewContent({
       {summaryError && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{summaryError}</p>}
       {adjustmentsError && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{adjustmentsError}</p>}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5">
-        <div className="bg-white dark:bg-[#111827] p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/70 dark:border-gray-800 shadow-xs">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Units</span>
-          <div className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-1.5">
+        <div className="bg-white dark:bg-[#181818] p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-neutral-200/70 dark:border-gray-800 shadow-xs">
+          <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Total Units</span>
+          <div className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-white mt-1.5">
             {summary?.totalUnits?.toLocaleString() || products.reduce((acc, p) => acc + (p.stock || 0), 0).toLocaleString()}
           </div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">In physical storage</div>
+          <div className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">In physical storage</div>
         </div>
 
-        <div className="bg-white dark:bg-[#111827] p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/70 dark:border-gray-800 shadow-xs">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Retail Valuation</span>
-          <div className="text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400 mt-1.5">
+        <div className="bg-white dark:bg-[#181818] p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-neutral-200/70 dark:border-gray-800 shadow-xs">
+          <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Retail Valuation</span>
+          <div className="text-lg sm:text-xl font-bold text-neutral-600 dark:text-neutral-400 mt-1.5">
             {summary ? formatStoreCurrency(summary.totalRetailValuation, storeSettings) : 'Unavailable'}
           </div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Potential sales value</div>
+          <div className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Potential sales value</div>
         </div>
 
-        <div className="bg-white dark:bg-[#111827] p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/70 dark:border-gray-800 shadow-xs">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Cost Valuation</span>
-          <div className="text-lg sm:text-xl font-bold text-slate-700 dark:text-slate-300 mt-1.5">
+        <div className="bg-white dark:bg-[#181818] p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-neutral-200/70 dark:border-gray-800 shadow-xs">
+          <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Cost Valuation</span>
+          <div className="text-lg sm:text-xl font-bold text-neutral-700 dark:text-neutral-300 mt-1.5">
             {!summary
               ? 'Unavailable'
               : summary.costValuationComplete === false
               ? 'Incomplete'
               : formatStoreCurrency(summary.totalCostValuation, storeSettings)}
           </div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">
+          <div className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">
             {!summary
               ? 'Valuation data could not be loaded'
               : summary.costValuationComplete === false
@@ -324,35 +324,35 @@ function InventoryViewContent({
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#111827] p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/70 dark:border-gray-800 shadow-xs">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Gross Margin</span>
+        <div className="bg-white dark:bg-[#181818] p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-neutral-200/70 dark:border-gray-800 shadow-xs">
+          <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Gross Margin</span>
           <div className="text-lg sm:text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1.5">
             {!summary || summary.potentialProfit == null
               ? '—'
               : formatStoreCurrency(summary.potentialProfit, storeSettings)}
-            {summary?.marginPercent != null && <span className="text-xs font-normal text-slate-400 ml-1">({summary.marginPercent}%)</span>}
+            {summary?.marginPercent != null && <span className="text-xs font-normal text-neutral-400 ml-1">({summary.marginPercent}%)</span>}
           </div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Estimated margin on recorded costs only</div>
+          <div className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Estimated margin on recorded costs only</div>
         </div>
 
-        <div className="bg-white dark:bg-[#111827] p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/70 dark:border-gray-800 shadow-xs col-span-2 sm:col-span-1">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Attention Needed</span>
+        <div className="bg-white dark:bg-[#181818] p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-neutral-200/70 dark:border-gray-800 shadow-xs col-span-2 sm:col-span-1">
+          <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Attention Needed</span>
           <div className="text-lg sm:text-xl font-bold text-rose-600 dark:text-rose-400 mt-1.5">
             {summary ? (summary.lowStockCount || 0) + (summary.outOfStockCount || 0) : 'Unavailable'}
           </div>
-          <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Low or out of stock</div>
+          <div className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Low or out of stock</div>
         </div>
       </div>
 
       {/* Tabs & Search */}
-      <div className="bg-white dark:bg-[#111827] p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="flex items-center bg-slate-100 dark:bg-gray-800 p-1 rounded-xl overflow-x-auto max-w-full">
+      <div className="bg-white dark:bg-[#181818] p-3 sm:p-4 rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex items-center bg-neutral-100 dark:bg-gray-800 p-1 rounded-xl overflow-x-auto max-w-full">
           <button
             onClick={() => setActiveTab('stock-list')}
             className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap transition ${
               activeTab === 'stock-list'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                ? 'bg-white dark:bg-gray-700 text-neutral-600 dark:text-neutral-400 shadow-xs'
+                : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
             }`}
           >
             Inventory Stock Levels
@@ -361,8 +361,8 @@ function InventoryViewContent({
             onClick={() => setActiveTab('adjustments')}
             className={`px-3 py-1.5 text-xs font-bold rounded-lg whitespace-nowrap transition ${
               activeTab === 'adjustments'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                ? 'bg-white dark:bg-gray-700 text-neutral-600 dark:text-neutral-400 shadow-xs'
+                : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
             }`}
           >
             Audit Log / Adjustments ({adjustments.length})
@@ -374,7 +374,7 @@ function InventoryViewContent({
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-1.5 bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-700 dark:text-slate-200 font-medium focus:outline-none flex-1 sm:flex-none"
+              className="px-3 py-1.5 bg-neutral-50 dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 rounded-xl text-neutral-700 dark:text-neutral-200 font-medium focus:outline-none flex-1 sm:flex-none"
             >
               <option value="All">All Stock Health</option>
               <option value="Healthy">Adequate Stock</option>
@@ -383,13 +383,13 @@ function InventoryViewContent({
             </select>
 
             <div className="relative flex-1 md:flex-none md:w-56">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Search stock..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="w-full pl-8 pr-3 py-1.5 bg-neutral-50 dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-800 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-500/20"
               />
             </div>
           </div>
@@ -398,10 +398,10 @@ function InventoryViewContent({
 
       {/* TAB 1: STOCK LIST TABLE */}
       {activeTab === 'stock-list' && (
-        <div className="bg-white dark:bg-[#111827] rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-gray-800 overflow-hidden shadow-xs">
+        <div className="bg-white dark:bg-[#181818] rounded-2xl sm:rounded-3xl border border-neutral-200/80 dark:border-gray-800 overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs min-w-[760px]">
-              <thead className="bg-[#F8FAFC] dark:bg-gray-800/60 border-b border-slate-100 dark:border-gray-800 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+              <thead className="bg-[#fafafa] dark:bg-gray-800/60 border-b border-neutral-100 dark:border-gray-800 text-neutral-400 font-semibold uppercase tracking-wider text-[11px]">
                 <tr>
                   <th className="py-3.5 px-4">Item & SKU</th>
                   <th className="py-3.5 px-4">Warehouse Location</th>
@@ -413,7 +413,7 @@ function InventoryViewContent({
                   <th className="py-3.5 px-4 text-right">Quick Stock Change</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-gray-800 font-medium">
+              <tbody className="divide-y divide-neutral-100 dark:divide-gray-800 font-medium">
                 {filteredProducts.map((p) => {
                   const stockStatus = getStockStatus(p);
                   const isLow = stockStatus === 'Low Stock';
@@ -426,46 +426,46 @@ function InventoryViewContent({
                   return (
                     <tr
                       key={p.id}
-                      className="hover:bg-slate-50/70 dark:hover:bg-gray-800/40 transition duration-150"
+                      className="hover:bg-neutral-50/70 dark:hover:bg-gray-800/40 transition duration-150"
                     >
                       <td className="py-3.5 px-4">
                         <div className="flex items-center space-x-3">
                           <img
                             src={p.image || '/default-product.svg'}
                             alt={p.name}
-                            className="w-9 h-9 rounded-xl object-cover shrink-0 border border-slate-100 dark:border-gray-700"
+                            className="w-9 h-9 rounded-xl object-cover shrink-0 border border-neutral-100 dark:border-gray-700"
                           />
                           <div>
-                            <p className="font-bold text-slate-800 dark:text-white leading-tight">
+                            <p className="font-bold text-neutral-800 dark:text-white leading-tight">
                               {p.name}
                             </p>
-                            <p className="font-mono text-[10px] text-slate-400 mt-0.5">
+                            <p className="font-mono text-[10px] text-neutral-400 mt-0.5">
                               {p.sku}
                             </p>
                           </div>
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">
+                      <td className="py-3.5 px-4 text-neutral-600 dark:text-neutral-300">
                         {p.location || 'Aisle 1, Bin 01'}
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <span className="font-bold text-sm text-slate-900 dark:text-white">
+                        <span className="font-bold text-sm text-neutral-900 dark:text-white">
                           {p.stock}
                         </span>
-                        <span className="text-[10px] text-slate-400 ml-1">units</span>
+                        <span className="text-[10px] text-neutral-400 ml-1">units</span>
                       </td>
 
-                      <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400">
+                      <td className="py-3.5 px-4 text-neutral-500 dark:text-neutral-400">
                         {getMinStock(p)} units
                       </td>
 
-                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">
+                      <td className="py-3.5 px-4 text-neutral-600 dark:text-neutral-300">
                         {unitCostCents === null ? 'Not recorded' : formatStoreCurrency(unitCostCents / 100, storeSettings)}
                       </td>
 
-                      <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
+                      <td className="py-3.5 px-4 font-bold text-neutral-900 dark:text-white">
                         {itemValue === null ? '—' : formatStoreCurrency(itemValue, storeSettings)}
                       </td>
 
@@ -488,7 +488,7 @@ function InventoryViewContent({
                           <button
                             onClick={() => onQuickStockChange && onQuickStockChange(p.id, -5)}
                             disabled={p.stock < 5}
-                            className="px-2 py-1 bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 rounded-lg text-slate-600 dark:text-slate-300 text-[10px] font-bold disabled:opacity-30"
+                            className="px-2 py-1 bg-neutral-100 dark:bg-gray-800 hover:bg-neutral-200 rounded-lg text-neutral-600 dark:text-neutral-300 text-[10px] font-bold disabled:opacity-30"
                             title="-5 units"
                           >
                             -5
@@ -496,21 +496,21 @@ function InventoryViewContent({
                           <button
                             onClick={() => onQuickStockChange && onQuickStockChange(p.id, -1)}
                             disabled={p.stock <= 0}
-                            className="w-6 h-6 bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 rounded-lg font-bold text-slate-600 dark:text-slate-300 flex items-center justify-center disabled:opacity-30"
+                            className="w-6 h-6 bg-neutral-100 dark:bg-gray-800 hover:bg-neutral-200 rounded-lg font-bold text-neutral-600 dark:text-neutral-300 flex items-center justify-center disabled:opacity-30"
                             title="-1 unit"
                           >
                             -
                           </button>
                           <button
                             onClick={() => onQuickStockChange && onQuickStockChange(p.id, 1)}
-                            className="w-6 h-6 bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 rounded-lg font-bold text-slate-600 dark:text-slate-300 flex items-center justify-center"
+                            className="w-6 h-6 bg-neutral-100 dark:bg-gray-800 hover:bg-neutral-200 rounded-lg font-bold text-neutral-600 dark:text-neutral-300 flex items-center justify-center"
                             title="+1 unit"
                           >
                             +
                           </button>
                           <button
                             onClick={() => onQuickStockChange && onQuickStockChange(p.id, 10)}
-                            className="px-2 py-1 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 rounded-lg text-blue-600 dark:text-blue-400 text-[10px] font-bold"
+                            className="px-2 py-1 bg-neutral-50 dark:bg-neutral-900/30 hover:bg-neutral-100 rounded-lg text-neutral-600 dark:text-neutral-400 text-[10px] font-bold"
                             title="+10 units"
                           >
                             +10
@@ -528,10 +528,10 @@ function InventoryViewContent({
 
       {/* TAB 2: ADJUSTMENTS AUDIT TRAIL */}
       {activeTab === 'adjustments' && (
-        <div className="bg-white dark:bg-[#111827] rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-gray-800 overflow-hidden shadow-xs">
+        <div className="bg-white dark:bg-[#181818] rounded-2xl sm:rounded-3xl border border-neutral-200/80 dark:border-gray-800 overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs min-w-[680px]">
-              <thead className="bg-[#F8FAFC] dark:bg-gray-800/60 border-b border-slate-100 dark:border-gray-800 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+              <thead className="bg-[#fafafa] dark:bg-gray-800/60 border-b border-neutral-100 dark:border-gray-800 text-neutral-400 font-semibold uppercase tracking-wider text-[11px]">
                 <tr>
                   <th className="py-3.5 px-4">Date & Time</th>
                   <th className="py-3.5 px-4">Product / SKU</th>
@@ -541,29 +541,29 @@ function InventoryViewContent({
                   <th className="py-3.5 px-4 text-right">Adjusted By</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-gray-800 font-medium">
+              <tbody className="divide-y divide-neutral-100 dark:divide-gray-800 font-medium">
                 {adjustments.map((a) => {
                   const isPositive = a.quantity > 0;
                   return (
                     <tr
                       key={a.id}
-                      className="hover:bg-slate-50/70 dark:hover:bg-gray-800/40 transition duration-150"
+                      className="hover:bg-neutral-50/70 dark:hover:bg-gray-800/40 transition duration-150"
                     >
-                      <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 text-[11px]">
+                      <td className="py-3.5 px-4 text-neutral-500 dark:text-neutral-400 text-[11px]">
                         {new Date(a.createdAt).toLocaleString()}
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <p className="font-bold text-slate-900 dark:text-white leading-tight">
+                        <p className="font-bold text-neutral-900 dark:text-white leading-tight">
                           {a.productName}
                         </p>
-                        <p className="font-mono text-[10px] text-slate-400">
+                        <p className="font-mono text-[10px] text-neutral-400">
                           {a.sku}
                         </p>
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-slate-300">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-neutral-100 dark:bg-gray-800 text-neutral-700 dark:text-neutral-300">
                           {a.type}
                         </span>
                       </td>
@@ -576,16 +576,16 @@ function InventoryViewContent({
                         >
                           {isPositive ? `+${a.quantity}` : a.quantity} units
                         </span>
-                        <div className="text-[10px] text-slate-400">
+                        <div className="text-[10px] text-neutral-400">
                           {a.previousStock} ➔ {a.newStock}
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300 max-w-xs">
+                      <td className="py-3.5 px-4 text-neutral-600 dark:text-neutral-300 max-w-xs">
                         {a.reason}
                       </td>
 
-                      <td className="py-3.5 px-4 text-right font-medium text-slate-500 dark:text-slate-400">
+                      <td className="py-3.5 px-4 text-right font-medium text-neutral-500 dark:text-neutral-400">
                         {a.adjustedBy}
                       </td>
                     </tr>

@@ -17,7 +17,7 @@ export default function CheckoutPage({
   showToast
 }) {
   const { storeSettings } = useStoreSettings();
-  const primaryColor = storeSettings?.themeColor || '#2563eb';
+  const primaryColor = storeSettings?.themeColor || '#000000';
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
@@ -352,24 +352,24 @@ export default function CheckoutPage({
   return (
     <div className="max-w-[1440px] mx-auto px-4 lg:px-8 py-5 space-y-6">
       {/* Breadcrumb Navigation */}
-      <nav className="flex items-center space-x-2 text-xs text-slate-500">
-        <button onClick={() => onNavigate?.('home')} className="hover:text-[#2563eb]">Home</button>
+      <nav className="flex items-center space-x-2 text-xs text-neutral-500">
+        <button onClick={() => onNavigate?.('home')} className="hover:text-[#000000]">Home</button>
         <span>/</span>
-        <button onClick={() => onNavigate?.('cart')} className="hover:text-[#2563eb]">Cart</button>
+        <button onClick={() => onNavigate?.('cart')} className="hover:text-[#000000]">Cart</button>
         <span>/</span>
-        <span className="text-slate-800 font-bold">Checkout</span>
+        <span className="text-neutral-800 font-bold">Checkout</span>
       </nav>
 
       {/* Page Title */}
-      <div className="flex items-center space-x-3 pb-2 border-b border-slate-200">
-        <div className="w-10 h-10 rounded-2xl bg-blue-50 text-[#2563eb] flex items-center justify-center">
+      <div className="flex items-center space-x-3 pb-2 border-b border-neutral-200">
+        <div className="w-10 h-10 rounded-2xl bg-neutral-50 text-[#000000] flex items-center justify-center">
           <Lock className="w-5 h-5 stroke-[2.2]" />
         </div>
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-black text-neutral-900 tracking-tight">
             Checkout
           </h1>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-neutral-400">
             Review your delivery details and order estimate before placing the order.
           </p>
         </div>
@@ -388,12 +388,12 @@ export default function CheckoutPage({
         <div className="lg:col-span-7 space-y-6">
           
           {/* 1. Delivery Address Card */}
-          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs p-6 space-y-4">
-            <div className="flex items-center space-x-2.5 pb-2 border-b border-slate-100">
-              <div className="w-6 h-6 rounded-full bg-[#2563eb] text-white text-xs font-bold flex items-center justify-center">
+          <div className="bg-white rounded-3xl border border-neutral-200/90 shadow-2xs p-6 space-y-4">
+            <div className="flex items-center space-x-2.5 pb-2 border-b border-neutral-100">
+              <div className="w-6 h-6 rounded-full bg-[#000000] text-white text-xs font-bold flex items-center justify-center">
                 1
               </div>
-              <h2 className="text-sm font-bold text-slate-900">
+              <h2 className="text-sm font-bold text-neutral-900">
                 Delivery Information
               </h2>
             </div>
@@ -401,7 +401,7 @@ export default function CheckoutPage({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
               {savedAddresses.length > 0 && (
                 <div className="sm:col-span-2">
-                  <label className="block text-slate-700 font-bold mb-1">Use a saved address</label>
+                  <label className="block text-neutral-700 font-bold mb-1">Use a saved address</label>
                   <select
                     value={selectedAddressId}
                     onChange={event => {
@@ -426,7 +426,7 @@ export default function CheckoutPage({
                         postalCode: ''
                       }));
                     }}
-                    className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5"
+                    className="w-full rounded-xl border border-neutral-300 px-3.5 py-2.5"
                   >
                     <option value="">Enter a new address</option>
                     {savedAddresses.map(item => <option key={item.id} value={item.id}>{item.label}: {item.line1}, {item.city}, {item.country}</option>)}
@@ -434,7 +434,7 @@ export default function CheckoutPage({
                 </div>
               )}
               <div className="sm:col-span-2">
-                <label className="block text-slate-700 font-bold mb-1">Full Name *</label>
+                <label className="block text-neutral-700 font-bold mb-1">Full Name *</label>
                 <input
                   type="text"
                   name="fullName"
@@ -442,12 +442,12 @@ export default function CheckoutPage({
                   onChange={handleChange}
                   placeholder="e.g. John Doe / Imran Khan"
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 placeholder-slate-400 outline-none focus:border-[#2563eb]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 text-neutral-800 placeholder-neutral-400 outline-none focus:border-[#000000]"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Phone Number *</label>
+                <label className="block text-neutral-700 font-bold mb-1">Phone Number *</label>
                 <input
                   type="tel"
                   name="phone"
@@ -455,24 +455,24 @@ export default function CheckoutPage({
                   onChange={handleChange}
                   placeholder="+880 1700 000000"
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 placeholder-slate-400 outline-none focus:border-[#2563eb]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 text-neutral-800 placeholder-neutral-400 outline-none focus:border-[#000000]"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Email Address</label>
+                <label className="block text-neutral-700 font-bold mb-1">Email Address</label>
                 <input
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="customer@domain.com"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 placeholder-slate-400 outline-none focus:border-[#2563eb]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 text-neutral-800 placeholder-neutral-400 outline-none focus:border-[#000000]"
                 />
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-slate-700 font-bold mb-1">Street Address *</label>
+                <label className="block text-neutral-700 font-bold mb-1">Street Address *</label>
                 <input
                   type="text"
                   name="address"
@@ -480,12 +480,12 @@ export default function CheckoutPage({
                   onChange={handleChange}
                   placeholder="House #, Road #, Area, Landmark"
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 placeholder-slate-400 outline-none focus:border-[#2563eb]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 text-neutral-800 placeholder-neutral-400 outline-none focus:border-[#000000]"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">City / Region</label>
+                <label className="block text-neutral-700 font-bold mb-1">City / Region</label>
                 <input
                   type="text"
                   name="city"
@@ -493,19 +493,19 @@ export default function CheckoutPage({
                   onChange={handleChange}
                   placeholder="e.g. Dhaka"
                   list="shipping-city-options"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 placeholder-slate-400 outline-none focus:border-[#2563eb]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 text-neutral-800 placeholder-neutral-400 outline-none focus:border-[#000000]"
                 />
                 <datalist id="shipping-city-options">
                   {shippingCities.map(city => <option key={city} value={city} />)}
                 </datalist>
-                <p className="mt-1 text-[10px] text-slate-400">
+                <p className="mt-1 text-[10px] text-neutral-400">
                   City suggestions: <a className="underline" href="https://www.geonames.org/" target="_blank" rel="noreferrer">GeoNames Gazetteer</a> (CC BY 4.0).
                 </p>
                 {shippingCityError && <p role="alert" className="mt-1 text-[10px] text-rose-600">{shippingCityError}</p>}
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Country *</label>
+                <label className="block text-neutral-700 font-bold mb-1">Country *</label>
                 <select
                   name="countryCode"
                   value={formData.countryCode}
@@ -521,7 +521,7 @@ export default function CheckoutPage({
                     setShippingCityError('');
                   }}
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 placeholder-slate-400 outline-none focus:border-[#2563eb]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 text-neutral-800 placeholder-neutral-400 outline-none focus:border-[#000000]"
                 >
                   <option value="">{shippingCountryError ? 'Country list unavailable' : 'Select country'}</option>
                   {shippingCountries.map(country => (
@@ -532,22 +532,22 @@ export default function CheckoutPage({
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-slate-700 font-bold mb-1">Delivery Notes (Optional)</label>
+                <label className="block text-neutral-700 font-bold mb-1">Delivery Notes (Optional)</label>
                 <input
                   type="text"
                   name="notes"
                   value={formData.notes}
                   onChange={handleChange}
                   placeholder="Instructions for courier (e.g. Ring bell, leave with security)"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 placeholder-slate-400 outline-none focus:border-[#2563eb]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 text-neutral-800 placeholder-neutral-400 outline-none focus:border-[#000000]"
                 />
               </div>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-200/90 bg-white p-6 shadow-2xs">
-            <h2 className="mb-3 text-sm font-bold text-slate-900">Billing address</h2>
-            <label className="flex items-center gap-2 text-xs text-slate-600">
+          <div className="rounded-3xl border border-neutral-200/90 bg-white p-6 shadow-2xs">
+            <h2 className="mb-3 text-sm font-bold text-neutral-900">Billing address</h2>
+            <label className="flex items-center gap-2 text-xs text-neutral-600">
               <input
                 type="checkbox"
                 checked={formData.billingSameAsShipping}
@@ -563,12 +563,12 @@ export default function CheckoutPage({
                   ['billingRegion', 'State / region'],
                   ['billingPostalCode', 'Postal code']
                 ].map(([name, label]) => (
-                  <label key={name} className="text-xs font-semibold text-slate-700">
+                  <label key={name} className="text-xs font-semibold text-neutral-700">
                     {label}
-                    <input name={name} value={formData[name]} onChange={handleChange} required={name === 'billingAddress'} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5" />
+                    <input name={name} value={formData[name]} onChange={handleChange} required={name === 'billingAddress'} className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5" />
                   </label>
                 ))}
-                <label className="text-xs font-semibold text-slate-700">
+                <label className="text-xs font-semibold text-neutral-700">
                   Country
                   <select
                     value={formData.billingCountryCode}
@@ -577,7 +577,7 @@ export default function CheckoutPage({
                       setFormData(previous => ({ ...previous, billingCountryCode: event.target.value, billingCountry: country?.name || '' }));
                     }}
                     required
-                    className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5"
+                    className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5"
                   >
                     <option value="">Select country</option>
                     {shippingCountries.map(country => <option key={country.code} value={country.code}>{country.name}</option>)}
@@ -588,18 +588,18 @@ export default function CheckoutPage({
           </div>
 
           {/* Only server-enabled gateways with supported currencies are selectable. */}
-          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs p-6 space-y-4">
-            <div className="flex items-center space-x-2.5 pb-2 border-b border-slate-100">
-              <div className="w-6 h-6 rounded-full bg-[#2563eb] text-white text-xs font-bold flex items-center justify-center">
+          <div className="bg-white rounded-3xl border border-neutral-200/90 shadow-2xs p-6 space-y-4">
+            <div className="flex items-center space-x-2.5 pb-2 border-b border-neutral-100">
+              <div className="w-6 h-6 rounded-full bg-[#000000] text-white text-xs font-bold flex items-center justify-center">
                 2
               </div>
-              <h2 className="text-sm font-bold text-slate-900">
+              <h2 className="text-sm font-bold text-neutral-900">
                 Select Payment Method
               </h2>
             </div>
             <div className="space-y-2">
               {codAvailable && (
-                <label className={`flex cursor-pointer items-start gap-3 rounded-2xl border-2 p-4 ${activePaymentMethod === 'Cash on Delivery (COD)' ? 'border-[#2563eb] bg-blue-50/40' : 'border-slate-200'}`}>
+                <label className={`flex cursor-pointer items-start gap-3 rounded-2xl border-2 p-4 ${activePaymentMethod === 'Cash on Delivery (COD)' ? 'border-[#000000] bg-neutral-50/40' : 'border-neutral-200'}`}>
                   <input
                     type="radio"
                     name="paymentMethod"
@@ -610,8 +610,8 @@ export default function CheckoutPage({
                   />
                   <Banknote className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
                   <span>
-                    <span className="block text-sm font-bold text-slate-900">Cash on Delivery (COD)</span>
-                    <span className="mt-1 block text-[11px] text-slate-500">
+                    <span className="block text-sm font-bold text-neutral-900">Cash on Delivery (COD)</span>
+                    <span className="mt-1 block text-[11px] text-neutral-500">
                       Payment is collected on delivery and remains pending until the store confirms receipt.
                     </span>
                   </span>
@@ -623,7 +623,7 @@ export default function CheckoutPage({
                 </p>
               )}
               {paymentOptions.map(method => (
-                <label key={method.id} className={`flex cursor-pointer items-start gap-3 rounded-2xl border-2 p-4 ${activePaymentMethod === method.id ? 'border-[#2563eb] bg-blue-50/40' : 'border-slate-200'}`}>
+                <label key={method.id} className={`flex cursor-pointer items-start gap-3 rounded-2xl border-2 p-4 ${activePaymentMethod === method.id ? 'border-[#000000] bg-neutral-50/40' : 'border-neutral-200'}`}>
                   <input
                     type="radio"
                     name="paymentMethod"
@@ -634,8 +634,8 @@ export default function CheckoutPage({
                   />
                   <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
                   <span>
-                    <span className="block text-sm font-bold text-slate-900">{method.name}</span>
-                    <span className="mt-1 block text-[11px] text-slate-500">
+                    <span className="block text-sm font-bold text-neutral-900">{method.name}</span>
+                    <span className="mt-1 block text-[11px] text-neutral-500">
                       Secure hosted checkout{method.feeMode === 'customer' && (method.feeFixed || method.feePercent)
                         ? ` · payment fee ${formatStoreCurrency(Number(method.feeFixed || 0) + baseTotal * Number(method.feePercent || 0) / 100, storeSettings)}`
                         : ''}
@@ -654,10 +654,10 @@ export default function CheckoutPage({
 
         {/* RIGHT COLUMN: Order Summary & Place Order Button */}
         <div className="lg:col-span-5 space-y-4">
-          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs p-6 space-y-5 sticky top-24">
-            <h2 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center justify-between">
+          <div className="bg-white rounded-3xl border border-neutral-200/90 shadow-2xs p-6 space-y-5 sticky top-24">
+            <h2 className="text-base font-bold text-neutral-900 border-b border-neutral-100 pb-3 flex items-center justify-between">
               <span>Order Summary</span>
-              <span className="text-xs text-slate-400 font-normal">
+              <span className="text-xs text-neutral-400 font-normal">
                 {cartItems.reduce((acc, i) => acc + i.quantity, 0)} Items
               </span>
             </h2>
@@ -670,14 +670,14 @@ export default function CheckoutPage({
                     <img
                       src={item.image}
                       alt={item.name}
-                      className="w-10 h-10 object-contain rounded-lg border border-slate-200 p-1 bg-slate-50 shrink-0"
+                      className="w-10 h-10 object-contain rounded-lg border border-neutral-200 p-1 bg-neutral-50 shrink-0"
                     />
                     <div className="min-w-0">
-                      <p className="font-bold text-slate-800 truncate">{item.name}</p>
-                      <p className="text-[10px] text-slate-400">Qty: {item.quantity}</p>
+                      <p className="font-bold text-neutral-800 truncate">{item.name}</p>
+                      <p className="text-[10px] text-neutral-400">Qty: {item.quantity}</p>
                     </div>
                   </div>
-                  <span className="font-bold text-slate-900 shrink-0">
+                  <span className="font-bold text-neutral-900 shrink-0">
                     {formatStoreCurrency(item.price * item.quantity, storeSettings)}
                   </span>
                 </div>
@@ -685,8 +685,8 @@ export default function CheckoutPage({
             </div>
 
             {storeSettings?.promoActive && (
-              <div className="space-y-2 border-y border-slate-100 py-4">
-                <label htmlFor="promotion-code" className="block text-xs font-semibold text-slate-700">
+              <div className="space-y-2 border-y border-neutral-100 py-4">
+                <label htmlFor="promotion-code" className="block text-xs font-semibold text-neutral-700">
                   Promotion code
                 </label>
                 <div className="flex gap-2">
@@ -701,13 +701,13 @@ export default function CheckoutPage({
                     maxLength={32}
                     autoComplete="off"
                     placeholder="Enter code"
-                    className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-xs uppercase text-slate-800"
+                    className="min-w-0 flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-xs uppercase text-neutral-800"
                   />
                   <button
                     type="button"
                     onClick={handleApplyPromotion}
                     disabled={isApplyingPromotion}
-                    className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+                    className="rounded-lg bg-neutral-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
                   >
                     {isApplyingPromotion ? 'Checking...' : appliedPromotion ? 'Applied' : 'Apply'}
                   </button>
@@ -721,10 +721,10 @@ export default function CheckoutPage({
             )}
 
             {/* Calculations */}
-            <div className="space-y-2 pt-3 border-t border-slate-100 text-xs text-slate-600">
+            <div className="space-y-2 pt-3 border-t border-neutral-100 text-xs text-neutral-600">
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span className="font-bold text-slate-900">{formatStoreCurrency(subtotal, storeSettings)}</span>
+                <span className="font-bold text-neutral-900">{formatStoreCurrency(subtotal, storeSettings)}</span>
               </div>
               {discount > 0 && (
                 <div className="flex justify-between text-emerald-700">
@@ -734,7 +734,7 @@ export default function CheckoutPage({
               )}
               <div className="flex justify-between">
                 <span>{shippingQuote?.shippingMethod || 'Shipping'}</span>
-                <span className="font-bold text-slate-900">
+                <span className="font-bold text-neutral-900">
                   {isLoadingShippingQuote
                     ? 'Calculating…'
                     : shipping === null
@@ -755,20 +755,20 @@ export default function CheckoutPage({
               )}
               <div className="flex justify-between">
                 <span>Estimated Tax ({(taxRate * 100).toLocaleString()}%)</span>
-                <span className="font-bold text-slate-900">{formatStoreCurrency(tax, storeSettings)}</span>
+                <span className="font-bold text-neutral-900">{formatStoreCurrency(tax, storeSettings)}</span>
               </div>
               {paymentFee > 0 && (
                 <div className="flex justify-between">
                   <span>Payment processing fee</span>
-                  <span className="font-bold text-slate-900">{formatStoreCurrency(paymentFee, storeSettings)}</span>
+                  <span className="font-bold text-neutral-900">{formatStoreCurrency(paymentFee, storeSettings)}</span>
                 </div>
               )}
-              <div className="pt-3 border-t border-slate-100 flex justify-between text-base font-black text-slate-900">
+              <div className="pt-3 border-t border-neutral-100 flex justify-between text-base font-black text-neutral-900">
                 <span>Total Due</span>
                 <span className="text-xl font-black" style={{ color: primaryColor }}>{formatStoreCurrency(total, storeSettings)}</span>
               </div>
               {shipping === null && (
-                <p className="text-[10px] text-slate-500">
+                <p className="text-[10px] text-neutral-500">
                   {hasShippingZones
                     ? 'This store has no shipping zone for the selected country.'
                     : 'Shipping is not configured and is not included in this estimate. Contact the store to confirm the charge.'}
@@ -796,7 +796,7 @@ export default function CheckoutPage({
               )}
             </button>
 
-            <div className="text-center text-[10px] text-slate-400 flex items-center justify-center space-x-1.5 pt-1">
+            <div className="text-center text-[10px] text-neutral-400 flex items-center justify-center space-x-1.5 pt-1">
               <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
               <span>Order details are sent to the store for confirmation.</span>
             </div>

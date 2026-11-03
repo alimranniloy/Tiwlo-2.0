@@ -76,20 +76,20 @@ export default function AdminUserLocationsView({ userId, onNavigate }) {
             <button
               type="button"
               onClick={() => onNavigate?.('user-locations')}
-              className="rounded-full p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+              className="rounded-full p-2 text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
               aria-label="Back to user locations"
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
           )}
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#e8f0fe] text-[#1a73e8] dark:bg-blue-900/40 dark:text-blue-300">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#efefef] text-[#696969] dark:bg-neutral-900/40 dark:text-neutral-300">
             <MapPin className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-slate-900 dark:text-white">
+            <h1 className="text-xl font-semibold text-neutral-900 dark:text-white">
               {userId ? user?.name || 'User location history' : 'User locations'}
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
               {userId ? user?.email : 'Recent login locations, visible to administrators only.'}
             </p>
           </div>
@@ -98,7 +98,7 @@ export default function AdminUserLocationsView({ userId, onNavigate }) {
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="inline-flex items-center gap-2 rounded-full border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
           >
             <RefreshCw className="h-3.5 w-3.5" /> Refresh
           </button>
@@ -112,20 +112,20 @@ export default function AdminUserLocationsView({ userId, onNavigate }) {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white py-16 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+        <div className="flex items-center justify-center rounded-2xl border border-neutral-200 bg-white py-16 text-sm text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
           <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Loading locations…
         </div>
       ) : userId ? (
         locations.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center dark:border-slate-700 dark:bg-slate-900">
-            <MapPin className="mx-auto h-8 w-8 text-slate-400" />
-            <p className="mt-3 text-sm font-medium text-slate-800 dark:text-slate-100">No login locations recorded</p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">A location is saved only after the user chooses to share it. They may allow GPS or use an approximate IP-based location.</p>
+          <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-10 text-center dark:border-neutral-700 dark:bg-neutral-900">
+            <MapPin className="mx-auto h-8 w-8 text-neutral-400" />
+            <p className="mt-3 text-sm font-medium text-neutral-800 dark:text-neutral-100">No login locations recorded</p>
+            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">A location is saved only after the user chooses to share it. They may allow GPS or use an approximate IP-based location.</p>
           </div>
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
             {locations.map((location, index) => (
-              <article key={`${location.captured_at}-${index}`} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <article key={`${location.captured_at}-${index}`} className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
                 <iframe
                   title={`Location map ${index + 1}`}
                   src={`https://maps.google.com/maps?q=${encodeURIComponent(`${location.latitude},${location.longitude}`)}&z=${googleMapZoom(location)}&output=embed`}
@@ -146,10 +146,10 @@ export default function AdminUserLocationsView({ userId, onNavigate }) {
                           : 'GPS · Google resolved'
                         : 'Approximate IP location'}
                     </span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">{formatCapturedAt(location.captured_at)}</span>
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400">{formatCapturedAt(location.captured_at)}</span>
                   </div>
-                  <p className="text-sm font-medium text-slate-900 dark:text-white">{location.formatted_address}</p>
-                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <p className="text-sm font-medium text-neutral-900 dark:text-white">{location.formatted_address}</p>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-neutral-500 dark:text-neutral-400">
                     <span>Area: {location.area || '—'}</span>
                     <span>Postcode: {location.postal_code || '—'}</span>
                     <span>Plus Code: {location.plus_code || '—'}</span>
@@ -162,7 +162,7 @@ export default function AdminUserLocationsView({ userId, onNavigate }) {
                     </p>
                   )}
                   {location.location_source === 'gps' && (
-                    <p className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    <p className="flex items-center gap-1 text-[11px] text-neutral-500 dark:text-neutral-400">
                       <ShieldCheck className="h-3.5 w-3.5" />
                       {location.accuracy_meters > 50
                         ? `Map pin uses reported coordinates; the device estimates up to ${Math.round(location.accuracy_meters)} m uncertainty.`
@@ -173,7 +173,7 @@ export default function AdminUserLocationsView({ userId, onNavigate }) {
                     href={googleMapsUrl(location)}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-full bg-[#1a73e8] px-3 py-2 text-xs font-medium text-white hover:bg-[#1765cc]"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[#696969] px-3 py-2 text-xs font-medium text-white hover:bg-[#5c5c5c]"
                   >
                     Open in Google Maps <ExternalLink className="h-3.5 w-3.5" />
                   </a>
@@ -183,30 +183,30 @@ export default function AdminUserLocationsView({ userId, onNavigate }) {
           </div>
         )
       ) : users.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+        <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-10 text-center text-sm text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400">
           No login location records are available yet.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+        <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
             {users.map((item) => (
               <button
                 type="button"
                 key={item.user_id}
                 onClick={() => onNavigate?.(`user-locations/${encodeURIComponent(item.user_id)}`)}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-neutral-50 dark:hover:bg-neutral-800/60"
               >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
                   <MapPin className="h-4 w-4" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-slate-900 dark:text-white">{item.name || 'Account'}</span>
-                  <span className="block truncate text-xs text-slate-500 dark:text-slate-400">{item.email}</span>
-                  <span className="mt-1 block truncate text-xs text-slate-600 dark:text-slate-300">{item.formatted_address}</span>
+                  <span className="block truncate text-sm font-semibold text-neutral-900 dark:text-white">{item.name || 'Account'}</span>
+                  <span className="block truncate text-xs text-neutral-500 dark:text-neutral-400">{item.email}</span>
+                  <span className="mt-1 block truncate text-xs text-neutral-600 dark:text-neutral-300">{item.formatted_address}</span>
                 </span>
                 <span className="hidden text-right sm:block">
-                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{item.location_source === 'gps' ? 'GPS' : 'Approx. IP'}</span>
-                  <span className="block text-xs text-slate-500 dark:text-slate-400">{formatCapturedAt(item.captured_at)}</span>
+                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{item.location_source === 'gps' ? 'GPS' : 'Approx. IP'}</span>
+                  <span className="block text-xs text-neutral-500 dark:text-neutral-400">{formatCapturedAt(item.captured_at)}</span>
                 </span>
               </button>
             ))}

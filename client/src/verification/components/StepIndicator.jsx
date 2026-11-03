@@ -18,8 +18,8 @@ export default function StepIndicator({ currentStep = 1, totalSteps = 5, classNa
             key={stepNum}
             className={`transition-all duration-300 ease-out ${
               isActive
-                ? 'w-6 h-1 bg-blue-600 rounded-full'
-                : 'w-1.5 h-1.5 bg-slate-200 rounded-full'
+                ? 'w-6 h-1 bg-neutral-600 rounded-full'
+                : 'w-1.5 h-1.5 bg-neutral-200 rounded-full'
             }`}
           />
         );

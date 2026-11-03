@@ -21,7 +21,7 @@ export default function EcommerceSection({ onNavigate }) {
       title: 'High-Converting Storefront Studio',
       desc: 'Launch custom-branded online storefronts with responsive themes optimized for top mobile performance and speed scores.',
       icon: Store,
-      badgeColor: 'bg-[#e8f0fe] text-[#0b57d0]',
+      badgeColor: 'bg-[#efefef] text-[#000000]',
       features: ['Zero-code theme customizer', 'Instant search & faceted product filters', '100% responsive mobile layout']
     },
     {
@@ -46,13 +46,13 @@ export default function EcommerceSection({ onNavigate }) {
         
         {/* Header Block */}
         <div className="max-w-3xl mx-auto text-center mb-16 space-y-3">
-          <span className="text-[12px] font-semibold tracking-wider text-[#0b57d0] uppercase">
+          <span className="text-[12px] font-semibold tracking-wider text-[#000000] uppercase">
             COMMERCE & RETAIL FABRIC
           </span>
           <h2 className="text-3xl sm:text-4xl lg:text-[44px] font-normal tracking-[-0.02em] text-[#1f1f1f] leading-tight">
             Complete commerce infrastructure from storefront to counter
           </h2>
-          <p className="text-[16px] sm:text-[18px] text-[#5f6368] font-normal leading-relaxed">
+          <p className="text-[16px] sm:text-[18px] text-[#636363] font-normal leading-relaxed">
             Eliminate disconnected software tools. Tiwlo synchronizes your physical retail counters, online storefronts, and warehouse stock into one unified platform.
           </p>
         </div>
@@ -72,7 +72,7 @@ export default function EcommerceSection({ onNavigate }) {
                   </div>
                   <button
                     onClick={() => onNavigate(idx === 0 ? 'pos' : 'store')}
-                    className="text-[13px] font-medium text-[#0b57d0] hover:underline cursor-pointer inline-flex items-center gap-1"
+                    className="text-[13px] font-medium text-[#000000] hover:underline cursor-pointer inline-flex items-center gap-1"
                   >
                     <span>Learn more</span>
                     <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
@@ -83,12 +83,12 @@ export default function EcommerceSection({ onNavigate }) {
                   <h3 className="text-[20px] font-medium text-[#1f1f1f] tracking-tight">
                     {item.title}
                   </h3>
-                  <p className="text-[14px] text-[#5f6368] leading-relaxed mt-2">
+                  <p className="text-[14px] text-[#636363] leading-relaxed mt-2">
                     {item.desc}
                   </p>
                 </div>
 
-                <div className="pt-2 border-t border-[#e0e2ec] space-y-2 text-[13px] text-[#444746]">
+                <div className="pt-2 border-t border-[#e2e2e2] space-y-2 text-[13px] text-[#444746]">
                   {item.features.map((feat, fIdx) => (
                     <div key={fIdx} className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-[#137333] shrink-0" />

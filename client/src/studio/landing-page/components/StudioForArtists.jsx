@@ -15,25 +15,25 @@ export default function StudioForArtists({ onNavigateAuth, onNavigateTab }) {
       id: 'analytics',
       title: 'Real-Time',
       subtitle: 'Analytics',
-      icon: <BarChart3 className="w-5 h-5 text-blue-600" />
+      icon: <BarChart3 className="w-5 h-5 text-neutral-600" />
     },
     {
       id: 'audience',
       title: 'Global',
       subtitle: 'Audience',
-      icon: <Globe2 className="w-5 h-5 text-blue-600" />
+      icon: <Globe2 className="w-5 h-5 text-neutral-600" />
     },
     {
       id: 'rights',
       title: '100%',
       subtitle: 'Your Rights',
-      icon: <ShieldCheck className="w-5 h-5 text-blue-600" />
+      icon: <ShieldCheck className="w-5 h-5 text-neutral-600" />
     },
     {
       id: 'reliable',
       title: 'Fast',
       subtitle: '& Reliable',
-      icon: <Zap className="w-5 h-5 text-blue-600" />
+      icon: <Zap className="w-5 h-5 text-neutral-600" />
     }
   ];
 
@@ -44,7 +44,7 @@ export default function StudioForArtists({ onNavigateAuth, onNavigateTab }) {
 
           {/* Column 1 (Left): Artist Showcase Visual Card */}
           <div className="lg:col-span-5 relative">
-            <div className="relative aspect-[4/4.5] sm:aspect-[4/4.2] rounded-[36px] overflow-hidden shadow-2xl border border-slate-200/50 group select-none">
+            <div className="relative aspect-[4/4.5] sm:aspect-[4/4.2] rounded-[36px] overflow-hidden shadow-2xl border border-neutral-200/50 group select-none">
               {/* Artist High-Res Photo */}
               <img
                 src={artistImg}
@@ -53,8 +53,8 @@ export default function StudioForArtists({ onNavigateAuth, onNavigateTab }) {
               />
 
               {/* Gradient Overlays */}
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-tr from-blue-900/30 via-transparent to-purple-900/20" />
+              <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/80 via-neutral-950/20 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-tr from-neutral-900/30 via-transparent to-purple-900/20" />
 
               {/* Top Left Signature */}
               <div className="absolute top-6 left-6">
@@ -83,22 +83,22 @@ export default function StudioForArtists({ onNavigateAuth, onNavigateTab }) {
           {/* Column 2 (Center): Feature Highlights */}
           <div className="lg:col-span-4 flex flex-col items-start">
             {/* Pill Badge */}
-            <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200/60 shadow-2xs mb-5 text-blue-700 text-xs font-semibold">
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-neutral-50 border border-neutral-200/60 shadow-2xs mb-5 text-neutral-700 text-xs font-semibold">
               <Sparkles className="w-3.5 h-3.5" />
               <span>For Artists</span>
             </div>
 
             {/* Headline */}
-            <h2 className="text-3xl sm:text-4xl lg:text-[44px] font-extrabold text-slate-950 tracking-tight leading-[1.15] mb-4">
+            <h2 className="text-3xl sm:text-4xl lg:text-[44px] font-extrabold text-neutral-950 tracking-tight leading-[1.15] mb-4">
               More Than Just
               <br />
-              <span className="bg-gradient-to-r from-blue-600 to-indigo-500 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-neutral-600 to-neutral-500 bg-clip-text text-transparent">
                 Distribution
               </span>
             </h2>
 
             {/* Description */}
-            <p className="text-base text-slate-600 leading-relaxed mb-8">
+            <p className="text-base text-neutral-600 leading-relaxed mb-8">
               Tiwlo Studio gives you the freedom to focus on what you do best — creating music.
             </p>
 
@@ -106,13 +106,13 @@ export default function StudioForArtists({ onNavigateAuth, onNavigateTab }) {
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-4 w-full">
               {features.map((feat) => (
                 <div key={feat.id} className="flex flex-col items-center text-center p-2">
-                  <div className="w-12 h-12 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center mb-3 shadow-2xs hover:bg-blue-100/70 transition-colors">
+                  <div className="w-12 h-12 rounded-full bg-neutral-50 border border-neutral-100 flex items-center justify-center mb-3 shadow-2xs hover:bg-neutral-100/70 transition-colors">
                     {feat.icon}
                   </div>
-                  <span className="text-xs font-bold text-slate-900 leading-tight">
+                  <span className="text-xs font-bold text-neutral-900 leading-tight">
                     {feat.title}
                   </span>
-                  <span className="text-xs text-slate-500 leading-tight">
+                  <span className="text-xs text-neutral-500 leading-tight">
                     {feat.subtitle}
                   </span>
                 </div>
@@ -122,18 +122,18 @@ export default function StudioForArtists({ onNavigateAuth, onNavigateTab }) {
 
           {/* Column 3 (Right): Testimonial Quote Card */}
           <div className="lg:col-span-3">
-            <div className="rounded-3xl p-6 sm:p-7 bg-gradient-to-b from-blue-50/60 via-slate-50/70 to-white border border-slate-200/70 shadow-sm relative">
+            <div className="rounded-3xl p-6 sm:p-7 bg-gradient-to-b from-neutral-50/60 via-neutral-50/70 to-white border border-neutral-200/70 shadow-sm relative">
               {/* Blue accent indicator line */}
-              <div className="w-8 h-1 bg-blue-500 rounded-full mb-6" />
+              <div className="w-8 h-1 bg-neutral-500 rounded-full mb-6" />
 
               {/* Quote */}
-              <blockquote className="text-sm sm:text-base font-medium text-slate-700 leading-relaxed mb-8">
+              <blockquote className="text-sm sm:text-base font-medium text-neutral-700 leading-relaxed mb-8">
                 “Tiwlo Studio helps independent artists reach the world without limits.”
               </blockquote>
 
               {/* Author Profile */}
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-200 shadow-2xs shrink-0">
+                <div className="w-10 h-10 rounded-full overflow-hidden border border-neutral-200 shadow-2xs shrink-0">
                   <img
                     src={artistImg}
                     alt="IMRU"
@@ -141,10 +141,10 @@ export default function StudioForArtists({ onNavigateAuth, onNavigateTab }) {
                   />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900 leading-tight">
+                  <h4 className="text-sm font-bold text-neutral-900 leading-tight">
                     IMRU
                   </h4>
-                  <p className="text-xs text-slate-500">Artist</p>
+                  <p className="text-xs text-neutral-500">Artist</p>
                 </div>
               </div>
             </div>

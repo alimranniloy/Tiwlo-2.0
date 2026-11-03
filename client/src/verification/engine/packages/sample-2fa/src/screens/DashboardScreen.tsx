@@ -24,7 +24,7 @@ export function DashboardScreen({ name, onLogout }: Props) {
       <header className="border-b border-gray-800 bg-gray-900/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-sm">
+            <div className="w-8 h-8 rounded-lg bg-neutral-600 flex items-center justify-center font-bold text-sm">
               A
             </div>
             <h1 className="text-lg font-semibold">Acme Dashboard</h1>
@@ -33,7 +33,7 @@ export function DashboardScreen({ name, onLogout }: Props) {
             <div className="text-sm text-gray-400">
               Welcome, <span className="text-white font-medium">{name}</span>
             </div>
-            <div className="w-8 h-8 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-sm font-medium text-indigo-400">
+            <div className="w-8 h-8 rounded-full bg-neutral-600/20 border border-neutral-500/30 flex items-center justify-center text-sm font-medium text-neutral-400">
               {name.charAt(0).toUpperCase()}
             </div>
             <button
@@ -76,7 +76,7 @@ export function DashboardScreen({ name, onLogout }: Props) {
                 <div key={i} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
                   <div className="flex items-center gap-3">
                     <div className={`w-2 h-2 rounded-full ${
-                      item.type === 'order' ? 'bg-blue-500' :
+                      item.type === 'order' ? 'bg-neutral-500' :
                       item.type === 'user' ? 'bg-purple-500' :
                       item.type === 'payment' ? 'bg-green-500' :
                       'bg-yellow-500'
@@ -107,7 +107,7 @@ export function DashboardScreen({ name, onLogout }: Props) {
               </div>
               <div className="space-y-1">
                 <div className="text-xs text-gray-400">Verified As</div>
-                <div className="text-sm text-indigo-400">{name}</div>
+                <div className="text-sm text-neutral-400">{name}</div>
               </div>
             </div>
           </div>

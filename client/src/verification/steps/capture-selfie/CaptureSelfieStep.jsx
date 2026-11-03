@@ -656,7 +656,7 @@ export default function CaptureSelfieStep() {
 
         <div className="my-5 flex flex-col items-center">
           <div className={`mb-4 flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${
-            isRecording ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-600'
+            isRecording ? 'bg-red-50 text-red-600' : 'bg-neutral-100 text-neutral-600'
           }`}>
             {isRecording ? <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" /> : <Video className="h-3.5 w-3.5" />}
             <span>
@@ -694,7 +694,7 @@ export default function CaptureSelfieStep() {
                 ? { background: 'conic-gradient(from 0deg, #fb7185 0deg, #f43f5e 100deg, #fff1f2 145deg, #f43f5e 205deg, #fb7185 300deg, #fff1f2 330deg, #fb7185 360deg)' }
                 : undefined}
             />
-            <div className="relative z-10 h-full w-full overflow-hidden rounded-full bg-slate-900">
+            <div className="relative z-10 h-full w-full overflow-hidden rounded-full bg-neutral-900">
               {stream ? (
                 <video
                   ref={videoRef}
@@ -705,7 +705,7 @@ export default function CaptureSelfieStep() {
                 />
               ) : (
                 <div className="flex h-full items-center justify-center">
-                  {cameraError ? <AlertCircle className="h-8 w-8 text-amber-400" /> : <Loader2 className="h-8 w-8 animate-spin text-blue-300" />}
+                  {cameraError ? <AlertCircle className="h-8 w-8 text-amber-400" /> : <Loader2 className="h-8 w-8 animate-spin text-neutral-300" />}
                 </div>
               )}
               {faceReady && (
@@ -728,12 +728,12 @@ export default function CaptureSelfieStep() {
               <span
                 key={`${challenge.type}-${index}`}
                 className={`h-2.5 w-2.5 rounded-full ${
-                  index <= lastPassedIndex ? 'bg-emerald-500' : index === challengeIndex ? 'bg-blue-600' : 'bg-slate-200'
+                  index <= lastPassedIndex ? 'bg-emerald-500' : index === challengeIndex ? 'bg-neutral-600' : 'bg-neutral-200'
                 }`}
               />
             ))}
           </div>
-          <h2 className="mt-3 text-center text-lg font-bold text-slate-900">
+          <h2 className="mt-3 text-center text-lg font-bold text-neutral-900">
             {cameraError
               ? 'Camera check stopped'
               : awaitingFinalSelfie
@@ -742,7 +742,7 @@ export default function CaptureSelfieStep() {
                   ? challengeLabel
                   : guidanceTitle}
           </h2>
-          <p className="mt-1 text-center text-xs leading-relaxed text-slate-500">
+          <p className="mt-1 text-center text-xs leading-relaxed text-neutral-500">
             {cameraError
               ? cameraError
               : awaitingFinalSelfie
@@ -771,12 +771,12 @@ export default function CaptureSelfieStep() {
         <button
           type="button"
           onClick={handleRetry}
-          className="w-full rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-semibold text-white"
+          className="w-full rounded-xl bg-neutral-600 px-4 py-3.5 text-sm font-semibold text-white"
         >
           Try again
         </button>
       ) : (
-        <p className="pb-2 text-center text-[11px] text-slate-400">
+        <p className="pb-2 text-center text-[11px] text-neutral-400">
           {awaitingFinalSelfie
             ? 'Hold still while we capture your selfie.'
             : 'Keep the phone steady, keep your face inside the circle, and follow each prompt.'}

@@ -365,7 +365,7 @@ export default function CreateAccountView({
 
   // Password strength calculation
   const getPasswordStrength = (pwd) => {
-    if (!pwd) return { score: 0, label: 'None', color: 'bg-[#dadce0]' };
+    if (!pwd) return { score: 0, label: 'None', color: 'bg-[#dcdcdc]' };
     let score = 0;
     if (pwd.length >= 6) score += 1;
     if (pwd.length >= 8) score += 1;
@@ -1094,7 +1094,7 @@ export default function CreateAccountView({
       {/* ============================================================== */}
       {/* MAIN CARD CONTAINER (GOOGLE ACCOUNT 2-COLUMN CLONE)             */}
       {/* ============================================================== */}
-      <div className="w-full max-w-[1040px] mx-auto my-auto bg-white sm:border sm:border-[#dadce0] sm:rounded-[28px] p-6 sm:p-10 lg:p-12 sm:shadow-[0_1px_3px_0_rgba(60,64,67,0.15)] transition-all">
+      <div className="w-full max-w-[1040px] mx-auto my-auto bg-white sm:border sm:border-[#dcdcdc] sm:rounded-[28px] p-6 sm:p-10 lg:p-12 sm:shadow-[0_1px_3px_0_rgba(60,64,67,0.15)] transition-all">
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14 items-start">
           
@@ -1116,7 +1116,7 @@ export default function CreateAccountView({
                     }}
                   />
                   <div className="hidden items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-[#0b57d0] text-white font-bold flex items-center justify-center text-sm">
+                    <div className="w-7 h-7 rounded-lg bg-[#000000] text-white font-bold flex items-center justify-center text-sm">
                       T
                     </div>
                     <span className="font-semibold text-lg text-[#1f1f1f] tracking-tight">Tiwlo</span>
@@ -1150,9 +1150,9 @@ export default function CreateAccountView({
                     {socialProfileMode ? 'Profile details' : `Step ${step} of 5`}
                   </span>
                 </div>
-                <div className="w-full bg-[#e0e2ec] h-1 rounded-full overflow-hidden">
+                <div className="w-full bg-[#e2e2e2] h-1 rounded-full overflow-hidden">
                   <div
-                    className="bg-[#0b57d0] h-full transition-all duration-300 rounded-full"
+                    className="bg-[#000000] h-full transition-all duration-300 rounded-full"
                     style={{ width: `${(step / 5) * 100}%` }}
                   />
                 </div>
@@ -1190,7 +1190,7 @@ export default function CreateAccountView({
                         title={!socialProviders.loaded ? 'Checking sign-in availability...' : (socialProviders.google ? 'Continue with Google' : 'Google sign-in is not configured.')}
                       >
                         <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                          <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.66-5.17 3.66-9.12z"/>
+                          <path fill="#7f7f7f" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.66-5.17 3.66-9.12z"/>
                           <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.03c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.13C3.27 21.41 7.34 24 12 24z"/>
                           <path fill="#FBBC05" d="M5.28 14.29c-.25-.72-.38-1.49-.38-2.29s.13-1.57.38-2.29V6.57H1.25C.45 8.16 0 9.98 0 12s.45 3.84 1.25 5.43l4.03-3.14z"/>
                           <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.27 2.59 1.25 6.57l4.03 3.14c.95-2.83 3.6-4.96 6.72-4.96z"/>
@@ -1222,7 +1222,7 @@ export default function CreateAccountView({
                     {/* Google Minimal Divider */}
                     <div className="relative my-5">
                       <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-[#dadce0]" />
+                        <div className="w-full border-t border-[#dcdcdc]" />
                       </div>
                       <div className="relative flex justify-center text-xs">
                         <span className="px-3 bg-white text-[#747775] text-[12px] font-normal">
@@ -1252,7 +1252,7 @@ export default function CreateAccountView({
                           className={`w-full px-3.5 py-3 rounded-[4px] border text-[14px] text-[#1f1f1f] outline-none transition-colors placeholder:text-[#747775] ${
                             emailError
                               ? 'border-[#d93025] focus:border-[#d93025] focus:ring-1 focus:ring-[#d93025]'
-                              : 'border-[#747775] focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0]'
+                              : 'border-[#747775] focus:border-[#000000] focus:ring-1 focus:ring-[#000000]'
                           }`}
                         />
                         {isCheckingEmail && (
@@ -1310,7 +1310,7 @@ export default function CreateAccountView({
                               ? 'border-[#d93025] focus:border-[#d93025] focus:ring-1 focus:ring-[#d93025]'
                               : handleAvailable
                               ? 'border-[#137333] focus:border-[#137333] focus:ring-1 focus:ring-[#137333]'
-                              : 'border-[#747775] focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0]'
+                              : 'border-[#747775] focus:border-[#000000] focus:ring-1 focus:ring-[#000000]'
                           }`}
                         />
                         {isCheckingHandle && (
@@ -1339,7 +1339,7 @@ export default function CreateAccountView({
                           onChange={(e) => updateField('password', e.target.value)}
                           placeholder="Password"
                           required
-                          className="w-full pl-3.5 pr-10 py-3 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] transition-colors placeholder:text-[#747775]"
+                          className="w-full pl-3.5 pr-10 py-3 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition-colors placeholder:text-[#747775]"
                         />
                         <button
                           type="button"
@@ -1363,7 +1363,7 @@ export default function CreateAccountView({
                           onChange={(e) => updateField('confirmPassword', e.target.value)}
                           placeholder="Confirm"
                           required
-                          className="w-full pl-3.5 pr-10 py-3 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] transition-colors placeholder:text-[#747775]"
+                          className="w-full pl-3.5 pr-10 py-3 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition-colors placeholder:text-[#747775]"
                         />
                         <button
                           type="button"
@@ -1387,9 +1387,9 @@ export default function CreateAccountView({
                           <span className={`font-medium ${pwdStrength.text}`}>{pwdStrength.label}</span>
                         </div>
                         <div className="grid grid-cols-3 gap-1">
-                          <div className={`h-1 rounded-full ${pwdStrength.score >= 1 ? pwdStrength.color : 'bg-[#dadce0]'}`} />
-                          <div className={`h-1 rounded-full ${pwdStrength.score >= 2 ? pwdStrength.color : 'bg-[#dadce0]'}`} />
-                          <div className={`h-1 rounded-full ${pwdStrength.score >= 3 ? pwdStrength.color : 'bg-[#dadce0]'}`} />
+                          <div className={`h-1 rounded-full ${pwdStrength.score >= 1 ? pwdStrength.color : 'bg-[#dcdcdc]'}`} />
+                          <div className={`h-1 rounded-full ${pwdStrength.score >= 2 ? pwdStrength.color : 'bg-[#dcdcdc]'}`} />
+                          <div className={`h-1 rounded-full ${pwdStrength.score >= 3 ? pwdStrength.color : 'bg-[#dcdcdc]'}`} />
                         </div>
                       </div>
                     )}
@@ -1399,14 +1399,14 @@ export default function CreateAccountView({
                       <button
                         type="button"
                         onClick={onNavigateToLogin}
-                        className="text-[#0b57d0] hover:bg-[#0b57d0]/10 rounded-full px-4 py-2 font-medium text-[14px] cursor-pointer transition-colors"
+                        className="text-[#000000] hover:bg-[#000000]/10 rounded-full px-4 py-2 font-medium text-[14px] cursor-pointer transition-colors"
                       >
                         Sign in instead
                       </button>
 
                       <button
                         type="submit"
-                        className="bg-[#0b57d0] hover:bg-[#0842a0] active:bg-[#062e6f] text-white rounded-full px-7 h-10 font-medium text-[14px] shadow-xs cursor-pointer inline-flex items-center gap-2 transition-all"
+                        className="bg-[#000000] hover:bg-[#3c3c3c] active:bg-[#2a2a2a] text-white rounded-full px-7 h-10 font-medium text-[14px] shadow-xs cursor-pointer inline-flex items-center gap-2 transition-all"
                       >
                         <span>Next</span>
                         <ArrowRight className="w-4 h-4" />
@@ -1422,27 +1422,27 @@ export default function CreateAccountView({
               {step === 2 && (
                 <form onSubmit={handleStep2Submit} className="space-y-4">
                   {socialProfileMode && socialProfileLoading && (
-                    <p className="text-sm text-[#5f6368]" role="status">Loading your verified profile…</p>
+                    <p className="text-sm text-[#636363]" role="status">Loading your verified profile…</p>
                   )}
                   {socialProfileMode && !socialProfileLoading && formData.email && (
-                    <div className="rounded-[8px] border border-[#d2e3fc] bg-[#e8f0fe] p-3 text-[13px] text-[#174ea6]">
+                    <div className="rounded-[8px] border border-[#e1e1e1] bg-[#efefef] p-3 text-[13px] text-[#494949]">
                       Verified email: <span className="font-medium">{formData.email}</span>
                     </div>
                   )}
 
                   {/* SSO Verified Chip */}
                   {formData.isSso && (
-                    <div className="p-3 rounded-[8px] bg-[#e8f0fe] border border-[#d2e3fc] flex items-center justify-between text-xs">
+                    <div className="p-3 rounded-[8px] bg-[#efefef] border border-[#e1e1e1] flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2.5">
-                        <span className="w-2 h-2 rounded-full bg-[#1a73e8]" />
-                        <span className="font-medium text-[#1a73e8]">
+                        <span className="w-2 h-2 rounded-full bg-[#696969]" />
+                        <span className="font-medium text-[#696969]">
                           Connected via {formData.ssoProvider} ({formData.email})
                         </span>
                       </div>
                       <button
                         type="button"
                         onClick={handleDisconnectSso}
-                        className="text-[#0b57d0] hover:underline font-medium cursor-pointer"
+                        className="text-[#000000] hover:underline font-medium cursor-pointer"
                       >
                         Change
                       </button>
@@ -1482,7 +1482,7 @@ export default function CreateAccountView({
                               ? 'border-[#d93025] focus:border-[#d93025] focus:ring-1 focus:ring-[#d93025]'
                               : handleAvailable
                                 ? 'border-[#137333] focus:border-[#137333] focus:ring-1 focus:ring-[#137333]'
-                                : 'border-[#747775] focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0]'
+                                : 'border-[#747775] focus:border-[#000000] focus:ring-1 focus:ring-[#000000]'
                           }`}
                         />
                       </div>
@@ -1507,13 +1507,13 @@ export default function CreateAccountView({
                         onClick={() => updateField('accountType', 'personal')}
                         className={`p-3.5 rounded-[8px] border text-left transition-all cursor-pointer ${
                           formData.accountType === 'personal'
-                            ? 'border-[#0b57d0] bg-[#f0f4f9] text-[#1f1f1f] ring-1 ring-[#0b57d0]'
+                            ? 'border-[#000000] bg-[#f4f4f4] text-[#1f1f1f] ring-1 ring-[#000000]'
                             : 'border-[#747775] hover:border-[#1f1f1f] bg-transparent text-[#444746]'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1.5">
-                          <User className={`w-4 h-4 ${formData.accountType === 'personal' ? 'text-[#0b57d0]' : 'text-[#747775]'}`} />
-                          <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.accountType === 'personal' ? 'border-[#0b57d0] bg-[#0b57d0] text-white' : 'border-[#747775]'}`}>
+                          <User className={`w-4 h-4 ${formData.accountType === 'personal' ? 'text-[#000000]' : 'text-[#747775]'}`} />
+                          <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.accountType === 'personal' ? 'border-[#000000] bg-[#000000] text-white' : 'border-[#747775]'}`}>
                             {formData.accountType === 'personal' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                           </div>
                         </div>
@@ -1527,13 +1527,13 @@ export default function CreateAccountView({
                         onClick={() => updateField('accountType', 'business')}
                         className={`p-3.5 rounded-[8px] border text-left transition-all cursor-pointer ${
                           formData.accountType === 'business'
-                            ? 'border-[#0b57d0] bg-[#f0f4f9] text-[#1f1f1f] ring-1 ring-[#0b57d0]'
+                            ? 'border-[#000000] bg-[#f4f4f4] text-[#1f1f1f] ring-1 ring-[#000000]'
                             : 'border-[#747775] hover:border-[#1f1f1f] bg-transparent text-[#444746]'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1.5">
-                          <Building2 className={`w-4 h-4 ${formData.accountType === 'business' ? 'text-[#0b57d0]' : 'text-[#747775]'}`} />
-                          <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.accountType === 'business' ? 'border-[#0b57d0] bg-[#0b57d0] text-white' : 'border-[#747775]'}`}>
+                          <Building2 className={`w-4 h-4 ${formData.accountType === 'business' ? 'text-[#000000]' : 'text-[#747775]'}`} />
+                          <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.accountType === 'business' ? 'border-[#000000] bg-[#000000] text-white' : 'border-[#747775]'}`}>
                             {formData.accountType === 'business' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                           </div>
                         </div>
@@ -1556,7 +1556,7 @@ export default function CreateAccountView({
                           onChange={(e) => updateField('fullName', e.target.value)}
                           placeholder="First and last name"
                           required
-                          className="w-full px-3.5 py-3 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] transition-colors placeholder:text-[#747775]"
+                          className="w-full px-3.5 py-3 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition-colors placeholder:text-[#747775]"
                         />
                       </div>
 
@@ -1573,7 +1573,7 @@ export default function CreateAccountView({
                             <select
                               value={formData.birthMonth}
                               onChange={(e) => updateField('birthMonth', e.target.value)}
-                              className="w-full px-3 py-2.5 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] bg-white cursor-pointer"
+                              className="w-full px-3 py-2.5 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] bg-white cursor-pointer"
                               required
                             >
                               <option value="">Month</option>
@@ -1593,7 +1593,7 @@ export default function CreateAccountView({
                               placeholder="Day"
                               required
                               aria-label="Birth day"
-                              className="w-full px-3 py-2.5 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
+                              className="w-full px-3 py-2.5 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] placeholder:text-[#747775]"
                             />
                           </div>
                           <div>
@@ -1607,7 +1607,7 @@ export default function CreateAccountView({
                               placeholder="Year"
                               required
                               aria-label="Birth year"
-                              className="w-full px-3 py-2.5 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] placeholder:text-[#747775]"
+                              className="w-full px-3 py-2.5 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] placeholder:text-[#747775]"
                             />
                           </div>
                         </div>
@@ -1621,7 +1621,7 @@ export default function CreateAccountView({
                         <select
                           value={formData.gender}
                           onChange={(e) => updateField('gender', e.target.value)}
-                          className="w-full px-3.5 py-2.5 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] bg-white cursor-pointer"
+                          className="w-full px-3.5 py-2.5 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] bg-white cursor-pointer"
                         >
                           <option value="">Select gender</option>
                           <option value="Male">Male</option>
@@ -1643,7 +1643,7 @@ export default function CreateAccountView({
                           onChange={(e) => updateField('businessName', e.target.value)}
                           placeholder="e.g. Apex Technologies Ltd"
                           required
-                          className="w-full px-3.5 py-3 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] transition-colors placeholder:text-[#747775]"
+                          className="w-full px-3.5 py-3 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition-colors placeholder:text-[#747775]"
                         />
                       </div>
                       <div>
@@ -1656,7 +1656,7 @@ export default function CreateAccountView({
                           onChange={(e) => updateField('ownerName', e.target.value)}
                           placeholder="Authorized representative name"
                           required
-                          className="w-full px-3.5 py-3 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] transition-colors placeholder:text-[#747775]"
+                          className="w-full px-3.5 py-3 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition-colors placeholder:text-[#747775]"
                         />
                       </div>
                     </div>
@@ -1682,7 +1682,7 @@ export default function CreateAccountView({
                           }
                         }
                       }}
-                      className="w-full px-3.5 py-3 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] bg-white transition-colors cursor-pointer"
+                      className="w-full px-3.5 py-3 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] bg-white transition-colors cursor-pointer"
                     >
                       {COUNTRY_OPTIONS.map((c) => (
                         <option key={c.code} value={c.name}>
@@ -1703,7 +1703,7 @@ export default function CreateAccountView({
                       onChange={(e) => updateField('address', e.target.value)}
                       placeholder="Street address, P.O. box, company name, c/o"
                       required
-                      className="w-full px-3.5 py-3 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] transition-colors placeholder:text-[#747775]"
+                      className="w-full px-3.5 py-3 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition-colors placeholder:text-[#747775]"
                     />
                   </div>
 
@@ -1717,7 +1717,7 @@ export default function CreateAccountView({
                       value={formData.addressLine2}
                       onChange={(e) => updateField('addressLine2', e.target.value)}
                       placeholder="Apt, Suite, Unit, Building, Floor, etc."
-                      className="w-full px-3.5 py-3 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] transition-colors placeholder:text-[#747775]"
+                      className="w-full px-3.5 py-3 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition-colors placeholder:text-[#747775]"
                     />
                   </div>
 
@@ -1733,7 +1733,7 @@ export default function CreateAccountView({
                         onChange={(e) => updateField('city', e.target.value)}
                         placeholder="Dhaka"
                         required
-                        className="w-full px-3.5 py-3 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] transition-colors placeholder:text-[#747775]"
+                        className="w-full px-3.5 py-3 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition-colors placeholder:text-[#747775]"
                       />
                     </div>
                     <div>
@@ -1745,7 +1745,7 @@ export default function CreateAccountView({
                         value={formData.postalCode}
                         onChange={(e) => updateField('postalCode', e.target.value)}
                         placeholder="1212"
-                        className="w-full px-3.5 py-3 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] transition-colors placeholder:text-[#747775]"
+                        className="w-full px-3.5 py-3 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition-colors placeholder:text-[#747775]"
                       />
                     </div>
                   </div>
@@ -1755,16 +1755,16 @@ export default function CreateAccountView({
                     <label className="block text-[13px] font-medium text-[#1f1f1f] mb-1.5">
                       Phone Number {socialProfileMode && <span className="text-[#d93025]">*</span>}
                     </label>
-                    <div className="relative flex rounded-[4px] border border-[#747775] focus-within:border-[#0b57d0] focus-within:ring-1 focus-within:ring-[#0b57d0] transition-colors bg-white">
+                    <div className="relative flex rounded-[4px] border border-[#747775] focus-within:border-[#000000] focus-within:ring-1 focus-within:ring-[#000000] transition-colors bg-white">
                       {/* Country Code Trigger */}
                       <button
                         type="button"
                         onClick={() => setCountryDropdownOpen(!countryDropdownOpen)}
-                        className="flex items-center gap-1.5 px-3 py-2.5 border-r border-[#dadce0] bg-[#f8f9fa] hover:bg-[#f1f3f4] text-[13px] text-[#1f1f1f] rounded-l-[3px] cursor-pointer transition-colors shrink-0"
+                        className="flex items-center gap-1.5 px-3 py-2.5 border-r border-[#dcdcdc] bg-[#f8f9fa] hover:bg-[#f1f3f4] text-[13px] text-[#1f1f1f] rounded-l-[3px] cursor-pointer transition-colors shrink-0"
                       >
                         <span className="text-[17px] leading-none">{selectedCountry.flag}</span>
                         <span className="font-medium text-[13px]">{selectedCountry.dial}</span>
-                        <ChevronDown className="w-3.5 h-3.5 text-[#5f6368]" />
+                        <ChevronDown className="w-3.5 h-3.5 text-[#636363]" />
                       </button>
 
                       {/* Phone National Input */}
@@ -1792,9 +1792,9 @@ export default function CreateAccountView({
                               setCountrySearch('');
                             }}
                           />
-                          <div className="absolute top-full left-0 mt-1 w-72 max-h-64 bg-white border border-[#dadce0] rounded-[8px] shadow-lg z-50 overflow-hidden flex flex-col">
+                          <div className="absolute top-full left-0 mt-1 w-72 max-h-64 bg-white border border-[#dcdcdc] rounded-[8px] shadow-lg z-50 overflow-hidden flex flex-col">
                             <div className="p-2 border-b border-[#f1f3f4] bg-white">
-                              <div className="flex items-center gap-2 px-2.5 py-1.5 bg-[#f8f9fa] rounded-[6px] border border-[#dadce0]">
+                              <div className="flex items-center gap-2 px-2.5 py-1.5 bg-[#f8f9fa] rounded-[6px] border border-[#dcdcdc]">
                                 <Search className="w-3.5 h-3.5 text-[#747775]" />
                                 <input
                                   type="text"
@@ -1827,15 +1827,15 @@ export default function CreateAccountView({
                                       setCountryDropdownOpen(false);
                                       setCountrySearch('');
                                     }}
-                                    className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-[#f0f4f9] transition-colors cursor-pointer ${
-                                      selectedCountry.code === c.code ? 'bg-[#e8f0fe] font-medium text-[#0b57d0]' : 'text-[#1f1f1f]'
+                                    className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-[#f4f4f4] transition-colors cursor-pointer ${
+                                      selectedCountry.code === c.code ? 'bg-[#efefef] font-medium text-[#000000]' : 'text-[#1f1f1f]'
                                     }`}
                                   >
                                     <div className="flex items-center gap-2.5 truncate">
                                       <span className="text-[16px] leading-none shrink-0">{c.flag}</span>
                                       <span className="truncate">{c.name}</span>
                                     </div>
-                                    <span className="text-[#5f6368] font-mono text-[11px] ml-2 shrink-0">{c.dial}</span>
+                                    <span className="text-[#636363] font-mono text-[11px] ml-2 shrink-0">{c.dial}</span>
                                   </button>
                                 ))}
                             </div>
@@ -1856,7 +1856,7 @@ export default function CreateAccountView({
                         if (formData.isSso) handleDisconnectSso();
                         else setStep(1);
                       }}
-                      className="text-[#0b57d0] hover:bg-[#0b57d0]/10 rounded-full px-4 py-2 font-medium text-[14px] cursor-pointer transition-colors"
+                      className="text-[#000000] hover:bg-[#000000]/10 rounded-full px-4 py-2 font-medium text-[14px] cursor-pointer transition-colors"
                     >
                       Back
                     </button>
@@ -1864,7 +1864,7 @@ export default function CreateAccountView({
                     <button
                       type="submit"
                       disabled={loading || socialProfileLoading || (socialProfileMode && (!handleAvailable || isCheckingHandle))}
-                      className="bg-[#0b57d0] hover:bg-[#0842a0] active:bg-[#062e6f] disabled:bg-slate-300 text-white rounded-full px-7 h-10 font-medium text-[14px] shadow-xs cursor-pointer inline-flex items-center gap-2 transition-all"
+                      className="bg-[#000000] hover:bg-[#3c3c3c] active:bg-[#2a2a2a] disabled:bg-neutral-300 text-white rounded-full px-7 h-10 font-medium text-[14px] shadow-xs cursor-pointer inline-flex items-center gap-2 transition-all"
                     >
                       <span>{loading ? 'Saving…' : socialProfileMode ? 'Continue' : 'Next'}</span>
                       <ArrowRight className="w-4 h-4" />
@@ -1882,7 +1882,7 @@ export default function CreateAccountView({
                   <div className="space-y-4">
                     <div>
                       <h2 className="text-[16px] font-medium text-[#1f1f1f]">Payments profile</h2>
-                      <p className="text-[12px] text-[#5f6368] mt-0.5 leading-relaxed">
+                      <p className="text-[12px] text-[#636363] mt-0.5 leading-relaxed">
                         This profile is associated with your billing account. It's used for invoicing, statements, and tax compliance.
                       </p>
                     </div>
@@ -1901,7 +1901,7 @@ export default function CreateAccountView({
                           setBillingAddresses(prev => prev.map(a => a.isPrimary ? { ...a, country: val } : a));
                           setBillingFormData(prev => ({ ...prev, country: val }));
                         }}
-                        className="w-full px-3.5 py-2.5 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] bg-white transition-colors cursor-pointer"
+                        className="w-full px-3.5 py-2.5 rounded-[4px] border border-[#747775] text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] bg-white transition-colors cursor-pointer"
                       >
                         {COUNTRY_OPTIONS.map((c) => (
                           <option key={c.code} value={c.name}>
@@ -1912,20 +1912,20 @@ export default function CreateAccountView({
                     </div>
 
                     {/* Account Type Row (Google Cloud Style with Change button) */}
-                    <div className="flex items-center justify-between py-2 border-b border-[#dadce0]">
+                    <div className="flex items-center justify-between py-2 border-b border-[#dcdcdc]">
                       <div>
-                        <span className="block text-[11px] text-[#5f6368] font-medium uppercase tracking-wider">Account type</span>
+                        <span className="block text-[11px] text-[#636363] font-medium uppercase tracking-wider">Account type</span>
                         <span className="text-[14px] font-medium text-[#1f1f1f] capitalize">
                           {formData.accountType === 'business' ? 'Business' : 'Individual'}
                         </span>
-                        <span className="text-[12px] text-[#5f6368] block">
+                        <span className="text-[12px] text-[#636363] block">
                           {formData.accountType === 'business' ? (formData.businessName || 'Business organization') : (formData.fullName || 'Individual / personal')}
                         </span>
                       </div>
                       <button
                         type="button"
                         onClick={() => setStep(2)}
-                        className="text-[13px] font-medium text-[#0b57d0] hover:text-[#0842a0] hover:underline cursor-pointer"
+                        className="text-[13px] font-medium text-[#000000] hover:text-[#3c3c3c] hover:underline cursor-pointer"
                       >
                         Change
                       </button>
@@ -1939,7 +1939,7 @@ export default function CreateAccountView({
                         <label className="block text-[13px] font-medium text-[#1f1f1f]">
                           Billing address <span className="text-[#d93025]">*</span>
                         </label>
-                        <p className="text-[11px] text-[#5f6368]">
+                        <p className="text-[11px] text-[#636363]">
                           Select or add the address for official invoices, statements, and tax receipts.
                         </p>
                       </div>
@@ -1955,8 +1955,8 @@ export default function CreateAccountView({
                             onClick={() => setSelectedBillingId(addr.id)}
                             className={`p-3.5 rounded-[10px] border transition-all cursor-pointer relative ${
                               isSelected
-                                ? 'border-[#0b57d0] bg-[#f0f4f9] shadow-xs ring-1 ring-[#0b57d0]'
-                                : 'border-[#dadce0] hover:border-[#747775] bg-white'
+                                ? 'border-[#000000] bg-[#f4f4f4] shadow-xs ring-1 ring-[#000000]'
+                                : 'border-[#dcdcdc] hover:border-[#747775] bg-white'
                             }`}
                           >
                             <div className="flex items-start justify-between gap-3">
@@ -1964,7 +1964,7 @@ export default function CreateAccountView({
                                 <div
                                   className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
                                     isSelected
-                                      ? 'border-[#0b57d0] bg-[#0b57d0]'
+                                      ? 'border-[#000000] bg-[#000000]'
                                       : 'border-[#747775] bg-white'
                                   }`}
                                 >
@@ -1976,7 +1976,7 @@ export default function CreateAccountView({
                                       {addr.name}
                                     </span>
                                     {addr.isPrimary && (
-                                      <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-[#e8f0fe] text-[#0b57d0]">
+                                      <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-[#efefef] text-[#000000]">
                                         Primary
                                       </span>
                                     )}
@@ -1985,7 +1985,7 @@ export default function CreateAccountView({
                                     {addr.street}
                                     {addr.street2 ? `, ${addr.street2}` : ''}
                                   </p>
-                                  <p className="text-[12px] text-[#5f6368]">
+                                  <p className="text-[12px] text-[#636363]">
                                     {addr.city}{addr.postalCode ? ` - ${addr.postalCode}` : ''}, {addr.country}
                                   </p>
                                   {addr.taxId && (
@@ -2004,7 +2004,7 @@ export default function CreateAccountView({
                                     e.stopPropagation();
                                     handleEditBillingAddress(addr);
                                   }}
-                                  className="p-1.5 rounded-full hover:bg-black/5 text-[#5f6368] hover:text-[#1f1f1f] transition-colors cursor-pointer"
+                                  className="p-1.5 rounded-full hover:bg-black/5 text-[#636363] hover:text-[#1f1f1f] transition-colors cursor-pointer"
                                   title="Edit address"
                                 >
                                   <Edit2 className="w-3.5 h-3.5" />
@@ -2016,7 +2016,7 @@ export default function CreateAccountView({
                                       e.stopPropagation();
                                       handleDeleteBillingAddress(addr.id);
                                     }}
-                                    className="p-1.5 rounded-full hover:bg-[#fce8e6] text-[#5f6368] hover:text-[#c5221f] transition-colors cursor-pointer"
+                                    className="p-1.5 rounded-full hover:bg-[#fce8e6] text-[#636363] hover:text-[#c5221f] transition-colors cursor-pointer"
                                     title="Delete address"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
@@ -2035,7 +2035,7 @@ export default function CreateAccountView({
                         <button
                           type="button"
                           onClick={handleOpenAddBillingForm}
-                          className="w-full py-2.5 px-4 rounded-[8px] border border-dashed border-[#747775] hover:border-[#0b57d0] hover:bg-[#f0f4f9] text-[#0b57d0] text-[13px] font-medium flex items-center justify-center gap-2 transition-all cursor-pointer"
+                          className="w-full py-2.5 px-4 rounded-[8px] border border-dashed border-[#747775] hover:border-[#000000] hover:bg-[#f4f4f4] text-[#000000] text-[13px] font-medium flex items-center justify-center gap-2 transition-all cursor-pointer"
                         >
                           <Plus className="w-4 h-4" />
                           <span>Add billing address</span>
@@ -2045,8 +2045,8 @@ export default function CreateAccountView({
 
                     {/* Inline Add / Edit Billing Address Card */}
                     {showAddBillingForm && (
-                      <div className="mt-3 p-4 rounded-[10px] bg-[#f8f9fa] border border-[#dadce0] space-y-3">
-                        <div className="flex items-center justify-between pb-2 border-b border-[#dadce0]">
+                      <div className="mt-3 p-4 rounded-[10px] bg-[#f8f9fa] border border-[#dcdcdc] space-y-3">
+                        <div className="flex items-center justify-between pb-2 border-b border-[#dcdcdc]">
                           <span className="text-[13px] font-semibold text-[#1f1f1f]">
                             {editingBillingId ? 'Edit billing address' : 'Add new billing address'}
                           </span>
@@ -2056,7 +2056,7 @@ export default function CreateAccountView({
                               setShowAddBillingForm(false);
                               setEditingBillingId(null);
                             }}
-                            className="text-[12px] text-[#5f6368] hover:text-[#1f1f1f] cursor-pointer"
+                            className="text-[12px] text-[#636363] hover:text-[#1f1f1f] cursor-pointer"
                           >
                             Cancel
                           </button>
@@ -2072,7 +2072,7 @@ export default function CreateAccountView({
                             onChange={(e) => setBillingFormData(prev => ({ ...prev, name: e.target.value }))}
                             placeholder="Invoicing entity or company name"
                             required
-                            className="w-full px-3 py-2 rounded-[4px] border border-[#747775] text-[13px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] bg-white transition-colors placeholder:text-[#747775]"
+                            className="w-full px-3 py-2 rounded-[4px] border border-[#747775] text-[13px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] bg-white transition-colors placeholder:text-[#747775]"
                           />
                         </div>
 
@@ -2086,7 +2086,7 @@ export default function CreateAccountView({
                             onChange={(e) => setBillingFormData(prev => ({ ...prev, street: e.target.value }))}
                             placeholder="Street address, building, P.O. box"
                             required
-                            className="w-full px-3 py-2 rounded-[4px] border border-[#747775] text-[13px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] bg-white transition-colors placeholder:text-[#747775]"
+                            className="w-full px-3 py-2 rounded-[4px] border border-[#747775] text-[13px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] bg-white transition-colors placeholder:text-[#747775]"
                           />
                         </div>
 
@@ -2099,7 +2099,7 @@ export default function CreateAccountView({
                             value={billingFormData.street2}
                             onChange={(e) => setBillingFormData(prev => ({ ...prev, street2: e.target.value }))}
                             placeholder="Suite, unit, floor, etc."
-                            className="w-full px-3 py-2 rounded-[4px] border border-[#747775] text-[13px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] bg-white transition-colors placeholder:text-[#747775]"
+                            className="w-full px-3 py-2 rounded-[4px] border border-[#747775] text-[13px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] bg-white transition-colors placeholder:text-[#747775]"
                           />
                         </div>
 
@@ -2114,7 +2114,7 @@ export default function CreateAccountView({
                               onChange={(e) => setBillingFormData(prev => ({ ...prev, city: e.target.value }))}
                               placeholder="City"
                               required
-                              className="w-full px-3 py-2 rounded-[4px] border border-[#747775] text-[13px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] bg-white transition-colors placeholder:text-[#747775]"
+                              className="w-full px-3 py-2 rounded-[4px] border border-[#747775] text-[13px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] bg-white transition-colors placeholder:text-[#747775]"
                             />
                           </div>
                           <div>
@@ -2126,7 +2126,7 @@ export default function CreateAccountView({
                               value={billingFormData.postalCode}
                               onChange={(e) => setBillingFormData(prev => ({ ...prev, postalCode: e.target.value }))}
                               placeholder="1212"
-                              className="w-full px-3 py-2 rounded-[4px] border border-[#747775] text-[13px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] bg-white transition-colors placeholder:text-[#747775]"
+                              className="w-full px-3 py-2 rounded-[4px] border border-[#747775] text-[13px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] bg-white transition-colors placeholder:text-[#747775]"
                             />
                           </div>
                         </div>
@@ -2139,7 +2139,7 @@ export default function CreateAccountView({
                             <select
                               value={billingFormData.country}
                               onChange={(e) => setBillingFormData(prev => ({ ...prev, country: e.target.value }))}
-                              className="w-full px-3 py-2 rounded-[4px] border border-[#747775] text-[13px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] bg-white transition-colors"
+                              className="w-full px-3 py-2 rounded-[4px] border border-[#747775] text-[13px] text-[#1f1f1f] outline-none focus:border-[#000000] bg-white transition-colors"
                             >
                               {COUNTRY_OPTIONS.map((c) => (
                                 <option key={c.code} value={c.name}>
@@ -2157,7 +2157,7 @@ export default function CreateAccountView({
                               value={billingFormData.taxId}
                               onChange={(e) => setBillingFormData(prev => ({ ...prev, taxId: e.target.value }))}
                               placeholder="e.g. BIN-001928"
-                              className="w-full px-3 py-2 rounded-[4px] border border-[#747775] text-[13px] text-[#1f1f1f] outline-none focus:border-[#0b57d0] bg-white transition-colors placeholder:text-[#747775]"
+                              className="w-full px-3 py-2 rounded-[4px] border border-[#747775] text-[13px] text-[#1f1f1f] outline-none focus:border-[#000000] bg-white transition-colors placeholder:text-[#747775]"
                             />
                           </div>
                         </div>
@@ -2169,14 +2169,14 @@ export default function CreateAccountView({
                               setShowAddBillingForm(false);
                               setEditingBillingId(null);
                             }}
-                            className="px-3 py-1.5 rounded-full text-[12px] text-[#444746] hover:bg-[#dadce0]/40 font-medium transition-colors cursor-pointer"
+                            className="px-3 py-1.5 rounded-full text-[12px] text-[#444746] hover:bg-[#dcdcdc]/40 font-medium transition-colors cursor-pointer"
                           >
                             Cancel
                           </button>
                           <button
                             type="button"
                             onClick={handleSaveBillingAddress}
-                            className="px-4 py-1.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-[12px] font-medium shadow-xs transition-colors cursor-pointer"
+                            className="px-4 py-1.5 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white text-[12px] font-medium shadow-xs transition-colors cursor-pointer"
                           >
                             Save billing address
                           </button>
@@ -2185,7 +2185,7 @@ export default function CreateAccountView({
                     )}
                   </div>
 
-                  <p className="text-[12px] text-[#5f6368] leading-relaxed pt-2">
+                  <p className="text-[12px] text-[#636363] leading-relaxed pt-2">
                     By submitting, you agree to the Tiwlo Payments Terms of Service. The Tiwlo Privacy Notice describes how payments data is handled.
                   </p>
 
@@ -2194,7 +2194,7 @@ export default function CreateAccountView({
                     <button
                       type="button"
                       onClick={() => setStep(2)}
-                      className="text-[#0b57d0] hover:bg-[#0b57d0]/10 rounded-full px-4 py-2 font-medium text-[14px] cursor-pointer transition-colors"
+                      className="text-[#000000] hover:bg-[#000000]/10 rounded-full px-4 py-2 font-medium text-[14px] cursor-pointer transition-colors"
                     >
                       Back
                     </button>
@@ -2202,7 +2202,7 @@ export default function CreateAccountView({
                     <button
                       type="submit"
                       disabled={loading}
-                      className="bg-[#0b57d0] hover:bg-[#0842a0] active:bg-[#062e6f] disabled:bg-slate-300 text-white rounded-full px-7 h-10 font-medium text-[14px] shadow-xs cursor-pointer inline-flex items-center gap-2 transition-all"
+                      className="bg-[#000000] hover:bg-[#3c3c3c] active:bg-[#2a2a2a] disabled:bg-neutral-300 text-white rounded-full px-7 h-10 font-medium text-[14px] shadow-xs cursor-pointer inline-flex items-center gap-2 transition-all"
                     >
                       <span>{loading ? 'Creating account...' : 'Create account'}</span>
                       <ArrowRight className="w-4 h-4" />
@@ -2216,8 +2216,8 @@ export default function CreateAccountView({
               {/* ======================================================== */}
               {step === 4 && (
                 <form onSubmit={handleVerifyEmailSubmit} className="space-y-4">
-                  <div className="p-3.5 rounded-[8px] bg-[#f8f9fa] border border-[#dadce0]">
-                    <span className="text-[12px] text-[#5f6368] block mb-1">Confirmation sent to:</span>
+                  <div className="p-3.5 rounded-[8px] bg-[#f8f9fa] border border-[#dcdcdc]">
+                    <span className="text-[12px] text-[#636363] block mb-1">Confirmation sent to:</span>
                     <span className="text-[14px] font-medium text-[#1f1f1f] block font-mono">
                       {verifyEmailData.emailMasked || verifyEmailData.email || formData.email}
                     </span>
@@ -2234,7 +2234,7 @@ export default function CreateAccountView({
                       onChange={(e) => setVerifyEmailData(prev => ({ ...prev, code: e.target.value.replace(/\D/g, '') }))}
                       placeholder="&bull; &bull; &bull; &bull; &bull; &bull;"
                       required
-                      className="w-full text-center font-mono text-[22px] tracking-[0.4em] px-4 py-3 rounded-[4px] border border-[#747775] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] transition-colors"
+                      className="w-full text-center font-mono text-[22px] tracking-[0.4em] px-4 py-3 rounded-[4px] border border-[#747775] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition-colors"
                     />
                   </div>
 
@@ -2243,7 +2243,7 @@ export default function CreateAccountView({
                       type="button"
                       disabled={resendCountdown > 0 || loading}
                       onClick={handleResendEmailOtp}
-                      className="text-[13px] text-[#0b57d0] hover:underline disabled:text-[#747775] font-medium cursor-pointer"
+                      className="text-[13px] text-[#000000] hover:underline disabled:text-[#747775] font-medium cursor-pointer"
                     >
                       {resendCountdown > 0
                         ? `Resend code in ${resendCountdown}s`
@@ -2256,7 +2256,7 @@ export default function CreateAccountView({
                     <button
                       type="button"
                       onClick={() => setStep(3)}
-                      className="text-[#0b57d0] hover:bg-[#0b57d0]/10 rounded-full px-4 py-2 font-medium text-[14px] cursor-pointer transition-colors"
+                      className="text-[#000000] hover:bg-[#000000]/10 rounded-full px-4 py-2 font-medium text-[14px] cursor-pointer transition-colors"
                     >
                       Back
                     </button>
@@ -2264,7 +2264,7 @@ export default function CreateAccountView({
                     <button
                       type="submit"
                       disabled={loading || verifyEmailData.code.length !== 6}
-                      className="bg-[#0b57d0] hover:bg-[#0842a0] disabled:bg-slate-300 text-white rounded-full px-7 h-10 font-medium text-[14px] shadow-xs cursor-pointer inline-flex items-center gap-2 transition-all"
+                      className="bg-[#000000] hover:bg-[#3c3c3c] disabled:bg-neutral-300 text-white rounded-full px-7 h-10 font-medium text-[14px] shadow-xs cursor-pointer inline-flex items-center gap-2 transition-all"
                     >
                       <span>{loading ? 'Verifying...' : 'Next'}</span>
                       <ArrowRight className="w-4 h-4" />
@@ -2299,7 +2299,7 @@ export default function CreateAccountView({
                       onChange={(e) => setSetup2FAData(prev => ({ ...prev, code: e.target.value.replace(/\D/g, '') }))}
                       placeholder="&bull; &bull; &bull; &bull; &bull; &bull;"
                       required
-                      className="w-full text-center font-mono text-[22px] tracking-[0.4em] px-4 py-3 rounded-[4px] border border-[#747775] text-[#1f1f1f] outline-none focus:border-[#0b57d0] focus:ring-1 focus:ring-[#0b57d0] transition-colors"
+                      className="w-full text-center font-mono text-[22px] tracking-[0.4em] px-4 py-3 rounded-[4px] border border-[#747775] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition-colors"
                     />
                   </div>
 
@@ -2308,7 +2308,7 @@ export default function CreateAccountView({
                       type="button"
                       disabled={resendCountdown > 0 || loading}
                       onClick={handleResendSetup2FAOtp}
-                      className="text-[13px] text-[#0b57d0] hover:underline disabled:text-[#747775] font-medium cursor-pointer"
+                      className="text-[13px] text-[#000000] hover:underline disabled:text-[#747775] font-medium cursor-pointer"
                     >
                       {resendCountdown > 0
                         ? `Resend passcode in ${resendCountdown}s`
@@ -2321,7 +2321,7 @@ export default function CreateAccountView({
                     <button
                       type="button"
                       onClick={() => setStep(4)}
-                      className="text-[#0b57d0] hover:bg-[#0b57d0]/10 rounded-full px-4 py-2 font-medium text-[14px] cursor-pointer transition-colors"
+                      className="text-[#000000] hover:bg-[#000000]/10 rounded-full px-4 py-2 font-medium text-[14px] cursor-pointer transition-colors"
                     >
                       Back
                     </button>
@@ -2329,7 +2329,7 @@ export default function CreateAccountView({
                     <button
                       type="submit"
                       disabled={loading || setup2FAData.code.length !== 6}
-                      className="bg-[#0b57d0] hover:bg-[#0842a0] disabled:bg-slate-300 text-white rounded-full px-7 h-10 font-medium text-[14px] shadow-xs cursor-pointer inline-flex items-center gap-2 transition-all"
+                      className="bg-[#000000] hover:bg-[#3c3c3c] disabled:bg-neutral-300 text-white rounded-full px-7 h-10 font-medium text-[14px] shadow-xs cursor-pointer inline-flex items-center gap-2 transition-all"
                     >
                       <span>{loading ? 'Activating...' : 'Confirm & Activate'}</span>
                       <ArrowRight className="w-4 h-4" />
@@ -2351,24 +2351,24 @@ export default function CreateAccountView({
                     <h3 className="text-[22px] font-normal text-[#1f1f1f]">
                       Registration Complete
                     </h3>
-                    <p className="text-[14px] text-[#5f6368]">
+                    <p className="text-[14px] text-[#636363]">
                       Your account credentials and merchant workspace have been provisioned.
                     </p>
                   </div>
 
                   {/* Tiwi ID Display Card */}
-                  <div className="p-4 rounded-[8px] bg-[#f8f9fa] border border-[#dadce0] space-y-2 max-w-sm mx-auto">
-                    <span className="text-[12px] font-medium text-[#5f6368] block">
+                  <div className="p-4 rounded-[8px] bg-[#f8f9fa] border border-[#dcdcdc] space-y-2 max-w-sm mx-auto">
+                    <span className="text-[12px] font-medium text-[#636363] block">
                       Your Official Tiwi ID:
                     </span>
                     <div className="flex items-center justify-center gap-2">
-                      <span className="text-[18px] font-mono font-semibold text-[#0b57d0]">
+                      <span className="text-[18px] font-mono font-semibold text-[#000000]">
                         {createdResult.tiwiId || createdResult.user?.tiwiId || createdResult.user?.storeId || 'TIW-READY'}
                       </span>
                       <button
                         type="button"
                         onClick={handleCopyTiwiId}
-                        className="p-1.5 rounded-full hover:bg-[#e8eaed] text-[#5f6368] transition-colors cursor-pointer"
+                        className="p-1.5 rounded-full hover:bg-[#eaeaea] text-[#636363] transition-colors cursor-pointer"
                         title="Copy Tiwi ID"
                       >
                         {copiedId ? <Check className="w-4 h-4 text-[#137333]" /> : <Copy className="w-4 h-4" />}
@@ -2387,7 +2387,7 @@ export default function CreateAccountView({
                         const tok = createdResult.sessionToken || localStorage.getItem('stockpro_session');
                         onRegisterSuccess?.(u, tok);
                       }}
-                      className="w-full sm:w-auto min-w-[220px] h-10 px-8 bg-[#0b57d0] hover:bg-[#0842a0] text-white rounded-full text-[14px] font-medium shadow-xs cursor-pointer inline-flex items-center justify-center gap-2 transition-all"
+                      className="w-full sm:w-auto min-w-[220px] h-10 px-8 bg-[#000000] hover:bg-[#3c3c3c] text-white rounded-full text-[14px] font-medium shadow-xs cursor-pointer inline-flex items-center justify-center gap-2 transition-all"
                     >
                       <span>Continue to Dashboard</span>
                       <ArrowRight className="w-4 h-4" />
@@ -2407,9 +2407,9 @@ export default function CreateAccountView({
       {/* ============================================================== */}
       {/* STANDARD GOOGLE ACCOUNT FOOTER                                 */}
       {/* ============================================================== */}
-      <footer className="w-full max-w-[1040px] mx-auto pt-6 flex flex-col sm:flex-row items-center justify-between text-[12px] text-[#5f6368] gap-3">
+      <footer className="w-full max-w-[1040px] mx-auto pt-6 flex flex-col sm:flex-row items-center justify-between text-[12px] text-[#636363] gap-3">
         <div className="flex items-center gap-2">
-          <Globe className="w-4 h-4 text-[#5f6368]" />
+          <Globe className="w-4 h-4 text-[#636363]" />
           <span className="hover:text-[#1f1f1f] cursor-pointer">English (United States)</span>
         </div>
 

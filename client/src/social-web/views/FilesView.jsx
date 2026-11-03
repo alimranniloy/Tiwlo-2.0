@@ -99,7 +99,7 @@ export default function FilesView() {
         return <FileImage className="w-5 h-5 text-purple-500" />;
       case 'pdf':
       default:
-        return <FileText className="w-5 h-5 text-[#1E75FF]" />;
+        return <FileText className="w-5 h-5 text-[#6c6c6c]" />;
     }
   };
 
@@ -121,19 +121,19 @@ export default function FilesView() {
   return (
     <div className="w-full flex flex-col gap-5 pb-20">
       {/* 1. Header Card */}
-      <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-[#1E75FF]/10 text-[#1E75FF] flex items-center justify-center flex-shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-[#6c6c6c]/10 text-[#6c6c6c] flex items-center justify-center flex-shrink-0">
             <FileText className="w-6 h-6 stroke-[2]" />
           </div>
           <div>
-            <h1 className="text-[20px] font-extrabold text-[#111827] dark:text-white tracking-tight flex items-center gap-2">
+            <h1 className="text-[20px] font-extrabold text-[#181818] dark:text-white tracking-tight flex items-center gap-2">
               Files & Documents
-              <span className="text-[12px] font-semibold bg-[#1E75FF]/10 text-[#1E75FF] px-2.5 py-0.5 rounded-full">
+              <span className="text-[12px] font-semibold bg-[#6c6c6c]/10 text-[#6c6c6c] px-2.5 py-0.5 rounded-full">
                 Cloud Vault
               </span>
             </h1>
-            <p className="text-[13px] text-[#6B7280] dark:text-[#9CA3AF]">
+            <p className="text-[13px] text-[#727272] dark:text-[#a2a2a2]">
               Secure workspace file repository, assets, architectural specs, and shared documents
             </p>
           </div>
@@ -147,15 +147,15 @@ export default function FilesView() {
               placeholder="Search files..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-[38px] pl-9 pr-3 bg-[#F4F5F7] dark:bg-[#1A1D27] text-[13px] rounded-xl outline-none focus:ring-2 focus:ring-[#1E75FF]/30 transition"
+              className="w-full h-[38px] pl-9 pr-3 bg-[#F4F5F7] dark:bg-[#1d1d1d] text-[13px] rounded-xl outline-none focus:ring-2 focus:ring-[#6c6c6c]/30 transition"
             />
-            <Search className="w-4 h-4 text-[#9CA3AF] absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-[#a2a2a2] absolute left-3 top-2.5" />
           </div>
 
           <button
             type="button"
             onClick={() => showToast('Upload file dialog opened', 'info')}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1E75FF] hover:bg-[#1A66E5] text-white text-[12.5px] font-bold shadow-xs transition cursor-pointer flex-shrink-0"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#6c6c6c] hover:bg-[#5f5f5f] text-white text-[12.5px] font-bold shadow-xs transition cursor-pointer flex-shrink-0"
           >
             <Upload className="w-4 h-4" />
             <span>Upload File</span>
@@ -164,20 +164,20 @@ export default function FilesView() {
       </div>
 
       {/* 2. Storage Quota Banner */}
-      <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="w-10 h-10 rounded-xl bg-[#F4F5F7] dark:bg-[#1A1D27] flex items-center justify-center text-[#1E75FF]">
+          <div className="w-10 h-10 rounded-xl bg-[#F4F5F7] dark:bg-[#1d1d1d] flex items-center justify-center text-[#6c6c6c]">
             <HardDrive className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-[14px] text-[#111827] dark:text-white">
+              <span className="font-bold text-[14px] text-[#181818] dark:text-white">
                 Workspace Storage Quota
               </span>
-              <span className="text-[12px] font-medium text-[#1E75FF]">14.2 GB of 50 GB used</span>
+              <span className="text-[12px] font-medium text-[#6c6c6c]">14.2 GB of 50 GB used</span>
             </div>
             <div className="w-full sm:w-72 h-2 bg-gray-100 dark:bg-gray-800 rounded-full mt-1.5 overflow-hidden">
-              <div className="h-full bg-[#1E75FF] rounded-full w-[28%]" />
+              <div className="h-full bg-[#6c6c6c] rounded-full w-[28%]" />
             </div>
           </div>
         </div>
@@ -185,7 +185,7 @@ export default function FilesView() {
         <button
           type="button"
           onClick={() => showToast('Cloud storage settings', 'info')}
-          className="text-[12.5px] font-semibold text-[#1E75FF] hover:underline"
+          className="text-[12.5px] font-semibold text-[#6c6c6c] hover:underline"
         >
           Manage Storage →
         </button>
@@ -200,8 +200,8 @@ export default function FilesView() {
             onClick={() => setSelectedFilter(fil)}
             className={`px-4 py-2 rounded-xl text-[13px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
               selectedFilter === fil
-                ? 'bg-[#1E75FF] text-white shadow-xs'
-                : 'bg-white dark:bg-[#161822] text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#111827] border border-[#EAECF0] dark:border-[#1E232F]'
+                ? 'bg-[#6c6c6c] text-white shadow-xs'
+                : 'bg-white dark:bg-[#181818] text-[#727272] dark:text-[#a2a2a2] hover:text-[#181818] border border-[#ececec] dark:border-[#232323]'
             }`}
           >
             {fil}
@@ -210,21 +210,21 @@ export default function FilesView() {
       </div>
 
       {/* 4. Files List */}
-      <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
-        <div className="p-4 border-b border-[#F2F4F7] dark:border-[#1E232F] flex items-center justify-between">
-          <span className="font-bold text-[14px] text-[#111827] dark:text-white">
+      <div className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+        <div className="p-4 border-b border-[#f4f4f4] dark:border-[#232323] flex items-center justify-between">
+          <span className="font-bold text-[14px] text-[#181818] dark:text-white">
             Files ({filteredFiles.length})
           </span>
-          <span className="text-[12px] text-[#9CA3AF]">
+          <span className="text-[12px] text-[#a2a2a2]">
             Sorted by Last Modified
           </span>
         </div>
 
-        <div className="divide-y divide-[#F2F4F7] dark:divide-[#1E232F]">
+        <div className="divide-y divide-[#f4f4f4] dark:divide-[#232323]">
           {filteredFiles.map((file) => (
             <div
               key={file.id}
-              className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FAFBFD] dark:hover:bg-[#14161F] transition"
+              className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FAFBFD] dark:hover:bg-[#161616] transition"
             >
               <div className="flex items-center gap-3.5 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
@@ -232,10 +232,10 @@ export default function FilesView() {
                 </div>
 
                 <div className="flex flex-col min-w-0">
-                  <span className="font-bold text-[14px] text-[#111827] dark:text-white truncate hover:text-[#1E75FF] transition-colors cursor-pointer">
+                  <span className="font-bold text-[14px] text-[#181818] dark:text-white truncate hover:text-[#6c6c6c] transition-colors cursor-pointer">
                     {file.name}
                   </span>
-                  <div className="flex items-center gap-3 text-[12px] text-[#9CA3AF] mt-0.5">
+                  <div className="flex items-center gap-3 text-[12px] text-[#a2a2a2] mt-0.5">
                     <span>{file.size}</span>
                     <span>•</span>
                     <span className="flex items-center gap-1">
@@ -252,7 +252,7 @@ export default function FilesView() {
                 <button
                   type="button"
                   onClick={() => handleDownload(file)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1E75FF]/10 hover:bg-[#1E75FF] text-[#1E75FF] hover:text-white text-[12px] font-bold transition cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#6c6c6c]/10 hover:bg-[#6c6c6c] text-[#6c6c6c] hover:text-white text-[12px] font-bold transition cursor-pointer"
                   title="Download File"
                 >
                   <Download className="w-3.5 h-3.5" />
@@ -262,7 +262,7 @@ export default function FilesView() {
                 <button
                   type="button"
                   onClick={() => handleShareFile(file)}
-                  className="p-2 rounded-lg text-[#6B7280] hover:text-[#1E75FF] hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer"
+                  className="p-2 rounded-lg text-[#727272] hover:text-[#6c6c6c] hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer"
                   title="Share File Link"
                 >
                   <Share2 className="w-4 h-4" />

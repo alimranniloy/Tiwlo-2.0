@@ -20,18 +20,18 @@ export function generateInvoicePdf(invoice, user, billingAccountId) {
   let y = 18;
 
   // 1. Top Brand Banner Bar (Tiwlo Blue)
-  doc.setFillColor(11, 87, 208); // #0B57D0
+  doc.setFillColor(11, 87, 208); // #000000
   doc.rect(0, 0, pageWidth, 5, 'F');
 
   // 2. Company Letterhead
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(22);
-  doc.setTextColor(32, 33, 36); // #202124
+  doc.setTextColor(32, 33, 36); // #212121
   doc.text('TIWLO CLOUD', margin, y + 8);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.setTextColor(95, 99, 104); // #5F6368
+  doc.setTextColor(95, 99, 104); // #636363
   doc.text('Enterprise Cloud Infrastructure & AI Neural Platform', margin, y + 13);
   doc.text(`Tiwlo Systems Ltd. • ${getPlatformUrl()} • ${BILLING_EMAIL}`, margin, y + 17);
 
@@ -218,7 +218,7 @@ export function generateInvoicePdf(invoice, user, billingAccountId) {
   doc.setFontSize(10);
   doc.setTextColor(32, 33, 36);
   doc.text('TOTAL NET CHARGE:', summaryX, y);
-  doc.setTextColor(11, 87, 208); // Tiwlo blue
+  doc.setTextColor(0, 0, 0); // Tiwlo brand color
   doc.text(`$${netPaid.toFixed(2)} USD`, pageWidth - margin, y, { align: 'right' });
 
   // 7. Verification & Terms Box

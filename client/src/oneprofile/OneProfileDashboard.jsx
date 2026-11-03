@@ -121,7 +121,7 @@ export default function OneProfileDashboard({
   };
 
   return (
-    <div className="min-h-screen flex bg-[#F8FAFC] text-slate-800 font-sans antialiased selection:bg-blue-500 selection:text-white">
+    <div className="min-h-screen flex bg-[#fafafa] text-neutral-800 font-sans antialiased selection:bg-neutral-500 selection:text-white">
       {/* Sidebar (Desktop Persistent & Mobile Drawer) */}
       <OneProfileSidebar
         currentUser={currentUser}
@@ -158,7 +158,7 @@ export default function OneProfileDashboard({
             </div>
           )}
           {summary ? renderActiveView() : (
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 text-sm text-slate-500">
+            <div className="rounded-2xl border border-neutral-200 bg-white p-8 text-sm text-neutral-500">
               Loading your dashboard data...
             </div>
           )}

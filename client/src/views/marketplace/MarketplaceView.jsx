@@ -95,7 +95,7 @@ export default function MarketplaceView({ onNavigate }) {
     switch (iconType) {
       case 'discord':
         return (
-          <div className="w-12 h-12 rounded-2xl bg-[#5865F2] text-white flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-[#6c6c6c] text-white flex items-center justify-center shrink-0">
             <Bot className="w-6 h-6 stroke-[2]" />
           </div>
         );
@@ -107,7 +107,7 @@ export default function MarketplaceView({ onNavigate }) {
         );
       case 'shield':
         return (
-          <div className="w-12 h-12 rounded-2xl bg-[#E8F0FE] text-[#0B57D0] flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-[#efefef] text-[#000000] flex items-center justify-center shrink-0">
             <Shield className="w-6 h-6 stroke-[2]" />
           </div>
         );
@@ -131,7 +131,7 @@ export default function MarketplaceView({ onNavigate }) {
         );
       default:
         return (
-          <div className="w-12 h-12 rounded-2xl bg-[#F0F4F9] text-[#444746] flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-[#f4f4f4] text-[#444746] flex items-center justify-center shrink-0">
             <Bot className="w-6 h-6 stroke-[2]" />
           </div>
         );
@@ -141,13 +141,13 @@ export default function MarketplaceView({ onNavigate }) {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16 font-sans bg-white">
       {/* 1. Modern Google Marketplace Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#E0E2EC] pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#e2e2e2] pb-5">
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl sm:text-3xl font-normal text-[#1F1F1F] tracking-tight">
               Marketplace
             </h1>
-            <span className="text-xs px-3 py-1 rounded-full bg-[#E8F0FE] text-[#0B57D0] font-medium">
+            <span className="text-xs px-3 py-1 rounded-full bg-[#efefef] text-[#000000] font-medium">
               Published products
             </span>
           </div>
@@ -161,7 +161,7 @@ export default function MarketplaceView({ onNavigate }) {
           <button
             onClick={() => loadProducts(true)}
             disabled={refreshing}
-            className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-[#0B57D0] bg-white border border-[#747775]/30 hover:bg-[#F2F6FC] rounded-full transition-colors cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-[#000000] bg-white border border-[#747775]/30 hover:bg-[#f6f6f6] rounded-full transition-colors cursor-pointer disabled:opacity-50"
           >
             <RotateCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
@@ -169,7 +169,7 @@ export default function MarketplaceView({ onNavigate }) {
 
           <button
             onClick={() => onNavigate?.('workspace')}
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-all shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-[13px] font-medium text-white bg-[#000000] hover:bg-[#3c3c3c] rounded-full transition-all shadow-xs cursor-pointer"
           >
             <Layers className="w-4 h-4" />
             <span>Go to Workspace</span>
@@ -178,7 +178,7 @@ export default function MarketplaceView({ onNavigate }) {
       </div>
 
       {/* 2. Modern Google Omnibox & Filter Chips Toolbar */}
-      <div className="bg-[#F8FAFD] border border-[#E0E2EC] rounded-2xl p-4 sm:p-5 space-y-4">
+      <div className="bg-[#fafafa] border border-[#e2e2e2] rounded-2xl p-4 sm:p-5 space-y-4">
         <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row gap-3">
           {/* Omnibox Search */}
           <div className="relative flex-1">
@@ -188,7 +188,7 @@ export default function MarketplaceView({ onNavigate }) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search products, developers, or capabilities..."
-              className="w-full bg-white hover:bg-[#F0F4F9] focus:bg-white border border-[#E0E2EC] focus:border-[#0B57D0] focus:ring-1 focus:ring-[#0B57D0] rounded-full pl-11 pr-4 py-2.5 text-[13px] text-[#1F1F1F] placeholder-[#444746] transition-all outline-none"
+              className="w-full bg-white hover:bg-[#f4f4f4] focus:bg-white border border-[#e2e2e2] focus:border-[#000000] focus:ring-1 focus:ring-[#000000] rounded-full pl-11 pr-4 py-2.5 text-[13px] text-[#1F1F1F] placeholder-[#444746] transition-all outline-none"
             />
           </div>
 
@@ -197,7 +197,7 @@ export default function MarketplaceView({ onNavigate }) {
             <select
               value={pricing}
               onChange={(e) => setPricing(e.target.value)}
-              className="bg-white border border-[#E0E2EC] text-[#1F1F1F] text-[13px] rounded-full px-4 py-2 hover:bg-[#F2F6FC] focus:outline-none focus:border-[#0B57D0] cursor-pointer"
+              className="bg-white border border-[#e2e2e2] text-[#1F1F1F] text-[13px] rounded-full px-4 py-2 hover:bg-[#f6f6f6] focus:outline-none focus:border-[#000000] cursor-pointer"
             >
               <option value="all">Pricing: All</option>
               <option value="free">Free</option>
@@ -208,7 +208,7 @@ export default function MarketplaceView({ onNavigate }) {
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value)}
-              className="bg-white border border-[#E0E2EC] text-[#1F1F1F] text-[13px] rounded-full px-4 py-2 hover:bg-[#F2F6FC] focus:outline-none focus:border-[#0B57D0] cursor-pointer"
+              className="bg-white border border-[#e2e2e2] text-[#1F1F1F] text-[13px] rounded-full px-4 py-2 hover:bg-[#f6f6f6] focus:outline-none focus:border-[#000000] cursor-pointer"
             >
               <option value="recommended">Sort: Recommended</option>
               <option value="rating">Highest Rated</option>
@@ -226,8 +226,8 @@ export default function MarketplaceView({ onNavigate }) {
               onClick={() => setCategory(cat.id)}
               className={`shrink-0 px-4 py-1.5 rounded-full text-[13px] transition-all cursor-pointer ${
                 category === cat.id
-                  ? 'bg-[#C2E7FF] text-[#001D35] font-semibold shadow-xs'
-                  : 'bg-white text-[#444746] border border-[#747775]/30 hover:bg-[#F2F6FC]'
+                  ? 'bg-[#e1e1e1] text-[#191919] font-semibold shadow-xs'
+                  : 'bg-white text-[#444746] border border-[#747775]/30 hover:bg-[#f6f6f6]'
               }`}
             >
               {cat.label}
@@ -238,14 +238,14 @@ export default function MarketplaceView({ onNavigate }) {
 
       {/* 3. Catalog Products Grid (Modern Google 2026 Cards) */}
       {loading ? (
-        <div className="bg-white border border-[#E0E2EC] rounded-2xl p-16 text-center">
-          <RotateCw className="w-6 h-6 text-[#0B57D0] animate-spin mx-auto mb-3" />
+        <div className="bg-white border border-[#e2e2e2] rounded-2xl p-16 text-center">
+          <RotateCw className="w-6 h-6 text-[#000000] animate-spin mx-auto mb-3" />
           <p className="text-[13px] text-[#444746]">Loading Marketplace solutions...</p>
         </div>
       ) : loadError ? (
-        <div className="bg-white border border-[#E0E2EC] rounded-2xl p-16 text-center text-[13px] text-[#B3261E]">{loadError}</div>
+        <div className="bg-white border border-[#e2e2e2] rounded-2xl p-16 text-center text-[13px] text-[#B3261E]">{loadError}</div>
       ) : products.length === 0 ? (
-        <div className="bg-white border border-[#E0E2EC] rounded-2xl p-16 text-center">
+        <div className="bg-white border border-[#e2e2e2] rounded-2xl p-16 text-center">
           <Bot className="w-12 h-12 text-[#C4C7C5] mx-auto mb-3" />
           <h3 className="text-base font-medium text-[#1F1F1F]">{search || category !== 'all' || pricing !== 'all' ? 'No solutions match your filters' : 'No published Marketplace products'}</h3>
           <p className="text-[13px] text-[#444746] mt-1 max-w-md mx-auto">
@@ -257,7 +257,7 @@ export default function MarketplaceView({ onNavigate }) {
               setCategory('all');
               setPricing('all');
             }}
-            className="mt-4 px-5 py-2 text-[13px] font-medium text-[#0B57D0] bg-white border border-[#747775]/30 hover:bg-[#F2F6FC] rounded-full transition-colors cursor-pointer"
+            className="mt-4 px-5 py-2 text-[13px] font-medium text-[#000000] bg-white border border-[#747775]/30 hover:bg-[#f6f6f6] rounded-full transition-colors cursor-pointer"
           >
             Clear filters
           </button>
@@ -268,7 +268,7 @@ export default function MarketplaceView({ onNavigate }) {
             <div
               key={product.id}
               onClick={() => onNavigate?.(`marketplace/${product.id}`)}
-              className="group bg-white border border-[#E0E2EC] hover:border-[#0B57D0] rounded-2xl p-6 flex flex-col justify-between transition-all hover:shadow-md cursor-pointer"
+              className="group bg-white border border-[#e2e2e2] hover:border-[#000000] rounded-2xl p-6 flex flex-col justify-between transition-all hover:shadow-md cursor-pointer"
             >
               <div>
                 {/* Header: Icon, Name, Provider */}
@@ -277,7 +277,7 @@ export default function MarketplaceView({ onNavigate }) {
                     <img src={product.logoUrl} alt="" className="w-12 h-12 rounded-2xl object-contain shrink-0" />
                   ) : renderProductIcon(product.iconType || product.category)}
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-[15px] font-medium text-[#1F1F1F] group-hover:text-[#0B57D0] transition-colors truncate">
+                    <h3 className="text-[15px] font-medium text-[#1F1F1F] group-hover:text-[#000000] transition-colors truncate">
                       {product.name}
                     </h3>
                     <p className="text-[12px] text-[#444746] truncate mt-0.5">
@@ -285,8 +285,8 @@ export default function MarketplaceView({ onNavigate }) {
                     </p>
                   </div>
                   {product.verified && (
-                    <span className="shrink-0 text-[#0B57D0]" title="Verified Provider">
-                      <CheckCircle2 className="w-4 h-4 fill-[#0B57D0] text-white" />
+                    <span className="shrink-0 text-[#000000]" title="Verified Provider">
+                      <CheckCircle2 className="w-4 h-4 fill-[#000000] text-white" />
                     </span>
                   )}
                 </div>
@@ -298,7 +298,7 @@ export default function MarketplaceView({ onNavigate }) {
               </div>
 
               {/* Footer: Rating, Installs, Price & CTA */}
-              <div className="border-t border-[#F1F3F8] pt-3.5 flex items-center justify-between text-[12px]">
+              <div className="border-t border-[#f3f3f3] pt-3.5 flex items-center justify-between text-[12px]">
                 <div className="flex items-center gap-3 text-[#444746]">
                   {product.rating != null && <span className="flex items-center gap-1 font-medium text-[#1F1F1F]"><Star className="w-3.5 h-3.5 fill-[#F29900] text-[#F29900]" />{Number(product.rating).toFixed(1)}</span>}
                   {product.installCount != null && <span>{Number(product.installCount).toLocaleString()} installs</span>}
@@ -308,7 +308,7 @@ export default function MarketplaceView({ onNavigate }) {
                   <span className={`font-semibold ${product.price === 'Free' ? 'text-[#072711]' : 'text-[#1F1F1F]'}`}>
                     {product.price || 'Pricing not specified'}
                   </span>
-                  <ArrowRight className="w-4 h-4 text-[#444746] group-hover:text-[#0B57D0] group-hover:translate-x-0.5 transition-all" />
+                  <ArrowRight className="w-4 h-4 text-[#444746] group-hover:text-[#000000] group-hover:translate-x-0.5 transition-all" />
                 </div>
               </div>
             </div>

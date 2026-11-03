@@ -42,8 +42,8 @@ export default function LandingNavbar({ onNavigate, currentUser }) {
       <header
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 border-b ${
           isScrolled
-            ? 'bg-white/95 backdrop-blur-md border-[#dadce0] shadow-[0_1px_4px_0_rgba(60,64,67,0.08)]'
-            : 'bg-white/95 backdrop-blur-xs border-[#dadce0]/60'
+            ? 'bg-white/95 backdrop-blur-md border-[#dcdcdc] shadow-[0_1px_4px_0_rgba(60,64,67,0.08)]'
+            : 'bg-white/95 backdrop-blur-xs border-[#dcdcdc]/60'
         }`}
       >
         <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-3">
@@ -69,7 +69,7 @@ export default function LandingNavbar({ onNavigate, currentUser }) {
                   Tiwlo
                 </span>
               )}
-              <span className="hidden sm:inline-block text-[13px] font-medium text-[#5f6368] pl-2.5 border-l border-[#dadce0] tracking-normal">
+              <span className="hidden sm:inline-block text-[13px] font-medium text-[#636363] pl-2.5 border-l border-[#dcdcdc] tracking-normal">
                 Cloud
               </span>
             </div>
@@ -119,17 +119,17 @@ export default function LandingNavbar({ onNavigate, currentUser }) {
                 onClick={() => handleDropdown('solutions')}
                 onMouseEnter={() => setActiveDropdown('solutions')}
                 className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full hover:bg-[#f1f3f4] transition-colors cursor-pointer ${
-                  activeDropdown === 'solutions' ? 'bg-[#f1f3f4] text-[#0b57d0]' : 'hover:text-[#1f1f1f]'
+                  activeDropdown === 'solutions' ? 'bg-[#f1f3f4] text-[#000000]' : 'hover:text-[#1f1f1f]'
                 }`}
               >
                 <span>Solutions</span>
                 <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                  activeDropdown === 'solutions' ? 'rotate-180 text-[#0b57d0]' : 'text-[#747775]'
+                  activeDropdown === 'solutions' ? 'rotate-180 text-[#000000]' : 'text-[#747775]'
                 }`} />
               </button>
 
               {activeDropdown === 'solutions' && (
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 w-80 p-3 rounded-[20px] bg-white border border-[#dadce0] shadow-[0_8px_28px_rgba(60,64,67,0.15)] animate-in fade-in slide-in-from-top-1 duration-150 space-y-1 z-50">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 w-80 p-3 rounded-[20px] bg-white border border-[#dcdcdc] shadow-[0_8px_28px_rgba(60,64,67,0.15)] animate-in fade-in slide-in-from-top-1 duration-150 space-y-1 z-50">
                   <div
                     onClick={() => {
                       setActiveDropdown(null);
@@ -137,10 +137,10 @@ export default function LandingNavbar({ onNavigate, currentUser }) {
                     }}
                     className="p-2.5 rounded-[10px] hover:bg-[#f8f9fa] transition-colors cursor-pointer group"
                   >
-                    <div className="text-[13px] font-medium text-[#1f1f1f] group-hover:text-[#0b57d0]">
+                    <div className="text-[13px] font-medium text-[#1f1f1f] group-hover:text-[#000000]">
                       Startups & Online Brands
                     </div>
-                    <div className="text-[12px] text-[#5f6368]">
+                    <div className="text-[12px] text-[#636363]">
                       Launch high-speed storefronts in minutes.
                     </div>
                   </div>
@@ -152,10 +152,10 @@ export default function LandingNavbar({ onNavigate, currentUser }) {
                     }}
                     className="p-2.5 rounded-[10px] hover:bg-[#f8f9fa] transition-colors cursor-pointer group"
                   >
-                    <div className="text-[13px] font-medium text-[#1f1f1f] group-hover:text-[#0b57d0]">
+                    <div className="text-[13px] font-medium text-[#1f1f1f] group-hover:text-[#000000]">
                       Multi-Branch Retail Chains
                     </div>
-                    <div className="text-[12px] text-[#5f6368]">
+                    <div className="text-[12px] text-[#636363]">
                       Omnichannel POS registers, barcodes & stock sync.
                     </div>
                   </div>
@@ -167,10 +167,10 @@ export default function LandingNavbar({ onNavigate, currentUser }) {
                     }}
                     className="p-2.5 rounded-[10px] hover:bg-[#f8f9fa] transition-colors cursor-pointer group"
                   >
-                    <div className="text-[13px] font-medium text-[#1f1f1f] group-hover:text-[#0b57d0]">
+                    <div className="text-[13px] font-medium text-[#1f1f1f] group-hover:text-[#000000]">
                       Enterprise Virtual Compute
                     </div>
-                    <div className="text-[12px] text-[#5f6368]">
+                    <div className="text-[12px] text-[#636363]">
                       Dedicated droplets, isolated DBs & Anycast DNS.
                     </div>
                   </div>
@@ -208,7 +208,7 @@ export default function LandingNavbar({ onNavigate, currentUser }) {
                     window.location.href = getAuthUrl('/login');
                   }
                 }}
-                className="text-[#0b57d0] hover:bg-[#f0f4f9] px-3 sm:px-3.5 py-1.5 rounded-full font-medium text-[13px] sm:text-[14px] transition-colors cursor-pointer"
+                className="text-[#000000] hover:bg-[#f4f4f4] px-3 sm:px-3.5 py-1.5 rounded-full font-medium text-[13px] sm:text-[14px] transition-colors cursor-pointer"
               >
                 Sign in
               </button>
@@ -217,7 +217,7 @@ export default function LandingNavbar({ onNavigate, currentUser }) {
             {/* Google Primary Blue Pill Button */}
             <button
               onClick={() => onNavigate(currentUser ? 'dashboard' : 'create-account')}
-              className="hidden sm:inline-flex bg-[#0b57d0] hover:bg-[#0842a0] active:bg-[#062e6f] text-white px-4 sm:px-5 py-1.5 sm:py-2 rounded-full font-medium text-[13px] sm:text-[14px] shadow-xs hover:shadow-[0_1px_3px_1px_rgba(60,64,67,0.15)] transition-all cursor-pointer items-center gap-1.5 shrink-0"
+              className="hidden sm:inline-flex bg-[#000000] hover:bg-[#3c3c3c] active:bg-[#2a2a2a] text-white px-4 sm:px-5 py-1.5 sm:py-2 rounded-full font-medium text-[13px] sm:text-[14px] shadow-xs hover:shadow-[0_1px_3px_1px_rgba(60,64,67,0.15)] transition-all cursor-pointer items-center gap-1.5 shrink-0"
             >
               <span>{currentUser ? 'Console' : 'Start free trial'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -256,7 +256,7 @@ export default function LandingNavbar({ onNavigate, currentUser }) {
                 className="w-full text-left px-3 py-2.5 rounded-[8px] font-medium text-[15px] text-[#1f1f1f] hover:bg-[#f8f9fa] flex items-center justify-between"
               >
                 <span>Storefront Engine</span>
-                <span className="text-xs text-[#0b57d0] font-normal">Commerce</span>
+                <span className="text-xs text-[#000000] font-normal">Commerce</span>
               </button>
               <button
                 onClick={() => {
@@ -310,7 +310,7 @@ export default function LandingNavbar({ onNavigate, currentUser }) {
                       window.location.href = getAuthUrl('/login');
                     }
                   }}
-                  className="w-full py-3 text-center font-medium text-[14px] text-[#0b57d0] rounded-full border border-[#dadce0] hover:bg-[#f8f9fa] transition-colors"
+                  className="w-full py-3 text-center font-medium text-[14px] text-[#000000] rounded-full border border-[#dcdcdc] hover:bg-[#f8f9fa] transition-colors"
                 >
                   Sign in
                 </button>
@@ -320,7 +320,7 @@ export default function LandingNavbar({ onNavigate, currentUser }) {
                   setMobileMenuOpen(false);
                   onNavigate(currentUser ? 'dashboard' : 'create-account');
                 }}
-                className="w-full py-3 text-center font-medium text-[14px] bg-[#0b57d0] hover:bg-[#0842a0] text-white rounded-full transition-colors flex items-center justify-center gap-2"
+                className="w-full py-3 text-center font-medium text-[14px] bg-[#000000] hover:bg-[#3c3c3c] text-white rounded-full transition-colors flex items-center justify-center gap-2"
               >
                 <span>{currentUser ? 'Open Console' : 'Start free trial'}</span>
                 <ArrowRight className="w-4 h-4" />

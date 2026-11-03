@@ -145,10 +145,10 @@ export default function AddressVerificationView({ onVerified, onSignOut }) {
     : 16;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#F0F4F9] px-4 py-8 text-[#1F1F1F]">
+    <main className="flex min-h-screen items-center justify-center bg-[#f4f4f4] px-4 py-8 text-[#1F1F1F]">
       <section
         aria-labelledby="address-verification-title"
-        className="w-full max-w-[448px] rounded-[28px] border border-[#DADCE0] bg-white p-7 shadow-none sm:p-9"
+        className="w-full max-w-[448px] rounded-[28px] border border-[#dcdcdc] bg-white p-7 shadow-none sm:p-9"
       >
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center">
@@ -162,7 +162,7 @@ export default function AddressVerificationView({ onVerified, onSignOut }) {
             <button
               type="button"
               onClick={onSignOut}
-              className="inline-flex min-h-9 items-center gap-2 rounded-full px-3 text-sm font-medium text-[#5F6368] transition hover:bg-[#F1F3F4] hover:text-[#202124] focus:outline-none focus:ring-2 focus:ring-[#D2E3FC]"
+              className="inline-flex min-h-9 items-center gap-2 rounded-full px-3 text-sm font-medium text-[#636363] transition hover:bg-[#F1F3F4] hover:text-[#212121] focus:outline-none focus:ring-2 focus:ring-[#e1e1e1]"
               aria-label="Sign out"
             >
               <LogOut className="h-[18px] w-[18px]" aria-hidden="true" />
@@ -176,11 +176,11 @@ export default function AddressVerificationView({ onVerified, onSignOut }) {
             phase === 'success'
               ? 'bg-[#e6f4ea] text-[#188038]'
               : isWorking
-                ? 'bg-[#e8f0fe] text-[#1a73e8]'
-                : 'bg-[#f1f3f4] text-[#5f6368]'
+                ? 'bg-[#efefef] text-[#696969]'
+                : 'bg-[#f1f3f4] text-[#636363]'
           }`}>
             {phase === 'success' ? (
-              <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#1a73e8]">
+              <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#696969]">
                 <MapPin className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
                 <span className="absolute -bottom-0.5 -right-1 flex h-[17px] w-[17px] items-center justify-center rounded-full border-2 border-white bg-[#188038] text-white">
                   <Check className="h-2.5 w-2.5" strokeWidth={3} aria-hidden="true" />
@@ -202,12 +202,12 @@ export default function AddressVerificationView({ onVerified, onSignOut }) {
             </div>
           )}
 
-          <h1 id="address-verification-title" className="text-[24px] font-normal leading-[1.3] tracking-[-0.35px] text-[#202124]">
+          <h1 id="address-verification-title" className="text-[24px] font-normal leading-[1.3] tracking-[-0.35px] text-[#212121]">
             {phase === 'success'
               ? 'Address verified'
               : 'Your account is locked. Verify your address to continue.'}
           </h1>
-          <p className="mt-2 text-sm leading-[1.5] text-[#5f6368]">
+          <p className="mt-2 text-sm leading-[1.5] text-[#636363]">
             {phase === 'success'
               ? isApproximate
                 ? 'Google resolved the best available GPS coordinates. The map pin is approximate because your device reported a wide accuracy range.'
@@ -220,22 +220,22 @@ export default function AddressVerificationView({ onVerified, onSignOut }) {
           </p>
 
           {isWorking && (
-            <div className="mt-5 h-1 overflow-hidden rounded-full bg-[#e8eaed]" role="progressbar" aria-label="Verifying your location">
-              <div className="h-full w-2/3 animate-pulse rounded-full bg-[#4285f4]" />
+            <div className="mt-5 h-1 overflow-hidden rounded-full bg-[#eaeaea]" role="progressbar" aria-label="Verifying your location">
+              <div className="h-full w-2/3 animate-pulse rounded-full bg-[#7f7f7f]" />
             </div>
           )}
 
           {phase === 'success' && verifiedLocation && (
-            <div className="mt-5 overflow-hidden rounded-2xl border border-[#dadce0] bg-white" role="status">
+            <div className="mt-5 overflow-hidden rounded-2xl border border-[#dcdcdc] bg-white" role="status">
               <div className="flex items-start gap-3 p-3.5">
-                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#e8f0fe] text-[#1a73e8]">
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#efefef] text-[#696969]">
                   <MapPin className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-xs font-medium text-[#5f6368]">
+                  <p className="text-xs font-medium text-[#636363]">
                     {isApproximate ? 'Approximate location' : 'Verified address'}
                   </p>
-                  <p className="mt-1 text-sm leading-5 text-[#202124]">{verifiedLocation.formattedAddress}</p>
+                  <p className="mt-1 text-sm leading-5 text-[#212121]">{verifiedLocation.formattedAddress}</p>
                 </div>
               </div>
               <iframe
@@ -245,14 +245,14 @@ export default function AddressVerificationView({ onVerified, onSignOut }) {
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
               />
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#e8eaed] px-4 py-3 sm:px-5">
-                <p className="text-xs text-[#5f6368]">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#eaeaea] px-4 py-3 sm:px-5">
+                <p className="text-xs text-[#636363]">
                   {isApproximate
                     ? `GPS accuracy: about ${Math.round(verifiedLocation.accuracyMeters)} m`
                     : 'Verified just now'}
                 </p>
                 <a
-                  className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-[#1a73e8] transition hover:bg-[#f1f6fe]"
+                  className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-[#696969] transition hover:bg-[#f6f6f6]"
                   href={mapUrl}
                   target="_blank"
                   rel="noreferrer"
@@ -294,7 +294,7 @@ export default function AddressVerificationView({ onVerified, onSignOut }) {
               type="button"
               onClick={startVerification}
               disabled={isWorking}
-              className="mt-5 flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[#0b57d0] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#0842a0] focus:outline-none focus:ring-4 focus:ring-[#d2e3fc] disabled:cursor-wait disabled:opacity-70"
+              className="mt-5 flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[#000000] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#3c3c3c] focus:outline-none focus:ring-4 focus:ring-[#e1e1e1] disabled:cursor-wait disabled:opacity-70"
             >
               {isWorking ? (
                 <>
@@ -309,8 +309,8 @@ export default function AddressVerificationView({ onVerified, onSignOut }) {
               )}
             </button>
           ) : (
-            <div className="mt-5 flex items-center justify-center gap-2 text-xs font-medium text-[#5f6368]" role="status">
-              <LoaderCircle className="h-3.5 w-3.5 animate-spin text-[#1a73e8]" aria-hidden="true" />
+            <div className="mt-5 flex items-center justify-center gap-2 text-xs font-medium text-[#636363]" role="status">
+              <LoaderCircle className="h-3.5 w-3.5 animate-spin text-[#696969]" aria-hidden="true" />
               Returning to your account…
             </div>
           )}

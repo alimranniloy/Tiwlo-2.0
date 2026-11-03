@@ -23,10 +23,10 @@ export default function ScanBarcodeModal({ isOpen, onClose, onSelectBarcodeProdu
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 dark:border-gray-700 animate-in zoom-in-95 duration-150 text-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-neutral-200 dark:border-gray-700 animate-in zoom-in-95 duration-150 text-center">
         <div className="flex justify-end">
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -35,19 +35,19 @@ export default function ScanBarcodeModal({ isOpen, onClose, onSelectBarcodeProdu
           <ScanLine className="w-8 h-8 animate-pulse" />
         </div>
 
-        <h3 className="text-base font-bold text-slate-900 dark:text-white">
+        <h3 className="text-base font-bold text-neutral-900 dark:text-white">
           Barcode / Optical Scanner
         </h3>
-        <p className="text-xs text-slate-400 mt-1 mb-4">
+        <p className="text-xs text-neutral-400 mt-1 mb-4">
           Point optical scanner or input SKU / barcode code manually
         </p>
 
         <div className="relative border-2 border-dashed border-amber-300 dark:border-amber-700 rounded-2xl p-6 bg-amber-50/20 dark:bg-amber-950/10 mb-4">
           <div className="h-1 bg-red-500 shadow-sm shadow-red-500 animate-bounce mb-3"></div>
-          <span className="font-mono text-sm font-bold tracking-widest text-slate-800 dark:text-slate-200">
+          <span className="font-mono text-sm font-bold tracking-widest text-neutral-800 dark:text-neutral-200">
             ||| | |||| | ||| |||||
           </span>
-          <p className="font-mono text-xs font-semibold text-slate-600 dark:text-slate-400 mt-2">
+          <p className="font-mono text-xs font-semibold text-neutral-600 dark:text-neutral-400 mt-2">
             {barcode}
           </p>
         </div>
@@ -58,7 +58,7 @@ export default function ScanBarcodeModal({ isOpen, onClose, onSelectBarcodeProdu
             value={barcode}
             onChange={(e) => setBarcode(e.target.value.toUpperCase())}
             placeholder="Type SKU or Barcode..."
-            className="flex-1 px-3 py-2 text-xs bg-slate-50 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl uppercase font-mono text-slate-900 dark:text-white"
+            className="flex-1 px-3 py-2 text-xs bg-neutral-50 dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-xl uppercase font-mono text-neutral-900 dark:text-white"
           />
           <button
             onClick={handleScan}

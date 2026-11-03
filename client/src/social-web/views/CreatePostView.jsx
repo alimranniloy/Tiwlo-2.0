@@ -70,16 +70,16 @@ export default function CreatePostView() {
   return (
     <div className="w-full flex flex-col min-h-screen max-w-2xl mx-auto">
       {/* 1. Modern Header */}
-      <div className="sticky top-0 z-20 bg-[#f0f2f5]/90 dark:bg-[#0a0a0f]/90 backdrop-blur-xl px-2 py-3 flex items-center justify-between border-b border-black/[0.05] dark:border-white/[0.06] mb-4">
+      <div className="sticky top-0 z-20 bg-[#f2f2f2]/90 dark:bg-[#0a0a0a]/90 backdrop-blur-xl px-2 py-3 flex items-center justify-between border-b border-black/[0.05] dark:border-white/[0.06] mb-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigateTo('feed')}
-            className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] transition cursor-pointer active:scale-95"
+            className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#676767] dark:text-[#b3b3b3] transition cursor-pointer active:scale-95"
             title="Back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-[18px] font-bold text-[#1c1e21] dark:text-[#e4e6eb] tracking-tight">
+          <h1 className="text-[18px] font-bold text-[#1e1e1e] dark:text-[#e6e6e6] tracking-tight">
             Create Post
           </h1>
         </div>
@@ -96,7 +96,7 @@ export default function CreatePostView() {
           <button
             onClick={handleSubmit}
             disabled={(!caption.trim() && mediaUrls.length === 0) || submitting || uploading}
-            className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 disabled:opacity-40 text-white font-semibold text-[13px] px-5 py-2 rounded-xl shadow-md shadow-violet-500/20 active:scale-95 transition cursor-pointer flex items-center gap-2"
+            className="bg-gradient-to-r from-violet-600 to-neutral-600 hover:from-violet-700 hover:to-neutral-700 disabled:opacity-40 text-white font-semibold text-[13px] px-5 py-2 rounded-xl shadow-md shadow-violet-500/20 active:scale-95 transition cursor-pointer flex items-center gap-2"
           >
             <Send className="w-3.5 h-3.5" />
             <span>{submitting ? 'Publishing...' : 'Publish'}</span>
@@ -105,7 +105,7 @@ export default function CreatePostView() {
       </div>
 
       {/* 2. Composer Card */}
-      <div className="bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-5 shadow-sm">
+      <div className="bg-white dark:bg-[#171717] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-5 shadow-sm">
         {/* Creator Info */}
         <div className="flex items-center gap-3 mb-4">
           <img
@@ -114,7 +114,7 @@ export default function CreatePostView() {
             className="w-11 h-11 rounded-xl object-cover ring-2 ring-violet-500/40"
           />
           <div className="flex flex-col">
-            <span className="font-semibold text-[14px] text-[#1c1e21] dark:text-[#e4e6eb]">
+            <span className="font-semibold text-[14px] text-[#1e1e1e] dark:text-[#e6e6e6]">
               {currentUser?.name || 'Tiwi Creator'}
             </span>
             {/* Audience Selector Pill */}
@@ -135,7 +135,7 @@ export default function CreatePostView() {
           placeholder="What's on your mind? Share updates, technical insights, or creative work..."
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
-          className="w-full bg-transparent text-[15px] text-[#1c1e21] dark:text-[#e4e6eb] placeholder-[#65676b] dark:placeholder-[#8a8d91] outline-none resize-none leading-relaxed"
+          className="w-full bg-transparent text-[15px] text-[#1e1e1e] dark:text-[#e6e6e6] placeholder-[#676767] dark:placeholder-[#8d8d8d] outline-none resize-none leading-relaxed"
         />
 
         {/* Media Preview Grid */}
@@ -190,7 +190,7 @@ export default function CreatePostView() {
             </button>
           </div>
 
-          <div className="text-[12px] text-[#65676b] dark:text-[#8a8d91]">
+          <div className="text-[12px] text-[#676767] dark:text-[#8d8d8d]">
             {uploading ? (
               <span className="text-violet-500 animate-pulse">Uploading media...</span>
             ) : (

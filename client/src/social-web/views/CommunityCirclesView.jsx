@@ -159,7 +159,7 @@ export default function CommunityCirclesView() {
   return (
     <div className="w-full flex flex-col min-h-screen max-w-4xl mx-auto pb-20">
       {/* 1. Header Bar */}
-      <div className="sticky top-0 z-20 bg-[#f0f2f5]/90 dark:bg-[#0a0a0f]/90 backdrop-blur-xl px-2 py-3 flex items-center justify-between border-b border-black/[0.05] dark:border-white/[0.06] mb-4">
+      <div className="sticky top-0 z-20 bg-[#f2f2f2]/90 dark:bg-[#0a0a0a]/90 backdrop-blur-xl px-2 py-3 flex items-center justify-between border-b border-black/[0.05] dark:border-white/[0.06] mb-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => {
@@ -167,16 +167,16 @@ export default function CommunityCirclesView() {
               else if (showCreateForm) setShowCreateForm(false);
               else navigateTo('feed');
             }}
-            className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] transition cursor-pointer active:scale-95"
+            className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#676767] dark:text-[#b3b3b3] transition cursor-pointer active:scale-95"
             title="Back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-[18px] font-bold text-[#1c1e21] dark:text-[#e4e6eb] leading-tight">
+            <h1 className="text-[18px] font-bold text-[#1e1e1e] dark:text-[#e6e6e6] leading-tight">
               {showCreateForm ? 'Create a Space' : selectedSpace ? selectedSpace.name : 'Spaces & Circles'}
             </h1>
-            <span className="text-[12px] text-[#65676b] dark:text-[#8a8d91]">
+            <span className="text-[12px] text-[#676767] dark:text-[#8d8d8d]">
               {selectedSpace ? `${selectedSpace.membersCount.toLocaleString()} members` : 'Connect with shared interest communities'}
             </span>
           </div>
@@ -185,7 +185,7 @@ export default function CommunityCirclesView() {
         {!selectedSpace && !showCreateForm && (
           <button
             onClick={() => setShowCreateForm(true)}
-            className="flex items-center gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white px-4 py-2 rounded-xl font-semibold text-[13px] shadow-md shadow-violet-500/20 active:scale-95 transition cursor-pointer"
+            className="flex items-center gap-1.5 bg-gradient-to-r from-violet-600 to-neutral-600 hover:from-violet-700 hover:to-neutral-700 text-white px-4 py-2 rounded-xl font-semibold text-[13px] shadow-md shadow-violet-500/20 active:scale-95 transition cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>New Space</span>
@@ -195,17 +195,17 @@ export default function CommunityCirclesView() {
 
       {/* 2. In-Page Create Space Form (Strictly No Popups) */}
       {showCreateForm ? (
-        <div className="bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-6 shadow-sm">
-          <h2 className="text-[17px] font-bold text-[#1c1e21] dark:text-[#e4e6eb] mb-1">
+        <div className="bg-white dark:bg-[#171717] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-6 shadow-sm">
+          <h2 className="text-[17px] font-bold text-[#1e1e1e] dark:text-[#e6e6e6] mb-1">
             Build your Community Space
           </h2>
-          <p className="text-[13px] text-[#65676b] dark:text-[#8a8d91] mb-5">
+          <p className="text-[13px] text-[#676767] dark:text-[#8d8d8d] mb-5">
             Create an open or private circle for discussions, live audio hangouts, and collaborative posts.
           </p>
 
           <form onSubmit={handleCreateSpace} className="space-y-4">
             <div>
-              <label className="text-[12px] font-semibold text-[#65676b] dark:text-[#8a8d91] block mb-1.5">
+              <label className="text-[12px] font-semibold text-[#676767] dark:text-[#8d8d8d] block mb-1.5">
                 Space Name
               </label>
               <input
@@ -213,12 +213,12 @@ export default function CommunityCirclesView() {
                 placeholder="e.g. NextGen Web Architects"
                 value={newSpaceName}
                 onChange={(e) => setNewSpaceName(e.target.value)}
-                className="w-full h-11 px-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] text-[14px] text-[#1c1e21] dark:text-[#e4e6eb] outline-none focus:ring-2 focus:ring-violet-500/30"
+                className="w-full h-11 px-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] text-[14px] text-[#1e1e1e] dark:text-[#e6e6e6] outline-none focus:ring-2 focus:ring-violet-500/30"
               />
             </div>
 
             <div>
-              <label className="text-[12px] font-semibold text-[#65676b] dark:text-[#8a8d91] block mb-1.5">
+              <label className="text-[12px] font-semibold text-[#676767] dark:text-[#8d8d8d] block mb-1.5">
                 Description
               </label>
               <textarea
@@ -226,19 +226,19 @@ export default function CommunityCirclesView() {
                 placeholder="What is this community about? Who should join?"
                 value={newSpaceDesc}
                 onChange={(e) => setNewSpaceDesc(e.target.value)}
-                className="w-full p-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] text-[14px] text-[#1c1e21] dark:text-[#e4e6eb] outline-none focus:ring-2 focus:ring-violet-500/30 resize-none leading-relaxed"
+                className="w-full p-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] text-[14px] text-[#1e1e1e] dark:text-[#e6e6e6] outline-none focus:ring-2 focus:ring-violet-500/30 resize-none leading-relaxed"
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-[12px] font-semibold text-[#65676b] dark:text-[#8a8d91] block mb-1.5">
+                <label className="text-[12px] font-semibold text-[#676767] dark:text-[#8d8d8d] block mb-1.5">
                   Category
                 </label>
                 <select
                   value={newSpaceCategory}
                   onChange={(e) => setNewSpaceCategory(e.target.value)}
-                  className="w-full h-11 px-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] text-[14px] text-[#1c1e21] dark:text-[#e4e6eb] outline-none focus:ring-2 focus:ring-violet-500/30 cursor-pointer"
+                  className="w-full h-11 px-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] text-[14px] text-[#1e1e1e] dark:text-[#e6e6e6] outline-none focus:ring-2 focus:ring-violet-500/30 cursor-pointer"
                 >
                   {categories.filter((c) => c !== 'All').map((cat) => (
                     <option key={cat} value={cat}>{cat}</option>
@@ -247,7 +247,7 @@ export default function CommunityCirclesView() {
               </div>
 
               <div>
-                <label className="text-[12px] font-semibold text-[#65676b] dark:text-[#8a8d91] block mb-1.5">
+                <label className="text-[12px] font-semibold text-[#676767] dark:text-[#8d8d8d] block mb-1.5">
                   Privacy
                 </label>
                 <div className="flex gap-2">
@@ -257,7 +257,7 @@ export default function CommunityCirclesView() {
                     className={`flex-1 h-11 rounded-xl font-semibold text-[13px] flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                       !isPrivate
                         ? 'bg-violet-600 text-white shadow-md shadow-violet-500/20'
-                        : 'bg-black/[0.03] dark:bg-white/[0.05] text-[#65676b] dark:text-[#8a8d91]'
+                        : 'bg-black/[0.03] dark:bg-white/[0.05] text-[#676767] dark:text-[#8d8d8d]'
                     }`}
                   >
                     <Globe className="w-4 h-4" />
@@ -269,7 +269,7 @@ export default function CommunityCirclesView() {
                     className={`flex-1 h-11 rounded-xl font-semibold text-[13px] flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                       isPrivate
                         ? 'bg-violet-600 text-white shadow-md shadow-violet-500/20'
-                        : 'bg-black/[0.03] dark:bg-white/[0.05] text-[#65676b] dark:text-[#8a8d91]'
+                        : 'bg-black/[0.03] dark:bg-white/[0.05] text-[#676767] dark:text-[#8d8d8d]'
                     }`}
                   >
                     <Lock className="w-4 h-4" />
@@ -283,14 +283,14 @@ export default function CommunityCirclesView() {
               <button
                 type="button"
                 onClick={() => setShowCreateForm(false)}
-                className="px-5 py-2.5 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] font-semibold text-[13px] text-[#65676b] dark:text-[#8a8d91] transition cursor-pointer"
+                className="px-5 py-2.5 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] font-semibold text-[13px] text-[#676767] dark:text-[#8d8d8d] transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submittingSpace}
-                className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 disabled:opacity-40 text-white font-semibold text-[13px] px-6 py-2.5 rounded-xl shadow-md shadow-violet-500/20 active:scale-95 transition cursor-pointer"
+                className="bg-gradient-to-r from-violet-600 to-neutral-600 hover:from-violet-700 hover:to-neutral-700 disabled:opacity-40 text-white font-semibold text-[13px] px-6 py-2.5 rounded-xl shadow-md shadow-violet-500/20 active:scale-95 transition cursor-pointer"
               >
                 {submittingSpace ? 'Creating...' : 'Create Space'}
               </button>
@@ -300,7 +300,7 @@ export default function CommunityCirclesView() {
       ) : selectedSpace ? (
         /* 3. Space Detail View */
         <div className="space-y-4">
-          <div className="bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm overflow-hidden">
+          <div className="bg-white dark:bg-[#171717] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm overflow-hidden">
             <div className="h-44 sm:h-52 w-full relative">
               <img src={selectedSpace.coverImage} alt={selectedSpace.name} className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex items-end p-6">
@@ -323,10 +323,10 @@ export default function CommunityCirclesView() {
 
             <div className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-black/[0.05] dark:border-white/[0.06]">
               <div>
-                <p className="text-[14px] text-[#4b4f56] dark:text-[#b0b3b8] max-w-xl leading-relaxed">
+                <p className="text-[14px] text-[#4f4f4f] dark:text-[#b3b3b3] max-w-xl leading-relaxed">
                   {selectedSpace.description}
                 </p>
-                <div className="flex items-center gap-4 mt-2 text-[12px] text-[#65676b] dark:text-[#8a8d91]">
+                <div className="flex items-center gap-4 mt-2 text-[12px] text-[#676767] dark:text-[#8d8d8d]">
                   <span className="flex items-center gap-1.5">
                     <Users className="w-4 h-4 text-violet-500" />
                     <b>{selectedSpace.membersCount.toLocaleString()}</b> members
@@ -339,8 +339,8 @@ export default function CommunityCirclesView() {
                   onClick={() => handleToggleJoin(selectedSpace.id)}
                   className={`px-5 py-2.5 rounded-xl font-semibold text-[13px] transition cursor-pointer shadow-sm ${
                     selectedSpace.isJoined
-                      ? 'bg-black/[0.05] dark:bg-white/[0.08] text-[#1c1e21] dark:text-[#e4e6eb]'
-                      : 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-violet-500/20'
+                      ? 'bg-black/[0.05] dark:bg-white/[0.08] text-[#1e1e1e] dark:text-[#e6e6e6]'
+                      : 'bg-gradient-to-r from-violet-600 to-neutral-600 text-white shadow-violet-500/20'
                   }`}
                 >
                   {selectedSpace.isJoined ? 'Joined' : 'Join Space'}
@@ -369,7 +369,7 @@ export default function CommunityCirclesView() {
                   className={`px-4 py-1.5 rounded-xl text-[13px] font-medium transition cursor-pointer whitespace-nowrap ${
                     isActive
                       ? 'bg-violet-600 text-white shadow-md shadow-violet-500/20 font-semibold'
-                      : 'bg-white dark:bg-[#16161f] text-[#65676b] dark:text-[#b0b3b8] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] border border-black/[0.05] dark:border-white/[0.06]'
+                      : 'bg-white dark:bg-[#171717] text-[#676767] dark:text-[#b3b3b3] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] border border-black/[0.05] dark:border-white/[0.06]'
                   }`}
                 >
                   {cat}
@@ -384,7 +384,7 @@ export default function CommunityCirclesView() {
               <div
                 key={s.id}
                 onClick={() => setSelectedSpace(s)}
-                className="group bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm hover:shadow-md dark:hover:shadow-black/30 transition-all duration-200 overflow-hidden cursor-pointer flex flex-col justify-between"
+                className="group bg-white dark:bg-[#171717] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm hover:shadow-md dark:hover:shadow-black/30 transition-all duration-200 overflow-hidden cursor-pointer flex flex-col justify-between"
               >
                 <div>
                   <div className="h-32 w-full relative overflow-hidden bg-violet-500/10">
@@ -406,17 +406,17 @@ export default function CommunityCirclesView() {
                   </div>
 
                   <div className="p-4">
-                    <h3 className="font-bold text-[16px] text-[#1c1e21] dark:text-[#e4e6eb] group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                    <h3 className="font-bold text-[16px] text-[#1e1e1e] dark:text-[#e6e6e6] group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
                       {s.name}
                     </h3>
-                    <p className="text-[12.5px] text-[#65676b] dark:text-[#8a8d91] line-clamp-2 mt-1 leading-relaxed">
+                    <p className="text-[12.5px] text-[#676767] dark:text-[#8d8d8d] line-clamp-2 mt-1 leading-relaxed">
                       {s.description}
                     </p>
                   </div>
                 </div>
 
                 <div className="px-4 pb-4 pt-2 flex items-center justify-between border-t border-black/[0.04] dark:border-white/[0.05]">
-                  <span className="text-[12px] font-medium text-[#65676b] dark:text-[#8a8d91]">
+                  <span className="text-[12px] font-medium text-[#676767] dark:text-[#8d8d8d]">
                     {s.membersCount.toLocaleString()} members
                   </span>
 
@@ -427,7 +427,7 @@ export default function CommunityCirclesView() {
                     }}
                     className={`text-[12px] font-semibold px-4 py-1.5 rounded-xl transition cursor-pointer shadow-xs ${
                       s.isJoined
-                        ? 'bg-black/[0.04] dark:bg-white/[0.08] text-[#1c1e21] dark:text-[#e4e6eb]'
+                        ? 'bg-black/[0.04] dark:bg-white/[0.08] text-[#1e1e1e] dark:text-[#e6e6e6]'
                         : 'bg-violet-600 hover:bg-violet-700 text-white shadow-violet-500/20'
                     }`}
                   >

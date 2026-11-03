@@ -61,14 +61,14 @@ export default function SocialNavbar({ onBackToPortal }) {
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 bg-white/80 dark:bg-[#111118]/80 backdrop-blur-xl border-b border-black/[0.05] dark:border-white/[0.06] transition-colors">
+    <header className="sticky top-0 z-40 bg-white/80 dark:bg-[#121212]/80 backdrop-blur-xl border-b border-black/[0.05] dark:border-white/[0.06] transition-colors">
       <div className="max-w-[1400px] mx-auto px-4 h-15 flex items-center justify-between gap-4">
         {/* Left: Brand Logo & Back to portal */}
         <div className="flex items-center gap-3">
           {onBackToPortal && (
             <button
               onClick={onBackToPortal}
-              className="w-9 h-9 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] transition cursor-pointer"
+              className="w-9 h-9 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#676767] dark:text-[#b3b3b3] transition cursor-pointer"
               title="Return to Portal"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -79,10 +79,10 @@ export default function SocialNavbar({ onBackToPortal }) {
             onClick={() => navigateTo('feed')}
             className="flex items-center gap-2.5 cursor-pointer group"
           >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-violet-600 via-indigo-600 to-fuchsia-600 flex items-center justify-center text-white font-extrabold text-base shadow-md shadow-violet-500/20 group-hover:scale-105 transition-transform">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-violet-600 via-neutral-600 to-fuchsia-600 flex items-center justify-center text-white font-extrabold text-base shadow-md shadow-violet-500/20 group-hover:scale-105 transition-transform">
               T
             </div>
-            <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
+            <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-violet-600 to-neutral-600 bg-clip-text text-transparent">
               Tiwi
             </span>
           </div>
@@ -91,7 +91,7 @@ export default function SocialNavbar({ onBackToPortal }) {
         {/* Center: Search Bar */}
         <div ref={searchRef} className="relative flex-1 max-w-md hidden sm:block">
           <div className="flex items-center h-10 bg-black/[0.03] dark:bg-white/[0.05] rounded-xl px-3.5 border border-black/[0.05] dark:border-white/[0.08] focus-within:ring-2 focus-within:ring-violet-500/30 transition-all">
-            <Search className="w-4 h-4 text-[#65676b] dark:text-[#8a8d91] mr-2.5" />
+            <Search className="w-4 h-4 text-[#676767] dark:text-[#8d8d8d] mr-2.5" />
             <input
               type="text"
               placeholder="Search topics, creators, or keywords..."
@@ -101,13 +101,13 @@ export default function SocialNavbar({ onBackToPortal }) {
                 setSearchOpen(true);
               }}
               onFocus={() => setSearchOpen(true)}
-              className="bg-transparent text-[13.5px] text-[#1c1e21] dark:text-[#e4e6eb] outline-none w-full placeholder-[#65676b] dark:placeholder-[#8a8d91]"
+              className="bg-transparent text-[13.5px] text-[#1e1e1e] dark:text-[#e6e6e6] outline-none w-full placeholder-[#676767] dark:placeholder-[#8d8d8d]"
             />
           </div>
 
           {searchOpen && searchQuery.trim() && (
-            <div className="absolute top-12 left-0 right-0 bg-white dark:bg-[#16161f] rounded-2xl shadow-2xl border border-black/[0.06] dark:border-white/[0.08] p-3 z-50">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#65676b] dark:text-[#8a8d91] px-2 block mb-2">
+            <div className="absolute top-12 left-0 right-0 bg-white dark:bg-[#171717] rounded-2xl shadow-2xl border border-black/[0.06] dark:border-white/[0.08] p-3 z-50">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#676767] dark:text-[#8d8d8d] px-2 block mb-2">
                 Quick Results
               </span>
               <button
@@ -128,7 +128,7 @@ export default function SocialNavbar({ onBackToPortal }) {
           {/* Create Post Button */}
           <button
             onClick={() => navigateTo('create-post')}
-            className="flex items-center gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold text-xs px-4 py-2 rounded-xl shadow-md shadow-violet-500/20 active:scale-95 transition cursor-pointer"
+            className="flex items-center gap-1.5 bg-gradient-to-r from-violet-600 to-neutral-600 hover:from-violet-700 hover:to-neutral-700 text-white font-semibold text-xs px-4 py-2 rounded-xl shadow-md shadow-violet-500/20 active:scale-95 transition cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden md:inline">Post</span>
@@ -137,7 +137,7 @@ export default function SocialNavbar({ onBackToPortal }) {
           {/* Messages */}
           <button
             onClick={() => navigateTo('messages')}
-            className="w-9 h-9 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] relative transition cursor-pointer"
+            className="w-9 h-9 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#676767] dark:text-[#b3b3b3] relative transition cursor-pointer"
             title="Messages"
           >
             <MessageCircle className="w-5 h-5" />
@@ -149,7 +149,7 @@ export default function SocialNavbar({ onBackToPortal }) {
           {/* Notifications */}
           <button
             onClick={() => navigateTo('notifications')}
-            className="w-9 h-9 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] relative transition cursor-pointer"
+            className="w-9 h-9 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#676767] dark:text-[#b3b3b3] relative transition cursor-pointer"
             title="Notifications"
           >
             <Bell className="w-5 h-5" />
@@ -161,7 +161,7 @@ export default function SocialNavbar({ onBackToPortal }) {
           {/* Theme Toggle */}
           <button
             onClick={toggleDarkMode}
-            className="w-9 h-9 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] transition cursor-pointer"
+            className="w-9 h-9 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#676767] dark:text-[#b3b3b3] transition cursor-pointer"
             title="Toggle theme"
           >
             {isDarkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5" />}
@@ -181,12 +181,12 @@ export default function SocialNavbar({ onBackToPortal }) {
             </button>
 
             {profileDropdownOpen && (
-              <div className="absolute right-0 top-12 w-56 bg-white dark:bg-[#16161f] rounded-2xl shadow-2xl border border-black/[0.06] dark:border-white/[0.08] p-2 z-50">
+              <div className="absolute right-0 top-12 w-56 bg-white dark:bg-[#171717] rounded-2xl shadow-2xl border border-black/[0.06] dark:border-white/[0.08] p-2 z-50">
                 <div className="p-3 border-b border-black/[0.05] dark:border-white/[0.05] mb-1">
-                  <div className="font-semibold text-xs text-[#1c1e21] dark:text-[#e4e6eb] truncate">
+                  <div className="font-semibold text-xs text-[#1e1e1e] dark:text-[#e6e6e6] truncate">
                     {currentUser?.name || 'User'}
                   </div>
-                  <div className="text-[11px] text-[#65676b] dark:text-[#8a8d91]">
+                  <div className="text-[11px] text-[#676767] dark:text-[#8d8d8d]">
                     @{currentUser?.handle || 'user'}
                   </div>
                 </div>
@@ -196,9 +196,9 @@ export default function SocialNavbar({ onBackToPortal }) {
                     setProfileDropdownOpen(false);
                     navigateTo('profile', currentUser?.handle || currentUser?.id);
                   }}
-                  className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] text-xs font-semibold text-[#1c1e21] dark:text-[#e4e6eb] transition text-left"
+                  className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] text-xs font-semibold text-[#1e1e1e] dark:text-[#e6e6e6] transition text-left"
                 >
-                  <User className="w-4 h-4 text-[#65676b]" />
+                  <User className="w-4 h-4 text-[#676767]" />
                   <span>Your Profile</span>
                 </button>
 
@@ -207,7 +207,7 @@ export default function SocialNavbar({ onBackToPortal }) {
                     setProfileDropdownOpen(false);
                     navigateTo('creator');
                   }}
-                  className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] text-xs font-semibold text-[#1c1e21] dark:text-[#e4e6eb] transition text-left"
+                  className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] text-xs font-semibold text-[#1e1e1e] dark:text-[#e6e6e6] transition text-left"
                 >
                   <Zap className="w-4 h-4 text-violet-500" />
                   <span>Creator Hub</span>
@@ -218,7 +218,7 @@ export default function SocialNavbar({ onBackToPortal }) {
                     setProfileDropdownOpen(false);
                     navigateTo('wallet');
                   }}
-                  className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] text-xs font-semibold text-[#1c1e21] dark:text-[#e4e6eb] transition text-left"
+                  className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] text-xs font-semibold text-[#1e1e1e] dark:text-[#e6e6e6] transition text-left"
                 >
                   <CreditCard className="w-4 h-4 text-emerald-500" />
                   <span>Wallet</span>
@@ -229,9 +229,9 @@ export default function SocialNavbar({ onBackToPortal }) {
                     setProfileDropdownOpen(false);
                     navigateTo('settings');
                   }}
-                  className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] text-xs font-semibold text-[#1c1e21] dark:text-[#e4e6eb] transition text-left"
+                  className="w-full flex items-center gap-2.5 p-2 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] text-xs font-semibold text-[#1e1e1e] dark:text-[#e6e6e6] transition text-left"
                 >
-                  <Settings className="w-4 h-4 text-[#65676b]" />
+                  <Settings className="w-4 h-4 text-[#676767]" />
                   <span>Settings</span>
                 </button>
               </div>

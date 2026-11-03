@@ -52,16 +52,16 @@ export default function EmailListPane() {
     activeFolder === 'flagged' ? 'Flagged' : activeFolder;
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white dark:bg-[#18181B] border-r border-slate-200 dark:border-slate-800 select-none text-[12.5px] min-w-0">
+    <div className="flex-1 flex flex-col h-full bg-white dark:bg-[#181818] border-r border-neutral-200 dark:border-neutral-800 select-none text-[12.5px] min-w-0">
       {/* 1. Header: Folder Title & Focused / Other Switcher */}
-      <div className="p-3 border-b border-slate-200/80 dark:border-slate-800 flex flex-col gap-2.5">
+      <div className="p-3 border-b border-neutral-200/80 dark:border-neutral-800 flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-[17px] font-bold text-slate-800 dark:text-slate-100 tracking-tight">
+            <h2 className="text-[17px] font-bold text-neutral-800 dark:text-neutral-100 tracking-tight">
               {folderTitle}
             </h2>
             {activeCategoryFilter && (
-              <span className="text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] dark:text-[#38BDF8] px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
+              <span className="text-[11px] font-semibold bg-neutral-50 dark:bg-neutral-950/40 text-[#656565] dark:text-[#737373] px-2 py-0.5 rounded-full border border-neutral-200 dark:border-neutral-800">
                 {activeCategoryFilter}
               </span>
             )}
@@ -72,7 +72,7 @@ export default function EmailListPane() {
             <button
               type="button"
               onClick={() => setFilterMenuOpen((prev) => !prev)}
-              className="flex items-center gap-1.5 px-2.5 py-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer text-[12px] font-medium"
+              className="flex items-center gap-1.5 px-2.5 py-1 text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer text-[12px] font-medium"
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
               <span>Filter</span>
@@ -83,28 +83,28 @@ export default function EmailListPane() {
                 <button
                   type="button"
                   onClick={() => { setQuickFilter('all'); setFilterMenuOpen(false); }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                  className="w-full text-left px-3 py-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer"
                 >
                   All messages
                 </button>
                 <button
                   type="button"
                   onClick={() => { setQuickFilter('unread'); setFilterMenuOpen(false); }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                  className="w-full text-left px-3 py-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer"
                 >
                   Unread mail
                 </button>
                 <button
                   type="button"
                   onClick={() => { setQuickFilter('flagged'); setFilterMenuOpen(false); }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                  className="w-full text-left px-3 py-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer"
                 >
                   Flagged
                 </button>
                 <button
                   type="button"
                   onClick={() => { setQuickFilter('attachments'); setFilterMenuOpen(false); }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                  className="w-full text-left px-3 py-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer"
                 >
                   Has attachments
                 </button>
@@ -115,20 +115,20 @@ export default function EmailListPane() {
 
         {/* Inbox filters */}
         {activeFolder === 'inbox' && (
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-1">
+          <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800/80 pb-1">
             <div className="flex items-center gap-4">
               <button
                 type="button"
                 onClick={() => setActiveTab('all')}
                 className={`font-bold text-[13px] pb-1.5 relative transition cursor-pointer ${
                   activeTab === 'all'
-                    ? 'text-[#0078D4] dark:text-[#38BDF8]'
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+                    ? 'text-[#656565] dark:text-[#737373]'
+                    : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
                 }`}
               >
                 All mail
                 {activeTab === 'all' && (
-                  <span className="absolute bottom-[-1px] left-0 right-0 h-[2.5px] bg-[#0078D4] dark:bg-[#38BDF8] rounded-full" />
+                  <span className="absolute bottom-[-1px] left-0 right-0 h-[2.5px] bg-[#656565] dark:bg-[#737373] rounded-full" />
                 )}
               </button>
 
@@ -137,13 +137,13 @@ export default function EmailListPane() {
                 onClick={() => setActiveTab('unread')}
                 className={`font-bold text-[13px] pb-1.5 relative transition cursor-pointer ${
                   activeTab === 'unread'
-                    ? 'text-[#0078D4] dark:text-[#38BDF8]'
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+                    ? 'text-[#656565] dark:text-[#737373]'
+                    : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-300'
                 }`}
               >
                 Unread
                 {activeTab === 'unread' && (
-                  <span className="absolute bottom-[-1px] left-0 right-0 h-[2.5px] bg-[#0078D4] dark:bg-[#38BDF8] rounded-full" />
+                  <span className="absolute bottom-[-1px] left-0 right-0 h-[2.5px] bg-[#656565] dark:bg-[#737373] rounded-full" />
                 )}
               </button>
             </div>
@@ -161,8 +161,8 @@ export default function EmailListPane() {
                   onClick={() => setQuickFilter(chip.id)}
                   className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full transition cursor-pointer ${
                     quickFilter === chip.id
-                      ? 'bg-[#0078D4] text-white shadow-xs'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800'
+                      ? 'bg-[#656565] text-white shadow-xs'
+                      : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:text-neutral-800'
                   }`}
                 >
                   {chip.label}
@@ -174,28 +174,28 @@ export default function EmailListPane() {
       </div>
 
       {/* 2. Messages Count Bar */}
-      <div className="px-3 py-1.5 bg-slate-50/70 dark:bg-[#151518] border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-slate-500 text-[11.5px]">
-        <span className="font-medium text-slate-600 dark:text-slate-400">
+      <div className="px-3 py-1.5 bg-neutral-50/70 dark:bg-[#151515] border-b border-neutral-200/80 dark:border-neutral-800 flex items-center justify-between text-neutral-500 text-[11.5px]">
+        <span className="font-medium text-neutral-600 dark:text-neutral-400">
           Showing {displayedEmails.length} message{displayedEmails.length === 1 ? '' : 's'}
         </span>
         <span className="font-medium">Newest first</span>
       </div>
 
       {/* 3. Scrollable List of Messages */}
-      <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+      <div className="flex-1 overflow-y-auto divide-y divide-neutral-100 dark:divide-neutral-800">
         {loading ? (
           <div className="flex items-center justify-center p-12">
-            <div className="w-6 h-6 border-2 border-[#0078D4] border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-[#656565] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : displayedEmails.length === 0 ? (
-          <div className="p-10 text-center flex flex-col items-center justify-center text-slate-400 gap-2.5">
-            <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center text-[#0078D4]">
+          <div className="p-10 text-center flex flex-col items-center justify-center text-neutral-400 gap-2.5">
+            <div className="w-14 h-14 rounded-2xl bg-neutral-50 dark:bg-neutral-950/40 flex items-center justify-center text-[#656565]">
               <Inbox className="w-7 h-7 stroke-[1.8]" />
             </div>
-            <h4 className="font-bold text-[14px] text-slate-800 dark:text-slate-200">
+            <h4 className="font-bold text-[14px] text-neutral-800 dark:text-neutral-200">
               {activeFolder === 'inbox' ? 'No received mail yet' : 'No messages'}
             </h4>
-            <p className="text-[12px] text-slate-500 max-w-[220px]">
+            <p className="text-[12px] text-neutral-500 max-w-[220px]">
               {activeFolder === 'inbox'
                 ? `Messages sent to ${mailbox?.address || 'your Tiwlo Mail address'} will appear here when mail delivery is configured.`
                 : 'No messages found matching your filter'}
@@ -211,15 +211,15 @@ export default function EmailListPane() {
                 onClick={() => openEmail(mail)}
                 className={`relative group p-3 cursor-pointer transition flex gap-3 text-left ${
                   isSelected
-                    ? 'bg-blue-50/80 dark:bg-blue-950/40 ring-1 ring-blue-500/20'
+                    ? 'bg-neutral-50/80 dark:bg-neutral-950/40 ring-1 ring-neutral-500/20'
                     : mail.isUnread
-                    ? 'bg-white dark:bg-[#18181B] font-medium'
-                    : 'bg-white dark:bg-[#18181B] hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    ? 'bg-white dark:bg-[#181818] font-medium'
+                    : 'bg-white dark:bg-[#181818] hover:bg-neutral-50 dark:hover:bg-neutral-800/50'
                 }`}
               >
                 {/* Unread Accent Pill */}
                 {mail.isUnread && (
-                  <span className="absolute left-0 top-3 bottom-3 w-1 bg-[#0078D4] rounded-r-md" />
+                  <span className="absolute left-0 top-3 bottom-3 w-1 bg-[#656565] rounded-r-md" />
                 )}
 
                 {/* Sender Avatar: Clean Circle with NO overlapping hover ticks! */}
@@ -231,7 +231,7 @@ export default function EmailListPane() {
                       className="w-9 h-9 rounded-full object-cover ring-1 ring-black/5"
                     />
                   ) : (
-                    <div className={`w-9 h-9 rounded-full ${mail.sender?.avatarColor || 'bg-[#0078D4]'} text-white font-bold text-[12px] flex items-center justify-center shadow-xs`}>
+                    <div className={`w-9 h-9 rounded-full ${mail.sender?.avatarColor || 'bg-[#656565]'} text-white font-bold text-[12px] flex items-center justify-center shadow-xs`}>
                       {mail.sender?.initials || 'U'}
                     </div>
                   )}
@@ -243,13 +243,13 @@ export default function EmailListPane() {
                   <div className="flex items-center justify-between mb-0.5">
                     <span className={`text-[13px] truncate ${
                       mail.isUnread
-                        ? 'font-bold text-slate-900 dark:text-white'
-                        : 'font-semibold text-slate-700 dark:text-slate-200'
+                        ? 'font-bold text-neutral-900 dark:text-white'
+                        : 'font-semibold text-neutral-700 dark:text-neutral-200'
                     }`}>
                       {mail.sender?.name}
                     </span>
                     <span className={`text-[11px] whitespace-nowrap ml-2 ${
-                      mail.isUnread ? 'text-[#0078D4] dark:text-[#38BDF8] font-bold' : 'text-slate-400'
+                      mail.isUnread ? 'text-[#656565] dark:text-[#737373] font-bold' : 'text-neutral-400'
                     }`}>
                       {formatEmailDate(mail.date)}
                     </span>
@@ -258,34 +258,34 @@ export default function EmailListPane() {
                   {/* Row 2: Subject */}
                   <div className="flex items-center gap-1.5 mb-1">
                     {mail.isPinned && (
-                      <Pin className="w-3 h-3 text-[#0078D4] fill-current flex-shrink-0" />
+                      <Pin className="w-3 h-3 text-[#656565] fill-current flex-shrink-0" />
                     )}
                     <h3 className={`text-[12.5px] truncate ${
                       mail.isUnread
-                        ? 'font-bold text-slate-900 dark:text-white'
-                        : 'text-slate-600 dark:text-slate-300'
+                        ? 'font-bold text-neutral-900 dark:text-white'
+                        : 'text-neutral-600 dark:text-neutral-300'
                     }`}>
                       {mail.subject}
                     </h3>
                   </div>
 
                   {/* Row 3: Snippet Body */}
-                  <p className="text-[12px] text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                  <p className="text-[12px] text-neutral-500 dark:text-neutral-400 line-clamp-2 leading-relaxed">
                     {mail.preview}
                   </p>
 
                   {/* Row 4: Badges (Attachment, Category) */}
                   <div className="flex items-center gap-2 mt-1.5">
                     {mail.hasAttachments && (
-                      <span className="flex items-center gap-1 text-[11px] text-slate-500 font-medium">
-                        <Paperclip className="w-3 h-3 text-slate-400" />
+                      <span className="flex items-center gap-1 text-[11px] text-neutral-500 font-medium">
+                        <Paperclip className="w-3 h-3 text-neutral-400" />
                         <span>Attachment</span>
                       </span>
                     )}
                     {mail.category && (
                       <span
                         className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
-                        style={{ backgroundColor: mail.categoryColor || '#0078D4' }}
+                        style={{ backgroundColor: mail.categoryColor || '#656565' }}
                       >
                         {mail.category}
                       </span>
@@ -294,7 +294,7 @@ export default function EmailListPane() {
                 </div>
 
                 {/* 4. Hover Micro-Actions Toolbar */}
-                <div className="absolute top-2 right-2 hidden group-hover:flex items-center gap-1 bg-white/95 dark:bg-[#201F1E]/95 p-1 rounded-lg shadow-md border border-slate-200 dark:border-slate-700 z-20">
+                <div className="absolute top-2 right-2 hidden group-hover:flex items-center gap-1 bg-white/95 dark:bg-[#201F1E]/95 p-1 rounded-lg shadow-md border border-neutral-200 dark:border-neutral-700 z-20">
                   <button
                     type="button"
                     onClick={(e) => handleDeleteEmail(mail.id, e)}
@@ -306,7 +306,7 @@ export default function EmailListPane() {
                   <button
                     type="button"
                     onClick={(e) => handleArchiveEmail(mail.id, e)}
-                    className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 transition"
+                    className="p-1 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 transition"
                     title="Archive"
                   >
                     <Archive className="w-3.5 h-3.5" />
@@ -314,7 +314,7 @@ export default function EmailListPane() {
                   <button
                     type="button"
                     onClick={(e) => handleToggleRead(mail.id, !mail.isUnread, e)}
-                    className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 transition"
+                    className="p-1 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 transition"
                     title={mail.isUnread ? 'Mark as read' : 'Mark as unread'}
                   >
                     {mail.isUnread ? <MailOpen className="w-3.5 h-3.5" /> : <Mail className="w-3.5 h-3.5" />}
@@ -322,8 +322,8 @@ export default function EmailListPane() {
                   <button
                     type="button"
                     onClick={(e) => handleToggleFlag(mail.id, e)}
-                    className={`p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition ${
-                      mail.isFlagged ? 'text-[#D83B01]' : 'text-slate-400'
+                    className={`p-1 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 transition ${
+                      mail.isFlagged ? 'text-[#D83B01]' : 'text-neutral-400'
                     }`}
                     title="Flag message"
                   >
@@ -332,8 +332,8 @@ export default function EmailListPane() {
                   <button
                     type="button"
                     onClick={(e) => handleTogglePin(mail.id, e)}
-                    className={`p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition ${
-                      mail.isPinned ? 'text-[#0078D4]' : 'text-slate-400'
+                    className={`p-1 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 transition ${
+                      mail.isPinned ? 'text-[#656565]' : 'text-neutral-400'
                     }`}
                     title="Pin to top"
                   >

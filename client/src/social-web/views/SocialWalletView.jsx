@@ -78,7 +78,7 @@ export default function SocialWalletView() {
   return (
     <div className="w-full flex flex-col min-h-screen max-w-2xl mx-auto pb-20 space-y-5">
       {/* 1. FinTech Card Hero */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-violet-600 via-indigo-600 to-fuchsia-600 p-7 text-white shadow-xl shadow-violet-500/20">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-violet-600 via-neutral-600 to-fuchsia-600 p-7 text-white shadow-xl shadow-violet-500/20">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center">
@@ -124,34 +124,34 @@ export default function SocialWalletView() {
       </div>
 
       {/* 2. Direct Tip Composer Card */}
-      <div className="bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-5 shadow-sm">
-        <h3 className="font-bold text-[16px] text-[#1c1e21] dark:text-[#e4e6eb] mb-1">
+      <div className="bg-white dark:bg-[#171717] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-5 shadow-sm">
+        <h3 className="font-bold text-[16px] text-[#1e1e1e] dark:text-[#e6e6e6] mb-1">
           Tip a Creator
         </h3>
-        <p className="text-[12.5px] text-[#65676b] dark:text-[#8a8d91] mb-4">
+        <p className="text-[12.5px] text-[#676767] dark:text-[#8d8d8d] mb-4">
           Support your favorite voices on Tiwi directly with instant coin transfers.
         </p>
 
         <form onSubmit={handleSendTip} className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-[11px] font-semibold text-[#65676b] dark:text-[#8a8d91] block mb-1">
+              <label className="text-[11px] font-semibold text-[#676767] dark:text-[#8d8d8d] block mb-1">
                 Creator Handle
               </label>
               <div className="flex items-center h-11 bg-black/[0.03] dark:bg-white/[0.05] rounded-xl px-3.5 border border-black/[0.05] dark:border-white/[0.08] focus-within:ring-2 focus-within:ring-violet-500/30">
-                <span className="text-[#65676b] text-sm mr-1">@</span>
+                <span className="text-[#676767] text-sm mr-1">@</span>
                 <input
                   type="text"
                   placeholder="handle"
                   value={recipient}
                   onChange={(e) => setRecipient(e.target.value)}
-                  className="bg-transparent text-[13.5px] text-[#1c1e21] dark:text-[#e4e6eb] outline-none w-full"
+                  className="bg-transparent text-[13.5px] text-[#1e1e1e] dark:text-[#e6e6e6] outline-none w-full"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-[11px] font-semibold text-[#65676b] dark:text-[#8a8d91] block mb-1">
+              <label className="text-[11px] font-semibold text-[#676767] dark:text-[#8d8d8d] block mb-1">
                 Amount (Coins)
               </label>
               <input
@@ -159,7 +159,7 @@ export default function SocialWalletView() {
                 placeholder="e.g. 50"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full h-11 px-3.5 bg-black/[0.03] dark:bg-white/[0.05] rounded-xl border border-black/[0.05] dark:border-white/[0.08] text-[13.5px] text-[#1c1e21] dark:text-[#e4e6eb] outline-none focus:ring-2 focus:ring-violet-500/30"
+                className="w-full h-11 px-3.5 bg-black/[0.03] dark:bg-white/[0.05] rounded-xl border border-black/[0.05] dark:border-white/[0.08] text-[13.5px] text-[#1e1e1e] dark:text-[#e6e6e6] outline-none focus:ring-2 focus:ring-violet-500/30"
               />
             </div>
           </div>
@@ -171,7 +171,7 @@ export default function SocialWalletView() {
                 key={preset}
                 type="button"
                 onClick={() => setAmount(String(preset))}
-                className="px-3 py-1 rounded-lg bg-black/[0.03] dark:bg-white/[0.05] hover:bg-violet-500/10 text-xs font-semibold text-[#65676b] dark:text-[#8a8d91] hover:text-violet-600 transition cursor-pointer"
+                className="px-3 py-1 rounded-lg bg-black/[0.03] dark:bg-white/[0.05] hover:bg-violet-500/10 text-xs font-semibold text-[#676767] dark:text-[#8d8d8d] hover:text-violet-600 transition cursor-pointer"
               >
                 +{preset}
               </button>
@@ -181,7 +181,7 @@ export default function SocialWalletView() {
           <button
             type="submit"
             disabled={tipping}
-            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 disabled:opacity-40 text-white font-semibold text-[13px] shadow-md shadow-violet-500/20 active:scale-95 transition cursor-pointer flex items-center justify-center gap-2 mt-2"
+            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-neutral-600 hover:from-violet-700 hover:to-neutral-700 disabled:opacity-40 text-white font-semibold text-[13px] shadow-md shadow-violet-500/20 active:scale-95 transition cursor-pointer flex items-center justify-center gap-2 mt-2"
           >
             <Send className="w-4 h-4" />
             <span>{tipping ? 'Sending Tip...' : 'Send Coin Tip'}</span>
@@ -190,9 +190,9 @@ export default function SocialWalletView() {
       </div>
 
       {/* 3. Transaction History */}
-      <div className="bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-5 shadow-sm">
+      <div className="bg-white dark:bg-[#171717] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-5 shadow-sm">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-[15px] text-[#1c1e21] dark:text-[#e4e6eb] flex items-center gap-2">
+          <h3 className="font-bold text-[15px] text-[#1e1e1e] dark:text-[#e6e6e6] flex items-center gap-2">
             <History className="w-4 h-4 text-violet-500" />
             <span>Transaction Activity</span>
           </h3>
@@ -211,10 +211,10 @@ export default function SocialWalletView() {
                 </div>
 
                 <div>
-                  <span className="font-semibold text-[13.5px] text-[#1c1e21] dark:text-[#e4e6eb] block">
+                  <span className="font-semibold text-[13.5px] text-[#1e1e1e] dark:text-[#e6e6e6] block">
                     {tx.title || `Tip to @${tx.recipient}`}
                   </span>
-                  <span className="text-[11px] text-[#65676b] dark:text-[#8a8d91]">
+                  <span className="text-[11px] text-[#676767] dark:text-[#8d8d8d]">
                     {tx.createdAt}
                   </span>
                 </div>

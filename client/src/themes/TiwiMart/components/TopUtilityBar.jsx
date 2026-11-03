@@ -6,11 +6,11 @@ export default function TopUtilityBar({ onTrackOrder }) {
   const { storeSettings } = useStoreSettings();
 
   return (
-    <header className="bg-[#0b1329] text-[#94a3b8] text-[11px] font-medium border-b border-slate-800/80 px-4 lg:px-8 py-2">
+    <header className="bg-[#131313] text-[#a1a1a1] text-[11px] font-medium border-b border-neutral-800/80 px-4 lg:px-8 py-2">
       <div className="max-w-[1440px] mx-auto flex items-center justify-between">
         {/* Left tagline */}
         <div className="flex items-center space-x-3">
-          <span className="text-slate-300 font-normal tracking-wide">Storefront</span>
+          <span className="text-neutral-300 font-normal tracking-wide">Storefront</span>
         </div>
 
         {/* Right utility links */}

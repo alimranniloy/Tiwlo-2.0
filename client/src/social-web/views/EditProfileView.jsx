@@ -90,16 +90,16 @@ export default function EditProfileView() {
   return (
     <div className="w-full flex flex-col min-h-screen max-w-2xl mx-auto pb-20">
       {/* 1. Header Bar */}
-      <div className="sticky top-0 z-20 bg-[#f0f2f5]/90 dark:bg-[#0a0a0f]/90 backdrop-blur-xl px-2 py-3 flex items-center justify-between border-b border-black/[0.05] dark:border-white/[0.06] mb-4">
+      <div className="sticky top-0 z-20 bg-[#f2f2f2]/90 dark:bg-[#0a0a0a]/90 backdrop-blur-xl px-2 py-3 flex items-center justify-between border-b border-black/[0.05] dark:border-white/[0.06] mb-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigateTo('profile', currentUser?.handle || currentUser?.id)}
-            className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] transition cursor-pointer active:scale-95"
+            className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#676767] dark:text-[#b3b3b3] transition cursor-pointer active:scale-95"
             title="Back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-[18px] font-bold text-[#1c1e21] dark:text-[#e4e6eb] tracking-tight">
+          <h1 className="text-[18px] font-bold text-[#1e1e1e] dark:text-[#e6e6e6] tracking-tight">
             Edit Profile
           </h1>
         </div>
@@ -107,7 +107,7 @@ export default function EditProfileView() {
         <button
           onClick={handleSave}
           disabled={saving || uploadingAvatar || uploadingCover}
-          className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 disabled:opacity-40 text-white font-semibold text-[13px] px-5 py-2 rounded-xl shadow-md shadow-violet-500/20 active:scale-95 transition cursor-pointer flex items-center gap-1.5"
+          className="bg-gradient-to-r from-violet-600 to-neutral-600 hover:from-violet-700 hover:to-neutral-700 disabled:opacity-40 text-white font-semibold text-[13px] px-5 py-2 rounded-xl shadow-md shadow-violet-500/20 active:scale-95 transition cursor-pointer flex items-center gap-1.5"
         >
           <Check className="w-4 h-4" />
           <span>{saving ? 'Saving...' : 'Save Changes'}</span>
@@ -115,9 +115,9 @@ export default function EditProfileView() {
       </div>
 
       {/* 2. Main Profile Edit Card */}
-      <div className="bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm overflow-hidden mb-4">
+      <div className="bg-white dark:bg-[#171717] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm overflow-hidden mb-4">
         {/* Cover Photo Editor */}
-        <div className="relative h-44 sm:h-52 bg-gradient-to-r from-violet-600 via-indigo-600 to-fuchsia-600">
+        <div className="relative h-44 sm:h-52 bg-gradient-to-r from-violet-600 via-neutral-600 to-fuchsia-600">
           {coverPhoto && (
             <img src={coverPhoto} alt="Cover" className="w-full h-full object-cover" />
           )}
@@ -134,7 +134,7 @@ export default function EditProfileView() {
             <img
               src={avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=160&h=160&fit=crop'}
               alt="Avatar"
-              className="w-24 h-24 rounded-2xl object-cover ring-4 ring-white dark:ring-[#16161f] shadow-lg"
+              className="w-24 h-24 rounded-2xl object-cover ring-4 ring-white dark:ring-[#171717] shadow-lg"
             />
             <label className="absolute inset-0 rounded-2xl bg-black/40 hover:bg-black/50 flex items-center justify-center text-white cursor-pointer transition-all">
               <Camera className="w-5 h-5" />
@@ -146,7 +146,7 @@ export default function EditProfileView() {
           <form onSubmit={handleSave} className="space-y-4">
             {/* Display Name */}
             <div>
-              <label className="flex items-center gap-1.5 text-[12px] font-semibold text-[#65676b] dark:text-[#8a8d91] mb-1.5">
+              <label className="flex items-center gap-1.5 text-[12px] font-semibold text-[#676767] dark:text-[#8d8d8d] mb-1.5">
                 <User className="w-3.5 h-3.5" />
                 <span>Display Name</span>
               </label>
@@ -154,13 +154,13 @@ export default function EditProfileView() {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full h-11 px-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] text-[14px] text-[#1c1e21] dark:text-[#e4e6eb] outline-none focus:ring-2 focus:ring-violet-500/30"
+                className="w-full h-11 px-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] text-[14px] text-[#1e1e1e] dark:text-[#e6e6e6] outline-none focus:ring-2 focus:ring-violet-500/30"
               />
             </div>
 
             {/* Bio */}
             <div>
-              <label className="flex items-center gap-1.5 text-[12px] font-semibold text-[#65676b] dark:text-[#8a8d91] mb-1.5">
+              <label className="flex items-center gap-1.5 text-[12px] font-semibold text-[#676767] dark:text-[#8d8d8d] mb-1.5">
                 <FileText className="w-3.5 h-3.5" />
                 <span>Bio</span>
               </label>
@@ -169,13 +169,13 @@ export default function EditProfileView() {
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 placeholder="Tell the Tiwi community about yourself..."
-                className="w-full p-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] text-[14px] text-[#1c1e21] dark:text-[#e4e6eb] outline-none focus:ring-2 focus:ring-violet-500/30 resize-none leading-relaxed"
+                className="w-full p-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] text-[14px] text-[#1e1e1e] dark:text-[#e6e6e6] outline-none focus:ring-2 focus:ring-violet-500/30 resize-none leading-relaxed"
               />
             </div>
 
             {/* Location */}
             <div>
-              <label className="flex items-center gap-1.5 text-[12px] font-semibold text-[#65676b] dark:text-[#8a8d91] mb-1.5">
+              <label className="flex items-center gap-1.5 text-[12px] font-semibold text-[#676767] dark:text-[#8d8d8d] mb-1.5">
                 <MapPin className="w-3.5 h-3.5" />
                 <span>Location</span>
               </label>
@@ -184,13 +184,13 @@ export default function EditProfileView() {
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="e.g. San Francisco, CA or Worldwide"
-                className="w-full h-11 px-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] text-[14px] text-[#1c1e21] dark:text-[#e4e6eb] outline-none focus:ring-2 focus:ring-violet-500/30"
+                className="w-full h-11 px-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] text-[14px] text-[#1e1e1e] dark:text-[#e6e6e6] outline-none focus:ring-2 focus:ring-violet-500/30"
               />
             </div>
 
             {/* Website */}
             <div>
-              <label className="flex items-center gap-1.5 text-[12px] font-semibold text-[#65676b] dark:text-[#8a8d91] mb-1.5">
+              <label className="flex items-center gap-1.5 text-[12px] font-semibold text-[#676767] dark:text-[#8d8d8d] mb-1.5">
                 <Globe className="w-3.5 h-3.5" />
                 <span>Website / Portfolio</span>
               </label>
@@ -199,7 +199,7 @@ export default function EditProfileView() {
                 value={website}
                 onChange={(e) => setWebsite(e.target.value)}
                 placeholder="https://yourwebsite.com"
-                className="w-full h-11 px-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] text-[14px] text-[#1c1e21] dark:text-[#e4e6eb] outline-none focus:ring-2 focus:ring-violet-500/30"
+                className="w-full h-11 px-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] text-[14px] text-[#1e1e1e] dark:text-[#e6e6e6] outline-none focus:ring-2 focus:ring-violet-500/30"
               />
             </div>
           </form>

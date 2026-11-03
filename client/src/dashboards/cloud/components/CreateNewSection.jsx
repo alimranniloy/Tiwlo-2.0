@@ -35,14 +35,14 @@ export default function CreateNewSection({ onOpenCreateDroplet }) {
 
   return (
     <div className="space-y-3.5">
-      <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+      <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
         Create New
       </h3>
 
       {/* Main Solid Blue Action Card */}
       <div
         onClick={onOpenCreateDroplet}
-        className="p-4 sm:p-5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-[0_1px_3px_rgba(37,99,235,0.25)] cursor-pointer transition flex items-center justify-between group"
+        className="p-4 sm:p-5 rounded-xl bg-neutral-600 hover:bg-neutral-700 text-white shadow-[0_1px_3px_rgba(37,99,235,0.25)] cursor-pointer transition flex items-center justify-between group"
       >
         <div className="flex items-center gap-3.5">
           <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition">
@@ -52,7 +52,7 @@ export default function CreateNewSection({ onOpenCreateDroplet }) {
             <h4 className="text-sm font-bold tracking-tight">
               Create New Droplet
             </h4>
-            <p className="text-xs text-blue-100">
+            <p className="text-xs text-neutral-100">
               Launch a new server in seconds.
             </p>
           </div>
@@ -69,23 +69,23 @@ export default function CreateNewSection({ onOpenCreateDroplet }) {
             <div
               key={tile.id}
               onClick={onOpenCreateDroplet}
-              className="p-3.5 rounded-xl bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-gray-800 shadow-[0_1px_2px_rgba(60,64,67,0.06)] hover:border-blue-500/50 transition cursor-pointer flex items-center gap-3 group"
+              className="p-3.5 rounded-xl bg-white dark:bg-[#181818] border border-neutral-200/80 dark:border-gray-800 shadow-[0_1px_2px_rgba(60,64,67,0.06)] hover:border-neutral-500/50 transition cursor-pointer flex items-center gap-3 group"
             >
-              <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
+              <div className="w-8 h-8 rounded-lg bg-neutral-50 dark:bg-neutral-900/20 text-neutral-600 dark:text-neutral-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
                 <Icon className="w-4 h-4" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                  <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200 truncate">
                     {tile.title}
                   </p>
                   {tile.badge && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 shrink-0">
+                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-neutral-100 text-neutral-600 dark:bg-neutral-900/40 dark:text-neutral-400 shrink-0">
                       {tile.badge}
                     </span>
                   )}
                 </div>
-                <p className="text-[10px] text-slate-400 font-medium truncate">
+                <p className="text-[10px] text-neutral-400 font-medium truncate">
                   {tile.desc}
                 </p>
               </div>

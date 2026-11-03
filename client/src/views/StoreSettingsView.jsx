@@ -101,7 +101,7 @@ function StoreSettingsContent({
   const [promoPerCustomerLimit, setPromoPerCustomerLimit] = useState(settings.promoPerCustomerLimit ?? '');
   const [promoAllowedCountries, setPromoAllowedCountries] = useState(settings.promoAllowedCountries || []);
   const [promoCountrySearch, setPromoCountrySearch] = useState('');
-  const [selectedColor, setSelectedColor] = useState(settings.themeColor || '#2563eb');
+  const [selectedColor, setSelectedColor] = useState(settings.themeColor || '#000000');
   const [bannerSlidingSpeed, setBannerSlidingSpeed] = useState(settings.bannerSlidingSpeed || 5);
   const [storePages, setStorePages] = useState(settings.storePages || []);
   const [pageDraft, setPageDraft] = useState(null);
@@ -145,7 +145,7 @@ function StoreSettingsContent({
     }
   }, [storeSettings]);
 
-  const safeColor = selectedColor || settings.themeColor || '#2563eb';
+  const safeColor = selectedColor || settings.themeColor || '#000000';
   const liveStoreUrl = (() => {
     const domain = String(import.meta.env.VITE_STORE_DOMAIN || import.meta.env.VITE_PRIMARY_DOMAIN || 'tiwlo.com')
       .trim().toLowerCase().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
@@ -820,12 +820,12 @@ function StoreSettingsContent({
       {/* ========================================================= */}
       {/* TOP BANNER WITH BACKGROUND IMAGE                           */}
       {/* ========================================================= */}
-      <div className="relative rounded-3xl overflow-hidden border border-slate-200/80 dark:border-gray-800 shadow-md">
+      <div className="relative rounded-3xl overflow-hidden border border-neutral-200/80 dark:border-gray-800 shadow-md">
         {/* Background Image Layer */}
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
-            backgroundImage: `linear-gradient(to right, rgba(15, 23, 42, 0.94) 0%, rgba(30, 58, 138, 0.82) 50%, rgba(15, 23, 42, 0.90) 100%), url('/waves/ocean_waves_blue.jpg')`
+            backgroundImage: `linear-gradient(to right, rgba(23, 23, 23, 0.94) 0%, rgba(58, 58, 58, 0.82) 50%, rgba(23, 23, 23, 0.90) 100%), url('/waves/ocean_waves_blue.jpg')`
           }}
         />
 
@@ -842,11 +842,11 @@ function StoreSettingsContent({
             <div>
               <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-white flex items-center space-x-2">
                 <span>{isCommerceSettings ? commercePage.title : 'Store Settings'}</span>
-                <span className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-blue-100">
+                <span className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-neutral-100">
                   TiwiMart Engine
                 </span>
               </h1>
-              <p className="text-[11px] sm:text-xs text-blue-100/80 mt-0.5">
+              <p className="text-[11px] sm:text-xs text-neutral-100/80 mt-0.5">
                 {isCommerceSettings
                   ? commercePage.description
                   : 'Marketplace theme catalog, brand identity, favicon, colors, and sliding hero banners'}
@@ -868,7 +868,7 @@ function StoreSettingsContent({
               type="button"
               onClick={handleSaveAll}
               disabled={saving}
-              className="flex-1 sm:flex-none justify-center px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-900 text-xs font-bold flex items-center space-x-1.5 sm:space-x-2 transition shadow-md cursor-pointer disabled:opacity-60"
+              className="flex-1 sm:flex-none justify-center px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-white hover:bg-neutral-100 text-neutral-900 text-xs font-bold flex items-center space-x-1.5 sm:space-x-2 transition shadow-md cursor-pointer disabled:opacity-60"
             >
               {saving ? (
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -885,7 +885,7 @@ function StoreSettingsContent({
       {/* 4 NAVIGATION TABS                                         */}
       {/* ========================================================= */}
       {isCommerceSettings ? (
-        <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-xs dark:border-gray-700 dark:bg-gray-800 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 rounded-2xl border border-neutral-200 bg-white p-2 shadow-xs dark:border-gray-700 dark:bg-gray-800 sm:grid-cols-4">
           {[
             {
               id: 'payments',
@@ -930,14 +930,14 @@ function StoreSettingsContent({
                 aria-current={selected ? 'page' : undefined}
                 className={`flex min-w-0 items-center gap-2.5 rounded-xl px-3 py-3 text-left transition ${
                   selected
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-gray-700/70'
+                    ? 'bg-neutral-600 text-white shadow-sm'
+                    : 'text-neutral-600 hover:bg-neutral-50 dark:text-neutral-300 dark:hover:bg-gray-700/70'
                 }`}
               >
-                <Icon className={`h-4 w-4 shrink-0 ${selected ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
+                <Icon className={`h-4 w-4 shrink-0 ${selected ? 'text-white' : 'text-neutral-400 dark:text-neutral-500'}`} />
                 <span className="min-w-0">
                   <span className="block truncate text-xs font-bold">{item.label}</span>
-                  <span className={`mt-0.5 block truncate text-[10px] ${selected ? 'text-blue-100' : 'text-slate-400 dark:text-slate-500'}`}>
+                  <span className={`mt-0.5 block truncate text-[10px] ${selected ? 'text-neutral-100' : 'text-neutral-400 dark:text-neutral-500'}`}>
                     {item.description}
                   </span>
                 </span>
@@ -946,14 +946,14 @@ function StoreSettingsContent({
           })}
         </div>
       ) : (
-        <div className="flex items-center space-x-2 border-b border-slate-200 dark:border-gray-800 pb-3 overflow-x-auto no-scrollbar">
+        <div className="flex items-center space-x-2 border-b border-neutral-200 dark:border-gray-800 pb-3 overflow-x-auto no-scrollbar">
           <>
         <button
           onClick={() => setActiveTab('theme')}
           className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
             activeTab === 'theme'
-              ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-800'
+              ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm'
+              : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-gray-800'
           }`}
         >
           <Layers className="w-4 h-4" />
@@ -964,8 +964,8 @@ function StoreSettingsContent({
           onClick={() => setActiveTab('identity')}
           className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
             activeTab === 'identity'
-              ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-800'
+              ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm'
+              : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-gray-800'
           }`}
         >
           <Store className="w-4 h-4" />
@@ -980,8 +980,8 @@ function StoreSettingsContent({
           }}
           className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
             activeTab === 'payments'
-              ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-800'
+              ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm'
+              : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-gray-800'
           }`}
         >
           <CreditCard className="w-4 h-4" />
@@ -992,8 +992,8 @@ function StoreSettingsContent({
           onClick={() => setActiveTab('colors')}
           className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
             activeTab === 'colors'
-              ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-800'
+              ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm'
+              : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-gray-800'
           }`}
         >
           <Palette className="w-4 h-4" />
@@ -1004,13 +1004,13 @@ function StoreSettingsContent({
           onClick={() => setActiveTab('banners')}
           className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
             activeTab === 'banners'
-              ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-800'
+              ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm'
+              : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-gray-800'
           }`}
         >
           <ImageIcon className="w-4 h-4" />
           <span>Slider Banners</span>
-          <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-bold">
+          <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-neutral-100 dark:bg-neutral-900/40 text-neutral-700 dark:text-neutral-300 font-bold">
             {currentBanners.length}
           </span>
         </button>
@@ -1019,8 +1019,8 @@ function StoreSettingsContent({
           onClick={() => setActiveTab('pages')}
           className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
             activeTab === 'pages'
-              ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-800'
+              ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm'
+              : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-gray-800'
           }`}
         >
           <FileText className="w-4 h-4" />
@@ -1036,34 +1036,34 @@ function StoreSettingsContent({
       {activeTab === 'theme' && (
         <div className="space-y-6">
           {/* Theme Search & Filters Bar */}
-          <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200/90 dark:border-gray-700/80 p-5 shadow-xs space-y-4">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl border border-neutral-200/90 dark:border-gray-700/80 p-5 shadow-xs space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div>
-                <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                <h2 className="text-base font-bold text-neutral-900 dark:text-white flex items-center space-x-2">
                   <span>Storefront Themes</span>
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-900/30 dark:text-emerald-300">
                     Official Storefront
                   </span>
                 </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                   Production-ready, high-converting eCommerce storefront themes built for Tiwlo sellers
                 </p>
               </div>
 
               {/* Live Search Input */}
               <div className="relative w-full md:w-80">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={themeSearch}
                   onChange={(e) => setThemeSearch(e.target.value)}
                   placeholder="Search themes, features, styles..."
-                  className="w-full pl-9 pr-8 py-2 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white font-medium outline-none focus:border-blue-500 transition"
+                  className="w-full pl-9 pr-8 py-2 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white font-medium outline-none focus:border-neutral-500 transition"
                 />
                 {themeSearch && (
                   <button
                     onClick={() => setThemeSearch('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 text-xs"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -1072,7 +1072,7 @@ function StoreSettingsContent({
             </div>
 
             {/* Category Filter Pills */}
-            <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar pt-1 border-t border-slate-100 dark:border-gray-700/60">
+            <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar pt-1 border-t border-neutral-100 dark:border-gray-700/60">
               {THEME_CATEGORIES.map((cat) => {
                 const isSelected = selectedThemeCategory === cat;
                 return (
@@ -1081,8 +1081,8 @@ function StoreSettingsContent({
                     onClick={() => setSelectedThemeCategory(cat)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
                       isSelected
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'bg-slate-100 dark:bg-gray-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-gray-700'
+                        ? 'bg-neutral-600 text-white shadow-xs'
+                        : 'bg-neutral-100 dark:bg-gray-700/60 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-gray-700'
                     }`}
                   >
                     {cat}
@@ -1102,13 +1102,13 @@ function StoreSettingsContent({
                   key={theme.id}
                   className={`bg-white dark:bg-gray-800 rounded-3xl border transition-all duration-200 overflow-hidden flex flex-col justify-between ${
                     isCurrentActive
-                      ? 'border-blue-500 shadow-md ring-2 ring-blue-500/20'
-                      : 'border-slate-200/90 dark:border-gray-700/80 shadow-xs hover:border-slate-300 dark:hover:border-gray-600'
+                      ? 'border-neutral-500 shadow-md ring-2 ring-neutral-500/20'
+                      : 'border-neutral-200/90 dark:border-gray-700/80 shadow-xs hover:border-neutral-300 dark:hover:border-gray-600'
                   }`}
                 >
                   <div>
                     {/* Theme Preview Banner */}
-                    <div className="relative h-48 bg-slate-100 dark:bg-gray-900 overflow-hidden group">
+                    <div className="relative h-48 bg-neutral-100 dark:bg-gray-900 overflow-hidden group">
                       <img
                         src={theme.previewImage}
                         alt={theme.name}
@@ -1123,14 +1123,14 @@ function StoreSettingsContent({
                             <span>Installed & Active</span>
                           </span>
                         ) : (
-                          <span className="px-2.5 py-0.8 rounded-full bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-semibold">
+                          <span className="px-2.5 py-0.8 rounded-full bg-neutral-900/80 backdrop-blur-md text-white text-[10px] font-semibold">
                             {theme.category}
                           </span>
                         )}
                       </div>
 
                       <div className="absolute top-3 right-3">
-                        <span className="px-2 py-0.8 rounded-md bg-white/90 dark:bg-gray-900/90 backdrop-blur-md text-[10px] font-mono font-bold text-slate-800 dark:text-slate-200 shadow-xs">
+                        <span className="px-2 py-0.8 rounded-md bg-white/90 dark:bg-gray-900/90 backdrop-blur-md text-[10px] font-mono font-bold text-neutral-800 dark:text-neutral-200 shadow-xs">
                           v{theme.version}
                         </span>
                       </div>
@@ -1139,25 +1139,25 @@ function StoreSettingsContent({
                     {/* Card Content */}
                     <div className="p-5 space-y-3.5">
                       <div>
-                        <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                          <span className="font-semibold text-blue-600 dark:text-blue-400">
+                        <div className="flex items-center justify-between text-xs text-neutral-400 mb-1">
+                          <span className="font-semibold text-neutral-600 dark:text-neutral-400">
                             {theme.category}
                           </span>
                           <div className="flex items-center space-x-1 text-amber-500">
                             <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                            <span className="font-bold text-slate-700 dark:text-slate-300">
+                            <span className="font-bold text-neutral-700 dark:text-neutral-300">
                               {theme.rating}
                             </span>
-                            <span className="text-slate-400 text-[10px]">
+                            <span className="text-neutral-400 text-[10px]">
                               ({theme.reviewsCount})
                             </span>
                           </div>
                         </div>
 
-                        <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                        <h3 className="text-sm font-bold text-neutral-900 dark:text-white leading-tight">
                           {theme.name}
                         </h3>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 line-clamp-2">
                           {theme.tagline}
                         </p>
                       </div>
@@ -1168,7 +1168,7 @@ function StoreSettingsContent({
                           {theme.features.slice(0, 4).map((feat, idx) => (
                             <span
                               key={idx}
-                              className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 dark:bg-gray-700/60 text-slate-600 dark:text-slate-300 font-medium"
+                              className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-gray-700/60 text-neutral-600 dark:text-neutral-300 font-medium"
                             >
                               {feat}
                             </span>
@@ -1176,8 +1176,8 @@ function StoreSettingsContent({
                         </div>
                       )}
 
-                      <div className="pt-2 border-t border-slate-100 dark:border-gray-700/60 flex items-center justify-between text-[11px] text-slate-400">
-                        <span>Author: <strong className="text-slate-700 dark:text-slate-300">{theme.author}</strong></span>
+                      <div className="pt-2 border-t border-neutral-100 dark:border-gray-700/60 flex items-center justify-between text-[11px] text-neutral-400">
+                        <span>Author: <strong className="text-neutral-700 dark:text-neutral-300">{theme.author}</strong></span>
                         <span className="font-mono text-emerald-600 font-bold">{theme.price}</span>
                       </div>
                     </div>
@@ -1190,7 +1190,7 @@ function StoreSettingsContent({
                         <button
                           type="button"
                           onClick={() => window.open(liveStoreUrl, '_blank', 'noopener,noreferrer')}
-                          className="w-full py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center justify-center space-x-1.5 transition shadow-xs cursor-pointer"
+                          className="w-full py-2.5 px-3 rounded-xl bg-neutral-600 hover:bg-neutral-700 text-white text-xs font-bold flex items-center justify-center space-x-1.5 transition shadow-xs cursor-pointer"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                           <span>Live Store</span>
@@ -1198,7 +1198,7 @@ function StoreSettingsContent({
                         <button
                           type="button"
                           onClick={() => setActiveTab('banners')}
-                          className="w-full py-2.5 px-3 rounded-xl border border-slate-200 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition cursor-pointer"
+                          className="w-full py-2.5 px-3 rounded-xl border border-neutral-200 dark:border-gray-700 hover:bg-neutral-50 dark:hover:bg-gray-700 text-neutral-700 dark:text-neutral-300 text-xs font-semibold transition cursor-pointer"
                         >
                           Manage Banners
                         </button>
@@ -1207,7 +1207,7 @@ function StoreSettingsContent({
                       <button
                         type="button"
                         onClick={() => showToast?.(`TiwiMart is your current active theme. ${theme.name} catalog info loaded.`)}
-                        className="w-full py-2.5 px-3 rounded-xl border border-slate-200 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center justify-center space-x-1.5 transition cursor-pointer"
+                        className="w-full py-2.5 px-3 rounded-xl border border-neutral-200 dark:border-gray-700 hover:bg-neutral-50 dark:hover:bg-gray-700 text-neutral-700 dark:text-neutral-300 text-xs font-semibold flex items-center justify-center space-x-1.5 transition cursor-pointer"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                         <span>Preview Theme Demo</span>
@@ -1220,9 +1220,9 @@ function StoreSettingsContent({
           </div>
 
           {filteredThemes.length === 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-12 text-center space-y-3">
-              <Search className="w-8 h-8 text-slate-300 mx-auto" />
-              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl border border-neutral-200 dark:border-gray-700 p-12 text-center space-y-3">
+              <Search className="w-8 h-8 text-neutral-300 mx-auto" />
+              <p className="text-sm font-bold text-neutral-700 dark:text-neutral-300">
                 No themes match "{themeSearch}"
               </p>
               <button
@@ -1230,7 +1230,7 @@ function StoreSettingsContent({
                   setThemeSearch('');
                   setSelectedThemeCategory('All Themes');
                 }}
-                className="px-4 py-2 rounded-xl bg-blue-50 text-blue-600 text-xs font-semibold"
+                className="px-4 py-2 rounded-xl bg-neutral-50 text-neutral-600 text-xs font-semibold"
               >
                 Reset Filters
               </button>
@@ -1246,15 +1246,15 @@ function StoreSettingsContent({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column: Store Identity & Meta SEO (lg:col-span-7) */}
           <div className={`${isCommerceSettings ? 'lg:col-span-12' : 'lg:col-span-7'} space-y-6`}>
-            <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200/90 dark:border-gray-700/80 p-6 shadow-xs space-y-5">
-              <div className="border-b border-slate-100 dark:border-gray-700 pb-3">
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl border border-neutral-200/90 dark:border-gray-700/80 p-6 shadow-xs space-y-5">
+              <div className="border-b border-neutral-100 dark:border-gray-700 pb-3">
+                <h2 className="text-sm font-bold text-neutral-900 dark:text-white flex items-center space-x-2">
                   {isCommerceSettings
-                    ? <CreditCard className="w-4 h-4 text-blue-500" />
-                    : <Store className="w-4 h-4 text-blue-500" />}
+                    ? <CreditCard className="w-4 h-4 text-neutral-500" />
+                    : <Store className="w-4 h-4 text-neutral-500" />}
                   <span>{isCommerceSettings ? commercePage.title : 'Store Identity & Meta Information'}</span>
                 </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                   {isCommerceSettings
                     ? commercePage.description
                     : 'Configure storefront name, branding tagline, browser title, and SEO description'}
@@ -1266,7 +1266,7 @@ function StoreSettingsContent({
                   <>
                 {/* Store Name */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
                     Store Name
                   </label>
                   <input
@@ -1274,16 +1274,16 @@ function StoreSettingsContent({
                     value={storeName}
                     onChange={(e) => setStoreName(e.target.value)}
                     placeholder="TiwloMart"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white font-semibold outline-none focus:border-blue-500 transition"
+                    className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white font-semibold outline-none focus:border-neutral-500 transition"
                   />
-                  <p className="text-[11px] text-slate-400 mt-1">
+                  <p className="text-[11px] text-neutral-400 mt-1">
                     Displayed in top navigation, email receipts, and header branding
                   </p>
                 </div>
 
                 {/* Store Tagline */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
                     Store Tagline
                   </label>
                   <input
@@ -1291,16 +1291,16 @@ function StoreSettingsContent({
                     value={storeTagline}
                     onChange={(e) => setStoreTagline(e.target.value)}
                     placeholder="Shop Global • Sell Global"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 transition"
+                    className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500 transition"
                   />
-                  <p className="text-[11px] text-slate-400 mt-1">
+                  <p className="text-[11px] text-neutral-400 mt-1">
                     Catchy store motto displayed beneath your brand name
                   </p>
                 </div>
 
                 {/* Store Title (Browser Title & SEO Title) */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
                     Store Page Title (Browser Tab & Meta Title)
                   </label>
                   <input
@@ -1308,16 +1308,16 @@ function StoreSettingsContent({
                     value={storeTitle}
                     onChange={(e) => setStoreTitle(e.target.value)}
                     placeholder="TiwloMart | Global Multi-Vendor eCommerce Marketplace"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white font-medium outline-none focus:border-blue-500 transition"
+                    className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white font-medium outline-none focus:border-neutral-500 transition"
                   />
-                  <p className="text-[11px] text-slate-400 mt-1">
+                  <p className="text-[11px] text-neutral-400 mt-1">
                     Appears in the browser tab and search engine results
                   </p>
                 </div>
 
                 {/* Store Description (SEO & Store Summary) */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
                     Store Description (SEO Meta Description & About)
                   </label>
                   <textarea
@@ -1325,23 +1325,23 @@ function StoreSettingsContent({
                     value={storeDescription}
                     onChange={(e) => setStoreDescription(e.target.value)}
                     placeholder="Discover millions of quality products from verified global sellers with fast international shipping..."
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 transition resize-none"
+                    className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500 transition resize-none"
                   />
-                  <p className="text-[11px] text-slate-400 mt-1">
+                  <p className="text-[11px] text-neutral-400 mt-1">
                     Short description for social sharing, search engine snippets, and footer
                   </p>
                 </div>
 
-                <div className="border-t border-slate-100 dark:border-gray-700 pt-4 space-y-3">
-                  <h3 className="text-xs font-bold text-slate-900 dark:text-white">Store Address & Contact</h3>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                <div className="border-t border-neutral-100 dark:border-gray-700 pt-4 space-y-3">
+                  <h3 className="text-xs font-bold text-neutral-900 dark:text-white">Store Address & Contact</h3>
+                  <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                     Street address
                     <input
                       value={storeAddress}
                       onChange={e => setStoreAddress(e.target.value)}
                       maxLength={240}
                       autoComplete="street-address"
-                      className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                      className="mt-1 w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500"
                     />
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1350,20 +1350,20 @@ function StoreSettingsContent({
                       ['Country', storeCountry, setStoreCountry, 'country-name'],
                       ['Postal code', storePostalCode, setStorePostalCode, 'postal-code']
                     ].map(([label, value, setter, autoComplete]) => (
-                      <label key={label} className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      <label key={label} className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                         {label}
                         <input
                           value={value}
                           onChange={e => setter(e.target.value)}
                           maxLength={100}
                           autoComplete={autoComplete}
-                          className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                          className="mt-1 w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500"
                         />
                       </label>
                     ))}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                       Store contact email
                       <input
                         type="email"
@@ -1371,10 +1371,10 @@ function StoreSettingsContent({
                         onChange={e => setContactEmail(e.target.value)}
                         maxLength={254}
                         autoComplete="email"
-                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500"
                       />
                     </label>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                       Store contact phone
                       <input
                         type="tel"
@@ -1382,7 +1382,7 @@ function StoreSettingsContent({
                         onChange={e => setContactPhone(e.target.value)}
                         maxLength={40}
                         autoComplete="tel"
-                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500"
                       />
                     </label>
                   </div>
@@ -1390,9 +1390,9 @@ function StoreSettingsContent({
 
                 </>)}
 
-                <div className={`border-t border-slate-100 dark:border-gray-700 pt-4 space-y-3 ${activeTab === 'shipping' ? '' : 'hidden'}`}>
-                  <h3 className="text-xs font-bold text-slate-900 dark:text-white">Delivery & Tax</h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                <div className={`border-t border-neutral-100 dark:border-gray-700 pt-4 space-y-3 ${activeTab === 'shipping' ? '' : 'hidden'}`}>
+                  <h3 className="text-xs font-bold text-neutral-900 dark:text-white">Delivery & Tax</h3>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
                     Configure international destinations, per-country tax, parcel-weight rates, and delivery estimates. Checkout shows these saved estimates; it does not book a carrier.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1401,7 +1401,7 @@ function StoreSettingsContent({
                       ['Flat shipping rate', shippingFlatRate, setShippingFlatRate],
                       ['Free shipping threshold', freeShippingThreshold, setFreeShippingThreshold]
                     ].map(([label, value, setter]) => (
-                      <label key={label} className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      <label key={label} className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                         {label}
                         <input
                           type="number"
@@ -1409,7 +1409,7 @@ function StoreSettingsContent({
                           step="0.01"
                           value={value}
                           onChange={e => setter(e.target.value)}
-                          className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                          className="mt-1 w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500"
                         />
                       </label>
                     ))}
@@ -1417,8 +1417,8 @@ function StoreSettingsContent({
                   <div className="space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <h4 className="text-xs font-bold text-slate-800 dark:text-white">Destination shipping zones</h4>
-                        <p className="text-[10px] text-slate-500">Create country/city zones and set the manual method and rates that apply to each destination.</p>
+                        <h4 className="text-xs font-bold text-neutral-800 dark:text-white">Destination shipping zones</h4>
+                        <p className="text-[10px] text-neutral-500">Create country/city zones and set the manual method and rates that apply to each destination.</p>
                       </div>
                       <button
                         type="button"
@@ -1437,14 +1437,14 @@ function StoreSettingsContent({
                           enabled: true,
                           codEnabled: true
                         }])}
-                        className="rounded-lg border border-blue-200 px-3 py-2 text-[11px] font-bold text-blue-700 dark:border-blue-800 dark:text-blue-300"
+                        className="rounded-lg border border-neutral-200 px-3 py-2 text-[11px] font-bold text-neutral-700 dark:border-neutral-800 dark:text-neutral-300"
                       >
                         Add shipping zone
                       </button>
                     </div>
                     {shippingZones.map((zone, index) => (
-                      <section key={zone.id || index} className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl border border-slate-200 p-3 dark:border-gray-700">
-                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      <section key={zone.id || index} className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl border border-neutral-200 p-3 dark:border-gray-700">
+                        <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                           Zone name
                           <input
                             value={zone.name || ''}
@@ -1453,25 +1453,25 @@ function StoreSettingsContent({
                               itemIndex === index ? { ...item, name: event.target.value } : item
                             ))}
                             placeholder="Bangladesh / South Asia"
-                            className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                            className="mt-1 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                           />
                         </label>
                         <div className="space-y-2 sm:col-span-2">
-                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                          <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                             Add destination country
                             <input
                               type="search"
                               value={shippingCountrySearch}
                               onChange={event => setShippingCountrySearch(event.target.value)}
                               placeholder="Filter country list"
-                              className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                              className="mt-1 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                             />
                             <div className="mt-1 flex gap-2">
                               <select
                                 value={shippingCountryCode}
                                 onChange={event => setShippingCountryCode(event.target.value)}
                                 disabled={!shippingCountries.length}
-                                className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                                className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                               >
                                 <option value="">{shippingCountryError ? 'Country list unavailable' : 'Search/select a country'}</option>
                                 {matchingShippingCountries.map(country => (
@@ -1482,7 +1482,7 @@ function StoreSettingsContent({
                                 type="button"
                                 onClick={() => addShippingCountry(index)}
                                 disabled={!shippingCountryCode || !shippingCountries.length}
-                                className="shrink-0 rounded-lg border border-blue-200 px-3 py-2 text-[11px] font-bold text-blue-700 disabled:opacity-50 dark:border-blue-800 dark:text-blue-300"
+                                className="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-[11px] font-bold text-neutral-700 disabled:opacity-50 dark:border-neutral-800 dark:text-neutral-300"
                               >
                                 Add country
                               </button>
@@ -1499,9 +1499,9 @@ function StoreSettingsContent({
                               const searchKey = `${zone.id || index}-${destination.countryCode}`;
                               const cityResults = shippingCityResults[searchKey] || [];
                               return (
-                                <section key={destination.countryCode} className="rounded-lg border border-slate-200 bg-slate-50/70 p-2.5 dark:border-gray-700 dark:bg-gray-900/50">
+                                <section key={destination.countryCode} className="rounded-lg border border-neutral-200 bg-neutral-50/70 p-2.5 dark:border-gray-700 dark:bg-gray-900/50">
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <label className="inline-flex min-w-0 flex-1 items-center gap-2 text-[11px] font-bold text-slate-700 dark:text-slate-200">
+                                    <label className="inline-flex min-w-0 flex-1 items-center gap-2 text-[11px] font-bold text-neutral-700 dark:text-neutral-200">
                                       <input
                                         type="checkbox"
                                         checked={destination.enabled !== false}
@@ -1518,7 +1518,7 @@ function StoreSettingsContent({
                                       />
                                       <span className="truncate">{destination.countryName} ({destination.countryCode})</span>
                                     </label>
-                                    <span className="text-[10px] text-slate-500">
+                                    <span className="text-[10px] text-neutral-500">
                                       {destination.cities?.length ? `${destination.cities.length} selected cities` : 'All cities'}
                                     </span>
                                     <button
@@ -1549,7 +1549,7 @@ function StoreSettingsContent({
                                               }
                                               : item
                                           ))}
-                                          className="rounded-full bg-white px-2 py-1 text-[10px] text-slate-600 dark:bg-gray-800 dark:text-slate-300"
+                                          className="rounded-full bg-white px-2 py-1 text-[10px] text-neutral-600 dark:bg-gray-800 dark:text-neutral-300"
                                         >
                                           {city} ×
                                         </button>
@@ -1567,13 +1567,13 @@ function StoreSettingsContent({
                                         }
                                       }}
                                       placeholder="Search cities (leave empty for all)"
-                                      className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                                      className="min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                                     />
                                     <button
                                       type="button"
                                       onClick={() => searchShippingCities(destination.countryCode, searchKey)}
                                       disabled={loadingShippingCities[searchKey]}
-                                      className="rounded-lg border border-slate-200 px-2.5 py-2 text-[10px] font-bold disabled:opacity-50 dark:border-gray-700"
+                                      className="rounded-lg border border-neutral-200 px-2.5 py-2 text-[10px] font-bold disabled:opacity-50 dark:border-gray-700"
                                     >
                                       {loadingShippingCities[searchKey] ? 'Searching…' : 'Search'}
                                     </button>
@@ -1586,7 +1586,7 @@ function StoreSettingsContent({
                                           type="button"
                                           disabled={(destination.cities || []).includes(city)}
                                           onClick={() => addShippingCity(index, destinationIndex, city)}
-                                          className="rounded-full border border-blue-200 bg-white px-2 py-1 text-[10px] font-semibold text-blue-700 disabled:opacity-40 dark:border-blue-800 dark:bg-gray-800 dark:text-blue-300"
+                                          className="rounded-full border border-neutral-200 bg-white px-2 py-1 text-[10px] font-semibold text-neutral-700 disabled:opacity-40 dark:border-neutral-800 dark:bg-gray-800 dark:text-neutral-300"
                                         >
                                           {city} +
                                         </button>
@@ -1597,16 +1597,16 @@ function StoreSettingsContent({
                               );
                             })}
                           </div>
-                          <p className="text-[10px] text-slate-500">
+                          <p className="text-[10px] text-neutral-500">
                             City data: GeoNames Gazetteer (CC BY 4.0), about 171,000 populated places; this does not include every village, neighborhood, or postal locality.
                           </p>
                         </div>
-                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                        <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                           Shipping method / service label
                           <select
                             value={['Standard shipping', 'Express courier', 'Air freight', 'Sea freight'].includes(zone.shippingMethod) ? zone.shippingMethod : 'Custom method'}
                             onChange={event => updateShippingZone(index, { shippingMethod: event.target.value })}
-                            className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                            className="mt-1 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                           >
                             {['Standard shipping', 'Express courier', 'Air freight', 'Sea freight', 'Custom method'].map(method => (
                               <option key={method} value={method}>{method}</option>
@@ -1618,11 +1618,11 @@ function StoreSettingsContent({
                               onChange={event => updateShippingZone(index, { shippingMethod: event.target.value })}
                               maxLength={80}
                               placeholder="Enter custom service label"
-                              className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                              className="mt-1 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                             />
                           )}
                         </label>
-                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                        <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                           Rate ({settings.currency || 'USD'})
                           <input
                             type="number"
@@ -1632,10 +1632,10 @@ function StoreSettingsContent({
                             onChange={event => setShippingZones(current => current.map((item, itemIndex) =>
                               itemIndex === index ? { ...item, rate: event.target.value } : item
                             ))}
-                            className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                            className="mt-1 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                           />
                         </label>
-                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                        <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                           Additional rate per kg ({settings.currency || 'USD'})
                           <input
                             type="number"
@@ -1643,10 +1643,10 @@ function StoreSettingsContent({
                             step="0.01"
                             value={zone.perKgRate ?? ''}
                             onChange={event => updateShippingZone(index, { perKgRate: event.target.value })}
-                            className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                            className="mt-1 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                           />
                         </label>
-                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                        <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                           Destination tax rate override (%)
                           <input
                             type="number"
@@ -1656,10 +1656,10 @@ function StoreSettingsContent({
                             value={zone.taxRate ?? ''}
                             onChange={event => updateShippingZone(index, { taxRate: event.target.value })}
                             placeholder={`Default ${taxRate}%`}
-                            className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                            className="mt-1 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                           />
                         </label>
-                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                        <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                           Free shipping at subtotal
                           <input
                             type="number"
@@ -1669,7 +1669,7 @@ function StoreSettingsContent({
                             onChange={event => setShippingZones(current => current.map((item, itemIndex) =>
                               itemIndex === index ? { ...item, freeShippingThreshold: event.target.value } : item
                             ))}
-                            className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                            className="mt-1 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                           />
                         </label>
                         <div className="grid grid-cols-2 gap-2">
@@ -1677,7 +1677,7 @@ function StoreSettingsContent({
                             ['Min delivery days', 'minDeliveryDays'],
                             ['Max delivery days', 'maxDeliveryDays']
                           ].map(([label, key]) => (
-                            <label key={key} className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                            <label key={key} className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                               {label}
                               <input
                                 type="number"
@@ -1688,12 +1688,12 @@ function StoreSettingsContent({
                                 onChange={event => setShippingZones(current => current.map((item, itemIndex) =>
                                   itemIndex === index ? { ...item, [key]: event.target.value } : item
                                 ))}
-                                className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                               />
                             </label>
                           ))}
                         </div>
-                        <div className="flex flex-wrap items-center gap-4 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                        <div className="flex flex-wrap items-center gap-4 text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                           <label className="inline-flex items-center gap-2">
                             <input
                               type="checkbox"
@@ -1730,24 +1730,24 @@ function StoreSettingsContent({
                   </div>
                 </div>
 
-                <div className={`border-t border-slate-100 dark:border-gray-700 pt-4 space-y-3 ${activeTab === 'promotions' ? '' : 'hidden'}`}>
+                <div className={`border-t border-neutral-100 dark:border-gray-700 pt-4 space-y-3 ${activeTab === 'promotions' ? '' : 'hidden'}`}>
                   <div>
-                    <h3 className="text-xs font-bold text-slate-900 dark:text-white">International promotion</h3>
-                    <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    <h3 className="text-xs font-bold text-neutral-900 dark:text-white">International promotion</h3>
+                    <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
                       Set one checkout code with country eligibility, a minimum spend, redemption limits, and a scheduled campaign. Fixed discounts use your store currency ({settings.currency || 'USD'}).
                     </p>
                   </div>
-                  <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <label className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                     <input
                       type="checkbox"
                       checked={promoActive}
                       onChange={event => setPromoActive(event.target.checked)}
-                      className="rounded border-slate-300"
+                      className="rounded border-neutral-300"
                     />
                     Enable promotion code
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                       Campaign code
                       <input
                         type="text"
@@ -1758,24 +1758,24 @@ function StoreSettingsContent({
                         placeholder="e.g. SAVE10"
                         autoComplete="off"
                         aria-describedby="promo-code-help"
-                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500"
                       />
-                      <span id="promo-code-help" className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-slate-400">
+                      <span id="promo-code-help" className="mt-1 block text-[10px] font-normal text-neutral-500 dark:text-neutral-400">
                         Letters, numbers, hyphens, and underscores.
                       </span>
                     </label>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                       Discount type
                       <select
                         value={promoDiscountType}
                         onChange={event => setPromoDiscountType(event.target.value)}
-                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500"
                       >
                         <option value="percent">Percentage off</option>
                         <option value="fixed">Fixed amount off</option>
                       </select>
                     </label>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                       {promoDiscountType === 'fixed' ? `Discount amount (${settings.currency || 'USD'})` : 'Discount percent'}
                       <input
                         type="number"
@@ -1786,10 +1786,10 @@ function StoreSettingsContent({
                         step="0.01"
                         required={promoActive}
                         placeholder={promoDiscountType === 'fixed' ? 'e.g. 10.00' : 'e.g. 10'}
-                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500"
                       />
                     </label>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                       Minimum order ({settings.currency || 'USD'})
                       <input
                         type="number"
@@ -1798,10 +1798,10 @@ function StoreSettingsContent({
                         value={promoMinimumSubtotal}
                         onChange={event => setPromoMinimumSubtotal(event.target.value)}
                         placeholder="No minimum"
-                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500"
                       />
                     </label>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                       Maximum discount ({settings.currency || 'USD'})
                       <input
                         type="number"
@@ -1810,31 +1810,31 @@ function StoreSettingsContent({
                         value={promoMaximumDiscount}
                         onChange={event => setPromoMaximumDiscount(event.target.value)}
                         placeholder="No cap"
-                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500"
                       />
                     </label>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                       Starts at (your local time)
                       <input
                         type="datetime-local"
                         value={promoStartsAt}
                         onChange={event => setPromoStartsAt(event.target.value)}
-                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500"
                       />
                     </label>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                       Ends at (your local time)
                       <input
                         type="datetime-local"
                         value={promoEndsAt}
                         min={promoStartsAt || undefined}
                         onChange={event => setPromoEndsAt(event.target.value)}
-                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500"
                       />
                     </label>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                       Total redemptions
                       <input
                         type="number"
@@ -1844,11 +1844,11 @@ function StoreSettingsContent({
                         value={promoUsageLimit}
                         onChange={event => setPromoUsageLimit(event.target.value)}
                         placeholder="Unlimited"
-                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500"
                       />
-                      <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-slate-400">Use 0 or leave blank for unlimited.</span>
+                      <span className="mt-1 block text-[10px] font-normal text-neutral-500 dark:text-neutral-400">Use 0 or leave blank for unlimited.</span>
                     </label>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                       Uses per customer
                       <input
                         type="number"
@@ -1858,16 +1858,16 @@ function StoreSettingsContent({
                         value={promoPerCustomerLimit}
                         onChange={event => setPromoPerCustomerLimit(event.target.value)}
                         placeholder="Unlimited"
-                        className="mt-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500"
                       />
-                      <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-slate-400">Matched by customer email or phone.</span>
+                      <span className="mt-1 block text-[10px] font-normal text-neutral-500 dark:text-neutral-400">Matched by customer email or phone.</span>
                     </label>
                   </div>
-                  <div className="rounded-xl border border-slate-200 p-3 dark:border-gray-700">
+                  <div className="rounded-xl border border-neutral-200 p-3 dark:border-gray-700">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <h4 className="text-xs font-semibold text-slate-800 dark:text-slate-100">Eligible delivery countries</h4>
-                        <p className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">
+                        <h4 className="text-xs font-semibold text-neutral-800 dark:text-neutral-100">Eligible delivery countries</h4>
+                        <p className="mt-0.5 text-[10px] text-neutral-500 dark:text-neutral-400">
                           Leave all countries unchecked to make this code available worldwide.
                         </p>
                       </div>
@@ -1875,7 +1875,7 @@ function StoreSettingsContent({
                         <button
                           type="button"
                           onClick={() => setPromoAllowedCountries([])}
-                          className="text-[10px] font-semibold text-blue-700 hover:underline dark:text-blue-300"
+                          className="text-[10px] font-semibold text-neutral-700 hover:underline dark:text-neutral-300"
                         >
                           Clear country limits
                         </button>
@@ -1887,7 +1887,7 @@ function StoreSettingsContent({
                       onChange={event => setPromoCountrySearch(event.target.value)}
                       placeholder="Search countries"
                       aria-label="Search promotion countries"
-                      className="mt-3 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                      className="mt-3 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs outline-none focus:border-neutral-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                     />
                     {shippingCountryError && !shippingCountries.length ? (
                       <p role="alert" className="mt-2 text-[11px] text-rose-600 dark:text-rose-300">{shippingCountryError}</p>
@@ -1896,7 +1896,7 @@ function StoreSettingsContent({
                         {shippingCountries
                           .filter(country => country.name.toLowerCase().includes(promoCountrySearch.trim().toLowerCase()))
                           .map(country => (
-                            <label key={country.code} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-gray-700/60">
+                            <label key={country.code} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] text-neutral-700 hover:bg-neutral-50 dark:text-neutral-300 dark:hover:bg-gray-700/60">
                               <input
                                 type="checkbox"
                                 checked={promoAllowedCountries.includes(country.code)}
@@ -1910,18 +1910,18 @@ function StoreSettingsContent({
                             </label>
                           ))}
                         {!shippingCountries.length && !shippingCountryError && (
-                          <p className="py-2 text-[11px] text-slate-500">Loading country list…</p>
+                          <p className="py-2 text-[11px] text-neutral-500">Loading country list…</p>
                         )}
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className={`border-t border-slate-100 dark:border-gray-700 pt-4 space-y-4 ${activeTab === 'payments' || activeTab === 'commerce' ? '' : 'hidden'}`}>
+                <div className={`border-t border-neutral-100 dark:border-gray-700 pt-4 space-y-4 ${activeTab === 'payments' || activeTab === 'commerce' ? '' : 'hidden'}`}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-xs font-bold text-slate-900 dark:text-white">Currency conversion rates</h3>
-                      <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                      <h3 className="text-xs font-bold text-neutral-900 dark:text-white">Currency conversion rates</h3>
+                      <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
                         Store price currency: <strong>{currencyConfiguration?.storeCurrency || settings.currency || 'USD'}</strong>.
                         Rates are per 1 USD and saved separately for this store.
                       </p>
@@ -1937,7 +1937,7 @@ function StoreSettingsContent({
                       type="button"
                       onClick={refreshCurrencyRates}
                       disabled={refreshingCurrencyRates}
-                      className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-[11px] font-bold text-white disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-lg bg-neutral-600 px-3 py-2 text-[11px] font-bold text-white disabled:opacity-60"
                     >
                       <RefreshCw className={`h-3.5 w-3.5 ${refreshingCurrencyRates ? 'animate-spin' : ''}`} />
                       {refreshingCurrencyRates ? 'Refreshing reference rates…' : 'Refresh market rates'}
@@ -1946,15 +1946,15 @@ function StoreSettingsContent({
                       type="button"
                       onClick={switchToManualCurrencyRates}
                       disabled={!currencyConfiguration}
-                      className="rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-bold text-slate-700 disabled:opacity-60 dark:border-gray-700 dark:text-slate-200"
+                      className="rounded-lg border border-neutral-200 px-3 py-2 text-[11px] font-bold text-neutral-700 disabled:opacity-60 dark:border-gray-700 dark:text-neutral-200"
                     >
                       Enter rates manually
                     </button>
                   </div>
                   {currencyMode === 'api' && (
-                    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-gray-700">
+                    <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-gray-700">
                       <table className="w-full text-left text-[11px]">
-                        <thead className="bg-slate-50 text-slate-500 dark:bg-gray-900">
+                        <thead className="bg-neutral-50 text-neutral-500 dark:bg-gray-900">
                           <tr>
                             <th className="px-3 py-2">Reference</th>
                             <th className="px-3 py-2">Per 1 USD</th>
@@ -1962,9 +1962,9 @@ function StoreSettingsContent({
                         </thead>
                         <tbody>
                           {commonCurrencyCodes.map(code => (
-                            <tr key={code} className="border-t border-slate-100 dark:border-gray-700">
-                              <td className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-200">{code}</td>
-                              <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
+                            <tr key={code} className="border-t border-neutral-100 dark:border-gray-700">
+                              <td className="px-3 py-2 font-semibold text-neutral-700 dark:text-neutral-200">{code}</td>
+                              <td className="px-3 py-2 text-neutral-600 dark:text-neutral-300">
                                 {currencyConfiguration?.rates?.[code] ?? 'Not available'}
                               </td>
                             </tr>
@@ -1975,7 +1975,7 @@ function StoreSettingsContent({
                   )}
                   {currencyMode === 'manual' && (
                     <div className="space-y-3">
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                      <p className="text-[10px] text-neutral-500 dark:text-neutral-400">
                         Enter how many units of each currency equal 1 USD. Verify these amounts with your bank or payment provider before enabling any live transactions.
                       </p>
                       <div className="space-y-2">
@@ -1983,7 +1983,7 @@ function StoreSettingsContent({
                           .filter(([code]) => code !== 'USD')
                           .map(([code, rate]) => (
                             <div key={code} className="grid grid-cols-[minmax(70px,0.5fr)_minmax(120px,1fr)_auto] items-center gap-2">
-                              <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200">1 USD = {code}</span>
+                              <span className="text-[11px] font-bold text-neutral-700 dark:text-neutral-200">1 USD = {code}</span>
                               <input
                                 type="number"
                                 min="0.00000001"
@@ -1994,7 +1994,7 @@ function StoreSettingsContent({
                                   [code]: event.target.value
                                 }))}
                                 aria-label={`USD to ${code} exchange rate`}
-                                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                                className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                               />
                               <button
                                 type="button"
@@ -2018,7 +2018,7 @@ function StoreSettingsContent({
                           maxLength={3}
                           placeholder="Code"
                           aria-label="Currency ISO code"
-                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs uppercase dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                          className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs uppercase dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                         />
                         <input
                           type="number"
@@ -2028,12 +2028,12 @@ function StoreSettingsContent({
                           onChange={event => setNewCurrencyRate(event.target.value)}
                           placeholder="Units per 1 USD"
                           aria-label="Manual currency rate"
-                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                          className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                         />
                         <button
                           type="button"
                           onClick={addManualCurrencyRate}
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-bold dark:border-gray-700"
+                          className="rounded-lg border border-neutral-200 px-3 py-2 text-[11px] font-bold dark:border-gray-700"
                         >
                           Add
                         </button>
@@ -2048,8 +2048,8 @@ function StoreSettingsContent({
                       </button>
                     </div>
                   )}
-                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] items-end gap-2 rounded-xl border border-slate-200 p-3 dark:border-gray-700">
-                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] items-end gap-2 rounded-xl border border-neutral-200 p-3 dark:border-gray-700">
+                    <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                       Amount in {currencyConfiguration?.storeCurrency || 'store currency'}
                       <input
                         type="number"
@@ -2057,15 +2057,15 @@ function StoreSettingsContent({
                         step="0.01"
                         value={conversionAmount}
                         onChange={event => setConversionAmount(event.target.value)}
-                        className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                        className="mt-1 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                       />
                     </label>
-                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                    <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                       Convert to currency
                       <select
                         value={selectedConversionCurrency}
                         onChange={event => setConversionTarget(event.target.value)}
-                        className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                        className="mt-1 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                       >
                         {!conversionCurrencies.length && <option value="">No rates available</option>}
                         {conversionCurrencies.map(code => (
@@ -2077,7 +2077,7 @@ function StoreSettingsContent({
                       type="button"
                       onClick={previewCurrencyConversion}
                       disabled={previewingConversion || !currencyConfiguration?.fresh || !selectedConversionCurrency}
-                      className="rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-bold disabled:opacity-60 dark:border-gray-700"
+                      className="rounded-lg border border-neutral-200 px-3 py-2 text-[11px] font-bold disabled:opacity-60 dark:border-gray-700"
                     >
                       {previewingConversion ? 'Converting…' : 'Preview'}
                     </button>
@@ -2098,8 +2098,8 @@ function StoreSettingsContent({
                   </div>
                 </div>
 
-                <div className={`border-t border-slate-100 dark:border-gray-700 pt-4 space-y-4 ${activeTab === 'payments' || activeTab === 'commerce' ? '' : 'hidden'}`}>
-                  <section className="rounded-xl border border-slate-200 p-3 dark:border-gray-700">
+                <div className={`border-t border-neutral-100 dark:border-gray-700 pt-4 space-y-4 ${activeTab === 'payments' || activeTab === 'commerce' ? '' : 'hidden'}`}>
+                  <section className="rounded-xl border border-neutral-200 p-3 dark:border-gray-700">
                     <label className="flex items-start gap-3">
                       <input
                         type="checkbox"
@@ -2108,38 +2108,38 @@ function StoreSettingsContent({
                         className="mt-0.5"
                       />
                       <span>
-                        <span className="block text-xs font-bold text-slate-900 dark:text-white">Allow customer refund requests</span>
-                        <span className="mt-1 block text-[10px] text-slate-500 dark:text-slate-400">
+                        <span className="block text-xs font-bold text-neutral-900 dark:text-white">Allow customer refund requests</span>
+                        <span className="mt-1 block text-[10px] text-neutral-500 dark:text-neutral-400">
                           Customers can submit requests from their account. Turning this off hides the request action and rejects new requests; existing requests remain available in Sales &amp; Orders.
                         </span>
                       </span>
                     </label>
                   </section>
                   <div>
-                    <h3 className="text-xs font-bold text-slate-900 dark:text-white">Store Payment Gateways</h3>
-                    <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    <h3 className="text-xs font-bold text-neutral-900 dark:text-white">Store Payment Gateways</h3>
+                    <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
                       Each store connects its own merchant account. Secrets are encrypted before saving and never returned to the browser. Paid status is recorded only after the provider verifies the transaction. Nagad online checkout is not available yet.
                     </p>
                   </div>
                   <div className="space-y-3">
                     {paymentProviders.map(provider => (
-                      <section key={provider.id} className="rounded-xl border border-slate-200 dark:border-gray-700 p-3 space-y-3">
+                      <section key={provider.id} className="rounded-xl border border-neutral-200 dark:border-gray-700 p-3 space-y-3">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
-                            <h4 className="text-xs font-bold text-slate-900 dark:text-white">{provider.name}</h4>
-                            <p className="mt-0.5 text-[10px] text-slate-500">
+                            <h4 className="text-xs font-bold text-neutral-900 dark:text-white">{provider.name}</h4>
+                            <p className="mt-0.5 text-[10px] text-neutral-500">
                               {provider.configured
                                 ? `${provider.enabled ? 'Enabled' : 'Disabled'} · ${provider.mode} · ${provider.checkoutReady ? 'checkout ready' : 'checkout unavailable'}`
                                 : 'Merchant account not connected'}
                               {' · '}Supported currencies: {provider.currencies.join(', ')}
                             </p>
                             {provider.id === 'stripe' && provider.checkoutReady && (
-                              <p className="mt-1 text-[10px] text-slate-500">
+                              <p className="mt-1 text-[10px] text-neutral-500">
                                 Configure Stripe webhook endpoint <code>https://&lt;store-domain&gt;/api/public/payments/stripe/webhook</code> for checkout.session.completed, checkout.session.async_payment_succeeded, refund.created, refund.updated, and refund.failed.
                               </p>
                             )}
                           </div>
-                          <label className="inline-flex items-center gap-2 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                          <label className="inline-flex items-center gap-2 text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                             <input
                               type="checkbox"
                               checked={provider.enabled}
@@ -2151,20 +2151,20 @@ function StoreSettingsContent({
                           </label>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                          <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                             Environment
                             <select
                               value={provider.mode}
                               onChange={event => setPaymentProviders(current => current.map(item =>
                                 item.id === provider.id ? { ...item, mode: event.target.value } : item
                               ))}
-                              className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                              className="mt-1 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                             >
                               <option value="sandbox">Sandbox / test</option>
                               <option value="live">Live</option>
                             </select>
                           </label>
-                          <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                          <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                             Payment fee percent
                             <input
                               type="number"
@@ -2175,10 +2175,10 @@ function StoreSettingsContent({
                               onChange={event => setPaymentProviders(current => current.map(item =>
                                 item.id === provider.id ? { ...item, feePercent: event.target.value } : item
                               ))}
-                              className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                              className="mt-1 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                             />
                           </label>
-                          <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                          <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                             Fixed fee ({settings.currencySymbol || '$'} in store currency)
                             <input
                               type="number"
@@ -2188,17 +2188,17 @@ function StoreSettingsContent({
                               onChange={event => setPaymentProviders(current => current.map(item =>
                                 item.id === provider.id ? { ...item, feeFixed: event.target.value } : item
                               ))}
-                              className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                              className="mt-1 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                             />
                           </label>
-                          <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                          <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                             Fee handling
                             <select
                               value={provider.feeMode}
                               onChange={event => setPaymentProviders(current => current.map(item =>
                                 item.id === provider.id ? { ...item, feeMode: event.target.value } : item
                               ))}
-                              className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                              className="mt-1 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                             >
                               <option value="included">Store pays / included in price</option>
                               <option value="customer">Add fee to customer total</option>
@@ -2207,7 +2207,7 @@ function StoreSettingsContent({
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {provider.credentialFields.map(field => (
-                            <label key={field} className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                            <label key={field} className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                               {paymentCredentialLabels[field] || field}
                               {field.toLowerCase().includes('privatekey') || field.toLowerCase().includes('publickey') ? (
                                 <textarea
@@ -2219,7 +2219,7 @@ function StoreSettingsContent({
                                   }))}
                                   placeholder={provider.configured ? 'Leave blank to keep saved credential' : 'Paste merchant PEM key'}
                                   autoComplete="off"
-                                  className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 font-mono text-[10px] dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                                  className="mt-1 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 font-mono text-[10px] dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                                 />
                               ) : (
                                 <input
@@ -2231,7 +2231,7 @@ function StoreSettingsContent({
                                   }))}
                                   placeholder={provider.configured ? 'Leave blank to keep saved credential' : 'Enter merchant credential'}
                                   autoComplete="new-password"
-                                  className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                                  className="mt-1 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                                 />
                               )}
                             </label>
@@ -2241,14 +2241,14 @@ function StoreSettingsContent({
                           type="button"
                           disabled={savingPaymentProvider === provider.id}
                           onClick={() => savePaymentProvider(provider)}
-                          className="rounded-lg bg-blue-600 px-3 py-2 text-[11px] font-bold text-white disabled:opacity-60"
+                          className="rounded-lg bg-neutral-600 px-3 py-2 text-[11px] font-bold text-white disabled:opacity-60"
                         >
                           {savingPaymentProvider === provider.id ? 'Saving securely...' : `Save ${provider.name}`}
                         </button>
                       </section>
                     ))}
                     {!paymentProviders.length && (
-                      <p className="text-[11px] text-slate-500">Loading gateway providers…</p>
+                      <p className="text-[11px] text-neutral-500">Loading gateway providers…</p>
                     )}
                   </div>
                 </div>
@@ -2259,7 +2259,7 @@ function StoreSettingsContent({
                   type="button"
                   onClick={handleSaveAll}
                   disabled={saving}
-                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center space-x-2 transition shadow-sm cursor-pointer disabled:opacity-60"
+                  className="px-5 py-2.5 rounded-xl bg-neutral-600 hover:bg-neutral-700 text-white text-xs font-bold flex items-center space-x-2 transition shadow-sm cursor-pointer disabled:opacity-60"
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>{saving ? 'Saving...' : isCommerceSettings ? `Save ${commercePage.title}` : 'Save Identity Info'}</span>
@@ -2271,13 +2271,13 @@ function StoreSettingsContent({
           {/* Right Column: Logo & Favicon Assets (lg:col-span-5) */}
           {activeTab === 'identity' && <div className="lg:col-span-5 space-y-6">
             {/* 1. STORE LOGO */}
-            <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200/90 dark:border-gray-700/80 p-6 shadow-xs space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-gray-700 pb-3">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl border border-neutral-200/90 dark:border-gray-700/80 p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-neutral-100 dark:border-gray-700 pb-3">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
                     Store Logo
                   </h3>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[11px] text-neutral-400">
                     Main storefront brand logo
                   </p>
                 </div>
@@ -2296,7 +2296,7 @@ function StoreSettingsContent({
 
               {/* Logo Preview if uploaded */}
               {settings.storeLogo && (
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-gray-900/60 border border-slate-200/70 dark:border-gray-700 flex items-center justify-center">
+                <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-gray-900/60 border border-neutral-200/70 dark:border-gray-700 flex items-center justify-center">
                   <img
                     src={settings.storeLogo}
                     alt="Store Logo"
@@ -2316,8 +2316,8 @@ function StoreSettingsContent({
                 onClick={() => logoInputRef.current?.click()}
                 className={`border-2 border-dashed rounded-2xl p-5 text-center cursor-pointer transition-all flex flex-col items-center justify-center space-y-2 ${
                   isLogoDragging
-                    ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20'
-                    : 'border-slate-200 dark:border-gray-700 hover:border-blue-400 bg-slate-50/50 dark:bg-gray-900/40'
+                    ? 'border-neutral-500 bg-neutral-50/50 dark:bg-neutral-900/20'
+                    : 'border-neutral-200 dark:border-gray-700 hover:border-neutral-400 bg-neutral-50/50 dark:bg-gray-900/40'
                 }`}
               >
                 <input
@@ -2330,7 +2330,7 @@ function StoreSettingsContent({
                   className="hidden"
                 />
 
-                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 flex items-center justify-center">
                   {uploadingLogo ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
                   ) : (
@@ -2339,10 +2339,10 @@ function StoreSettingsContent({
                 </div>
 
                 <div>
-                  <p className="text-xs font-bold text-slate-800 dark:text-white">
+                  <p className="text-xs font-bold text-neutral-800 dark:text-white">
                     {uploadingLogo ? 'Uploading logo...' : 'Click or drop logo image'}
                   </p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
+                  <p className="text-[10px] text-neutral-400 mt-0.5">
                     Recommended: PNG, SVG, or WEBP (transparent)
                   </p>
                 </div>
@@ -2350,13 +2350,13 @@ function StoreSettingsContent({
             </div>
 
             {/* 2. STORE FAVICON */}
-            <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200/90 dark:border-gray-700/80 p-6 shadow-xs space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-gray-700 pb-3">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl border border-neutral-200/90 dark:border-gray-700/80 p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-neutral-100 dark:border-gray-700 pb-3">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
                     Store Favicon
                   </h3>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[11px] text-neutral-400">
                     Icon shown in browser tabs & bookmarks
                   </p>
                 </div>
@@ -2374,11 +2374,11 @@ function StoreSettingsContent({
               </div>
 
               {/* Browser Tab Simulation Preview */}
-              <div className="p-3 rounded-2xl bg-slate-100 dark:bg-gray-900 border border-slate-200 dark:border-gray-700">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+              <div className="p-3 rounded-2xl bg-neutral-100 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700">
+                <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-2">
                   Browser Tab Preview
                 </p>
-                <div className="bg-white dark:bg-gray-800 rounded-xl px-3 py-2 border border-slate-200 dark:border-gray-700 flex items-center space-x-2.5 shadow-xs">
+                <div className="bg-white dark:bg-gray-800 rounded-xl px-3 py-2 border border-neutral-200 dark:border-gray-700 flex items-center space-x-2.5 shadow-xs">
                   {settings.storeFavicon ? (
                     <img
                       src={settings.storeFavicon}
@@ -2393,7 +2393,7 @@ function StoreSettingsContent({
                       T
                     </div>
                   )}
-                  <span className="text-xs font-semibold text-slate-800 dark:text-white truncate">
+                  <span className="text-xs font-semibold text-neutral-800 dark:text-white truncate">
                     {storeTitle || 'TiwloMart | Global Marketplace'}
                   </span>
                 </div>
@@ -2410,8 +2410,8 @@ function StoreSettingsContent({
                 onClick={() => faviconInputRef.current?.click()}
                 className={`border-2 border-dashed rounded-2xl p-5 text-center cursor-pointer transition-all flex flex-col items-center justify-center space-y-2 ${
                   isFaviconDragging
-                    ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20'
-                    : 'border-slate-200 dark:border-gray-700 hover:border-blue-400 bg-slate-50/50 dark:bg-gray-900/40'
+                    ? 'border-neutral-500 bg-neutral-50/50 dark:bg-neutral-900/20'
+                    : 'border-neutral-200 dark:border-gray-700 hover:border-neutral-400 bg-neutral-50/50 dark:bg-gray-900/40'
                 }`}
               >
                 <input
@@ -2433,10 +2433,10 @@ function StoreSettingsContent({
                 </div>
 
                 <div>
-                  <p className="text-xs font-bold text-slate-800 dark:text-white">
+                  <p className="text-xs font-bold text-neutral-800 dark:text-white">
                     {uploadingFavicon ? 'Uploading favicon...' : 'Click or drop favicon file'}
                   </p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
+                  <p className="text-[10px] text-neutral-400 mt-0.5">
                     Recommended: 32x32 or 64x64 PNG or ICO
                   </p>
                 </div>
@@ -2451,13 +2451,13 @@ function StoreSettingsContent({
       {/* ========================================================= */}
       {activeTab === 'colors' && (
         <div className="space-y-6">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200/90 dark:border-gray-700/80 p-6 shadow-xs space-y-5">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl border border-neutral-200/90 dark:border-gray-700/80 p-6 shadow-xs space-y-5">
             <div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
-                <Palette className="w-4 h-4 text-blue-500" />
+              <h2 className="text-sm font-bold text-neutral-900 dark:text-white flex items-center space-x-2">
+                <Palette className="w-4 h-4 text-neutral-500" />
                 <span>Theme Color Palette</span>
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                 Select an expertly curated color palette or enter your own custom brand hex
               </p>
             </div>
@@ -2474,8 +2474,8 @@ function StoreSettingsContent({
                     onClick={() => handleSelectPreset(preset)}
                     className={`p-3 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between text-left ${
                       isSelected
-                        ? 'border-blue-600 bg-blue-50/40 dark:bg-blue-900/20 shadow-xs'
-                        : 'border-slate-200 dark:border-gray-700 hover:border-slate-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'
+                        ? 'border-neutral-600 bg-neutral-50/40 dark:bg-neutral-900/20 shadow-xs'
+                        : 'border-neutral-200 dark:border-gray-700 hover:border-neutral-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'
                     }`}
                   >
                     <div className="flex items-center space-x-2.5">
@@ -2486,10 +2486,10 @@ function StoreSettingsContent({
                         {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+                        <p className="text-xs font-bold text-neutral-900 dark:text-white leading-tight">
                           {preset.name}
                         </p>
-                        <p className="text-[10px] font-mono text-slate-400">
+                        <p className="text-[10px] font-mono text-neutral-400">
                           {preset.hex.toUpperCase()}
                         </p>
                       </div>
@@ -2500,12 +2500,12 @@ function StoreSettingsContent({
             </div>
 
             {/* Custom Color Selector */}
-            <div className="pt-4 border-t border-slate-100 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="pt-4 border-t border-neutral-100 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-xs font-bold text-slate-900 dark:text-white">
+                <h3 className="text-xs font-bold text-neutral-900 dark:text-white">
                   Custom Hex Brand Color
                 </h3>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-neutral-400">
                   Applies instantly across headers, search bars, CTA buttons, and badges
                 </p>
               </div>
@@ -2515,19 +2515,19 @@ function StoreSettingsContent({
                   type="color"
                   value={selectedColor}
                   onChange={handleCustomColorChange}
-                  className="w-9 h-9 rounded-xl cursor-pointer border border-slate-200 dark:border-gray-700 bg-transparent p-0.5"
+                  className="w-9 h-9 rounded-xl cursor-pointer border border-neutral-200 dark:border-gray-700 bg-transparent p-0.5"
                 />
                 <input
                   type="text"
                   value={selectedColor}
                   onChange={handleCustomColorChange}
-                  placeholder="#2563eb"
-                  className="w-24 px-2.5 py-1.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white outline-none uppercase focus:border-blue-500"
+                  placeholder="#000000"
+                  className="w-24 px-2.5 py-1.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs font-mono font-bold text-neutral-900 dark:text-white outline-none uppercase focus:border-neutral-500"
                 />
                 <button
                   type="button"
                   onClick={() => handleSelectPreset(THEME_COLOR_PRESETS[0])}
-                  className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 underline cursor-pointer"
+                  className="text-xs text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 underline cursor-pointer"
                 >
                   Reset Default
                 </button>
@@ -2536,13 +2536,13 @@ function StoreSettingsContent({
           </div>
 
           {/* Live Elements Preview Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200/90 dark:border-gray-700/80 p-6 shadow-xs space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center space-x-1.5">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl border border-neutral-200/90 dark:border-gray-700/80 p-6 shadow-xs space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 flex items-center space-x-1.5">
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
               <span>Live Elements Color Preview</span>
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-gray-900/50 border border-slate-200/70 dark:border-gray-700/70">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-2xl bg-neutral-50 dark:bg-gray-900/50 border border-neutral-200/70 dark:border-gray-700/70">
               <button
                 type="button"
                 className="w-full py-2.5 px-4 rounded-xl text-white font-bold text-xs shadow-xs"
@@ -2581,25 +2581,25 @@ function StoreSettingsContent({
       {activeTab === 'banners' && (
         <div className="space-y-6">
           {/* Header & Controls Bar */}
-          <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200/90 dark:border-gray-700/80 p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl border border-neutral-200/90 dark:border-gray-700/80 p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2">
-                <ImageIcon className="w-4 h-4 text-blue-500" />
+              <h2 className="text-base font-bold text-neutral-900 dark:text-white flex items-center space-x-2">
+                <ImageIcon className="w-4 h-4 text-neutral-500" />
                 <span>Storefront Slider Banners</span>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-neutral-50 text-neutral-700 dark:bg-neutral-900/30 dark:text-neutral-300">
                   {currentBanners.length} Banners
                 </span>
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                 Manage the sliding promotional banners shown at the top of your TiwiMart storefront
               </p>
             </div>
 
             <div className="flex items-center space-x-3">
               {/* Sliding Speed selector */}
-              <div className="flex items-center space-x-2 bg-slate-50 dark:bg-gray-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-gray-700">
-                <Clock className="w-3.5 h-3.5 text-slate-400" />
-                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Speed:</span>
+              <div className="flex items-center space-x-2 bg-neutral-50 dark:bg-gray-900 px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-gray-700">
+                <Clock className="w-3.5 h-3.5 text-neutral-400" />
+                <span className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">Speed:</span>
                 <select
                   value={bannerSlidingSpeed}
                   onChange={(e) => {
@@ -2609,7 +2609,7 @@ function StoreSettingsContent({
                       .then(() => showToast?.(`Sliding speed set to ${spd}s`))
                       .catch(() => showToast?.('Failed to save banner speed.', 'error'));
                   }}
-                  className="bg-transparent text-xs font-bold text-slate-800 dark:text-white outline-none cursor-pointer"
+                  className="bg-transparent text-xs font-bold text-neutral-800 dark:text-white outline-none cursor-pointer"
                 >
                   <option value={3}>3 sec</option>
                   <option value={5}>5 sec (Default)</option>
@@ -2621,7 +2621,7 @@ function StoreSettingsContent({
               <button
                 type="button"
                 onClick={() => setIsAddBannerOpen(true)}
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center space-x-1.5 transition shadow-xs cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-neutral-600 hover:bg-neutral-700 text-white text-xs font-bold flex items-center space-x-1.5 transition shadow-xs cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Banner</span>
@@ -2631,16 +2631,16 @@ function StoreSettingsContent({
 
           {/* Add New Banner Modal / Collapsible Form */}
           {isAddBannerOpen && (
-            <div className="bg-white dark:bg-gray-800 rounded-3xl border-2 border-blue-500/40 p-6 shadow-md space-y-4 animate-in fade-in duration-200">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-gray-700 pb-3">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
-                  <Plus className="w-4 h-4 text-blue-500" />
+            <div className="bg-white dark:bg-gray-800 rounded-3xl border-2 border-neutral-500/40 p-6 shadow-md space-y-4 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between border-b border-neutral-100 dark:border-gray-700 pb-3">
+                <h3 className="text-sm font-bold text-neutral-900 dark:text-white flex items-center space-x-2">
+                  <Plus className="w-4 h-4 text-neutral-500" />
                   <span>Add New Storefront Banner</span>
                 </h3>
                 <button
                   type="button"
                   onClick={() => setIsAddBannerOpen(false)}
-                  className="text-slate-400 hover:text-slate-600 p-1"
+                  className="text-neutral-400 hover:text-neutral-600 p-1"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -2650,7 +2650,7 @@ function StoreSettingsContent({
                 {/* Form Inputs */}
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
                       Banner Title / Alt Description
                     </label>
                     <input
@@ -2658,12 +2658,12 @@ function StoreSettingsContent({
                       value={newBannerTitle}
                       onChange={(e) => setNewBannerTitle(e.target.value)}
                       placeholder="e.g. Mega Summer Flash Sale"
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                      className="w-full px-3 py-2 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
                       Banner Subtitle / Promotional Note
                     </label>
                     <input
@@ -2671,12 +2671,12 @@ function StoreSettingsContent({
                       value={newBannerSubtitle}
                       onChange={(e) => setNewBannerSubtitle(e.target.value)}
                       placeholder="e.g. Up to 60% off trending electronics"
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                      className="w-full px-3 py-2 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
                       Target Link / Click Action
                     </label>
                     <input
@@ -2684,15 +2684,15 @@ function StoreSettingsContent({
                       value={newBannerLink}
                       onChange={(e) => setNewBannerLink(e.target.value)}
                       placeholder="/?view=store#flash-sale"
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white font-mono outline-none focus:border-blue-500"
+                      className="w-full px-3 py-2 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white font-mono outline-none focus:border-neutral-500"
                     />
-                    <p className="text-[10px] text-slate-400 mt-0.5">
+                    <p className="text-[10px] text-neutral-400 mt-0.5">
                       e.g. /?view=store#flash-sale or custom URL
                     </p>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
                       Or Banner Image URL
                     </label>
                     <input
@@ -2700,14 +2700,14 @@ function StoreSettingsContent({
                       value={newBannerImage}
                       onChange={(e) => setNewBannerImage(e.target.value)}
                       placeholder="/banners/hero_banner_main.png or https://..."
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-xl text-xs text-slate-900 dark:text-white font-mono outline-none focus:border-blue-500"
+                      className="w-full px-3 py-2 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white font-mono outline-none focus:border-neutral-500"
                     />
                   </div>
                 </div>
 
                 {/* Upload & Live Preview */}
                 <div className="space-y-3">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300">
                     Upload Banner Image
                   </label>
 
@@ -2726,8 +2726,8 @@ function StoreSettingsContent({
                     onClick={() => bannerFileInputRef.current?.click()}
                     className={`border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition flex flex-col items-center justify-center space-y-1.5 ${
                       isBannerDragging
-                        ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20'
-                        : 'border-slate-200 dark:border-gray-700 hover:border-blue-400 bg-slate-50/50 dark:bg-gray-900/40'
+                        ? 'border-neutral-500 bg-neutral-50/50 dark:bg-neutral-900/20'
+                        : 'border-neutral-200 dark:border-gray-700 hover:border-neutral-400 bg-neutral-50/50 dark:bg-gray-900/40'
                     }`}
                   >
                     <input
@@ -2739,18 +2739,18 @@ function StoreSettingsContent({
                       }}
                       className="hidden"
                     />
-                    <Upload className="w-5 h-5 text-blue-500" />
-                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <Upload className="w-5 h-5 text-neutral-500" />
+                    <p className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
                       {uploadingBannerImage ? 'Uploading...' : 'Click to select or drop banner image'}
                     </p>
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-[10px] text-neutral-400">
                       Recommended aspect ratio 16:9 or wide banner (JPG, PNG, WEBP)
                     </p>
                   </div>
 
                   {/* Live Preview Box */}
                   {newBannerImage && (
-                    <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-gray-700 relative h-28 bg-slate-100">
+                    <div className="rounded-xl overflow-hidden border border-neutral-200 dark:border-gray-700 relative h-28 bg-neutral-100">
                       <img
                         src={newBannerImage}
                         alt="Preview"
@@ -2765,18 +2765,18 @@ function StoreSettingsContent({
                   {activeTab === 'pages' && (
                     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,1fr)]">
                       <section className="space-y-4">
-                        <div className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+                        <div className="rounded-3xl border border-neutral-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div>
-                              <h2 className="text-base font-bold text-slate-900 dark:text-white">Store pages & menus</h2>
-                              <p className="mt-1 max-w-xl text-xs text-slate-500 dark:text-slate-400">
+                              <h2 className="text-base font-bold text-neutral-900 dark:text-white">Store pages & menus</h2>
+                              <p className="mt-1 max-w-xl text-xs text-neutral-500 dark:text-neutral-400">
                                 Create policy or information pages, add an optional image, and choose whether each page appears in the header or footer.
                               </p>
                             </div>
                             <button
                               type="button"
                               onClick={() => setPageDraft(createEmptyPageDraft())}
-                              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-blue-700"
+                              className="inline-flex items-center gap-2 rounded-xl bg-neutral-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-neutral-700"
                             >
                               <Plus className="h-4 w-4" /> New page
                             </button>
@@ -2796,7 +2796,7 @@ function StoreSettingsContent({
                                   slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
                                   content
                                 })}
-                                className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:border-blue-300 hover:text-blue-700 dark:border-gray-600 dark:text-slate-300"
+                                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-[11px] font-semibold text-neutral-600 hover:border-neutral-300 hover:text-neutral-700 dark:border-gray-600 dark:text-neutral-300"
                               >
                                 Use {title} preset
                               </button>
@@ -2805,56 +2805,56 @@ function StoreSettingsContent({
                         </div>
 
                         {pageDraft && (
-                          <div className="space-y-4 rounded-3xl border-2 border-blue-200 bg-white p-5 dark:border-blue-900 dark:bg-gray-800">
+                          <div className="space-y-4 rounded-3xl border-2 border-neutral-200 bg-white p-5 dark:border-neutral-900 dark:bg-gray-800">
                             <div className="flex items-center justify-between">
-                              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                              <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
                                 {storePages.some(page => page.id === pageDraft.id) ? 'Edit page' : 'Create page'}
                               </h3>
-                              <button type="button" onClick={() => setPageDraft(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-700" aria-label="Close editor">
+                              <button type="button" onClick={() => setPageDraft(null)} className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-100 dark:hover:bg-gray-700" aria-label="Close editor">
                                 <X className="h-4 w-4" />
                               </button>
                             </div>
                             <div className="grid gap-3 sm:grid-cols-2">
-                              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                              <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                                 Page name
-                                <input value={pageDraft.title} onChange={event => setPageDraft({ ...pageDraft, title: event.target.value })} maxLength={120} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-white" placeholder="Privacy Policy" />
+                                <input value={pageDraft.title} onChange={event => setPageDraft({ ...pageDraft, title: event.target.value })} maxLength={120} className="mt-1 w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-white" placeholder="Privacy Policy" />
                               </label>
-                              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                              <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                                 Page URL slug
-                                <input value={pageDraft.slug} onChange={event => setPageDraft({ ...pageDraft, slug: event.target.value })} maxLength={120} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-white" placeholder="privacy-policy" />
+                                <input value={pageDraft.slug} onChange={event => setPageDraft({ ...pageDraft, slug: event.target.value })} maxLength={120} className="mt-1 w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-white" placeholder="privacy-policy" />
                               </label>
-                              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                              <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                                 Menu placement
-                                <select value={pageDraft.placement || 'footer'} onChange={event => setPageDraft({ ...pageDraft, placement: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-white">
+                                <select value={pageDraft.placement || 'footer'} onChange={event => setPageDraft({ ...pageDraft, placement: event.target.value })} className="mt-1 w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-white">
                                   <option value="footer">Footer menu</option>
                                   <option value="header">Header menu</option>
                                   <option value="both">Header and footer</option>
                                   <option value="hidden">No menu link (direct URL only)</option>
                                 </select>
                               </label>
-                              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                              <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                                 Optional image URL
-                                <input value={pageDraft.image || ''} onChange={event => setPageDraft({ ...pageDraft, image: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-white" placeholder="https://… or /uploads/…" />
+                                <input value={pageDraft.image || ''} onChange={event => setPageDraft({ ...pageDraft, image: event.target.value })} className="mt-1 w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-white" placeholder="https://… or /uploads/…" />
                                 <span className="mt-2 flex items-center gap-2">
                                   <input type="file" accept="image/*" disabled={uploadingPageImage} onChange={event => {
                                     if (event.target.files?.[0]) uploadPageImage(event.target.files[0]);
                                     event.target.value = '';
                                   }} className="max-w-full text-[10px] font-normal" />
-                                  {uploadingPageImage && <span className="text-[10px] text-blue-600">Uploading…</span>}
+                                  {uploadingPageImage && <span className="text-[10px] text-neutral-600">Uploading…</span>}
                                 </span>
                               </label>
                             </div>
-                            <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                            <label className="flex items-center gap-2 text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                               <input type="checkbox" checked={pageDraft.enabled !== false} onChange={event => setPageDraft({ ...pageDraft, enabled: event.target.checked })} />
                               Publish this page
                             </label>
-                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                               Page content (HTML allowed; scripts and unsafe attributes are removed on save)
-                              <textarea value={pageDraft.content || ''} onChange={event => setPageDraft({ ...pageDraft, content: event.target.value })} rows={12} maxLength={100000} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-xs dark:border-gray-600 dark:bg-gray-900 dark:text-white" placeholder="<h1>About our store</h1><p>Write your page content…</p>" />
+                              <textarea value={pageDraft.content || ''} onChange={event => setPageDraft({ ...pageDraft, content: event.target.value })} rows={12} maxLength={100000} className="mt-1 w-full rounded-xl border border-neutral-200 bg-neutral-50 p-3 font-mono text-xs dark:border-gray-600 dark:bg-gray-900 dark:text-white" placeholder="<h1>About our store</h1><p>Write your page content…</p>" />
                             </label>
                             <div className="flex justify-end gap-2">
-                              <button type="button" onClick={() => setPageDraft(null)} className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 dark:border-gray-600 dark:text-slate-300">Cancel</button>
-                              <button type="button" onClick={savePageDraft} disabled={saving} className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">{saving ? 'Saving…' : 'Save page'}</button>
+                              <button type="button" onClick={() => setPageDraft(null)} className="rounded-xl border border-neutral-200 px-4 py-2 text-xs font-semibold text-neutral-600 dark:border-gray-600 dark:text-neutral-300">Cancel</button>
+                              <button type="button" onClick={savePageDraft} disabled={saving} className="rounded-xl bg-neutral-600 px-4 py-2 text-xs font-bold text-white hover:bg-neutral-700 disabled:opacity-50">{saving ? 'Saving…' : 'Save page'}</button>
                             </div>
                           </div>
                         )}
@@ -2873,19 +2873,19 @@ function StoreSettingsContent({
                               onDragEnd={() => setDraggedPageId(null)}
                               className={`flex items-center gap-3 rounded-2xl border bg-white p-3 dark:border-gray-700 dark:bg-gray-800 ${draggedPageId === page.id ? 'opacity-50' : ''}`}
                             >
-                              <GripVertical title="Drag to reorder" className="h-4 w-4 shrink-0 cursor-grab text-slate-400" />
+                              <GripVertical title="Drag to reorder" className="h-4 w-4 shrink-0 cursor-grab text-neutral-400" />
                               <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <p className="truncate text-sm font-bold text-slate-800 dark:text-white">{page.title}</p>
-                                  <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${page.enabled === false ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{page.enabled === false ? 'Draft' : 'Published'}</span>
-                                  <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[9px] font-semibold text-blue-700">{page.placement || 'footer'}</span>
+                                  <p className="truncate text-sm font-bold text-neutral-800 dark:text-white">{page.title}</p>
+                                  <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${page.enabled === false ? 'bg-neutral-100 text-neutral-500' : 'bg-emerald-50 text-emerald-700'}`}>{page.enabled === false ? 'Draft' : 'Published'}</span>
+                                  <span className="rounded-full bg-neutral-50 px-2 py-0.5 text-[9px] font-semibold text-neutral-700">{page.placement || 'footer'}</span>
                                 </div>
-                                <p className="truncate text-[11px] text-slate-500">#/store/page/{page.slug || page.id}</p>
+                                <p className="truncate text-[11px] text-neutral-500">#/store/page/{page.slug || page.id}</p>
                               </div>
-                              <button type="button" onClick={() => setPageDraft({ ...page })} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50 dark:text-blue-300">Edit</button>
+                              <button type="button" onClick={() => setPageDraft({ ...page })} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 dark:text-neutral-300">Edit</button>
                               <div className="flex flex-col">
-                                <button type="button" disabled={index === 0} onClick={() => moveStorePage(page.id, storePages[index - 1]?.id)} className="px-1 text-slate-400 disabled:opacity-30" aria-label={`Move ${page.title} up`}>▲</button>
-                                <button type="button" disabled={index === storePages.length - 1} onClick={() => moveStorePage(page.id, storePages[index + 1]?.id)} className="px-1 text-slate-400 disabled:opacity-30" aria-label={`Move ${page.title} down`}>▼</button>
+                                <button type="button" disabled={index === 0} onClick={() => moveStorePage(page.id, storePages[index - 1]?.id)} className="px-1 text-neutral-400 disabled:opacity-30" aria-label={`Move ${page.title} up`}>▲</button>
+                                <button type="button" disabled={index === storePages.length - 1} onClick={() => moveStorePage(page.id, storePages[index + 1]?.id)} className="px-1 text-neutral-400 disabled:opacity-30" aria-label={`Move ${page.title} down`}>▼</button>
                               </div>
                               <button type="button" onClick={async () => {
                                 if (!await openMaterialDialog({ title: 'Delete store page?', message: `Delete "${page.title}"?`, confirmLabel: 'Delete page', tone: 'danger' })) return;
@@ -2897,29 +2897,29 @@ function StoreSettingsContent({
                                 } catch (error) {
                                   showToast?.(error.message || 'Failed to delete page.', 'error');
                                 }
-                              }} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" aria-label={`Delete ${page.title}`}>
+                              }} className="rounded-lg p-2 text-neutral-400 hover:bg-rose-50 hover:text-rose-600" aria-label={`Delete ${page.title}`}>
                                 <Trash2 className="h-4 w-4" />
                               </button>
-                              <span className="hidden text-[10px] text-slate-400 sm:inline">#{index + 1}</span>
+                              <span className="hidden text-[10px] text-neutral-400 sm:inline">#{index + 1}</span>
                             </div>
                           ))}
                           {storePages.length === 0 && !pageDraft && (
-                            <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-xs text-slate-500 dark:border-gray-700">
+                            <div className="rounded-2xl border border-dashed border-neutral-300 p-8 text-center text-xs text-neutral-500 dark:border-gray-700">
                               No custom pages yet. Start with a policy preset or create a blank page.
                             </div>
                           )}
                         </div>
                       </section>
 
-                      <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
-                        <h3 className="text-sm font-bold text-slate-900 dark:text-white">Safe content preview</h3>
-                        <p className="mt-1 text-xs text-slate-500">Scripts are disabled in this isolated preview. Content is sanitized again by the server when saved.</p>
+                      <section className="rounded-3xl border border-neutral-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+                        <h3 className="text-sm font-bold text-neutral-900 dark:text-white">Safe content preview</h3>
+                        <p className="mt-1 text-xs text-neutral-500">Scripts are disabled in this isolated preview. Content is sanitized again by the server when saved.</p>
                         {pageDraft?.image && <img src={pageDraft.image} alt="" className="mt-4 max-h-48 w-full rounded-xl object-cover" />}
                         <iframe
                           title="Custom page preview"
                           sandbox=""
-                          srcDoc={`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font:16px/1.65 system-ui,sans-serif;color:#334155;padding:20px;overflow-wrap:anywhere}img{max-width:100%;height:auto}table{border-collapse:collapse}td,th{border:1px solid #cbd5e1;padding:8px}</style></head><body>${pageDraft?.content || '<p>Start writing page content to preview it here.</p>'}</body></html>`}
-                          className="mt-4 h-[420px] w-full rounded-xl border border-slate-200 bg-white dark:border-gray-700"
+                          srcDoc={`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font:16px/1.65 system-ui,sans-serif;color:#3f3f3f;padding:20px;overflow-wrap:anywhere}img{max-width:100%;height:auto}table{border-collapse:collapse}td,th{border:1px solid #d4d4d4;padding:8px}</style></head><body>${pageDraft?.content || '<p>Start writing page content to preview it here.</p>'}</body></html>`}
+                          className="mt-4 h-[420px] w-full rounded-xl border border-neutral-200 bg-white dark:border-gray-700"
                         />
                       </section>
                     </div>
@@ -2927,18 +2927,18 @@ function StoreSettingsContent({
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 dark:border-gray-700 flex items-center justify-end space-x-2.5">
+              <div className="pt-3 border-t border-neutral-100 dark:border-gray-700 flex items-center justify-end space-x-2.5">
                 <button
                   type="button"
                   onClick={() => setIsAddBannerOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-gray-700 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-50 cursor-pointer"
+                  className="px-4 py-2 rounded-xl border border-neutral-200 dark:border-gray-700 text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleCreateBanner}
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center space-x-1.5 shadow-xs cursor-pointer"
+                  className="px-5 py-2 rounded-xl bg-neutral-600 hover:bg-neutral-700 text-white text-xs font-bold flex items-center space-x-1.5 shadow-xs cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add to Storefront Slider</span>
@@ -2957,8 +2957,8 @@ function StoreSettingsContent({
                   key={banner.id || index}
                   className={`bg-white dark:bg-gray-800 rounded-3xl border transition-all p-4.5 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 ${
                     isActive
-                      ? 'border-slate-200/90 dark:border-gray-700/80'
-                      : 'border-slate-200/50 dark:border-gray-800 opacity-60 bg-slate-50/50'
+                      ? 'border-neutral-200/90 dark:border-gray-700/80'
+                      : 'border-neutral-200/50 dark:border-gray-800 opacity-60 bg-neutral-50/50'
                   }`}
                 >
                   {/* Left: Banner Thumbnail & Details */}
@@ -2969,19 +2969,19 @@ function StoreSettingsContent({
                         type="button"
                         onClick={() => handleMoveBanner(index, -1)}
                         disabled={index === 0}
-                        className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 text-slate-600 dark:text-slate-300 disabled:opacity-30 flex items-center justify-center cursor-pointer"
+                        className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-gray-700 hover:bg-neutral-200 text-neutral-600 dark:text-neutral-300 disabled:opacity-30 flex items-center justify-center cursor-pointer"
                         title="Move Up"
                       >
                         <ChevronUp className="w-3.5 h-3.5" />
                       </button>
-                      <span className="text-[10px] font-mono font-bold text-slate-400">
+                      <span className="text-[10px] font-mono font-bold text-neutral-400">
                         #{index + 1}
                       </span>
                       <button
                         type="button"
                         onClick={() => handleMoveBanner(index, 1)}
                         disabled={index === currentBanners.length - 1}
-                        className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 text-slate-600 dark:text-slate-300 disabled:opacity-30 flex items-center justify-center cursor-pointer"
+                        className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-gray-700 hover:bg-neutral-200 text-neutral-600 dark:text-neutral-300 disabled:opacity-30 flex items-center justify-center cursor-pointer"
                         title="Move Down"
                       >
                         <ChevronDown className="w-3.5 h-3.5" />
@@ -2989,14 +2989,14 @@ function StoreSettingsContent({
                     </div>
 
                     {/* Banner Thumbnail */}
-                    <div className="w-36 sm:w-44 h-22 rounded-2xl overflow-hidden border border-slate-200 dark:border-gray-700 bg-slate-100 shrink-0 relative group">
+                    <div className="w-36 sm:w-44 h-22 rounded-2xl overflow-hidden border border-neutral-200 dark:border-gray-700 bg-neutral-100 shrink-0 relative group">
                       <img
                         src={banner.image}
                         alt={banner.title || `Banner ${index + 1}`}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                       />
                       {!isActive && (
-                        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center text-white text-[10px] font-bold">
+                        <div className="absolute inset-0 bg-neutral-900/60 backdrop-blur-xs flex items-center justify-center text-white text-[10px] font-bold">
                           Disabled
                         </div>
                       )}
@@ -3005,14 +3005,14 @@ function StoreSettingsContent({
                     {/* Banner Info */}
                     <div className="min-w-0 space-y-1">
                       <div className="flex items-center space-x-2">
-                        <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
+                        <h4 className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-white truncate">
                           {banner.title || `Slide Banner #${index + 1}`}
                         </h4>
                         <span
                           className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
                             isActive
                               ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300'
-                              : 'bg-slate-100 text-slate-400 dark:bg-gray-700'
+                              : 'bg-neutral-100 text-neutral-400 dark:bg-gray-700'
                           }`}
                         >
                           {isActive ? 'Active' : 'Hidden'}
@@ -3020,16 +3020,16 @@ function StoreSettingsContent({
                       </div>
 
                       {banner.subtitle && (
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
                           {banner.subtitle}
                         </p>
                       )}
 
-                      <span className="inline-flex rounded-md bg-indigo-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                      <span className="inline-flex rounded-md bg-neutral-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-neutral-700 dark:bg-neutral-900/30 dark:text-neutral-300">
                         Placement: Homepage hero slider
                       </span>
 
-                      <div className="flex items-center space-x-1.5 text-[10px] font-mono text-blue-600 dark:text-blue-400 truncate">
+                      <div className="flex items-center space-x-1.5 text-[10px] font-mono text-neutral-600 dark:text-neutral-400 truncate">
                         <LinkIcon className="w-3 h-3 shrink-0" />
                         <span className="truncate">{banner.link || '/?view=store'}</span>
                       </div>
@@ -3042,12 +3042,12 @@ function StoreSettingsContent({
                             ['image', 'Image URL'],
                             ['link', 'Click-through URL']
                           ].map(([key, label]) => (
-                            <label key={key} className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                            <label key={key} className="text-[10px] font-semibold text-neutral-600 dark:text-neutral-300">
                               {label}
                               <input
                                 value={bannerDraft[key] || ''}
                                 onChange={event => setBannerDraft({ ...bannerDraft, [key]: event.target.value })}
-                                className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-xs dark:border-gray-600 dark:bg-gray-900 dark:text-white"
                               />
                             </label>
                           ))}
@@ -3055,8 +3055,8 @@ function StoreSettingsContent({
                             <img src={bannerDraft.image} alt="Banner preview" className="col-span-full h-28 w-full rounded-lg object-cover" />
                           )}
                           <div className="col-span-full flex justify-end gap-2">
-                            <button type="button" onClick={() => { setEditingBannerId(null); setBannerDraft(null); }} className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold dark:border-gray-600">Cancel</button>
-                            <button type="button" onClick={handleSaveBanner} disabled={saving} className="rounded-lg bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-50">Save banner</button>
+                            <button type="button" onClick={() => { setEditingBannerId(null); setBannerDraft(null); }} className="rounded-lg border border-neutral-200 px-3 py-1.5 text-[11px] font-semibold dark:border-gray-600">Cancel</button>
+                            <button type="button" onClick={handleSaveBanner} disabled={saving} className="rounded-lg bg-neutral-600 px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-50">Save banner</button>
                           </div>
                         </div>
                       )}
@@ -3076,7 +3076,7 @@ function StoreSettingsContent({
                           link: banner.link || ''
                         });
                       }}
-                      className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-gray-600 dark:text-slate-300 dark:hover:bg-gray-700"
+                      className="px-3 py-1.5 rounded-xl border border-neutral-200 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-gray-600 dark:text-neutral-300 dark:hover:bg-gray-700"
                     >
                       Edit
                     </button>
@@ -3085,7 +3085,7 @@ function StoreSettingsContent({
                       onClick={() => handleToggleBannerActive(banner)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                         isActive
-                          ? 'bg-slate-100 hover:bg-slate-200 dark:bg-gray-700 text-slate-700 dark:text-slate-300'
+                          ? 'bg-neutral-100 hover:bg-neutral-200 dark:bg-gray-700 text-neutral-700 dark:text-neutral-300'
                           : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
                       }`}
                     >
@@ -3095,7 +3095,7 @@ function StoreSettingsContent({
                     <button
                       type="button"
                       onClick={() => handleDeleteBanner(banner.id)}
-                      className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition cursor-pointer"
+                      className="p-2 rounded-xl text-neutral-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition cursor-pointer"
                       title="Delete Banner"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -3107,7 +3107,7 @@ function StoreSettingsContent({
           </div>
 
           {/* Reset Banners Option */}
-          <div className="pt-2 flex items-center justify-between text-xs text-slate-400">
+          <div className="pt-2 flex items-center justify-between text-xs text-neutral-400">
             <span>Changes to slider banners appear immediately on your live storefront.</span>
             <button
               type="button"
@@ -3117,7 +3117,7 @@ function StoreSettingsContent({
                   showToast?.('Slider banners reset to default');
                 }
               }}
-              className="text-slate-500 hover:text-slate-700 dark:text-slate-400 font-semibold underline cursor-pointer"
+              className="text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 font-semibold underline cursor-pointer"
             >
               Reset to 3 Default Banners
             </button>

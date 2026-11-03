@@ -125,23 +125,23 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
   return (
     <div className="space-y-4 font-sans select-none">
       {/* Top Header & Breadcrumb */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 px-4 py-3.5 rounded-2xl border border-slate-200/70 dark:border-slate-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-neutral-900 px-4 py-3.5 rounded-2xl border border-neutral-200/70 dark:border-neutral-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
         <div>
           <button
             onClick={onBackToDashboard}
-            className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline mb-1"
+            className="flex items-center gap-1.5 text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:underline mb-1"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Back to Dashboard
           </button>
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+            <h2 className="text-lg font-bold text-neutral-900 dark:text-white tracking-tight">
               E-commerce Customers & Store Owners
             </h2>
-            <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+            <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-neutral-100 text-neutral-700 dark:bg-neutral-900/40 dark:text-neutral-300">
               {customers.length} Merchants
             </span>
           </div>
-          <p className="text-[11px] text-slate-400 dark:text-slate-500">
+          <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
             Overview of store owners, multi-tenant merchant accounts, and active store counts.
           </p>
         </div>
@@ -149,7 +149,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
         <div className="flex items-center gap-2">
           <button
             onClick={fetchCustomers}
-            className="p-1.5 px-3 text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+            className="p-1.5 px-3 text-neutral-600 dark:text-neutral-300 bg-neutral-50 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 border border-neutral-200 dark:border-neutral-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>Sync</span>
@@ -159,40 +159,40 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
 
       {/* Summary KPI Mini Strip (Minimalist Clean) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/70 dark:border-slate-800">
-          <span className="text-[11px] font-medium text-slate-400">Total Merchants</span>
-          <p className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">{customers.length}</p>
+        <div className="p-3 bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200/70 dark:border-neutral-800">
+          <span className="text-[11px] font-medium text-neutral-400">Total Merchants</span>
+          <p className="text-lg font-bold text-neutral-900 dark:text-white mt-0.5">{customers.length}</p>
         </div>
-        <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/70 dark:border-slate-800">
-          <span className="text-[11px] font-medium text-slate-400">Total Stores Created</span>
-          <p className="text-lg font-bold text-blue-600 dark:text-blue-400 mt-0.5">{totalStoreCount}</p>
+        <div className="p-3 bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200/70 dark:border-neutral-800">
+          <span className="text-[11px] font-medium text-neutral-400">Total Stores Created</span>
+          <p className="text-lg font-bold text-neutral-600 dark:text-neutral-400 mt-0.5">{totalStoreCount}</p>
         </div>
-        <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/70 dark:border-slate-800">
-          <span className="text-[11px] font-medium text-slate-400">Multi-Store Owners</span>
+        <div className="p-3 bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200/70 dark:border-neutral-800">
+          <span className="text-[11px] font-medium text-neutral-400">Multi-Store Owners</span>
           <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{multiStoreCount}</p>
         </div>
-        <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/70 dark:border-slate-800">
-          <span className="text-[11px] font-medium text-slate-400">Suspended Merchants</span>
-          <p className={`text-lg font-bold mt-0.5 ${suspendedCount > 0 ? 'text-red-500' : 'text-slate-500'}`}>{suspendedCount}</p>
+        <div className="p-3 bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200/70 dark:border-neutral-800">
+          <span className="text-[11px] font-medium text-neutral-400">Suspended Merchants</span>
+          <p className={`text-lg font-bold mt-0.5 ${suspendedCount > 0 ? 'text-red-500' : 'text-neutral-500'}`}>{suspendedCount}</p>
         </div>
       </div>
 
       {/* Search Bar & Table Container */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/70 dark:border-slate-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)] overflow-hidden">
+      <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/70 dark:border-neutral-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)] overflow-hidden">
         {/* Search Header */}
-        <div className="p-3 px-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+        <div className="p-3 px-4 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between gap-3">
           <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by merchant, store name, email, Tiwi ID..."
-              className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-blue-500"
+              className="w-full pl-9 pr-3 py-1.5 text-xs bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-200/80 dark:border-neutral-700 rounded-xl text-neutral-800 dark:text-neutral-200 placeholder-neutral-400 focus:outline-none focus:border-neutral-500"
             />
           </div>
 
-          <div className="text-[11px] text-slate-400 font-medium hidden sm:block">
+          <div className="text-[11px] text-neutral-400 font-medium hidden sm:block">
             Showing {customers.length} customer records
           </div>
         </div>
@@ -201,7 +201,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 bg-slate-50/50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800">
+              <tr className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 bg-neutral-50/50 dark:bg-neutral-800/30 border-b border-neutral-100 dark:border-neutral-800">
                 <th className="py-2.5 px-4">Merchant / Customer</th>
                 <th className="py-2.5 px-3">Tiwi ID / Identity</th>
                 <th className="py-2.5 px-3 text-center">Stores Count</th>
@@ -211,11 +211,11 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                 <th className="py-2.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+            <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/60">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
-                    <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <td colSpan={7} className="py-12 text-center text-neutral-400">
+                    <div className="w-6 h-6 border-2 border-neutral-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                     <span>Loading store customers...</span>
                   </td>
                 </tr>
@@ -227,26 +227,26 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                 </tr>
               ) : customers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-neutral-400">
                     No customers found matching your search.
                   </td>
                 </tr>
               ) : (
                 customers.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
+                  <tr key={c.id} className="hover:bg-neutral-50/60 dark:hover:bg-neutral-800/40 transition-colors">
                     {/* Customer Info */}
                     <td className="py-2.5 px-4">
                       <div className="flex items-center gap-2.5">
                         <img
                           src={c.avatar}
                           alt={c.name}
-                          className="w-7 h-7 rounded-full object-cover ring-1 ring-slate-200 dark:ring-slate-700"
+                          className="w-7 h-7 rounded-full object-cover ring-1 ring-neutral-200 dark:ring-neutral-700"
                         />
                         <div className="min-w-0">
-                          <p className="font-bold text-slate-800 dark:text-slate-200 truncate leading-tight">
+                          <p className="font-bold text-neutral-800 dark:text-neutral-200 truncate leading-tight">
                             {c.name}
                           </p>
-                          <p className="text-[10px] text-slate-400 truncate leading-tight mt-0.5">
+                          <p className="text-[10px] text-neutral-400 truncate leading-tight mt-0.5">
                             {c.email}
                           </p>
                         </div>
@@ -255,7 +255,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
 
                     {/* Tiwi ID */}
                     <td className="py-2.5 px-3">
-                      <p className="font-mono font-medium text-slate-600 dark:text-slate-400 text-[11px]">
+                      <p className="font-mono font-medium text-neutral-600 dark:text-neutral-400 text-[11px]">
                         {c.tiwiId || '—'}
                       </p>
                       <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -270,7 +270,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                             Account locked · ID required
                           </span>
                         ) : (
-                          <span className="rounded-full bg-[#F1F3F4] px-2 py-0.5 text-[10px] font-medium text-[#5F6368]">
+                          <span className="rounded-full bg-[#F1F3F4] px-2 py-0.5 text-[10px] font-medium text-[#636363]">
                             Not verified
                           </span>
                         )}
@@ -281,7 +281,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                               type="button"
                               disabled={actionLoading}
                               onClick={() => setIdentityLockTarget(c)}
-                              className="rounded-full px-2 py-0.5 text-[10px] font-medium text-[#1A73E8] transition hover:bg-[#E8F0FE] disabled:cursor-wait disabled:opacity-60"
+                              className="rounded-full px-2 py-0.5 text-[10px] font-medium text-[#696969] transition hover:bg-[#efefef] disabled:cursor-wait disabled:opacity-60"
                             >
                               Lock for ID check
                             </button>
@@ -292,7 +292,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                               <button
                                 type="button"
                                 onClick={() => onNavigate?.(`identity-verification/${encodeURIComponent(c.id)}`)}
-                                className="rounded-full px-2 py-0.5 text-[10px] font-medium text-[#1A73E8] transition hover:bg-[#E8F0FE]"
+                                className="rounded-full px-2 py-0.5 text-[10px] font-medium text-[#696969] transition hover:bg-[#efefef]"
                               >
                                 {c.identityVerified ? 'View verified' : 'Review ID files'}
                               </button>
@@ -306,9 +306,9 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                         onClick={() => setSelectedCustomerStores(c)}
                         className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold transition-transform hover:scale-105 ${
                           c.storeCount > 1
-                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
+                            ? 'bg-neutral-100 text-neutral-700 dark:bg-neutral-900/50 dark:text-neutral-300'
                             : c.storeCount === 1
-                            ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                            ? 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
                             : 'bg-amber-50 text-amber-700'
                         }`}
                         title="Click to view all stores"
@@ -321,7 +321,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                     {/* Primary Store */}
                     <td className="py-2.5 px-3">
                       <div>
-                        <span className="font-semibold text-slate-800 dark:text-slate-200 block truncate max-w-[140px]">
+                        <span className="font-semibold text-neutral-800 dark:text-neutral-200 block truncate max-w-[140px]">
                           {c.primaryStoreName}
                         </span>
                         {c.subdomain ? (
@@ -329,19 +329,19 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                             href={`https://${c.subdomain}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5 truncate max-w-[140px]"
+                            className="text-[10px] text-neutral-600 dark:text-neutral-400 hover:underline flex items-center gap-0.5 truncate max-w-[140px]"
                           >
                             {c.subdomain} <ExternalLink className="w-2.5 h-2.5 shrink-0" />
                           </a>
                         ) : (
-                          <span className="text-[10px] text-slate-400">Store URL unavailable</span>
+                          <span className="text-[10px] text-neutral-400">Store URL unavailable</span>
                         )}
                       </div>
                     </td>
 
                     {/* Plan */}
                     <td className="py-2.5 px-3">
-                      <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">
+                      <span className="text-[11px] font-medium text-neutral-600 dark:text-neutral-400">
                         {c.planName}
                       </span>
                     </td>
@@ -361,11 +361,11 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                         <button
                           type="button"
                           onClick={() => onNavigate?.(`user-locations/${encodeURIComponent(c.id)}`)}
-                          className="text-[10px] font-semibold text-[#1a73e8] hover:underline dark:text-blue-400"
+                          className="text-[10px] font-semibold text-[#696969] hover:underline dark:text-neutral-400"
                         >
                           User location
                         </button>
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[10px] text-neutral-400">
                           Last login: {c.lastLoginAt ? new Date(c.lastLoginAt).toLocaleString() : '—'}
                         </span>
                       </div>
@@ -376,7 +376,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => setSelectedCustomerStores(c)}
-                          className="px-2 py-1 rounded-lg text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          className="px-2 py-1 rounded-lg text-[11px] font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                         >
                           Stores
                         </button>
@@ -412,9 +412,9 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
 
       {/* Stores Detail Modal */}
       {selectedCustomerStores && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-2xs">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-5 border border-slate-200 dark:border-slate-800 shadow-xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/40 backdrop-blur-2xs">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl max-w-lg w-full p-5 border border-neutral-200 dark:border-neutral-800 shadow-xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
               <div className="flex items-center gap-2.5">
                 <img
                   src={selectedCustomerStores.avatar}
@@ -422,16 +422,16 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                   className="w-8 h-8 rounded-full object-cover"
                 />
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
                     {selectedCustomerStores.name}'s Stores ({selectedCustomerStores.storeCount})
                   </h3>
-                  <p className="text-[11px] text-slate-400">{selectedCustomerStores.email}</p>
+                  <p className="text-[11px] text-neutral-400">{selectedCustomerStores.email}</p>
                 </div>
               </div>
 
               <button
                 onClick={() => setSelectedCustomerStores(null)}
-                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="p-1 rounded-lg text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -442,14 +442,14 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                 selectedCustomerStores.stores.map((s, idx) => (
                   <div
                     key={idx}
-                    className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 flex items-center justify-between"
+                    className="p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700 flex items-center justify-between"
                   >
                     <div>
                       <div className="flex items-center gap-2">
-                        <Store className="w-3.5 h-3.5 text-blue-600" />
-                        <span className="font-bold text-xs text-slate-900 dark:text-white">{s.name}</span>
+                        <Store className="w-3.5 h-3.5 text-neutral-600" />
+                        <span className="font-bold text-xs text-neutral-900 dark:text-white">{s.name}</span>
                       </div>
-                      <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">{s.subdomain}</span>
+                      <span className="text-[10px] text-neutral-400 font-mono mt-0.5 block">{s.subdomain}</span>
                     </div>
 
                     {s.subdomain && (
@@ -457,7 +457,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                         href={`https://${s.subdomain}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="px-2.5 py-1 text-[11px] font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg flex items-center gap-1"
+                        className="px-2.5 py-1 text-[11px] font-semibold text-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-900/30 rounded-lg flex items-center gap-1"
                       >
                         Visit <ExternalLink className="w-3 h-3" />
                       </a>
@@ -465,13 +465,13 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                   </div>
                 ))
               ) : (
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 flex items-center justify-between">
+                <div className="p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700 flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <Store className="w-3.5 h-3.5 text-blue-600" />
-                      <span className="font-bold text-xs text-slate-900 dark:text-white">{selectedCustomerStores.primaryStoreName}</span>
+                      <Store className="w-3.5 h-3.5 text-neutral-600" />
+                      <span className="font-bold text-xs text-neutral-900 dark:text-white">{selectedCustomerStores.primaryStoreName}</span>
                     </div>
-                    <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">{selectedCustomerStores.subdomain}</span>
+                    <span className="text-[10px] text-neutral-400 font-mono mt-0.5 block">{selectedCustomerStores.subdomain}</span>
                   </div>
 
                   {selectedCustomerStores.subdomain && (
@@ -479,7 +479,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                       href={`https://${selectedCustomerStores.subdomain}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="px-2.5 py-1 text-[11px] font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg flex items-center gap-1"
+                      className="px-2.5 py-1 text-[11px] font-semibold text-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-900/30 rounded-lg flex items-center gap-1"
                     >
                       Visit <ExternalLink className="w-3 h-3" />
                     </a>
@@ -491,7 +491,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
             <div className="pt-2 text-right">
               <button
                 onClick={() => setSelectedCustomerStores(null)}
-                className="px-4 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl"
+                className="px-4 py-1.5 text-xs font-semibold bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 rounded-xl"
               >
                 Close
               </button>
@@ -502,28 +502,28 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
 
       {/* Suspend Confirmation Modal */}
       {banModalTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-2xs">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-5 border border-slate-200 dark:border-slate-800 shadow-xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/40 backdrop-blur-2xs">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl max-w-md w-full p-5 border border-neutral-200 dark:border-neutral-800 shadow-xl space-y-4">
             <div className="flex items-center gap-3 text-red-500">
               <div className="w-9 h-9 rounded-xl bg-red-50 dark:bg-red-900/30 flex items-center justify-center">
                 <AlertTriangle className="w-5 h-5 text-red-600" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
                   Suspend Merchant Account
                 </h3>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-neutral-400">
                   {banModalTarget.name} ({banModalTarget.email})
                 </p>
               </div>
             </div>
 
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
               When suspended, the merchant will be immediately logged out and shown the disabled account notice screen upon sign-in. Their stores will be placed in maintenance mode.
             </p>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                 Reason for suspension (visible to merchant):
               </label>
               <textarea
@@ -531,15 +531,15 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                 onChange={(e) => setBanReason(e.target.value)}
                 placeholder="e.g. Terms of Service violation, policy non-compliance, payment issue..."
                 rows={2}
-                className="w-full p-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white focus:outline-none focus:border-red-500"
+                className="w-full p-2 text-xs rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-800 dark:text-white focus:outline-none focus:border-red-500"
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
               <button
                 type="button"
                 onClick={() => setBanModalTarget(null)}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+                className="px-3 py-1.5 text-xs font-semibold text-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl"
               >
                 Cancel
               </button>
@@ -558,7 +558,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
 
       {identityLockTarget && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-[#202124]/40 p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-[#212121]/40 p-4"
           onMouseDown={event => {
             if (event.target === event.currentTarget && !actionLoading) setIdentityLockTarget(null);
           }}
@@ -567,7 +567,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
             role="dialog"
             aria-modal="true"
             aria-labelledby="identity-lock-title"
-            className="w-full max-w-[440px] rounded-[28px] bg-white p-6 text-[#202124] shadow-[0_8px_24px_rgba(60,64,67,0.24)]"
+            className="w-full max-w-[440px] rounded-[28px] bg-white p-6 text-[#212121] shadow-[0_8px_24px_rgba(60,64,67,0.24)]"
           >
             <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#FCE8E6] text-[#B3261E]">
               <ShieldAlert className="h-6 w-6" aria-hidden="true" />
@@ -575,11 +575,11 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
             <h3 id="identity-lock-title" className="text-xl font-normal tracking-[-0.01em]">
               Require identity verification?
             </h3>
-            <p className="mt-3 text-sm leading-6 text-[#5F6368]">
-              <span className="font-medium text-[#202124]">{identityLockTarget.name}</span>
+            <p className="mt-3 text-sm leading-6 text-[#636363]">
+              <span className="font-medium text-[#212121]">{identityLockTarget.name}</span>
               {identityLockTarget.email ? ` (${identityLockTarget.email})` : ''} will be signed out and their account will be locked until they complete identity verification.
             </p>
-            <p className="mt-3 text-sm leading-6 text-[#5F6368]">
+            <p className="mt-3 text-sm leading-6 text-[#636363]">
               This affects only this account. Access is restored automatically after successful verification.
             </p>
             <div className="mt-7 flex justify-end gap-2">
@@ -587,7 +587,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                 type="button"
                 disabled={actionLoading}
                 onClick={() => setIdentityLockTarget(null)}
-                className="min-h-10 rounded-full px-5 text-sm font-medium text-[#1A73E8] transition hover:bg-[#F1F3F4] disabled:opacity-50"
+                className="min-h-10 rounded-full px-5 text-sm font-medium text-[#696969] transition hover:bg-[#F1F3F4] disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -595,7 +595,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                 type="button"
                 disabled={actionLoading}
                 onClick={() => handleRequireIdentityVerification(identityLockTarget)}
-                className="min-h-10 rounded-full bg-[#1A73E8] px-5 text-sm font-medium text-white transition hover:bg-[#1765CC] disabled:cursor-wait disabled:opacity-60"
+                className="min-h-10 rounded-full bg-[#696969] px-5 text-sm font-medium text-white transition hover:bg-[#5c5c5c] disabled:cursor-wait disabled:opacity-60"
               >
                 {actionLoading ? 'Locking account…' : 'Lock this account'}
               </button>

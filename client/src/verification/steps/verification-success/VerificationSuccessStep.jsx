@@ -36,10 +36,10 @@ export default function VerificationSuccessStep({ onContinue = null }) {
         </div>
 
         {/* Title & Description */}
-        <h2 className="text-[25px] font-bold text-slate-900 tracking-tight leading-snug">
+        <h2 className="text-[25px] font-bold text-neutral-900 tracking-tight leading-snug">
           Verification Successful
         </h2>
-        <p className="text-[14px] text-slate-500 font-normal mt-2.5 max-w-[290px] leading-relaxed">
+        <p className="text-[14px] text-neutral-500 font-normal mt-2.5 max-w-[290px] leading-relaxed">
           Your selfie matched the face in the submitted document image. This check does not verify whether the document is genuine.
         </p>
       </div>
@@ -49,7 +49,7 @@ export default function VerificationSuccessStep({ onContinue = null }) {
         <button
           onClick={handleContinue}
           type="button"
-          className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-[15px] rounded-xl shadow-sm hover:shadow transition-all duration-150 active:scale-[0.98] cursor-pointer"
+          className="w-full py-3.5 px-4 bg-neutral-600 hover:bg-neutral-700 active:bg-neutral-800 text-white font-semibold text-[15px] rounded-xl shadow-sm hover:shadow transition-all duration-150 active:scale-[0.98] cursor-pointer"
         >
           Continue
         </button>

@@ -6,12 +6,12 @@
 export const THEME_COLOR_PRESETS = [
   {
     id: 'sapphire',
-    name: 'Sapphire Blue',
-    hex: '#2563eb',
-    hover: '#1d4ed8',
-    light: '#eff6ff',
-    border: '#bfdbfe',
-    description: 'Modern, trusted corporate blue (Default TiwloMart)'
+    name: 'Monochrome Black',
+    hex: '#000000',
+    hover: '#000000',
+    light: '#f5f5f5',
+    border: '#d8d8d8',
+    description: 'Clean black-and-white storefront palette (Default TiwloMart)'
   },
   {
     id: 'emerald',
@@ -24,11 +24,11 @@ export const THEME_COLOR_PRESETS = [
   },
   {
     id: 'indigo',
-    name: 'Royal Indigo',
-    hex: '#4f46e5',
-    hover: '#4338ca',
-    light: '#eef2ff',
-    border: '#c7d2fe',
+    name: 'Graphite',
+    hex: '#535353',
+    hover: '#454545',
+    light: '#f2f2f2',
+    border: '#d3d3d3',
     description: 'High-end tech, luxury brands & digital electronics'
   },
   {
@@ -52,10 +52,10 @@ export const THEME_COLOR_PRESETS = [
   {
     id: 'cyber',
     name: 'Cyber Violet',
-    hex: '#7c3aed',
-    hover: '#6d28d9',
-    light: '#f5f3ff',
-    border: '#ddd6fe',
+    hex: '#555555',
+    hover: '#434343',
+    light: '#f4f4f4',
+    border: '#dadada',
     description: 'Futuristic gaming, modern cosmetics & creative arts'
   },
   {
@@ -70,10 +70,10 @@ export const THEME_COLOR_PRESETS = [
   {
     id: 'obsidian',
     name: 'Obsidian Midnight',
-    hex: '#0f172a',
-    hover: '#020617',
-    light: '#f8fafc',
-    border: '#cbd5e1',
+    hex: '#171717',
+    hover: '#060606',
+    light: '#fafafa',
+    border: '#d4d4d4',
     description: 'Minimalist monochrome, Swiss design & timeless luxury'
   }
 ];
@@ -154,7 +154,7 @@ export function applyThemeColor(hexColor) {
 
 export const THEME_CONFIG = {
   activeTheme: 'TiwiMart',
-  defaultColor: '#2563eb',
+  defaultColor: '#000000',
   colorPresets: THEME_COLOR_PRESETS,
   availableThemes: AVAILABLE_THEMES,
   defaultBanners: DEFAULT_HERO_BANNERS

@@ -19,19 +19,19 @@ export default function LikedPostsView() {
   return (
     <div className="w-full flex flex-col min-h-screen max-w-2xl mx-auto pb-20">
       {/* 1. Header Bar */}
-      <div className="sticky top-0 z-20 bg-[#f0f2f5]/90 dark:bg-[#0a0a0f]/90 backdrop-blur-xl px-2 py-3 flex items-center gap-3 border-b border-black/[0.05] dark:border-white/[0.06] mb-4">
+      <div className="sticky top-0 z-20 bg-[#f2f2f2]/90 dark:bg-[#0a0a0a]/90 backdrop-blur-xl px-2 py-3 flex items-center gap-3 border-b border-black/[0.05] dark:border-white/[0.06] mb-4">
         <button
           onClick={() => navigateTo('profile', currentUser?.handle || currentUser?.id)}
-          className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] transition cursor-pointer active:scale-95"
+          className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#676767] dark:text-[#b3b3b3] transition cursor-pointer active:scale-95"
           title="Back"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex flex-col">
-          <h1 className="text-[18px] font-bold text-[#1c1e21] dark:text-[#e4e6eb] leading-tight tracking-tight">
+          <h1 className="text-[18px] font-bold text-[#1e1e1e] dark:text-[#e6e6e6] leading-tight tracking-tight">
             Liked Posts
           </h1>
-          <span className="text-[12px] text-[#65676b] dark:text-[#8a8d91]">
+          <span className="text-[12px] text-[#676767] dark:text-[#8d8d8d]">
             @{currentUser?.handle || 'user'} · {likedPosts.length} liked
           </span>
         </div>
@@ -48,14 +48,14 @@ export default function LikedPostsView() {
             <PostCard key={post.id} post={post} />
           ))
         ) : (
-          <div className="py-20 px-6 text-center bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm flex flex-col items-center">
+          <div className="py-20 px-6 text-center bg-white dark:bg-[#171717] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm flex flex-col items-center">
             <div className="w-14 h-14 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center mb-3">
               <Heart className="w-7 h-7 fill-current" />
             </div>
-            <h3 className="font-bold text-[17px] text-[#1c1e21] dark:text-[#e4e6eb] mb-1">
+            <h3 className="font-bold text-[17px] text-[#1e1e1e] dark:text-[#e6e6e6] mb-1">
               No liked posts yet
             </h3>
-            <p className="text-[13px] text-[#65676b] dark:text-[#8a8d91] max-w-sm leading-relaxed">
+            <p className="text-[13px] text-[#676767] dark:text-[#8d8d8d] max-w-sm leading-relaxed">
               When you like updates across your stream, they will be archived here for easy reference.
             </p>
           </div>

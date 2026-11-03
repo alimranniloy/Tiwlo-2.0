@@ -13,9 +13,9 @@ export default function RevenueBreakdownChart({ breakdown }) {
   const circumference = 2 * Math.PI * radius; // ~402.12
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/70 dark:border-slate-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between">
+    <div className="bg-white dark:bg-neutral-900 rounded-2xl p-5 border border-neutral-200/70 dark:border-neutral-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between">
       <div>
-        <h3 className="text-base font-bold text-slate-900 dark:text-white">Revenue Breakdown</h3>
+        <h3 className="text-base font-bold text-neutral-900 dark:text-white">Revenue Breakdown</h3>
       </div>
 
       <div className="flex flex-col items-center justify-center my-auto py-2">
@@ -27,7 +27,7 @@ export default function RevenueBreakdownChart({ breakdown }) {
               cx="80"
               cy="80"
               r={radius}
-              className="text-slate-100 dark:text-slate-800"
+              className="text-neutral-100 dark:text-neutral-800"
               stroke="currentColor"
               strokeWidth={strokeWidth}
               fill="transparent"
@@ -61,10 +61,10 @@ export default function RevenueBreakdownChart({ breakdown }) {
 
           {/* Center Text */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
-            <span className="text-xl font-bold text-slate-900 dark:text-white leading-none">
+            <span className="text-xl font-bold text-neutral-900 dark:text-white leading-none">
               {totalDisplay}
             </span>
-            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-1">
+            <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-medium mt-1">
               Total Revenue
             </span>
           </div>
@@ -80,18 +80,18 @@ export default function RevenueBreakdownChart({ breakdown }) {
                   className="w-2.5 h-2.5 rounded-full shrink-0"
                   style={{ backgroundColor: cat.color }}
                 />
-                <span className="text-slate-600 dark:text-slate-400 font-medium truncate">
+                <span className="text-neutral-600 dark:text-neutral-400 font-medium truncate">
                   {cat.name}
                 </span>
               </div>
-              <span className="font-bold text-slate-800 dark:text-slate-200">
+              <span className="font-bold text-neutral-800 dark:text-neutral-200">
                 {cat.percentage}%
               </span>
             </div>
             ))}
           </div>
         ) : (
-          <p className="text-xs text-center text-slate-400 dark:text-slate-500 mt-3">
+          <p className="text-xs text-center text-neutral-400 dark:text-neutral-500 mt-3">
             {breakdown?.currency === 'Mixed currencies'
               ? 'Category totals are not combined across different currencies.'
               : breakdown ? 'No paid sales in this period.' : 'Revenue data is unavailable.'}

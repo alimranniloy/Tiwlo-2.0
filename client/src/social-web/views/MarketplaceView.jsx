@@ -139,20 +139,20 @@ export default function MarketplaceView() {
   return (
     <div className="w-full flex flex-col gap-5 pb-20">
       {/* 1. Header Card */}
-      <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-[#1E75FF]/10 text-[#1E75FF] flex items-center justify-center flex-shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-[#6c6c6c]/10 text-[#6c6c6c] flex items-center justify-center flex-shrink-0">
             <ShoppingBag className="w-6 h-6 stroke-[2]" />
           </div>
           <div>
-            <h1 className="text-[20px] font-extrabold text-[#111827] dark:text-white tracking-tight flex items-center gap-2">
+            <h1 className="text-[20px] font-extrabold text-[#181818] dark:text-white tracking-tight flex items-center gap-2">
               Marketplace
-              <span className="text-[12px] font-semibold bg-[#1E75FF]/10 text-[#1E75FF] px-2.5 py-0.5 rounded-full">
+              <span className="text-[12px] font-semibold bg-[#6c6c6c]/10 text-[#6c6c6c] px-2.5 py-0.5 rounded-full">
                 Verified Community
               </span>
             </h1>
-            <p className="text-[13px] text-[#6B7280] dark:text-[#9CA3AF] flex items-center gap-1.5 mt-0.5">
-              <MapPin className="w-3.5 h-3.5 text-[#1E75FF]" />
+            <p className="text-[13px] text-[#727272] dark:text-[#a2a2a2] flex items-center gap-1.5 mt-0.5">
+              <MapPin className="w-3.5 h-3.5 text-[#6c6c6c]" />
               <span>San Francisco Bay Area • Within 25 miles</span>
             </p>
           </div>
@@ -166,15 +166,15 @@ export default function MarketplaceView() {
               placeholder="Search items..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-[38px] pl-9 pr-3 bg-[#F4F5F7] dark:bg-[#1A1D27] text-[13px] rounded-xl outline-none focus:ring-2 focus:ring-[#1E75FF]/30 transition"
+              className="w-full h-[38px] pl-9 pr-3 bg-[#F4F5F7] dark:bg-[#1d1d1d] text-[13px] rounded-xl outline-none focus:ring-2 focus:ring-[#6c6c6c]/30 transition"
             />
-            <Search className="w-4 h-4 text-[#9CA3AF] absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-[#a2a2a2] absolute left-3 top-2.5" />
           </div>
 
           <button
             type="button"
             onClick={() => showToast('Create listing opened', 'info')}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1E75FF] hover:bg-[#1A66E5] text-white text-[12.5px] font-bold shadow-xs transition cursor-pointer flex-shrink-0"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#6c6c6c] hover:bg-[#5f5f5f] text-white text-[12.5px] font-bold shadow-xs transition cursor-pointer flex-shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span>Create Listing</span>
@@ -191,8 +191,8 @@ export default function MarketplaceView() {
             onClick={() => setSelectedCategory(cat)}
             className={`px-4 py-2 rounded-xl text-[13px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
               selectedCategory === cat
-                ? 'bg-[#1E75FF] text-white shadow-xs'
-                : 'bg-white dark:bg-[#161822] text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#111827] border border-[#EAECF0] dark:border-[#1E232F]'
+                ? 'bg-[#6c6c6c] text-white shadow-xs'
+                : 'bg-white dark:bg-[#181818] text-[#727272] dark:text-[#a2a2a2] hover:text-[#181818] border border-[#ececec] dark:border-[#232323]'
             }`}
           >
             {cat}
@@ -207,7 +207,7 @@ export default function MarketplaceView() {
           return (
             <div
               key={prod.id}
-              className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-md transition flex flex-col justify-between group"
+              className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-md transition flex flex-col justify-between group"
             >
               {/* Product Image */}
               <div className="relative aspect-[4/3] bg-gray-100 dark:bg-gray-800 overflow-hidden">
@@ -240,33 +240,33 @@ export default function MarketplaceView() {
               <div className="p-4 flex-1 flex flex-col justify-between gap-3">
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[19px] font-extrabold text-[#111827] dark:text-white">
+                    <span className="text-[19px] font-extrabold text-[#181818] dark:text-white">
                       {prod.price}
                     </span>
-                    <span className="text-[11px] font-semibold text-[#1E75FF] bg-[#1E75FF]/10 px-2 py-0.5 rounded-md">
+                    <span className="text-[11px] font-semibold text-[#6c6c6c] bg-[#6c6c6c]/10 px-2 py-0.5 rounded-md">
                       {prod.category}
                     </span>
                   </div>
 
-                  <h3 className="font-bold text-[14px] text-[#374151] dark:text-[#E2E8F0] line-clamp-2 leading-snug group-hover:text-[#1E75FF] transition-colors">
+                  <h3 className="font-bold text-[14px] text-[#404040] dark:text-[#e7e7e7] line-clamp-2 leading-snug group-hover:text-[#6c6c6c] transition-colors">
                     {prod.title}
                   </h3>
 
-                  <p className="text-[12px] text-[#9CA3AF] mt-1.5 flex items-center gap-1">
+                  <p className="text-[12px] text-[#a2a2a2] mt-1.5 flex items-center gap-1">
                     <MapPin className="w-3 h-3 text-gray-400" />
                     <span>{prod.location} • {prod.distance}</span>
                   </p>
                 </div>
 
                 {/* Seller & Action */}
-                <div className="pt-3 border-t border-[#F2F4F7] dark:border-[#1E232F] flex items-center justify-between">
+                <div className="pt-3 border-t border-[#f4f4f4] dark:border-[#232323] flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0">
                     <img
                       src={prod.seller.avatar}
                       alt={prod.seller.name}
                       className="w-7 h-7 rounded-full object-cover ring-1 ring-black/5"
                     />
-                    <span className="text-[12px] font-medium text-[#4B5563] dark:text-[#9CA3AF] truncate">
+                    <span className="text-[12px] font-medium text-[#545454] dark:text-[#a2a2a2] truncate">
                       {prod.seller.name}
                     </span>
                   </div>
@@ -277,7 +277,7 @@ export default function MarketplaceView() {
                       navigateTo('messages', prod.seller.name);
                       showToast(`Chat started with ${prod.seller.name}`, 'info');
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1E75FF] hover:bg-[#1A66E5] text-white text-[12px] font-bold transition cursor-pointer shadow-xs"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#6c6c6c] hover:bg-[#5f5f5f] text-white text-[12px] font-bold transition cursor-pointer shadow-xs"
                   >
                     <MessageCircle className="w-3.5 h-3.5" />
                     Message

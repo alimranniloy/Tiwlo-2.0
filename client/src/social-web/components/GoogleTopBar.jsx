@@ -44,7 +44,7 @@ export default function GoogleTopBar({ onToggleSidebar, onNavigateHome }) {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white dark:bg-[#111319] border-b border-[#EAECF0] dark:border-[#1E232F] transition-colors">
+    <header className="sticky top-0 z-40 bg-white dark:bg-[#131313] border-b border-[#ececec] dark:border-[#232323] transition-colors">
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-[64px] flex items-center justify-between gap-4">
         {/* Left: Brand Logo & Mobile Toggle */}
         <div className="flex items-center gap-3">
@@ -65,9 +65,9 @@ export default function GoogleTopBar({ onToggleSidebar, onNavigateHome }) {
             className="flex items-center gap-2.5 cursor-pointer select-none group"
           >
             {/* Square/Tiwi Rounded Blue Loop Logo matching screenshot */}
-            <div className="w-[34px] h-[34px] rounded-[10px] bg-[#1E75FF] flex items-center justify-center shadow-sm flex-shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-[34px] h-[34px] rounded-[10px] bg-[#6c6c6c] flex items-center justify-center shadow-sm flex-shrink-0 group-hover:scale-105 transition-transform">
               <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none">
-                <rect width="24" height="24" rx="6" fill="#1E75FF" />
+                <rect width="24" height="24" rx="6" fill="#6c6c6c" />
                 <path
                   d="M7.5 15.5C7.5 12 9.5 9 13.5 9C16.5 9 17.5 10.5 17.5 12.5C17.5 14.8 15.5 16.5 13 16.5C10.5 16.5 9.5 15 9.5 13.5"
                   stroke="white"
@@ -76,7 +76,7 @@ export default function GoogleTopBar({ onToggleSidebar, onNavigateHome }) {
                 />
               </svg>
             </div>
-            <span className="font-extrabold text-[20px] text-[#111827] dark:text-white tracking-tight">
+            <span className="font-extrabold text-[20px] text-[#181818] dark:text-white tracking-tight">
               Square
             </span>
           </div>
@@ -93,11 +93,11 @@ export default function GoogleTopBar({ onToggleSidebar, onNavigateHome }) {
               placeholder="Search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-[40px] pl-4 pr-11 bg-[#F4F5F7] dark:bg-[#1A1D27] text-[#111827] dark:text-[#E2E8F0] placeholder-[#9CA3AF] text-[13.5px] rounded-full outline-none focus:bg-white dark:focus:bg-[#151821] focus:ring-2 focus:ring-[#1E75FF]/30 border border-transparent focus:border-[#1E75FF]/40 transition-all"
+              className="w-full h-[40px] pl-4 pr-11 bg-[#F4F5F7] dark:bg-[#1d1d1d] text-[#181818] dark:text-[#e7e7e7] placeholder-[#a2a2a2] text-[13.5px] rounded-full outline-none focus:bg-white dark:focus:bg-[#181818] focus:ring-2 focus:ring-[#6c6c6c]/30 border border-transparent focus:border-[#6c6c6c]/40 transition-all"
             />
             <button
               type="submit"
-              className="absolute right-3.5 text-[#9CA3AF] hover:text-[#1E75FF] transition-colors cursor-pointer"
+              className="absolute right-3.5 text-[#a2a2a2] hover:text-[#6c6c6c] transition-colors cursor-pointer"
               title="Search"
             >
               <Search className="w-4 h-4 stroke-[2]" />
@@ -111,7 +111,7 @@ export default function GoogleTopBar({ onToggleSidebar, onNavigateHome }) {
           <button
             type="button"
             onClick={() => navigateTo('friends')}
-            className="w-9 h-9 rounded-full flex items-center justify-center text-[#6B7280] dark:text-[#9CA3AF] hover:bg-[#F3F4F6] dark:hover:bg-[#1F2430] hover:text-[#111827] transition-all cursor-pointer"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-[#727272] dark:text-[#a2a2a2] hover:bg-[#F3F4F6] dark:hover:bg-[#242424] hover:text-[#181818] transition-all cursor-pointer"
             title="Find Friends"
           >
             <UserPlus className="w-[19px] h-[19px] stroke-[1.8]" />
@@ -121,12 +121,12 @@ export default function GoogleTopBar({ onToggleSidebar, onNavigateHome }) {
           <button
             type="button"
             onClick={() => navigateTo('messages')}
-            className="relative w-9 h-9 rounded-full flex items-center justify-center text-[#6B7280] dark:text-[#9CA3AF] hover:bg-[#F3F4F6] dark:hover:bg-[#1F2430] hover:text-[#111827] transition-all cursor-pointer"
+            className="relative w-9 h-9 rounded-full flex items-center justify-center text-[#727272] dark:text-[#a2a2a2] hover:bg-[#F3F4F6] dark:hover:bg-[#242424] hover:text-[#181818] transition-all cursor-pointer"
             title="Messages"
           >
             <MessageCircle className="w-[19px] h-[19px] stroke-[1.8]" />
             {unreadMessages > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#1E75FF]" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#6c6c6c]" />
             )}
           </button>
 
@@ -134,7 +134,7 @@ export default function GoogleTopBar({ onToggleSidebar, onNavigateHome }) {
           <button
             type="button"
             onClick={() => navigateTo('notifications')}
-            className="relative w-9 h-9 rounded-full flex items-center justify-center text-[#6B7280] dark:text-[#9CA3AF] hover:bg-[#F3F4F6] dark:hover:bg-[#1F2430] hover:text-[#111827] transition-all cursor-pointer"
+            className="relative w-9 h-9 rounded-full flex items-center justify-center text-[#727272] dark:text-[#a2a2a2] hover:bg-[#F3F4F6] dark:hover:bg-[#242424] hover:text-[#181818] transition-all cursor-pointer"
             title="Notifications"
           >
             <Bell className="w-[19px] h-[19px] stroke-[1.8]" />
@@ -147,7 +147,7 @@ export default function GoogleTopBar({ onToggleSidebar, onNavigateHome }) {
           <button
             type="button"
             onClick={toggleDarkMode}
-            className="w-9 h-9 rounded-full flex items-center justify-center text-[#6B7280] dark:text-[#9CA3AF] hover:bg-[#F3F4F6] dark:hover:bg-[#1F2430] transition-all cursor-pointer"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-[#727272] dark:text-[#a2a2a2] hover:bg-[#F3F4F6] dark:hover:bg-[#242424] transition-all cursor-pointer"
             title="Toggle Theme"
           >
             {isDarkMode ? <Sun className="w-[18px] h-[18px] text-amber-400" /> : <Moon className="w-[18px] h-[18px]" />}
@@ -158,7 +158,7 @@ export default function GoogleTopBar({ onToggleSidebar, onNavigateHome }) {
             <button
               type="button"
               onClick={() => setShowUserMenu((prev) => !prev)}
-              className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-transparent hover:ring-[#1E75FF]/40 transition cursor-pointer"
+              className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-transparent hover:ring-[#6c6c6c]/40 transition cursor-pointer"
             >
               <img
                 src={currentUser?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop'}
@@ -169,7 +169,7 @@ export default function GoogleTopBar({ onToggleSidebar, onNavigateHome }) {
 
             {showUserMenu && (
               <div
-                className="absolute right-0 top-12 w-64 bg-white dark:bg-[#161822] rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-2 z-50 animate-fadeIn"
+                className="absolute right-0 top-12 w-64 bg-white dark:bg-[#181818] rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-2 z-50 animate-fadeIn"
               >
                 <div className="p-3 border-b border-gray-100 dark:border-gray-800 mb-1 flex items-center gap-3">
                   <img

@@ -227,27 +227,27 @@ export default function StoreSetupChecklist({
         key={step.id}
         type="button"
         onClick={() => onNavigateTab(step.tab)}
-        className="group flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 p-3.5 text-left transition hover:border-blue-300 hover:bg-blue-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-gray-700 dark:hover:border-blue-700 dark:hover:bg-blue-950/20"
+        className="group flex min-w-0 items-center gap-3 rounded-xl border border-neutral-200 p-3.5 text-left transition hover:border-neutral-300 hover:bg-neutral-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 dark:border-gray-700 dark:hover:border-neutral-700 dark:hover:bg-neutral-950/20"
         aria-label={`${complete ? 'Review' : 'Complete'} ${step.title}`}
       >
         <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-          complete ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-slate-100 text-slate-600 dark:bg-gray-700 dark:text-slate-300'
+          complete ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-neutral-100 text-neutral-600 dark:bg-gray-700 dark:text-neutral-300'
         }`}>
           {complete ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-slate-800 dark:text-slate-100">
+          <span className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-neutral-800 dark:text-neutral-100">
             {step.title}
             {recommended && (
-              <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-gray-700 dark:text-slate-300">
+              <span className="rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500 dark:bg-gray-700 dark:text-neutral-300">
                 Recommended
               </span>
             )}
           </span>
-          <span className="mt-0.5 block text-xs leading-5 text-slate-500 dark:text-slate-400">{step.description}</span>
+          <span className="mt-0.5 block text-xs leading-5 text-neutral-500 dark:text-neutral-400">{step.description}</span>
         </span>
         <span className={`inline-flex shrink-0 items-center gap-1 text-xs font-semibold ${
-          complete ? 'text-emerald-700 dark:text-emerald-300' : 'text-blue-700 dark:text-blue-300'
+          complete ? 'text-emerald-700 dark:text-emerald-300' : 'text-neutral-700 dark:text-neutral-300'
         }`}>
           {complete ? 'Done' : 'Set up'}
           {!complete && <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />}
@@ -259,20 +259,20 @@ export default function StoreSetupChecklist({
   return (
     <section
       aria-labelledby="store-setup-title"
-      className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+      className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
     >
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-5 py-4 dark:border-gray-700 sm:px-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-100 px-5 py-4 dark:border-gray-700 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-            allComplete ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'
+            allComplete ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-neutral-50 text-neutral-700 dark:bg-neutral-950/50 dark:text-neutral-300'
           }`}>
             {allComplete ? <Check className="h-5 w-5" /> : <Store className="h-5 w-5" />}
           </div>
           <div className="min-w-0">
-            <h2 id="store-setup-title" className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">
+            <h2 id="store-setup-title" className="text-base font-semibold tracking-tight text-neutral-900 dark:text-white">
               {allComplete ? 'Your store is ready' : 'Finish setting up your store'}
             </h2>
-            <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+            <p className="mt-0.5 text-sm text-neutral-500 dark:text-neutral-400">
               {allComplete
                 ? 'The essentials are in place. You can revisit any step below.'
                 : 'Complete these essentials so customers can browse, pay, and receive orders.'}
@@ -280,7 +280,7 @@ export default function StoreSetupChecklist({
           </div>
         </div>
         {setupLoading ? (
-          <span className="inline-flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400" aria-live="polite">
+          <span className="inline-flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400" aria-live="polite">
             <LoaderCircle className="h-4 w-4 animate-spin" />
             Checking setup
           </span>
@@ -289,14 +289,14 @@ export default function StoreSetupChecklist({
             <span className={`rounded-full px-3 py-1 text-sm font-medium ${
               allComplete
                 ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
-                : 'bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300'
+                : 'bg-neutral-50 text-neutral-800 dark:bg-neutral-950/50 dark:text-neutral-300'
             }`}>
               {completedCount} of {setupSteps.length} complete
             </span>
             <button
               type="button"
               onClick={() => onNavigateTab(nextStep.tab)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-2"
             >
               {allComplete ? 'Review setup' : 'Complete setup'}
               <ArrowRight className="h-4 w-4" />
@@ -306,7 +306,7 @@ export default function StoreSetupChecklist({
               onClick={handleRetry}
               aria-label="Refresh setup status"
               title="Refresh setup status"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-gray-600 dark:text-slate-300 dark:hover:bg-gray-700"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 transition hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 dark:border-gray-600 dark:text-neutral-300 dark:hover:bg-gray-700"
             >
               <RefreshCw className="h-4 w-4" />
             </button>
@@ -320,7 +320,7 @@ export default function StoreSetupChecklist({
           <button
             type="button"
             onClick={handleRetry}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-gray-600 dark:text-slate-200 dark:hover:bg-gray-700"
+            className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 dark:border-gray-600 dark:text-neutral-200 dark:hover:bg-gray-700"
           >
             <RefreshCw className="h-4 w-4" />
             Try again
@@ -329,7 +329,7 @@ export default function StoreSetupChecklist({
       ) : (
         <div className="px-5 py-5 sm:px-6">
           <div
-            className="mb-5 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-gray-700"
+            className="mb-5 h-1.5 overflow-hidden rounded-full bg-neutral-100 dark:bg-gray-700"
             role="progressbar"
             aria-label="Store setup progress"
             aria-valuemin={0}
@@ -337,7 +337,7 @@ export default function StoreSetupChecklist({
             aria-valuenow={completedCount}
           >
             <div
-              className={`h-full rounded-full transition-all duration-300 ${allComplete ? 'bg-emerald-500' : 'bg-blue-600'}`}
+              className={`h-full rounded-full transition-all duration-300 ${allComplete ? 'bg-emerald-500' : 'bg-neutral-600'}`}
               style={{ width: `${(completedCount / setupSteps.length) * 100}%` }}
             />
           </div>
@@ -349,7 +349,7 @@ export default function StoreSetupChecklist({
             <button
               type="button"
               onClick={() => setShowCompleted(true)}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-md text-xs font-medium text-slate-500 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-slate-400 dark:hover:text-slate-200"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-md text-xs font-medium text-neutral-500 hover:text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 dark:text-neutral-400 dark:hover:text-neutral-200"
             >
               <ChevronDown className="h-4 w-4" />
               Show {hiddenCompletedCount} completed {hiddenCompletedCount === 1 ? 'step' : 'steps'}
@@ -357,7 +357,7 @@ export default function StoreSetupChecklist({
           )}
           {showCompleted && (
             <>
-              <div className="mt-5 grid gap-2 border-t border-slate-100 pt-4 md:grid-cols-2 dark:border-gray-700">
+              <div className="mt-5 grid gap-2 border-t border-neutral-100 pt-4 md:grid-cols-2 dark:border-gray-700">
                 {setupSteps.filter(step => completedSteps[step.id]).map(step =>
                   renderStep(step, true)
                 )}
@@ -365,7 +365,7 @@ export default function StoreSetupChecklist({
               <button
                 type="button"
                 onClick={() => setShowCompleted(false)}
-                className="mt-3 inline-flex items-center gap-1.5 rounded-md text-xs font-medium text-slate-500 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-slate-400 dark:hover:text-slate-200"
+                className="mt-3 inline-flex items-center gap-1.5 rounded-md text-xs font-medium text-neutral-500 hover:text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 dark:text-neutral-400 dark:hover:text-neutral-200"
               >
                 <ChevronUp className="h-4 w-4" />
                 Hide completed steps
@@ -373,16 +373,16 @@ export default function StoreSetupChecklist({
             </>
           )}
           {!loading && !loadError && (
-            <div className="mt-5 border-t border-slate-100 pt-4 dark:border-gray-700">
+            <div className="mt-5 border-t border-neutral-100 pt-4 dark:border-gray-700">
               <div className="mb-2 flex items-center justify-between gap-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                   Recommended before launch
                 </h3>
                 {onVisitSite && (
                   <button
                     type="button"
                     onClick={onVisitSite}
-                    className="inline-flex items-center gap-1.5 rounded-md text-xs font-semibold text-blue-700 hover:text-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-300 dark:hover:text-blue-200"
+                    className="inline-flex items-center gap-1.5 rounded-md text-xs font-semibold text-neutral-700 hover:text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 dark:text-neutral-300 dark:hover:text-neutral-200"
                   >
                     Preview storefront
                     <ExternalLink className="h-3.5 w-3.5" />
@@ -395,7 +395,7 @@ export default function StoreSetupChecklist({
             </div>
           )}
           {setupLoading && (
-            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+            <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">
               Setup checks are loading. Product progress will update as your inventory loads.
             </p>
           )}

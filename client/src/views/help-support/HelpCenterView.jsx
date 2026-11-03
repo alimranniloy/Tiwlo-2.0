@@ -106,16 +106,16 @@ export default function HelpCenterView({ initialQuery = '', onBack, onOpenInbox 
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="w-9 h-9 rounded-full bg-white dark:bg-gray-800 hover:bg-slate-50 dark:hover:bg-gray-700 text-slate-600 dark:text-slate-300 flex items-center justify-center transition border border-slate-200/80 dark:border-gray-700 shadow-2xs cursor-pointer group"
+            className="w-9 h-9 rounded-full bg-white dark:bg-gray-800 hover:bg-neutral-50 dark:hover:bg-gray-700 text-neutral-600 dark:text-neutral-300 flex items-center justify-center transition border border-neutral-200/80 dark:border-gray-700 shadow-2xs cursor-pointer group"
             title="Back"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />
           </button>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-white tracking-tight">
               Help Center
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">
               Browse articles and find quick answers
             </p>
           </div>
@@ -124,7 +124,7 @@ export default function HelpCenterView({ initialQuery = '', onBack, onOpenInbox 
         {/* Quick Chat CTA */}
         <button
           onClick={onOpenInbox}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-xs font-bold transition self-start sm:self-auto cursor-pointer border border-blue-200/60 dark:border-blue-900/40"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-neutral-50 dark:bg-neutral-950/40 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-900/40 text-xs font-bold transition self-start sm:self-auto cursor-pointer border border-neutral-200/60 dark:border-neutral-900/40"
         >
           <MessageSquare className="w-3.5 h-3.5" />
           <span>Chat with Support</span>
@@ -133,13 +133,13 @@ export default function HelpCenterView({ initialQuery = '', onBack, onOpenInbox 
 
       {/* Search Bar */}
       <div className="relative max-w-xl">
-        <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+        <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search articles by keyword or question..."
-          className="w-full pl-11 pr-4 py-3 rounded-xl text-xs sm:text-sm bg-white dark:bg-gray-800/80 border border-slate-200 dark:border-gray-700 focus:outline-none focus:border-blue-500 text-slate-800 dark:text-slate-100 shadow-2xs"
+          className="w-full pl-11 pr-4 py-3 rounded-xl text-xs sm:text-sm bg-white dark:bg-gray-800/80 border border-neutral-200 dark:border-gray-700 focus:outline-none focus:border-neutral-500 text-neutral-800 dark:text-neutral-100 shadow-2xs"
         />
       </div>
 
@@ -151,8 +151,8 @@ export default function HelpCenterView({ initialQuery = '', onBack, onOpenInbox 
             onClick={() => setSelectedCategory(cat)}
             className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
               selectedCategory === cat
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-white dark:bg-gray-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-700 border border-slate-200/70 dark:border-gray-700'
+                ? 'bg-neutral-600 text-white shadow-xs'
+                : 'bg-white dark:bg-gray-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-gray-700 border border-neutral-200/70 dark:border-gray-700'
             }`}
           >
             {cat}
@@ -167,43 +167,43 @@ export default function HelpCenterView({ initialQuery = '', onBack, onOpenInbox 
           return (
             <div
               key={article.id}
-              className="rounded-2xl border border-slate-200/80 dark:border-gray-700/80 overflow-hidden bg-white dark:bg-gray-800/80 transition hover:border-blue-200 dark:hover:border-blue-800 shadow-2xs"
+              className="rounded-2xl border border-neutral-200/80 dark:border-gray-700/80 overflow-hidden bg-white dark:bg-gray-800/80 transition hover:border-neutral-200 dark:hover:border-neutral-800 shadow-2xs"
             >
               <div
                 onClick={() => toggleArticle(article.id)}
                 className="p-5 flex items-start justify-between gap-4 cursor-pointer select-none"
               >
                 <div className="space-y-1">
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-50 dark:bg-neutral-950/40 text-neutral-600 dark:text-neutral-400">
                     {article.category}
                   </span>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white pt-1">
+                  <h3 className="text-sm font-bold text-neutral-900 dark:text-white pt-1">
                     {article.title}
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
                     {article.snippet}
                   </p>
                 </div>
-                <div className="w-8 h-8 rounded-full bg-slate-50 dark:bg-gray-700 flex items-center justify-center text-slate-400 shrink-0 mt-1">
+                <div className="w-8 h-8 rounded-full bg-neutral-50 dark:bg-gray-700 flex items-center justify-center text-neutral-400 shrink-0 mt-1">
                   {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </div>
               </div>
 
               {isExpanded && (
-                <div className="px-5 pb-5 pt-1 border-t border-slate-100 dark:border-gray-700 text-xs text-slate-600 dark:text-slate-300 leading-relaxed space-y-4">
-                  <div className="whitespace-pre-line bg-slate-50 dark:bg-gray-900/60 p-4 rounded-xl border border-slate-100 dark:border-gray-800">
+                <div className="px-5 pb-5 pt-1 border-t border-neutral-100 dark:border-gray-700 text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed space-y-4">
+                  <div className="whitespace-pre-line bg-neutral-50 dark:bg-gray-900/60 p-4 rounded-xl border border-neutral-100 dark:border-gray-800">
                     {article.content}
                   </div>
 
                   <div className="flex items-center justify-between pt-2">
-                    <div className="flex items-center gap-2 text-xs text-slate-400">
+                    <div className="flex items-center gap-2 text-xs text-neutral-400">
                       <span>Was this answer helpful?</span>
                       <button
                         onClick={() => handleFeedback(article.id, true)}
                         className={`px-3 py-1 rounded-lg border text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer ${
                           helpfulFeedback[article.id] === true
                             ? 'bg-emerald-50 text-emerald-600 border-emerald-300'
-                            : 'border-slate-200 dark:border-gray-700 hover:bg-slate-50'
+                            : 'border-neutral-200 dark:border-gray-700 hover:bg-neutral-50'
                         }`}
                       >
                         <ThumbsUp className="w-3 h-3" /> Yes
@@ -213,7 +213,7 @@ export default function HelpCenterView({ initialQuery = '', onBack, onOpenInbox 
                         className={`px-3 py-1 rounded-lg border text-[11px] font-semibold transition cursor-pointer ${
                           helpfulFeedback[article.id] === false
                             ? 'bg-red-50 text-red-600 border-red-300'
-                            : 'border-slate-200 dark:border-gray-700 hover:bg-slate-50'
+                            : 'border-neutral-200 dark:border-gray-700 hover:bg-neutral-50'
                         }`}
                       >
                         No
@@ -222,7 +222,7 @@ export default function HelpCenterView({ initialQuery = '', onBack, onOpenInbox 
 
                     <button
                       onClick={onOpenInbox}
-                      className="text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline"
+                      className="text-xs text-neutral-600 dark:text-neutral-400 font-semibold hover:underline"
                     >
                       Ask a Specialist &rarr;
                     </button>
@@ -234,7 +234,7 @@ export default function HelpCenterView({ initialQuery = '', onBack, onOpenInbox 
         })}
 
         {filteredArticles.length === 0 && (
-          <div className="text-center py-12 text-slate-400 text-xs">
+          <div className="text-center py-12 text-neutral-400 text-xs">
             No articles found matching "{searchQuery}".
           </div>
         )}

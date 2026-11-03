@@ -24,7 +24,7 @@ export function WatchlistPanel() {
           <button
             onClick={() => setMode('enroll')}
             className={`px-4 py-2 text-sm rounded-md transition-colors ${
-              mode === 'enroll' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'
+              mode === 'enroll' ? 'bg-neutral-600 text-white' : 'text-gray-400 hover:text-white'
             }`}
           >
             Enroll
@@ -32,7 +32,7 @@ export function WatchlistPanel() {
           <button
             onClick={() => setMode('identify')}
             className={`px-4 py-2 text-sm rounded-md transition-colors ${
-              mode === 'identify' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'
+              mode === 'identify' ? 'bg-neutral-600 text-white' : 'text-gray-400 hover:text-white'
             }`}
           >
             Identify
@@ -102,13 +102,13 @@ function EnrollSection({ onEnrolled }: { onEnrolled: () => void }) {
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="e.g. John Doe"
-            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-neutral-500 transition-colors"
           />
         </div>
         <button
           onClick={handleEnroll}
           disabled={!file || !label.trim() || loading}
-          className="w-full px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm font-medium transition-colors"
+          className="w-full px-6 py-2.5 bg-neutral-600 hover:bg-neutral-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm font-medium transition-colors"
         >
           {loading ? 'Enrolling...' : 'Enroll Face'}
         </button>
@@ -159,8 +159,8 @@ function IdentifySection() {
           label="Drop image to identify"
         />
         {loading && (
-          <div className="flex items-center gap-3 text-indigo-400 text-sm">
-            <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+          <div className="flex items-center gap-3 text-neutral-400 text-sm">
+            <div className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
             Searching watchlist...
           </div>
         )}

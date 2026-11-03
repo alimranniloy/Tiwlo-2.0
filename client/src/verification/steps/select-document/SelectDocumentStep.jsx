@@ -63,11 +63,11 @@ export default function SelectDocumentStep({ onNext = null, onBack = null }) {
 
         {/* Heading & Subtitle */}
         <div className="mt-5 mb-6">
-          <h2 className="text-[26px] font-bold text-slate-900 tracking-tight leading-[1.25]">
+          <h2 className="text-[26px] font-bold text-neutral-900 tracking-tight leading-[1.25]">
             Choose your <br />
             government document
           </h2>
-          <p className="text-[14px] text-slate-500 font-normal mt-2.5 leading-relaxed">
+          <p className="text-[14px] text-neutral-500 font-normal mt-2.5 leading-relaxed">
             Choose the document image whose portrait you want to compare with your selfie.
           </p>
         </div>
@@ -83,8 +83,8 @@ export default function SelectDocumentStep({ onNext = null, onBack = null }) {
                 type="button"
                 className={`w-full flex items-center justify-between p-4 rounded-2xl border text-left transition-all duration-200 cursor-pointer active:scale-[0.98] ${
                   isSelected
-                    ? 'border-blue-500 bg-blue-50/40 shadow-sm ring-1 ring-blue-500/30'
-                    : 'border-slate-200/90 bg-white hover:border-blue-300 hover:shadow-xs'
+                    ? 'border-neutral-500 bg-neutral-50/40 shadow-sm ring-1 ring-neutral-500/30'
+                    : 'border-neutral-200/90 bg-white hover:border-neutral-300 hover:shadow-xs'
                 }`}
               >
                 <div className="flex items-center space-x-4">
@@ -95,18 +95,18 @@ export default function SelectDocumentStep({ onNext = null, onBack = null }) {
 
                   {/* Title & Description */}
                   <div className="min-w-0 pr-2">
-                    <h3 className="text-[16px] font-semibold text-slate-900 leading-snug">
+                    <h3 className="text-[16px] font-semibold text-neutral-900 leading-snug">
                       {doc.title}
                     </h3>
-                    <p className="text-[13px] text-slate-500 font-normal mt-0.5 leading-tight">
+                    <p className="text-[13px] text-neutral-500 font-normal mt-0.5 leading-tight">
                       {doc.subtitle}
                     </p>
                   </div>
                 </div>
 
                 {/* Right Arrow Chevron */}
-                <div className="shrink-0 text-slate-400 pl-2">
-                  <ChevronRight className="w-5 h-5 text-slate-400" strokeWidth={2.2} />
+                <div className="shrink-0 text-neutral-400 pl-2">
+                  <ChevronRight className="w-5 h-5 text-neutral-400" strokeWidth={2.2} />
                 </div>
               </button>
             );
@@ -117,10 +117,10 @@ export default function SelectDocumentStep({ onNext = null, onBack = null }) {
       {/* Bottom Security Assurance Note */}
       <div className="mt-8 pt-2">
         <div className="flex items-start space-x-3 px-1 py-1">
-          <div className="mt-0.5 shrink-0 text-slate-400">
-            <ShieldCheck className="w-5 h-5 text-slate-400" strokeWidth={1.8} />
+          <div className="mt-0.5 shrink-0 text-neutral-400">
+            <ShieldCheck className="w-5 h-5 text-neutral-400" strokeWidth={1.8} />
           </div>
-          <p className="text-[12px] text-slate-500 leading-relaxed font-normal">
+          <p className="text-[12px] text-neutral-500 leading-relaxed font-normal">
             Only a face match is checked; document authenticity is not verified.
           </p>
         </div>

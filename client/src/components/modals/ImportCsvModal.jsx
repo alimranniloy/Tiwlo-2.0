@@ -36,21 +36,21 @@ export default function ImportCsvModal({ isOpen, onClose, onImportBatch }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-gray-700 animate-in zoom-in-95 duration-150">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-gray-700">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-neutral-200 dark:border-gray-700 animate-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-between pb-4 border-b border-neutral-100 dark:border-gray-700">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-xl bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-neutral-50 dark:bg-neutral-950/40 text-neutral-600 flex items-center justify-center">
               <UploadCloud className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              <h3 className="text-base font-bold text-neutral-900 dark:text-white">
                 Import CSV / Excel
               </h3>
-              <p className="text-xs text-slate-400">Bulk upload products and stock balances</p>
+              <p className="text-xs text-neutral-400">Bulk upload products and stock balances</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -62,27 +62,27 @@ export default function ImportCsvModal({ isOpen, onClose, onImportBatch }) {
             onDrop={(e) => { e.preventDefault(); setDragActive(false); handleSimulateImport(); }}
             className={`border-2 border-dashed rounded-2xl p-8 transition-colors ${
               dragActive
-                ? 'border-cyan-500 bg-cyan-50/20'
-                : 'border-slate-200 dark:border-gray-700 bg-slate-50/50 dark:bg-gray-700/20'
+                ? 'border-neutral-500 bg-neutral-50/20'
+                : 'border-neutral-200 dark:border-gray-700 bg-neutral-50/50 dark:bg-gray-700/20'
             }`}
           >
-            <UploadCloud className="w-10 h-10 text-cyan-500 mx-auto mb-2" />
-            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+            <UploadCloud className="w-10 h-10 text-neutral-500 mx-auto mb-2" />
+            <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
               Drag & Drop your CSV inventory file here
             </p>
-            <p className="text-[11px] text-slate-400 mt-1">Supports .csv, .xlsx up to 10MB</p>
+            <p className="text-[11px] text-neutral-400 mt-1">Supports .csv, .xlsx up to 10MB</p>
             <button
               onClick={handleSimulateImport}
               disabled={imported}
-              className="mt-4 px-4 py-2 text-xs font-bold text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/40 hover:bg-cyan-100 border border-cyan-200 dark:border-cyan-800 rounded-xl transition"
+              className="mt-4 px-4 py-2 text-xs font-bold text-neutral-700 dark:text-neutral-300 bg-neutral-50 dark:bg-neutral-950/40 hover:bg-neutral-100 border border-neutral-200 dark:border-neutral-800 rounded-xl transition"
             >
               {imported ? 'Uploading & Parsing...' : 'Select File or Demo Import'}
             </button>
           </div>
 
-          <div className="mt-4 flex items-center justify-between text-[11px] text-slate-400 px-1">
+          <div className="mt-4 flex items-center justify-between text-[11px] text-neutral-400 px-1">
             <span>Template format: [Name, SKU, Category, Stock, Price]</span>
-            <a href="#download" onClick={(e) => { e.preventDefault(); showMaterialAlert("Template downloaded: stockpro_template.csv"); }} className="text-blue-500 hover:underline">
+            <a href="#download" onClick={(e) => { e.preventDefault(); showMaterialAlert("Template downloaded: stockpro_template.csv"); }} className="text-neutral-500 hover:underline">
               Download Template
             </a>
           </div>

@@ -12,7 +12,7 @@ export default function TodaysDealsSection({
 }) {
   const scrollRef = useRef(null);
   const { storeSettings } = useStoreSettings();
-  const primaryColor = storeSettings?.themeColor || '#2563eb';
+  const primaryColor = storeSettings?.themeColor || '#000000';
 
   const dealProducts = products;
 
@@ -32,7 +32,7 @@ export default function TodaysDealsSection({
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-baseline space-x-2.5">
           <div className="w-1.5 h-5 bg-[#ef4444] rounded-full self-center"></div>
-          <h2 className="text-[17px] font-bold text-slate-900 tracking-tight">Store Products</h2>
+          <h2 className="text-[17px] font-bold text-neutral-900 tracking-tight">Store Products</h2>
         </div>
 
         <div className="flex items-center space-x-4">
@@ -40,14 +40,14 @@ export default function TodaysDealsSection({
           <div className="flex items-center space-x-1.5">
             <button
               onClick={() => scroll('left')}
-              className="w-7 h-7 rounded-full border border-slate-300 hover:border-blue-500 hover:bg-blue-50 text-slate-600 hover:text-[#2563eb] flex items-center justify-center transition shadow-2xs"
+              className="w-7 h-7 rounded-full border border-neutral-300 hover:border-neutral-500 hover:bg-neutral-50 text-neutral-600 hover:text-[#000000] flex items-center justify-center transition shadow-2xs"
               aria-label="Scroll left"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               onClick={() => scroll('right')}
-              className="w-7 h-7 rounded-full border border-slate-300 hover:border-blue-500 hover:bg-blue-50 text-slate-600 hover:text-[#2563eb] flex items-center justify-center transition shadow-2xs"
+              className="w-7 h-7 rounded-full border border-neutral-300 hover:border-neutral-500 hover:bg-neutral-50 text-neutral-600 hover:text-[#000000] flex items-center justify-center transition shadow-2xs"
               aria-label="Scroll right"
             >
               <ChevronRight className="w-4 h-4" />
@@ -69,7 +69,7 @@ export default function TodaysDealsSection({
           return (
             <div
               key={prod.id}
-              className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-lg hover:border-blue-300 p-3.5 flex flex-col justify-between transition-all duration-200 group relative select-none"
+              className="bg-white rounded-2xl border border-neutral-200/90 shadow-2xs hover:shadow-lg hover:border-neutral-300 p-3.5 flex flex-col justify-between transition-all duration-200 group relative select-none"
             >
               {/* Top row: Discount pill & Wishlist heart button */}
               <div className="flex items-center justify-between z-10">
@@ -86,7 +86,7 @@ export default function TodaysDealsSection({
                     onToggleWishlist?.(prod.id);
                   }}
                   className={`w-6 h-6 rounded-full flex items-center justify-center transition ${
-                    isWishlisted ? 'text-[#ef4444]' : 'text-slate-400 hover:text-[#ef4444]'
+                    isWishlisted ? 'text-[#ef4444]' : 'text-neutral-400 hover:text-[#ef4444]'
                   }`}
                   title="Save to wishlist"
                 >
@@ -114,7 +114,7 @@ export default function TodaysDealsSection({
                 {/* Title matching screenshot - Direct Navigation to Product Detail Page (NO POPUP!) */}
                 <h3
                   onClick={() => onViewProduct?.(prod)}
-                  className="text-xs font-bold text-slate-900 line-clamp-1 group-hover:text-[#2563eb] transition cursor-pointer"
+                  className="text-xs font-bold text-neutral-900 line-clamp-1 group-hover:text-[#000000] transition cursor-pointer"
                   title={prod.name}
                 >
                   {prod.name}
@@ -125,10 +125,10 @@ export default function TodaysDealsSection({
                   <div className="flex items-center text-amber-400">
                     <Star className="w-3 h-3 fill-amber-400 stroke-amber-400" />
                   </div>
-                  <span className="font-bold text-slate-700 text-[10.5px]">
+                  <span className="font-bold text-neutral-700 text-[10.5px]">
                     {prod.rating}
                   </span>
-                  <span className="text-slate-400 text-[10px]">
+                  <span className="text-neutral-400 text-[10px]">
                     {prod.reviews != null ? `(${prod.reviews})` : ''}
                   </span>
                 </div>
@@ -136,11 +136,11 @@ export default function TodaysDealsSection({
 
                 {/* Price & Original Price */}
                 <div className="flex items-baseline space-x-2 pt-0.5">
-                  <span className="text-[13.5px] font-black text-slate-900 tracking-tight">
+                  <span className="text-[13.5px] font-black text-neutral-900 tracking-tight">
                     {formatStoreCurrency(prod.price, storeSettings)}
                   </span>
                   {discount && (
-                    <span className="text-[11px] text-slate-400 line-through font-normal">
+                    <span className="text-[11px] text-neutral-400 line-through font-normal">
                       {formatStoreCurrency(discount.originalPrice, storeSettings)}
                     </span>
                   )}

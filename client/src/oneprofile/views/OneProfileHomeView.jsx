@@ -44,15 +44,15 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
         1. WELCOME HERO BANNER (Top Card)
         ========================================================================
       */}
-      <div className="relative rounded-2xl sm:rounded-3xl p-5 sm:p-7 lg:p-8 bg-gradient-to-r from-[#F0F5FE] via-[#EBF2FE] to-[#F5F8FF] border border-[#E0EAFD] shadow-[0_1px_3px_rgba(0,0,0,0.03)] overflow-hidden">
+      <div className="relative rounded-2xl sm:rounded-3xl p-5 sm:p-7 lg:p-8 bg-gradient-to-r from-[#f5f5f5] via-[#f1f1f1] to-[#f8f8f8] border border-[#e9e9e9] shadow-[0_1px_3px_rgba(0,0,0,0.03)] overflow-hidden">
         {/* Ambient subtle fluid wave in background */}
         <div className="absolute inset-0 pointer-events-none opacity-45">
           <svg className="w-full h-full" viewBox="0 0 1000 300" fill="none" preserveAspectRatio="none">
             <path d="M0,80 C200,160 380,20 540,90 C700,160 880,40 1000,100 L1000,300 L0,300 Z" fill="url(#hero-wave-grad)" />
             <defs>
               <linearGradient id="hero-wave-grad" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.12" />
-                <stop offset="100%" stopColor="#6366F1" stopOpacity="0.18" />
+                <stop offset="0%" stopColor="#7b7b7b" stopOpacity="0.12" />
+                <stop offset="100%" stopColor="#6f6f6f" stopOpacity="0.18" />
               </linearGradient>
             </defs>
           </svg>
@@ -61,15 +61,15 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
         <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-6 lg:gap-8">
           {/* Left Text & CTA Buttons */}
           <div className="max-w-xl">
-            <div className="text-[11px] font-bold text-slate-400 tracking-widest uppercase mb-1.5">
+            <div className="text-[11px] font-bold text-neutral-400 tracking-widest uppercase mb-1.5">
               WELCOME TO UIDS.APP
             </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-[38px] font-extrabold text-slate-900 tracking-tight leading-[1.15] mb-2.5">
+            <h1 className="text-2xl sm:text-3xl lg:text-[38px] font-extrabold text-neutral-900 tracking-tight leading-[1.15] mb-2.5">
               <span>Your Identity, </span>
               <br className="hidden sm:inline" />
-              <span className="text-[#2563EB]">Your Website.</span>
+              <span className="text-[#000000]">Your Website.</span>
             </h1>
-            <p className="text-xs sm:text-[13px] text-slate-500 leading-relaxed font-normal mb-5 max-w-md">
+            <p className="text-xs sm:text-[13px] text-neutral-500 leading-relaxed font-normal mb-5 max-w-md">
               Create your free subdomain, build a beautiful website, and share it with the world — all in one place.
             </p>
 
@@ -77,7 +77,7 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
               <button
                 type="button"
                 onClick={() => onNavigateTab && onNavigateTab('subdomains')}
-                className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xs sm:text-[13px] shadow-xs hover:shadow transition-all duration-150 active:scale-95"
+                className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2.5 rounded-xl bg-[#000000] hover:bg-neutral-700 active:bg-neutral-800 text-white font-bold text-xs sm:text-[13px] shadow-xs hover:shadow transition-all duration-150 active:scale-95"
               >
                 <Plus className="w-4 h-4" />
                 <span>Create Subdomain</span>
@@ -87,9 +87,9 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
               <button
                 type="button"
                 onClick={() => onNavigateTab && onNavigateTab('templates')}
-                className="inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200/90 text-slate-800 font-bold text-xs sm:text-[13px] shadow-2xs hover:shadow-xs transition-all duration-150 active:scale-95"
+                className="inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-white hover:bg-neutral-50 border border-neutral-200/90 text-neutral-800 font-bold text-xs sm:text-[13px] shadow-2xs hover:shadow-xs transition-all duration-150 active:scale-95"
               >
-                <LayoutGrid className="w-4 h-4 text-slate-600" />
+                <LayoutGrid className="w-4 h-4 text-neutral-600" />
                 <span>Browse Templates</span>
               </button>
             </div>
@@ -98,15 +98,15 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
           {/* Right Mockup: Laptop Preview & Overlapping NFC Card */}
           <div className="relative shrink-0 w-full max-w-md lg:max-w-[430px] flex items-center justify-center lg:justify-end pr-3 pb-3">
             {/* Laptop / Browser Mockup Card */}
-            <div className="relative w-full max-w-[340px] sm:max-w-[370px] bg-white rounded-2xl shadow-xl shadow-blue-500/10 border border-slate-200/80 overflow-hidden transform -rotate-1 hover:rotate-0 transition-transform duration-300">
+            <div className="relative w-full max-w-[340px] sm:max-w-[370px] bg-white rounded-2xl shadow-xl shadow-neutral-500/10 border border-neutral-200/80 overflow-hidden transform -rotate-1 hover:rotate-0 transition-transform duration-300">
               {/* Window Header */}
-              <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
+              <div className="px-3 py-1.5 bg-neutral-50 border-b border-neutral-100 flex items-center gap-2">
                 <div className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-[#FF5F56]" />
                   <span className="w-2 h-2 rounded-full bg-[#FFBD2E]" />
                   <span className="w-2 h-2 rounded-full bg-[#27C93F]" />
                 </div>
-                <div className="flex-1 bg-white border border-slate-200 rounded-md py-0.5 px-2 text-[9px] font-mono text-slate-500 flex items-center gap-1 truncate justify-center">
+                <div className="flex-1 bg-white border border-neutral-200 rounded-md py-0.5 px-2 text-[9px] font-mono text-neutral-500 flex items-center gap-1 truncate justify-center">
                   <span>🔍</span>
                   <span className="truncate">{primaryDomain}</span>
                 </div>
@@ -114,21 +114,21 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
 
               {/* Profile Body */}
               <div className="p-4 flex flex-col items-center text-center bg-white">
-                <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-blue-500/20 shadow-xs mb-1.5">
+                <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-neutral-500/20 shadow-xs mb-1.5">
                   <img
                     src={profileAvatar}
                     alt={displayName}
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <div className="font-extrabold text-xs text-slate-900">{displayName}</div>
-                <div className="text-[10px] text-slate-400 mb-2">{summary?.profile?.headline || 'Profile headline not configured'}</div>
+                <div className="font-extrabold text-xs text-neutral-900">{displayName}</div>
+                <div className="text-[10px] text-neutral-400 mb-2">{summary?.profile?.headline || 'Profile headline not configured'}</div>
                 
                 {/* Social Icons row */}
-                <div className="flex items-center gap-1.5 text-slate-400">
-                  <div className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-[8px] text-slate-700 font-bold">𝕏</div>
-                  <div className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-[8px] text-slate-700 font-bold">gh</div>
-                  <div className="w-4 h-4 rounded-full bg-blue-100 flex items-center justify-center text-[8px] text-blue-700 font-bold">in</div>
+                <div className="flex items-center gap-1.5 text-neutral-400">
+                  <div className="w-4 h-4 rounded-full bg-neutral-100 flex items-center justify-center text-[8px] text-neutral-700 font-bold">𝕏</div>
+                  <div className="w-4 h-4 rounded-full bg-neutral-100 flex items-center justify-center text-[8px] text-neutral-700 font-bold">gh</div>
+                  <div className="w-4 h-4 rounded-full bg-neutral-100 flex items-center justify-center text-[8px] text-neutral-700 font-bold">in</div>
                   <div className="w-4 h-4 rounded-full bg-pink-100 flex items-center justify-center text-[8px] text-pink-700 font-bold">🏀</div>
                   <div className="w-4 h-4 rounded-full bg-red-100 flex items-center justify-center text-[8px] text-red-700 font-bold">▶</div>
                 </div>
@@ -136,26 +136,26 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
             </div>
 
             {/* Overlapping NFC Smart Card (Vertical) */}
-            <div className="absolute -right-1 sm:right-0 -bottom-3 sm:-bottom-2 w-28 sm:w-32 h-44 sm:h-48 rounded-2xl bg-white border border-slate-200 shadow-2xl p-2.5 flex flex-col justify-between rotate-6 transform hover:rotate-3 transition-transform">
+            <div className="absolute -right-1 sm:right-0 -bottom-3 sm:-bottom-2 w-28 sm:w-32 h-44 sm:h-48 rounded-2xl bg-white border border-neutral-200 shadow-2xl p-2.5 flex flex-col justify-between rotate-6 transform hover:rotate-3 transition-transform">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1">
                   <UidisLogoIcon className="w-3.5 h-3.5" />
-                  <span className="text-[9px] font-extrabold text-slate-900">UIDs.app</span>
+                  <span className="text-[9px] font-extrabold text-neutral-900">UIDs.app</span>
                 </div>
               </div>
 
               {/* QR Code */}
-              <div className="w-14 h-14 mx-auto bg-slate-50 border border-slate-100 rounded-lg p-1 flex items-center justify-center">
-                <QrCode className="w-full h-full text-slate-900" />
+              <div className="w-14 h-14 mx-auto bg-neutral-50 border border-neutral-100 rounded-lg p-1 flex items-center justify-center">
+                <QrCode className="w-full h-full text-neutral-900" />
               </div>
 
               {/* Details & Wave */}
               <div className="text-center">
-                <div className="text-[10px] font-bold text-slate-900 leading-tight">{displayName}</div>
-                <div className="text-[8px] text-slate-400 leading-tight">Tap to connect</div>
+                <div className="text-[10px] font-bold text-neutral-900 leading-tight">{displayName}</div>
+                <div className="text-[8px] text-neutral-400 leading-tight">Tap to connect</div>
               </div>
 
-              <div className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center mx-auto shadow-2xs">
+              <div className="w-6 h-6 rounded-full bg-neutral-900 text-white flex items-center justify-center mx-auto shadow-2xs">
                 <Wifi className="w-3 h-3 rotate-90" />
               </div>
             </div>
@@ -172,16 +172,16 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
         {/* Card 1: Subdomains */}
         <div 
           onClick={() => onNavigateTab && onNavigateTab('subdomains')}
-          className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] hover:border-slate-200 transition-all cursor-pointer flex items-center justify-between"
+          className="bg-white rounded-2xl p-4 border border-neutral-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] hover:border-neutral-200 transition-all cursor-pointer flex items-center justify-between"
         >
           <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-full bg-[#EBF2FE] text-[#2563EB] flex items-center justify-center shrink-0">
+            <div className="w-11 h-11 rounded-full bg-[#f1f1f1] text-[#000000] flex items-center justify-center shrink-0">
               <Globe className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-[11px] font-medium text-slate-400">Subdomains</div>
+              <div className="text-[11px] font-medium text-neutral-400">Subdomains</div>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-2xl font-extrabold text-slate-900 leading-none">{metrics.domains ?? 0}</span>
+                <span className="text-2xl font-extrabold text-neutral-900 leading-none">{metrics.domains ?? 0}</span>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] text-[10px] font-semibold">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#059669]" />
                   <span>Active</span>
@@ -189,69 +189,69 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
               </div>
             </div>
           </div>
-          <ChevronRight className="w-4 h-4 text-slate-300" />
+          <ChevronRight className="w-4 h-4 text-neutral-300" />
         </div>
 
         {/* Card 2: Profile Views */}
         <div 
           onClick={() => onNavigateTab && onNavigateTab('analytics')}
-          className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] hover:border-slate-200 transition-all cursor-pointer flex items-center justify-between"
+          className="bg-white rounded-2xl p-4 border border-neutral-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] hover:border-neutral-200 transition-all cursor-pointer flex items-center justify-between"
         >
           <div className="flex items-center gap-3.5">
             <div className="w-11 h-11 rounded-full bg-[#E6F8F0] text-[#059669] flex items-center justify-center shrink-0">
               <Eye className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-[11px] font-medium text-slate-400">Profile Views</div>
+              <div className="text-[11px] font-medium text-neutral-400">Profile Views</div>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-2xl font-extrabold text-slate-900 leading-none">{Number(metrics.views || 0).toLocaleString()}</span>
+                <span className="text-2xl font-extrabold text-neutral-900 leading-none">{Number(metrics.views || 0).toLocaleString()}</span>
               </div>
             </div>
           </div>
-          <ChevronRight className="w-4 h-4 text-slate-300" />
+          <ChevronRight className="w-4 h-4 text-neutral-300" />
         </div>
 
         {/* Card 3: Storage Used */}
         <div 
           onClick={() => onNavigateTab && onNavigateTab('hosting')}
-          className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] hover:border-slate-200 transition-all cursor-pointer flex items-center justify-between"
+          className="bg-white rounded-2xl p-4 border border-neutral-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] hover:border-neutral-200 transition-all cursor-pointer flex items-center justify-between"
         >
           <div className="flex items-center gap-3.5 flex-1 min-w-0 pr-2">
-            <div className="w-11 h-11 rounded-full bg-[#F3E8FF] text-[#9333EA] flex items-center justify-center shrink-0">
+            <div className="w-11 h-11 rounded-full bg-[#ececec] text-[#555555] flex items-center justify-center shrink-0">
               <Database className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[11px] font-medium text-slate-400">Storage Used</div>
+              <div className="text-[11px] font-medium text-neutral-400">Storage Used</div>
               <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-xl font-extrabold text-slate-900 leading-none">—</span>
-                <span className="text-[11px] text-slate-400">not measured</span>
+                <span className="text-xl font-extrabold text-neutral-900 leading-none">—</span>
+                <span className="text-[11px] text-neutral-400">not measured</span>
               </div>
               {/* Progress bar */}
-              <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1.5">
-                <div className="h-full bg-[#9333EA] rounded-full" style={{ width: '0%' }} />
+              <div className="w-full h-1.5 bg-neutral-100 rounded-full overflow-hidden mt-1.5">
+                <div className="h-full bg-[#555555] rounded-full" style={{ width: '0%' }} />
               </div>
             </div>
           </div>
-          <span className="text-[10px] font-bold text-slate-400 self-end mb-1 shrink-0">—</span>
+          <span className="text-[10px] font-bold text-neutral-400 self-end mb-1 shrink-0">—</span>
         </div>
 
         {/* Card 4: Active Template */}
         <div 
           onClick={() => onNavigateTab && onNavigateTab('templates')}
-          className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] hover:border-slate-200 transition-all cursor-pointer flex items-center justify-between"
+          className="bg-white rounded-2xl p-4 border border-neutral-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] hover:border-neutral-200 transition-all cursor-pointer flex items-center justify-between"
         >
           <div className="flex items-center gap-3.5">
             <div className="w-11 h-11 rounded-full bg-[#FEF3C7] text-[#D97706] flex items-center justify-center shrink-0">
               <Layers className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-[11px] font-medium text-slate-400">Active Template</div>
+              <div className="text-[11px] font-medium text-neutral-400">Active Template</div>
               <div className="mt-0.5">
-                <span className="text-2xl font-extrabold text-slate-900 leading-none">{primaryWebsite?.template_id ? 1 : 0}</span>
+                <span className="text-2xl font-extrabold text-neutral-900 leading-none">{primaryWebsite?.template_id ? 1 : 0}</span>
               </div>
             </div>
           </div>
-          <ChevronRight className="w-4 h-4 text-slate-300" />
+          <ChevronRight className="w-4 h-4 text-neutral-300" />
         </div>
       </div>
 
@@ -262,11 +262,11 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
       */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-4">
         {/* Left Card: Your Website (50%) */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-between">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-neutral-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-between">
           <div>
             {/* Header: Exact match to screenshot - Only Title and Live badge */}
             <div className="flex items-center gap-2 mb-3.5">
-              <h3 className="text-sm sm:text-base font-extrabold text-slate-900">Your Website</h3>
+              <h3 className="text-sm sm:text-base font-extrabold text-neutral-900">Your Website</h3>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] text-[10px] font-semibold">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#059669]" />
                 <span>Live</span>
@@ -276,18 +276,18 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
             {/* Inner Content: Website Preview on Left (flex-1) + Action Column on Right */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-3.5">
               {/* Framed Website Mini-Preview Card */}
-              <div className="flex-1 min-w-0 rounded-xl border border-slate-100 bg-[#F8FAFC] p-3 sm:p-3.5 flex items-center justify-between gap-2.5 sm:gap-3 overflow-hidden">
+              <div className="flex-1 min-w-0 rounded-xl border border-neutral-100 bg-[#fafafa] p-3 sm:p-3.5 flex items-center justify-between gap-2.5 sm:gap-3 overflow-hidden">
                 {/* Profile Card Summary */}
                 <div className="flex-1 min-w-0 text-left">
-                  <div className="text-[10px] text-slate-400 font-medium leading-none">Hi, I'm</div>
-                  <div className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight mt-0.5 truncate">{displayName}</div>
-                  <div className="text-[10px] sm:text-[11px] font-semibold text-slate-500 mb-1 truncate">{profileHeadline}</div>
-                  <p className="text-[9px] sm:text-[10px] text-slate-400 leading-snug mb-2 line-clamp-2">
+                  <div className="text-[10px] text-neutral-400 font-medium leading-none">Hi, I'm</div>
+                  <div className="text-sm sm:text-base font-extrabold text-neutral-900 leading-tight mt-0.5 truncate">{displayName}</div>
+                  <div className="text-[10px] sm:text-[11px] font-semibold text-neutral-500 mb-1 truncate">{profileHeadline}</div>
+                  <p className="text-[9px] sm:text-[10px] text-neutral-400 leading-snug mb-2 line-clamp-2">
                     {summary?.profile?.bio || 'Add a bio in settings to describe your profile.'}
                   </p>
                   <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded bg-slate-900 text-white text-[8px] font-bold">Contact Me</span>
-                    <div className="flex items-center gap-1 text-slate-400 text-[9px]">
+                    <span className="px-2 py-0.5 rounded bg-neutral-900 text-white text-[8px] font-bold">Contact Me</span>
+                    <div className="flex items-center gap-1 text-neutral-400 text-[9px]">
                       <span className="font-bold">𝕏</span>
                       <span className="font-bold">in</span>
                       <span className="font-bold">🌐</span>
@@ -296,7 +296,7 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
                 </div>
 
                 {/* Authenticated profile portrait */}
-                <div className="w-20 sm:w-24 h-24 sm:h-28 rounded-xl overflow-hidden bg-slate-200 shrink-0 shadow-2xs">
+                <div className="w-20 sm:w-24 h-24 sm:h-28 rounded-xl overflow-hidden bg-neutral-200 shrink-0 shadow-2xs">
                   <img
                     src={profileAvatar}
                     alt={displayName}
@@ -312,7 +312,7 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
                   href={primaryDomain === 'No domain claimed' ? '#' : `https://${primaryDomain}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center justify-start gap-1 text-xs font-semibold text-[#2563EB] hover:underline"
+                  className="inline-flex items-center justify-start gap-1 text-xs font-semibold text-[#000000] hover:underline"
                 >
                   <span className="truncate">{primaryDomain}</span>
                   <ExternalLink className="w-3.5 h-3.5 shrink-0" />
@@ -322,7 +322,7 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
                 <button
                   type="button"
                   onClick={() => onNavigateTab && onNavigateTab('website')}
-                  className="w-full py-2 px-3 rounded-xl bg-[#2563EB] hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 whitespace-nowrap transition active:scale-95 shadow-2xs"
+                  className="w-full py-2 px-3 rounded-xl bg-[#000000] hover:bg-neutral-700 active:bg-neutral-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 whitespace-nowrap transition active:scale-95 shadow-2xs"
                 >
                   <Edit3 className="w-3.5 h-3.5 shrink-0" />
                   <span>Edit Website</span>
@@ -332,9 +332,9 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
                 <button
                   type="button"
                   onClick={() => onNavigateTab && onNavigateTab('templates')}
-                  className="w-full py-2 px-3 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1.5 whitespace-nowrap transition active:scale-95"
+                  className="w-full py-2 px-3 rounded-xl bg-white hover:bg-neutral-50 border border-neutral-200 text-neutral-700 font-semibold text-xs flex items-center justify-center gap-1.5 whitespace-nowrap transition active:scale-95"
                 >
-                  <LayoutGrid className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <LayoutGrid className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
                   <span>Change Template</span>
                 </button>
 
@@ -344,15 +344,15 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
                     href={primaryDomain === 'No domain claimed' ? '#' : `https://${primaryDomain}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex-1 py-1.5 px-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1 whitespace-nowrap transition text-center"
+                    className="flex-1 py-1.5 px-2 rounded-xl bg-white hover:bg-neutral-50 border border-neutral-200 text-neutral-700 font-semibold text-xs flex items-center justify-center gap-1 whitespace-nowrap transition text-center"
                   >
-                    <ExternalLink className="w-3 h-3 text-slate-500 shrink-0" />
+                    <ExternalLink className="w-3 h-3 text-neutral-500 shrink-0" />
                     <span>View Site</span>
                   </a>
 
                   <button
                     type="button"
-                    className="p-1.5 w-8 h-8 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 flex items-center justify-center shrink-0 transition"
+                    className="p-1.5 w-8 h-8 rounded-xl bg-white hover:bg-neutral-50 border border-neutral-200 text-neutral-500 flex items-center justify-center shrink-0 transition"
                     title="More options"
                   >
                     <MoreHorizontal className="w-3.5 h-3.5" />
@@ -364,9 +364,9 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
         </div>
 
         {/* Right Card: Quick Actions (50%) */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-between">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-neutral-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-between">
           <div>
-            <h3 className="text-sm sm:text-base font-extrabold text-slate-900 mb-3 text-left">
+            <h3 className="text-sm sm:text-base font-extrabold text-neutral-900 mb-3 text-left">
               Quick Actions
             </h3>
 
@@ -376,36 +376,36 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
               <button
                 type="button"
                 onClick={() => onNavigateTab && onNavigateTab('subdomains')}
-                className="p-3 rounded-xl bg-[#F0F6FE] border border-[#E1EEFD] hover:border-blue-200 text-left transition-all duration-150 group flex items-center justify-between"
+                className="p-3 rounded-xl bg-[#f5f5f5] border border-[#ececec] hover:border-neutral-200 text-left transition-all duration-150 group flex items-center justify-between"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-blue-100 text-[#2563EB] flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-neutral-100 text-[#000000] flex items-center justify-center shrink-0">
                     <Globe className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-900 truncate">Create Subdomain</div>
-                    <div className="text-[10px] text-slate-500 truncate">Get your free .uids.app</div>
+                    <div className="text-xs font-bold text-neutral-900 truncate">Create Subdomain</div>
+                    <div className="text-[10px] text-neutral-500 truncate">Get your free .uids.app</div>
                   </div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-[#2563EB] group-hover:translate-x-0.5 transition-transform shrink-0" />
+                <ChevronRight className="w-4 h-4 text-[#000000] group-hover:translate-x-0.5 transition-transform shrink-0" />
               </button>
 
               {/* Tile 2: Browse Templates (Purple) */}
               <button
                 type="button"
                 onClick={() => onNavigateTab && onNavigateTab('templates')}
-                className="p-3 rounded-xl bg-[#FAF5FF] border border-[#F3E8FF] hover:border-purple-200 text-left transition-all duration-150 group flex items-center justify-between"
+                className="p-3 rounded-xl bg-[#f7f7f7] border border-[#ececec] hover:border-purple-200 text-left transition-all duration-150 group flex items-center justify-between"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-purple-100 text-[#9333EA] flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-purple-100 text-[#555555] flex items-center justify-center shrink-0">
                     <LayoutGrid className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-900 truncate">Browse Templates</div>
-                    <div className="text-[10px] text-slate-500 truncate">Use beautiful templates</div>
+                    <div className="text-xs font-bold text-neutral-900 truncate">Browse Templates</div>
+                    <div className="text-[10px] text-neutral-500 truncate">Use beautiful templates</div>
                   </div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-[#9333EA] group-hover:translate-x-0.5 transition-transform shrink-0" />
+                <ChevronRight className="w-4 h-4 text-[#555555] group-hover:translate-x-0.5 transition-transform shrink-0" />
               </button>
 
               {/* Tile 3: Connect Hosting (Green) */}
@@ -419,8 +419,8 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
                     <Cloud className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-900 truncate">Connect Hosting</div>
-                    <div className="text-[10px] text-slate-500 truncate">Link to our cloud or server</div>
+                    <div className="text-xs font-bold text-neutral-900 truncate">Connect Hosting</div>
+                    <div className="text-[10px] text-neutral-500 truncate">Link to our cloud or server</div>
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-[#16A34A] group-hover:translate-x-0.5 transition-transform shrink-0" />
@@ -437,8 +437,8 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
                     <CreditCard className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-900 truncate">Order NFC Card</div>
-                    <div className="text-[10px] text-slate-500 truncate">Get your physical card</div>
+                    <div className="text-xs font-bold text-neutral-900 truncate">Order NFC Card</div>
+                    <div className="text-[10px] text-neutral-500 truncate">Get your physical card</div>
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-[#D97706] group-hover:translate-x-0.5 transition-transform shrink-0" />
@@ -455,14 +455,14 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
       */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-3.5 sm:gap-4">
         {/* Left Card: Popular Templates (Spans 2 cols / 50%) */}
-        <div className="lg:col-span-2 bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-between">
+        <div className="lg:col-span-2 bg-white rounded-2xl p-4 sm:p-5 border border-neutral-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm sm:text-base font-extrabold text-slate-900">Popular Templates</h3>
+              <h3 className="text-sm sm:text-base font-extrabold text-neutral-900">Popular Templates</h3>
               <button
                 type="button"
                 onClick={() => onNavigateTab && onNavigateTab('templates')}
-                className="text-xs font-bold text-[#2563EB] hover:underline flex items-center gap-0.5"
+                className="text-xs font-bold text-[#000000] hover:underline flex items-center gap-0.5"
               >
                 <span>See all</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -472,21 +472,21 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
             {/* 4 Template Thumbnails Grid matching screenshot */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {/* Template 1: Minimal */}
-              <div className="flex flex-col rounded-xl border border-slate-200/80 overflow-hidden bg-white shadow-2xs">
-                <div className="h-20 bg-slate-950 text-white p-2 flex flex-col items-center justify-center text-center select-none">
-                  <div className="w-4 h-4 rounded-full bg-blue-500 mb-1" />
+              <div className="flex flex-col rounded-xl border border-neutral-200/80 overflow-hidden bg-white shadow-2xs">
+                <div className="h-20 bg-neutral-950 text-white p-2 flex flex-col items-center justify-center text-center select-none">
+                  <div className="w-4 h-4 rounded-full bg-neutral-500 mb-1" />
                   <div className="text-[9px] font-bold">{displayName}</div>
-                  <div className="text-[7px] text-slate-400">Designer & Developer</div>
+                  <div className="text-[7px] text-neutral-400">Designer & Developer</div>
                 </div>
                 <div className="p-2 text-left flex-1 flex flex-col justify-between bg-white">
                   <div>
-                    <div className="text-xs font-bold text-slate-900 truncate">Minimal</div>
-                    <div className="text-[10px] text-slate-400 truncate mb-2">Clean & simple</div>
+                    <div className="text-xs font-bold text-neutral-900 truncate">Minimal</div>
+                    <div className="text-[10px] text-neutral-400 truncate mb-2">Clean & simple</div>
                   </div>
                   <button
                     type="button"
                     onClick={() => onNavigateTab && onNavigateTab('templates')}
-                    className="w-full py-1 text-[10px] font-bold text-[#2563EB] bg-[#EFF6FF] hover:bg-blue-100 rounded-lg transition"
+                    className="w-full py-1 text-[10px] font-bold text-[#000000] bg-[#f5f5f5] hover:bg-neutral-100 rounded-lg transition"
                   >
                     Use Template
                   </button>
@@ -494,23 +494,23 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
               </div>
 
               {/* Template 2: Creative Portfolio */}
-              <div className="flex flex-col rounded-xl border border-slate-200/80 overflow-hidden bg-white shadow-2xs">
-                <div className="h-20 bg-[#FAF7F2] text-slate-900 p-2 flex flex-col justify-between select-none">
+              <div className="flex flex-col rounded-xl border border-neutral-200/80 overflow-hidden bg-white shadow-2xs">
+                <div className="h-20 bg-[#FAF7F2] text-neutral-900 p-2 flex flex-col justify-between select-none">
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] font-bold">{displayName}</span>
                     <span className="text-[10px]">🌿</span>
                   </div>
-                  <span className="text-[8px] bg-slate-900 text-white px-1.5 py-0.5 rounded self-start">Showcase</span>
+                  <span className="text-[8px] bg-neutral-900 text-white px-1.5 py-0.5 rounded self-start">Showcase</span>
                 </div>
                 <div className="p-2 text-left flex-1 flex flex-col justify-between bg-white">
                   <div>
-                    <div className="text-xs font-bold text-slate-900 truncate">Creative Portfolio</div>
-                    <div className="text-[10px] text-slate-400 truncate mb-2">Showcase your work</div>
+                    <div className="text-xs font-bold text-neutral-900 truncate">Creative Portfolio</div>
+                    <div className="text-[10px] text-neutral-400 truncate mb-2">Showcase your work</div>
                   </div>
                   <button
                     type="button"
                     onClick={() => onNavigateTab && onNavigateTab('templates')}
-                    className="w-full py-1 text-[10px] font-bold text-[#2563EB] bg-[#EFF6FF] hover:bg-blue-100 rounded-lg transition"
+                    className="w-full py-1 text-[10px] font-bold text-[#000000] bg-[#f5f5f5] hover:bg-neutral-100 rounded-lg transition"
                   >
                     Use Template
                   </button>
@@ -518,20 +518,20 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
               </div>
 
               {/* Template 3: Portfolio */}
-              <div className="flex flex-col rounded-xl border border-slate-200/80 overflow-hidden bg-white shadow-2xs">
-                <div className="h-20 bg-[#1E1B4B] text-white p-2 flex flex-col items-center justify-center text-center select-none">
+              <div className="flex flex-col rounded-xl border border-neutral-200/80 overflow-hidden bg-white shadow-2xs">
+                <div className="h-20 bg-[#1f1f1f] text-white p-2 flex flex-col items-center justify-center text-center select-none">
                   <div className="text-[9px] font-bold">{displayName}</div>
-                  <div className="text-[7px] text-indigo-300">Modern & professional</div>
+                  <div className="text-[7px] text-neutral-300">Modern & professional</div>
                 </div>
                 <div className="p-2 text-left flex-1 flex flex-col justify-between bg-white">
                   <div>
-                    <div className="text-xs font-bold text-slate-900 truncate">Portfolio</div>
-                    <div className="text-[10px] text-slate-400 truncate mb-2">Modern & professional</div>
+                    <div className="text-xs font-bold text-neutral-900 truncate">Portfolio</div>
+                    <div className="text-[10px] text-neutral-400 truncate mb-2">Modern & professional</div>
                   </div>
                   <button
                     type="button"
                     onClick={() => onNavigateTab && onNavigateTab('templates')}
-                    className="w-full py-1 text-[10px] font-bold text-[#2563EB] bg-[#EFF6FF] hover:bg-blue-100 rounded-lg transition"
+                    className="w-full py-1 text-[10px] font-bold text-[#000000] bg-[#f5f5f5] hover:bg-neutral-100 rounded-lg transition"
                   >
                     Use Template
                   </button>
@@ -539,23 +539,23 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
               </div>
 
               {/* Template 4: Business */}
-              <div className="flex flex-col rounded-xl border border-slate-200/80 overflow-hidden bg-white shadow-2xs">
-                <div className="h-20 bg-[#F0F6FA] text-slate-900 p-2 flex flex-col justify-between select-none">
+              <div className="flex flex-col rounded-xl border border-neutral-200/80 overflow-hidden bg-white shadow-2xs">
+                <div className="h-20 bg-[#f5f5f5] text-neutral-900 p-2 flex flex-col justify-between select-none">
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] font-bold">Business</span>
                     <span className="text-[10px]">🪴</span>
                   </div>
-                  <span className="text-[7px] text-slate-500">Corporate site</span>
+                  <span className="text-[7px] text-neutral-500">Corporate site</span>
                 </div>
                 <div className="p-2 text-left flex-1 flex flex-col justify-between bg-white">
                   <div>
-                    <div className="text-xs font-bold text-slate-900 truncate">Business</div>
-                    <div className="text-[10px] text-slate-400 truncate mb-2">Perfect for business</div>
+                    <div className="text-xs font-bold text-neutral-900 truncate">Business</div>
+                    <div className="text-[10px] text-neutral-400 truncate mb-2">Perfect for business</div>
                   </div>
                   <button
                     type="button"
                     onClick={() => onNavigateTab && onNavigateTab('templates')}
-                    className="w-full py-1 text-[10px] font-bold text-[#2563EB] bg-[#EFF6FF] hover:bg-blue-100 rounded-lg transition"
+                    className="w-full py-1 text-[10px] font-bold text-[#000000] bg-[#f5f5f5] hover:bg-neutral-100 rounded-lg transition"
                   >
                     Use Template
                   </button>
@@ -566,11 +566,11 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
         </div>
 
         {/* Middle Card: Cloud Hosting (Spans 1 col / 25%) */}
-        <div className="lg:col-span-1 bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-between text-left">
+        <div className="lg:col-span-1 bg-white rounded-2xl p-4 sm:p-5 border border-neutral-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-between text-left">
           <div>
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2 font-bold text-sm text-slate-900">
-                <div className="w-7 h-7 rounded-lg bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0">
+              <div className="flex items-center gap-2 font-bold text-sm text-neutral-900">
+                <div className="w-7 h-7 rounded-lg bg-neutral-50 text-[#000000] flex items-center justify-center shrink-0">
                   <Cloud className="w-4 h-4" />
                 </div>
                 <span>Cloud Hosting</span>
@@ -578,27 +578,27 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
               <button
                 type="button"
                 onClick={() => onNavigateTab && onNavigateTab('hosting')}
-                className="text-xs font-semibold text-[#2563EB] hover:underline"
+                className="text-xs font-semibold text-[#000000] hover:underline"
               >
                 Manage
               </button>
             </div>
 
-            <div className="text-[10px] text-slate-400 font-medium">Free Plan</div>
+            <div className="text-[10px] text-neutral-400 font-medium">Free Plan</div>
             <div className="flex items-baseline justify-between mt-0.5 mb-1.5">
-              <div className="text-base font-extrabold text-slate-900">
-                200 MB <span className="text-xs font-normal text-slate-500">Storage</span>
+              <div className="text-base font-extrabold text-neutral-900">
+                200 MB <span className="text-xs font-normal text-neutral-500">Storage</span>
               </div>
-              <span className="text-[10px] text-slate-400 font-medium">24% used</span>
+              <span className="text-[10px] text-neutral-400 font-medium">24% used</span>
             </div>
 
             {/* Blue Progress Bar */}
-            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mb-3.5">
-              <div className="h-full bg-[#2563EB] rounded-full" style={{ width: '24%' }} />
+            <div className="w-full h-1.5 bg-neutral-100 rounded-full overflow-hidden mb-3.5">
+              <div className="h-full bg-[#000000] rounded-full" style={{ width: '24%' }} />
             </div>
 
             {/* Checklist matching screenshot */}
-            <ul className="space-y-1.5 text-[11px] text-slate-600 font-medium mb-4">
+            <ul className="space-y-1.5 text-[11px] text-neutral-600 font-medium mb-4">
               <li className="flex items-center gap-2">
                 <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3] shrink-0" />
                 <span>Static website hosting</span>
@@ -611,7 +611,7 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
                 <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3] shrink-0" />
                 <span>Free subdomain</span>
               </li>
-              <li className="flex items-center gap-2 text-slate-400">
+              <li className="flex items-center gap-2 text-neutral-400">
                 <XIcon className="w-3.5 h-3.5 text-rose-500 stroke-[3] shrink-0" />
                 <span>No Node.js backend</span>
               </li>
@@ -622,7 +622,7 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
             <button
               type="button"
               onClick={() => onNavigateTab && onNavigateTab('hosting')}
-              className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs shadow-2xs transition active:scale-95"
+              className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#000000] hover:bg-neutral-700 text-white font-bold text-xs shadow-2xs transition active:scale-95"
             >
               <span>Upgrade for Node.js</span>
               <ArrowRight className="w-3.5 h-3.5 text-white" />
@@ -631,11 +631,11 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
         </div>
 
         {/* Right Card: NFC Business Card (Spans 1 col / 25%) */}
-        <div className="lg:col-span-1 bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-between text-left">
+        <div className="lg:col-span-1 bg-white rounded-2xl p-4 sm:p-5 border border-neutral-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-between text-left">
           <div>
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2 font-bold text-sm text-slate-900">
-                <div className="w-7 h-7 rounded-lg bg-purple-50 text-[#9333EA] flex items-center justify-center shrink-0">
+              <div className="flex items-center gap-2 font-bold text-sm text-neutral-900">
+                <div className="w-7 h-7 rounded-lg bg-purple-50 text-[#555555] flex items-center justify-center shrink-0">
                   <CreditCard className="w-4 h-4" />
                 </div>
                 <span>NFC Business Card</span>
@@ -643,23 +643,23 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
               <button
                 type="button"
                 onClick={() => onNavigateTab && onNavigateTab('nfc')}
-                className="text-xs font-semibold text-[#2563EB] hover:underline"
+                className="text-xs font-semibold text-[#000000] hover:underline"
               >
                 Manage
               </button>
             </div>
 
-            <div className="text-xs font-extrabold text-slate-900 mt-1 mb-0.5">
+            <div className="text-xs font-extrabold text-neutral-900 mt-1 mb-0.5">
               Tap. Share. Connect.
             </div>
-            <p className="text-[10px] text-slate-400 leading-relaxed mb-3">
+            <p className="text-[10px] text-neutral-400 leading-relaxed mb-3">
               Turn your profile into a physical NFC business card.
             </p>
 
             {/* Split row: Checklist on left, realistic overlapping card mockups with New badge on right */}
             <div className="flex items-center justify-between gap-2 mb-3">
               {/* Checklist */}
-              <ul className="space-y-1.5 text-[10px] text-slate-600 font-medium flex-1">
+              <ul className="space-y-1.5 text-[10px] text-neutral-600 font-medium flex-1">
                 <li className="flex items-center gap-1.5">
                   <Check className="w-3 h-3 text-emerald-600 stroke-[3] shrink-0" />
                   <span>Share your digital profile</span>
@@ -685,14 +685,14 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
                 </span>
                 <div className="relative w-20 h-16 mt-3">
                   {/* Back dark card */}
-                  <div className="absolute left-0 bottom-0 w-16 h-11 rounded-lg bg-slate-900 text-white flex items-center justify-between px-1.5 shadow-md -rotate-6">
+                  <div className="absolute left-0 bottom-0 w-16 h-11 rounded-lg bg-neutral-900 text-white flex items-center justify-between px-1.5 shadow-md -rotate-6">
                     <span className="text-[7px] font-bold">UIDs</span>
-                    <Wifi className="w-2.5 h-2.5 text-slate-300 rotate-90" />
+                    <Wifi className="w-2.5 h-2.5 text-neutral-300 rotate-90" />
                   </div>
                   {/* Front white card */}
-                  <div className="absolute right-0 bottom-1 w-16 h-11 rounded-lg bg-white border border-slate-200 text-slate-900 flex items-center justify-between px-1.5 shadow-lg rotate-6">
-                    <QrCode className="w-3 h-3 text-slate-800" />
-                    <Wifi className="w-2.5 h-2.5 text-[#2563EB] rotate-90" />
+                  <div className="absolute right-0 bottom-1 w-16 h-11 rounded-lg bg-white border border-neutral-200 text-neutral-900 flex items-center justify-between px-1.5 shadow-lg rotate-6">
+                    <QrCode className="w-3 h-3 text-neutral-800" />
+                    <Wifi className="w-2.5 h-2.5 text-[#000000] rotate-90" />
                   </div>
                 </div>
               </div>
@@ -703,10 +703,10 @@ export default function OneProfileHomeView({ currentUser, summary, onNavigateTab
             <button
               type="button"
               onClick={() => onNavigateTab && onNavigateTab('nfc')}
-              className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-2xs transition active:scale-95"
+              className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs shadow-2xs transition active:scale-95"
             >
               <span>Order NFC Card</span>
-              <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
+              <ArrowRight className="w-3.5 h-3.5 text-neutral-300" />
             </button>
           </div>
         </div>

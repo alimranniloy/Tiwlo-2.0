@@ -48,12 +48,12 @@ export function DocumentScanScreen({ data, onUpdate, onNext, onBack }: Props) {
   const mrz = scan?.mrz;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-slate-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-50 flex items-center justify-center p-4">
       <div className="max-w-2xl w-full">
         {/* Header */}
         <StepHeader step={1} title="Scan Your ID Document" />
 
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-6">
+        <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 p-6">
           {/* Drop zone */}
           <div
             onDragOver={(e) => {
@@ -65,8 +65,8 @@ export function DocumentScanScreen({ data, onUpdate, onNext, onBack }: Props) {
             onClick={() => inputRef.current?.click()}
             className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
               dragOver
-                ? 'border-indigo-400 bg-indigo-50'
-                : 'border-slate-300 hover:border-indigo-300 hover:bg-slate-50'
+                ? 'border-neutral-400 bg-neutral-50'
+                : 'border-neutral-300 hover:border-neutral-300 hover:bg-neutral-50'
             }`}
           >
             {preview ? (
@@ -77,9 +77,9 @@ export function DocumentScanScreen({ data, onUpdate, onNext, onBack }: Props) {
               />
             ) : (
               <>
-                <div className="text-4xl mb-3 text-slate-400">&#x1F4C4;</div>
-                <p className="font-medium text-slate-700">Drop your ID document here</p>
-                <p className="text-sm text-slate-400 mt-1">or click to browse (JPEG, PNG)</p>
+                <div className="text-4xl mb-3 text-neutral-400">&#x1F4C4;</div>
+                <p className="font-medium text-neutral-700">Drop your ID document here</p>
+                <p className="text-sm text-neutral-400 mt-1">or click to browse (JPEG, PNG)</p>
               </>
             )}
             <input
@@ -96,7 +96,7 @@ export function DocumentScanScreen({ data, onUpdate, onNext, onBack }: Props) {
 
           {/* Loading */}
           {loading && (
-            <div className="flex items-center justify-center gap-2 mt-6 text-indigo-600">
+            <div className="flex items-center justify-center gap-2 mt-6 text-neutral-600">
               <Spinner />
               <span className="text-sm font-medium">Scanning document...</span>
             </div>
@@ -123,7 +123,7 @@ export function DocumentScanScreen({ data, onUpdate, onNext, onBack }: Props) {
                   />
                 )}
                 {mrz && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700">
                     {mrz.mrz_type === 'TD3' ? 'Passport' : 'ID Card'}
                   </span>
                 )}
@@ -131,8 +131,8 @@ export function DocumentScanScreen({ data, onUpdate, onNext, onBack }: Props) {
 
               {/* MRZ Data */}
               {mrz && (
-                <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                  <h3 className="text-sm font-semibold text-slate-700 mb-3">Parsed Document Data</h3>
+                <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-200">
+                  <h3 className="text-sm font-semibold text-neutral-700 mb-3">Parsed Document Data</h3>
                   <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                     <Field label="Full Name" value={`${mrz.given_names} ${mrz.surname}`} />
                     <Field label="Document No." value={mrz.document_number} />
@@ -150,12 +150,12 @@ export function DocumentScanScreen({ data, onUpdate, onNext, onBack }: Props) {
                 <div>
                   <button
                     onClick={() => setShowOcr(!showOcr)}
-                    className="text-sm text-indigo-600 hover:text-indigo-700 font-medium cursor-pointer"
+                    className="text-sm text-neutral-600 hover:text-neutral-700 font-medium cursor-pointer"
                   >
                     {showOcr ? 'Hide' : 'Show'} OCR Text (confidence: {(scan.ocr.confidence * 100).toFixed(0)}%)
                   </button>
                   {showOcr && (
-                    <pre className="mt-2 p-3 bg-slate-900 text-slate-200 rounded-lg text-xs overflow-auto max-h-48 whitespace-pre-wrap">
+                    <pre className="mt-2 p-3 bg-neutral-900 text-neutral-200 rounded-lg text-xs overflow-auto max-h-48 whitespace-pre-wrap">
                       {scan.ocr.full_text}
                     </pre>
                   )}
@@ -168,14 +168,14 @@ export function DocumentScanScreen({ data, onUpdate, onNext, onBack }: Props) {
           <div className="flex justify-between mt-6">
             <button
               onClick={onBack}
-              className="px-5 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors cursor-pointer"
+              className="px-5 py-2.5 text-sm font-medium text-neutral-600 hover:text-neutral-800 transition-colors cursor-pointer"
             >
               Back
             </button>
             <button
               onClick={onNext}
               disabled={!scan || !scan.detected}
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors text-sm cursor-pointer"
+              className="px-6 py-2.5 bg-neutral-600 hover:bg-neutral-700 disabled:bg-neutral-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors text-sm cursor-pointer"
             >
               Continue to Selfie
             </button>
@@ -193,12 +193,12 @@ function StepHeader({ step, title }: { step: number; title: string }) {
         {[1, 2, 3].map((s) => (
           <div
             key={s}
-            className={`w-8 h-1 rounded-full ${s <= step ? 'bg-indigo-600' : 'bg-slate-200'}`}
+            className={`w-8 h-1 rounded-full ${s <= step ? 'bg-neutral-600' : 'bg-neutral-200'}`}
           />
         ))}
       </div>
-      <span className="text-xs text-slate-500 font-medium">Step {step}/3</span>
-      <h1 className="text-lg font-bold text-slate-800 ml-auto">{title}</h1>
+      <span className="text-xs text-neutral-500 font-medium">Step {step}/3</span>
+      <h1 className="text-lg font-bold text-neutral-800 ml-auto">{title}</h1>
     </div>
   );
 }
@@ -218,8 +218,8 @@ function Badge({ ok, label }: { ok: boolean; label: string }) {
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <span className="text-slate-500 text-xs">{label}</span>
-      <p className="font-medium text-slate-800">{value}</p>
+      <span className="text-neutral-500 text-xs">{label}</span>
+      <p className="font-medium text-neutral-800">{value}</p>
     </div>
   );
 }

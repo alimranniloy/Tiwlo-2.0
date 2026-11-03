@@ -92,7 +92,7 @@ export default function DesktopVerificationPage({ onComplete = null }) {
       errorCorrectionLevel: 'M',
       margin: 2,
       width: 240,
-      color: { dark: '#202124', light: '#ffffff' },
+      color: { dark: '#212121', light: '#ffffff' },
     }).then(dataUrl => {
       if (active) setQrCode(dataUrl);
     }).catch(qrError => {
@@ -213,25 +213,25 @@ export default function DesktopVerificationPage({ onComplete = null }) {
   };
 
   return (
-    <main className="min-h-screen bg-[#f8f9fa] px-5 py-10 text-[#202124] sm:px-8">
+    <main className="min-h-screen bg-[#f8f9fa] px-5 py-10 text-[#212121] sm:px-8">
       <div className="mx-auto max-w-5xl">
         <header className="mb-12 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e8f0fe] text-[#1a73e8]">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#efefef] text-[#696969]">
             <LockKeyhole className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-sm font-medium text-[#5f6368]">Tiwlo secure check</p>
+            <p className="text-sm font-medium text-[#636363]">Tiwlo secure check</p>
             <h1 className="text-lg font-medium">Identity verification</h1>
           </div>
         </header>
 
         <div className="grid items-center gap-10 md:grid-cols-[1fr_390px] md:gap-16">
           <section>
-            <p className="mb-3 text-sm font-medium uppercase tracking-wide text-[#1a73e8]">Continue on mobile</p>
+            <p className="mb-3 text-sm font-medium uppercase tracking-wide text-[#696969]">Continue on mobile</p>
             <h2 className="max-w-xl text-3xl font-normal leading-tight sm:text-4xl">
               Verify your identity using your phone
             </h2>
-            <p className="mt-5 max-w-xl text-base leading-7 text-[#5f6368]">
+            <p className="mt-5 max-w-xl text-base leading-7 text-[#636363]">
               Scan the one-time QR code, then upload your ID and take a live selfie on your phone.
               No phone sign-in is required.
             </p>
@@ -241,15 +241,15 @@ export default function DesktopVerificationPage({ onComplete = null }) {
                 ['2', 'Upload a clear photo of your identity document'],
                 ['3', 'Complete the live selfie check on your phone'],
               ].map(([number, text]) => (
-                <div key={number} className="flex items-center gap-4 text-sm text-[#3c4043]">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[#1a73e8] shadow-sm ring-1 ring-[#dadce0]">
+                <div key={number} className="flex items-center gap-4 text-sm text-[#3f3f3f]">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[#696969] shadow-sm ring-1 ring-[#dcdcdc]">
                     {number}
                   </span>
                   {text}
                 </div>
               ))}
             </div>
-            <p className="mt-9 flex items-center gap-2 text-sm text-[#5f6368]">
+            <p className="mt-9 flex items-center gap-2 text-sm text-[#636363]">
               <LockKeyhole className="h-4 w-4" />
               The link can be used once. Closing this page ends the session.
             </p>
@@ -257,21 +257,21 @@ export default function DesktopVerificationPage({ onComplete = null }) {
 
           <section className="rounded-2xl bg-white p-7 shadow-[0_1px_2px_rgba(60,64,67,.12),0_2px_6px_2px_rgba(60,64,67,.08)] sm:p-9">
             <div className="mb-6 flex items-center gap-3">
-              <Smartphone className="h-5 w-5 text-[#5f6368]" />
+              <Smartphone className="h-5 w-5 text-[#636363]" />
               <div>
                 <h3 className="font-medium">{statusContent.title}</h3>
-                <p className="mt-1 text-sm leading-5 text-[#5f6368]">{statusContent.detail}</p>
+                <p className="mt-1 text-sm leading-5 text-[#636363]">{statusContent.detail}</p>
               </div>
             </div>
 
             {status === 'waiting' && session && (
               <div className="flex flex-col items-center">
-                <div className="flex h-[264px] w-[264px] items-center justify-center rounded-xl border border-[#dadce0] bg-white">
+                <div className="flex h-[264px] w-[264px] items-center justify-center rounded-xl border border-[#dcdcdc] bg-white">
                   {qrCode
                     ? <img src={qrCode} alt="One-time identity verification QR code" className="h-60 w-60" />
-                    : <LoaderCircle className="h-8 w-8 animate-spin text-[#1a73e8]" />}
+                    : <LoaderCircle className="h-8 w-8 animate-spin text-[#696969]" />}
                 </div>
-                <p className="mt-5 flex items-center gap-2 text-sm text-[#5f6368]">
+                <p className="mt-5 flex items-center gap-2 text-sm text-[#636363]">
                   <Clock3 className="h-4 w-4" />
                   Refreshes in {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
                 </p>
@@ -280,8 +280,8 @@ export default function DesktopVerificationPage({ onComplete = null }) {
 
             {status === 'connected' || status === 'selfie' || status === 'processing' ? (
               <div className="flex h-[264px] flex-col items-center justify-center rounded-xl bg-[#f8f9fa] text-center">
-                <LoaderCircle className="h-10 w-10 animate-spin text-[#1a73e8]" />
-                <p className="mt-4 text-sm text-[#5f6368]">Waiting for the phone to finish…</p>
+                <LoaderCircle className="h-10 w-10 animate-spin text-[#696969]" />
+                <p className="mt-4 text-sm text-[#636363]">Waiting for the phone to finish…</p>
               </div>
             ) : null}
 
@@ -295,7 +295,7 @@ export default function DesktopVerificationPage({ onComplete = null }) {
             {status === 'failed' && (
               <div className="flex h-[264px] flex-col items-center justify-center rounded-xl bg-[#fce8e6] text-center">
                 <AlertCircle className="h-12 w-12 text-[#d93025]" />
-                <button onClick={restart} className="mt-5 rounded-full bg-[#1a73e8] px-6 py-2.5 text-sm font-medium text-white hover:bg-[#1765cc]">
+                <button onClick={restart} className="mt-5 rounded-full bg-[#696969] px-6 py-2.5 text-sm font-medium text-white hover:bg-[#5c5c5c]">
                   Start again
                 </button>
               </div>
@@ -305,7 +305,7 @@ export default function DesktopVerificationPage({ onComplete = null }) {
               <div role="alert" className="mt-5 rounded-lg bg-[#fce8e6] p-3 text-sm text-[#b3261e]">
                 <p>{error}</p>
                 {!session && (
-                  <button onClick={createSession} className="mt-3 rounded-full bg-[#1a73e8] px-4 py-2 font-medium text-white hover:bg-[#1765cc]">
+                  <button onClick={createSession} className="mt-3 rounded-full bg-[#696969] px-4 py-2 font-medium text-white hover:bg-[#5c5c5c]">
                     Try again
                   </button>
                 )}

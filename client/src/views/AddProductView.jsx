@@ -283,17 +283,17 @@ export default function AddProductView({
     const tableHtml = `
       <table style="width:100%; border-collapse:collapse; margin:12px 0;">
         <thead>
-          <tr style="background:#f1f5f9; border-bottom:2px solid #cbd5e1;">
+          <tr style="background:#f4f4f4; border-bottom:2px solid #d4d4d4;">
             <th style="padding:8px; text-align:left;">Specification</th>
             <th style="padding:8px; text-align:left;">Detail</th>
           </tr>
         </thead>
         <tbody>
-          <tr style="border-bottom:1px solid #e2e8f0;">
+          <tr style="border-bottom:1px solid #e7e7e7;">
             <td style="padding:6px 8px;">Material</td>
             <td style="padding:6px 8px;">Premium Alloy / Cotton</td>
           </tr>
-          <tr style="border-bottom:1px solid #e2e8f0;">
+          <tr style="border-bottom:1px solid #e7e7e7;">
             <td style="padding:6px 8px;">Origin</td>
             <td style="padding:6px 8px;">Imported</td>
           </tr>
@@ -315,7 +315,7 @@ export default function AddProductView({
         const payload = {
           name: newTaxName.trim(),
           description: newTaxDesc.trim() || `${newTaxName.trim()} products and inventory`,
-          color: '#3B82F6'
+          color: '#7b7b7b'
         };
         if (localCategories.some(category => category.name.toLowerCase() === payload.name.toLowerCase())) {
           showMaterialAlert(`Category "${payload.name}" already exists.`);
@@ -542,25 +542,25 @@ export default function AddProductView({
   return (
     <div className="space-y-6 animate-in fade-in duration-200 pb-16">
       {/* Top Banner */}
-      <div className="bg-white dark:bg-[#111827] p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-gray-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#181818] p-4 sm:p-5 rounded-2xl border border-neutral-200/80 dark:border-gray-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-start space-x-3.5">
           <button
             onClick={onBack}
-            className="mt-0.5 p-2 rounded-xl bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-600 dark:text-slate-300 transition shadow-xs shrink-0 cursor-pointer"
+            className="mt-0.5 p-2 rounded-xl bg-neutral-100 dark:bg-gray-800 hover:bg-neutral-200 dark:hover:bg-gray-700 text-neutral-600 dark:text-neutral-300 transition shadow-xs shrink-0 cursor-pointer"
             title="Back to Product Catalog"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
             <div className="flex items-center space-x-2.5">
-              <span className="p-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 shrink-0">
+              <span className="p-2 rounded-xl bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 shrink-0">
                 <Package className="w-5 h-5" />
               </span>
-              <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+              <h1 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-white tracking-tight">
                 Add New Product Studio
               </h1>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 pl-1">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 pl-1">
               Multi-step product creator with multiple image gallery, rich HTML description, and instant barcode generation.
             </p>
           </div>
@@ -570,7 +570,7 @@ export default function AddProductView({
           <button
             type="button"
             onClick={onBack}
-            className="w-full sm:w-auto text-center px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-gray-700 transition cursor-pointer"
+            className="w-full sm:w-auto text-center px-4 py-2 text-xs font-semibold rounded-xl border border-neutral-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-gray-700 transition cursor-pointer"
           >
             Cancel & Exit
           </button>
@@ -578,7 +578,7 @@ export default function AddProductView({
       </div>
 
       {/* STEPPER PROGRESS INDICATOR */}
-      <div className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-2xl p-3 sm:p-5 shadow-xs">
+      <div className="bg-white dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 rounded-2xl p-3 sm:p-5 shadow-xs">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
           {[
             { step: 1, title: 'Step 1: General Info', desc: 'Name, SKU & Categories', icon: FileText },
@@ -601,28 +601,28 @@ export default function AddProductView({
                 }}
                 className={`p-2.5 sm:p-3 rounded-xl border text-left transition flex items-center space-x-2.5 sm:space-x-3 ${
                   isActive
-                    ? 'border-blue-600 bg-blue-50/70 dark:bg-blue-950/40 ring-2 ring-blue-500/20 shadow-xs'
+                    ? 'border-neutral-600 bg-neutral-50/70 dark:bg-neutral-950/40 ring-2 ring-neutral-500/20 shadow-xs'
                     : isCompleted
                     ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-200'
-                    : 'border-slate-200 dark:border-gray-700 bg-slate-50/50 dark:bg-gray-800/40 text-slate-400'
+                    : 'border-neutral-200 dark:border-gray-700 bg-neutral-50/50 dark:bg-gray-800/40 text-neutral-400'
                 }`}
               >
                 <div
                   className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 font-black text-xs ${
                     isActive
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30'
+                      ? 'bg-neutral-600 text-white shadow-md shadow-neutral-500/30'
                       : isCompleted
                       ? 'bg-emerald-600 text-white'
-                      : 'bg-slate-200 dark:bg-gray-700 text-slate-500'
+                      : 'bg-neutral-200 dark:bg-gray-700 text-neutral-500'
                   }`}
                 >
                   {isCompleted ? <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" /> : s.step}
                 </div>
                 <div className="min-w-0">
-                  <p className={`text-[11px] sm:text-xs font-bold truncate ${isActive ? 'text-blue-900 dark:text-blue-200' : 'text-slate-800 dark:text-slate-200'}`}>
+                  <p className={`text-[11px] sm:text-xs font-bold truncate ${isActive ? 'text-neutral-900 dark:text-neutral-200' : 'text-neutral-800 dark:text-neutral-200'}`}>
                     {s.title}
                   </p>
-                  <p className="text-[9px] sm:text-[10px] text-slate-400 truncate">{s.desc}</p>
+                  <p className="text-[9px] sm:text-[10px] text-neutral-400 truncate">{s.desc}</p>
                 </div>
               </button>
             );
@@ -631,18 +631,18 @@ export default function AddProductView({
       </div>
 
       {/* FORM BODY CONTAINER */}
-      <div className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-xs">
+      <div className="bg-white dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-xs">
         {/* ===================================================
             STEP 1: GENERAL INFO & CATEGORIZATION
         =================================================== */}
         {currentStep === 1 && (
           <div className="space-y-6 animate-in fade-in duration-150">
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <FileText className="w-4 h-4 text-blue-600" />
+              <h2 className="text-base font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                <FileText className="w-4 h-4 text-neutral-600" />
                 Part 1: General Product Information & Categorization
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-neutral-400 mt-0.5">
                 Enter product identification, SKU codes, categories, and manufacturing brand.
               </p>
             </div>
@@ -650,17 +650,17 @@ export default function AddProductView({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {/* Product Name */}
               <div className="md:col-span-2 space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center justify-between">
+                <label className="text-xs font-bold text-neutral-700 dark:text-neutral-200 flex items-center justify-between">
                   <span>Product Title / Name *</span>
-                  <span className="text-[11px] text-slate-400 font-normal">e.g. Wireless Noise-Cancelling Headphones Pro</span>
+                  <span className="text-[11px] text-neutral-400 font-normal">e.g. Wireless Noise-Cancelling Headphones Pro</span>
                 </label>
                 <input
                   type="text"
                   placeholder="Enter full product title..."
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className={`w-full px-4 py-2.5 rounded-xl border text-sm bg-slate-50/50 dark:bg-gray-900/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden transition ${
-                    errors.name ? 'border-rose-500' : 'border-slate-200 dark:border-gray-700'
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm bg-neutral-50/50 dark:bg-gray-900/50 text-neutral-900 dark:text-white focus:ring-2 focus:ring-neutral-500 focus:outline-hidden transition ${
+                    errors.name ? 'border-rose-500' : 'border-neutral-200 dark:border-gray-700'
                   }`}
                 />
                 {errors.name && <p className="text-xs text-rose-500">{errors.name}</p>}
@@ -668,12 +668,12 @@ export default function AddProductView({
 
               {/* SKU & Auto Generator */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center justify-between">
+                <label className="text-xs font-bold text-neutral-700 dark:text-neutral-200 flex items-center justify-between">
                   <span>SKU (Stock Keeping Unit) *</span>
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, sku: `TS-${Math.floor(1000 + Math.random() * 9000)}` })}
-                    className="text-[11px] text-blue-600 dark:text-blue-400 font-bold hover:underline flex items-center gap-1"
+                    className="text-[11px] text-neutral-600 dark:text-neutral-400 font-bold hover:underline flex items-center gap-1"
                   >
                     <RefreshCw className="w-3 h-3" />
                     Auto Generate
@@ -684,8 +684,8 @@ export default function AddProductView({
                   placeholder="TS-1001"
                   value={formData.sku}
                   onChange={(e) => setFormData({ ...formData, sku: e.target.value.toUpperCase() })}
-                  className={`w-full px-4 py-2.5 rounded-xl border text-sm font-mono bg-slate-50/50 dark:bg-gray-900/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden transition ${
-                    errors.sku ? 'border-rose-500' : 'border-slate-200 dark:border-gray-700'
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm font-mono bg-neutral-50/50 dark:bg-gray-900/50 text-neutral-900 dark:text-white focus:ring-2 focus:ring-neutral-500 focus:outline-hidden transition ${
+                    errors.sku ? 'border-rose-500' : 'border-neutral-200 dark:border-gray-700'
                   }`}
                 />
                 {errors.sku && <p className="text-xs text-rose-500">{errors.sku}</p>}
@@ -693,12 +693,12 @@ export default function AddProductView({
 
               {/* Barcode Number & Auto Generator */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center justify-between">
+                <label className="text-xs font-bold text-neutral-700 dark:text-neutral-200 flex items-center justify-between">
                   <span>Barcode (EAN-13 / Code 128)</span>
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, barcode: `890${Math.floor(100000000 + Math.random() * 900000000)}` })}
-                    className="text-[11px] text-blue-600 dark:text-blue-400 font-bold hover:underline flex items-center gap-1"
+                    className="text-[11px] text-neutral-600 dark:text-neutral-400 font-bold hover:underline flex items-center gap-1"
                   >
                     <BarcodeIcon className="w-3 h-3" />
                     Generate Barcode
@@ -709,14 +709,14 @@ export default function AddProductView({
                   placeholder="890123456789"
                   value={formData.barcode}
                   onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 text-sm font-mono bg-slate-50/50 dark:bg-gray-900/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden transition"
+                  className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 text-sm font-mono bg-neutral-50/50 dark:bg-gray-900/50 text-neutral-900 dark:text-white focus:ring-2 focus:ring-neutral-500 focus:outline-hidden transition"
                 />
               </div>
 
               {/* Category */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                  <label className="text-xs font-bold text-neutral-700 dark:text-neutral-200">
                     Category *
                   </label>
                   <button
@@ -725,7 +725,7 @@ export default function AddProductView({
                       setTaxonomyType('category');
                       setIsAddingTaxonomy(!isAddingTaxonomy);
                     }}
-                    className="text-[11px] text-blue-600 dark:text-blue-400 font-bold hover:underline flex items-center gap-1"
+                    className="text-[11px] text-neutral-600 dark:text-neutral-400 font-bold hover:underline flex items-center gap-1"
                   >
                     <FolderPlus className="w-3 h-3" />
                     + New Category
@@ -735,7 +735,7 @@ export default function AddProductView({
                 <select
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value, subCategory: '' })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 text-sm bg-slate-50/50 dark:bg-gray-900/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 text-sm bg-neutral-50/50 dark:bg-gray-900/50 text-neutral-900 dark:text-white focus:ring-2 focus:ring-neutral-500 focus:outline-hidden"
                 >
                   {localCategories.map(c => (
                     <option key={c.id || c.name} value={c.name}>{c.name}</option>
@@ -746,7 +746,7 @@ export default function AddProductView({
               {/* Subcategory */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                  <label className="text-xs font-bold text-neutral-700 dark:text-neutral-200">
                     Subcategory
                   </label>
                   <button
@@ -759,7 +759,7 @@ export default function AddProductView({
                       }
                       setIsAddingTaxonomy(true);
                     }}
-                    className="text-[11px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-1"
+                    className="text-[11px] text-neutral-600 dark:text-neutral-400 font-bold hover:underline flex items-center gap-1"
                   >
                     <Layers className="w-3 h-3" />
                     + New Subcategory
@@ -769,7 +769,7 @@ export default function AddProductView({
                 <select
                   value={formData.subCategory}
                   onChange={(e) => setFormData({ ...formData, subCategory: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 text-sm bg-slate-50/50 dark:bg-gray-900/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 text-sm bg-neutral-50/50 dark:bg-gray-900/50 text-neutral-900 dark:text-white focus:ring-2 focus:ring-neutral-500 focus:outline-hidden"
                 >
                   <option value="">None / General</option>
                   {matchingSubcategories.map(s => (
@@ -780,20 +780,20 @@ export default function AddProductView({
 
               {/* Inline Taxonomy Creator Drawer (Primary Category vs Subcategory Switcher) */}
               {isAddingTaxonomy && (
-                <div className="md:col-span-2 p-5 bg-gradient-to-br from-blue-50/80 to-indigo-50/40 dark:from-gray-900/90 dark:to-blue-950/40 rounded-2xl border border-blue-200/90 dark:border-blue-900/60 shadow-sm space-y-4 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="md:col-span-2 p-5 bg-gradient-to-br from-neutral-50/80 to-neutral-50/40 dark:from-gray-900/90 dark:to-neutral-950/40 rounded-2xl border border-neutral-200/90 dark:border-neutral-900/60 shadow-sm space-y-4 animate-in fade-in slide-in-from-top-2 duration-150">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                      <h3 className="text-xs font-bold text-neutral-900 dark:text-white uppercase tracking-wider">
                         Create New Category or Subcategory
                       </h3>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
                         Choose whether to create a top-level parent category or a nested subcategory.
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setIsAddingTaxonomy(false)}
-                      className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm"
+                      className="p-1 rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 text-sm"
                     >
                       ✕
                     </button>
@@ -806,16 +806,16 @@ export default function AddProductView({
                       onClick={() => setTaxonomyType('category')}
                       className={`p-3 rounded-xl border text-left transition flex items-start gap-3 ${
                         taxonomyType === 'category'
-                          ? 'bg-white dark:bg-gray-800 border-blue-500 ring-2 ring-blue-500/20 shadow-xs'
-                          : 'bg-white/60 dark:bg-gray-800/50 border-slate-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-800'
+                          ? 'bg-white dark:bg-gray-800 border-neutral-500 ring-2 ring-neutral-500/20 shadow-xs'
+                          : 'bg-white/60 dark:bg-gray-800/50 border-neutral-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-800'
                       }`}
                     >
-                      <span className={`p-2 rounded-lg shrink-0 ${taxonomyType === 'category' ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-gray-700 text-slate-500'}`}>
+                      <span className={`p-2 rounded-lg shrink-0 ${taxonomyType === 'category' ? 'bg-neutral-600 text-white' : 'bg-neutral-100 dark:bg-gray-700 text-neutral-500'}`}>
                         <FolderPlus className="w-4 h-4" />
                       </span>
                       <div>
-                        <p className="text-xs font-bold text-slate-900 dark:text-white">Primary Category</p>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400">Main department (e.g. Footwear, Electronics)</p>
+                        <p className="text-xs font-bold text-neutral-900 dark:text-white">Primary Category</p>
+                        <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Main department (e.g. Footwear, Electronics)</p>
                       </div>
                     </button>
 
@@ -830,16 +830,16 @@ export default function AddProductView({
                       }}
                       className={`p-3 rounded-xl border text-left transition flex items-start gap-3 ${
                         taxonomyType === 'subcategory'
-                          ? 'bg-white dark:bg-gray-800 border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs'
-                          : 'bg-white/60 dark:bg-gray-800/50 border-slate-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-800'
+                          ? 'bg-white dark:bg-gray-800 border-neutral-500 ring-2 ring-neutral-500/20 shadow-xs'
+                          : 'bg-white/60 dark:bg-gray-800/50 border-neutral-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-800'
                       }`}
                     >
-                      <span className={`p-2 rounded-lg shrink-0 ${taxonomyType === 'subcategory' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-gray-700 text-slate-500'}`}>
+                      <span className={`p-2 rounded-lg shrink-0 ${taxonomyType === 'subcategory' ? 'bg-neutral-600 text-white' : 'bg-neutral-100 dark:bg-gray-700 text-neutral-500'}`}>
                         <Layers className="w-4 h-4" />
                       </span>
                       <div>
-                        <p className="text-xs font-bold text-slate-900 dark:text-white">Subcategory</p>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400">Nested child (e.g. Running Shoes, Sneakers)</p>
+                        <p className="text-xs font-bold text-neutral-900 dark:text-white">Subcategory</p>
+                        <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Nested child (e.g. Running Shoes, Sneakers)</p>
                       </div>
                     </button>
                   </div>
@@ -847,13 +847,13 @@ export default function AddProductView({
                   {/* Subcategory: Parent Category Dropdown */}
                   {taxonomyType === 'subcategory' && (
                     <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <label className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
                         Parent Primary Category *
                       </label>
                       <select
                         value={newTaxParentCatId}
                         onChange={(e) => setNewTaxParentCatId(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-gray-700 text-xs bg-white dark:bg-gray-900 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-gray-700 text-xs bg-white dark:bg-gray-900 text-neutral-900 dark:text-white font-medium focus:ring-2 focus:ring-neutral-500"
                       >
                         {localCategories.map(c => (
                           <option key={c.id} value={c.id}>
@@ -866,7 +866,7 @@ export default function AddProductView({
 
                   {/* Name Input */}
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <label className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
                       {taxonomyType === 'category' ? 'Primary Category Name *' : 'Subcategory Name *'}
                     </label>
                     <input
@@ -874,13 +874,13 @@ export default function AddProductView({
                       placeholder={taxonomyType === 'category' ? 'e.g. Footwear, Accessories, Electronics' : 'e.g. Running Shoes, Wireless Earbuds, Sneakers'}
                       value={newTaxName}
                       onChange={(e) => setNewTaxName(e.target.value)}
-                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-gray-700 text-xs bg-white dark:bg-gray-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                      className="w-full px-3.5 py-2 rounded-xl border border-neutral-200 dark:border-gray-700 text-xs bg-white dark:bg-gray-900 text-neutral-900 dark:text-white focus:ring-2 focus:ring-neutral-500 focus:outline-hidden"
                     />
                   </div>
 
                   {/* Description Input */}
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <label className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
                       Description (Optional)
                     </label>
                     <input
@@ -888,7 +888,7 @@ export default function AddProductView({
                       placeholder="Brief description for catalog..."
                       value={newTaxDesc}
                       onChange={(e) => setNewTaxDesc(e.target.value)}
-                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-gray-700 text-xs bg-white dark:bg-gray-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                      className="w-full px-3.5 py-2 rounded-xl border border-neutral-200 dark:border-gray-700 text-xs bg-white dark:bg-gray-900 text-neutral-900 dark:text-white focus:ring-2 focus:ring-neutral-500 focus:outline-hidden"
                     />
                   </div>
 
@@ -909,7 +909,7 @@ export default function AddProductView({
                         setNewTaxName('');
                         setNewTaxDesc('');
                       }}
-                      className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      className="px-3.5 py-1.5 text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
                     >
                       Cancel
                     </button>
@@ -918,7 +918,7 @@ export default function AddProductView({
                       onClick={handleSaveTaxonomy}
                       disabled={savingTaxonomy || !newTaxName.trim()}
                       className={`px-4 py-1.5 text-xs font-bold rounded-xl text-white shadow-sm transition flex items-center gap-1.5 disabled:opacity-50 ${
-                        taxonomyType === 'category' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                        taxonomyType === 'category' ? 'bg-neutral-600 hover:bg-neutral-700' : 'bg-neutral-600 hover:bg-neutral-700'
                       }`}
                     >
                       {savingTaxonomy ? (
@@ -936,7 +936,7 @@ export default function AddProductView({
 
               {/* Brand */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                <label className="text-xs font-bold text-neutral-700 dark:text-neutral-200">
                   Brand / Manufacturer
                 </label>
                 <input
@@ -944,19 +944,19 @@ export default function AddProductView({
                   placeholder="e.g. Apple, Nike, Sony, Samsung"
                   value={formData.brand}
                   onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 text-sm bg-slate-50/50 dark:bg-gray-900/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 text-sm bg-neutral-50/50 dark:bg-gray-900/50 text-neutral-900 dark:text-white focus:ring-2 focus:ring-neutral-500 focus:outline-hidden"
                 />
               </div>
 
               {/* Unit of Measure */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                <label className="text-xs font-bold text-neutral-700 dark:text-neutral-200">
                   Unit of Measure
                 </label>
                 <select
                   value={formData.unit}
                   onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 text-sm bg-slate-50/50 dark:bg-gray-900/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 text-sm bg-neutral-50/50 dark:bg-gray-900/50 text-neutral-900 dark:text-white focus:ring-2 focus:ring-neutral-500 focus:outline-hidden"
                 >
                   <option value="Pcs">Pieces (Pcs)</option>
                   <option value="Box">Box</option>
@@ -977,11 +977,11 @@ export default function AddProductView({
         {currentStep === 2 && (
           <div className="space-y-6 animate-in fade-in duration-150">
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <h2 className="text-base font-bold text-neutral-900 dark:text-white flex items-center gap-2">
                 <DollarSign className="w-4 h-4 text-emerald-600" />
                 Part 2: Pricing, Cost & Stock Management
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-neutral-400 mt-0.5">
                 Set cost price, selling price, profit margin, opening stock, and warehouse rack location.
               </p>
             </div>
@@ -989,7 +989,7 @@ export default function AddProductView({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {/* Cost Price */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                <label className="text-xs font-bold text-neutral-700 dark:text-neutral-200">
                   Cost / Purchase Price ($) *
                 </label>
                 <input
@@ -998,13 +998,13 @@ export default function AddProductView({
                   min="0"
                   value={formData.costPrice}
                   onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 text-sm font-semibold bg-slate-50/50 dark:bg-gray-900/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 text-sm font-semibold bg-neutral-50/50 dark:bg-gray-900/50 text-neutral-900 dark:text-white focus:ring-2 focus:ring-neutral-500 focus:outline-hidden"
                 />
               </div>
 
               {/* Selling Price */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                <label className="text-xs font-bold text-neutral-700 dark:text-neutral-200">
                   Selling / Retail Price ($) *
                 </label>
                 <input
@@ -1014,7 +1014,7 @@ export default function AddProductView({
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                   aria-invalid={!!errors.price}
-                  className={`w-full px-4 py-2.5 rounded-xl border text-sm font-bold text-emerald-600 dark:text-emerald-400 bg-slate-50/50 dark:bg-gray-900/50 focus:ring-2 focus:ring-blue-500 focus:outline-hidden ${errors.price ? 'border-rose-500' : 'border-slate-200 dark:border-gray-700'}`}
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm font-bold text-emerald-600 dark:text-emerald-400 bg-neutral-50/50 dark:bg-gray-900/50 focus:ring-2 focus:ring-neutral-500 focus:outline-hidden ${errors.price ? 'border-rose-500' : 'border-neutral-200 dark:border-gray-700'}`}
                 />
                 {errors.price && <p role="alert" className="text-xs text-rose-500">{errors.price}</p>}
               </div>
@@ -1035,7 +1035,7 @@ export default function AddProductView({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                <label className="text-xs font-bold text-neutral-700 dark:text-neutral-200">
                   Shipping weight (kg)
                 </label>
                 <input
@@ -1046,14 +1046,14 @@ export default function AddProductView({
                   value={formData.shippingWeightKg}
                   onChange={(e) => setFormData({ ...formData, shippingWeightKg: e.target.value })}
                   placeholder="e.g. 0.5"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 text-sm font-semibold bg-slate-50/50 dark:bg-gray-900/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 text-sm font-semibold bg-neutral-50/50 dark:bg-gray-900/50 text-neutral-900 dark:text-white focus:ring-2 focus:ring-neutral-500 focus:outline-hidden"
                 />
-                <p className="text-[10px] text-slate-400">Required to calculate weight-based international rates.</p>
+                <p className="text-[10px] text-neutral-400">Required to calculate weight-based international rates.</p>
               </div>
 
               {/* Initial Stock */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                <label className="text-xs font-bold text-neutral-700 dark:text-neutral-200">
                   Initial Stock Quantity ({formData.unit}) *
                 </label>
                 <input
@@ -1061,13 +1061,13 @@ export default function AddProductView({
                   min="0"
                   value={formData.stock}
                   onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 text-sm font-semibold bg-slate-50/50 dark:bg-gray-900/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 text-sm font-semibold bg-neutral-50/50 dark:bg-gray-900/50 text-neutral-900 dark:text-white focus:ring-2 focus:ring-neutral-500 focus:outline-hidden"
                 />
               </div>
 
               {/* Min Stock Alert */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                <label className="text-xs font-bold text-neutral-700 dark:text-neutral-200">
                   Low Stock Threshold Alert
                 </label>
                 <input
@@ -1075,13 +1075,13 @@ export default function AddProductView({
                   min="0"
                   value={formData.minStock}
                   onChange={(e) => setFormData({ ...formData, minStock: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 text-sm bg-slate-50/50 dark:bg-gray-900/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 text-sm bg-neutral-50/50 dark:bg-gray-900/50 text-neutral-900 dark:text-white focus:ring-2 focus:ring-neutral-500 focus:outline-hidden"
                 />
               </div>
 
               {/* Warehouse Location */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                <label className="text-xs font-bold text-neutral-700 dark:text-neutral-200">
                   Warehouse Location / Rack
                 </label>
                 <input
@@ -1089,19 +1089,19 @@ export default function AddProductView({
                   placeholder="Aisle 2, Rack C, Bin 4"
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 text-sm bg-slate-50/50 dark:bg-gray-900/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 text-sm bg-neutral-50/50 dark:bg-gray-900/50 text-neutral-900 dark:text-white focus:ring-2 focus:ring-neutral-500 focus:outline-hidden"
                 />
               </div>
 
               {/* Inventory Status */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                <label className="text-xs font-bold text-neutral-700 dark:text-neutral-200">
                   Product Availability Status
                 </label>
                 <select
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-gray-700 text-sm bg-slate-50/50 dark:bg-gray-900/50 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 text-sm bg-neutral-50/50 dark:bg-gray-900/50 text-neutral-900 dark:text-white focus:ring-2 focus:ring-neutral-500 focus:outline-hidden"
                 >
                   <option value="In Stock">In Stock</option>
                   <option value="Low Stock">Low Stock Alert</option>
@@ -1112,10 +1112,10 @@ export default function AddProductView({
 
               <div className="md:col-span-2 space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <label htmlFor="product-supplier" className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                  <label htmlFor="product-supplier" className="text-xs font-bold text-neutral-700 dark:text-neutral-200">
                     Opening stock source
                   </label>
-                  <button type="button" onClick={() => setShowSupplierForm(current => !current)} className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-2.5 py-1.5 text-[11px] font-bold text-blue-700 hover:bg-blue-50">
+                  <button type="button" onClick={() => setShowSupplierForm(current => !current)} className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-[11px] font-bold text-neutral-700 hover:bg-neutral-50">
                     <Plus className="h-3.5 w-3.5" /> Add supplier
                   </button>
                 </div>
@@ -1146,16 +1146,16 @@ export default function AddProductView({
                     }));
                     setErrors(current => ({ ...current, supplier: '' }));
                   }}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm text-slate-900 dark:border-gray-700 dark:bg-gray-900/50 dark:text-white"
+                  className="w-full rounded-xl border border-neutral-200 bg-neutral-50/50 px-4 py-2.5 text-sm text-neutral-900 dark:border-gray-700 dark:bg-gray-900/50 dark:text-white"
                 >
                   <option value="">Choose stock source</option>
                   <option value="own">Own stock / already held</option>
                   {suppliers.filter(supplier => supplier.status !== 'Inactive').map(supplier => <option key={supplier.id} value={supplier.id}>{supplier.companyName}</option>)}
                 </select>
-                <p className="text-[10px] text-slate-500">One product setup flow: choose the actual supplier or “Own stock / already held”. Supplier opening stock creates a received purchase invoice; later stock is added through Purchases.</p>
+                <p className="text-[10px] text-neutral-500">One product setup flow: choose the actual supplier or “Own stock / already held”. Supplier opening stock creates a received purchase invoice; later stock is added through Purchases.</p>
                 {formData.supplierId && Number(formData.stock) > 0 && (
                   <div className="grid max-w-xl gap-3 sm:grid-cols-2">
-                    <label className="block text-[10px] font-bold text-slate-600">
+                    <label className="block text-[10px] font-bold text-neutral-600">
                       Amount already paid to this supplier
                       <input
                         type="number"
@@ -1164,22 +1164,22 @@ export default function AddProductView({
                         step="0.01"
                         value={formData.initialPaidAmount}
                         onChange={event => setFormData(current => ({ ...current, initialPaidAmount: event.target.value }))}
-                        className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
+                        className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs"
                       />
-                      <span className="mt-1 block font-normal text-slate-500">Remaining opening invoice amount becomes supplier due.</span>
+                      <span className="mt-1 block font-normal text-neutral-500">Remaining opening invoice amount becomes supplier due.</span>
                     </label>
                     {Number(formData.initialPaidAmount) > 0 && <>
-                      <label className="block text-[10px] font-bold text-slate-600">
+                      <label className="block text-[10px] font-bold text-neutral-600">
                         Initial payment method
                         <select
                           value={formData.initialPaymentMethod}
                           onChange={event => setFormData(current => ({ ...current, initialPaymentMethod: event.target.value }))}
-                          className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
+                          className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs"
                         >
                           <option>Cash</option><option>Bank transfer</option><option>Mobile payment</option><option>Card</option>
                         </select>
                       </label>
-                      <label className="block text-[10px] font-bold text-slate-600 sm:col-span-2">
+                      <label className="block text-[10px] font-bold text-neutral-600 sm:col-span-2">
                         Transaction reference{formData.initialPaymentMethod === 'Cash' ? ' (optional)' : ' *'}
                         <input
                           required={formData.initialPaymentMethod !== 'Cash'}
@@ -1187,7 +1187,7 @@ export default function AddProductView({
                           value={formData.initialPaymentReference}
                           onChange={event => setFormData(current => ({ ...current, initialPaymentReference: event.target.value }))}
                           placeholder="Bank/mobile transaction ID"
-                          className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
+                          className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs"
                         />
                       </label>
                     </>}
@@ -1195,25 +1195,25 @@ export default function AddProductView({
                 )}
                 {errors.supplier && <p role="alert" className="text-[11px] text-rose-600">{errors.supplier}</p>}
                 {showSupplierForm && (
-                  <form onSubmit={saveInlineSupplier} className="grid gap-2 rounded-xl border border-blue-100 bg-blue-50/60 p-3 sm:grid-cols-2">
-                    <label className="text-[10px] font-bold text-slate-600 sm:col-span-2">Supplier name *
-                      <input required maxLength={120} value={supplierDraft.companyName} onChange={event => setSupplierDraft(current => ({ ...current, companyName: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs" />
+                  <form onSubmit={saveInlineSupplier} className="grid gap-2 rounded-xl border border-neutral-100 bg-neutral-50/60 p-3 sm:grid-cols-2">
+                    <label className="text-[10px] font-bold text-neutral-600 sm:col-span-2">Supplier name *
+                      <input required maxLength={120} value={supplierDraft.companyName} onChange={event => setSupplierDraft(current => ({ ...current, companyName: event.target.value }))} className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs" />
                     </label>
-                    <label className="text-[10px] font-bold text-slate-600">Contact person
-                      <input maxLength={120} value={supplierDraft.contactPerson} onChange={event => setSupplierDraft(current => ({ ...current, contactPerson: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs" />
+                    <label className="text-[10px] font-bold text-neutral-600">Contact person
+                      <input maxLength={120} value={supplierDraft.contactPerson} onChange={event => setSupplierDraft(current => ({ ...current, contactPerson: event.target.value }))} className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs" />
                     </label>
-                    <label className="text-[10px] font-bold text-slate-600">Phone
-                      <input maxLength={40} value={supplierDraft.phone} onChange={event => setSupplierDraft(current => ({ ...current, phone: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs" />
+                    <label className="text-[10px] font-bold text-neutral-600">Phone
+                      <input maxLength={40} value={supplierDraft.phone} onChange={event => setSupplierDraft(current => ({ ...current, phone: event.target.value }))} className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs" />
                     </label>
-                    <label className="text-[10px] font-bold text-slate-600">Email
-                      <input type="email" maxLength={254} value={supplierDraft.email} onChange={event => setSupplierDraft(current => ({ ...current, email: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs" />
+                    <label className="text-[10px] font-bold text-neutral-600">Email
+                      <input type="email" maxLength={254} value={supplierDraft.email} onChange={event => setSupplierDraft(current => ({ ...current, email: event.target.value }))} className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs" />
                     </label>
-                    <label className="text-[10px] font-bold text-slate-600">Address
-                      <input maxLength={240} value={supplierDraft.address} onChange={event => setSupplierDraft(current => ({ ...current, address: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs" />
+                    <label className="text-[10px] font-bold text-neutral-600">Address
+                      <input maxLength={240} value={supplierDraft.address} onChange={event => setSupplierDraft(current => ({ ...current, address: event.target.value }))} className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs" />
                     </label>
                     <div className="sm:col-span-2 flex justify-end gap-2">
-                      <button type="button" onClick={() => setShowSupplierForm(false)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-bold">Cancel</button>
-                      <button type="submit" disabled={savingSupplier} className="rounded-lg bg-blue-600 px-3 py-1.5 text-[10px] font-bold text-white disabled:opacity-50">{savingSupplier ? 'Saving…' : 'Save and select supplier'}</button>
+                      <button type="button" onClick={() => setShowSupplierForm(false)} className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-bold">Cancel</button>
+                      <button type="submit" disabled={savingSupplier} className="rounded-lg bg-neutral-600 px-3 py-1.5 text-[10px] font-bold text-white disabled:opacity-50">{savingSupplier ? 'Saving…' : 'Save and select supplier'}</button>
                     </div>
                   </form>
                 )}
@@ -1231,11 +1231,11 @@ export default function AddProductView({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <h2 className="text-base font-bold text-neutral-900 dark:text-white flex items-center gap-2">
                     <ImageIcon className="w-4 h-4 text-purple-600" />
                     Part 3A: Product Images Gallery
                   </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-neutral-400 mt-0.5">
                     Upload multiple high-resolution photos, capture camera images, or select catalog presets.
                   </p>
                 </div>
@@ -1244,9 +1244,9 @@ export default function AddProductView({
                   <button
                     type="button"
                     onClick={startCamera}
-                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-gray-700 hover:bg-slate-200 dark:hover:bg-gray-600 text-slate-700 dark:text-slate-200 transition"
+                    className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-neutral-100 dark:bg-gray-700 hover:bg-neutral-200 dark:hover:bg-gray-600 text-neutral-700 dark:text-neutral-200 transition"
                   >
-                    <Camera className="w-3.5 h-3.5 text-blue-600" />
+                    <Camera className="w-3.5 h-3.5 text-neutral-600" />
                     <span>Take Photo</span>
                   </button>
 
@@ -1254,7 +1254,7 @@ export default function AddProductView({
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
-                    className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition"
+                    className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-neutral-600 hover:bg-neutral-700 text-white shadow-xs transition"
                   >
                     <Upload className="w-3.5 h-3.5" />
                     <span>{uploading ? 'Uploading...' : 'Upload Images'}</span>
@@ -1273,7 +1273,7 @@ export default function AddProductView({
 
               {/* Camera Live Modal Stream */}
               {showCamera && (
-                <div className="p-4 bg-slate-900 rounded-2xl border border-slate-700 space-y-3">
+                <div className="p-4 bg-neutral-900 rounded-2xl border border-neutral-700 space-y-3">
                   <div className="flex items-center justify-between text-white text-xs font-bold">
                     <span>Optical Camera Capture</span>
                     <button type="button" onClick={() => { stopCamera(); setShowCamera(false); }}>
@@ -1301,29 +1301,29 @@ export default function AddProductView({
                   return (
                     <div
                       key={idx}
-                      className={`relative group rounded-2xl overflow-hidden border transition aspect-square bg-slate-100 dark:bg-gray-900 ${
+                      className={`relative group rounded-2xl overflow-hidden border transition aspect-square bg-neutral-100 dark:bg-gray-900 ${
                         isPrimary
-                          ? 'border-blue-600 ring-2 ring-blue-500/30'
-                          : 'border-slate-200 dark:border-gray-700'
+                          ? 'border-neutral-600 ring-2 ring-neutral-500/30'
+                          : 'border-neutral-200 dark:border-gray-700'
                       }`}
                     >
                       <img src={imgUrl} alt={`Upload ${idx}`} className="w-full h-full object-cover" />
 
                       {/* Primary Cover Badge */}
                       {isPrimary && (
-                        <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md text-[9px] font-black bg-blue-600 text-white shadow-xs">
+                        <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md text-[9px] font-black bg-neutral-600 text-white shadow-xs">
                           PRIMARY
                         </span>
                       )}
 
                       {/* Action Overlay */}
-                      <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-2">
+                      <div className="absolute inset-0 bg-neutral-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-2">
                         {!isPrimary && (
                           <button
                             type="button"
                             onClick={() => setPrimaryImage(imgUrl)}
                             title="Set as Cover"
-                            className="p-1.5 rounded-lg bg-white/90 text-blue-600 hover:bg-white transition"
+                            className="p-1.5 rounded-lg bg-white/90 text-neutral-600 hover:bg-white transition"
                           >
                             <Star className="w-3.5 h-3.5 fill-current" />
                           </button>
@@ -1345,7 +1345,7 @@ export default function AddProductView({
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-slate-300 dark:border-gray-700 hover:border-blue-500 rounded-2xl aspect-square flex flex-col items-center justify-center p-3 text-slate-400 hover:text-blue-600 hover:bg-blue-50/20 dark:hover:bg-blue-950/20 transition cursor-pointer"
+                  className="border-2 border-dashed border-neutral-300 dark:border-gray-700 hover:border-neutral-500 rounded-2xl aspect-square flex flex-col items-center justify-center p-3 text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50/20 dark:hover:bg-neutral-950/20 transition cursor-pointer"
                 >
                   <Plus className="w-6 h-6 mb-1" />
                   <span className="text-[11px] font-semibold">Add Image</span>
@@ -1354,7 +1354,7 @@ export default function AddProductView({
 
               {/* Preset Sample Images Bar */}
               <div className="flex items-center space-x-2 pt-1 overflow-x-auto text-xs">
-                <span className="text-slate-400 shrink-0 font-medium">Quick Presets:</span>
+                <span className="text-neutral-400 shrink-0 font-medium">Quick Presets:</span>
                 {presetImages.map((preset, pidx) => (
                   <button
                     key={pidx}
@@ -1369,7 +1369,7 @@ export default function AddProductView({
                         };
                       });
                     }}
-                    className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800 text-slate-600 dark:text-slate-300 hover:border-blue-500 shrink-0"
+                    className="px-2.5 py-1 rounded-lg border border-neutral-200 dark:border-gray-700 bg-neutral-50 dark:bg-gray-800 text-neutral-600 dark:text-neutral-300 hover:border-neutral-500 shrink-0"
                   >
                     + {preset.label}
                   </button>
@@ -1378,27 +1378,27 @@ export default function AddProductView({
             </div>
 
             {/* RICH HTML PRODUCT DESCRIPTION SECTION */}
-            <div className="space-y-3 pt-6 border-t border-slate-100 dark:border-gray-800">
+            <div className="space-y-3 pt-6 border-t border-neutral-100 dark:border-gray-800">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-indigo-600" />
+                  <h2 className="text-base font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-neutral-600" />
                     Part 3B: Product Description (HTML Allowed)
                   </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-neutral-400 mt-0.5">
                     Write formatted descriptions with bold, lists, tables, or raw HTML markup.
                   </p>
                 </div>
 
                 {/* Editor Mode Tabs */}
-                <div className="flex items-center p-1 bg-slate-100 dark:bg-gray-900 rounded-xl border border-slate-200 dark:border-gray-700">
+                <div className="flex items-center p-1 bg-neutral-100 dark:bg-gray-900 rounded-xl border border-neutral-200 dark:border-gray-700">
                   <button
                     type="button"
                     onClick={() => setEditorMode('visual')}
                     className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
                       editorMode === 'visual'
-                        ? 'bg-white dark:bg-gray-800 text-blue-600 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                        ? 'bg-white dark:bg-gray-800 text-neutral-600 shadow-xs'
+                        : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
                     }`}
                   >
                     <Sparkles className="w-3.5 h-3.5" />
@@ -1410,8 +1410,8 @@ export default function AddProductView({
                     onClick={() => setEditorMode('code')}
                     className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
                       editorMode === 'code'
-                        ? 'bg-white dark:bg-gray-800 text-blue-600 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                        ? 'bg-white dark:bg-gray-800 text-neutral-600 shadow-xs'
+                        : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
                     }`}
                   >
                     <Code className="w-3.5 h-3.5" />
@@ -1423,8 +1423,8 @@ export default function AddProductView({
                     onClick={() => setEditorMode('preview')}
                     className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
                       editorMode === 'preview'
-                        ? 'bg-white dark:bg-gray-800 text-blue-600 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                        ? 'bg-white dark:bg-gray-800 text-neutral-600 shadow-xs'
+                        : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
                     }`}
                   >
                     <Eye className="w-3.5 h-3.5" />
@@ -1434,14 +1434,14 @@ export default function AddProductView({
               </div>
 
               {/* Editor Workspace */}
-              <div className="border border-slate-200 dark:border-gray-700 rounded-2xl overflow-hidden bg-white dark:bg-gray-900">
+              <div className="border border-neutral-200 dark:border-gray-700 rounded-2xl overflow-hidden bg-white dark:bg-gray-900">
                 {/* Visual Editor Toolbar */}
                 {editorMode === 'visual' && (
-                  <div className="p-2 border-b border-slate-200 dark:border-gray-800 bg-slate-50/70 dark:bg-gray-800/50 flex flex-wrap items-center gap-1 text-slate-700 dark:text-slate-300">
+                  <div className="p-2 border-b border-neutral-200 dark:border-gray-800 bg-neutral-50/70 dark:bg-gray-800/50 flex flex-wrap items-center gap-1 text-neutral-700 dark:text-neutral-300">
                     <button
                       type="button"
                       onClick={() => executeEditorCommand('bold')}
-                      className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-gray-700 transition"
+                      className="p-1.5 rounded-lg hover:bg-neutral-200 dark:hover:bg-gray-700 transition"
                       title="Bold (Ctrl+B)"
                     >
                       <Bold className="w-4 h-4" />
@@ -1449,7 +1449,7 @@ export default function AddProductView({
                     <button
                       type="button"
                       onClick={() => executeEditorCommand('italic')}
-                      className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-gray-700 transition"
+                      className="p-1.5 rounded-lg hover:bg-neutral-200 dark:hover:bg-gray-700 transition"
                       title="Italic (Ctrl+I)"
                     >
                       <Italic className="w-4 h-4" />
@@ -1457,17 +1457,17 @@ export default function AddProductView({
                     <button
                       type="button"
                       onClick={() => executeEditorCommand('underline')}
-                      className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-gray-700 transition"
+                      className="p-1.5 rounded-lg hover:bg-neutral-200 dark:hover:bg-gray-700 transition"
                       title="Underline"
                     >
                       <Underline className="w-4 h-4" />
                     </button>
-                    <span className="w-px h-5 bg-slate-300 dark:bg-gray-700 mx-1" />
+                    <span className="w-px h-5 bg-neutral-300 dark:bg-gray-700 mx-1" />
 
                     <button
                       type="button"
                       onClick={() => executeEditorCommand('formatBlock', '<h2>')}
-                      className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-gray-700 transition"
+                      className="p-1.5 rounded-lg hover:bg-neutral-200 dark:hover:bg-gray-700 transition"
                       title="Heading 2"
                     >
                       <Heading2 className="w-4 h-4" />
@@ -1475,17 +1475,17 @@ export default function AddProductView({
                     <button
                       type="button"
                       onClick={() => executeEditorCommand('formatBlock', '<h3>')}
-                      className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-gray-700 transition"
+                      className="p-1.5 rounded-lg hover:bg-neutral-200 dark:hover:bg-gray-700 transition"
                       title="Heading 3"
                     >
                       <Heading3 className="w-4 h-4" />
                     </button>
-                    <span className="w-px h-5 bg-slate-300 dark:bg-gray-700 mx-1" />
+                    <span className="w-px h-5 bg-neutral-300 dark:bg-gray-700 mx-1" />
 
                     <button
                       type="button"
                       onClick={() => executeEditorCommand('insertUnorderedList')}
-                      className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-gray-700 transition"
+                      className="p-1.5 rounded-lg hover:bg-neutral-200 dark:hover:bg-gray-700 transition"
                       title="Bulleted List"
                     >
                       <List className="w-4 h-4" />
@@ -1493,17 +1493,17 @@ export default function AddProductView({
                     <button
                       type="button"
                       onClick={() => executeEditorCommand('insertOrderedList')}
-                      className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-gray-700 transition"
+                      className="p-1.5 rounded-lg hover:bg-neutral-200 dark:hover:bg-gray-700 transition"
                       title="Numbered List"
                     >
                       <ListOrdered className="w-4 h-4" />
                     </button>
-                    <span className="w-px h-5 bg-slate-300 dark:bg-gray-700 mx-1" />
+                    <span className="w-px h-5 bg-neutral-300 dark:bg-gray-700 mx-1" />
 
                     <button
                       type="button"
                       onClick={insertTableTemplate}
-                      className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-gray-700 transition flex items-center gap-1 text-xs font-semibold"
+                      className="p-1.5 rounded-lg hover:bg-neutral-200 dark:hover:bg-gray-700 transition flex items-center gap-1 text-xs font-semibold"
                       title="Insert Specs Table"
                     >
                       <TableIcon className="w-4 h-4" />
@@ -1519,7 +1519,7 @@ export default function AddProductView({
                     contentEditable
                     dangerouslySetInnerHTML={{ __html: formData.description }}
                     onBlur={(e) => setFormData({ ...formData, description: e.currentTarget.innerHTML })}
-                    className="p-4 min-h-[220px] max-h-[360px] overflow-y-auto focus:outline-hidden prose prose-sm dark:prose-invert max-w-none text-slate-800 dark:text-slate-200"
+                    className="p-4 min-h-[220px] max-h-[360px] overflow-y-auto focus:outline-hidden prose prose-sm dark:prose-invert max-w-none text-neutral-800 dark:text-neutral-200"
                   />
                 )}
 
@@ -1529,15 +1529,15 @@ export default function AddProductView({
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="<p>Enter raw HTML tags here...</p>"
-                    className="w-full p-4 font-mono text-xs bg-slate-900 text-emerald-400 focus:outline-hidden resize-y min-h-[220px]"
+                    className="w-full p-4 font-mono text-xs bg-neutral-900 text-emerald-400 focus:outline-hidden resize-y min-h-[220px]"
                   />
                 )}
 
                 {editorMode === 'preview' && (
-                  <div className="p-5 bg-slate-50 dark:bg-gray-950 min-h-[220px]">
+                  <div className="p-5 bg-neutral-50 dark:bg-gray-950 min-h-[220px]">
                     <div
-                      dangerouslySetInnerHTML={{ __html: formData.description || '<p class="text-slate-400 italic">No description provided.</p>' }}
-                      className="prose prose-sm dark:prose-invert max-w-none text-slate-800 dark:text-slate-200"
+                      dangerouslySetInnerHTML={{ __html: formData.description || '<p class="text-neutral-400 italic">No description provided.</p>' }}
+                      className="prose prose-sm dark:prose-invert max-w-none text-neutral-800 dark:text-neutral-200"
                     />
                   </div>
                 )}
@@ -1552,20 +1552,20 @@ export default function AddProductView({
         {currentStep === 4 && (
           <div className="space-y-6 animate-in fade-in duration-150">
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <h2 className="text-base font-bold text-neutral-900 dark:text-white flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 Part 4: Product Verification & Barcode Preview
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-neutral-400 mt-0.5">
                 Review the product summary and verify generated barcode before publishing to catalog.
               </p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {/* Left Column: Product Summary Card */}
-              <div className="lg:col-span-7 bg-slate-50 dark:bg-gray-900/60 rounded-2xl p-5 border border-slate-200 dark:border-gray-800 space-y-4">
+              <div className="lg:col-span-7 bg-neutral-50 dark:bg-gray-900/60 rounded-2xl p-5 border border-neutral-200 dark:border-gray-800 space-y-4">
                 <div className="flex items-start space-x-4">
-                  <div className="w-24 h-24 rounded-2xl bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 overflow-hidden shrink-0">
+                  <div className="w-24 h-24 rounded-2xl bg-white dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 overflow-hidden shrink-0">
                     <img
                       src={formData.image || formData.images[0] || presetImages[0].url}
                       alt="Product Cover"
@@ -1575,11 +1575,11 @@ export default function AddProductView({
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 dark:bg-neutral-900/40 text-neutral-700 dark:text-neutral-300">
                         {formData.category}
                       </span>
                       {formData.subCategory && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-200 dark:bg-gray-800 text-slate-600 dark:text-slate-300">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-neutral-200 dark:bg-gray-800 text-neutral-600 dark:text-neutral-300">
                           {formData.subCategory}
                         </span>
                       )}
@@ -1588,12 +1588,12 @@ export default function AddProductView({
                       </span>
                     </div>
 
-                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white mt-1.5 truncate">
+                    <h3 className="text-base font-extrabold text-neutral-900 dark:text-white mt-1.5 truncate">
                       {formData.name || 'Untitled Product'}
                     </h3>
 
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      SKU: <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">{formData.sku}</span>
+                    <p className="text-xs text-neutral-400 mt-0.5">
+                      SKU: <span className="font-mono text-neutral-600 dark:text-neutral-400 font-bold">{formData.sku}</span>
                       {formData.brand && ` • Brand: ${formData.brand}`}
                     </p>
                   </div>
@@ -1601,56 +1601,56 @@ export default function AddProductView({
 
                 {/* Key Numbers Grid */}
                 <div className="grid grid-cols-3 gap-3 pt-2">
-                  <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-slate-200/80 dark:border-gray-700">
-                    <p className="text-[10px] text-slate-400 font-medium">Selling Price</p>
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-neutral-200/80 dark:border-gray-700">
+                    <p className="text-[10px] text-neutral-400 font-medium">Selling Price</p>
                     <p className="text-base font-black text-emerald-600 dark:text-emerald-400">${parseFloat(formData.price || 0).toFixed(2)}</p>
                   </div>
-                  <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-slate-200/80 dark:border-gray-700">
-                    <p className="text-[10px] text-slate-400 font-medium">Stock Inventory</p>
-                    <p className="text-base font-black text-slate-800 dark:text-slate-100">{formData.stock} {formData.unit}</p>
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-neutral-200/80 dark:border-gray-700">
+                    <p className="text-[10px] text-neutral-400 font-medium">Stock Inventory</p>
+                    <p className="text-base font-black text-neutral-800 dark:text-neutral-100">{formData.stock} {formData.unit}</p>
                   </div>
-                  <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-slate-200/80 dark:border-gray-700">
-                    <p className="text-[10px] text-slate-400 font-medium">Profit Margin</p>
-                    <p className="text-base font-black text-blue-600 dark:text-blue-400">+{profitMargin}%</p>
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-neutral-200/80 dark:border-gray-700">
+                    <p className="text-[10px] text-neutral-400 font-medium">Profit Margin</p>
+                    <p className="text-base font-black text-neutral-600 dark:text-neutral-400">+{profitMargin}%</p>
                   </div>
                 </div>
 
                 {/* Description Preview */}
-                <div className="pt-2 border-t border-slate-200/60 dark:border-gray-800">
-                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Description Preview:</p>
+                <div className="pt-2 border-t border-neutral-200/60 dark:border-gray-800">
+                  <p className="text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">Description Preview:</p>
                   <div
                     dangerouslySetInnerHTML={{ __html: formData.description }}
-                    className="text-xs text-slate-600 dark:text-slate-300 line-clamp-3 prose prose-xs dark:prose-invert"
+                    className="text-xs text-neutral-600 dark:text-neutral-300 line-clamp-3 prose prose-xs dark:prose-invert"
                   />
                 </div>
               </div>
 
               {/* Right Column: Barcode Preview & Direct Print Trigger */}
-              <div className="lg:col-span-5 bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl p-5 flex flex-col justify-between items-center text-center space-y-4">
+              <div className="lg:col-span-5 bg-white dark:bg-gray-900 border border-neutral-200 dark:border-gray-800 rounded-2xl p-5 flex flex-col justify-between items-center text-center space-y-4">
                 <div className="w-full">
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1.5 mb-2">
-                    <BarcodeIcon className="w-4 h-4 text-blue-600" />
+                  <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300 flex items-center justify-center gap-1.5 mb-2">
+                    <BarcodeIcon className="w-4 h-4 text-neutral-600" />
                     Generated Barcode Label
                   </span>
 
                   {/* Rendered SVG Barcode */}
-                  <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col items-center justify-center my-2">
-                    <p className="text-[9px] font-black uppercase text-slate-500 tracking-wider">TIWLO INVENTORY</p>
+                  <div className="p-4 bg-white rounded-xl border border-neutral-200 shadow-xs flex flex-col items-center justify-center my-2">
+                    <p className="text-[9px] font-black uppercase text-neutral-500 tracking-wider">TIWLO INVENTORY</p>
                     <p className="text-xs font-bold text-black truncate max-w-[200px]">{formData.name}</p>
                     <svg ref={barcodeSvgRef} className="max-w-[220px] w-full my-1" />
                     <p className="text-sm font-black text-black">${parseFloat(formData.price || 0).toFixed(2)}</p>
                   </div>
 
-                  <p className="text-[11px] text-slate-400 mt-2">
+                  <p className="text-[11px] text-neutral-400 mt-2">
                     Optical code ready for laser scanning and batch sticker printing.
                   </p>
                 </div>
 
-                <div className="w-full pt-3 border-t border-slate-100 dark:border-gray-800 space-y-2">
+                <div className="w-full pt-3 border-t border-neutral-100 dark:border-gray-800 space-y-2">
                   <button
                     type="button"
                     onClick={() => handleFinalSubmit(true)}
-                    className="w-full py-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900/60 font-bold text-xs flex items-center justify-center gap-2 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition cursor-pointer"
+                    className="w-full py-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-950/40 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-900/60 font-bold text-xs flex items-center justify-center gap-2 hover:bg-neutral-100 dark:hover:bg-neutral-900/40 transition cursor-pointer"
                   >
                     <Printer className="w-4 h-4" />
                     <span>Save & Open Barcode Print Studio</span>
@@ -1662,13 +1662,13 @@ export default function AddProductView({
         )}
 
         {/* STEPPER NAVIGATION BUTTONS (FOOTER) */}
-        <div className="flex items-center justify-between pt-6 mt-6 border-t border-slate-100 dark:border-gray-800">
+        <div className="flex items-center justify-between pt-6 mt-6 border-t border-neutral-100 dark:border-gray-800">
           <div>
             {currentStep > 1 && (
               <button
                 type="button"
                 onClick={handlePrevStep}
-                className="px-5 py-2.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-gray-700 transition"
+                className="px-5 py-2.5 text-xs font-bold rounded-xl border border-neutral-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-gray-700 transition"
               >
                 ← Back (Previous Part)
               </button>
@@ -1680,7 +1680,7 @@ export default function AddProductView({
               <button
                 type="button"
                 onClick={handleNextStep}
-                className="flex items-center space-x-2 px-6 py-2.5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25 transition active:scale-98"
+                className="flex items-center space-x-2 px-6 py-2.5 text-xs font-bold rounded-xl bg-neutral-600 hover:bg-neutral-700 text-white shadow-lg shadow-neutral-500/25 transition active:scale-98"
               >
                 <span>Proceed to Step {currentStep + 1}</span>
                 <ChevronRight className="w-4 h-4" />

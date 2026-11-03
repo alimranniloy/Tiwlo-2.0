@@ -31,7 +31,7 @@ export default function App() {
       <header className="border-b border-gray-800 bg-gray-900/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-sm">
+            <div className="w-8 h-8 rounded-lg bg-neutral-600 flex items-center justify-center font-bold text-sm">
               OB
             </div>
             <h1 className="text-xl font-semibold tracking-tight">OpenBiometrics</h1>
@@ -46,7 +46,7 @@ export default function App() {
               onClick={() => setTab(t)}
               className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px ${
                 tab === t
-                  ? 'border-indigo-500 text-indigo-400'
+                  ? 'border-neutral-500 text-neutral-400'
                   : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-600'
               }`}
             >

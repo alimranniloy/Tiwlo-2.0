@@ -266,8 +266,8 @@ export default function POSView({
       description: 'Individual shopper / counter consumer',
       icon: User,
       color: 'blue',
-      badgeClass: 'bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800',
-      activeRing: 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300'
+      badgeClass: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-950/70 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800',
+      activeRing: 'border-neutral-500 bg-neutral-50/70 dark:bg-neutral-950/40 text-neutral-700 dark:text-neutral-300'
     },
     {
       id: 'Wholesale',
@@ -306,8 +306,8 @@ export default function POSView({
       description: 'Regional dealer, reseller or channel agent',
       icon: Globe,
       color: 'cyan',
-      badgeClass: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950/70 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800',
-      activeRing: 'border-cyan-500 bg-cyan-50/70 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300'
+      badgeClass: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-950/70 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800',
+      activeRing: 'border-neutral-500 bg-neutral-50/70 dark:bg-neutral-950/40 text-neutral-700 dark:text-neutral-300'
     }
   ];
 
@@ -320,8 +320,8 @@ export default function POSView({
         description: 'Standard account',
         icon: User,
         color: 'blue',
-        badgeClass: 'bg-slate-100 text-slate-700 dark:bg-gray-800 dark:text-slate-300 border border-slate-200',
-        activeRing: 'border-blue-500 bg-blue-50/70 text-blue-700'
+        badgeClass: 'bg-neutral-100 text-neutral-700 dark:bg-gray-800 dark:text-neutral-300 border border-neutral-200',
+        activeRing: 'border-neutral-500 bg-neutral-50/70 text-neutral-700'
       }
     );
   };
@@ -845,7 +845,7 @@ export default function POSView({
   // =========================================================
   if (posViewMode === 'invoice' && completedSale) {
     return (
-      <div className="min-h-screen bg-[#F1F5F9] dark:bg-[#0B0F17] flex flex-col font-sans antialiased text-slate-800 dark:text-slate-100">
+      <div className="min-h-screen bg-[#f4f4f4] dark:bg-[#0f0f0f] flex flex-col font-sans antialiased text-neutral-800 dark:text-neutral-100">
         <style>{`
           @media print {
             body * { visibility: hidden !important; }
@@ -865,30 +865,30 @@ export default function POSView({
         `}</style>
 
         {/* Top Invoice Actions Bar */}
-        <header className="h-auto min-h-16 py-2.5 px-3 sm:px-8 bg-white dark:bg-[#111827] border-b border-slate-200 dark:border-gray-800 sticky top-0 z-30 flex flex-wrap items-center justify-between gap-2.5 no-print shadow-xs">
+        <header className="h-auto min-h-16 py-2.5 px-3 sm:px-8 bg-white dark:bg-[#181818] border-b border-neutral-200 dark:border-gray-800 sticky top-0 z-30 flex flex-wrap items-center justify-between gap-2.5 no-print shadow-xs">
           <div className="flex items-center space-x-2 sm:space-x-4">
             {/* Close cross button returning to clean POS session as requested */}
             <button
               onClick={handleCloseInvoiceAndNewSale}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-gray-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition shadow-2xs cursor-pointer"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-gray-700 text-neutral-700 dark:text-neutral-200 text-xs font-bold transition shadow-2xs cursor-pointer"
               title="Close and Start New Sale"
             >
               <X className="w-4 h-4 text-rose-500" />
               <span>Close & New Sale</span>
             </button>
 
-            <div className="h-5 w-px bg-slate-200 dark:bg-gray-700 hidden sm:block"></div>
+            <div className="h-5 w-px bg-neutral-200 dark:bg-gray-700 hidden sm:block"></div>
 
             <div>
               <div className="flex items-center space-x-2">
-                <span className="text-sm font-black text-slate-900 dark:text-white">
+                <span className="text-sm font-black text-neutral-900 dark:text-white">
                   Retail Tax Invoice
                 </span>
-                <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+                <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-neutral-50 dark:bg-neutral-950/60 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-800">
                   {completedSale.invoiceNumber}
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 mt-0.5">
+              <p className="text-[10px] text-neutral-400 mt-0.5">
                 Saved in database • Cashier: {completedSale.cashier} • Register: {completedSale.sessionId}
               </p>
             </div>
@@ -898,7 +898,7 @@ export default function POSView({
           <div className="flex items-center space-x-2">
             <button
               onClick={handleDownloadReceipt}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 text-xs font-bold transition shadow-xs cursor-pointer"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-neutral-50 text-neutral-700 dark:text-neutral-200 text-xs font-bold transition shadow-xs cursor-pointer"
               title="Download text receipt slip"
             >
               <Download className="w-3.5 h-3.5" />
@@ -907,7 +907,7 @@ export default function POSView({
 
             <button
               onClick={handlePrintInvoice}
-              className="flex items-center space-x-1.5 px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-md shadow-blue-500/25 cursor-pointer"
+              className="flex items-center space-x-1.5 px-4 py-1.5 rounded-xl bg-neutral-600 hover:bg-neutral-700 text-white text-xs font-bold transition shadow-md shadow-neutral-500/25 cursor-pointer"
               title="Print Receipt via Printer or Save as PDF"
             >
               <Printer className="w-3.5 h-3.5" />
@@ -920,28 +920,28 @@ export default function POSView({
         <main className="flex-1 py-4 sm:py-8 px-2.5 sm:px-6 flex justify-center overflow-y-auto">
           <div
             id="printable-invoice"
-            className="w-full max-w-3xl bg-white dark:bg-gray-900 rounded-2xl sm:rounded-3xl border border-slate-200/90 dark:border-gray-800 shadow-xl p-4 sm:p-8 md:p-10 space-y-6"
+            className="w-full max-w-3xl bg-white dark:bg-gray-900 rounded-2xl sm:rounded-3xl border border-neutral-200/90 dark:border-gray-800 shadow-xl p-4 sm:p-8 md:p-10 space-y-6"
           >
             {/* Store & Header Information */}
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-6 border-b border-slate-200 dark:border-gray-800">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-6 border-b border-neutral-200 dark:border-gray-800">
               <div className="space-y-1">
                 <div className="flex items-center space-x-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+                  <div className="w-9 h-9 rounded-xl bg-neutral-600 flex items-center justify-center text-white shadow-md shadow-neutral-500/20">
                     <Layers className="w-5 h-5 stroke-[2.5]" />
                   </div>
                   <div>
-                    <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
+                    <h1 className="text-xl font-black text-neutral-900 dark:text-white tracking-tight leading-none">
                       TIWLO RETAIL ENTERPRISE
                     </h1>
-                    <p className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold tracking-wide">
+                    <p className="text-[11px] text-neutral-600 dark:text-neutral-400 font-semibold tracking-wide">
                       Point of Sale • Inventory System
                     </p>
                   </div>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 pt-2">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 pt-2">
                   102 Business Avenue, Suite 500 • New York, NY 10001
                 </p>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-neutral-400">
                   Phone: +1 (800) 555-0199 • Tax ID: TIW-8934-2026
                 </p>
               </div>
@@ -954,41 +954,41 @@ export default function POSView({
                 }`}>
                   {completedSale.paymentStatus || 'Unpaid'}
                 </span>
-                <p className="text-xs font-bold text-slate-900 dark:text-white pt-1">
+                <p className="text-xs font-bold text-neutral-900 dark:text-white pt-1">
                   Invoice #{completedSale.invoiceNumber}
                 </p>
-                <p className="text-[11px] text-slate-500 font-mono">
+                <p className="text-[11px] text-neutral-500 font-mono">
                   {new Date(completedSale.date).toLocaleString()}
                 </p>
               </div>
             </div>
 
             {/* Billed To (Customer Details) & Transaction Meta */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-slate-50 dark:bg-gray-800/60 p-5 rounded-2xl border border-slate-200/80 dark:border-gray-700/80 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-neutral-50 dark:bg-gray-800/60 p-5 rounded-2xl border border-neutral-200/80 dark:border-gray-700/80 text-xs">
               <div className="space-y-1.5">
                 <div className="flex items-center space-x-2">
-                  <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                  <span className="text-[10px] font-bold tracking-wider text-neutral-400 uppercase">
                     BILLED TO:
                   </span>
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300">
                     {completedSale.customer.customerType || 'Retail Customer'}
                   </span>
                 </div>
-                <p className="text-sm font-black text-slate-900 dark:text-white">
+                <p className="text-sm font-black text-neutral-900 dark:text-white">
                   {completedSale.customer.name}
                 </p>
-                <div className="space-y-0.5 text-slate-600 dark:text-slate-300">
+                <div className="space-y-0.5 text-neutral-600 dark:text-neutral-300">
                   <p className="flex items-center gap-1.5">
-                    <Phone className="w-3 h-3 text-slate-400" />
+                    <Phone className="w-3 h-3 text-neutral-400" />
                     <span>{completedSale.customer.phone || 'N/A'}</span>
                   </p>
                   <p className="flex items-center gap-1.5">
-                    <MapPin className="w-3 h-3 text-slate-400" />
+                    <MapPin className="w-3 h-3 text-neutral-400" />
                     <span>{completedSale.customer.address || 'Over the counter'}</span>
                   </p>
                   {completedSale.customer.email && completedSale.customer.email !== 'N/A' && (
                     <p className="flex items-center gap-1.5">
-                      <Mail className="w-3 h-3 text-slate-400" />
+                      <Mail className="w-3 h-3 text-neutral-400" />
                       <span>{completedSale.customer.email}</span>
                     </p>
                   )}
@@ -996,24 +996,24 @@ export default function POSView({
               </div>
 
               <div className="space-y-1.5 sm:text-right">
-                <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                <span className="text-[10px] font-bold tracking-wider text-neutral-400 uppercase">
                   PAYMENT & REGISTER DETAILS:
                 </span>
-                <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
                   Payment Method:{' '}
-                  <span className="text-blue-600 font-mono font-bold">
+                  <span className="text-neutral-600 font-mono font-bold">
                     {completedSale.paymentMethod}
                   </span>
                 </p>
-                <p className="text-xs text-slate-500">Cashier: {completedSale.cashier}</p>
-                <p className="text-xs text-slate-500 font-mono">Register: {completedSale.sessionId}</p>
+                <p className="text-xs text-neutral-500">Cashier: {completedSale.cashier}</p>
+                <p className="text-xs text-neutral-500 font-mono">Register: {completedSale.sessionId}</p>
                 {completedSale.payments?.[0] && (
-                  <p className="text-xs text-slate-600">
+                  <p className="text-xs text-neutral-600">
                     Collected via {completedSale.payments[0].method}
                     {completedSale.payments[0].reference ? ` · Ref ${completedSale.payments[0].reference}` : ''}
                   </p>
                 )}
-                <p className="text-xs text-slate-600">
+                <p className="text-xs text-neutral-600">
                   Payment Status: {completedSale.paymentStatus}
                   {completedSale.dueAmount > 0 ? ` · Due ${formatCurrency(completedSale.dueAmount)}` : ''}
                 </p>
@@ -1027,7 +1027,7 @@ export default function POSView({
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b-2 border-slate-200 dark:border-gray-700 text-slate-400 font-bold uppercase text-[10px]">
+                  <tr className="border-b-2 border-neutral-200 dark:border-gray-700 text-neutral-400 font-bold uppercase text-[10px]">
                     <th className="py-2.5">#</th>
                     <th className="py-2.5">Item Description</th>
                     <th className="py-2.5">Category</th>
@@ -1036,28 +1036,28 @@ export default function POSView({
                     <th className="py-2.5 text-right">Line Total</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+                <tbody className="divide-y divide-neutral-100 dark:divide-gray-800">
                   {completedSale.items.map((it, idx) => {
                     const price = parseFloat(it.price || it.unitPrice) || 0;
                     const lineTotal = price * it.quantity;
 
                     return (
-                      <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-gray-800/40">
-                        <td className="py-3 text-slate-400 font-mono">{idx + 1}</td>
+                      <tr key={idx} className="hover:bg-neutral-50/50 dark:hover:bg-gray-800/40">
+                        <td className="py-3 text-neutral-400 font-mono">{idx + 1}</td>
                         <td className="py-3">
-                          <span className="font-bold text-slate-900 dark:text-white block">
+                          <span className="font-bold text-neutral-900 dark:text-white block">
                             {it.name || it.productName}
                           </span>
-                          <span className="text-[10px] text-slate-400 font-mono">{it.sku || 'SKU-000'}</span>
+                          <span className="text-[10px] text-neutral-400 font-mono">{it.sku || 'SKU-000'}</span>
                         </td>
-                        <td className="py-3 text-slate-500">{it.category || 'General'}</td>
-                        <td className="py-3 text-center font-bold font-mono text-slate-800 dark:text-white">
+                        <td className="py-3 text-neutral-500">{it.category || 'General'}</td>
+                        <td className="py-3 text-center font-bold font-mono text-neutral-800 dark:text-white">
                           {it.quantity}
                         </td>
-                        <td className="py-3 text-right font-mono text-slate-600 dark:text-slate-300">
+                        <td className="py-3 text-right font-mono text-neutral-600 dark:text-neutral-300">
                           {formatCurrency(price)}
                         </td>
-                        <td className="py-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                        <td className="py-3 text-right font-mono font-bold text-neutral-900 dark:text-white">
                           {formatCurrency(lineTotal)}
                         </td>
                       </tr>
@@ -1068,19 +1068,19 @@ export default function POSView({
             </div>
 
             {/* Financial Summary */}
-            <div className="flex flex-col sm:flex-row justify-between items-start pt-4 border-t border-slate-200 dark:border-gray-800 gap-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start pt-4 border-t border-neutral-200 dark:border-gray-800 gap-6">
               {/* Barcode & QR Code */}
               <div className="space-y-2 flex flex-col items-start">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
                   Verification Code & Barcode:
                 </span>
                 <div className="flex items-center gap-3">
-                  <svg ref={receiptBarcodeRef} className="max-w-[220px] h-12 bg-white p-1 rounded-lg border border-slate-200"></svg>
+                  <svg ref={receiptBarcodeRef} className="max-w-[220px] h-12 bg-white p-1 rounded-lg border border-neutral-200"></svg>
                   {qrCodeDataUrl && (
                     <img
                       src={qrCodeDataUrl}
                       alt="Verification QR Code"
-                      className="w-12 h-12 rounded-lg border border-slate-200 bg-white p-0.5"
+                      className="w-12 h-12 rounded-lg border border-neutral-200 bg-white p-0.5"
                     />
                   )}
                 </div>
@@ -1088,7 +1088,7 @@ export default function POSView({
 
               {/* Totals Table */}
               <div className="w-full sm:w-64 space-y-2 text-xs">
-                <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                <div className="flex justify-between text-neutral-600 dark:text-neutral-400">
                   <span>Subtotal</span>
                   <span className="font-mono font-semibold">{formatCurrency(completedSale.subtotal)}</span>
                 </div>
@@ -1098,19 +1098,19 @@ export default function POSView({
                     <span className="font-mono">- {formatCurrency(completedSale.discount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                <div className="flex justify-between text-neutral-600 dark:text-neutral-400">
                   <span>Tax ({taxRate}%)</span>
                   <span className="font-mono font-semibold">{formatCurrency(completedSale.tax)}</span>
                 </div>
-                <div className="pt-2 border-t-2 border-slate-900 dark:border-white flex justify-between items-center">
-                  <span className="text-sm font-black text-slate-900 dark:text-white uppercase">
+                <div className="pt-2 border-t-2 border-neutral-900 dark:border-white flex justify-between items-center">
+                  <span className="text-sm font-black text-neutral-900 dark:text-white uppercase">
                     Grand Total
                   </span>
-                  <span className="text-xl font-black text-blue-600 dark:text-blue-400 font-mono">
+                  <span className="text-xl font-black text-neutral-600 dark:text-neutral-400 font-mono">
                     {formatCurrency(completedSale.totalAmount)}
                   </span>
                 </div>
-                <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                <div className="flex justify-between text-neutral-600 dark:text-neutral-400">
                   <span>Paid</span><span className="font-mono">{formatCurrency(completedSale.paidAmount || 0)}</span>
                 </div>
                 <div className="flex justify-between font-bold text-rose-600">
@@ -1120,8 +1120,8 @@ export default function POSView({
             </div>
 
             {/* Terms and Return Policy */}
-            <div className="pt-6 border-t border-slate-100 dark:border-gray-800 text-center space-y-1 text-[11px] text-slate-400">
-              <p className="font-medium text-slate-600 dark:text-slate-300">
+            <div className="pt-6 border-t border-neutral-100 dark:border-gray-800 text-center space-y-1 text-[11px] text-neutral-400">
+              <p className="font-medium text-neutral-600 dark:text-neutral-300">
                 Terms: Goods once sold can be exchanged within 7 days with this original receipt.
               </p>
               <p>Thank you for shopping with Tiwlo Retail Enterprise!</p>
@@ -1136,7 +1136,7 @@ export default function POSView({
   // VIEW MODE: ACTIVE CASHIER POS WORKSTATION
   // =========================================================
   return (
-    <div className="min-h-screen bg-[#F6F8FB] dark:bg-[#0B0F17] font-sans antialiased text-slate-800 dark:text-slate-100 flex flex-col relative">
+    <div className="min-h-screen bg-[#f8f8f8] dark:bg-[#0f0f0f] font-sans antialiased text-neutral-800 dark:text-neutral-100 flex flex-col relative">
       {/* Toast Notification */}
       <ToastNotification message={toastMessage} />
       {settingsLoadError && (
@@ -1153,12 +1153,12 @@ export default function POSView({
       {/* =========================================================
           1. TOP BAR HEADER (Slim & Ergonomic)
       ========================================================= */}
-      <header className="h-auto min-h-14 py-2 px-3 sm:px-6 bg-white/95 dark:bg-[#111827]/95 backdrop-blur-md border-b border-[#EDF2F7] dark:border-gray-800 sticky top-0 z-30 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 sm:gap-3">
+      <header className="h-auto min-h-14 py-2 px-3 sm:px-6 bg-white/95 dark:bg-[#181818]/95 backdrop-blur-md border-b border-[#f1f1f1] dark:border-gray-800 sticky top-0 z-30 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 sm:gap-3">
         {/* Left: Back button + Brand */}
         <div className="flex items-center space-x-2.5 sm:space-x-3 shrink-0">
           <button
             onClick={onBack}
-            className="flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-slate-50 dark:hover:bg-gray-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition shadow-xs cursor-pointer"
+            className="flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-neutral-50 dark:hover:bg-gray-700 text-neutral-700 dark:text-neutral-200 text-xs font-bold transition shadow-xs cursor-pointer"
             title="Back to Main Dashboard"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
@@ -1167,14 +1167,14 @@ export default function POSView({
 
           {/* Logo */}
           <div className="flex items-center space-x-2 pl-0.5 sm:pl-1">
-            <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20 shrink-0">
+            <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-neutral-600 to-neutral-500 flex items-center justify-center text-white shadow-md shadow-neutral-500/20 shrink-0">
               <Layers className="w-4 h-4 stroke-[2.5]" />
             </div>
             <div>
-              <h1 className="text-xs font-black text-slate-900 dark:text-white tracking-tight leading-none">
+              <h1 className="text-xs font-black text-neutral-900 dark:text-white tracking-tight leading-none">
                 POS System
               </h1>
-              <p className="text-[9px] text-slate-400 font-medium tracking-wide mt-0.5">
+              <p className="text-[9px] text-neutral-400 font-medium tracking-wide mt-0.5">
                 Sell • Manage • Grow
               </p>
             </div>
@@ -1183,25 +1183,25 @@ export default function POSView({
 
         {/* Center: Search Bar (Full width on mobile below header row) */}
         <div className="order-3 sm:order-2 w-full sm:flex-1 sm:max-w-xl sm:mx-2">
-          <div className="flex items-center bg-slate-50 dark:bg-gray-800 border border-slate-200/90 dark:border-gray-700 rounded-full px-3.5 py-1.5 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition shadow-2xs">
-            <Search className="w-3.5 h-3.5 text-slate-400 mr-2 shrink-0" />
+          <div className="flex items-center bg-neutral-50 dark:bg-gray-800 border border-neutral-200/90 dark:border-gray-700 rounded-full px-3.5 py-1.5 focus-within:ring-2 focus-within:ring-neutral-500/20 focus-within:border-neutral-500 transition shadow-2xs">
+            <Search className="w-3.5 h-3.5 text-neutral-400 mr-2 shrink-0" />
             <input
               ref={searchInputRef}
               type="text"
               placeholder="Search products, barcode, or category..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-transparent text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden"
+              className="w-full bg-transparent text-xs text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 focus:outline-hidden"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                className="p-1 rounded-full text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer"
               >
                 <X className="w-3 h-3" />
               </button>
             )}
-            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] font-bold text-slate-400 bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-md font-mono shadow-2xs shrink-0 ml-1">
+            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] font-bold text-neutral-400 bg-white dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-md font-mono shadow-2xs shrink-0 ml-1">
               Ctrl + K
             </kbd>
           </div>
@@ -1220,14 +1220,14 @@ export default function POSView({
 
           <button
             onClick={() => setScannerBeepEnabled(!scannerBeepEnabled)}
-            className="w-8 h-8 rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-slate-600 dark:text-slate-300 flex items-center justify-center hover:bg-slate-50 cursor-pointer shadow-2xs"
+            className="w-8 h-8 rounded-xl border border-neutral-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-neutral-600 dark:text-neutral-300 flex items-center justify-center hover:bg-neutral-50 cursor-pointer shadow-2xs"
             title={scannerBeepEnabled ? 'Mute scanner chime' : 'Enable scanner chime'}
           >
-            {scannerBeepEnabled ? <Volume2 className="w-3.5 h-3.5 text-blue-600" /> : <VolumeX className="w-3.5 h-3.5 text-slate-400" />}
+            {scannerBeepEnabled ? <Volume2 className="w-3.5 h-3.5 text-neutral-600" /> : <VolumeX className="w-3.5 h-3.5 text-neutral-400" />}
           </button>
 
           <button
-            className="w-8 h-8 rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-slate-600 dark:text-slate-300 flex items-center justify-center hover:bg-slate-50 cursor-pointer relative shadow-2xs"
+            className="w-8 h-8 rounded-xl border border-neutral-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-neutral-600 dark:text-neutral-300 flex items-center justify-center hover:bg-neutral-50 cursor-pointer relative shadow-2xs"
             title="Notifications"
           >
             <Bell className="w-3.5 h-3.5" />
@@ -1240,30 +1240,30 @@ export default function POSView({
           <div className="relative">
             <button
               onClick={() => setShowProfileMenu(!showProfileMenu)}
-              className="flex items-center space-x-1.5 sm:space-x-2 p-1 rounded-xl hover:bg-slate-50 dark:hover:bg-gray-800 transition border border-transparent hover:border-slate-200 dark:border-gray-700 cursor-pointer"
+              className="flex items-center space-x-1.5 sm:space-x-2 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-gray-800 transition border border-transparent hover:border-neutral-200 dark:border-gray-700 cursor-pointer"
             >
               <img
                 src="/default-avatar.svg"
                 alt="Profile"
-                className="w-6 h-6 rounded-full object-cover ring-1 ring-slate-200 dark:ring-gray-700"
+                className="w-6 h-6 rounded-full object-cover ring-1 ring-neutral-200 dark:ring-gray-700"
               />
               <div className="text-left hidden sm:block">
-                <p className="text-xs font-bold text-slate-800 dark:text-white leading-none">
+                <p className="text-xs font-bold text-neutral-800 dark:text-white leading-none">
                   {cashierName}
                 </p>
-                <p className="text-[9px] font-medium text-slate-400 mt-0.5">Admin</p>
+                <p className="text-[9px] font-medium text-neutral-400 mt-0.5">Admin</p>
               </div>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
+              <ChevronDown className="w-3 h-3 text-neutral-400" />
             </button>
 
             {showProfileMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-2xl shadow-xl py-2 z-40 animate-in fade-in duration-100 text-xs">
-                <div className="px-3 py-1.5 border-b border-slate-100 dark:border-gray-700 text-slate-500 text-[11px]">
-                  Register: <span className="font-mono font-bold text-blue-600">{sessionId}</span>
+              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 rounded-2xl shadow-xl py-2 z-40 animate-in fade-in duration-100 text-xs">
+                <div className="px-3 py-1.5 border-b border-neutral-100 dark:border-gray-700 text-neutral-500 text-[11px]">
+                  Register: <span className="font-mono font-bold text-neutral-600">{sessionId}</span>
                 </div>
                 <button
                   onClick={onBack}
-                  className="w-full text-left px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-gray-700 cursor-pointer"
+                  className="w-full text-left px-3 py-2 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-gray-700 cursor-pointer"
                 >
                   Exit POS to Dashboard
                 </button>
@@ -1276,12 +1276,12 @@ export default function POSView({
       {/* =========================================================
           2. DEDICATED CUSTOMER & QUICK-BAR SUB-SECTION (Directly Below Header across the page)
       ========================================================= */}
-      <section className="bg-white/95 dark:bg-[#111827]/95 border-b border-slate-200/90 dark:border-gray-800 px-3 sm:px-6 py-2 shadow-xs sticky top-[92px] sm:top-14 z-20 backdrop-blur-md">
+      <section className="bg-white/95 dark:bg-[#181818]/95 border-b border-neutral-200/90 dark:border-gray-800 px-3 sm:px-6 py-2 shadow-xs sticky top-[92px] sm:top-14 z-20 backdrop-blur-md">
         <div className="max-w-[1720px] mx-auto flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
           {/* Left & Middle: Active Customer Card + Live Customer Search + +New Customer Button */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1 min-w-0">
             {/* Active Customer Summary Box */}
-            <div className="flex items-center space-x-2.5 bg-slate-50 dark:bg-gray-800/90 border border-slate-200/80 dark:border-gray-700/80 rounded-2xl px-3 py-1.5 min-w-[230px] max-w-xs shadow-2xs">
+            <div className="flex items-center space-x-2.5 bg-neutral-50 dark:bg-gray-800/90 border border-neutral-200/80 dark:border-gray-700/80 rounded-2xl px-3 py-1.5 min-w-[230px] max-w-xs shadow-2xs">
               <div
                 className={`w-8 h-8 rounded-xl font-bold text-xs flex items-center justify-center shrink-0 shadow-xs ${
                   selectedCustomer
@@ -1292,29 +1292,29 @@ export default function POSView({
                       : selectedCustomer.customerType === 'Supplier'
                       ? 'bg-amber-600 text-white'
                       : selectedCustomer.customerType === 'Distributor'
-                      ? 'bg-cyan-600 text-white'
-                      : 'bg-blue-600 text-white'
-                    : 'bg-slate-700 text-white'
+                      ? 'bg-neutral-600 text-white'
+                      : 'bg-neutral-600 text-white'
+                    : 'bg-neutral-700 text-white'
                 }`}
               >
                 {selectedCustomer ? (selectedCustomer.name ? selectedCustomer.name[0].toUpperCase() : 'C') : 'W'}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center space-x-1.5">
-                  <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                  <span className="text-xs font-bold text-neutral-900 dark:text-white truncate">
                     {selectedCustomer ? selectedCustomer.name : 'Walk-in Customer'}
                   </span>
                   <span
                     className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full uppercase shrink-0 ${
                       selectedCustomer
                         ? getCustomerTypeMeta(selectedCustomer.customerType).badgeClass
-                        : 'bg-slate-100 text-slate-600 dark:bg-gray-700 dark:text-slate-300'
+                        : 'bg-neutral-100 text-neutral-600 dark:bg-gray-700 dark:text-neutral-300'
                     }`}
                   >
                     {selectedCustomer ? getCustomerTypeMeta(selectedCustomer.customerType).short : 'Counter'}
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-400 truncate">
+                <p className="text-[10px] text-neutral-400 truncate">
                   {selectedCustomer
                     ? `${selectedCustomer.phone || 'No Phone'} • ${selectedCustomer.address || selectedCustomer.city || 'Counter'}`
                     : 'Direct Counter Retail Buyer'}
@@ -1327,7 +1327,7 @@ export default function POSView({
                     setSelectedCustomer(null);
                     showNotification('Reset to Walk-in Customer');
                   }}
-                  className="text-[11px] font-bold text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 p-1 rounded-lg transition cursor-pointer"
+                  className="text-[11px] font-bold text-neutral-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 p-1 rounded-lg transition cursor-pointer"
                   title="Reset to Walk-in Customer"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -1338,7 +1338,7 @@ export default function POSView({
             {/* LIVE CUSTOMER SEARCH INPUT WITH FLOATING DROPDOWN */}
             <div className="relative flex-1 max-w-md sm:max-w-lg" ref={customerDropdownRef}>
               <div className="relative flex items-center">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
+                <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 pointer-events-none" />
                 <input
                   type="text"
                   placeholder="Search customer, company, phone, supplier..."
@@ -1348,7 +1348,7 @@ export default function POSView({
                     setIsLiveSearchOpen(true);
                   }}
                   onFocus={() => setIsLiveSearchOpen(true)}
-                  className="w-full pl-9 pr-8 py-2 text-xs font-medium rounded-xl bg-slate-50 dark:bg-gray-800/90 border border-slate-200/80 dark:border-gray-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-2xs"
+                  className="w-full pl-9 pr-8 py-2 text-xs font-medium rounded-xl bg-neutral-50 dark:bg-gray-800/90 border border-neutral-200/80 dark:border-gray-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-hidden focus:ring-2 focus:ring-neutral-500/20 focus:border-neutral-500 transition shadow-2xs"
                 />
                 {customerSearchQuery && (
                   <button
@@ -1357,7 +1357,7 @@ export default function POSView({
                       setCustomerSearchQuery('');
                       setIsLiveSearchOpen(false);
                     }}
-                    className="absolute right-2.5 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md cursor-pointer"
+                    className="absolute right-2.5 p-1 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 rounded-md cursor-pointer"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -1366,11 +1366,11 @@ export default function POSView({
 
               {/* LIVE FLOATING SEARCH RESULTS DROPDOWN */}
               {isLiveSearchOpen && (
-                <div className="absolute left-0 right-0 sm:w-[520px] top-full mt-2 z-50 bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute left-0 right-0 sm:w-[520px] top-full mt-2 z-50 bg-white dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
                   {/* Dropdown Header */}
-                  <div className="px-3.5 py-2.5 bg-slate-50 dark:bg-gray-800/70 border-b border-slate-100 dark:border-gray-800 flex items-center justify-between">
-                    <div className="flex items-center space-x-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-300">
-                      <Users className="w-3.5 h-3.5 text-blue-600" />
+                  <div className="px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-800/70 border-b border-neutral-100 dark:border-gray-800 flex items-center justify-between">
+                    <div className="flex items-center space-x-1.5 text-[11px] font-bold text-neutral-600 dark:text-neutral-300">
+                      <Users className="w-3.5 h-3.5 text-neutral-600" />
                       <span>Live Directory Results ({filteredCustomers.length})</span>
                     </div>
                     <button
@@ -1383,7 +1383,7 @@ export default function POSView({
                         }));
                         setIsNewCustomerModalOpen(true);
                       }}
-                      className="text-[10px] font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center space-x-1 cursor-pointer"
+                      className="text-[10px] font-bold text-neutral-600 hover:text-neutral-700 dark:text-neutral-400 flex items-center space-x-1 cursor-pointer"
                     >
                       <Plus className="w-3 h-3" />
                       <span>Register New</span>
@@ -1391,7 +1391,7 @@ export default function POSView({
                   </div>
 
                   {/* Dropdown List */}
-                  <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-gray-800 p-1">
+                  <div className="max-h-72 overflow-y-auto divide-y divide-neutral-100 dark:divide-gray-800 p-1">
                     {/* Walk-in Customer Option */}
                     <button
                       type="button"
@@ -1402,26 +1402,26 @@ export default function POSView({
                       }}
                       className={`w-full p-2.5 rounded-xl text-left transition flex items-center justify-between cursor-pointer ${
                         !selectedCustomer
-                          ? 'bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800'
-                          : 'hover:bg-slate-50 dark:hover:bg-gray-800/50'
+                          ? 'bg-neutral-50/80 dark:bg-neutral-950/40 border border-neutral-200 dark:border-neutral-800'
+                          : 'hover:bg-neutral-50 dark:hover:bg-gray-800/50'
                       }`}
                     >
                       <div className="flex items-center space-x-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-slate-200 dark:bg-gray-700 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center shrink-0">
+                        <div className="w-8 h-8 rounded-xl bg-neutral-200 dark:bg-gray-700 text-neutral-700 dark:text-neutral-200 font-bold text-xs flex items-center justify-center shrink-0">
                           W
                         </div>
                         <div>
                           <div className="flex items-center space-x-2">
-                            <p className="text-xs font-bold text-slate-900 dark:text-white">Walk-in Customer</p>
-                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-gray-800 text-slate-600 dark:text-slate-300">
+                            <p className="text-xs font-bold text-neutral-900 dark:text-white">Walk-in Customer</p>
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-neutral-100 dark:bg-gray-800 text-neutral-600 dark:text-neutral-300">
                               DEFAULT B2C
                             </span>
                           </div>
-                          <p className="text-[10px] text-slate-400">General Counter Sales • No Account Link</p>
+                          <p className="text-[10px] text-neutral-400">General Counter Sales • No Account Link</p>
                         </div>
                       </div>
                       {!selectedCustomer && (
-                        <Check className="w-4 h-4 text-blue-600 shrink-0" />
+                        <Check className="w-4 h-4 text-neutral-600 shrink-0" />
                       )}
                     </button>
 
@@ -1441,8 +1441,8 @@ export default function POSView({
                             }}
                             className={`w-full p-2.5 rounded-xl text-left transition flex items-center justify-between cursor-pointer ${
                               isSelected
-                                ? 'bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800'
-                                : 'hover:bg-slate-50 dark:hover:bg-gray-800/50'
+                                ? 'bg-neutral-50/80 dark:bg-neutral-950/40 border border-neutral-200 dark:border-neutral-800'
+                                : 'hover:bg-neutral-50 dark:hover:bg-gray-800/50'
                             }`}
                           >
                             <div className="flex items-center space-x-2.5 min-w-0 flex-1 pr-2">
@@ -1455,15 +1455,15 @@ export default function POSView({
                                     : c.customerType === 'Supplier'
                                     ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
                                     : c.customerType === 'Distributor'
-                                    ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300'
-                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                                    ? 'bg-neutral-100 text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300'
+                                    : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300'
                                 }`}
                               >
                                 {c.name ? c.name[0].toUpperCase() : 'C'}
                               </div>
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center space-x-1.5">
-                                  <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                  <p className="text-xs font-bold text-neutral-900 dark:text-white truncate">
                                     {c.name}
                                   </p>
                                   <span
@@ -1472,12 +1472,12 @@ export default function POSView({
                                     {typeMeta.short}
                                   </span>
                                   {c.contactPerson && (
-                                    <span className="text-[10px] text-slate-400 truncate hidden sm:inline">
+                                    <span className="text-[10px] text-neutral-400 truncate hidden sm:inline">
                                       ({c.contactPerson})
                                     </span>
                                   )}
                                 </div>
-                                <div className="flex items-center space-x-2 text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                                <div className="flex items-center space-x-2 text-[10px] text-neutral-500 dark:text-neutral-400 mt-0.5 truncate">
                                   <span>{c.phone || 'No phone'}</span>
                                   <span>•</span>
                                   <span className="truncate">
@@ -1489,17 +1489,17 @@ export default function POSView({
 
                             <div className="text-right shrink-0 flex items-center space-x-2">
                               {c.totalSpent > 0 && (
-                                <div className="text-[10px] font-mono text-slate-400 hidden sm:block">
-                                  <p className="font-semibold text-slate-700 dark:text-slate-300">
+                                <div className="text-[10px] font-mono text-neutral-400 hidden sm:block">
+                                  <p className="font-semibold text-neutral-700 dark:text-neutral-300">
                                     {formatCurrency(c.totalSpent)}
                                   </p>
                                   <p className="text-[9px]">{c.totalOrders || 0} orders</p>
                                 </div>
                               )}
                               {isSelected ? (
-                                <Check className="w-4 h-4 text-blue-600" />
+                                <Check className="w-4 h-4 text-neutral-600" />
                               ) : (
-                                <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
+                                <ChevronRight className="w-3.5 h-3.5 text-neutral-300" />
                               )}
                             </div>
                           </button>
@@ -1507,11 +1507,11 @@ export default function POSView({
                       })
                     ) : (
                       <div className="p-4 text-center space-y-2">
-                        <AlertCircle className="w-6 h-6 text-slate-400 mx-auto" />
-                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        <AlertCircle className="w-6 h-6 text-neutral-400 mx-auto" />
+                        <p className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                           No matching customer or supplier found
                         </p>
-                        <p className="text-[10px] text-slate-400">
+                        <p className="text-[10px] text-neutral-400">
                           No records matched "{customerSearchQuery}". Would you like to create a new profile?
                         </p>
                         <button
@@ -1524,7 +1524,7 @@ export default function POSView({
                             }));
                             setIsNewCustomerModalOpen(true);
                           }}
-                          className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition cursor-pointer shadow-xs inline-flex items-center space-x-1.5"
+                          className="px-3 py-1.5 text-xs font-bold text-white bg-neutral-600 hover:bg-neutral-700 rounded-xl transition cursor-pointer shadow-xs inline-flex items-center space-x-1.5"
                         >
                           <UserPlus className="w-3.5 h-3.5" />
                           <span>Register "{customerSearchQuery.trim()}"</span>
@@ -1534,12 +1534,12 @@ export default function POSView({
                   </div>
 
                   {/* Dropdown Footer */}
-                  <div className="px-3.5 py-1.5 bg-slate-50/60 dark:bg-gray-800/40 border-t border-slate-100 dark:border-gray-800 text-[10px] text-slate-400 flex items-center justify-between">
+                  <div className="px-3.5 py-1.5 bg-neutral-50/60 dark:bg-gray-800/40 border-t border-neutral-100 dark:border-gray-800 text-[10px] text-neutral-400 flex items-center justify-between">
                     <span>Click any profile to link live to this sale</span>
                     <button
                       type="button"
                       onClick={() => setIsLiveSearchOpen(false)}
-                      className="text-slate-400 hover:text-slate-600 font-medium cursor-pointer"
+                      className="text-neutral-400 hover:text-neutral-600 font-medium cursor-pointer"
                     >
                       Close (Esc)
                     </button>
@@ -1555,7 +1555,7 @@ export default function POSView({
                 setIsLiveSearchOpen(false);
                 setIsNewCustomerModalOpen(true);
               }}
-              className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold shadow-xs shadow-blue-500/25 transition cursor-pointer shrink-0"
+              className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-neutral-600 to-neutral-600 hover:from-neutral-700 hover:to-neutral-700 text-white text-xs font-bold shadow-xs shadow-neutral-500/25 transition cursor-pointer shrink-0"
               title="Register a new retail customer, wholesale client, supplier or company"
             >
               <UserPlus className="w-3.5 h-3.5" />
@@ -1565,8 +1565,8 @@ export default function POSView({
 
           {/* Right: Quick Barcode Zap Station & Test Chips */}
           <div className="flex items-center space-x-2 shrink-0">
-            <div className="flex items-center space-x-1.5 bg-slate-50 dark:bg-gray-800 border border-slate-200/80 dark:border-gray-700 rounded-xl px-2.5 py-1">
-              <ScanLine className="w-3.5 h-3.5 text-blue-600" />
+            <div className="flex items-center space-x-1.5 bg-neutral-50 dark:bg-gray-800 border border-neutral-200/80 dark:border-gray-700 rounded-xl px-2.5 py-1">
+              <ScanLine className="w-3.5 h-3.5 text-neutral-600" />
               <input
                 ref={scannerInputRef}
                 type="text"
@@ -1579,18 +1579,18 @@ export default function POSView({
                     handleBarcodeScan(scannerInput);
                   }
                 }}
-                className="w-36 sm:w-44 bg-transparent text-xs font-mono text-slate-800 dark:text-white placeholder-slate-400 focus:outline-hidden"
+                className="w-36 sm:w-44 bg-transparent text-xs font-mono text-neutral-800 dark:text-white placeholder-neutral-400 focus:outline-hidden"
               />
               <button
                 onClick={() => handleBarcodeScan(scannerInput)}
-                className="px-2 py-0.5 rounded-lg bg-blue-600 text-white text-[10px] font-bold hover:bg-blue-700 transition cursor-pointer"
+                className="px-2 py-0.5 rounded-lg bg-neutral-600 text-white text-[10px] font-bold hover:bg-neutral-700 transition cursor-pointer"
               >
                 Zap
               </button>
             </div>
 
             <div className="hidden xl:flex items-center space-x-1 text-xs">
-              <span className="text-[10px] text-slate-400 font-semibold pr-1">Test:</span>
+              <span className="text-[10px] text-neutral-400 font-semibold pr-1">Test:</span>
               {[
                 { code: '890123401101', sku: 'ACC-EAR-01' },
                 { code: '890123401102', sku: 'ELE-LAP-02' },
@@ -1599,7 +1599,7 @@ export default function POSView({
                 <button
                   key={t.code}
                   onClick={() => handleBarcodeScan(t.code)}
-                  className="px-1.5 py-0.5 bg-slate-100 dark:bg-gray-800 hover:bg-blue-50 hover:text-blue-600 rounded text-[9px] font-mono font-semibold border border-slate-200 cursor-pointer"
+                  className="px-1.5 py-0.5 bg-neutral-100 dark:bg-gray-800 hover:bg-neutral-50 hover:text-neutral-600 rounded text-[9px] font-mono font-semibold border border-neutral-200 cursor-pointer"
                 >
                   {t.sku}
                 </button>
@@ -1620,21 +1620,21 @@ export default function POSView({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <LayoutGrid className="w-3.5 h-3.5 text-blue-600" />
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Categories</h3>
+                <LayoutGrid className="w-3.5 h-3.5 text-neutral-600" />
+                <h3 className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-white">Categories</h3>
               </div>
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setSelectedCategory('All Products')}
-                  className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                  className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-400 hover:underline cursor-pointer"
                 >
                   View All
                 </button>
                 <div className="flex items-center space-x-1">
-                  <button className="w-5 h-5 rounded-full bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 flex items-center justify-center text-slate-500 hover:bg-slate-50 text-[10px] cursor-pointer">
+                  <button className="w-5 h-5 rounded-full bg-white dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 flex items-center justify-center text-neutral-500 hover:bg-neutral-50 text-[10px] cursor-pointer">
                     ‹
                   </button>
-                  <button className="w-5 h-5 rounded-full bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 flex items-center justify-center text-slate-500 hover:bg-slate-50 text-[10px] cursor-pointer">
+                  <button className="w-5 h-5 rounded-full bg-white dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 flex items-center justify-center text-neutral-500 hover:bg-neutral-50 text-[10px] cursor-pointer">
                     ›
                   </button>
                 </div>
@@ -1653,27 +1653,27 @@ export default function POSView({
                     onClick={() => setSelectedCategory(cat.id)}
                     className={`p-2 sm:p-2.5 rounded-xl border text-center transition-all duration-150 flex flex-col items-center justify-center cursor-pointer ${
                       isSelected
-                        ? 'bg-white dark:bg-gray-800 border-blue-500 ring-2 ring-blue-500/20 shadow-sm shadow-blue-500/10'
-                        : 'bg-white dark:bg-gray-800/80 border-slate-200/80 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-700/60 shadow-2xs'
+                        ? 'bg-white dark:bg-gray-800 border-neutral-500 ring-2 ring-neutral-500/20 shadow-sm shadow-neutral-500/10'
+                        : 'bg-white dark:bg-gray-800/80 border-neutral-200/80 dark:border-gray-700 hover:bg-neutral-50 dark:hover:bg-gray-700/60 shadow-2xs'
                     }`}
                   >
                     <div
                       className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center mb-1 transition ${
                         isSelected
-                          ? 'bg-blue-600 text-white shadow-xs'
-                          : 'bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-slate-300'
+                          ? 'bg-neutral-600 text-white shadow-xs'
+                          : 'bg-neutral-100 dark:bg-gray-700 text-neutral-600 dark:text-neutral-300'
                       }`}
                     >
                       <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </div>
                     <span
                       className={`text-[11px] sm:text-xs font-bold truncate max-w-full ${
-                        isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-200'
+                        isSelected ? 'text-neutral-600 dark:text-neutral-400' : 'text-neutral-800 dark:text-neutral-200'
                       }`}
                     >
                       {cat.name}
                     </span>
-                    <span className="text-[9px] text-slate-400 font-medium">
+                    <span className="text-[9px] text-neutral-400 font-medium">
                       {cat.count} items
                     </span>
                   </button>
@@ -1687,20 +1687,20 @@ export default function POSView({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Popular Products</h3>
+                <h3 className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-white">Popular Products</h3>
               </div>
-              <span className="text-[11px] text-slate-400 font-medium">
+              <span className="text-[11px] text-neutral-400 font-medium">
                 Showing {filteredProducts.length} items
               </span>
             </div>
 
             {filteredProducts.length === 0 ? (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center border border-slate-200 dark:border-gray-700 space-y-2">
-                <Package className="w-10 h-10 text-slate-300 mx-auto" />
-                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center border border-neutral-200 dark:border-gray-700 space-y-2">
+                <Package className="w-10 h-10 text-neutral-300 mx-auto" />
+                <h4 className="text-xs font-bold text-neutral-700 dark:text-neutral-200">
                   No matching products found
                 </h4>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-neutral-400">
                   Try adjusting your search query or selecting a different category.
                 </p>
                 <button
@@ -1708,7 +1708,7 @@ export default function POSView({
                     setSelectedCategory('All Products');
                     setSearchQuery('');
                   }}
-                  className="px-3 py-1 rounded-lg bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-700 cursor-pointer"
+                  className="px-3 py-1 rounded-lg bg-neutral-600 text-white text-[11px] font-bold hover:bg-neutral-700 cursor-pointer"
                 >
                   Reset Filters
                 </button>
@@ -1722,7 +1722,7 @@ export default function POSView({
                   return (
                     <div
                       key={prod.id}
-                      className="bg-white dark:bg-gray-800 rounded-xl border border-slate-200/80 dark:border-gray-700/80 p-2.5 flex flex-col justify-between hover:shadow-md hover:border-blue-300 transition-all duration-200 group relative shadow-2xs"
+                      className="bg-white dark:bg-gray-800 rounded-xl border border-neutral-200/80 dark:border-gray-700/80 p-2.5 flex flex-col justify-between hover:shadow-md hover:border-neutral-300 transition-all duration-200 group relative shadow-2xs"
                     >
                       {/* Top Badges */}
                       {prod.badge && (
@@ -1740,7 +1740,7 @@ export default function POSView({
                       )}
 
                       {/* Product Thumbnail */}
-                      <div className="w-full h-24 sm:h-26 rounded-lg bg-slate-50 dark:bg-gray-900/60 flex items-center justify-center overflow-hidden mb-2 relative">
+                      <div className="w-full h-24 sm:h-26 rounded-lg bg-neutral-50 dark:bg-gray-900/60 flex items-center justify-center overflow-hidden mb-2 relative">
                         <img
                           src={prod.image || '/default-product.svg'}
                           alt={prod.name}
@@ -1751,17 +1751,17 @@ export default function POSView({
                       {/* Info */}
                       <div className="space-y-0.5 mb-2">
                         <h4
-                          className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white truncate"
+                          className="text-[11px] sm:text-xs font-bold text-neutral-900 dark:text-white truncate"
                           title={prod.name}
                         >
                           {prod.name}
                         </h4>
-                        <div className="flex items-center justify-between text-[9px] text-slate-400">
+                        <div className="flex items-center justify-between text-[9px] text-neutral-400">
                           <span className="truncate">{prod.category}</span>
                           <span className="font-mono">{prod.sku}</span>
                         </div>
                         <div className="pt-0.5 flex items-center justify-between">
-                          <span className="text-xs font-black text-slate-900 dark:text-white">
+                          <span className="text-xs font-black text-neutral-900 dark:text-white">
                             {formatCurrency(prod.price || 0)}
                           </span>
                           {/* Stock Status Indicator */}
@@ -1796,8 +1796,8 @@ export default function POSView({
                         disabled={isOutOfStock}
                         className={`w-full py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center space-x-1.5 transition cursor-pointer ${
                           isOutOfStock
-                            ? 'bg-slate-100 dark:bg-gray-700 text-slate-400 cursor-not-allowed'
-                            : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95 shadow-xs shadow-blue-500/20'
+                            ? 'bg-neutral-100 dark:bg-gray-700 text-neutral-400 cursor-not-allowed'
+                            : 'bg-neutral-600 text-white hover:bg-neutral-700 active:scale-95 shadow-xs shadow-neutral-500/20'
                         }`}
                       >
                         <ShoppingCart className="w-3 h-3" />
@@ -1815,16 +1815,16 @@ export default function POSView({
             RIGHT COLUMN: STICKY "CURRENT SALE" CART & CHECKOUT
         ========================================================= */}
         <div id="pos-checkout-section" className="w-full lg:w-[360px] xl:w-[390px] shrink-0 lg:sticky lg:top-[116px] lg:self-start lg:max-h-[calc(100vh-132px)] flex flex-col">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200/90 dark:border-gray-700/80 shadow-[0_4px_24px_rgba(0,0,0,0.03)] p-4 flex flex-col max-h-[calc(100vh-132px)] space-y-3">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl border border-neutral-200/90 dark:border-gray-700/80 shadow-[0_4px_24px_rgba(0,0,0,0.03)] p-4 flex flex-col max-h-[calc(100vh-132px)] space-y-3">
             {/* Header */}
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-gray-700 shrink-0">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-100 dark:border-gray-700 shrink-0">
               <div className="flex items-center space-x-2">
-                <ShoppingCart className="w-4 h-4 text-blue-600" />
-                <h3 className="text-sm font-black text-slate-900 dark:text-white tracking-tight">
+                <ShoppingCart className="w-4 h-4 text-neutral-600" />
+                <h3 className="text-sm font-black text-neutral-900 dark:text-white tracking-tight">
                   Current Sale
                 </h3>
                 {cart.length > 0 && (
-                  <span className="bg-blue-50 text-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  <span className="bg-neutral-50 text-neutral-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                     {cart.reduce((s, i) => s + i.quantity, 0)} items
                   </span>
                 )}
@@ -1832,7 +1832,7 @@ export default function POSView({
               <button
                 onClick={clearCart}
                 disabled={cart.length === 0}
-                className="text-[11px] font-semibold text-slate-400 hover:text-rose-500 transition px-2 py-0.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                className="text-[11px] font-semibold text-neutral-400 hover:text-rose-500 transition px-2 py-0.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
               >
                 Clear All
               </button>
@@ -1842,13 +1842,13 @@ export default function POSView({
             <div className="space-y-2 flex-1 overflow-y-auto min-h-[140px] max-h-[260px] pr-1">
               {cart.length === 0 ? (
                 <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-center space-y-1.5 py-8">
-                  <div className="w-11 h-11 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-500 flex items-center justify-center">
+                  <div className="w-11 h-11 rounded-full bg-neutral-50 dark:bg-neutral-950/40 text-neutral-500 flex items-center justify-center">
                     <ShoppingCart className="w-5 h-5 stroke-[1.5]" />
                   </div>
-                  <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                  <p className="text-xs font-bold text-neutral-700 dark:text-neutral-200">
                     Your cart is empty
                   </p>
-                  <p className="text-[10px] text-slate-400 max-w-[200px] leading-relaxed">
+                  <p className="text-[10px] text-neutral-400 max-w-[200px] leading-relaxed">
                     Zap a barcode or click "Add to Cart" to add items to this sale.
                   </p>
                 </div>
@@ -1859,40 +1859,40 @@ export default function POSView({
                   return (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-gray-700/60 last:border-0"
+                      className="flex items-center justify-between py-1.5 border-b border-neutral-100 dark:border-gray-700/60 last:border-0"
                     >
                       {/* Left: Thumbnail & Name */}
                       <div className="flex items-center space-x-2.5 min-w-0">
                         <img
                           src={item.image}
                           alt={item.name}
-                          className="w-8 h-8 rounded-lg object-contain bg-slate-50 dark:bg-gray-900 border border-slate-200/60 dark:border-gray-700 p-0.5 shrink-0"
+                          className="w-8 h-8 rounded-lg object-contain bg-neutral-50 dark:bg-gray-900 border border-neutral-200/60 dark:border-gray-700 p-0.5 shrink-0"
                         />
                         <div className="space-y-0.5 min-w-0">
-                          <h4 className="text-[11px] font-bold text-slate-800 dark:text-white truncate max-w-[110px]">
+                          <h4 className="text-[11px] font-bold text-neutral-800 dark:text-white truncate max-w-[110px]">
                             {item.name}
                           </h4>
-                          <p className="text-[9px] text-slate-400 truncate">{item.category}</p>
-                          <p className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                          <p className="text-[9px] text-neutral-400 truncate">{item.category}</p>
+                          <p className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400">
                             {formatCurrency(item.price)}
                           </p>
                         </div>
                       </div>
 
                       {/* Middle: Stepper */}
-                      <div className="flex items-center space-x-1 bg-slate-50 dark:bg-gray-700/60 rounded-lg px-1.5 py-0.5 border border-slate-200/60 dark:border-gray-600 shrink-0">
+                      <div className="flex items-center space-x-1 bg-neutral-50 dark:bg-gray-700/60 rounded-lg px-1.5 py-0.5 border border-neutral-200/60 dark:border-gray-600 shrink-0">
                         <button
                           onClick={() => updateQuantity(item.id, -1)}
-                          className="text-slate-500 hover:text-slate-900 dark:hover:text-white text-[11px] font-bold px-1 cursor-pointer"
+                          className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white text-[11px] font-bold px-1 cursor-pointer"
                         >
                           -
                         </button>
-                        <span className="text-[11px] font-bold text-slate-900 dark:text-white min-w-[14px] text-center font-mono">
+                        <span className="text-[11px] font-bold text-neutral-900 dark:text-white min-w-[14px] text-center font-mono">
                           {item.quantity}
                         </span>
                         <button
                           onClick={() => updateQuantity(item.id, 1)}
-                          className="text-slate-500 hover:text-slate-900 dark:hover:text-white text-[11px] font-bold px-1 cursor-pointer"
+                          className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white text-[11px] font-bold px-1 cursor-pointer"
                         >
                           +
                         </button>
@@ -1900,12 +1900,12 @@ export default function POSView({
 
                       {/* Right: Item Total & Delete */}
                       <div className="flex items-center space-x-2 shrink-0">
-                        <span className="text-[11px] font-black text-slate-900 dark:text-white font-mono">
+                        <span className="text-[11px] font-black text-neutral-900 dark:text-white font-mono">
                           {formatCurrency(itemTotal)}
                         </span>
                         <button
                           onClick={() => removeFromCart(item.id)}
-                          className="text-slate-300 hover:text-rose-500 transition p-0.5 cursor-pointer"
+                          className="text-neutral-300 hover:text-rose-500 transition p-0.5 cursor-pointer"
                           title="Remove item"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1920,16 +1920,16 @@ export default function POSView({
             {/* =========================================================
                 ADVANCED REFINED DISCOUNT CONTROLLER (Upgraded)
             ========================================================= */}
-            <div className="bg-slate-50 dark:bg-gray-900/60 rounded-2xl p-2.5 border border-slate-200/80 dark:border-gray-700/80 space-y-2 shrink-0">
+            <div className="bg-neutral-50 dark:bg-gray-900/60 rounded-2xl p-2.5 border border-neutral-200/80 dark:border-gray-700/80 space-y-2 shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-1.5">
-                  <Tag className="w-3.5 h-3.5 text-blue-600" />
-                  <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                  <Tag className="w-3.5 h-3.5 text-neutral-600" />
+                  <span className="text-[10px] font-bold text-neutral-700 dark:text-neutral-200 uppercase tracking-wider">
                     Discount & Coupon
                   </span>
                 </div>
                 {/* Toggle % vs $ */}
-                <div className="flex items-center bg-slate-200/80 dark:bg-gray-700 p-0.5 rounded-lg text-[9px] font-bold">
+                <div className="flex items-center bg-neutral-200/80 dark:bg-gray-700 p-0.5 rounded-lg text-[9px] font-bold">
                   <button
                     type="button"
                     onClick={() => {
@@ -1941,8 +1941,8 @@ export default function POSView({
                     }}
                     className={`px-1.5 py-0.5 rounded-md transition cursor-pointer ${
                       discountType === 'percent'
-                        ? 'bg-blue-600 text-white shadow-2xs'
-                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                        ? 'bg-neutral-600 text-white shadow-2xs'
+                        : 'text-neutral-600 dark:text-neutral-300 hover:text-neutral-900'
                     }`}
                   >
                     % Percent
@@ -1958,8 +1958,8 @@ export default function POSView({
                     }}
                     className={`px-1.5 py-0.5 rounded-md transition cursor-pointer ${
                       discountType === 'fixed'
-                        ? 'bg-blue-600 text-white shadow-2xs'
-                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                        ? 'bg-neutral-600 text-white shadow-2xs'
+                        : 'text-neutral-600 dark:text-neutral-300 hover:text-neutral-900'
                     }`}
                   >
                     {currencyCode} Fixed
@@ -1983,8 +1983,8 @@ export default function POSView({
                       }}
                       className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition border cursor-pointer ${
                         isActive
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                          : 'bg-white dark:bg-gray-800 border-slate-200 dark:border-gray-700 text-slate-700 dark:text-slate-300 hover:border-blue-400'
+                          ? 'bg-neutral-600 text-white border-neutral-600 shadow-xs'
+                          : 'bg-white dark:bg-gray-800 border-neutral-200 dark:border-gray-700 text-neutral-700 dark:text-neutral-300 hover:border-neutral-400'
                       }`}
                     >
                       {pct}%
@@ -2003,16 +2003,16 @@ export default function POSView({
                     placeholder={discountType === 'percent' ? 'Custom % (e.g. 12)' : `Custom ${currencyCode} (e.g. 25)`}
                     value={discountInput}
                     onChange={(e) => setDiscountInput(e.target.value)}
-                    className="w-full pl-2.5 pr-6 py-1 text-xs rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-slate-900 dark:text-white focus:outline-hidden"
+                    className="w-full pl-2.5 pr-6 py-1 text-xs rounded-xl border border-neutral-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-neutral-900 dark:text-white focus:outline-hidden"
                   />
-                  <span className="absolute right-2.5 top-1 text-[11px] text-slate-400 font-bold font-mono">
+                  <span className="absolute right-2.5 top-1 text-[11px] text-neutral-400 font-bold font-mono">
                     {discountType === 'percent' ? '%' : currencyCode}
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={handleApplyDiscount}
-                  className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-xs"
+                  className="px-2.5 py-1 bg-neutral-600 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-xs"
                 >
                   Apply
                 </button>
@@ -2024,7 +2024,7 @@ export default function POSView({
                       setDiscountInput('');
                       showNotification('Discount removed');
                     }}
-                    className="p-1 bg-slate-200 dark:bg-gray-700 hover:bg-rose-100 hover:text-rose-600 text-slate-600 text-xs font-bold rounded-xl transition cursor-pointer"
+                    className="p-1 bg-neutral-200 dark:bg-gray-700 hover:bg-rose-100 hover:text-rose-600 text-neutral-600 text-xs font-bold rounded-xl transition cursor-pointer"
                     title="Remove discount"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -2044,11 +2044,11 @@ export default function POSView({
             </div>
 
             {/* Calculations Breakdown */}
-            <div className="space-y-1.5 pt-1.5 border-t border-slate-100 dark:border-gray-700 text-xs shrink-0">
+            <div className="space-y-1.5 pt-1.5 border-t border-neutral-100 dark:border-gray-700 text-xs shrink-0">
               {/* Subtotal */}
-              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+              <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400">
                 <span className="text-[11px]">Subtotal</span>
-                <span className="font-bold text-slate-800 dark:text-white font-mono text-[11px]">
+                <span className="font-bold text-neutral-800 dark:text-white font-mono text-[11px]">
                   {formatCurrency(subtotal)}
                 </span>
               </div>
@@ -2062,17 +2062,17 @@ export default function POSView({
               )}
 
               {/* Tax from configured system settings */}
-              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+              <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400">
                 <span className="text-[11px]">Tax ({taxRate}%)</span>
-                <span className="font-bold text-slate-800 dark:text-white font-mono text-[11px]">
+                <span className="font-bold text-neutral-800 dark:text-white font-mono text-[11px]">
                   {formatCurrency(tax)}
                 </span>
               </div>
 
               {/* Grand Total */}
-              <div className="pt-2 border-t border-slate-200 dark:border-gray-700 flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-900 dark:text-white">Total</span>
-                <span className="text-xl font-black text-blue-600 dark:text-blue-400 font-mono tracking-tight">
+              <div className="pt-2 border-t border-neutral-200 dark:border-gray-700 flex items-center justify-between">
+                <span className="text-sm font-bold text-neutral-900 dark:text-white">Total</span>
+                <span className="text-xl font-black text-neutral-600 dark:text-neutral-400 font-mono tracking-tight">
                   {formatCurrency(grandTotal)}
                 </span>
               </div>
@@ -2082,10 +2082,10 @@ export default function POSView({
             <button
               onClick={handleCompleteSale}
               disabled={isCompletingSale || settingsLoading || Boolean(settingsLoadError) || cart.length === 0 || grandTotalCents === null || (paymentMethod === 'due' && (!selectedCustomer || (Number(paidAmountInput) > 0 && paidMethod !== 'Cash' && !paymentReference.trim()))) || ((paymentMethod === 'card' || paymentMethod === 'upi') && !paymentReference.trim())}
-              className={`w-full py-3 px-3 rounded-xl text-white font-bold text-xs flex items-center justify-center space-x-2 transition shadow-md shadow-blue-500/20 shrink-0 ${
+              className={`w-full py-3 px-3 rounded-xl text-white font-bold text-xs flex items-center justify-center space-x-2 transition shadow-md shadow-neutral-500/20 shrink-0 ${
                 cart.length === 0
-                  ? 'bg-slate-200 dark:bg-gray-700 text-slate-400 cursor-not-allowed shadow-none'
-                  : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.99] cursor-pointer'
+                  ? 'bg-neutral-200 dark:bg-gray-700 text-neutral-400 cursor-not-allowed shadow-none'
+                  : 'bg-neutral-600 hover:bg-neutral-700 active:scale-[0.99] cursor-pointer'
               }`}
             >
               <CreditCard className="w-3.5 h-3.5" />
@@ -2114,8 +2114,8 @@ export default function POSView({
                     }}
                     className={`p-1.5 rounded-lg text-center text-[10px] font-bold transition flex flex-col items-center justify-center space-y-0.5 cursor-pointer ${
                       isSelected
-                        ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
-                        : 'bg-slate-50 dark:bg-gray-700/50 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-gray-600 hover:bg-slate-100'
+                        ? 'bg-neutral-50 dark:bg-neutral-950/60 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-800'
+                        : 'bg-neutral-50 dark:bg-gray-700/50 text-neutral-600 dark:text-neutral-300 border border-neutral-200/60 dark:border-gray-600 hover:bg-neutral-100'
                     }`}
                   >
                     <Icon className="w-3 h-3" />
@@ -2156,8 +2156,8 @@ export default function POSView({
               </div>
             )}
             {(paymentMethod === 'card' || paymentMethod === 'upi') && (
-              <div className="space-y-1 rounded-lg border border-blue-200 bg-blue-50 p-2.5">
-                <label htmlFor="pos-payment-reference" className="text-[10px] font-bold text-blue-900">
+              <div className="space-y-1 rounded-lg border border-neutral-200 bg-neutral-50 p-2.5">
+                <label htmlFor="pos-payment-reference" className="text-[10px] font-bold text-neutral-900">
                   {paymentMethod === 'card' ? 'External card terminal' : 'External UPI / wallet'} transaction reference *
                 </label>
                 <input
@@ -2167,28 +2167,28 @@ export default function POSView({
                   value={paymentReference}
                   onChange={event => setPaymentReference(event.target.value)}
                   placeholder="Enter the approved transaction reference"
-                  className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm"
                 />
-                <p className="text-[10px] text-blue-800">Tiwlo does not charge the card or call a payment gateway from POS. Confirm the payment on your external terminal first; this only records your confirmation.</p>
+                <p className="text-[10px] text-neutral-800">Tiwlo does not charge the card or call a payment gateway from POS. Confirm the payment on your external terminal first; this only records your confirmation.</p>
               </div>
             )}
 
             {settingsLoadError && <p role="alert" className="rounded-lg bg-rose-50 p-2 text-[10px] font-semibold text-rose-700">{settingsLoadError}</p>}
 
             {/* Trust Footer with Fluid Wave Accent */}
-            <div className="relative overflow-hidden rounded-xl bg-slate-50/80 dark:bg-gray-900/50 p-2.5 border border-slate-200/60 dark:border-gray-700/60 shrink-0">
+            <div className="relative overflow-hidden rounded-xl bg-neutral-50/80 dark:bg-gray-900/50 p-2.5 border border-neutral-200/60 dark:border-gray-700/60 shrink-0">
               <div
                 className="absolute right-0 bottom-0 w-32 h-16 opacity-20 dark:opacity-10 pointer-events-none bg-no-repeat bg-right-bottom bg-contain"
                 style={{ backgroundImage: `url('/waves/ocean_waves_blue.jpg')` }}
               ></div>
 
               <div className="relative z-10 flex items-start space-x-2">
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
+                <ShieldCheck className="w-3.5 h-3.5 text-neutral-600 shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-[10px] font-bold text-slate-800 dark:text-slate-200">
+                  <p className="text-[10px] font-bold text-neutral-800 dark:text-neutral-200">
                     Fast • Secure • Reliable.
                   </p>
-                  <p className="text-[9px] text-slate-400 mt-0.5">
+                  <p className="text-[9px] text-neutral-400 mt-0.5">
                     Your business, our priority.
                   </p>
                 </div>
@@ -2200,9 +2200,9 @@ export default function POSView({
 
       {/* Floating Mobile Cart Summary (Only on mobile viewports < lg) */}
       {cart.length > 0 && (
-        <div className="fixed bottom-4 inset-x-3 z-40 lg:hidden bg-slate-900/95 backdrop-blur-md text-white rounded-2xl p-3 shadow-2xl border border-white/10 flex items-center justify-between animate-in slide-in-from-bottom duration-200">
+        <div className="fixed bottom-4 inset-x-3 z-40 lg:hidden bg-neutral-900/95 backdrop-blur-md text-white rounded-2xl p-3 shadow-2xl border border-white/10 flex items-center justify-between animate-in slide-in-from-bottom duration-200">
           <div className="flex items-center space-x-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-xs relative shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-neutral-600 flex items-center justify-center font-bold text-xs relative shrink-0">
               <ShoppingCart className="w-4 h-4" />
               <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
                 {cart.reduce((s, i) => s + i.quantity, 0)}
@@ -2210,14 +2210,14 @@ export default function POSView({
             </div>
             <div>
               <p className="text-xs font-bold leading-tight">{formatCurrency(grandTotal)}</p>
-              <p className="text-[10px] text-slate-400">Tap to scroll to Checkout</p>
+              <p className="text-[10px] text-neutral-400">Tap to scroll to Checkout</p>
             </div>
           </div>
           <button
             onClick={() => {
               document.getElementById('pos-checkout-section')?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+            className="px-3.5 py-1.5 bg-neutral-600 hover:bg-neutral-500 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
           >
             Go to Cart & Pay
           </button>
@@ -2227,13 +2227,13 @@ export default function POSView({
       {/* =========================================================
           PAGE FOOTER
       ========================================================= */}
-      <footer className="px-4 sm:px-6 py-3 border-t border-slate-200/80 dark:border-gray-800 flex items-center justify-between text-xs text-slate-400 mt-auto bg-white/50 dark:bg-[#111827]/50 pb-16 lg:pb-3">
+      <footer className="px-4 sm:px-6 py-3 border-t border-neutral-200/80 dark:border-gray-800 flex items-center justify-between text-xs text-neutral-400 mt-auto bg-white/50 dark:bg-[#181818]/50 pb-16 lg:pb-3">
         <div className="flex items-center space-x-1.5 font-medium text-[11px]">
-          <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
+          <ShieldCheck className="w-3.5 h-3.5 text-neutral-500" />
           <span>POS System v1.0</span>
         </div>
-        <p className="font-semibold text-slate-500 dark:text-slate-400 text-[11px]">
-          Powered by <span className="font-bold text-blue-600 dark:text-blue-400">Tiwlo</span>
+        <p className="font-semibold text-neutral-500 dark:text-neutral-400 text-[11px]">
+          Powered by <span className="font-bold text-neutral-600 dark:text-neutral-400">Tiwlo</span>
         </p>
       </footer>
 
@@ -2242,27 +2242,27 @@ export default function POSView({
       ========================================================= */}
       {isNewCustomerModalOpen && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 bg-neutral-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-in fade-in duration-200"
           onClick={() => setIsNewCustomerModalOpen(false)}
         >
           <div
-            className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-3xl shadow-2xl max-w-3xl w-full my-auto overflow-hidden animate-in zoom-in-95 duration-150"
+            className="bg-white dark:bg-gray-900 border border-neutral-200 dark:border-gray-800 rounded-3xl shadow-2xl max-w-3xl w-full my-auto overflow-hidden animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-100 dark:border-gray-800 flex items-center justify-between bg-slate-50/70 dark:bg-gray-800/40">
+            <div className="px-6 py-4 border-b border-neutral-100 dark:border-gray-800 flex items-center justify-between bg-neutral-50/70 dark:bg-gray-800/40">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-neutral-600 to-neutral-600 text-white flex items-center justify-center shadow-md shadow-neutral-500/20">
                   <UserPlus className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <h3 className="text-sm sm:text-base font-bold text-neutral-900 dark:text-white flex items-center gap-2">
                     <span>Register Customer Account</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
                       Multi-Classification
                     </span>
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-neutral-400">
                     Worldwide directory registration for retail, wholesale, corporate clients, or suppliers
                   </p>
                 </div>
@@ -2270,7 +2270,7 @@ export default function POSView({
               <button
                 type="button"
                 onClick={() => setIsNewCustomerModalOpen(false)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-gray-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center transition cursor-pointer"
+                className="w-8 h-8 rounded-xl bg-neutral-100 dark:bg-gray-800 hover:bg-neutral-200 dark:hover:bg-gray-700 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 flex items-center justify-center transition cursor-pointer"
                 title="Close (Esc)"
               >
                 <X className="w-4 h-4" />
@@ -2282,11 +2282,11 @@ export default function POSView({
               {/* SECTION 1: ACCOUNT CLASSIFICATION */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center">
+                  <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center">
                     <span>1. Account Classification</span>
                     <span className="text-rose-500 font-bold ml-1.5 text-[11px]">* Required</span>
                   </label>
-                  <span className="text-[10px] text-slate-400">Select entity role in your business</span>
+                  <span className="text-[10px] text-neutral-400">Select entity role in your business</span>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
@@ -2300,8 +2300,8 @@ export default function POSView({
                         onClick={() => setNewCustomerForm((prev) => ({ ...prev, customerType: t.id }))}
                         className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between cursor-pointer ${
                           isSelected
-                            ? `${t.activeRing} ring-2 ring-blue-500/20 shadow-xs`
-                            : 'border-slate-200 dark:border-gray-800 hover:border-slate-300 dark:hover:border-gray-700 bg-slate-50/50 dark:bg-gray-800/30'
+                            ? `${t.activeRing} ring-2 ring-neutral-500/20 shadow-xs`
+                            : 'border-neutral-200 dark:border-gray-800 hover:border-neutral-300 dark:hover:border-gray-700 bg-neutral-50/50 dark:bg-gray-800/30'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-2">
@@ -2309,18 +2309,18 @@ export default function POSView({
                             className={`w-7 h-7 rounded-xl flex items-center justify-center ${
                               isSelected
                                 ? 'bg-white dark:bg-gray-800 shadow-2xs'
-                                : 'bg-slate-100 dark:bg-gray-800'
+                                : 'bg-neutral-100 dark:bg-gray-800'
                             }`}
                           >
                             <IconComp className="w-3.5 h-3.5" />
                           </div>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-blue-600" />}
+                          {isSelected && <Check className="w-3.5 h-3.5 text-neutral-600" />}
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+                          <p className="text-xs font-bold text-neutral-900 dark:text-white leading-tight">
                             {t.short}
                           </p>
-                          <p className="text-[9px] text-slate-400 mt-0.5 line-clamp-1">
+                          <p className="text-[9px] text-neutral-400 mt-0.5 line-clamp-1">
                             {t.id === 'Retail'
                               ? 'B2C Shopper'
                               : t.id === 'Wholesale'
@@ -2339,17 +2339,17 @@ export default function POSView({
               </div>
 
               {/* SECTION 2: PRIMARY ACCOUNT IDENTITY */}
-              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-gray-800">
+              <div className="space-y-2 pt-2 border-t border-neutral-100 dark:border-gray-800">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
                     2. Primary Identity
                   </label>
-                  <span className="text-[10px] text-slate-400">Legal entity or individual name</span>
+                  <span className="text-[10px] text-neutral-400">Legal entity or individual name</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
+                    <label className="text-[11px] font-bold text-neutral-600 dark:text-neutral-300 block mb-1">
                       Customer or Company Name <span className="text-rose-500">* Required</span>
                     </label>
                     <input
@@ -2362,10 +2362,10 @@ export default function POSView({
                           setCustomerFormErrors((prev) => ({ ...prev, name: null }));
                         }
                       }}
-                      className={`w-full px-3 py-2 text-xs rounded-xl border bg-slate-50 dark:bg-gray-800/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 ${
+                      className={`w-full px-3 py-2 text-xs rounded-xl border bg-neutral-50 dark:bg-gray-800/80 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-hidden focus:ring-2 focus:ring-neutral-500/20 ${
                         customerFormErrors.name
                           ? 'border-rose-500 ring-2 ring-rose-500/20'
-                          : 'border-slate-200 dark:border-gray-700'
+                          : 'border-neutral-200 dark:border-gray-700'
                       }`}
                     />
                     {customerFormErrors.name && (
@@ -2377,9 +2377,9 @@ export default function POSView({
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
+                    <label className="text-[11px] font-bold text-neutral-600 dark:text-neutral-300 block mb-1">
                       Contact Person / Representative
-                      <span className="text-slate-400 font-normal ml-1">(Optional)</span>
+                      <span className="text-neutral-400 font-normal ml-1">(Optional)</span>
                     </label>
                     <input
                       type="text"
@@ -2388,28 +2388,28 @@ export default function POSView({
                       onChange={(e) =>
                         setNewCustomerForm((prev) => ({ ...prev, contactPerson: e.target.value }))
                       }
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-200 dark:border-gray-700 bg-neutral-50 dark:bg-gray-800/80 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-hidden focus:ring-2 focus:ring-neutral-500/20"
                     />
                   </div>
                 </div>
               </div>
 
               {/* SECTION 3: CONTACT CHANNELS */}
-              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-gray-800">
+              <div className="space-y-2 pt-2 border-t border-neutral-100 dark:border-gray-800">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
                     3. Contact Channels
                   </label>
-                  <span className="text-[10px] text-slate-400">Communication & billing dispatches</span>
+                  <span className="text-[10px] text-neutral-400">Communication & billing dispatches</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
+                    <label className="text-[11px] font-bold text-neutral-600 dark:text-neutral-300 block mb-1">
                       Phone Number <span className="text-rose-500">* Required</span>
                     </label>
                     <div className="relative">
-                      <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                      <Phone className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-2.5" />
                       <input
                         type="text"
                         placeholder="+1 (555) 234-5678 or +880 1711..."
@@ -2420,10 +2420,10 @@ export default function POSView({
                             setCustomerFormErrors((prev) => ({ ...prev, phone: null }));
                           }
                         }}
-                        className={`w-full pl-9 pr-3 py-2 text-xs rounded-xl border bg-slate-50 dark:bg-gray-800/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 ${
+                        className={`w-full pl-9 pr-3 py-2 text-xs rounded-xl border bg-neutral-50 dark:bg-gray-800/80 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-hidden focus:ring-2 focus:ring-neutral-500/20 ${
                           customerFormErrors.phone
                             ? 'border-rose-500 ring-2 ring-rose-500/20'
-                            : 'border-slate-200 dark:border-gray-700'
+                            : 'border-neutral-200 dark:border-gray-700'
                         }`}
                       />
                     </div>
@@ -2436,12 +2436,12 @@ export default function POSView({
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
+                    <label className="text-[11px] font-bold text-neutral-600 dark:text-neutral-300 block mb-1">
                       Email Address
-                      <span className="text-slate-400 font-normal ml-1">(Optional for digital invoice)</span>
+                      <span className="text-neutral-400 font-normal ml-1">(Optional for digital invoice)</span>
                     </label>
                     <div className="relative">
-                      <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                      <Mail className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-2.5" />
                       <input
                         type="email"
                         placeholder="billing@example.com"
@@ -2449,7 +2449,7 @@ export default function POSView({
                         onChange={(e) =>
                           setNewCustomerForm((prev) => ({ ...prev, email: e.target.value }))
                         }
-                        className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                        className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-neutral-200 dark:border-gray-700 bg-neutral-50 dark:bg-gray-800/80 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-hidden focus:ring-2 focus:ring-neutral-500/20"
                       />
                     </div>
                   </div>
@@ -2457,21 +2457,21 @@ export default function POSView({
               </div>
 
               {/* SECTION 4: LOCATION & BILLING ADDRESS */}
-              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-gray-800">
+              <div className="space-y-2 pt-2 border-t border-neutral-100 dark:border-gray-800">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
                     4. Location & Address
                   </label>
-                  <span className="text-[10px] text-slate-400">Tax jurisdiction & delivery address</span>
+                  <span className="text-[10px] text-neutral-400">Tax jurisdiction & delivery address</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="sm:col-span-2">
-                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
+                    <label className="text-[11px] font-bold text-neutral-600 dark:text-neutral-300 block mb-1">
                       Street Address <span className="text-rose-500">* Required</span>
                     </label>
                     <div className="relative">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                      <MapPin className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-2.5" />
                       <input
                         type="text"
                         placeholder="e.g. 402 Silicon Way, Suite 400"
@@ -2482,10 +2482,10 @@ export default function POSView({
                             setCustomerFormErrors((prev) => ({ ...prev, address: null }));
                           }
                         }}
-                        className={`w-full pl-9 pr-3 py-2 text-xs rounded-xl border bg-slate-50 dark:bg-gray-800/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 ${
+                        className={`w-full pl-9 pr-3 py-2 text-xs rounded-xl border bg-neutral-50 dark:bg-gray-800/80 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-hidden focus:ring-2 focus:ring-neutral-500/20 ${
                           customerFormErrors.address
                             ? 'border-rose-500 ring-2 ring-rose-500/20'
-                            : 'border-slate-200 dark:border-gray-700'
+                            : 'border-neutral-200 dark:border-gray-700'
                         }`}
                       />
                     </div>
@@ -2498,7 +2498,7 @@ export default function POSView({
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
+                    <label className="text-[11px] font-bold text-neutral-600 dark:text-neutral-300 block mb-1">
                       City / Region
                     </label>
                     <input
@@ -2508,14 +2508,14 @@ export default function POSView({
                       onChange={(e) =>
                         setNewCustomerForm((prev) => ({ ...prev, city: e.target.value }))
                       }
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-200 dark:border-gray-700 bg-neutral-50 dark:bg-gray-800/80 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-hidden focus:ring-2 focus:ring-neutral-500/20"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div>
-                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
+                    <label className="text-[11px] font-bold text-neutral-600 dark:text-neutral-300 block mb-1">
                       Country / Jurisdiction
                     </label>
                     <select
@@ -2523,7 +2523,7 @@ export default function POSView({
                       onChange={(e) =>
                         setNewCustomerForm((prev) => ({ ...prev, country: e.target.value }))
                       }
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/80 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-200 dark:border-gray-700 bg-neutral-50 dark:bg-gray-800/80 text-neutral-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-neutral-500/20"
                     >
                       <option value="United States">United States (USD)</option>
                       <option value="United Kingdom">United Kingdom (GBP)</option>
@@ -2538,9 +2538,9 @@ export default function POSView({
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
+                    <label className="text-[11px] font-bold text-neutral-600 dark:text-neutral-300 block mb-1">
                       Tax ID / VAT / Trade License No
-                      <span className="text-slate-400 font-normal ml-1">(Optional)</span>
+                      <span className="text-neutral-400 font-normal ml-1">(Optional)</span>
                     </label>
                     <input
                       type="text"
@@ -2549,24 +2549,24 @@ export default function POSView({
                       onChange={(e) =>
                         setNewCustomerForm((prev) => ({ ...prev, taxId: e.target.value }))
                       }
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 font-mono"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-200 dark:border-gray-700 bg-neutral-50 dark:bg-gray-800/80 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-hidden focus:ring-2 focus:ring-neutral-500/20 font-mono"
                     />
                   </div>
                 </div>
               </div>
 
               {/* SECTION 5: COMMERCIAL TERMS & NOTES */}
-              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-gray-800">
+              <div className="space-y-2 pt-2 border-t border-neutral-100 dark:border-gray-800">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
                     5. Commercial Terms & Preferences
                   </label>
-                  <span className="text-[10px] text-slate-400">Payment terms & credit limit</span>
+                  <span className="text-[10px] text-neutral-400">Payment terms & credit limit</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
+                    <label className="text-[11px] font-bold text-neutral-600 dark:text-neutral-300 block mb-1">
                       Payment / Credit Terms
                     </label>
                     <select
@@ -2574,7 +2574,7 @@ export default function POSView({
                       onChange={(e) =>
                         setNewCustomerForm((prev) => ({ ...prev, paymentTerms: e.target.value }))
                       }
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/80 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-200 dark:border-gray-700 bg-neutral-50 dark:bg-gray-800/80 text-neutral-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-neutral-500/20"
                     >
                       <option value="Immediate">Immediate (Due Upon Receipt / POS Cashier)</option>
                       <option value="Net 15">Net 15 Days</option>
@@ -2585,9 +2585,9 @@ export default function POSView({
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
+                    <label className="text-[11px] font-bold text-neutral-600 dark:text-neutral-300 block mb-1">
                       Credit Limit ({currencyCode})
-                      <span className="text-slate-400 font-normal ml-1">(Optional)</span>
+                      <span className="text-neutral-400 font-normal ml-1">(Optional)</span>
                     </label>
                     <input
                       type="number"
@@ -2597,15 +2597,15 @@ export default function POSView({
                       onChange={(e) =>
                         setNewCustomerForm((prev) => ({ ...prev, creditLimit: e.target.value }))
                       }
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-200 dark:border-gray-700 bg-neutral-50 dark:bg-gray-800/80 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-hidden focus:ring-2 focus:ring-neutral-500/20"
                     />
                   </div>
                 </div>
 
                 <div className="pt-1">
-                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
+                  <label className="text-[11px] font-bold text-neutral-600 dark:text-neutral-300 block mb-1">
                     Internal Notes / Special Instructions
-                    <span className="text-slate-400 font-normal ml-1">(Optional)</span>
+                    <span className="text-neutral-400 font-normal ml-1">(Optional)</span>
                   </label>
                   <input
                     type="text"
@@ -2614,28 +2614,28 @@ export default function POSView({
                     onChange={(e) =>
                       setNewCustomerForm((prev) => ({ ...prev, notes: e.target.value }))
                     }
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800/80 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-200 dark:border-gray-700 bg-neutral-50 dark:bg-gray-800/80 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-hidden focus:ring-2 focus:ring-neutral-500/20"
                   />
                 </div>
               </div>
 
               {/* Modal Actions Footer */}
-              <div className="pt-4 border-t border-slate-100 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <p className="text-[10px] text-slate-400 order-2 sm:order-1">
+              <div className="pt-4 border-t border-neutral-100 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <p className="text-[10px] text-neutral-400 order-2 sm:order-1">
                   * Fields marked with red asterisks are required for invoice verification.
                 </p>
                 <div className="flex items-center space-x-2 order-1 sm:order-2 w-full sm:w-auto justify-end">
                   <button
                     type="button"
                     onClick={() => setIsNewCustomerModalOpen(false)}
-                    className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-800 rounded-xl transition cursor-pointer"
+                    className="px-4 py-2 text-xs font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-gray-800 rounded-xl transition cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSavingCustomer}
-                    className="px-5 py-2 text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl shadow-md shadow-blue-500/25 transition cursor-pointer disabled:opacity-50 flex items-center space-x-1.5"
+                    className="px-5 py-2 text-xs font-bold text-white bg-gradient-to-r from-neutral-600 to-neutral-600 hover:from-neutral-700 hover:to-neutral-700 rounded-xl shadow-md shadow-neutral-500/25 transition cursor-pointer disabled:opacity-50 flex items-center space-x-1.5"
                   >
                     <UserPlus className="w-3.5 h-3.5" />
                     <span>

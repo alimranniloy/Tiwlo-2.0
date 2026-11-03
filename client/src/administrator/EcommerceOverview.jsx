@@ -26,19 +26,19 @@ export default function EcommerceOverview({ data, onViewDetails }) {
   const topProducts = data?.topProducts || [];
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/70 dark:border-slate-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between">
+    <div className="bg-white dark:bg-neutral-900 rounded-2xl p-5 border border-neutral-200/70 dark:border-neutral-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between">
       {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+      <div className="flex items-center justify-between pb-4 border-b border-neutral-100 dark:border-neutral-800">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-xl bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 flex items-center justify-center">
             <ShoppingCart className="w-4 h-4" />
           </div>
-          <h3 className="text-base font-bold text-slate-900 dark:text-white">E-commerce Overview</h3>
+          <h3 className="text-base font-bold text-neutral-900 dark:text-white">E-commerce Overview</h3>
         </div>
 
         <button
           onClick={onViewDetails}
-          className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+          className="text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:underline flex items-center gap-1"
         >
           View Details <ArrowRight className="w-3.5 h-3.5" />
         </button>
@@ -49,12 +49,12 @@ export default function EcommerceOverview({ data, onViewDetails }) {
         {stats.map((s, idx) => (
           <div
             key={idx}
-            className="p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800"
+            className="p-3 rounded-xl bg-neutral-50/80 dark:bg-neutral-800/60 border border-neutral-100 dark:border-neutral-800"
           >
-            <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 block truncate">
+            <span className="text-[11px] font-medium text-neutral-400 dark:text-neutral-500 block truncate">
               {s.label}
             </span>
-            <div className="text-base font-bold text-slate-900 dark:text-white mt-1">
+            <div className="text-base font-bold text-neutral-900 dark:text-white mt-1">
               {s.value}
             </div>
             <div className="flex items-center gap-1 text-[11px] mt-1">
@@ -68,39 +68,39 @@ export default function EcommerceOverview({ data, onViewDetails }) {
 
       {/* Top Selling Products Table */}
       <div className="mt-2">
-        <h4 className="text-xs font-bold text-slate-900 dark:text-white mb-2">
+        <h4 className="text-xs font-bold text-neutral-900 dark:text-white mb-2">
           Top Selling Products
         </h4>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 pb-2">
+              <tr className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 border-b border-neutral-100 dark:border-neutral-800 pb-2">
                 <th className="py-2 pl-1 w-8">#</th>
                 <th className="py-2">Product</th>
                 <th className="py-2 text-right">Orders</th>
                 <th className="py-2 pr-1 text-right">Revenue</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+            <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/60">
               {topProducts.length ? topProducts.map((p) => (
-                <tr key={p.rank} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                  <td className="py-2 pl-1 text-slate-400 font-medium">{p.rank}</td>
+                <tr key={p.rank} className="hover:bg-neutral-50/60 dark:hover:bg-neutral-800/40 transition-colors">
+                  <td className="py-2 pl-1 text-neutral-400 font-medium">{p.rank}</td>
                   <td className="py-2">
                     <div className="flex items-center gap-2.5">
                       <img
                         src={p.image || '/default-product.svg'}
                         alt={p.name}
-                        className="w-6 h-6 rounded-md object-cover border border-slate-200/80 dark:border-slate-700"
+                        className="w-6 h-6 rounded-md object-cover border border-neutral-200/80 dark:border-neutral-700"
                       />
-                      <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[140px] sm:max-w-[180px]">
+                      <span className="font-semibold text-neutral-800 dark:text-neutral-200 truncate max-w-[140px] sm:max-w-[180px]">
                         {p.name}
                       </span>
                     </div>
                   </td>
-                  <td className="py-2 text-right font-medium text-slate-600 dark:text-slate-300">
+                  <td className="py-2 text-right font-medium text-neutral-600 dark:text-neutral-300">
                     {p.orders}
                   </td>
-                  <td className="py-2 pr-1 text-right font-bold text-slate-900 dark:text-white">
+                  <td className="py-2 pr-1 text-right font-bold text-neutral-900 dark:text-white">
                     {p.revenue == null
                       ? 'Mixed'
                       : `${data?.currency || ''} ${Number(p.revenue).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
@@ -108,7 +108,7 @@ export default function EcommerceOverview({ data, onViewDetails }) {
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan="4" className="py-6 text-center text-slate-400">
+                  <td colSpan="4" className="py-6 text-center text-neutral-400">
                     {data ? 'No paid product sales in this period.' : 'Sales data is unavailable.'}
                   </td>
                 </tr>

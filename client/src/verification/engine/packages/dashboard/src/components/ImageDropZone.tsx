@@ -31,7 +31,7 @@ export function ImageDropZone({ onImage, label = 'Drop image here or click to up
       }}
       className={`relative cursor-pointer rounded-xl border-2 border-dashed transition-all
         ${dragOver
-          ? 'border-indigo-500 bg-indigo-500/10'
+          ? 'border-neutral-500 bg-neutral-500/10'
           : 'border-gray-700 hover:border-gray-500 bg-gray-900/50'}
         ${preview ? 'p-2' : 'p-12'}
       `}

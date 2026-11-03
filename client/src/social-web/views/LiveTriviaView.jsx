@@ -70,21 +70,21 @@ export default function LiveTriviaView() {
   return (
     <div className="flex flex-col gap-4 max-w-xl mx-auto w-full pb-20">
       {/* 1. Header */}
-      <div className="bg-white dark:bg-[#16161f] p-4 sm:p-5 rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm flex items-center justify-between">
+      <div className="bg-white dark:bg-[#171717] p-4 sm:p-5 rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigateTo('feed')}
-            className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] transition cursor-pointer active:scale-95"
+            className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#676767] dark:text-[#b3b3b3] transition cursor-pointer active:scale-95"
             title="Back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-[18px] font-bold text-[#1c1e21] dark:text-[#e4e6eb] flex items-center gap-2 tracking-tight">
+            <h1 className="text-[18px] font-bold text-[#1e1e1e] dark:text-[#e6e6e6] flex items-center gap-2 tracking-tight">
               <Award className="w-5 h-5 text-violet-500" />
               <span>Live Community Trivia</span>
             </h1>
-            <p className="text-[12px] text-[#65676b] dark:text-[#8a8d91]">Test your tech knowledge and earn Tiwi badges</p>
+            <p className="text-[12px] text-[#676767] dark:text-[#8d8d8d]">Test your tech knowledge and earn Tiwi badges</p>
           </div>
         </div>
         <div className="bg-violet-500/10 text-violet-600 dark:text-violet-400 px-3.5 py-1.5 rounded-full text-xs font-bold">
@@ -93,15 +93,15 @@ export default function LiveTriviaView() {
       </div>
 
       {/* 2. Trivia Card */}
-      <div className="bg-white dark:bg-[#16161f] p-6 sm:p-8 rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm flex flex-col gap-5">
+      <div className="bg-white dark:bg-[#171717] p-6 sm:p-8 rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm flex flex-col gap-5">
         {!quizFinished && q ? (
           <>
-            <div className="flex items-center justify-between text-xs text-[#65676b] dark:text-[#8a8d91]">
+            <div className="flex items-center justify-between text-xs text-[#676767] dark:text-[#8d8d8d]">
               <span>Question {currentIdx + 1} of {questions.length}</span>
               <span className="font-semibold text-violet-600 dark:text-violet-400">10 Points</span>
             </div>
 
-            <h3 className="text-base sm:text-[17px] font-bold text-[#1c1e21] dark:text-[#e4e6eb] leading-relaxed">
+            <h3 className="text-base sm:text-[17px] font-bold text-[#1e1e1e] dark:text-[#e6e6e6] leading-relaxed">
               {q.question}
             </h3>
 
@@ -109,7 +109,7 @@ export default function LiveTriviaView() {
               {q.options.map((opt, i) => {
                 const isSelected = selectedAnswer === i;
                 const isCorrect = i === q.correct;
-                let btnStyle = 'border-black/[0.06] dark:border-white/[0.08] hover:bg-black/[0.02] dark:hover:bg-white/[0.03] text-[#1c1e21] dark:text-[#e4e6eb]';
+                let btnStyle = 'border-black/[0.06] dark:border-white/[0.08] hover:bg-black/[0.02] dark:hover:bg-white/[0.03] text-[#1e1e1e] dark:text-[#e6e6e6]';
                 if (selectedAnswer !== null) {
                   if (isCorrect) btnStyle = 'border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold';
                   else if (isSelected) btnStyle = 'border-rose-500 bg-rose-500/10 text-rose-600 dark:text-rose-400';
@@ -135,13 +135,13 @@ export default function LiveTriviaView() {
             <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
               <Award className="w-8 h-8" />
             </div>
-            <h3 className="text-xl font-bold text-[#1c1e21] dark:text-[#e4e6eb]">Trivia Challenge Completed!</h3>
-            <p className="text-xs text-[#65676b] dark:text-[#8a8d91]">
+            <h3 className="text-xl font-bold text-[#1e1e1e] dark:text-[#e6e6e6]">Trivia Challenge Completed!</h3>
+            <p className="text-xs text-[#676767] dark:text-[#8d8d8d]">
               You scored <b className="text-violet-600 dark:text-violet-400 font-bold">{score} points</b> across all rounds.
             </p>
             <button
               onClick={handleRestart}
-              className="mt-3 flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white px-6 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md shadow-violet-500/20 active:scale-95 cursor-pointer"
+              className="mt-3 flex items-center gap-2 bg-gradient-to-r from-violet-600 to-neutral-600 hover:from-violet-700 hover:to-neutral-700 text-white px-6 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md shadow-violet-500/20 active:scale-95 cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
               <span>Play Again</span>

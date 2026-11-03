@@ -15,20 +15,20 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('checkin');
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-neutral-50">
       {/* Header */}
-      <header className="bg-slate-900 text-white shadow-lg">
+      <header className="bg-neutral-900 text-white shadow-lg">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
           <span className="text-2xl">🏢</span>
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Smart Visitor Log</h1>
-            <p className="text-xs text-slate-400">Powered by OpenBiometrics</p>
+            <p className="text-xs text-neutral-400">Powered by OpenBiometrics</p>
           </div>
         </div>
       </header>
 
       {/* Tab Navigation */}
-      <nav className="bg-white border-b border-slate-200 shadow-sm">
+      <nav className="bg-white border-b border-neutral-200 shadow-sm">
         <div className="max-w-4xl mx-auto px-4 flex gap-1">
           {tabs.map((tab) => (
             <button
@@ -37,7 +37,7 @@ export default function App() {
               className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab.id
                   ? 'border-emerald-600 text-emerald-700'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                  : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300'
               }`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">

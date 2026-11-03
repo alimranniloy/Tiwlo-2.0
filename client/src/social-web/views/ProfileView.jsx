@@ -138,9 +138,9 @@ export default function ProfileView() {
   return (
     <div className="w-full flex flex-col gap-5 pb-20">
       {/* 1. Header Card with Cover and Avatar */}
-      <div className="bg-white dark:bg-[#161822] rounded-3xl border border-[#EAECF0] dark:border-[#1E232F] overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+      <div className="bg-white dark:bg-[#181818] rounded-3xl border border-[#ececec] dark:border-[#232323] overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
         {/* Cover Photo Banner */}
-        <div className="relative h-48 sm:h-64 w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 overflow-hidden">
+        <div className="relative h-48 sm:h-64 w-full bg-gradient-to-r from-neutral-600 via-neutral-600 to-neutral-500 overflow-hidden">
           {p?.coverPhoto && (
             <img
               src={p.coverPhoto}
@@ -159,9 +159,9 @@ export default function ProfileView() {
               <img
                 src={p?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop'}
                 alt={p?.name}
-                className="w-28 h-28 sm:w-36 sm:h-36 rounded-full object-cover ring-4 ring-white dark:ring-[#161822] shadow-xl bg-white"
+                className="w-28 h-28 sm:w-36 sm:h-36 rounded-full object-cover ring-4 ring-white dark:ring-[#181818] shadow-xl bg-white"
               />
-              <span className="absolute bottom-2 right-2 w-4 h-4 bg-[#10B981] rounded-full ring-2 ring-white dark:ring-[#161822]" />
+              <span className="absolute bottom-2 right-2 w-4 h-4 bg-[#10B981] rounded-full ring-2 ring-white dark:ring-[#181818]" />
             </div>
 
             {/* Actions */}
@@ -171,7 +171,7 @@ export default function ProfileView() {
                   <button
                     type="button"
                     onClick={() => navigateTo('edit-profile')}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1E75FF] hover:bg-[#1A66E5] text-white text-[13px] font-bold transition shadow-xs cursor-pointer"
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#6c6c6c] hover:bg-[#5f5f5f] text-white text-[13px] font-bold transition shadow-xs cursor-pointer"
                   >
                     <Edit3 className="w-4 h-4" />
                     <span>Edit Profile</span>
@@ -182,7 +182,7 @@ export default function ProfileView() {
                       navigator.clipboard?.writeText(window.location.href);
                       showToast('Profile URL copied!', 'info');
                     }}
-                    className="p-2.5 rounded-xl border border-[#EAECF0] dark:border-[#1E232F] text-[#6B7280] hover:text-[#111827] dark:hover:text-white transition cursor-pointer"
+                    className="p-2.5 rounded-xl border border-[#ececec] dark:border-[#232323] text-[#727272] hover:text-[#181818] dark:hover:text-white transition cursor-pointer"
                     title="Share Profile"
                   >
                     <Share2 className="w-4 h-4" />
@@ -196,7 +196,7 @@ export default function ProfileView() {
                     className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-bold transition shadow-xs cursor-pointer ${
                       isFollowing
                         ? 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200'
-                        : 'bg-[#1E75FF] hover:bg-[#1A66E5] text-white'
+                        : 'bg-[#6c6c6c] hover:bg-[#5f5f5f] text-white'
                     }`}
                   >
                     {isFollowing ? 'Following' : '+ Follow'}
@@ -204,7 +204,7 @@ export default function ProfileView() {
                   <button
                     type="button"
                     onClick={() => navigateTo('messages', p?.id)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#EAECF0] dark:border-[#1E232F] text-[#111827] dark:text-white hover:bg-gray-50 text-[13px] font-semibold transition cursor-pointer"
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#ececec] dark:border-[#232323] text-[#181818] dark:text-white hover:bg-gray-50 text-[13px] font-semibold transition cursor-pointer"
                   >
                     <Mail className="w-4 h-4" />
                     <span>Message</span>
@@ -216,8 +216,8 @@ export default function ProfileView() {
                       setIsNotified(next);
                       showToast(next ? 'Notifications on for this user' : 'Notifications off', 'info');
                     }}
-                    className={`p-2.5 rounded-xl border border-[#EAECF0] dark:border-[#1E232F] transition cursor-pointer ${
-                      isNotified ? 'text-[#1E75FF]' : 'text-[#6B7280]'
+                    className={`p-2.5 rounded-xl border border-[#ececec] dark:border-[#232323] transition cursor-pointer ${
+                      isNotified ? 'text-[#6c6c6c]' : 'text-[#727272]'
                     }`}
                     title="Notify"
                   >
@@ -231,30 +231,30 @@ export default function ProfileView() {
           {/* Name & Handle */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
-              <h1 className="text-[24px] font-extrabold text-[#111827] dark:text-white tracking-tight">
+              <h1 className="text-[24px] font-extrabold text-[#181818] dark:text-white tracking-tight">
                 {p?.name || 'Ahmad Nur Fawaid'}
               </h1>
               {p?.isVerified && (
-                <CheckCircle2 className="w-5 h-5 text-[#1E75FF] fill-current flex-shrink-0" />
+                <CheckCircle2 className="w-5 h-5 text-[#6c6c6c] fill-current flex-shrink-0" />
               )}
             </div>
-            <span className="text-[14px] text-[#6B7280] dark:text-[#9CA3AF]">
+            <span className="text-[14px] text-[#727272] dark:text-[#a2a2a2]">
               @{p?.handle || 'fawait'}
             </span>
           </div>
 
           {/* Bio */}
           {p?.bio && (
-            <p className="text-[14px] text-[#374151] dark:text-[#D1D5DB] leading-relaxed mt-3 max-w-2xl">
+            <p className="text-[14px] text-[#404040] dark:text-[#d5d5d5] leading-relaxed mt-3 max-w-2xl">
               {p.bio}
             </p>
           )}
 
           {/* Metadata Row: Location, Website, Joined */}
-          <div className="flex flex-wrap items-center gap-4 text-[12.5px] text-[#6B7280] dark:text-[#9CA3AF] mt-4 pt-4 border-t border-[#F2F4F7] dark:border-[#1E232F]">
+          <div className="flex flex-wrap items-center gap-4 text-[12.5px] text-[#727272] dark:text-[#a2a2a2] mt-4 pt-4 border-t border-[#f4f4f4] dark:border-[#232323]">
             {p?.location && (
               <span className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-[#1E75FF]" />
+                <MapPin className="w-3.5 h-3.5 text-[#6c6c6c]" />
                 {p.location}
               </span>
             )}
@@ -263,7 +263,7 @@ export default function ProfileView() {
                 href={p.website}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-1.5 text-[#1E75FF] hover:underline"
+                className="flex items-center gap-1.5 text-[#6c6c6c] hover:underline"
               >
                 <LinkIcon className="w-3.5 h-3.5" />
                 {p.website.replace(/^https?:\/\//, '')}
@@ -276,45 +276,45 @@ export default function ProfileView() {
           </div>
 
           {/* Stats Bar */}
-          <div className="flex items-center gap-6 mt-5 pt-4 border-t border-[#F2F4F7] dark:border-[#1E232F]">
+          <div className="flex items-center gap-6 mt-5 pt-4 border-t border-[#f4f4f4] dark:border-[#232323]">
             <div>
-              <span className="font-extrabold text-[16px] text-[#111827] dark:text-white mr-1.5">
+              <span className="font-extrabold text-[16px] text-[#181818] dark:text-white mr-1.5">
                 {p?.postsCount || userPosts.length}
               </span>
-              <span className="text-[13px] text-[#6B7280] dark:text-[#9CA3AF]">Posts</span>
+              <span className="text-[13px] text-[#727272] dark:text-[#a2a2a2]">Posts</span>
             </div>
             <div className="cursor-pointer" onClick={() => navigateTo('friends')}>
-              <span className="font-extrabold text-[16px] text-[#111827] dark:text-white mr-1.5">
+              <span className="font-extrabold text-[16px] text-[#181818] dark:text-white mr-1.5">
                 {p?.followersCount || '42.8K'}
               </span>
-              <span className="text-[13px] text-[#6B7280] dark:text-[#9CA3AF]">Followers</span>
+              <span className="text-[13px] text-[#727272] dark:text-[#a2a2a2]">Followers</span>
             </div>
             <div className="cursor-pointer" onClick={() => navigateTo('friends')}>
-              <span className="font-extrabold text-[16px] text-[#111827] dark:text-white mr-1.5">
+              <span className="font-extrabold text-[16px] text-[#181818] dark:text-white mr-1.5">
                 {p?.followingCount || '1,230'}
               </span>
-              <span className="text-[13px] text-[#6B7280] dark:text-[#9CA3AF]">Following</span>
+              <span className="text-[13px] text-[#727272] dark:text-[#a2a2a2]">Following</span>
             </div>
             <div>
-              <span className="font-extrabold text-[16px] text-[#111827] dark:text-white mr-1.5">
+              <span className="font-extrabold text-[16px] text-[#181818] dark:text-white mr-1.5">
                 {p?.likesCount || '890K'}
               </span>
-              <span className="text-[13px] text-[#6B7280] dark:text-[#9CA3AF]">Likes</span>
+              <span className="text-[13px] text-[#727272] dark:text-[#a2a2a2]">Likes</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* 2. Profile Tabs Navigation Bar */}
-      <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-2 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex items-center justify-between">
+      <div className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] p-2 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex items-center justify-between">
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => setActiveTab('posts')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold transition cursor-pointer ${
               activeTab === 'posts'
-                ? 'bg-[#1E75FF] text-white shadow-xs'
-                : 'text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#111827]'
+                ? 'bg-[#6c6c6c] text-white shadow-xs'
+                : 'text-[#727272] dark:text-[#a2a2a2] hover:text-[#181818]'
             }`}
           >
             <Grid3X3 className="w-4 h-4" />
@@ -325,8 +325,8 @@ export default function ProfileView() {
             onClick={() => setActiveTab('reels')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold transition cursor-pointer ${
               activeTab === 'reels'
-                ? 'bg-[#1E75FF] text-white shadow-xs'
-                : 'text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#111827]'
+                ? 'bg-[#6c6c6c] text-white shadow-xs'
+                : 'text-[#727272] dark:text-[#a2a2a2] hover:text-[#181818]'
             }`}
           >
             <Film className="w-4 h-4" />
@@ -337,8 +337,8 @@ export default function ProfileView() {
             onClick={() => setActiveTab('photos')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold transition cursor-pointer ${
               activeTab === 'photos'
-                ? 'bg-[#1E75FF] text-white shadow-xs'
-                : 'text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#111827]'
+                ? 'bg-[#6c6c6c] text-white shadow-xs'
+                : 'text-[#727272] dark:text-[#a2a2a2] hover:text-[#181818]'
             }`}
           >
             <ImageIcon className="w-4 h-4" />
@@ -349,8 +349,8 @@ export default function ProfileView() {
             onClick={() => setActiveTab('about')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold transition cursor-pointer ${
               activeTab === 'about'
-                ? 'bg-[#1E75FF] text-white shadow-xs'
-                : 'text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#111827]'
+                ? 'bg-[#6c6c6c] text-white shadow-xs'
+                : 'text-[#727272] dark:text-[#a2a2a2] hover:text-[#181818]'
             }`}
           >
             <span>About</span>
@@ -358,11 +358,11 @@ export default function ProfileView() {
         </div>
 
         {activeTab === 'posts' && (
-          <div className="flex items-center gap-1 text-[#6B7280] dark:text-[#9CA3AF] mr-2">
+          <div className="flex items-center gap-1 text-[#727272] dark:text-[#a2a2a2] mr-2">
             <button
               type="button"
               onClick={() => setViewMode('feed')}
-              className={`p-1.5 rounded-lg transition ${viewMode === 'feed' ? 'bg-gray-100 dark:bg-gray-800 text-[#1E75FF]' : ''}`}
+              className={`p-1.5 rounded-lg transition ${viewMode === 'feed' ? 'bg-gray-100 dark:bg-gray-800 text-[#6c6c6c]' : ''}`}
               title="Feed View"
             >
               <List className="w-4 h-4" />
@@ -370,7 +370,7 @@ export default function ProfileView() {
             <button
               type="button"
               onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-lg transition ${viewMode === 'grid' ? 'bg-gray-100 dark:bg-gray-800 text-[#1E75FF]' : ''}`}
+              className={`p-1.5 rounded-lg transition ${viewMode === 'grid' ? 'bg-gray-100 dark:bg-gray-800 text-[#6c6c6c]' : ''}`}
               title="Grid View"
             >
               <Grid3X3 className="w-4 h-4" />
@@ -434,7 +434,7 @@ export default function ProfileView() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
               <div className="absolute bottom-3 left-3 text-white text-[12px] font-bold flex items-center gap-1.5">
-                <Film className="w-3.5 h-3.5 text-[#1E75FF]" />
+                <Film className="w-3.5 h-3.5 text-[#6c6c6c]" />
                 <span>{reel.views}</span>
               </div>
             </div>
@@ -460,31 +460,31 @@ export default function ProfileView() {
       )}
 
       {activeTab === 'about' && (
-        <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col gap-5">
-          <h3 className="font-bold text-[17px] text-[#111827] dark:text-white">
+        <div className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col gap-5">
+          <h3 className="font-bold text-[17px] text-[#181818] dark:text-white">
             About & Experience
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl bg-[#FAFBFD] dark:bg-[#14161F] border border-[#EAECF0] dark:border-[#1E232F] flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-[#1E75FF]/10 text-[#1E75FF] flex items-center justify-center flex-shrink-0">
+            <div className="p-4 rounded-xl bg-[#FAFBFD] dark:bg-[#161616] border border-[#ececec] dark:border-[#232323] flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-[#6c6c6c]/10 text-[#6c6c6c] flex items-center justify-center flex-shrink-0">
                 <Briefcase className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-[11px] text-[#9CA3AF] font-bold uppercase tracking-wider block">Work</span>
-                <span className="font-bold text-[14px] text-[#111827] dark:text-white">
+                <span className="text-[11px] text-[#a2a2a2] font-bold uppercase tracking-wider block">Work</span>
+                <span className="font-bold text-[14px] text-[#181818] dark:text-white">
                   {p?.work || 'Lead Designer at Sebo Studio'}
                 </span>
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-[#FAFBFD] dark:bg-[#14161F] border border-[#EAECF0] dark:border-[#1E232F] flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-[#1E75FF]/10 text-[#1E75FF] flex items-center justify-center flex-shrink-0">
+            <div className="p-4 rounded-xl bg-[#FAFBFD] dark:bg-[#161616] border border-[#ececec] dark:border-[#232323] flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-[#6c6c6c]/10 text-[#6c6c6c] flex items-center justify-center flex-shrink-0">
                 <GraduationCap className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-[11px] text-[#9CA3AF] font-bold uppercase tracking-wider block">Education</span>
-                <span className="font-bold text-[14px] text-[#111827] dark:text-white">
+                <span className="text-[11px] text-[#a2a2a2] font-bold uppercase tracking-wider block">Education</span>
+                <span className="font-bold text-[14px] text-[#181818] dark:text-white">
                   {p?.education || 'B.Sc in Interaction Design'}
                 </span>
               </div>

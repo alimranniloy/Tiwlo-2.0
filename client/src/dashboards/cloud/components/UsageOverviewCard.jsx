@@ -7,14 +7,14 @@ export default function UsageOverviewCard({ metrics }) {
       label: 'CPU',
       percent: metrics?.cpuPercent,
       usage: metrics?.cpuUsed || 'Unavailable',
-      color: '#3B82F6'
+      color: '#7b7b7b'
     },
     {
       id: 'memory',
       label: 'Memory',
       percent: metrics?.memoryPercent,
       usage: metrics?.memoryUsed || 'Unavailable',
-      color: '#8B5CF6'
+      color: '#717171'
     },
     {
       id: 'storage',
@@ -28,7 +28,7 @@ export default function UsageOverviewCard({ metrics }) {
       label: 'Bandwidth',
       percent: metrics?.bandwidthPercent,
       usage: metrics?.bandwidthUsed || 'Unavailable',
-      color: '#06B6D4'
+      color: '#939393'
     }
   ];
 
@@ -37,14 +37,14 @@ export default function UsageOverviewCard({ metrics }) {
   const circumference = 2 * Math.PI * radius;
 
   return (
-    <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#111827] border border-slate-200/70 dark:border-gray-800 shadow-2xs">
+    <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#181818] border border-neutral-200/70 dark:border-gray-800 shadow-2xs">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+        <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
           Usage Overview
         </h3>
 
-        <span className="text-[11px] text-slate-500 dark:text-slate-400">Live data unavailable</span>
+        <span className="text-[11px] text-neutral-500 dark:text-neutral-400">Live data unavailable</span>
       </div>
 
       {/* 4 Circular Rings in a row or 2x2 grid */}
@@ -67,7 +67,7 @@ export default function UsageOverviewCard({ metrics }) {
                     r={radius}
                     strokeWidth="4.5"
                     fill="none"
-                    className="stroke-slate-100 dark:stroke-gray-800"
+                    className="stroke-neutral-100 dark:stroke-gray-800"
                   />
                   {/* Progress Fill */}
                   <circle
@@ -86,17 +86,17 @@ export default function UsageOverviewCard({ metrics }) {
 
                 {/* Percentage Center Text */}
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xs font-black text-slate-900 dark:text-white">
+                  <span className="text-xs font-black text-neutral-900 dark:text-white">
                     {hasPercentage ? `${ring.percent}%` : '—'}
                   </span>
                 </div>
               </div>
 
               {/* Title & Specs */}
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+              <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
                 {ring.label}
               </p>
-              <p className="text-[10px] text-slate-400 dark:text-slate-400 font-medium truncate max-w-[80px]">
+              <p className="text-[10px] text-neutral-400 dark:text-neutral-400 font-medium truncate max-w-[80px]">
                 {ring.usage}
               </p>
             </div>

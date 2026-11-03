@@ -78,7 +78,7 @@ export function VideoPanel() {
               value={source}
               onChange={(e) => setSource(e.target.value)}
               placeholder="rtsp://... or /dev/video0 or http://..."
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-neutral-500 transition-colors"
             />
           </div>
           <div className="w-40">
@@ -88,13 +88,13 @@ export function VideoPanel() {
               value={cameraId}
               onChange={(e) => setCameraId(e.target.value)}
               placeholder="cam-01"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-neutral-500 transition-colors"
             />
           </div>
           <button
             onClick={handleAdd}
             disabled={!source.trim() || loading}
-            className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+            className="px-6 py-2.5 bg-neutral-600 hover:bg-neutral-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
           >
             {loading ? 'Adding...' : 'Add Camera'}
           </button>
@@ -123,7 +123,7 @@ export function VideoPanel() {
               }}
               className={`bg-gray-900 rounded-xl border p-4 cursor-pointer transition-colors space-y-3 ${
                 selectedCamera === cam.id
-                  ? 'border-indigo-500'
+                  ? 'border-neutral-500'
                   : 'border-gray-800 hover:border-gray-600'
               }`}
             >
@@ -181,7 +181,7 @@ export function VideoPanel() {
             </h3>
             <button
               onClick={() => setSnapshotKey((k) => k + 1)}
-              className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+              className="text-xs text-neutral-400 hover:text-neutral-300 transition-colors"
             >
               Refresh
             </button>

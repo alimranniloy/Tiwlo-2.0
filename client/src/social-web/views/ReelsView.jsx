@@ -233,14 +233,14 @@ export default function ReelsView() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[70vh]">
-        <div className="w-8 h-8 rounded-full border-2 border-[#1E75FF] border-t-transparent animate-spin" />
+        <div className="w-8 h-8 rounded-full border-2 border-[#6c6c6c] border-t-transparent animate-spin" />
       </div>
     );
   }
 
   if (!currentReel) {
     return (
-      <div className="text-center py-20 bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] p-8 max-w-md mx-auto">
+      <div className="text-center py-20 bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] p-8 max-w-md mx-auto">
         <p className="text-sm text-gray-500">No reels available right now.</p>
       </div>
     );
@@ -283,7 +283,7 @@ export default function ReelsView() {
           {/* Top Controls: Badge, Audio & More */}
           <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/50 backdrop-blur-md text-white text-[12px] font-bold ring-1 ring-white/10 pointer-events-auto">
-              <Sparkles className="w-3.5 h-3.5 text-[#1E75FF]" />
+              <Sparkles className="w-3.5 h-3.5 text-[#6c6c6c]" />
               <span>Tiwi Reels</span>
             </div>
 
@@ -306,7 +306,7 @@ export default function ReelsView() {
               <button
                 type="button"
                 onClick={() => navigateTo('profile', currentReel.author?.handle || currentReel.author?.id)}
-                className="relative rounded-full ring-2 ring-[#1E75FF] p-0.5 group"
+                className="relative rounded-full ring-2 ring-[#6c6c6c] p-0.5 group"
               >
                 <img
                   src={currentReel.author?.avatar}
@@ -324,7 +324,7 @@ export default function ReelsView() {
                     {currentReel.author?.name}
                   </span>
                   {currentReel.author?.isVerified && (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#1E75FF] fill-current flex-shrink-0" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#6c6c6c] fill-current flex-shrink-0" />
                   )}
                 </div>
                 <span className="text-[11.5px] text-white/70">@{currentReel.author?.handle}</span>
@@ -337,7 +337,7 @@ export default function ReelsView() {
                 className={`ml-2 px-3 py-1 rounded-full text-[11.5px] font-bold transition cursor-pointer flex items-center gap-1 ${
                   isFollowingAuthor
                     ? 'bg-white/20 text-white hover:bg-white/30'
-                    : 'bg-[#1E75FF] text-white hover:bg-[#1A66E5]'
+                    : 'bg-[#6c6c6c] text-white hover:bg-[#5f5f5f]'
                 }`}
               >
                 {isFollowingAuthor ? 'Following' : '+ Follow'}
@@ -350,7 +350,7 @@ export default function ReelsView() {
             </p>
 
             {currentReel.tags && (
-              <div className="flex flex-wrap gap-1.5 text-[12px] font-semibold text-[#1E75FF]">
+              <div className="flex flex-wrap gap-1.5 text-[12px] font-semibold text-[#6c6c6c]">
                 {currentReel.tags.map((tag, i) => (
                   <span key={i} className="hover:underline cursor-pointer">
                     {tag}
@@ -361,7 +361,7 @@ export default function ReelsView() {
 
             {/* Audio Track Chip */}
             <div className="flex items-center gap-2 text-[11.5px] text-white/80 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full w-fit max-w-[90%] overflow-hidden">
-              <Music className="w-3.5 h-3.5 text-[#1E75FF] flex-shrink-0 animate-spin" style={{ animationDuration: '4s' }} />
+              <Music className="w-3.5 h-3.5 text-[#6c6c6c] flex-shrink-0 animate-spin" style={{ animationDuration: '4s' }} />
               <span className="truncate">{currentReel.audioTitle}</span>
             </div>
           </div>
@@ -390,7 +390,7 @@ export default function ReelsView() {
               title="Comments Drawer"
             >
               <div className={`p-3 rounded-full backdrop-blur-md text-white transition ring-1 ring-white/15 shadow-lg ${
-                showCommentsSidePanel ? 'bg-[#1E75FF]' : 'bg-black/50 hover:bg-black/70'
+                showCommentsSidePanel ? 'bg-[#6c6c6c]' : 'bg-black/50 hover:bg-black/70'
               }`}>
                 <MessageCircle className="w-5 h-5" />
               </div>
@@ -421,7 +421,7 @@ export default function ReelsView() {
               title="Save Reel"
             >
               <div className={`p-3 rounded-full backdrop-blur-md text-white transition ring-1 ring-white/15 shadow-lg ${
-                isSaved ? 'bg-[#1E75FF]' : 'bg-black/50 hover:bg-black/70'
+                isSaved ? 'bg-[#6c6c6c]' : 'bg-black/50 hover:bg-black/70'
               }`}>
                 <Bookmark className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
               </div>
@@ -437,7 +437,7 @@ export default function ReelsView() {
                   className="w-full h-full rounded-full object-cover"
                 />
               </div>
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#1E75FF] text-white flex items-center justify-center text-[8px] font-bold">
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#6c6c6c] text-white flex items-center justify-center text-[8px] font-bold">
                 ♪
               </div>
             </div>
@@ -446,7 +446,7 @@ export default function ReelsView() {
           {/* Progress Bar scrubber at the very bottom */}
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20 z-30">
             <div
-              className="h-full bg-[#1E75FF] transition-all duration-100"
+              className="h-full bg-[#6c6c6c] transition-all duration-100"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -458,7 +458,7 @@ export default function ReelsView() {
             type="button"
             onClick={handlePrev}
             disabled={activeIndex === 0}
-            className="p-3.5 rounded-2xl bg-white dark:bg-[#161822] shadow-md border border-[#EAECF0] dark:border-[#1E232F] disabled:opacity-30 hover:scale-105 active:scale-95 transition cursor-pointer text-[#111827] dark:text-white"
+            className="p-3.5 rounded-2xl bg-white dark:bg-[#181818] shadow-md border border-[#ececec] dark:border-[#232323] disabled:opacity-30 hover:scale-105 active:scale-95 transition cursor-pointer text-[#181818] dark:text-white"
             title="Previous Reel (Up Arrow)"
           >
             <ChevronUp className="w-5 h-5" />
@@ -467,7 +467,7 @@ export default function ReelsView() {
             type="button"
             onClick={handleNext}
             disabled={activeIndex === reels.length - 1}
-            className="p-3.5 rounded-2xl bg-white dark:bg-[#161822] shadow-md border border-[#EAECF0] dark:border-[#1E232F] disabled:opacity-30 hover:scale-105 active:scale-95 transition cursor-pointer text-[#111827] dark:text-white"
+            className="p-3.5 rounded-2xl bg-white dark:bg-[#181818] shadow-md border border-[#ececec] dark:border-[#232323] disabled:opacity-30 hover:scale-105 active:scale-95 transition cursor-pointer text-[#181818] dark:text-white"
             title="Next Reel (Down Arrow)"
           >
             <ChevronDown className="w-5 h-5" />
@@ -476,14 +476,14 @@ export default function ReelsView() {
 
         {/* Side-by-Side Interactive Comments Drawer (NO POPUP / NO MODAL) */}
         {showCommentsSidePanel && (
-          <div className="w-[340px] xl:w-[380px] h-[740px] max-h-[85vh] bg-white dark:bg-[#161822] rounded-3xl border border-[#EAECF0] dark:border-[#1E232F] p-5 shadow-2xl flex flex-col justify-between animate-fadeIn">
+          <div className="w-[340px] xl:w-[380px] h-[740px] max-h-[85vh] bg-white dark:bg-[#181818] rounded-3xl border border-[#ececec] dark:border-[#232323] p-5 shadow-2xl flex flex-col justify-between animate-fadeIn">
             {/* Comments Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-[#F2F4F7] dark:border-[#1E232F]">
+            <div className="flex items-center justify-between pb-3 border-b border-[#f4f4f4] dark:border-[#232323]">
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-[15px] text-[#111827] dark:text-white">
+                <h3 className="font-bold text-[15px] text-[#181818] dark:text-white">
                   Comments
                 </h3>
-                <span className="text-[12px] font-semibold text-[#1E75FF] bg-[#1E75FF]/10 px-2 py-0.5 rounded-full">
+                <span className="text-[12px] font-semibold text-[#6c6c6c] bg-[#6c6c6c]/10 px-2 py-0.5 rounded-full">
                   {commentsList.length}
                 </span>
               </div>
@@ -508,12 +508,12 @@ export default function ReelsView() {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-[13px] text-[#111827] dark:text-white">
+                      <span className="font-bold text-[13px] text-[#181818] dark:text-white">
                         {comm.author}
                       </span>
                       <span className="text-[11px] text-gray-400">{comm.timeAgo}</span>
                     </div>
-                    <p className="text-[12.5px] text-[#4B5563] dark:text-[#D1D5DB] mt-0.5 leading-snug">
+                    <p className="text-[12.5px] text-[#545454] dark:text-[#d5d5d5] mt-0.5 leading-snug">
                       {comm.text}
                     </p>
                     <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-400">
@@ -521,7 +521,7 @@ export default function ReelsView() {
                         <Heart className="w-3 h-3" />
                         <span>{comm.likes}</span>
                       </button>
-                      <button type="button" className="hover:text-[#1E75FF]">
+                      <button type="button" className="hover:text-[#6c6c6c]">
                         Reply
                       </button>
                     </div>
@@ -533,19 +533,19 @@ export default function ReelsView() {
             {/* Comment Composer */}
             <form
               onSubmit={handleAddComment}
-              className="pt-3 border-t border-[#F2F4F7] dark:border-[#1E232F] flex items-center gap-2"
+              className="pt-3 border-t border-[#f4f4f4] dark:border-[#232323] flex items-center gap-2"
             >
               <input
                 type="text"
                 placeholder="Add a comment..."
                 value={commentInput}
                 onChange={(e) => setCommentInput(e.target.value)}
-                className="flex-1 h-[38px] px-3.5 bg-[#F4F5F7] dark:bg-[#1A1D27] rounded-xl text-[12.5px] outline-none focus:ring-2 focus:ring-[#1E75FF]/30 transition"
+                className="flex-1 h-[38px] px-3.5 bg-[#F4F5F7] dark:bg-[#1d1d1d] rounded-xl text-[12.5px] outline-none focus:ring-2 focus:ring-[#6c6c6c]/30 transition"
               />
               <button
                 type="submit"
                 disabled={!commentInput.trim()}
-                className="p-2 rounded-xl bg-[#1E75FF] hover:bg-[#1A66E5] disabled:opacity-40 text-white transition cursor-pointer"
+                className="p-2 rounded-xl bg-[#6c6c6c] hover:bg-[#5f5f5f] disabled:opacity-40 text-white transition cursor-pointer"
                 title="Send Comment"
               >
                 <Send className="w-4 h-4" />

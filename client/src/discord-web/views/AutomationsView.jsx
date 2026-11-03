@@ -51,10 +51,10 @@ export default function AutomationsView({ initialTab = 'welcome', onNavigate }) 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-16 font-sans bg-white">
       {/* 1. Modern Google Header */}
-      <div className="border-b border-[#E0E2EC] pb-5">
+      <div className="border-b border-[#e2e2e2] pb-5">
         <button
           onClick={() => onNavigate('/discord')}
-          className="inline-flex items-center gap-2 text-[13px] font-medium text-[#0B57D0] hover:text-[#0842A0] cursor-pointer mb-2.5"
+          className="inline-flex items-center gap-2 text-[13px] font-medium text-[#000000] hover:text-[#3c3c3c] cursor-pointer mb-2.5"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Console Overview</span>
@@ -84,8 +84,8 @@ export default function AutomationsView({ initialTab = 'welcome', onNavigate }) 
               onClick={() => setActiveTab(t.id)}
               className={`px-4 py-2 rounded-full font-medium cursor-pointer transition-colors flex items-center gap-2 ${
                 activeTab === t.id
-                  ? 'bg-[#C2E7FF] text-[#001D35]'
-                  : 'text-[#444746] hover:bg-[#F0F4F9]'
+                  ? 'bg-[#e1e1e1] text-[#191919]'
+                  : 'text-[#444746] hover:bg-[#f4f4f4]'
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -104,7 +104,7 @@ export default function AutomationsView({ initialTab = 'welcome', onNavigate }) 
       )}
 
       {/* 3. Form Card */}
-      <form onSubmit={handleSave} className="bg-white border border-[#E0E2EC] rounded-2xl p-6 sm:p-8 space-y-5 shadow-none">
+      <form onSubmit={handleSave} className="bg-white border border-[#e2e2e2] rounded-2xl p-6 sm:p-8 space-y-5 shadow-none">
         {activeTab === 'welcome' && (
           <>
             <div className="space-y-2">
@@ -116,7 +116,7 @@ export default function AutomationsView({ initialTab = 'welcome', onNavigate }) 
                 value={welcomeChannel}
                 onChange={(e) => setWelcomeChannel(e.target.value)}
                 placeholder="#welcome"
-                className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#0B57D0] transition-colors"
+                className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
               />
             </div>
 
@@ -128,7 +128,7 @@ export default function AutomationsView({ initialTab = 'welcome', onNavigate }) 
                 rows="4"
                 value={welcomeMessage}
                 onChange={(e) => setWelcomeMessage(e.target.value)}
-                className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#0B57D0] transition-colors"
+                className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
               />
               <p className="text-[11px] text-[#747775]">Use {'{user}'} to mention the joining account, and {'{server}'} for guild name.</p>
             </div>
@@ -145,7 +145,7 @@ export default function AutomationsView({ initialTab = 'welcome', onNavigate }) 
               value={autoRoleName}
               onChange={(e) => setAutoRoleName(e.target.value)}
               placeholder="Member"
-              className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#0B57D0] transition-colors"
+              className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
             />
             <p className="text-[11px] text-[#747775]">Automatically assigned upon joining after Discord verification.</p>
           </div>
@@ -162,7 +162,7 @@ export default function AutomationsView({ initialTab = 'welcome', onNavigate }) 
                 value={commandPrefix}
                 onChange={(e) => setCommandPrefix(e.target.value)}
                 placeholder="!help"
-                className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] font-mono focus:outline-none focus:bg-white focus:border-[#0B57D0] transition-colors"
+                className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] font-mono focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
               />
             </div>
 
@@ -174,17 +174,17 @@ export default function AutomationsView({ initialTab = 'welcome', onNavigate }) 
                 rows="3"
                 value={commandResponse}
                 onChange={(e) => setCommandResponse(e.target.value)}
-                className="w-full bg-[#F0F4F9] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#0B57D0] transition-colors"
+                className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
               />
             </div>
           </>
         )}
 
-        <div className="pt-4 border-t border-[#F0F4F9] flex justify-end">
+        <div className="pt-4 border-t border-[#f4f4f4] flex justify-end">
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex items-center gap-1.5 px-6 py-2.5 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-colors disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-6 py-2.5 text-[13px] font-medium text-white bg-[#000000] hover:bg-[#3c3c3c] rounded-full transition-colors disabled:opacity-50 cursor-pointer"
           >
             {saving ? <RotateCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             <span>Save Automation</span>

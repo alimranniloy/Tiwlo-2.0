@@ -88,7 +88,7 @@ function SquareSocialLayout({ onNavigateHome }) {
   const isReels = activeTab === 'reels';
 
   return (
-    <div className="min-h-screen bg-[#F5F7FB] dark:bg-[#0E1017] text-[#111827] dark:text-[#E2E8F0] font-sans antialiased flex flex-col selection:bg-[#1E75FF]/20 selection:text-[#1E75FF]">
+    <div className="min-h-screen bg-[#f7f7f7] dark:bg-[#101010] text-[#181818] dark:text-[#e7e7e7] font-sans antialiased flex flex-col selection:bg-[#6c6c6c]/20 selection:text-[#6c6c6c]">
       {/* 1. Top Navigation Bar matching screenshot */}
       <GoogleTopBar
         onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
@@ -122,7 +122,7 @@ function SquareSocialLayout({ onNavigateHome }) {
             <Suspense
               fallback={
                 <div className="flex items-center justify-center min-h-[50vh]">
-                  <div className="w-8 h-8 rounded-full border-2 border-[#1E75FF] border-t-transparent animate-spin" />
+                  <div className="w-8 h-8 rounded-full border-2 border-[#6c6c6c] border-t-transparent animate-spin" />
                 </div>
               }
             >
@@ -139,7 +139,7 @@ function SquareSocialLayout({ onNavigateHome }) {
 
           {/* Column 4: Far Right Contacts / Friends Rail (Shown exclusively on Feed) */}
           {isFeed && (
-            <div className="hidden xl:block flex-shrink-0 py-5 pl-3 border-l border-[#EAECF0] dark:border-[#1E232F]">
+            <div className="hidden xl:block flex-shrink-0 py-5 pl-3 border-l border-[#ececec] dark:border-[#232323]">
               <SocialFarRightRail />
             </div>
           )}

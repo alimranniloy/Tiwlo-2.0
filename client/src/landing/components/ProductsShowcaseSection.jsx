@@ -31,13 +31,13 @@ export default function ProductsShowcaseSection({ onNavigate, currentUser }) {
         
         {/* Google Cloud Header */}
         <div className="max-w-3xl mx-auto text-center mb-8 space-y-2.5">
-          <span className="text-[12px] font-semibold tracking-wider text-[#0b57d0] uppercase">
+          <span className="text-[12px] font-semibold tracking-wider text-[#000000] uppercase">
             PRODUCTS & SOLUTIONS
           </span>
           <h2 className="text-3xl sm:text-4xl lg:text-[42px] font-normal tracking-[-0.02em] text-[#1f1f1f] leading-tight">
             Explore products and solutions on Tiwlo Cloud
           </h2>
-          <p className="text-[15px] sm:text-[17px] text-[#5f6368] font-normal leading-relaxed">
+          <p className="text-[15px] sm:text-[17px] text-[#636363] font-normal leading-relaxed">
             Scalable infrastructure and modern commerce tools built to work seamlessly together.
           </p>
         </div>
@@ -53,11 +53,11 @@ export default function ProductsShowcaseSection({ onNavigate, currentUser }) {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-[14px] font-medium transition-all cursor-pointer whitespace-nowrap ${
                   isActive
-                    ? 'bg-[#0b57d0] text-white shadow-xs'
-                    : 'bg-white text-[#444746] hover:bg-[#e8eaed] hover:text-[#1f1f1f]'
+                    ? 'bg-[#000000] text-white shadow-xs'
+                    : 'bg-white text-[#444746] hover:bg-[#eaeaea] hover:text-[#1f1f1f]'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-[#5f6368]'}`} />
+                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-[#636363]'}`} />
                 <span>{tab.label}</span>
               </button>
             );
@@ -65,20 +65,20 @@ export default function ProductsShowcaseSection({ onNavigate, currentUser }) {
         </div>
 
         {/* Tab Content Showcase Cards (Borderless, Soft Elevation) */}
-        <div className="max-w-5xl mx-auto rounded-[24px] bg-white p-6 sm:p-10 shadow-[0_2px_16px_rgba(60,64,67,0.06)] border border-[#dadce0]/40">
+        <div className="max-w-5xl mx-auto rounded-[24px] bg-white p-6 sm:p-10 shadow-[0_2px_16px_rgba(60,64,67,0.06)] border border-[#dcdcdc]/40">
           
           {/* TAB 1: CLOUD COMPUTE */}
           {activeTab === 'compute' && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center animate-in fade-in duration-200">
               <div className="lg:col-span-6 space-y-5">
-                <div className="w-12 h-12 rounded-[14px] bg-[#e8f0fe] text-[#0b57d0] flex items-center justify-center">
+                <div className="w-12 h-12 rounded-[14px] bg-[#efefef] text-[#000000] flex items-center justify-center">
                   <Cpu className="w-6 h-6" />
                 </div>
                 <div>
                   <h3 className="text-2xl sm:text-3xl font-medium text-[#1f1f1f] tracking-tight">
                     Tiwlo Virtual Compute Droplets
                   </h3>
-                  <p className="text-[15px] text-[#5f6368] leading-relaxed mt-2">
+                  <p className="text-[15px] text-[#636363] leading-relaxed mt-2">
                     High-performance virtual machines with dedicated vCPU, lightning-fast NVMe storage, and automated horizontal scaling.
                   </p>
                 </div>
@@ -99,7 +99,7 @@ export default function ProductsShowcaseSection({ onNavigate, currentUser }) {
                 <div className="pt-4">
                   <button
                     onClick={() => onNavigate(currentUser ? 'dashboard' : 'create-account')}
-                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-[14px] font-medium transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white text-[14px] font-medium transition-colors cursor-pointer"
                   >
                     <span>Deploy Compute Droplet</span>
                     <ArrowRight className="w-4 h-4" />
@@ -120,7 +120,7 @@ export default function ProductsShowcaseSection({ onNavigate, currentUser }) {
                   <div key={i} className="p-4 rounded-[14px] bg-white shadow-xs flex items-center justify-between gap-3">
                     <div>
                       <div className="font-medium text-[#1f1f1f] text-[14px]">{plan.name}</div>
-                      <div className="text-[12px] text-[#5f6368]">{plan.specs}</div>
+                      <div className="text-[12px] text-[#636363]">{plan.specs}</div>
                       <div className="text-[11px] text-[#747775] mt-0.5">{plan.use}</div>
                     </div>
                     <div className="text-right shrink-0">
@@ -144,7 +144,7 @@ export default function ProductsShowcaseSection({ onNavigate, currentUser }) {
                   <h3 className="text-2xl sm:text-3xl font-medium text-[#1f1f1f] tracking-tight">
                     Tiwlo Commerce Studio
                   </h3>
-                  <p className="text-[15px] text-[#5f6368] leading-relaxed mt-2">
+                  <p className="text-[15px] text-[#636363] leading-relaxed mt-2">
                     Build blazing-fast, mobile-first online storefronts with integrated themes, multi-currency checkout, and real-time inventory ledger.
                   </p>
                 </div>
@@ -165,7 +165,7 @@ export default function ProductsShowcaseSection({ onNavigate, currentUser }) {
                 <div className="pt-4">
                   <button
                     onClick={() => onNavigate('store')}
-                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-[14px] font-medium transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white text-[14px] font-medium transition-colors cursor-pointer"
                   >
                     <span>Explore Commerce Store</span>
                     <ArrowRight className="w-4 h-4" />
@@ -185,7 +185,7 @@ export default function ProductsShowcaseSection({ onNavigate, currentUser }) {
                 ].map((feat, i) => (
                   <div key={i} className="p-4 rounded-[14px] bg-white shadow-xs">
                     <div className="font-medium text-[#1f1f1f] text-[14px]">{feat.title}</div>
-                    <div className="text-[12px] text-[#5f6368] mt-1">{feat.desc}</div>
+                    <div className="text-[12px] text-[#636363] mt-1">{feat.desc}</div>
                   </div>
                 ))}
               </div>
@@ -203,7 +203,7 @@ export default function ProductsShowcaseSection({ onNavigate, currentUser }) {
                   <h3 className="text-2xl sm:text-3xl font-medium text-[#1f1f1f] tracking-tight">
                     Tiwlo Smart Omnichannel POS
                   </h3>
-                  <p className="text-[15px] text-[#5f6368] leading-relaxed mt-2">
+                  <p className="text-[15px] text-[#636363] leading-relaxed mt-2">
                     Turn any tablet, desktop, or mobile device into a full retail cash register with laser barcode scanning and instant thermal printing.
                   </p>
                 </div>
@@ -224,7 +224,7 @@ export default function ProductsShowcaseSection({ onNavigate, currentUser }) {
                 <div className="pt-4">
                   <button
                     onClick={() => onNavigate('pos')}
-                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-[14px] font-medium transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white text-[14px] font-medium transition-colors cursor-pointer"
                   >
                     <span>Open POS Terminal</span>
                     <ArrowRight className="w-4 h-4" />
@@ -244,7 +244,7 @@ export default function ProductsShowcaseSection({ onNavigate, currentUser }) {
                 ].map((feat, i) => (
                   <div key={i} className="p-4 rounded-[14px] bg-white shadow-xs">
                     <div className="font-medium text-[#1f1f1f] text-[14px]">{feat.title}</div>
-                    <div className="text-[12px] text-[#5f6368] mt-1">{feat.desc}</div>
+                    <div className="text-[12px] text-[#636363] mt-1">{feat.desc}</div>
                   </div>
                 ))}
               </div>
@@ -262,7 +262,7 @@ export default function ProductsShowcaseSection({ onNavigate, currentUser }) {
                   <h3 className="text-2xl sm:text-3xl font-medium text-[#1f1f1f] tracking-tight">
                     Isolated Multi-Tenant Databases
                   </h3>
-                  <p className="text-[15px] text-[#5f6368] leading-relaxed mt-2">
+                  <p className="text-[15px] text-[#636363] leading-relaxed mt-2">
                     Every store is provisioned with a physically isolated data partition, eliminating cross-tenant leakage and ensuring enterprise privacy.
                   </p>
                 </div>
@@ -283,7 +283,7 @@ export default function ProductsShowcaseSection({ onNavigate, currentUser }) {
                 <div className="pt-4">
                   <button
                     onClick={() => onNavigate(currentUser ? 'dashboard' : 'create-account')}
-                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-[14px] font-medium transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white text-[14px] font-medium transition-colors cursor-pointer"
                   >
                     <span>View Database Specs</span>
                     <ArrowRight className="w-4 h-4" />
@@ -303,7 +303,7 @@ export default function ProductsShowcaseSection({ onNavigate, currentUser }) {
                 ].map((feat, i) => (
                   <div key={i} className="p-4 rounded-[14px] bg-white shadow-xs">
                     <div className="font-medium text-[#1f1f1f] text-[14px]">{feat.title}</div>
-                    <div className="text-[12px] text-[#5f6368] mt-1">{feat.desc}</div>
+                    <div className="text-[12px] text-[#636363] mt-1">{feat.desc}</div>
                   </div>
                 ))}
               </div>
@@ -314,14 +314,14 @@ export default function ProductsShowcaseSection({ onNavigate, currentUser }) {
           {activeTab === 'networking' && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center animate-in fade-in duration-200">
               <div className="lg:col-span-6 space-y-5">
-                <div className="w-12 h-12 rounded-[14px] bg-[#e8f0fe] text-[#0b57d0] flex items-center justify-center">
+                <div className="w-12 h-12 rounded-[14px] bg-[#efefef] text-[#000000] flex items-center justify-center">
                   <Globe className="w-6 h-6" />
                 </div>
                 <div>
                   <h3 className="text-2xl sm:text-3xl font-medium text-[#1f1f1f] tracking-tight">
                     Custom Domain DNS Verification & SSL
                   </h3>
-                  <p className="text-[15px] text-[#5f6368] leading-relaxed mt-2">
+                  <p className="text-[15px] text-[#636363] leading-relaxed mt-2">
                     Add a TXT record to prove ownership and point an A record to Tiwlo. After verification, request an apex-domain certificate through the authenticated domain API.
                   </p>
                 </div>
@@ -342,7 +342,7 @@ export default function ProductsShowcaseSection({ onNavigate, currentUser }) {
                 <div className="pt-4">
                   <button
                     onClick={() => onNavigate('pricing')}
-                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-[14px] font-medium transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white text-[14px] font-medium transition-colors cursor-pointer"
                   >
                     <span>View Eligible Plans</span>
                     <ArrowRight className="w-4 h-4" />
@@ -362,7 +362,7 @@ export default function ProductsShowcaseSection({ onNavigate, currentUser }) {
                 ].map((feat, i) => (
                   <div key={i} className="p-4 rounded-[14px] bg-white shadow-xs">
                     <div className="font-medium text-[#1f1f1f] text-[14px]">{feat.title}</div>
-                    <div className="text-[12px] text-[#5f6368] mt-1">{feat.desc}</div>
+                    <div className="text-[12px] text-[#636363] mt-1">{feat.desc}</div>
                   </div>
                 ))}
               </div>

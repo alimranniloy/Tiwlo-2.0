@@ -114,19 +114,19 @@ export default function PhotosView() {
   return (
     <div className="w-full flex flex-col gap-5 pb-20">
       {/* 1. Header Card */}
-      <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-[#1E75FF]/10 text-[#1E75FF] flex items-center justify-center flex-shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-[#6c6c6c]/10 text-[#6c6c6c] flex items-center justify-center flex-shrink-0">
             <ImageIcon className="w-6 h-6 stroke-[2]" />
           </div>
           <div>
-            <h1 className="text-[20px] font-extrabold text-[#111827] dark:text-white tracking-tight flex items-center gap-2">
+            <h1 className="text-[20px] font-extrabold text-[#181818] dark:text-white tracking-tight flex items-center gap-2">
               Photos & Media
-              <span className="text-[12px] font-semibold bg-[#1E75FF]/10 text-[#1E75FF] px-2.5 py-0.5 rounded-full">
+              <span className="text-[12px] font-semibold bg-[#6c6c6c]/10 text-[#6c6c6c] px-2.5 py-0.5 rounded-full">
                 {photos.length} Photos
               </span>
             </h1>
-            <p className="text-[13px] text-[#6B7280] dark:text-[#9CA3AF]">
+            <p className="text-[13px] text-[#727272] dark:text-[#a2a2a2]">
               Browse high-resolution albums, design screenshots, and community captures
             </p>
           </div>
@@ -134,14 +134,14 @@ export default function PhotosView() {
 
         {/* Action & Filter buttons */}
         <div className="flex items-center gap-2.5 w-full sm:w-auto">
-          <div className="flex items-center bg-[#F4F5F7] dark:bg-[#1A1D27] p-1 rounded-xl flex-1 sm:flex-none">
+          <div className="flex items-center bg-[#F4F5F7] dark:bg-[#1d1d1d] p-1 rounded-xl flex-1 sm:flex-none">
             <button
               type="button"
               onClick={() => setActiveTab('all')}
               className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold transition cursor-pointer ${
                 activeTab === 'all'
-                  ? 'bg-white dark:bg-[#161822] text-[#1E75FF] shadow-xs'
-                  : 'text-[#6B7280] dark:text-[#9CA3AF]'
+                  ? 'bg-white dark:bg-[#181818] text-[#6c6c6c] shadow-xs'
+                  : 'text-[#727272] dark:text-[#a2a2a2]'
               }`}
             >
               All Photos
@@ -151,8 +151,8 @@ export default function PhotosView() {
               onClick={() => setActiveTab('albums')}
               className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold transition cursor-pointer ${
                 activeTab === 'albums'
-                  ? 'bg-white dark:bg-[#161822] text-[#1E75FF] shadow-xs'
-                  : 'text-[#6B7280] dark:text-[#9CA3AF]'
+                  ? 'bg-white dark:bg-[#181818] text-[#6c6c6c] shadow-xs'
+                  : 'text-[#727272] dark:text-[#a2a2a2]'
               }`}
             >
               Albums ({albums.length})
@@ -162,7 +162,7 @@ export default function PhotosView() {
           <button
             type="button"
             onClick={() => showToast('Upload modal / selector opened', 'info')}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1E75FF] hover:bg-[#1A66E5] text-white text-[12.5px] font-bold shadow-xs transition cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#6c6c6c] hover:bg-[#5f5f5f] text-white text-[12.5px] font-bold shadow-xs transition cursor-pointer"
           >
             <Upload className="w-3.5 h-3.5" />
             <span>Upload Photo</span>
@@ -172,9 +172,9 @@ export default function PhotosView() {
 
       {/* 2. Albums Grid (shown in albums tab or top of gallery) */}
       {(activeTab === 'albums' || activeTab === 'all') && (
-        <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
-          <h2 className="text-[16px] font-bold text-[#111827] dark:text-white mb-4 flex items-center gap-2">
-            <Folder className="w-4 h-4 text-[#1E75FF]" />
+        <div className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+          <h2 className="text-[16px] font-bold text-[#181818] dark:text-white mb-4 flex items-center gap-2">
+            <Folder className="w-4 h-4 text-[#6c6c6c]" />
             <span>Featured Albums</span>
           </h2>
 
@@ -197,7 +197,7 @@ export default function PhotosView() {
                   </span>
                 </div>
                 <div>
-                  <h3 className="font-bold text-[13.5px] text-[#111827] dark:text-white group-hover:text-[#1E75FF] truncate transition-colors">
+                  <h3 className="font-bold text-[13.5px] text-[#181818] dark:text-white group-hover:text-[#6c6c6c] truncate transition-colors">
                     {alb.title}
                   </h3>
                 </div>
@@ -208,8 +208,8 @@ export default function PhotosView() {
       )}
 
       {/* 3. Photos Gallery Grid (Fixed crop: natural aspect-ratio card tiles) */}
-      <div className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
-        <h2 className="text-[16px] font-bold text-[#111827] dark:text-white mb-4 flex items-center gap-2">
+      <div className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+        <h2 className="text-[16px] font-bold text-[#181818] dark:text-white mb-4 flex items-center gap-2">
           <span>All Media Uploads</span>
         </h2>
 
@@ -255,16 +255,16 @@ export default function PhotosView() {
 
       {/* 4. Dedicated In-Page Showcase Preview (NO POPUP / NO MODAL) */}
       {selectedPhoto && (
-        <div className="bg-white dark:bg-[#161822] rounded-2xl border-2 border-[#1E75FF] p-5 shadow-lg flex flex-col gap-4">
+        <div className="bg-white dark:bg-[#181818] rounded-2xl border-2 border-[#6c6c6c] p-5 shadow-lg flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-[16px] font-bold text-[#111827] dark:text-white flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#1E75FF]" />
+            <h3 className="text-[16px] font-bold text-[#181818] dark:text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#6c6c6c]" />
               <span>{selectedPhoto.title}</span>
             </h3>
             <button
               type="button"
               onClick={() => setSelectedPhoto(null)}
-              className="text-[12px] font-bold text-[#6B7280] hover:text-[#111827] px-3 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 transition cursor-pointer"
+              className="text-[12px] font-bold text-[#727272] hover:text-[#181818] px-3 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 transition cursor-pointer"
             >
               Close Preview
             </button>
@@ -279,7 +279,7 @@ export default function PhotosView() {
           </div>
 
           <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
-            <div className="flex items-center gap-4 text-sm text-[#6B7280]">
+            <div className="flex items-center gap-4 text-sm text-[#727272]">
               <span className="flex items-center gap-1.5 font-semibold text-red-500">
                 <Heart className="w-4 h-4 fill-current" />
                 {selectedPhoto.likes} Likes

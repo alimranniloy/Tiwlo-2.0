@@ -30,7 +30,7 @@ export function FaceOverlay({ imageUrl, faces }: Props) {
 
         // Bounding box
         const isLive = face.liveness?.is_live;
-        const color = isLive === false ? '#ef4444' : isLive === true ? '#22c55e' : '#6366f1';
+        const color = isLive === false ? '#ef4444' : isLive === true ? '#22c55e' : '#6f6f6f';
         ctx.strokeStyle = color;
         ctx.lineWidth = Math.max(2, Math.min(canvas.width, canvas.height) * 0.003);
         ctx.strokeRect(x1, y1, w, h);
@@ -55,7 +55,7 @@ export function FaceOverlay({ imageUrl, faces }: Props) {
         ctx.fillText(text, x1 + pad, y1 - pad);
 
         // Landmarks
-        ctx.fillStyle = '#22d3ee';
+        ctx.fillStyle = '#afafaf';
         for (const [lx, ly] of face.detection.landmarks) {
           ctx.beginPath();
           ctx.arc(lx, ly, Math.max(2, canvas.width * 0.003), 0, Math.PI * 2);

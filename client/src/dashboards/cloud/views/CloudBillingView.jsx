@@ -34,7 +34,7 @@ import { COUNTRY_OPTIONS } from '../../../utils/accountFormOptions';
 import { openMaterialDialog } from '../../../components/MaterialDialogProvider.jsx';
 import CloudInvoicePage from '../invoice/CloudInvoicePage.jsx';
 
-const FORM_FIELD = 'mt-1.5 w-full rounded-xl border border-[#DADCE0] bg-white px-3.5 py-2.5 text-sm font-normal text-[#202124] outline-none transition placeholder:text-[#80868B] focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white dark:focus:ring-[#174EA6]/40';
+const FORM_FIELD = 'mt-1.5 w-full rounded-xl border border-[#dcdcdc] bg-white px-3.5 py-2.5 text-sm font-normal text-[#212121] outline-none transition placeholder:text-[#858585] focus:border-[#696969] focus:ring-2 focus:ring-[#e1e1e1] dark:border-[#3f3f3f] dark:bg-[#212121] dark:text-white dark:focus:ring-[#494949]/40';
 
 export default function CloudBillingView({ currentUser, initialTab = 'overview', onBack, showToast }) {
   const userId = currentUser?.id || currentUser?.tiwiId || null;
@@ -220,7 +220,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-[#131314] flex items-center justify-center text-sm text-[#5F6368] dark:text-[#9AA0A6]">
+      <div className="min-h-screen bg-white dark:bg-[#131313] flex items-center justify-center text-sm text-[#636363] dark:text-[#9f9f9f]">
         Loading billing account…
       </div>
     );
@@ -228,18 +228,18 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
 
   if (!account) {
     return (
-      <div className="min-h-screen bg-white dark:bg-[#131314] flex items-center justify-center px-4">
-        <div className="max-w-md w-full rounded-2xl border border-[#EDF0F5] dark:border-[#2C2D31] p-6 text-center">
+      <div className="min-h-screen bg-white dark:bg-[#131313] flex items-center justify-center px-4">
+        <div className="max-w-md w-full rounded-2xl border border-[#f0f0f0] dark:border-[#2d2d2d] p-6 text-center">
           <AlertCircle className="w-8 h-8 mx-auto mb-3 text-[#B06000]" />
           <h1 className="text-base font-semibold text-[#1F1F1F] dark:text-white">Billing unavailable</h1>
-          <p className="mt-2 text-sm text-[#5F6368] dark:text-[#9AA0A6]">
+          <p className="mt-2 text-sm text-[#636363] dark:text-[#9f9f9f]">
             {billingState.error || 'Sign in to view your cloud billing account.'}
           </p>
           {userId && (
             <button
               type="button"
               onClick={loadBilling}
-              className="mt-4 px-4 py-2 rounded-full bg-[#0B57D0] text-white text-sm font-medium"
+              className="mt-4 px-4 py-2 rounded-full bg-[#000000] text-white text-sm font-medium"
             >
               Retry
             </button>
@@ -408,10 +408,10 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
   ];
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#131314] text-[#1F1F1F] dark:text-[#E3E3E3] font-sans antialiased pb-20 select-none transition-colors duration-200">
+    <div className="min-h-screen bg-white dark:bg-[#131313] text-[#1F1F1F] dark:text-[#E3E3E3] font-sans antialiased pb-20 select-none transition-colors duration-200">
       
       {/* Top Clean Console Bar (Google Cloud & Apple macOS Flat Clean Header) */}
-      <header className="sticky top-0 z-40 bg-white dark:bg-[#1E1F22] border-b border-[#EDF0F5] dark:border-[#2C2D31] px-4 sm:px-8 py-3.5 transition-colors">
+      <header className="sticky top-0 z-40 bg-white dark:bg-[#1f1f1f] border-b border-[#f0f0f0] dark:border-[#2d2d2d] px-4 sm:px-8 py-3.5 transition-colors">
         <div className="max-w-[1500px] mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           
           {/* Breadcrumb & Platform Identifier */}
@@ -420,7 +420,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
               <button
                 type="button"
                 onClick={onBack}
-                className="w-8 h-8 rounded-full flex items-center justify-center bg-[#F0F4F9] hover:bg-[#E9EEF6] dark:bg-[#2C2D31] dark:hover:bg-[#383A3F] text-[#444746] dark:text-[#C4C7C5] transition cursor-pointer"
+                className="w-8 h-8 rounded-full flex items-center justify-center bg-[#f4f4f4] hover:bg-[#eeeeee] dark:bg-[#2d2d2d] dark:hover:bg-[#3a3a3a] text-[#444746] dark:text-[#C4C7C5] transition cursor-pointer"
                 title="Back to Cloud Dashboard"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -428,10 +428,10 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
             )}
 
             <div className="flex flex-col">
-              <div className="flex items-center gap-2 text-[11px] font-medium tracking-wide text-[#5F6368] dark:text-[#9AA0A6]">
+              <div className="flex items-center gap-2 text-[11px] font-medium tracking-wide text-[#636363] dark:text-[#9f9f9f]">
                 <span>Tiwlo Cloud</span>
                 <span className="text-[#C4C7C5] dark:text-[#444746]">/</span>
-                <span className="text-[#0B57D0] dark:text-[#8AB4F8]">Billing</span>
+                <span className="text-[#000000] dark:text-[#b0b0b0]">Billing</span>
               </div>
               <div className="flex items-center gap-2.5 mt-0.5">
                 <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-[#1F1F1F] dark:text-white">
@@ -454,13 +454,13 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
           {/* Right Account ID & Action Controls */}
           <div className="flex items-center gap-2.5 sm:gap-3 self-end sm:self-center">
             {/* Account ID Pill with 1-Click Copy */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F0F4F9] dark:bg-[#2C2D31] border border-[#E0E2EC] dark:border-[#3C4043] text-xs font-mono text-[#444746] dark:text-[#C4C7C5]">
-              <span className="text-[10px] font-sans font-medium text-[#5F6368] dark:text-[#9AA0A6]">ID:</span>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#f4f4f4] dark:bg-[#2d2d2d] border border-[#e2e2e2] dark:border-[#3f3f3f] text-xs font-mono text-[#444746] dark:text-[#C4C7C5]">
+              <span className="text-[10px] font-sans font-medium text-[#636363] dark:text-[#9f9f9f]">ID:</span>
               <span>{billingAccountId}</span>
               <button
                 type="button"
                 onClick={copyAccountId}
-                className="ml-1 p-0.5 hover:text-[#0B57D0] dark:hover:text-[#8AB4F8] transition cursor-pointer"
+                className="ml-1 p-0.5 hover:text-[#000000] dark:hover:text-[#b0b0b0] transition cursor-pointer"
                 title="Copy Billing ID"
               >
                 {copiedId ? <Check className="w-3.5 h-3.5 text-[#188038]" /> : <Copy className="w-3.5 h-3.5" />}
@@ -472,7 +472,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
               type="button"
               onClick={loadBilling}
               disabled={loading}
-              className="w-8 h-8 rounded-full flex items-center justify-center bg-[#F0F4F9] hover:bg-[#E9EEF6] dark:bg-[#2C2D31] dark:hover:bg-[#383A3F] border border-[#E0E2EC] dark:border-[#3C4043] text-[#444746] dark:text-[#C4C7C5] transition cursor-pointer disabled:opacity-50"
+              className="w-8 h-8 rounded-full flex items-center justify-center bg-[#f4f4f4] hover:bg-[#eeeeee] dark:bg-[#2d2d2d] dark:hover:bg-[#3a3a3a] border border-[#e2e2e2] dark:border-[#3f3f3f] text-[#444746] dark:text-[#C4C7C5] transition cursor-pointer disabled:opacity-50"
               title="Refresh Billing Ledger"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -481,9 +481,9 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
         </div>
 
         {/* Clean Google Material 3 / macOS Segmented Pill Switcher */}
-        <div className="max-w-[1500px] mx-auto mt-3.5 pt-2 border-t border-[#EDF0F5] dark:border-[#2C2D31]">
+        <div className="max-w-[1500px] mx-auto mt-3.5 pt-2 border-t border-[#f0f0f0] dark:border-[#2d2d2d]">
           <div className="flex items-center overflow-x-auto scrollbar-none py-1">
-            <div className="inline-flex p-1 bg-[#F0F4F9] dark:bg-[#2C2D31] rounded-full border border-[#E0E2EC] dark:border-[#3C4043] gap-1 shrink-0">
+            <div className="inline-flex p-1 bg-[#f4f4f4] dark:bg-[#2d2d2d] rounded-full border border-[#e2e2e2] dark:border-[#3f3f3f] gap-1 shrink-0">
               {navTabs.map((tab) => {
                 const Icon = tab.icon;
                 const isSelected = activeTab === tab.id;
@@ -494,7 +494,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-150 select-none cursor-pointer whitespace-nowrap ${
                       isSelected
-                        ? 'bg-white dark:bg-[#1E1F22] text-[#0B57D0] dark:text-[#8AB4F8] font-semibold'
+                        ? 'bg-white dark:bg-[#1f1f1f] text-[#000000] dark:text-[#b0b0b0] font-semibold'
                         : 'text-[#444746] dark:text-[#C4C7C5] hover:text-[#1F1F1F] dark:hover:text-white'
                     }`}
                   >
@@ -521,10 +521,10 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
               
               {/* Card 1: Available Credit Balance */}
-              <div className="p-6 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31]">
-                <div className="flex items-center justify-between text-xs text-[#5F6368] dark:text-[#9AA0A6]">
+              <div className="p-6 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
+                <div className="flex items-center justify-between text-xs text-[#636363] dark:text-[#9f9f9f]">
                   <span className="font-medium">Available Balance</span>
-                  <div className="w-7 h-7 rounded-full bg-[#E8F0FE] text-[#0B57D0] flex items-center justify-center">
+                  <div className="w-7 h-7 rounded-full bg-[#efefef] text-[#000000] flex items-center justify-center">
                     <Coins className="w-4 h-4" />
                   </div>
                 </div>
@@ -533,18 +533,18 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                   <span className="text-3xl sm:text-4xl font-semibold text-[#1F1F1F] dark:text-white tracking-tight">
                     {credits === null ? 'Unavailable' : formatMoney(credits)}
                   </span>
-                  <span className="text-[11px] font-medium text-[#0B57D0] dark:text-[#8AB4F8] ml-1 bg-[#E8F0FE] dark:bg-[#0B57D0]/20 px-2 py-0.5 rounded-full">
+                  <span className="text-[11px] font-medium text-[#000000] dark:text-[#b0b0b0] ml-1 bg-[#efefef] dark:bg-[#000000]/20 px-2 py-0.5 rounded-full">
                     {account.currency}
                   </span>
                 </div>
-                <div className="mt-3 pt-3 border-t border-[#F0F2F5] dark:border-[#2C2D31] flex items-center justify-between text-xs">
-                  <span className="text-[#5F6368] dark:text-[#9AA0A6]">
+                <div className="mt-3 pt-3 border-t border-[#f2f2f2] dark:border-[#2d2d2d] flex items-center justify-between text-xs">
+                  <span className="text-[#636363] dark:text-[#9f9f9f]">
                     Promo: <span className="font-medium text-[#1F1F1F] dark:text-white">{promotionalCredits === null ? 'Unavailable' : formatMoney(promotionalCredits)}</span>
                   </span>
                   <button
                     type="button"
                     onClick={() => setActiveTab('credits')}
-                    className="text-xs font-semibold text-[#0B57D0] dark:text-[#8AB4F8] hover:underline flex items-center gap-0.5 cursor-pointer"
+                    className="text-xs font-semibold text-[#000000] dark:text-[#b0b0b0] hover:underline flex items-center gap-0.5 cursor-pointer"
                   >
                     <span>Add Funds</span>
                     <ChevronRight className="w-3 h-3" />
@@ -553,10 +553,10 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
               </div>
 
               {/* Card 2: Current Month Incurred Spend */}
-              <div className="p-6 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31]">
-                <div className="flex items-center justify-between text-xs text-[#5F6368] dark:text-[#9AA0A6]">
+              <div className="p-6 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
+                <div className="flex items-center justify-between text-xs text-[#636363] dark:text-[#9f9f9f]">
                   <span className="font-medium">Current Month Spend</span>
-                  <div className="w-7 h-7 rounded-full bg-[#F3E8FF] text-[#7C3AED] flex items-center justify-center">
+                  <div className="w-7 h-7 rounded-full bg-[#ececec] text-[#555555] flex items-center justify-center">
                     <Receipt className="w-4 h-4" />
                   </div>
                 </div>
@@ -564,11 +564,11 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                   <span className="text-3xl sm:text-4xl font-semibold text-[#1F1F1F] dark:text-white tracking-tight">
                     {formatMoney(account?.monthToDateSpent)}
                   </span>
-                  <span className="text-[11px] font-medium text-[#5F6368] dark:text-[#9AA0A6] ml-1">
+                  <span className="text-[11px] font-medium text-[#636363] dark:text-[#9f9f9f] ml-1">
                     {account.currency}
                   </span>
                 </div>
-                <div className="mt-3 pt-3 border-t border-[#F0F2F5] dark:border-[#2C2D31] flex items-center justify-between text-xs text-[#5F6368] dark:text-[#9AA0A6]">
+                <div className="mt-3 pt-3 border-t border-[#f2f2f2] dark:border-[#2d2d2d] flex items-center justify-between text-xs text-[#636363] dark:text-[#9f9f9f]">
                   <span>Billing Period</span>
                   <span className="inline-flex items-center gap-1 text-[#137333] dark:text-[#81C995] font-medium">
                     <span>{account?.usageMeteringEnabled ? 'Metering active' : 'Metering unavailable'}</span>
@@ -577,8 +577,8 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
               </div>
 
               {/* Card 3: Projected Spend */}
-              <div className="p-6 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31]">
-                <div className="flex items-center justify-between text-xs text-[#5F6368] dark:text-[#9AA0A6]">
+              <div className="p-6 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
+                <div className="flex items-center justify-between text-xs text-[#636363] dark:text-[#9f9f9f]">
                   <span className="font-medium">Forecasted Month End</span>
                   <div className="w-7 h-7 rounded-full bg-[#D1FAE5] text-[#059669] flex items-center justify-center">
                     <TrendingUp className="w-4 h-4" />
@@ -589,16 +589,16 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                     {formatMoney(account?.projectedCost)}
                   </span>
                 </div>
-                <div className="mt-3 pt-3 border-t border-[#F0F2F5] dark:border-[#2C2D31] text-xs text-[#5F6368] dark:text-[#9AA0A6]">
+                <div className="mt-3 pt-3 border-t border-[#f2f2f2] dark:border-[#2d2d2d] text-xs text-[#636363] dark:text-[#9f9f9f]">
                   {Number.isFinite(account?.projectedCost) ? 'Estimated usage forecast' : 'Usage forecasting is not connected'}
                 </div>
               </div>
 
               {/* Card 4: Active Workloads */}
-              <div className="p-6 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31]">
-                <div className="flex items-center justify-between text-xs text-[#5F6368] dark:text-[#9AA0A6]">
+              <div className="p-6 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
+                <div className="flex items-center justify-between text-xs text-[#636363] dark:text-[#9f9f9f]">
                   <span className="font-medium">Cloud Droplets</span>
-                  <div className="w-7 h-7 rounded-full bg-[#E0F2FE] text-[#0284C7] flex items-center justify-center">
+                  <div className="w-7 h-7 rounded-full bg-[#efefef] text-[#6d6d6d] flex items-center justify-center">
                     <Server className="w-4 h-4" />
                   </div>
                 </div>
@@ -606,11 +606,11 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                   <span className="text-3xl sm:text-4xl font-semibold text-[#1F1F1F] dark:text-white tracking-tight">
                     {account?.droplets?.length || 0}
                   </span>
-                  <span className="text-xs font-normal text-[#5F6368] dark:text-[#9AA0A6] ml-1">
+                  <span className="text-xs font-normal text-[#636363] dark:text-[#9f9f9f] ml-1">
                     droplets in this account
                   </span>
                 </div>
-                <div className="mt-3 pt-3 border-t border-[#F0F2F5] dark:border-[#2C2D31] text-xs text-[#5F6368] dark:text-[#9AA0A6]">
+                <div className="mt-3 pt-3 border-t border-[#f2f2f2] dark:border-[#2d2d2d] text-xs text-[#636363] dark:text-[#9f9f9f]">
                   Registered cloud droplets
                 </div>
               </div>
@@ -618,9 +618,9 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
             </div>
 
             {/* Quick Actions Bar (Pure White Google Material Style) */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31] flex flex-wrap items-center justify-between gap-3">
+            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d] flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-[#5F6368] dark:text-[#9AA0A6] uppercase tracking-wider">
+                <span className="text-xs font-semibold text-[#636363] dark:text-[#9f9f9f] uppercase tracking-wider">
                   Quick Actions:
                 </span>
               </div>
@@ -628,7 +628,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 <button
                   type="button"
                   onClick={() => setActiveTab('credits')}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#0B57D0] hover:bg-[#0842A0] text-white text-xs font-medium transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white text-xs font-medium transition cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Top-up Credits</span>
@@ -636,7 +636,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 <button
                   type="button"
                   onClick={() => setActiveTab('payment-methods')}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#F0F4F9] hover:bg-[#E9EEF6] dark:bg-[#2C2D31] text-[#0B57D0] dark:text-[#8AB4F8] text-xs font-medium transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#f4f4f4] hover:bg-[#eeeeee] dark:bg-[#2d2d2d] text-[#000000] dark:text-[#b0b0b0] text-xs font-medium transition cursor-pointer"
                 >
                   <CreditCard className="w-3.5 h-3.5" />
                   <span>Payment Methods</span>
@@ -644,7 +644,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 <button
                   type="button"
                   onClick={() => setActiveTab('cost-breakdown')}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#F0F4F9] hover:bg-[#E9EEF6] dark:bg-[#2C2D31] text-[#444746] dark:text-[#C4C7C5] text-xs font-medium transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#f4f4f4] hover:bg-[#eeeeee] dark:bg-[#2d2d2d] text-[#444746] dark:text-[#C4C7C5] text-xs font-medium transition cursor-pointer"
                 >
                   <Sliders className="w-3.5 h-3.5" />
                   <span>Budget & Spending Alerts</span>
@@ -652,7 +652,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 <button
                   type="button"
                   onClick={() => setActiveTab('invoices')}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#F0F4F9] hover:bg-[#E9EEF6] dark:bg-[#2C2D31] text-[#444746] dark:text-[#C4C7C5] text-xs font-medium transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#f4f4f4] hover:bg-[#eeeeee] dark:bg-[#2d2d2d] text-[#444746] dark:text-[#C4C7C5] text-xs font-medium transition cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Invoices</span>
@@ -672,7 +672,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                       <h3 className="text-sm font-semibold text-[#B06000] dark:text-[#FDD663]">
                         No platform payment gateway configured
                       </h3>
-                      <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] mt-0.5 max-w-2xl leading-relaxed">
+                      <p className="text-xs text-[#636363] dark:text-[#9f9f9f] mt-0.5 max-w-2xl leading-relaxed">
                         No platform payment gateway is configured. Cloud credit checkout is also not connected.
                       </p>
                     </div>
@@ -680,7 +680,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                   <button
                     type="button"
                     onClick={() => setActiveTab('payment-methods')}
-                    className="shrink-0 px-4 py-2 rounded-full bg-white dark:bg-[#1E1F22] border border-[#E0E2EC] dark:border-[#3C4043] text-[#0B57D0] dark:text-[#8AB4F8] hover:bg-[#F8FAFD] text-xs font-semibold transition cursor-pointer"
+                    className="shrink-0 px-4 py-2 rounded-full bg-white dark:bg-[#1f1f1f] border border-[#e2e2e2] dark:border-[#3f3f3f] text-[#000000] dark:text-[#b0b0b0] hover:bg-[#fafafa] text-xs font-semibold transition cursor-pointer"
                   >
                     View Payment Options &gt;
                   </button>
@@ -692,31 +692,31 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               
               {/* Left 8 Cols: Usage by Services (Pure White Surface) */}
-              <div className="lg:col-span-8 p-6 sm:p-7 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31]">
+              <div className="lg:col-span-8 p-6 sm:p-7 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
                 <div className="flex items-center justify-between mb-5">
                   <div>
                     <h2 className="text-base font-semibold text-[#1F1F1F] dark:text-white">
                       Usage by Cloud Services
                     </h2>
-                    <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] mt-0.5">
+                    <p className="text-xs text-[#636363] dark:text-[#9f9f9f] mt-0.5">
                       Current billing period resource consumption.
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setActiveTab('cost-breakdown')}
-                    className="text-xs font-medium text-[#0B57D0] dark:text-[#8AB4F8] hover:underline flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-medium text-[#000000] dark:text-[#b0b0b0] hover:underline flex items-center gap-1 cursor-pointer"
                   >
                     <span>Detailed Breakdown</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
-                <div className="divide-y divide-[#F0F2F5] dark:divide-[#2C2D31]">
+                <div className="divide-y divide-[#f2f2f2] dark:divide-[#2d2d2d]">
                   {costServices.length ? costServices.map((service) => (
                     <div key={service.service} className="py-3.5 flex items-center justify-between gap-4 text-xs">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-[#E8F0FE] text-[#0B57D0] flex items-center justify-center shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-[#efefef] text-[#000000] flex items-center justify-center shrink-0">
                           <Activity className="w-4 h-4" />
                         </div>
                         <p className="font-semibold text-[#1F1F1F] dark:text-white truncate">{service.service}</p>
@@ -726,7 +726,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                       </span>
                     </div>
                   )) : (
-                    <p className="py-6 text-center text-xs text-[#5F6368] dark:text-[#9AA0A6]">
+                    <p className="py-6 text-center text-xs text-[#636363] dark:text-[#9f9f9f]">
                       Usage metering is not connected. No service charges are reported.
                     </p>
                   )}
@@ -737,16 +737,16 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
               <div className="lg:col-span-4 space-y-5">
                 
                 {/* Payment Gateway Status Card */}
-                <div className="p-6 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31]">
+                <div className="p-6 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-semibold text-[#1F1F1F] dark:text-white flex items-center gap-2">
-                      <CreditCard className="w-4 h-4 text-[#0B57D0]" />
+                      <CreditCard className="w-4 h-4 text-[#000000]" />
                       <span>Payment Channels</span>
                     </h3>
                     <button
                       type="button"
                       onClick={() => setActiveTab('payment-methods')}
-                      className="text-xs font-medium text-[#0B57D0] dark:text-[#8AB4F8] hover:underline cursor-pointer"
+                      className="text-xs font-medium text-[#000000] dark:text-[#b0b0b0] hover:underline cursor-pointer"
                     >
                       Manage
                     </button>
@@ -766,9 +766,9 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
 
                       <div className="space-y-2">
                         {creditCheckoutGateways.map(gw => (
-                          <div key={gw.id} className="flex items-center justify-between p-2.5 rounded-xl bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs">
+                          <div key={gw.id} className="flex items-center justify-between p-2.5 rounded-xl bg-[#fafafa] dark:bg-[#2d2d2d] text-xs">
                             <span className="font-semibold text-[#1F1F1F] dark:text-white">{gw.name}</span>
-                            <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-white dark:bg-[#1E1F22] text-[#5F6368] dark:text-[#9AA0A6] border border-[#E0E2EC] dark:border-[#3C4043]">
+                            <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-white dark:bg-[#1f1f1f] text-[#636363] dark:text-[#9f9f9f] border border-[#e2e2e2] dark:border-[#3f3f3f]">
                               {gw.mode}
                             </span>
                           </div>
@@ -778,7 +778,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                       <button
                         type="button"
                         onClick={() => setActiveTab('credits')}
-                        className="w-full mt-2 py-2 px-4 rounded-full bg-[#0B57D0] hover:bg-[#0842A0] text-white text-xs font-medium transition cursor-pointer"
+                        className="w-full mt-2 py-2 px-4 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white text-xs font-medium transition cursor-pointer"
                       >
                         Top-up Cloud Credits
                       </button>
@@ -789,13 +789,13 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                         <ShieldAlert className="w-4 h-4 shrink-0" />
                         <span>Payment Gateway Required</span>
                       </div>
-                      <p className="text-[11px] text-[#5F6368] dark:text-[#9AA0A6] leading-relaxed">
+                      <p className="text-[11px] text-[#636363] dark:text-[#9f9f9f] leading-relaxed">
                       No live USD checkout method is currently enabled. Contact billing support to enable live Stripe or PayPal.
                       </p>
                       <button
                         type="button"
                         onClick={() => setActiveTab('payment-methods')}
-                        className="text-xs font-semibold text-[#0B57D0] dark:text-[#8AB4F8] hover:underline block pt-1"
+                        className="text-xs font-semibold text-[#000000] dark:text-[#b0b0b0] hover:underline block pt-1"
                       >
                         Configure Payment Methods &gt;
                       </button>
@@ -804,22 +804,22 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 </div>
 
                 {/* Account Details Quick Card */}
-                <div className="p-6 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31] text-xs space-y-3">
+                <div className="p-6 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d] text-xs space-y-3">
                   <h4 className="font-semibold text-[#1F1F1F] dark:text-white">Account Details</h4>
-                  <div className="flex justify-between py-1.5 border-b border-[#F0F2F5] dark:border-[#2C2D31]">
-                    <span className="text-[#5F6368] dark:text-[#9AA0A6]">Account Type</span>
+                  <div className="flex justify-between py-1.5 border-b border-[#f2f2f2] dark:border-[#2d2d2d]">
+                    <span className="text-[#636363] dark:text-[#9f9f9f]">Account Type</span>
                     <span className="font-medium text-[#1F1F1F] dark:text-white">Cloud</span>
                   </div>
-                  <div className="flex justify-between py-1.5 border-b border-[#F0F2F5] dark:border-[#2C2D31]">
-                    <span className="text-[#5F6368] dark:text-[#9AA0A6]">Currency</span>
+                  <div className="flex justify-between py-1.5 border-b border-[#f2f2f2] dark:border-[#2d2d2d]">
+                    <span className="text-[#636363] dark:text-[#9f9f9f]">Currency</span>
                     <span className="font-medium text-[#1F1F1F] dark:text-white">{account.currency}</span>
                   </div>
-                  <div className="flex justify-between py-1.5 border-b border-[#F0F2F5] dark:border-[#2C2D31]">
-                    <span className="text-[#5F6368] dark:text-[#9AA0A6]">Billing Owner</span>
+                  <div className="flex justify-between py-1.5 border-b border-[#f2f2f2] dark:border-[#2d2d2d]">
+                    <span className="text-[#636363] dark:text-[#9f9f9f]">Billing Owner</span>
                     <span className="font-medium text-[#1F1F1F] dark:text-white truncate max-w-[150px]">{currentUser?.email || '—'}</span>
                   </div>
                   <div className="flex justify-between py-1.5">
-                    <span className="text-[#5F6368] dark:text-[#9AA0A6]">Account owner</span>
+                    <span className="text-[#636363] dark:text-[#9f9f9f]">Account owner</span>
                     <span className="font-medium text-[#1F1F1F] dark:text-white">{currentUser?.email || '—'}</span>
                   </div>
                 </div>
@@ -838,10 +838,10 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
           <div className="space-y-6">
             
             {/* Balance Card — PURE WHITE */}
-            <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31]">
+            <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
                 <div>
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E8F0FE] text-[#0B57D0] text-xs font-semibold mb-2">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#efefef] text-[#000000] text-xs font-semibold mb-2">
                     <Coins className="w-3.5 h-3.5" />
                     <span>Account Credit Balance</span>
                   </div>
@@ -849,29 +849,29 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                     <span className="text-3xl sm:text-4xl font-semibold text-[#1F1F1F] dark:text-white tracking-tight">
                       {credits === null ? 'Unavailable' : formatMoney(credits)}
                     </span>
-                    <span className="text-xs font-normal text-[#5F6368] dark:text-[#9AA0A6] ml-2">
+                    <span className="text-xs font-normal text-[#636363] dark:text-[#9f9f9f] ml-2">
                       Available Cloud Credits
                     </span>
                   </div>
-                  <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] mt-1.5 max-w-xl">
+                  <p className="text-xs text-[#636363] dark:text-[#9f9f9f] mt-1.5 max-w-xl">
                     Cloud usage metering is not connected, so this balance will not be deducted automatically.
                   </p>
                 </div>
 
-                <div className="p-4 rounded-xl bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs space-y-1.5 sm:text-right shrink-0">
-                  <div className="text-[#5F6368] dark:text-[#9AA0A6]">Currency: <span className="font-semibold text-[#1F1F1F] dark:text-white">{account.currency}</span></div>
-                  <div className="text-[#5F6368] dark:text-[#9AA0A6]">Promotional balance: <span className="font-semibold text-[#1F1F1F] dark:text-white">{promotionalCredits === null ? 'Unavailable' : formatMoney(promotionalCredits)}</span></div>
+                <div className="p-4 rounded-xl bg-[#fafafa] dark:bg-[#2d2d2d] text-xs space-y-1.5 sm:text-right shrink-0">
+                  <div className="text-[#636363] dark:text-[#9f9f9f]">Currency: <span className="font-semibold text-[#1F1F1F] dark:text-white">{account.currency}</span></div>
+                  <div className="text-[#636363] dark:text-[#9f9f9f]">Promotional balance: <span className="font-semibold text-[#1F1F1F] dark:text-white">{promotionalCredits === null ? 'Unavailable' : formatMoney(promotionalCredits)}</span></div>
                 </div>
               </div>
             </div>
 
             {/* Purchase Credits Box — PURE WHITE */}
-            <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31] space-y-6">
+            <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d] space-y-6">
               <div>
                 <h3 className="text-base font-semibold text-[#1F1F1F] dark:text-white">
                   Add Cloud Credits
                 </h3>
-                <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] mt-0.5">
+                <p className="text-xs text-[#636363] dark:text-[#9f9f9f] mt-0.5">
                   Credit purchase status for this account.
                 </p>
               </div>
@@ -884,7 +884,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
 
               {creditCheckoutGateways.length > 0 ? (
                 <div className="space-y-4 max-w-xl">
-                  <label className="block text-xs font-medium text-[#5F6368] dark:text-[#9AA0A6]">
+                  <label className="block text-xs font-medium text-[#636363] dark:text-[#9f9f9f]">
                     Top-up amount (USD, minimum $5)
                     <input
                       type="number"
@@ -905,14 +905,14 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                         type="button"
                         disabled={Boolean(startingCheckoutProvider)}
                         onClick={() => handleStartCreditCheckout(gateway.id)}
-                        className="inline-flex items-center gap-2 rounded-full bg-[#1A73E8] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#1558B0] disabled:cursor-wait disabled:opacity-60"
+                        className="inline-flex items-center gap-2 rounded-full bg-[#696969] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#505050] disabled:cursor-wait disabled:opacity-60"
                       >
                         <Lock className="h-4 w-4" />
                         {startingCheckoutProvider === gateway.id ? 'Opening secure checkout…' : `Pay with ${gateway.name}`}
                       </button>
                     ))}
                   </div>
-                  <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6]">
+                  <p className="text-xs text-[#636363] dark:text-[#9f9f9f]">
                     Your balance stays in USD. {hasBdtCheckout ? 'bKash and SSLCOMMERZ charge the converted BDT amount using the latest available reference rate. ' : ''}Credits are added only after the provider confirms payment.
                   </p>
                 </div>
@@ -922,7 +922,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                     <Lock className="w-5 h-5 shrink-0" />
                     <span>Credit checkout is not configured</span>
                   </div>
-                  <p className="mt-2 text-xs text-[#5F6368] dark:text-[#9AA0A6] leading-relaxed">
+                  <p className="mt-2 text-xs text-[#636363] dark:text-[#9f9f9f] leading-relaxed">
                     Enable a live Stripe or PayPal gateway for USD, or a live bKash or SSLCOMMERZ gateway for BDT. Test-mode payments cannot add credits. Nagad direct checkout is not connected yet.
                   </p>
                 </div>
@@ -930,12 +930,12 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
             </div>
 
             {/* Promo Voucher Box — PURE WHITE */}
-            <div className="p-6 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31]">
+            <div className="p-6 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
               <h3 className="text-sm font-semibold text-[#1F1F1F] dark:text-white mb-1 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#0B57D0]" />
+                <Sparkles className="w-4 h-4 text-[#000000]" />
                 <span>Redeem Cloud Voucher</span>
               </h3>
-              <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] mb-3">
+              <p className="text-xs text-[#636363] dark:text-[#9f9f9f] mb-3">
                 Enter a valid unused voucher to add its recorded amount to this account.
               </p>
               <form onSubmit={handleRedeemVoucher} className="flex gap-2 max-w-md">
@@ -946,12 +946,12 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                   maxLength={64}
                   autoComplete="off"
                   placeholder="Voucher code"
-                  className="flex-1 px-4 py-2 rounded-xl border border-[#E0E2EC] dark:border-[#3C4043] bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs font-mono outline-none focus:border-[#0B57D0] uppercase"
+                  className="flex-1 px-4 py-2 rounded-xl border border-[#e2e2e2] dark:border-[#3f3f3f] bg-[#fafafa] dark:bg-[#2d2d2d] text-xs font-mono outline-none focus:border-[#000000] uppercase"
                 />
                 <button
                   type="submit"
                   disabled={isRedeemingVoucher || !voucherCode.trim()}
-                  className="px-5 py-2 rounded-full bg-[#0B57D0] hover:bg-[#0842A0] text-white text-xs font-medium disabled:opacity-40 transition cursor-pointer"
+                  className="px-5 py-2 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white text-xs font-medium disabled:opacity-40 transition cursor-pointer"
                 >
                   {isRedeemingVoucher ? 'Redeeming…' : 'Redeem'}
                 </button>
@@ -959,27 +959,27 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
             </div>
 
             {/* Credit Transaction Ledger — PURE WHITE */}
-            <div className="p-6 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31]">
+            <div className="p-6 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
               <h3 className="text-sm font-semibold text-[#1F1F1F] dark:text-white mb-4">
                 Credit Ledger History
               </h3>
               {Array.isArray(account.invoices) && account.invoices.length ? (
-                <div className="divide-y divide-[#F0F2F5] dark:divide-[#2C2D31]">
+                <div className="divide-y divide-[#f2f2f2] dark:divide-[#2d2d2d]">
                   {account.invoices.map(invoice => (
                     <div key={invoice.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-xs">
                       <div>
-                        <p className="font-medium text-[#202124] dark:text-white">{invoice.description || 'Cloud credit transaction'}</p>
-                        <p className="mt-1 text-[#5F6368] dark:text-[#9AA0A6]">{new Date(invoice.createdAt).toLocaleString()} · {invoice.id}</p>
+                        <p className="font-medium text-[#212121] dark:text-white">{invoice.description || 'Cloud credit transaction'}</p>
+                        <p className="mt-1 text-[#636363] dark:text-[#9f9f9f]">{new Date(invoice.createdAt).toLocaleString()} · {invoice.id}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold text-[#202124] dark:text-white">{formatMoney(Number(invoice.amount), invoice.currency)}</p>
+                        <p className="font-semibold text-[#212121] dark:text-white">{formatMoney(Number(invoice.amount), invoice.currency)}</p>
                         <p className={invoice.status === 'Paid' || invoice.status === 'Verified' ? 'text-[#137333]' : 'text-[#B06000]'}>{invoice.status}</p>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="py-10 text-center rounded-xl bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs text-[#5F6368] dark:text-[#9AA0A6]">
+                <div className="py-10 text-center rounded-xl bg-[#fafafa] dark:bg-[#2d2d2d] text-xs text-[#636363] dark:text-[#9f9f9f]">
                   No credit transactions are available in the ledger.
                 </div>
               )}
@@ -993,25 +993,25 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
         {/* ========================================================= */}
         {activeTab === 'payment-methods' && (
           <div className="space-y-6">
-            <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31]">
+            <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
               <h2 className="text-base font-semibold text-[#1F1F1F] dark:text-white mb-1">
                 Connected Payment Methods & Gateways
               </h2>
-              <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] mb-6">
+              <p className="text-xs text-[#636363] dark:text-[#9f9f9f] mb-6">
                 Platform gateway credentials configured for cloud billing.
               </p>
 
               {hasConfiguredGateway ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {configuredGateways.map(gw => (
-                    <div key={gw.id} className="p-4 rounded-xl border border-[#EDF0F5] dark:border-[#2C2D31] bg-[#F8FAFD] dark:bg-[#2C2D31] flex items-center justify-between">
+                    <div key={gw.id} className="p-4 rounded-xl border border-[#f0f0f0] dark:border-[#2d2d2d] bg-[#fafafa] dark:bg-[#2d2d2d] flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-[#0B57D0] text-white font-semibold flex items-center justify-center text-xs">
+                        <div className="w-10 h-10 rounded-full bg-[#000000] text-white font-semibold flex items-center justify-center text-xs">
                           {gw.name.slice(0, 2).toUpperCase()}
                         </div>
                         <div>
                           <div className="text-xs font-semibold text-[#1F1F1F] dark:text-white">{gw.name}</div>
-                          <div className="text-[11px] text-[#5F6368] dark:text-[#9AA0A6]">
+                          <div className="text-[11px] text-[#636363] dark:text-[#9f9f9f]">
                             Currencies: {gw.currencies?.join(', ')}
                           </div>
                         </div>
@@ -1028,13 +1028,13 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                     <ShieldAlert className="w-5 h-5 shrink-0" />
                     <span>No platform payment gateway configured</span>
                   </div>
-                  <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] leading-relaxed">
+                  <p className="text-xs text-[#636363] dark:text-[#9f9f9f] leading-relaxed">
                     A platform payment gateway is not configured. Enable live Stripe/PayPal for USD or bKash/SSLCOMMERZ for BDT credit purchases.
                   </p>
                   <div>
                     <a
                       href="/administrator"
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0B57D0] dark:text-[#8AB4F8] hover:underline"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#000000] dark:text-[#b0b0b0] hover:underline"
                     >
                       <span>Open Platform Gateways Management</span>
                       <ExternalLink className="w-3.5 h-3.5" />
@@ -1043,15 +1043,15 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 </div>
               )}
               {hasConfiguredGateway && creditCheckoutGateways.length === 0 && (
-                <p className="mt-4 text-xs text-[#5F6368] dark:text-[#9AA0A6]">
+                <p className="mt-4 text-xs text-[#636363] dark:text-[#9f9f9f]">
                   Configured channels are visible above. Cloud credit checkout requires a live Stripe/PayPal USD channel or a live bKash/SSLCOMMERZ BDT channel. Nagad direct checkout is not connected yet.
                 </p>
               )}
             </div>
 
-            <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31]">
+            <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
               <h3 className="text-sm font-semibold text-[#1F1F1F] dark:text-white">Auto-recharge unavailable</h3>
-              <p className="mt-1 text-xs text-[#5F6368] dark:text-[#9AA0A6]">
+              <p className="mt-1 text-xs text-[#636363] dark:text-[#9f9f9f]">
                 Automatic payments are not connected. No recharge rules have been saved.
               </p>
             </div>
@@ -1065,17 +1065,17 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
           <div className="space-y-6">
             
             {/* Service Breakdown Table — PURE WHITE */}
-            <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31]">
+            <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
                 <div>
                   <h2 className="text-base font-semibold text-[#1F1F1F] dark:text-white">
                     Cost Breakdown by Cloud Service
                   </h2>
-                  <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] mt-0.5">
+                  <p className="text-xs text-[#636363] dark:text-[#9f9f9f] mt-0.5">
                     Granular metering breakdown of compute, network, and storage.
                   </p>
                 </div>
-                <div className="text-xs font-medium text-[#5F6368] dark:text-[#9AA0A6] px-3.5 py-1.5 rounded-full bg-[#F0F4F9] dark:bg-[#2C2D31] border border-[#E0E2EC] dark:border-[#3C4043]">
+                <div className="text-xs font-medium text-[#636363] dark:text-[#9f9f9f] px-3.5 py-1.5 rounded-full bg-[#f4f4f4] dark:bg-[#2d2d2d] border border-[#e2e2e2] dark:border-[#3f3f3f]">
                   Billing Period: Current Month
                 </div>
               </div>
@@ -1083,32 +1083,32 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="border-b border-[#EDF0F5] dark:border-[#2C2D31] text-[#5F6368] dark:text-[#9AA0A6] uppercase text-[10px] tracking-wider font-semibold">
+                    <tr className="border-b border-[#f0f0f0] dark:border-[#2d2d2d] text-[#636363] dark:text-[#9f9f9f] uppercase text-[10px] tracking-wider font-semibold">
                       <th className="py-3 px-3">Service</th>
                       <th className="py-3 px-3">Usage Metric</th>
                       <th className="py-3 px-3">Rate Model</th>
                       <th className="py-3 px-3 text-right">Incurred Cost ({account.currency})</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#F0F2F5] dark:divide-[#2C2D31]">
+                  <tbody className="divide-y divide-[#f2f2f2] dark:divide-[#2d2d2d]">
                     {costServices.length ? costServices.map((service) => (
-                      <tr key={service.service} className="hover:bg-[#F8FAFD] dark:hover:bg-[#2C2D31]/40">
+                      <tr key={service.service} className="hover:bg-[#fafafa] dark:hover:bg-[#2d2d2d]/40">
                         <td className="py-3.5 px-3 font-semibold text-[#1F1F1F] dark:text-white">{service.service}</td>
-                        <td className="py-3.5 px-3 text-[#5F6368] dark:text-[#9AA0A6]">{service.percentage}% of recorded usage</td>
-                        <td className="py-3.5 px-3 text-[#5F6368]">{account.currency}</td>
+                        <td className="py-3.5 px-3 text-[#636363] dark:text-[#9f9f9f]">{service.percentage}% of recorded usage</td>
+                        <td className="py-3.5 px-3 text-[#636363]">{account.currency}</td>
                         <td className="py-3.5 px-3 text-right font-semibold text-[#1F1F1F] dark:text-white">{formatMoney(Number(service.amount))}</td>
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan={4} className="py-8 px-3 text-center text-[#5F6368] dark:text-[#9AA0A6]">
+                        <td colSpan={4} className="py-8 px-3 text-center text-[#636363] dark:text-[#9f9f9f]">
                           Usage metering is not connected. No service costs are available.
                         </td>
                       </tr>
                     )}
-                    <tr className="border-t-2 border-[#EDF0F5] dark:border-[#2C2D31] font-semibold">
+                    <tr className="border-t-2 border-[#f0f0f0] dark:border-[#2d2d2d] font-semibold">
                       <td className="py-4 px-3 text-sm text-[#1F1F1F] dark:text-white">Total Incurred Cost</td>
                       <td className="py-4 px-3" colSpan={2}></td>
-                      <td className="py-4 px-3 text-right text-sm text-[#0B57D0] dark:text-[#8AB4F8]">{formatMoney(account?.monthToDateSpent)}</td>
+                      <td className="py-4 px-3 text-right text-sm text-[#000000] dark:text-[#b0b0b0]">{formatMoney(account?.monthToDateSpent)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1116,9 +1116,9 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
             </div>
 
             {/* Cloud Spending Budget & Alert Thresholds — PURE WHITE */}
-            <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31]">
+            <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
               <h3 className="text-sm font-semibold text-[#1F1F1F] dark:text-white">Budget alerts unavailable</h3>
-              <p className="mt-1 text-xs text-[#5F6368] dark:text-[#9AA0A6]">
+              <p className="mt-1 text-xs text-[#636363] dark:text-[#9f9f9f]">
                 Usage metering and alert delivery are not connected. No budget or notification settings have been saved.
               </p>
             </div>
@@ -1131,13 +1131,13 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
         {/* ========================================================= */}
         {activeTab === 'invoices' && (
           <div className="space-y-6">
-            <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#1E1F22] border border-[#EDF0F5] dark:border-[#2C2D31]">
+            <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
                 <div>
                   <h2 className="text-base font-semibold text-[#1F1F1F] dark:text-white">
                     Invoices & Billing Documents
                   </h2>
-                  <p className="text-xs text-[#5F6368] dark:text-[#9AA0A6] mt-0.5">
+                  <p className="text-xs text-[#636363] dark:text-[#9f9f9f] mt-0.5">
                     Invoices recorded for this billing account.
                   </p>
                 </div>
@@ -1147,7 +1147,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead>
-                      <tr className="border-b border-[#EDF0F5] dark:border-[#2C2D31] text-[#5F6368] dark:text-[#9AA0A6] uppercase text-[10px] tracking-wider font-semibold">
+                      <tr className="border-b border-[#f0f0f0] dark:border-[#2d2d2d] text-[#636363] dark:text-[#9f9f9f] uppercase text-[10px] tracking-wider font-semibold">
                         <th className="py-3 px-3">Document ID</th>
                         <th className="py-3 px-3">Description</th>
                         <th className="py-3 px-3">Date</th>
@@ -1156,22 +1156,22 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                         <th className="py-3 px-3 text-right">Document</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#F0F2F5] dark:divide-[#2C2D31]">
+                    <tbody className="divide-y divide-[#f2f2f2] dark:divide-[#2d2d2d]">
                       {account.invoices.map(inv => (
                         <tr key={inv.id}>
                           <td className="py-3.5 px-3 font-mono font-medium">{inv.id}</td>
                           <td className="py-3.5 px-3">{inv.description || '—'}</td>
-                          <td className="py-3.5 px-3 text-[#5F6368]">{inv.createdAt}</td>
+                          <td className="py-3.5 px-3 text-[#636363]">{inv.createdAt}</td>
                           <td className="py-3.5 px-3 font-semibold">{formatMoney(inv.amount, inv.currency)}</td>
                           <td className="py-3.5 px-3">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${inv.status?.toLowerCase() === 'paid' ? 'bg-[#E6F4EA] text-[#137333]' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200'}`}>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${inv.status?.toLowerCase() === 'paid' ? 'bg-[#E6F4EA] text-[#137333]' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-200'}`}>
                               {inv.status || 'Unknown'}
                             </span>
                           </td>
                           <td className="py-3.5 px-3 text-right">
                             <a
                               href={`/billing/invoices/${encodeURIComponent(inv.id)}`}
-                              className="inline-flex items-center rounded-full px-3 py-1.5 font-medium text-[#1A73E8] transition hover:bg-[#E8F0FE] dark:hover:bg-[#202C3D]"
+                              className="inline-flex items-center rounded-full px-3 py-1.5 font-medium text-[#696969] transition hover:bg-[#efefef] dark:hover:bg-[#2b2b2b]"
                             >
                               View invoice
                             </a>
@@ -1182,8 +1182,8 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                   </table>
                 </div>
               ) : (
-                <div className="py-12 text-center rounded-xl bg-[#F8FAFD] dark:bg-[#2C2D31] text-xs text-[#5F6368] dark:text-[#9AA0A6]">
-                  <Receipt className="w-8 h-8 mx-auto mb-2 opacity-40 text-[#0B57D0]" />
+                <div className="py-12 text-center rounded-xl bg-[#fafafa] dark:bg-[#2d2d2d] text-xs text-[#636363] dark:text-[#9f9f9f]">
+                  <Receipt className="w-8 h-8 mx-auto mb-2 opacity-40 text-[#000000]" />
                   <p className="font-semibold text-[#1F1F1F] dark:text-white">No invoices yet</p>
                   <p className="mt-0.5">Invoices will appear here when recorded in the billing database.</p>
                 </div>
@@ -1199,46 +1199,46 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
           <div className="space-y-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0B57D0] dark:text-[#8AB4F8]">Account</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#000000] dark:text-[#b0b0b0]">Account</p>
                 <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[#1F1F1F] dark:text-white">Billing account settings</h2>
-                <p className="mt-1 text-sm text-[#5F6368] dark:text-[#9AA0A6]">Manage the real contact and address details attached to your billing account.</p>
+                <p className="mt-1 text-sm text-[#636363] dark:text-[#9f9f9f]">Manage the real contact and address details attached to your billing account.</p>
               </div>
-              <span className="inline-flex w-fit items-center gap-2 rounded-full border border-[#DCE7F8] bg-[#F5F8FE] px-3 py-1.5 text-xs font-medium text-[#345B9A] dark:border-[#334155] dark:bg-[#1E293B] dark:text-[#BFDBFE]">
+              <span className="inline-flex w-fit items-center gap-2 rounded-full border border-[#e6e6e6] bg-[#f8f8f8] px-3 py-1.5 text-xs font-medium text-[#575757] dark:border-[#3f3f3f] dark:bg-[#282828] dark:text-[#d8d8d8]">
                 <span className="h-2 w-2 rounded-full bg-[#188038]" /> Account loaded
               </span>
             </div>
 
-            <section className="rounded-2xl border border-[#E5EAF2] bg-white dark:border-[#2C2D31] dark:bg-[#1E1F22]">
-              <div className="border-b border-[#EDF0F5] px-5 py-4 sm:px-6 dark:border-[#2C2D31]">
-                <h3 className="text-base font-semibold text-[#202124] dark:text-white">Billing profile</h3>
-                <p className="mt-1 text-sm text-[#5F6368] dark:text-[#9AA0A6]">Choose how your billing details appear on invoices.</p>
+            <section className="rounded-2xl border border-[#eaeaea] bg-white dark:border-[#2d2d2d] dark:bg-[#1f1f1f]">
+              <div className="border-b border-[#f0f0f0] px-5 py-4 sm:px-6 dark:border-[#2d2d2d]">
+                <h3 className="text-base font-semibold text-[#212121] dark:text-white">Billing profile</h3>
+                <p className="mt-1 text-sm text-[#636363] dark:text-[#9f9f9f]">Choose how your billing details appear on invoices.</p>
               </div>
               <form onSubmit={handleSaveBillingProfile} className="space-y-4 p-5 sm:p-6">
                 {billingProfileError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-medium text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300">{billingProfileError}</div>}
                 {billingProfileSaved && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-medium text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300">Billing profile saved.</div>}
                 <div className="grid gap-3 sm:grid-cols-2">
                   {[{ value: 'personal', title: 'Personal', detail: 'For individual use' }, { value: 'business', title: 'Business', detail: 'For a company or organization' }].map(option => (
-                    <label key={option.value} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${billingAccountType === option.value ? 'border-[#1A73E8] bg-[#F5F8FE] dark:bg-[#172033]' : 'border-[#DADCE0] dark:border-[#3C4043]'}`}>
-                      <input type="radio" name="billingAccountType" value={option.value} checked={billingAccountType === option.value} onChange={() => { setBillingAccountType(option.value); setBillingProfileError(''); }} className="mt-0.5 accent-[#1A73E8]" />
-                      <span><span className="block text-sm font-semibold text-[#202124] dark:text-white">{option.title}</span><span className="mt-1 block text-xs text-[#5F6368] dark:text-[#9AA0A6]">{option.detail}</span></span>
+                    <label key={option.value} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${billingAccountType === option.value ? 'border-[#696969] bg-[#f8f8f8] dark:bg-[#1f1f1f]' : 'border-[#dcdcdc] dark:border-[#3f3f3f]'}`}>
+                      <input type="radio" name="billingAccountType" value={option.value} checked={billingAccountType === option.value} onChange={() => { setBillingAccountType(option.value); setBillingProfileError(''); }} className="mt-0.5 accent-[#696969]" />
+                      <span><span className="block text-sm font-semibold text-[#212121] dark:text-white">{option.title}</span><span className="mt-1 block text-xs text-[#636363] dark:text-[#9f9f9f]">{option.detail}</span></span>
                     </label>
                   ))}
                 </div>
-                {billingAccountType === 'business' && <label className="block max-w-xl text-xs font-semibold text-[#3C4043] dark:text-[#C4C7C5]">Company name <span className="text-rose-500">*</span><input required maxLength={255} value={billingCompanyName} onChange={event => setBillingCompanyName(event.target.value)} placeholder="Registered company name" className={FORM_FIELD} /></label>}
-                <div className="flex justify-end border-t border-[#EDF0F5] pt-4 dark:border-[#2C2D31]">
-                  <button type="submit" disabled={isSavingBillingProfile} className="rounded-full bg-[#1A73E8] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#1765CC] disabled:cursor-wait disabled:opacity-60">{isSavingBillingProfile ? 'Saving…' : 'Save billing profile'}</button>
+                {billingAccountType === 'business' && <label className="block max-w-xl text-xs font-semibold text-[#3f3f3f] dark:text-[#C4C7C5]">Company name <span className="text-rose-500">*</span><input required maxLength={255} value={billingCompanyName} onChange={event => setBillingCompanyName(event.target.value)} placeholder="Registered company name" className={FORM_FIELD} /></label>}
+                <div className="flex justify-end border-t border-[#f0f0f0] pt-4 dark:border-[#2d2d2d]">
+                  <button type="submit" disabled={isSavingBillingProfile} className="rounded-full bg-[#696969] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#5c5c5c] disabled:cursor-wait disabled:opacity-60">{isSavingBillingProfile ? 'Saving…' : 'Save billing profile'}</button>
                 </div>
               </form>
             </section>
 
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.8fr)]">
-              <section className="overflow-hidden rounded-2xl border border-[#E5EAF2] bg-white dark:border-[#2C2D31] dark:bg-[#1E1F22]">
-                <div className="flex flex-col gap-4 border-b border-[#EDF0F5] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7 dark:border-[#2C2D31]">
+              <section className="overflow-hidden rounded-2xl border border-[#eaeaea] bg-white dark:border-[#2d2d2d] dark:bg-[#1f1f1f]">
+                <div className="flex flex-col gap-4 border-b border-[#f0f0f0] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7 dark:border-[#2d2d2d]">
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#E8F0FE] text-[#0B57D0] dark:bg-[#0B57D0]/20 dark:text-[#8AB4F8]"><MapPin className="h-5 w-5" /></div>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#efefef] text-[#000000] dark:bg-[#000000]/20 dark:text-[#b0b0b0]"><MapPin className="h-5 w-5" /></div>
                     <div>
                       <h3 className="text-base font-semibold text-[#1F1F1F] dark:text-white">Billing address</h3>
-                      <p className="mt-0.5 text-xs text-[#5F6368] dark:text-[#9AA0A6]">Used for account billing and invoice contact details.</p>
+                      <p className="mt-0.5 text-xs text-[#636363] dark:text-[#9f9f9f]">Used for account billing and invoice contact details.</p>
                     </div>
                   </div>
                   {!isEditingBillingAddress && (
@@ -1247,7 +1247,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                       setBillingAddressError('');
                       setBillingAddressSaved(false);
                       setIsEditingBillingAddress(true);
-                    }} className="inline-flex items-center justify-center gap-2 rounded-full border border-[#D8E2F1] px-4 py-2 text-xs font-semibold text-[#0B57D0] transition hover:bg-[#F5F8FE] dark:border-[#3C4043] dark:text-[#8AB4F8] dark:hover:bg-[#2C2D31]">
+                    }} className="inline-flex items-center justify-center gap-2 rounded-full border border-[#e1e1e1] px-4 py-2 text-xs font-semibold text-[#000000] transition hover:bg-[#f8f8f8] dark:border-[#3f3f3f] dark:text-[#b0b0b0] dark:hover:bg-[#2d2d2d]">
                       <Pencil className="h-3.5 w-3.5" /> Edit address
                     </button>
                   )}
@@ -1259,60 +1259,60 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
 
                   {isEditingBillingAddress ? (
                     <form onSubmit={handleSaveBillingAddress} className="space-y-4">
-                      <label className="block text-xs font-semibold text-[#3C4043] dark:text-[#C4C7C5]">Street address <span className="text-rose-500">*</span>
-                        <textarea required maxLength={2000} rows={3} value={billingAddressForm.address} onChange={event => setBillingAddressForm(current => ({ ...current, address: event.target.value }))} placeholder="House, road, area or building" className="mt-1.5 w-full resize-y rounded-2xl border border-[#DADCE0] bg-white px-4 py-3 text-sm font-normal text-[#202124] outline-none transition placeholder:text-[#80868B] focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white dark:focus:ring-[#174EA6]/40" />
+                      <label className="block text-xs font-semibold text-[#3f3f3f] dark:text-[#C4C7C5]">Street address <span className="text-rose-500">*</span>
+                        <textarea required maxLength={2000} rows={3} value={billingAddressForm.address} onChange={event => setBillingAddressForm(current => ({ ...current, address: event.target.value }))} placeholder="House, road, area or building" className="mt-1.5 w-full resize-y rounded-2xl border border-[#dcdcdc] bg-white px-4 py-3 text-sm font-normal text-[#212121] outline-none transition placeholder:text-[#858585] focus:border-[#696969] focus:ring-2 focus:ring-[#e1e1e1] dark:border-[#3f3f3f] dark:bg-[#212121] dark:text-white dark:focus:ring-[#494949]/40" />
                       </label>
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <label className="block text-xs font-semibold text-[#3C4043] dark:text-[#C4C7C5]">City <span className="text-rose-500">*</span>
-                          <input required maxLength={100} value={billingAddressForm.city} onChange={event => setBillingAddressForm(current => ({ ...current, city: event.target.value }))} placeholder="City" className="mt-1.5 w-full rounded-xl border border-[#DADCE0] bg-white px-3.5 py-2.5 text-sm font-normal text-[#202124] outline-none transition placeholder:text-[#80868B] focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white dark:focus:ring-[#174EA6]/40" />
+                        <label className="block text-xs font-semibold text-[#3f3f3f] dark:text-[#C4C7C5]">City <span className="text-rose-500">*</span>
+                          <input required maxLength={100} value={billingAddressForm.city} onChange={event => setBillingAddressForm(current => ({ ...current, city: event.target.value }))} placeholder="City" className="mt-1.5 w-full rounded-xl border border-[#dcdcdc] bg-white px-3.5 py-2.5 text-sm font-normal text-[#212121] outline-none transition placeholder:text-[#858585] focus:border-[#696969] focus:ring-2 focus:ring-[#e1e1e1] dark:border-[#3f3f3f] dark:bg-[#212121] dark:text-white dark:focus:ring-[#494949]/40" />
                         </label>
-                        <label className="block text-xs font-semibold text-[#3C4043] dark:text-[#C4C7C5]">Country <span className="text-rose-500">*</span>
+                        <label className="block text-xs font-semibold text-[#3f3f3f] dark:text-[#C4C7C5]">Country <span className="text-rose-500">*</span>
                           <select required value={billingAddressForm.country} onChange={event => setBillingAddressForm(current => ({ ...current, country: event.target.value }))} className={FORM_FIELD}>
                             <option value="">Choose a country</option>
                             {billingAddressForm.country && !countryOptions.some(option => option.name === billingAddressForm.country) && <option value={billingAddressForm.country}>{billingAddressForm.country}</option>}
                             {countryOptions.map(option => <option key={option.code} value={option.name}>{option.name}</option>)}
                           </select>
                         </label>
-                        <label className="block text-xs font-semibold text-[#3C4043] dark:text-[#C4C7C5]">Postal code
-                          <input maxLength={32} value={billingAddressForm.postalCode} onChange={event => setBillingAddressForm(current => ({ ...current, postalCode: event.target.value }))} placeholder="Postal code" className="mt-1.5 w-full rounded-xl border border-[#DADCE0] bg-white px-3.5 py-2.5 text-sm font-normal text-[#202124] outline-none transition placeholder:text-[#80868B] focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white dark:focus:ring-[#174EA6]/40" />
+                        <label className="block text-xs font-semibold text-[#3f3f3f] dark:text-[#C4C7C5]">Postal code
+                          <input maxLength={32} value={billingAddressForm.postalCode} onChange={event => setBillingAddressForm(current => ({ ...current, postalCode: event.target.value }))} placeholder="Postal code" className="mt-1.5 w-full rounded-xl border border-[#dcdcdc] bg-white px-3.5 py-2.5 text-sm font-normal text-[#212121] outline-none transition placeholder:text-[#858585] focus:border-[#696969] focus:ring-2 focus:ring-[#e1e1e1] dark:border-[#3f3f3f] dark:bg-[#212121] dark:text-white dark:focus:ring-[#494949]/40" />
                         </label>
-                        <label className="block text-xs font-semibold text-[#3C4043] dark:text-[#C4C7C5]">Contact phone
+                        <label className="block text-xs font-semibold text-[#3f3f3f] dark:text-[#C4C7C5]">Contact phone
                           <span className="mt-1.5 flex gap-2">
-                            <select aria-label="Phone country calling code" value={phoneDialCode} onChange={event => setPhoneDialCode(event.target.value)} className="w-[42%] min-w-0 rounded-xl border border-[#DADCE0] bg-white px-3 py-2.5 text-sm font-normal text-[#202124] outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white">
+                            <select aria-label="Phone country calling code" value={phoneDialCode} onChange={event => setPhoneDialCode(event.target.value)} className="w-[42%] min-w-0 rounded-xl border border-[#dcdcdc] bg-white px-3 py-2.5 text-sm font-normal text-[#212121] outline-none focus:border-[#696969] focus:ring-2 focus:ring-[#e1e1e1] dark:border-[#3f3f3f] dark:bg-[#212121] dark:text-white">
                               {[...new Map(COUNTRY_OPTIONS.map(option => [option.dial, option])).values()].map(option => <option key={option.dial} value={option.dial}>{option.dial} · {option.name}</option>)}
                             </select>
-                            <input type="tel" maxLength={24} value={phoneNationalNumber} onChange={event => setPhoneNationalNumber(event.target.value)} placeholder="Phone number" className="min-w-0 flex-1 rounded-xl border border-[#DADCE0] bg-white px-3.5 py-2.5 text-sm font-normal text-[#202124] outline-none transition placeholder:text-[#80868B] focus:border-[#1A73E8] focus:ring-2 focus:ring-[#D2E3FC] dark:border-[#3C4043] dark:bg-[#202124] dark:text-white dark:focus:ring-[#174EA6]/40" />
+                            <input type="tel" maxLength={24} value={phoneNationalNumber} onChange={event => setPhoneNationalNumber(event.target.value)} placeholder="Phone number" className="min-w-0 flex-1 rounded-xl border border-[#dcdcdc] bg-white px-3.5 py-2.5 text-sm font-normal text-[#212121] outline-none transition placeholder:text-[#858585] focus:border-[#696969] focus:ring-2 focus:ring-[#e1e1e1] dark:border-[#3f3f3f] dark:bg-[#212121] dark:text-white dark:focus:ring-[#494949]/40" />
                           </span>
                         </label>
                       </div>
-                      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#EDF0F5] pt-4 dark:border-[#2C2D31]">
+                      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#f0f0f0] pt-4 dark:border-[#2d2d2d]">
                         <button type="button" disabled={isSavingBillingAddress} onClick={() => {
                           setBillingAddressForm({ ...account.billingAddress });
                           setBillingAddressError('');
                           setIsEditingBillingAddress(false);
-                        }} className="inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-xs font-semibold text-[#5F6368] transition hover:bg-[#F1F3F4] disabled:opacity-50 dark:text-[#C4C7C5] dark:hover:bg-[#2C2D31]"><X className="h-4 w-4" /> Cancel</button>
-                        <button type="submit" disabled={isSavingBillingAddress} className="inline-flex items-center gap-2 rounded-full bg-[#1A73E8] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#1765CC] disabled:cursor-wait disabled:opacity-60">
+                        }} className="inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-xs font-semibold text-[#636363] transition hover:bg-[#F1F3F4] disabled:opacity-50 dark:text-[#C4C7C5] dark:hover:bg-[#2d2d2d]"><X className="h-4 w-4" /> Cancel</button>
+                        <button type="submit" disabled={isSavingBillingAddress} className="inline-flex items-center gap-2 rounded-full bg-[#696969] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#5c5c5c] disabled:cursor-wait disabled:opacity-60">
                           <Save className="h-4 w-4" /> {isSavingBillingAddress ? 'Saving?' : 'Save address'}
                         </button>
                       </div>
                     </form>
                   ) : (
-                    <div className="rounded-2xl bg-[#F8FAFD] p-5 dark:bg-[#202124]">
+                    <div className="rounded-2xl bg-[#fafafa] p-5 dark:bg-[#212121]">
                       {account.billingAddress?.address || account.billingAddress?.city || account.billingAddress?.country ? (
                         <div className="flex gap-3">
-                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#1A73E8]" />
-                          <div className="space-y-1 text-sm text-[#3C4043] dark:text-[#E3E3E3]">
-                            <p className="font-semibold text-[#202124] dark:text-white">{account.billingAddress.address}</p>
+                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#696969]" />
+                          <div className="space-y-1 text-sm text-[#3f3f3f] dark:text-[#E3E3E3]">
+                            <p className="font-semibold text-[#212121] dark:text-white">{account.billingAddress.address}</p>
                             <p>{[account.billingAddress.city, account.billingAddress.postalCode].filter(Boolean).join(' ')}</p>
                             <p>{account.billingAddress.country}</p>
-                            {account.billingAddress.phone && <p className="flex items-center gap-2 pt-2 text-xs text-[#5F6368] dark:text-[#9AA0A6]"><Phone className="h-3.5 w-3.5" />{account.billingAddress.phone}</p>}
+                            {account.billingAddress.phone && <p className="flex items-center gap-2 pt-2 text-xs text-[#636363] dark:text-[#9f9f9f]"><Phone className="h-3.5 w-3.5" />{account.billingAddress.phone}</p>}
                           </div>
                         </div>
                       ) : (
                         <div className="py-3 text-center">
-                          <MapPin className="mx-auto h-6 w-6 text-[#80868B]" />
-                          <p className="mt-2 text-sm font-medium text-[#3C4043] dark:text-[#E3E3E3]">No billing address saved</p>
-                          <p className="mt-1 text-xs text-[#5F6368] dark:text-[#9AA0A6]">Add the address from your account registration or update it here.</p>
+                          <MapPin className="mx-auto h-6 w-6 text-[#858585]" />
+                          <p className="mt-2 text-sm font-medium text-[#3f3f3f] dark:text-[#E3E3E3]">No billing address saved</p>
+                          <p className="mt-1 text-xs text-[#636363] dark:text-[#9f9f9f]">Add the address from your account registration or update it here.</p>
                         </div>
                       )}
                     </div>
@@ -1321,21 +1321,21 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
               </section>
 
               <aside className="space-y-4">
-                <div className="rounded-2xl border border-[#E5EAF2] bg-white p-5 sm:p-6 dark:border-[#2C2D31] dark:bg-[#1E1F22]">
+                <div className="rounded-2xl border border-[#eaeaea] bg-white p-5 sm:p-6 dark:border-[#2d2d2d] dark:bg-[#1f1f1f]">
                   <div className="mb-4 flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#E8F0FE] text-[#0B57D0] dark:bg-[#0B57D0]/20 dark:text-[#8AB4F8]"><CreditCard className="h-4 w-4" /></div>
-                    <div><h3 className="text-sm font-semibold text-[#202124] dark:text-white">Account details</h3><p className="text-[11px] text-[#5F6368] dark:text-[#9AA0A6]">Live account information</p></div>
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#efefef] text-[#000000] dark:bg-[#000000]/20 dark:text-[#b0b0b0]"><CreditCard className="h-4 w-4" /></div>
+                    <div><h3 className="text-sm font-semibold text-[#212121] dark:text-white">Account details</h3><p className="text-[11px] text-[#636363] dark:text-[#9f9f9f]">Live account information</p></div>
                   </div>
                   <dl className="space-y-3 text-xs">
-                    <div className="flex items-start justify-between gap-3 border-b border-[#F0F2F5] pb-3 dark:border-[#2C2D31]"><dt className="text-[#5F6368] dark:text-[#9AA0A6]">Account name</dt><dd className="max-w-[60%] text-right font-medium text-[#202124] dark:text-white">{billingAccountName}</dd></div>
-                    <div className="flex items-start justify-between gap-3 border-b border-[#F0F2F5] pb-3 dark:border-[#2C2D31]"><dt className="text-[#5F6368] dark:text-[#9AA0A6]">Account ID</dt><dd className="max-w-[60%] break-all text-right font-mono text-[10px] font-medium text-[#202124] dark:text-white">{billingAccountId}</dd></div>
-                    <div className="flex items-center justify-between gap-3"><dt className="text-[#5F6368] dark:text-[#9AA0A6]">Currency</dt><dd className="font-medium text-[#202124] dark:text-white">{account.currency}</dd></div>
+                    <div className="flex items-start justify-between gap-3 border-b border-[#f2f2f2] pb-3 dark:border-[#2d2d2d]"><dt className="text-[#636363] dark:text-[#9f9f9f]">Account name</dt><dd className="max-w-[60%] text-right font-medium text-[#212121] dark:text-white">{billingAccountName}</dd></div>
+                    <div className="flex items-start justify-between gap-3 border-b border-[#f2f2f2] pb-3 dark:border-[#2d2d2d]"><dt className="text-[#636363] dark:text-[#9f9f9f]">Account ID</dt><dd className="max-w-[60%] break-all text-right font-mono text-[10px] font-medium text-[#212121] dark:text-white">{billingAccountId}</dd></div>
+                    <div className="flex items-center justify-between gap-3"><dt className="text-[#636363] dark:text-[#9f9f9f]">Currency</dt><dd className="font-medium text-[#212121] dark:text-white">{account.currency}</dd></div>
                   </dl>
                 </div>
-                <div className="rounded-3xl border border-[#E5EAF2] bg-[#F5F8FE] p-5 dark:border-[#26364E] dark:bg-[#172033]">
+                <div className="rounded-3xl border border-[#eaeaea] bg-[#f8f8f8] p-5 dark:border-[#343434] dark:bg-[#1f1f1f]">
                   <h3 className="text-xs font-semibold text-[#1F1F1F] dark:text-white">Account contact</h3>
-                  <p className="mt-1 break-all text-sm text-[#3C4043] dark:text-[#DADCE0]">{currentUser?.email || 'Email unavailable'}</p>
-                  <p className="mt-2 text-xs leading-relaxed text-[#5F6368] dark:text-[#9AA0A6]">Your billing address is saved to your account profile and can be changed whenever your details change.</p>
+                  <p className="mt-1 break-all text-sm text-[#3f3f3f] dark:text-[#dcdcdc]">{currentUser?.email || 'Email unavailable'}</p>
+                  <p className="mt-2 text-xs leading-relaxed text-[#636363] dark:text-[#9f9f9f]">Your billing address is saved to your account profile and can be changed whenever your details change.</p>
                 </div>
               </aside>
             </div>

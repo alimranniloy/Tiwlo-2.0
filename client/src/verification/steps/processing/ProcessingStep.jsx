@@ -189,8 +189,8 @@ export default function ProcessingStep() {
         <div className="w-full flex items-center justify-center my-8">
           <div className="relative w-36 h-36 flex items-center justify-center">
             {/* Soft blue central background */}
-            <div className="absolute inset-2 rounded-full bg-blue-50/80 flex items-center justify-center">
-              <Shield className="w-12 h-12 text-blue-600 animate-pulse" strokeWidth={1.75} />
+            <div className="absolute inset-2 rounded-full bg-neutral-50/80 flex items-center justify-center">
+              <Shield className="w-12 h-12 text-neutral-600 animate-pulse" strokeWidth={1.75} />
             </div>
 
             {/* Rotating SVG Spinner Arc */}
@@ -203,7 +203,7 @@ export default function ProcessingStep() {
                 cx="50"
                 cy="50"
                 r="44"
-                stroke="#E2E8F0"
+                stroke="#e7e7e7"
                 strokeWidth="4"
                 fill="none"
               />
@@ -211,7 +211,7 @@ export default function ProcessingStep() {
                 cx="50"
                 cy="50"
                 r="44"
-                stroke="#2563EB"
+                stroke="#000000"
                 strokeWidth="4"
                 strokeDasharray="90 190"
                 strokeLinecap="round"
@@ -223,32 +223,32 @@ export default function ProcessingStep() {
 
         {/* Title & Guidance */}
         <div className="text-center mb-7">
-          <h2 className="text-[24px] font-bold text-slate-900 tracking-tight leading-snug">
+          <h2 className="text-[24px] font-bold text-neutral-900 tracking-tight leading-snug">
             Checking the face match
           </h2>
-          <p className="text-[13.5px] text-slate-500 font-normal mt-2 leading-relaxed px-4">
+          <p className="text-[13.5px] text-neutral-500 font-normal mt-2 leading-relaxed px-4">
             Images are processed for this check and are not saved.
           </p>
         </div>
 
         {/* Verification Checklist Card */}
-        <div className="w-full p-5 rounded-2xl border border-slate-200/90 bg-white shadow-2xs space-y-4">
+        <div className="w-full p-5 rounded-2xl border border-neutral-200/90 bg-white shadow-2xs space-y-4">
           {/* Check 1: Document check */}
           <div className="flex items-center space-x-3.5">
             <div
               className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 ${
                 documentChecked
-                  ? 'bg-blue-600 text-white scale-100'
-                  : 'bg-blue-100 text-blue-600 animate-pulse'
+                  ? 'bg-neutral-600 text-white scale-100'
+                  : 'bg-neutral-100 text-neutral-600 animate-pulse'
               }`}
             >
               {documentChecked ? (
                 <Check className="w-3.5 h-3.5" strokeWidth={2.8} />
               ) : (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-neutral-600" />
               )}
             </div>
-            <span className={`text-[14px] font-medium transition-colors ${documentChecked ? 'text-slate-800' : 'text-slate-500'}`}>
+            <span className={`text-[14px] font-medium transition-colors ${documentChecked ? 'text-neutral-800' : 'text-neutral-500'}`}>
               Preparing document image
             </span>
           </div>
@@ -258,21 +258,21 @@ export default function ProcessingStep() {
             <div
               className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 ${
                 faceMatched
-                  ? 'bg-blue-600 text-white scale-100'
+                  ? 'bg-neutral-600 text-white scale-100'
                   : documentChecked
-                  ? 'bg-blue-100 text-blue-600 animate-pulse'
-                  : 'bg-slate-100 text-slate-300'
+                  ? 'bg-neutral-100 text-neutral-600 animate-pulse'
+                  : 'bg-neutral-100 text-neutral-300'
               }`}
             >
               {faceMatched ? (
                 <Check className="w-3.5 h-3.5" strokeWidth={2.8} />
               ) : documentChecked ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-neutral-600" />
               ) : (
-                <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                <div className="w-1.5 h-1.5 rounded-full bg-neutral-300" />
               )}
             </div>
-            <span className={`text-[14px] font-medium transition-colors ${faceMatched ? 'text-slate-800' : 'text-slate-500'}`}>
+            <span className={`text-[14px] font-medium transition-colors ${faceMatched ? 'text-neutral-800' : 'text-neutral-500'}`}>
               Comparing faces
             </span>
           </div>
@@ -282,28 +282,28 @@ export default function ProcessingStep() {
             <div
               className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 ${
                 securityValidated
-                  ? 'bg-blue-600 text-white scale-100'
+                  ? 'bg-neutral-600 text-white scale-100'
                   : faceMatched
-                  ? 'bg-blue-100 text-blue-600 animate-pulse'
-                  : 'bg-slate-100 text-slate-300'
+                  ? 'bg-neutral-100 text-neutral-600 animate-pulse'
+                  : 'bg-neutral-100 text-neutral-300'
               }`}
             >
               {securityValidated ? (
                 <Check className="w-3.5 h-3.5" strokeWidth={2.8} />
               ) : faceMatched ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-neutral-600" />
               ) : (
-                <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                <div className="w-1.5 h-1.5 rounded-full bg-neutral-300" />
               )}
             </div>
-            <span className={`text-[14px] font-medium transition-colors ${securityValidated ? 'text-slate-800' : 'text-slate-500'}`}>
+            <span className={`text-[14px] font-medium transition-colors ${securityValidated ? 'text-neutral-800' : 'text-neutral-500'}`}>
               Checking passive liveness
             </span>
           </div>
         </div>
       </div>
 
-      <div className="pt-4 text-center text-[12px] text-slate-400">
+      <div className="pt-4 text-center text-[12px] text-neutral-400">
         The face match does not verify document authenticity.
       </div>
     </div>

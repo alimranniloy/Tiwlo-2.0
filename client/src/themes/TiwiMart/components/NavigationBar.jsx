@@ -11,7 +11,7 @@ export default function NavigationBar({
   selectedCategory = 'All Categories'
 }) {
   const { storeSettings } = useStoreSettings();
-  const primaryColor = storeSettings?.themeColor || '#2563eb';
+  const primaryColor = storeSettings?.themeColor || '#000000';
   const headerPages = [...(storeSettings?.storePages || [])]
     .filter(page => page.enabled !== false && ['header', 'both'].includes(page.placement))
     .sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -22,22 +22,22 @@ export default function NavigationBar({
   ];
 
   return (
-    <nav className="bg-white border-b border-slate-200/80 px-4 lg:px-8 py-2.5">
+    <nav className="bg-white border-b border-neutral-200/80 px-4 lg:px-8 py-2.5">
       <div className="max-w-[1440px] mx-auto flex items-center justify-between">
         <button
           type="button"
           onClick={() => onSelectCategory?.('All Categories')}
           className="w-[260px] shrink-0 hidden lg:flex items-center justify-between pr-4 text-left"
         >
-          <span className="flex items-center space-x-2.5 font-bold text-slate-900 text-[13.5px]">
-            <Menu className="w-4 h-4 text-slate-700" />
+          <span className="flex items-center space-x-2.5 font-bold text-neutral-900 text-[13.5px]">
+            <Menu className="w-4 h-4 text-neutral-700" />
             <span>All Categories</span>
           </span>
-          <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+          <ChevronDown className="w-3.5 h-3.5 text-neutral-500" />
         </button>
 
         {/* Middle Nav Links */}
-        <div className="flex-1 flex items-center space-x-1 sm:space-x-6 overflow-x-auto no-scrollbar py-0.5 text-xs font-semibold text-slate-700">
+        <div className="flex-1 flex items-center space-x-1 sm:space-x-6 overflow-x-auto no-scrollbar py-0.5 text-xs font-semibold text-neutral-700">
           {navLinks.map((link) => {
             const isActive = activeFilter === link.id;
             return (
@@ -55,7 +55,7 @@ export default function NavigationBar({
                 </span>
               )}
               {link.hasArrow && (
-                <ChevronDown className="w-3 h-3 text-slate-400 -ml-0.5" />
+                <ChevronDown className="w-3 h-3 text-neutral-400 -ml-0.5" />
               )}
             </button>
           );

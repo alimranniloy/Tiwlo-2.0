@@ -37,14 +37,14 @@ export default function VerificationFailedStep({ onTryAgain = null, onContactSup
         </div>
 
         {/* Title & Description */}
-        <h2 className="text-[25px] font-bold text-slate-900 tracking-tight leading-snug">
+        <h2 className="text-[25px] font-bold text-neutral-900 tracking-tight leading-snug">
           {failureType === 'connection'
             ? 'Connection problem'
             : failureType === 'service'
               ? 'Verification temporarily unavailable'
               : 'Verification Failed'}
         </h2>
-        <p className="text-[14px] text-slate-500 font-normal mt-2.5 max-w-[290px] leading-relaxed">
+        <p className="text-[14px] text-neutral-500 font-normal mt-2.5 max-w-[290px] leading-relaxed">
           {failureReason || "We couldn't verify your identity. Please check your information and try again."}
         </p>
       </div>
@@ -55,7 +55,7 @@ export default function VerificationFailedStep({ onTryAgain = null, onContactSup
         <button
           onClick={handleTryAgain}
           type="button"
-          className="w-full py-3.5 px-4 bg-white border border-blue-600 hover:bg-blue-50/50 text-blue-600 font-semibold text-[15px] rounded-xl transition-all duration-150 active:scale-[0.98] cursor-pointer"
+          className="w-full py-3.5 px-4 bg-white border border-neutral-600 hover:bg-neutral-50/50 text-neutral-600 font-semibold text-[15px] rounded-xl transition-all duration-150 active:scale-[0.98] cursor-pointer"
         >
           Try Again
         </button>
@@ -65,7 +65,7 @@ export default function VerificationFailedStep({ onTryAgain = null, onContactSup
           <button
             onClick={handleContactSupport}
             type="button"
-            className="text-[13.5px] font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+            className="text-[13.5px] font-medium text-neutral-600 hover:text-neutral-700 hover:underline cursor-pointer"
           >
             Contact Support
           </button>

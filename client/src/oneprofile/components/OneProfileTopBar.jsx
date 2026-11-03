@@ -21,14 +21,14 @@ export default function OneProfileTopBar({
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   return (
-    <header className="w-full bg-white border-b border-slate-100/90 px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4 sticky top-0 z-30">
+    <header className="w-full bg-white border-b border-neutral-100/90 px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4 sticky top-0 z-30">
       {/* Left: Mobile Sidebar Toggle & Search Input */}
       <div className="flex items-center gap-3 flex-1 max-w-xl">
         {/* Mobile Hamburger */}
         <button
           type="button"
           onClick={onToggleMobileSidebar}
-          className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition shrink-0"
+          className="lg:hidden p-2 rounded-xl text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition shrink-0"
           aria-label="Toggle Navigation"
         >
           <Menu className="w-5 h-5" />
@@ -36,7 +36,7 @@ export default function OneProfileTopBar({
 
         {/* Search Bar matching screenshot */}
         <div className="relative w-full">
-          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-400">
             <Search className="w-4 h-4" />
           </div>
           <input
@@ -44,10 +44,10 @@ export default function OneProfileTopBar({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search templates, domains, settings..."
-            className="w-full pl-10 pr-12 py-2 bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200/80 focus:border-blue-500 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none transition-all"
+            className="w-full pl-10 pr-12 py-2 bg-neutral-50 hover:bg-neutral-100/70 focus:bg-white border border-neutral-200/80 focus:border-neutral-500 rounded-xl text-xs sm:text-sm text-neutral-800 placeholder-neutral-400 focus:outline-none transition-all"
           />
           <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-            <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono font-semibold text-slate-400 bg-white border border-slate-200 rounded shadow-2xs">
+            <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono font-semibold text-neutral-400 bg-white border border-neutral-200 rounded shadow-2xs">
               ⌘K
             </kbd>
           </div>
@@ -61,7 +61,7 @@ export default function OneProfileTopBar({
           <button
             type="button"
             onClick={() => setNotificationsOpen(!notificationsOpen)}
-            className="relative p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition"
+            className="relative p-2 rounded-xl text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50 transition"
             aria-label="Notifications"
           >
             <Bell className="w-5 h-5" />
@@ -72,18 +72,18 @@ export default function OneProfileTopBar({
 
           {/* Notifications Dropdown (In-Page clean dropdown) */}
           {notificationsOpen && (
-            <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl border border-slate-100 shadow-xl py-2 z-50 animate-in fade-in duration-150">
-              <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-900">Notifications</span>
-                <span className="text-[10px] text-blue-600 font-semibold cursor-pointer">Mark read</span>
+            <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl border border-neutral-100 shadow-xl py-2 z-50 animate-in fade-in duration-150">
+              <div className="px-4 py-2 border-b border-neutral-100 flex items-center justify-between">
+                <span className="text-xs font-bold text-neutral-900">Notifications</span>
+                <span className="text-[10px] text-neutral-600 font-semibold cursor-pointer">Mark read</span>
               </div>
-              <div className="divide-y divide-slate-50 text-xs">
+              <div className="divide-y divide-neutral-50 text-xs">
                 {notifications.length === 0 ? (
-                  <div className="px-4 py-4 text-slate-500">No notifications.</div>
+                  <div className="px-4 py-4 text-neutral-500">No notifications.</div>
                 ) : notifications.map((notification) => (
-                  <div key={notification.id} className="px-4 py-2.5 hover:bg-slate-50 transition cursor-pointer">
-                    <div className="font-semibold text-slate-800">{notification.title}</div>
-                    <div className="text-slate-500 text-[11px] mt-0.5">{notification.body}</div>
+                  <div key={notification.id} className="px-4 py-2.5 hover:bg-neutral-50 transition cursor-pointer">
+                    <div className="font-semibold text-neutral-800">{notification.title}</div>
+                    <div className="text-neutral-500 text-[11px] mt-0.5">{notification.body}</div>
                   </div>
                 ))}
               </div>
@@ -96,10 +96,10 @@ export default function OneProfileTopBar({
           <button
             type="button"
             onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-            className="flex items-center gap-2.5 p-1 sm:pl-1.5 sm:pr-2.5 rounded-full sm:rounded-2xl hover:bg-slate-50 transition select-none"
+            className="flex items-center gap-2.5 p-1 sm:pl-1.5 sm:pr-2.5 rounded-full sm:rounded-2xl hover:bg-neutral-50 transition select-none"
           >
             {/* Avatar */}
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden bg-slate-200 ring-2 ring-slate-100 shrink-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden bg-neutral-200 ring-2 ring-neutral-100 shrink-0">
               <img
                 src={currentUser?.avatar || '/tiwlo-icon.png'}
                 alt={currentUser?.name || currentUser?.email || 'Account'}
@@ -113,19 +113,19 @@ export default function OneProfileTopBar({
 
             {/* Name & Plan info */}
             <div className="hidden sm:flex flex-col text-left">
-              <span className="text-xs font-bold text-slate-900 leading-tight">{currentUser?.name || currentUser?.email || 'Account'}</span>
-                <span className="text-[10px] font-normal text-slate-400 leading-tight">{currentUser?.planName || 'Free Starter'}</span>
+              <span className="text-xs font-bold text-neutral-900 leading-tight">{currentUser?.name || currentUser?.email || 'Account'}</span>
+                <span className="text-[10px] font-normal text-neutral-400 leading-tight">{currentUser?.planName || 'Free Starter'}</span>
             </div>
 
-            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-3.5 h-3.5 text-neutral-400 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {/* Profile Dropdown */}
           {profileDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl border border-slate-100 shadow-xl py-1.5 z-50 animate-in fade-in duration-150 text-xs">
-              <div className="px-3.5 py-2 border-b border-slate-100 sm:hidden">
-                <div className="font-bold text-slate-900">{currentUser?.name || currentUser?.email || 'Account'}</div>
-                <div className="text-[10px] text-blue-600 font-semibold">{currentUser?.planName || 'Free Starter'}</div>
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl border border-neutral-100 shadow-xl py-1.5 z-50 animate-in fade-in duration-150 text-xs">
+              <div className="px-3.5 py-2 border-b border-neutral-100 sm:hidden">
+                <div className="font-bold text-neutral-900">{currentUser?.name || currentUser?.email || 'Account'}</div>
+                <div className="text-[10px] text-neutral-600 font-semibold">{currentUser?.planName || 'Free Starter'}</div>
               </div>
               <button
                 type="button"
@@ -133,9 +133,9 @@ export default function OneProfileTopBar({
                   setProfileDropdownOpen(false);
                   onNavigateTab('settings');
                 }}
-                className="w-full text-left px-3.5 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium"
+                className="w-full text-left px-3.5 py-2 text-neutral-700 hover:bg-neutral-50 flex items-center gap-2 font-medium"
               >
-                <User className="w-3.5 h-3.5 text-slate-400" />
+                <User className="w-3.5 h-3.5 text-neutral-400" />
                 <span>My Profile</span>
               </button>
               <button
@@ -144,9 +144,9 @@ export default function OneProfileTopBar({
                   setProfileDropdownOpen(false);
                   onNavigateTab('billing');
                 }}
-                className="w-full text-left px-3.5 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium"
+                className="w-full text-left px-3.5 py-2 text-neutral-700 hover:bg-neutral-50 flex items-center gap-2 font-medium"
               >
-                <CreditCard className="w-3.5 h-3.5 text-slate-400" />
+                <CreditCard className="w-3.5 h-3.5 text-neutral-400" />
                 <span>Billing & Plans</span>
               </button>
               <button
@@ -155,12 +155,12 @@ export default function OneProfileTopBar({
                   setProfileDropdownOpen(false);
                   onNavigateTab('settings');
                 }}
-                className="w-full text-left px-3.5 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium"
+                className="w-full text-left px-3.5 py-2 text-neutral-700 hover:bg-neutral-50 flex items-center gap-2 font-medium"
               >
-                <Settings className="w-3.5 h-3.5 text-slate-400" />
+                <Settings className="w-3.5 h-3.5 text-neutral-400" />
                 <span>Settings</span>
               </button>
-              <div className="border-t border-slate-100 my-1" />
+              <div className="border-t border-neutral-100 my-1" />
               <button
                 type="button"
                 onClick={() => {

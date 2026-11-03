@@ -64,7 +64,7 @@ export default function UidsLandingPage({
   };
 
   return (
-    <div className="min-h-screen flex flex-col font-sans text-slate-800 bg-white selection:bg-emerald-500 selection:text-white">
+    <div className="min-h-screen flex flex-col font-sans text-neutral-800 bg-white selection:bg-emerald-500 selection:text-white">
       {/* 
         ========================================================================
         HERO SECTION: background.jpg is APPLIED ONLY HERE
@@ -72,7 +72,7 @@ export default function UidsLandingPage({
         ========================================================================
       */}
       <div
-        className="relative w-full overflow-hidden border-b border-slate-100 bg-[#FCFDFC]"
+        className="relative w-full overflow-hidden border-b border-neutral-100 bg-[#FCFDFC]"
         style={{
           backgroundImage: "url('/background.jpg'), url('/background.png')",
           backgroundSize: 'cover',
@@ -148,7 +148,7 @@ export default function UidsLandingPage({
         />
 
         {/* 2. How It Works (Compact 3-Step Setup) */}
-        <div className="bg-[#F8FAFC]/80 border-y border-slate-100 py-6 sm:py-8 mt-8 sm:mt-10">
+        <div className="bg-[#fafafa]/80 border-y border-neutral-100 py-6 sm:py-8 mt-8 sm:mt-10">
           <UidsHowItWorks
             onGetStarted={() => {
               if (searchRef.current) {
@@ -164,7 +164,7 @@ export default function UidsLandingPage({
         </div>
 
         {/* 4. Frequently Asked Questions (Compact Accordion Vault) */}
-        <div className="bg-[#F8FAFC]/80 border-t border-slate-100 py-6 sm:py-8">
+        <div className="bg-[#fafafa]/80 border-t border-neutral-100 py-6 sm:py-8">
           <UidsFaq />
         </div>
       </main>

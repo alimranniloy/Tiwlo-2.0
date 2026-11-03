@@ -59,21 +59,21 @@ export default function LivePollsView() {
   return (
     <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full pb-20">
       {/* 1. Header */}
-      <div className="bg-white dark:bg-[#16161f] p-4 sm:p-5 rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm flex items-center justify-between">
+      <div className="bg-white dark:bg-[#171717] p-4 sm:p-5 rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigateTo('feed')}
-            className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] transition cursor-pointer active:scale-95"
+            className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#676767] dark:text-[#b3b3b3] transition cursor-pointer active:scale-95"
             title="Back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-[18px] font-bold text-[#1c1e21] dark:text-[#e4e6eb] flex items-center gap-2 tracking-tight">
+            <h1 className="text-[18px] font-bold text-[#1e1e1e] dark:text-[#e6e6e6] flex items-center gap-2 tracking-tight">
               <Vote className="w-5 h-5 text-violet-500" />
               <span>Live Community Polls</span>
             </h1>
-            <p className="text-[12px] text-[#65676b] dark:text-[#8a8d91]">
+            <p className="text-[12px] text-[#676767] dark:text-[#8d8d8d]">
               Vote and see live real-time opinions from the network
             </p>
           </div>
@@ -87,9 +87,9 @@ export default function LivePollsView() {
           return (
             <div
               key={p.id}
-              className="bg-white dark:bg-[#16161f] p-5 sm:p-6 rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm flex flex-col gap-4"
+              className="bg-white dark:bg-[#171717] p-5 sm:p-6 rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm flex flex-col gap-4"
             >
-              <h3 className="font-bold text-[15px] sm:text-[16px] text-[#1c1e21] dark:text-[#e4e6eb] leading-snug">
+              <h3 className="font-bold text-[15px] sm:text-[16px] text-[#1e1e1e] dark:text-[#e6e6e6] leading-snug">
                 {p.question}
               </h3>
 
@@ -115,7 +115,7 @@ export default function LivePollsView() {
                         />
                       )}
                       <div className="relative flex items-center justify-between z-10 text-[13px]">
-                        <span className="font-semibold text-[#1c1e21] dark:text-[#e4e6eb] flex items-center gap-1.5">
+                        <span className="font-semibold text-[#1e1e1e] dark:text-[#e6e6e6] flex items-center gap-1.5">
                           {isSelected && <CheckCircle2 className="w-4 h-4 text-violet-600 inline" />}
                           {opt.text}
                         </span>
@@ -126,7 +126,7 @@ export default function LivePollsView() {
                 })}
               </div>
 
-              <div className="text-[12px] text-[#65676b] dark:text-[#8a8d91] flex items-center justify-between pt-1">
+              <div className="text-[12px] text-[#676767] dark:text-[#8d8d8d] flex items-center justify-between pt-1">
                 <span>{p.totalVotes || 0} total votes</span>
                 {hasVoted && <span className="text-violet-600 dark:text-violet-400 font-semibold">Your vote is counted</span>}
               </div>

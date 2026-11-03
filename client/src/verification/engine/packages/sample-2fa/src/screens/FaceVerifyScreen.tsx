@@ -252,7 +252,7 @@ export function FaceVerifyScreen({ email, onVerified, onCancel }: Props) {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-white">Face Verification</h1>
           <p className="text-gray-400 text-sm mt-1">
-            2nd factor for <span className="text-indigo-400">{email}</span>
+            2nd factor for <span className="text-neutral-400">{email}</span>
           </p>
         </div>
 
@@ -261,8 +261,8 @@ export function FaceVerifyScreen({ email, onVerified, onCancel }: Props) {
             <div className="aspect-video bg-gray-950 flex items-center justify-center">
               {stage === 'identifying' ? (
                 <div className="text-center space-y-3">
-                  <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                  <div className="text-indigo-400 text-sm">Identifying face...</div>
+                  <div className="w-12 h-12 border-4 border-neutral-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                  <div className="text-neutral-400 text-sm">Identifying face...</div>
                 </div>
               ) : (
                 <div className="text-center space-y-2">
@@ -302,7 +302,7 @@ export function FaceVerifyScreen({ email, onVerified, onCancel }: Props) {
               {/* Face guide overlay */}
               {ready && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="w-48 h-60 rounded-[50%] border-2 border-indigo-400/60 animate-pulse transition-colors duration-300" />
+                  <div className="w-48 h-60 rounded-[50%] border-2 border-neutral-400/60 animate-pulse transition-colors duration-300" />
                 </div>
               )}
 
@@ -323,7 +323,7 @@ export function FaceVerifyScreen({ email, onVerified, onCancel }: Props) {
               {session && stage === 'liveness' && (
                 <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-800">
                   <div
-                    className="h-full bg-indigo-500 transition-all duration-500"
+                    className="h-full bg-neutral-500 transition-all duration-500"
                     style={{ width: `${progress * 100}%` }}
                   />
                 </div>
@@ -351,7 +351,7 @@ export function FaceVerifyScreen({ email, onVerified, onCancel }: Props) {
 
             {stage === 'liveness' && currentChallenge && (
               <div className="text-center space-y-2">
-                <div className="text-xs text-indigo-400 uppercase tracking-wider">
+                <div className="text-xs text-neutral-400 uppercase tracking-wider">
                   Challenge {currentChallengeIdx + 1} of {totalChallenges}
                 </div>
                 <div className="text-lg font-semibold text-white">
@@ -387,12 +387,12 @@ export function FaceVerifyScreen({ email, onVerified, onCancel }: Props) {
                       <div className={`w-3 h-3 rounded-full transition-colors ${
                         isDone
                           ? passed ? 'bg-green-500' : 'bg-red-500'
-                          : isCurrent ? 'bg-indigo-500 animate-pulse' : 'bg-gray-700'
+                          : isCurrent ? 'bg-neutral-500 animate-pulse' : 'bg-gray-700'
                       }`} />
                       <span className={`text-xs ${
                         isDone
                           ? passed ? 'text-green-400' : 'text-red-400'
-                          : isCurrent ? 'text-indigo-400' : 'text-gray-600'
+                          : isCurrent ? 'text-neutral-400' : 'text-gray-600'
                       }`}>
                         {challengeLabel(c.type)}{isDone ? (passed ? ' — passed' : ' — failed') : ''}
                       </span>
@@ -418,7 +418,7 @@ export function FaceVerifyScreen({ email, onVerified, onCancel }: Props) {
                 </button>
                 <button
                   onClick={retry}
-                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors"
+                  className="flex-1 py-2.5 bg-neutral-600 hover:bg-neutral-500 text-white rounded-lg font-medium transition-colors"
                 >
                   Try Again
                 </button>
@@ -428,7 +428,7 @@ export function FaceVerifyScreen({ email, onVerified, onCancel }: Props) {
         </div>
 
         <p className="text-center text-xs text-gray-600">
-          Powered by <span className="text-indigo-400">OpenBiometrics</span>
+          Powered by <span className="text-neutral-400">OpenBiometrics</span>
         </p>
       </div>
     </div>

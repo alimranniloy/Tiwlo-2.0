@@ -93,13 +93,13 @@ export default function FeedView() {
     <div className="w-full flex flex-col">
       {/* 1. "Post Something" Card matching reference screenshot */}
       <div className="mb-5">
-        <span className="text-[13.5px] font-bold text-[#111827] dark:text-white block mb-2 px-1">
+        <span className="text-[13.5px] font-bold text-[#181818] dark:text-white block mb-2 px-1">
           Post Something
         </span>
 
         <div
           onClick={() => navigateTo('create-post')}
-          className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-4 flex items-center justify-between gap-3 shadow-[0_2px_12px_rgba(0,0,0,0.02)] cursor-pointer hover:border-gray-300 dark:hover:border-gray-700 transition"
+          className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] p-4 flex items-center justify-between gap-3 shadow-[0_2px_12px_rgba(0,0,0,0.02)] cursor-pointer hover:border-gray-300 dark:hover:border-gray-700 transition"
         >
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <img
@@ -110,14 +110,14 @@ export default function FeedView() {
               alt="Avatar"
               className="w-10 h-10 rounded-full object-cover flex-shrink-0 ring-1 ring-black/5"
             />
-            <span className="text-[13.5px] text-[#9CA3AF] truncate">
+            <span className="text-[13.5px] text-[#a2a2a2] truncate">
               What's on your mind?
             </span>
           </div>
 
           <button
             type="button"
-            className="text-[#9CA3AF] hover:text-[#1E75FF] transition-colors p-1"
+            className="text-[#a2a2a2] hover:text-[#6c6c6c] transition-colors p-1"
             title="Attach Photo"
           >
             <ImageIcon className="w-5 h-5" />
@@ -129,7 +129,7 @@ export default function FeedView() {
       <div className="flex flex-col">
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-7 h-7 rounded-full border-2 border-[#1E75FF] border-t-transparent animate-spin" />
+            <div className="w-7 h-7 rounded-full border-2 border-[#6c6c6c] border-t-transparent animate-spin" />
           </div>
         ) : (
           posts.map((post) => (

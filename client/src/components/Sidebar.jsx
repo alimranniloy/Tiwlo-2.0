@@ -108,13 +108,13 @@ export default function Sidebar({
       {mobileOpen && (
         <div
           onClick={() => setMobileOpen?.(false)}
-          className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-40 lg:hidden transition-opacity duration-300"
+          className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs z-40 lg:hidden transition-opacity duration-300"
           aria-hidden="true"
         />
       )}
 
       <aside className={`
-        w-[270px] sm:w-[280px] lg:w-[260px] h-screen overflow-y-auto bg-white dark:bg-[#111827] border-r border-[#EDF2F7] dark:border-gray-800 flex flex-col justify-between p-5 select-none transition-all duration-300 ease-in-out shrink-0
+        w-[270px] sm:w-[280px] lg:w-[260px] h-screen overflow-y-auto bg-white dark:bg-[#181818] border-r border-[#f1f1f1] dark:border-gray-800 flex flex-col justify-between p-5 select-none transition-all duration-300 ease-in-out shrink-0
         fixed inset-y-0 left-0 z-50
         lg:static lg:translate-x-0 lg:z-20 lg:sticky lg:top-0
         ${mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
@@ -132,7 +132,7 @@ export default function Sidebar({
             <button
               type="button"
               onClick={() => setMobileOpen?.(false)}
-              className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-gray-800 transition"
+              className="lg:hidden p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-gray-800 transition"
               aria-label="Close menu"
             >
               <X className="w-4 h-4" />
@@ -144,7 +144,7 @@ export default function Sidebar({
           onClick={() => setActiveTab('dashboard')}
           className="flex items-center space-x-3 mb-7 px-1 cursor-pointer group"
         >
-          <div className="w-10 h-10 rounded-xl bg-white dark:bg-gray-800 border border-slate-200/80 dark:border-gray-700/80 flex items-center justify-center p-1.5 shadow-xs group-hover:scale-105 group-hover:border-blue-500/40 transition shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-white dark:bg-gray-800 border border-neutral-200/80 dark:border-gray-700/80 flex items-center justify-center p-1.5 shadow-xs group-hover:scale-105 group-hover:border-neutral-500/40 transition shrink-0">
             <img
               src="/tiwlo-icon.png"
               alt="Tiwlo"
@@ -158,14 +158,14 @@ export default function Sidebar({
           </div>
           <div className="min-w-0">
             <div className="flex items-center space-x-1.5">
-              <h1 className="text-[17px] font-black text-slate-900 dark:text-white tracking-tight leading-tight">
+              <h1 className="text-[17px] font-black text-neutral-900 dark:text-white tracking-tight leading-tight">
                 Tiwlo
               </h1>
-              <span className="text-[9px] font-extrabold tracking-wider uppercase px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+              <span className="text-[9px] font-extrabold tracking-wider uppercase px-1.5 py-0.5 rounded bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border border-neutral-500/20">
                 PRO
               </span>
             </div>
-            <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400 truncate">
+            <p className="text-[11px] font-medium text-neutral-400 dark:text-neutral-400 truncate">
               Inventory Enterprise
             </p>
           </div>
@@ -178,13 +178,13 @@ export default function Sidebar({
             if (onBackToCloud) onBackToCloud();
             else setActiveTab('dashboard');
           }}
-          className="w-full mb-4 px-3 py-2 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50/60 dark:from-blue-950/40 dark:to-indigo-950/30 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-900/40 text-xs font-bold hover:bg-blue-100/80 dark:hover:bg-blue-900/40 transition cursor-pointer flex items-center justify-between shadow-2xs group"
+          className="w-full mb-4 px-3 py-2 rounded-xl bg-gradient-to-r from-neutral-50 to-neutral-50/60 dark:from-neutral-950/40 dark:to-neutral-950/30 text-neutral-600 dark:text-neutral-400 border border-neutral-200/60 dark:border-neutral-900/40 text-xs font-bold hover:bg-neutral-100/80 dark:hover:bg-neutral-900/40 transition cursor-pointer flex items-center justify-between shadow-2xs group"
         >
           <div className="flex items-center gap-2">
-            <LayoutGrid className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <LayoutGrid className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
             <span>Main Control Center</span>
           </div>
-          <ArrowLeft className="w-3.5 h-3.5 rotate-180 text-blue-500 group-hover:translate-x-0.5 transition" />
+          <ArrowLeft className="w-3.5 h-3.5 rotate-180 text-neutral-500 group-hover:translate-x-0.5 transition" />
         </button>
 
         {/* Navigation Items */}
@@ -199,7 +199,7 @@ export default function Sidebar({
             return (
               <div key={item.id}>
                 {showSectionHeading && (
-                  <p className={`px-3.5 ${index === 0 ? 'pt-1' : 'pt-4'} pb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500`}>
+                  <p className={`px-3.5 ${index === 0 ? 'pt-1' : 'pt-4'} pb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-neutral-400 dark:text-neutral-500`}>
                     {item.section}
                   </p>
                 )}
@@ -207,23 +207,23 @@ export default function Sidebar({
                   onClick={() => handleNavClick(item.id, item.hasSub)}
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
                     isActive
-                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 shadow-xs'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-gray-800/60'
+                      ? 'bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 shadow-xs'
+                      : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-gray-800/60'
                   }`}
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-3">
                     <Icon
                       className={`w-[18px] h-[18px] ${
                         isActive
-                          ? 'text-blue-600 dark:text-blue-400 stroke-[2.2]'
-                          : 'text-slate-400 dark:text-slate-500'
+                          ? 'text-neutral-600 dark:text-neutral-400 stroke-[2.2]'
+                          : 'text-neutral-400 dark:text-neutral-500'
                       }`}
                     />
                     <span className="truncate">{item.name}</span>
                   </div>
 
                   {item.isNew && (
-                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-600 text-white shadow-xs">
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-neutral-600 text-white shadow-xs">
                       POS
                     </span>
                   )}
@@ -248,14 +248,14 @@ export default function Sidebar({
         </nav>
 
         {/* Visit Site Button matching user request: System Settings এর নিচে Visit Site */}
-        <div className="pt-3 mt-3 border-t border-slate-100 dark:border-gray-800/80 flex flex-col gap-2">
+        <div className="pt-3 mt-3 border-t border-neutral-100 dark:border-gray-800/80 flex flex-col gap-2">
           {/* Tiwi Social Web Button */}
           <div
             onClick={() => {
               setMobileOpen?.(false);
               setActiveTab('tiwi');
             }}
-            className="group relative w-full p-2.5 rounded-xl bg-gradient-to-r from-[#0B57D0] to-[#4285F4] hover:from-[#0842A0] hover:to-[#0B57D0] text-white shadow-md shadow-[#0B57D0]/20 cursor-pointer transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 select-none"
+            className="group relative w-full p-2.5 rounded-xl bg-gradient-to-r from-[#000000] to-[#7f7f7f] hover:from-[#3c3c3c] hover:to-[#000000] text-white shadow-md shadow-[#000000]/20 cursor-pointer transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 select-none"
             title="Open Tiwi Social Media Experience"
           >
             <div className="flex items-center justify-between">
@@ -267,11 +267,11 @@ export default function Sidebar({
                   <div className="flex items-center space-x-1.5">
                     <span className="text-xs font-bold tracking-tight">Tiwi Social</span>
                     <span className="flex h-1.5 w-1.5 relative">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-300 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-400"></span>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neutral-300 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-neutral-400"></span>
                     </span>
                   </div>
-                  <p className="text-[10px] text-blue-100 font-medium leading-none mt-0.5">
+                  <p className="text-[10px] text-neutral-100 font-medium leading-none mt-0.5">
                     Social Media & Ecosystem
                   </p>
                 </div>
@@ -291,7 +291,7 @@ export default function Sidebar({
                 window.open('/?view=store', '_blank');
               }
             }}
-            className="group relative w-full p-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-500/20 cursor-pointer transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 select-none"
+            className="group relative w-full p-2.5 rounded-xl bg-gradient-to-r from-neutral-600 via-neutral-600 to-neutral-700 hover:from-neutral-500 hover:to-neutral-500 text-white shadow-md shadow-neutral-500/20 cursor-pointer transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 select-none"
             title="Open TiwiMart Online eCommerce Store"
           >
             <div className="flex items-center justify-between">
@@ -307,7 +307,7 @@ export default function Sidebar({
                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
                     </span>
                   </div>
-                  <p className="text-[10px] text-blue-100 font-medium leading-none mt-0.5">
+                  <p className="text-[10px] text-neutral-100 font-medium leading-none mt-0.5">
                     TiwiMart Global Store
                   </p>
                 </div>
@@ -321,21 +321,21 @@ export default function Sidebar({
       </div>
 
       {/* Bottom Promo & Status */}
-      <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-gray-800/80">
+      <div className="space-y-4 pt-4 border-t border-neutral-100 dark:border-gray-800/80">
         {/* Smart Inventory Card */}
         <div
           onClick={() => setActiveTab('settings')}
-          className="bg-gradient-to-br from-[#F8FAFC] via-[#F1F5F9] to-[#EBF3FF] dark:from-gray-800/80 dark:to-gray-800/30 border border-slate-200/70 dark:border-gray-700/60 rounded-2xl p-3 shadow-xs cursor-pointer hover:border-blue-300 transition"
+          className="bg-gradient-to-br from-[#fafafa] via-[#f4f4f4] to-[#f2f2f2] dark:from-gray-800/80 dark:to-gray-800/30 border border-neutral-200/70 dark:border-gray-700/60 rounded-2xl p-3 shadow-xs cursor-pointer hover:border-neutral-300 transition"
         >
           <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-white dark:bg-gray-700 shadow-xs flex items-center justify-center shrink-0 border border-blue-100 dark:border-gray-600">
-              <Box className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <div className="w-9 h-9 rounded-xl bg-white dark:bg-gray-700 shadow-xs flex items-center justify-center shrink-0 border border-neutral-100 dark:border-gray-600">
+              <Box className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-800 dark:text-white leading-tight">
+              <p className="text-xs font-bold text-neutral-800 dark:text-white leading-tight">
                 Enterprise v3.2.0
               </p>
-              <p className="text-[10px] text-slate-400 font-medium">
+              <p className="text-[10px] text-neutral-400 font-medium">
                 JSON DB Connected
               </p>
             </div>
@@ -349,11 +349,11 @@ export default function Sidebar({
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span className="font-semibold text-slate-600 dark:text-slate-300 text-[11px]">
+            <span className="font-semibold text-neutral-600 dark:text-neutral-300 text-[11px]">
               Database Online
             </span>
           </div>
-          <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">
+          <span className="text-[10px] font-mono text-neutral-400 dark:text-neutral-500">
             Port: 5000
           </span>
         </div>

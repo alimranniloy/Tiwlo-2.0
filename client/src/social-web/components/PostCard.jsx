@@ -91,7 +91,7 @@ export default function PostCard({ post, onPostDeleted }) {
     : [];
 
   return (
-    <article className="bg-white dark:bg-[#161822] rounded-2xl border border-[#EAECF0] dark:border-[#1E232F] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] mb-5 text-[#111827] dark:text-[#E2E8F0] transition-colors">
+    <article className="bg-white dark:bg-[#181818] rounded-2xl border border-[#ececec] dark:border-[#232323] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] mb-5 text-[#181818] dark:text-[#e7e7e7] transition-colors">
       {/* 1. Author Header matching screenshot */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
@@ -114,11 +114,11 @@ export default function PostCard({ post, onPostDeleted }) {
             <button
               type="button"
               onClick={() => navigateTo('profile', post.author?.handle || post.author?.id)}
-              className="font-bold text-[14.5px] text-[#111827] dark:text-white hover:text-[#1E75FF] dark:hover:text-[#1E75FF] text-left transition-colors"
+              className="font-bold text-[14.5px] text-[#181818] dark:text-white hover:text-[#6c6c6c] dark:hover:text-[#6c6c6c] text-left transition-colors"
             >
               {post.author?.name || 'Pan Feng Shui'}
             </button>
-            <span className="text-[11.5px] text-[#9CA3AF] mt-0.5">
+            <span className="text-[11.5px] text-[#a2a2a2] mt-0.5">
               {post.timeAgo || post.createdAt || '12 April at 09.28 PM'}
             </span>
           </div>
@@ -127,7 +127,7 @@ export default function PostCard({ post, onPostDeleted }) {
         <button
           type="button"
           onClick={() => showToast('Post options', 'info')}
-          className="text-[#9CA3AF] hover:text-[#111827] dark:hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+          className="text-[#a2a2a2] hover:text-[#181818] dark:hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
         >
           <MoreHorizontal className="w-5 h-5" />
         </button>
@@ -135,7 +135,7 @@ export default function PostCard({ post, onPostDeleted }) {
 
       {/* 2. Caption Text */}
       {post.caption && (
-        <p className="text-[13.5px] text-[#374151] dark:text-[#D1D5DB] leading-relaxed mb-3">
+        <p className="text-[13.5px] text-[#404040] dark:text-[#d5d5d5] leading-relaxed mb-3">
           {post.caption}
         </p>
       )}
@@ -196,12 +196,12 @@ export default function PostCard({ post, onPostDeleted }) {
       ) : null}
 
       {/* 4. Action Counts Row matching screenshot */}
-      <div className="flex items-center justify-between py-3 border-t border-[#F2F4F7] dark:border-[#1E232F] text-[12.5px] font-medium text-[#6B7280] dark:text-[#9CA3AF]">
+      <div className="flex items-center justify-between py-3 border-t border-[#f4f4f4] dark:border-[#232323] text-[12.5px] font-medium text-[#727272] dark:text-[#a2a2a2]">
         {/* Comments */}
         <button
           type="button"
           onClick={() => navigateTo('post-detail', post.id)}
-          className="flex items-center gap-2 hover:text-[#111827] dark:hover:text-white transition-colors cursor-pointer"
+          className="flex items-center gap-2 hover:text-[#181818] dark:hover:text-white transition-colors cursor-pointer"
         >
           <MessageSquare className="w-4 h-4 stroke-[1.8]" />
           <span>{commentsCount} Comments</span>
@@ -223,7 +223,7 @@ export default function PostCard({ post, onPostDeleted }) {
         <button
           type="button"
           onClick={handleShare}
-          className="flex items-center gap-2 hover:text-[#111827] dark:hover:text-white transition-colors cursor-pointer"
+          className="flex items-center gap-2 hover:text-[#181818] dark:hover:text-white transition-colors cursor-pointer"
         >
           <Share2 className="w-4 h-4 stroke-[1.8]" />
           <span>{sharesCount} Share</span>
@@ -234,10 +234,10 @@ export default function PostCard({ post, onPostDeleted }) {
           type="button"
           onClick={handleToggleBookmark}
           className={`flex items-center gap-2 transition-colors cursor-pointer ${
-            isSaved ? 'text-[#1E75FF] font-bold' : 'hover:text-[#1E75FF]'
+            isSaved ? 'text-[#6c6c6c] font-bold' : 'hover:text-[#6c6c6c]'
           }`}
         >
-          <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-current stroke-[#1E75FF]' : 'stroke-[1.8]'}`} />
+          <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-current stroke-[#6c6c6c]' : 'stroke-[1.8]'}`} />
           <span>{savedCount} Saved</span>
         </button>
       </div>
@@ -245,7 +245,7 @@ export default function PostCard({ post, onPostDeleted }) {
       {/* 5. Inline Comment Composer matching screenshot */}
       <form
         onSubmit={handleAddComment}
-        className="flex items-center gap-3 pt-3 border-t border-[#F2F4F7] dark:border-[#1E232F]"
+        className="flex items-center gap-3 pt-3 border-t border-[#f4f4f4] dark:border-[#232323]"
       >
         <img
           src={
@@ -256,20 +256,20 @@ export default function PostCard({ post, onPostDeleted }) {
           className="w-8 h-8 rounded-full object-cover flex-shrink-0"
         />
 
-        <div className="flex-1 flex items-center bg-[#F4F5F7] dark:bg-[#1A1D27] rounded-xl px-3.5 py-1.5 focus-within:ring-2 focus-within:ring-[#1E75FF]/30 transition-all">
+        <div className="flex-1 flex items-center bg-[#F4F5F7] dark:bg-[#1d1d1d] rounded-xl px-3.5 py-1.5 focus-within:ring-2 focus-within:ring-[#6c6c6c]/30 transition-all">
           <input
             type="text"
             placeholder="Write your comment..."
             value={commentInput}
             onChange={(e) => setCommentInput(e.target.value)}
-            className="bg-transparent text-[12.5px] text-[#111827] dark:text-[#E2E8F0] placeholder-[#9CA3AF] outline-none w-full"
+            className="bg-transparent text-[12.5px] text-[#181818] dark:text-[#e7e7e7] placeholder-[#a2a2a2] outline-none w-full"
           />
 
-          <div className="flex items-center gap-2.5 text-[#9CA3AF] flex-shrink-0 ml-2">
+          <div className="flex items-center gap-2.5 text-[#a2a2a2] flex-shrink-0 ml-2">
             <button
               type="button"
               onClick={() => showToast('Attach file', 'info')}
-              className="hover:text-[#4B5563] dark:hover:text-[#E2E8F0] transition-colors cursor-pointer"
+              className="hover:text-[#545454] dark:hover:text-[#e7e7e7] transition-colors cursor-pointer"
               title="Attach File"
             >
               <Paperclip className="w-3.5 h-3.5" />
@@ -277,7 +277,7 @@ export default function PostCard({ post, onPostDeleted }) {
             <button
               type="button"
               onClick={() => showToast('Choose emoji', 'info')}
-              className="hover:text-[#4B5563] dark:hover:text-[#E2E8F0] transition-colors cursor-pointer"
+              className="hover:text-[#545454] dark:hover:text-[#e7e7e7] transition-colors cursor-pointer"
               title="Add Emoji"
             >
               <Smile className="w-3.5 h-3.5" />
@@ -285,7 +285,7 @@ export default function PostCard({ post, onPostDeleted }) {
             <button
               type="button"
               onClick={() => showToast('Attach image', 'info')}
-              className="hover:text-[#4B5563] dark:hover:text-[#E2E8F0] transition-colors cursor-pointer"
+              className="hover:text-[#545454] dark:hover:text-[#e7e7e7] transition-colors cursor-pointer"
               title="Add Photo"
             >
               <ImageIcon className="w-3.5 h-3.5" />

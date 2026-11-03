@@ -51,10 +51,10 @@ export default function CreateStoryView() {
   return (
     <div className="max-w-xl mx-auto w-full pb-20 md:pb-10 flex flex-col gap-4">
       {/* Header */}
-      <div className="flex items-center justify-between bg-white dark:bg-[#16161f] p-4 rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm">
+      <div className="flex items-center justify-between bg-white dark:bg-[#171717] p-4 rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-sm">
         <button
           onClick={() => navigateTo('feed')}
-          className="flex items-center gap-2 text-xs font-semibold text-[#65676b] dark:text-[#b0b3b8] hover:text-violet-600 transition cursor-pointer"
+          className="flex items-center gap-2 text-xs font-semibold text-[#676767] dark:text-[#b3b3b3] hover:text-violet-600 transition cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Stream</span>
@@ -67,12 +67,12 @@ export default function CreateStoryView() {
       </div>
 
       {/* Main Story Creator Card */}
-      <div className="bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-6 shadow-sm flex flex-col gap-5">
+      <div className="bg-white dark:bg-[#171717] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-6 shadow-sm flex flex-col gap-5">
         <div>
-          <h2 className="text-[18px] font-bold text-[#1c1e21] dark:text-[#e4e6eb] tracking-tight">
+          <h2 className="text-[18px] font-bold text-[#1e1e1e] dark:text-[#e6e6e6] tracking-tight">
             Share a Story
           </h2>
-          <p className="text-[13px] text-[#65676b] dark:text-[#8a8d91]">
+          <p className="text-[13px] text-[#676767] dark:text-[#8d8d8d]">
             Capture moments that disappear after 24 hours. Stories appear at the top of the feed.
           </p>
         </div>
@@ -99,10 +99,10 @@ export default function CreateStoryView() {
               <UploadCloud className="w-7 h-7" />
             </div>
             <div className="text-center">
-              <span className="text-[14px] font-semibold text-[#1c1e21] dark:text-[#e4e6eb] block">
+              <span className="text-[14px] font-semibold text-[#1e1e1e] dark:text-[#e6e6e6] block">
                 Click to upload image or video
               </span>
-              <span className="text-[12px] text-[#65676b] dark:text-[#8a8d91] mt-0.5 block">
+              <span className="text-[12px] text-[#676767] dark:text-[#8d8d8d] mt-0.5 block">
                 Supports JPG, PNG, MP4 up to 50MB
               </span>
             </div>
@@ -112,7 +112,7 @@ export default function CreateStoryView() {
 
         {/* Caption */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-[12px] font-semibold text-[#65676b] dark:text-[#8a8d91]">
+          <label className="text-[12px] font-semibold text-[#676767] dark:text-[#8d8d8d]">
             Story Caption (Optional)
           </label>
           <input
@@ -120,7 +120,7 @@ export default function CreateStoryView() {
             placeholder="Add a caption..."
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
-            className="w-full h-11 px-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] text-[14px] text-[#1c1e21] dark:text-[#e4e6eb] outline-none focus:ring-2 focus:ring-violet-500/30"
+            className="w-full h-11 px-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] text-[14px] text-[#1e1e1e] dark:text-[#e6e6e6] outline-none focus:ring-2 focus:ring-violet-500/30"
           />
         </div>
 
@@ -128,7 +128,7 @@ export default function CreateStoryView() {
         <button
           onClick={handleSubmit}
           disabled={!mediaUrl || uploading}
-          className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 disabled:opacity-40 text-white font-semibold text-[14px] shadow-lg shadow-violet-500/25 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
+          className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-600 to-neutral-600 hover:from-violet-700 hover:to-neutral-700 disabled:opacity-40 text-white font-semibold text-[14px] shadow-lg shadow-violet-500/25 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
         >
           <Sparkles className="w-4 h-4" />
           <span>{uploading ? 'Publishing Story...' : 'Publish to Stories'}</span>

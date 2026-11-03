@@ -22,12 +22,12 @@ export default function DiscordHeader({
   const displayEmail = currentUser?.email || '';
 
   return (
-    <header className="h-16 border-b border-[#E0E2EC] bg-white px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20 font-sans select-none">
+    <header className="h-16 border-b border-[#e2e2e2] bg-white px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20 font-sans select-none">
       {/* Left: Mobile Toggle, Product Title & Environment Selector */}
       <div className="flex items-center gap-3 min-w-0">
         <button
           onClick={onOpenMobileMenu}
-          className="md:hidden p-2 rounded-full text-[#444746] hover:bg-[#F0F4F9] transition-colors cursor-pointer"
+          className="md:hidden p-2 rounded-full text-[#444746] hover:bg-[#f4f4f4] transition-colors cursor-pointer"
           aria-label="Toggle navigation menu"
         >
           <Menu className="w-5 h-5" />
@@ -35,7 +35,7 @@ export default function DiscordHeader({
 
         {/* Tiwlo Discord Console Brand */}
         <div className="flex items-center gap-2.5 shrink-0">
-          <div className="w-8 h-8 rounded-xl bg-[#0B57D0] text-white flex items-center justify-center font-bold text-xs shadow-none">
+          <div className="w-8 h-8 rounded-xl bg-[#000000] text-white flex items-center justify-center font-bold text-xs shadow-none">
             <Bot className="w-4 h-4 stroke-[2.2]" />
           </div>
           <button
@@ -43,7 +43,7 @@ export default function DiscordHeader({
               if (onNavigateHome) onNavigateHome();
               else window.location.href = '/';
             }}
-            className="text-[15px] font-medium text-[#1F1F1F] hover:text-[#0B57D0] transition-colors hidden sm:inline cursor-pointer"
+            className="text-[15px] font-medium text-[#1F1F1F] hover:text-[#000000] transition-colors hidden sm:inline cursor-pointer"
           >
             Tiwlo
           </button>
@@ -54,7 +54,7 @@ export default function DiscordHeader({
         </div>
 
         {/* Google Style Project / Organization Selector */}
-        <div className="hidden lg:flex items-center gap-1.5 bg-[#F0F4F9] hover:bg-[#E9EEF6] border border-transparent rounded-full px-3 py-1.5 text-[12px] text-[#1F1F1F] transition-colors cursor-pointer ml-3">
+        <div className="hidden lg:flex items-center gap-1.5 bg-[#f4f4f4] hover:bg-[#eeeeee] border border-transparent rounded-full px-3 py-1.5 text-[12px] text-[#1F1F1F] transition-colors cursor-pointer ml-3">
           <span className="text-[#747775]">Environment:</span>
           <span className="font-medium truncate max-w-[140px]">{displayName}</span>
           <ChevronDown className="w-3.5 h-3.5 text-[#747775]" />
@@ -63,7 +63,7 @@ export default function DiscordHeader({
 
       {/* Center: Modern Google Omnibox Pill Search */}
       <div className="flex-1 max-w-xl mx-4 sm:mx-8 hidden sm:block">
-        <div className="relative flex items-center w-full bg-[#F0F4F9] hover:bg-[#E9EEF6] focus-within:bg-white focus-within:border-[#0B57D0] focus-within:ring-2 focus-within:ring-[#0B57D0]/20 border border-transparent rounded-full px-4 py-2 transition-all">
+        <div className="relative flex items-center w-full bg-[#f4f4f4] hover:bg-[#eeeeee] focus-within:bg-white focus-within:border-[#000000] focus-within:ring-2 focus-within:ring-[#000000]/20 border border-transparent rounded-full px-4 py-2 transition-all">
           <Search className="w-4 h-4 text-[#747775] shrink-0 mr-2.5" />
           <input
             type="text"
@@ -78,14 +78,14 @@ export default function DiscordHeader({
       {/* Right: Actions & User Avatar */}
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         <button
-          className="p-2 text-[#444746] hover:text-[#1F1F1F] hover:bg-[#F0F4F9] rounded-full transition-colors cursor-pointer"
+          className="p-2 text-[#444746] hover:text-[#1F1F1F] hover:bg-[#f4f4f4] rounded-full transition-colors cursor-pointer"
           title="Console Documentation & Help"
         >
           <HelpCircle className="w-4 h-4" />
         </button>
 
         <button
-          className="p-2 text-[#444746] hover:text-[#1F1F1F] hover:bg-[#F0F4F9] rounded-full transition-colors relative cursor-pointer"
+          className="p-2 text-[#444746] hover:text-[#1F1F1F] hover:bg-[#f4f4f4] rounded-full transition-colors relative cursor-pointer"
           title="Notifications"
         >
           <Bell className="w-4 h-4" />
@@ -93,7 +93,7 @@ export default function DiscordHeader({
 
         {/* User Avatar Circle */}
         <div
-          className="w-8 h-8 rounded-full bg-[#0B57D0] text-white text-[12px] font-medium flex items-center justify-center shrink-0 ml-1.5 cursor-pointer ring-2 ring-transparent hover:ring-[#C2E7FF]"
+          className="w-8 h-8 rounded-full bg-[#000000] text-white text-[12px] font-medium flex items-center justify-center shrink-0 ml-1.5 cursor-pointer ring-2 ring-transparent hover:ring-[#e1e1e1]"
           title={displayEmail ? `${displayName} (${displayEmail})` : displayName}
         >
           {getInitials()}

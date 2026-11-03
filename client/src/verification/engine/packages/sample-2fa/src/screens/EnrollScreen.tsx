@@ -85,7 +85,7 @@ export function EnrollScreen({ onDone }: Props) {
               </div>
             )}
             {ready && (
-              <div className="absolute inset-8 border-2 border-indigo-500/30 rounded-xl pointer-events-none" />
+              <div className="absolute inset-8 border-2 border-neutral-500/30 rounded-xl pointer-events-none" />
             )}
           </div>
 
@@ -98,7 +98,7 @@ export function EnrollScreen({ onDone }: Props) {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. John Smith"
                 required
-                className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:border-transparent"
               />
             </div>
 
@@ -109,7 +109,7 @@ export function EnrollScreen({ onDone }: Props) {
                     ? 'bg-green-500/10 border border-green-500/30 text-green-400'
                     : status === 'error'
                     ? 'bg-red-500/10 border border-red-500/30 text-red-400'
-                    : 'bg-indigo-500/10 border border-indigo-500/30 text-indigo-400'
+                    : 'bg-neutral-500/10 border border-neutral-500/30 text-neutral-400'
                 }`}
               >
                 {message}
@@ -136,7 +136,7 @@ export function EnrollScreen({ onDone }: Props) {
                 <button
                   type="submit"
                   disabled={!ready || !name.trim() || status === 'capturing' || status === 'enrolling'}
-                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg font-medium transition-colors"
+                  className="flex-1 py-2.5 bg-neutral-600 hover:bg-neutral-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg font-medium transition-colors"
                 >
                   {status === 'capturing' || status === 'enrolling' ? 'Processing...' : 'Capture & Enroll'}
                 </button>

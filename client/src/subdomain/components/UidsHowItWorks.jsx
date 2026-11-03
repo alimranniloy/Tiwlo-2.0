@@ -18,7 +18,7 @@ export default function UidsHowItWorks({ onGetStarted }) {
       num: '02',
       title: 'Manage DNS',
       desc: 'Open Domains in your dashboard to add A, CNAME, or TXT records.',
-      icon: <Globe2 className="w-4 h-4 text-blue-600" />,
+      icon: <Globe2 className="w-4 h-4 text-neutral-600" />,
       tag: 'Zero-Config'
     },
     {
@@ -36,10 +36,10 @@ export default function UidsHowItWorks({ onGetStarted }) {
         <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
           Simple 3-Step Setup
         </span>
-        <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight mt-2 mb-1">
+        <h2 className="text-xl sm:text-2xl font-extrabold text-neutral-900 tracking-tight mt-2 mb-1">
           How uids.app Works
         </h2>
-        <p className="text-xs sm:text-sm text-slate-600">
+        <p className="text-xs sm:text-sm text-neutral-600">
           From project idea to a globally reachable live link in under a minute.
         </p>
       </div>
@@ -48,27 +48,27 @@ export default function UidsHowItWorks({ onGetStarted }) {
         {steps.map((s, i) => (
           <div
             key={i}
-            className="group bg-white border border-slate-200 hover:border-slate-300 rounded-xl p-4 sm:p-5 shadow-2xs hover:shadow-xs transition-all duration-150 flex flex-col justify-between"
+            className="group bg-white border border-neutral-200 hover:border-neutral-300 rounded-xl p-4 sm:p-5 shadow-2xs hover:shadow-xs transition-all duration-150 flex flex-col justify-between"
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-neutral-50 border border-neutral-100 flex items-center justify-center">
                   {s.icon}
                 </div>
-                <span className="text-[11px] font-bold text-slate-400 font-mono">
+                <span className="text-[11px] font-bold text-neutral-400 font-mono">
                   {s.num}
                 </span>
               </div>
 
-              <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">
+              <div className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-0.5">
                 {s.tag}
               </div>
 
-              <h3 className="text-sm font-bold text-slate-900 mb-1">
+              <h3 className="text-sm font-bold text-neutral-900 mb-1">
                 {s.title}
               </h3>
 
-              <p className="text-xs text-slate-600 leading-relaxed font-normal">
+              <p className="text-xs text-neutral-600 leading-relaxed font-normal">
                 {s.desc}
               </p>
             </div>

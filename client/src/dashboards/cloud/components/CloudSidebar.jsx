@@ -54,15 +54,15 @@ export default function CloudSidebar({
         aria-current={isActive ? 'page' : undefined}
         className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors cursor-pointer ${
           isActive
-            ? 'bg-[#E8F0FE] text-[#0B57D0] font-semibold dark:bg-blue-950/40 dark:text-blue-300'
-            : 'text-[#444746] hover:bg-[#F0F4F9] hover:text-[#1F1F1F] dark:text-slate-400 dark:hover:bg-gray-800 dark:hover:text-white'
+            ? 'bg-[#efefef] text-[#000000] font-semibold dark:bg-neutral-950/40 dark:text-neutral-300'
+            : 'text-[#444746] hover:bg-[#f4f4f4] hover:text-[#1F1F1F] dark:text-neutral-400 dark:hover:bg-gray-800 dark:hover:text-white'
         }`}
       >
         <span className="flex items-center gap-3 min-w-0">
-          <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#0B57D0] dark:text-blue-300' : 'text-[#747775] dark:text-slate-500'}`} />
+          <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#000000] dark:text-neutral-300' : 'text-[#747775] dark:text-neutral-500'}`} />
           <span className="truncate">{label}</span>
         </span>
-        {external && <ExternalLink className="w-3.5 h-3.5 shrink-0 text-[#747775] dark:text-slate-500" aria-hidden="true" />}
+        {external && <ExternalLink className="w-3.5 h-3.5 shrink-0 text-[#747775] dark:text-neutral-500" aria-hidden="true" />}
       </button>
     );
   };
@@ -84,13 +84,13 @@ export default function CloudSidebar({
       {mobileOpen && (
         <div
           onClick={() => setMobileOpen?.(false)}
-          className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-40 lg:hidden transition-opacity duration-300"
+          className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs z-40 lg:hidden transition-opacity duration-300"
           aria-hidden="true"
         />
       )}
 
       <aside className={`
-        w-[260px] sm:w-[270px] lg:w-[250px] h-screen overflow-y-auto bg-white border-r border-[#E0E2EC] flex flex-col p-4 select-none transition-all duration-300 ease-in-out shrink-0 font-sans
+        w-[260px] sm:w-[270px] lg:w-[250px] h-screen overflow-y-auto bg-white border-r border-[#e2e2e2] flex flex-col p-4 select-none transition-all duration-300 ease-in-out shrink-0 font-sans
         fixed inset-y-0 left-0 z-50
         lg:static lg:translate-x-0 lg:z-20 lg:sticky lg:top-0
         ${mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
@@ -113,7 +113,7 @@ export default function CloudSidebar({
             <button
               type="button"
               onClick={() => setMobileOpen?.(false)}
-              className="lg:hidden p-1.5 rounded-full text-[#444746] hover:bg-[#F0F4F9] transition"
+              className="lg:hidden p-1.5 rounded-full text-[#444746] hover:bg-[#f4f4f4] transition"
               aria-label="Close menu"
             >
               <X className="w-4 h-4" />
@@ -122,7 +122,7 @@ export default function CloudSidebar({
 
         <nav aria-label="Main navigation" className="space-y-5">
           <section className="space-y-1">
-            <p className="px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#747775] dark:text-slate-500">
+            <p className="px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#747775] dark:text-neutral-500">
               Overview
             </p>
             {renderNavItem({ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard })}
@@ -130,7 +130,7 @@ export default function CloudSidebar({
           </section>
 
           <section className="space-y-1">
-            <p className="px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#747775] dark:text-slate-500">
+            <p className="px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#747775] dark:text-neutral-500">
               Products
             </p>
             <div className="flex items-center gap-1">
@@ -140,15 +140,15 @@ export default function CloudSidebar({
                 aria-current={activeNav === 'my-online-store' ? 'page' : undefined}
                 className={`flex-1 min-w-0 flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors cursor-pointer ${
                   activeNav === 'my-online-store'
-                    ? 'bg-[#E8F0FE] text-[#0B57D0] font-semibold dark:bg-blue-950/40 dark:text-blue-300'
-                    : 'text-[#444746] hover:bg-[#F0F4F9] hover:text-[#1F1F1F] dark:text-slate-400 dark:hover:bg-gray-800 dark:hover:text-white'
+                    ? 'bg-[#efefef] text-[#000000] font-semibold dark:bg-neutral-950/40 dark:text-neutral-300'
+                    : 'text-[#444746] hover:bg-[#f4f4f4] hover:text-[#1F1F1F] dark:text-neutral-400 dark:hover:bg-gray-800 dark:hover:text-white'
                 }`}
               >
                 <span className="flex items-center gap-3 min-w-0">
-                  <Store className="w-4 h-4 shrink-0 text-[#747775] dark:text-slate-500" />
+                  <Store className="w-4 h-4 shrink-0 text-[#747775] dark:text-neutral-500" />
                   <span className="truncate">Online store</span>
                 </span>
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-[#F0F4F9] text-[#5F6368] dark:bg-gray-700 dark:text-slate-300">
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-[#f4f4f4] text-[#636363] dark:bg-gray-700 dark:text-neutral-300">
                   {userStores.length}
                 </span>
               </button>
@@ -160,7 +160,7 @@ export default function CloudSidebar({
                 }}
                 title="Create a store"
                 aria-label="Create a store"
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-[#5F6368] hover:bg-[#F0F4F9] hover:text-[#0B57D0] dark:text-slate-400 dark:hover:bg-gray-800 dark:hover:text-blue-300 transition cursor-pointer shrink-0"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-[#636363] hover:bg-[#f4f4f4] hover:text-[#000000] dark:text-neutral-400 dark:hover:bg-gray-800 dark:hover:text-neutral-300 transition cursor-pointer shrink-0"
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -171,7 +171,7 @@ export default function CloudSidebar({
           </section>
 
           <section className="space-y-1">
-            <p className="px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#747775] dark:text-slate-500">
+            <p className="px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#747775] dark:text-neutral-500">
               Cloud
             </p>
             {renderNavItem({ id: 'domains', label: 'Domains', icon: Globe2 })}
@@ -183,19 +183,19 @@ export default function CloudSidebar({
                 aria-expanded={dropletsOpen}
                 className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors cursor-pointer ${
                   activeNav === 'my-droplets' || ['images', 'snapshots', 'backups', 'volumes', 'kubernetes', 'create-droplet'].includes(activeNav)
-                    ? 'bg-[#E8F0FE] text-[#0B57D0] font-semibold dark:bg-blue-950/40 dark:text-blue-300'
-                    : 'text-[#444746] hover:bg-[#F0F4F9] hover:text-[#1F1F1F] dark:text-slate-400 dark:hover:bg-gray-800 dark:hover:text-white'
+                    ? 'bg-[#efefef] text-[#000000] font-semibold dark:bg-neutral-950/40 dark:text-neutral-300'
+                    : 'text-[#444746] hover:bg-[#f4f4f4] hover:text-[#1F1F1F] dark:text-neutral-400 dark:hover:bg-gray-800 dark:hover:text-white'
                 }`}
               >
                 <span className="flex items-center gap-3">
-                  <Server className="w-4 h-4 text-[#747775] dark:text-slate-500" />
+                  <Server className="w-4 h-4 text-[#747775] dark:text-neutral-500" />
                   <span>Infrastructure</span>
                 </span>
                 <ChevronDown className={`w-3.5 h-3.5 transition-transform ${dropletsOpen ? '' : '-rotate-90'}`} />
               </button>
 
               {dropletsOpen && (
-                <div className="ml-5 mt-1 pl-3 border-l border-[#DADCE0] dark:border-gray-700 space-y-0.5">
+                <div className="ml-5 mt-1 pl-3 border-l border-[#dcdcdc] dark:border-gray-700 space-y-0.5">
                   {dropletSubItems.map((sub) => (
                     <button
                       key={sub.id}
@@ -210,13 +210,13 @@ export default function CloudSidebar({
                       }}
                       className={`w-full text-left px-2.5 py-2 rounded-lg text-xs flex items-center justify-between transition cursor-pointer ${
                         activeNav === sub.id
-                          ? 'text-[#0B57D0] dark:text-blue-300 font-semibold bg-[#E8F0FE] dark:bg-blue-950/40'
-                          : 'text-[#5F6368] dark:text-slate-400 hover:text-[#1F1F1F] dark:hover:text-white hover:bg-[#F0F4F9] dark:hover:bg-gray-800'
+                          ? 'text-[#000000] dark:text-neutral-300 font-semibold bg-[#efefef] dark:bg-neutral-950/40'
+                          : 'text-[#636363] dark:text-neutral-400 hover:text-[#1F1F1F] dark:hover:text-white hover:bg-[#f4f4f4] dark:hover:bg-gray-800'
                       }`}
                     >
                       <span>{sub.label}</span>
                       {sub.badge && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-neutral-100 text-neutral-600 dark:bg-neutral-900/40 dark:text-neutral-400">
                           {sub.badge}
                         </span>
                       )}
@@ -228,7 +228,7 @@ export default function CloudSidebar({
           </section>
 
           <section className="space-y-1">
-            <p className="px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#747775] dark:text-slate-500">
+            <p className="px-3 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#747775] dark:text-neutral-500">
               Account
             </p>
             {renderNavItem({ id: 'identity', label: 'Identity', icon: IdCard })}

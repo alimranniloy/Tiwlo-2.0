@@ -61,7 +61,7 @@ export default function UidsHero() {
     <div className="relative w-full pt-6 sm:pt-10 pb-3 px-4 sm:px-6 select-none text-center">
       <div className="max-w-3xl mx-auto relative">
         {/* Core Headline - Compact, crisp and enhanced */}
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.15]">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-neutral-900 leading-[1.15]">
           <div>A small name</div>
           <div className="mt-1 flex items-center justify-center flex-wrap">
             <span>for&nbsp;</span>
@@ -69,7 +69,7 @@ export default function UidsHero() {
               {displayText || systems[0]}
             </span>
             <span
-              className={`inline-block w-[2.5px] sm:w-[3px] h-[26px] sm:h-[38px] bg-slate-900 ml-1 rounded-full transition-opacity duration-100 ${
+              className={`inline-block w-[2.5px] sm:w-[3px] h-[26px] sm:h-[38px] bg-neutral-900 ml-1 rounded-full transition-opacity duration-100 ${
                 cursorVisible ? 'opacity-100' : 'opacity-0'
               }`}
               aria-hidden="true"
@@ -78,8 +78,8 @@ export default function UidsHero() {
         </h1>
 
         {/* Subtitle - Minimized and clean */}
-        <p className="mt-3 sm:mt-4 text-xs sm:text-sm md:text-base text-slate-600 max-w-lg mx-auto leading-relaxed font-normal">
-          Get a clean, short and memorable subdomain on <span className="font-semibold text-slate-800">uids.app</span> and start building in seconds.
+        <p className="mt-3 sm:mt-4 text-xs sm:text-sm md:text-base text-neutral-600 max-w-lg mx-auto leading-relaxed font-normal">
+          Get a clean, short and memorable subdomain on <span className="font-semibold text-neutral-800">uids.app</span> and start building in seconds.
         </p>
       </div>
     </div>

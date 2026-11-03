@@ -15,7 +15,7 @@ function currentMonthStart() {
   return `${today().slice(0, 7)}-01`;
 }
 
-const inputClass = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900';
+const inputClass = 'w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900';
 
 export default function HRManagementView({ showToast }) {
   const [summary, setSummary] = useState(null);
@@ -114,13 +114,13 @@ export default function HRManagementView({ showToast }) {
     }
   }));
 
-  if (loading) return <div className="mx-auto max-w-7xl rounded-2xl border border-slate-200 bg-white p-8 text-sm text-slate-500 dark:border-gray-800 dark:bg-[#111827]">Loading company finance…</div>;
+  if (loading) return <div className="mx-auto max-w-7xl rounded-2xl border border-neutral-200 bg-white p-8 text-sm text-neutral-500 dark:border-gray-800 dark:bg-[#181818]">Loading company finance…</div>;
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <header className="flex items-center gap-3">
         <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"><Wallet className="h-6 w-6" /></div>
-        <div><h1 className="text-2xl font-black text-slate-900 dark:text-white">HR & Company Finance</h1><p className="text-sm text-slate-500">Payroll, advances, staff expenses, receipts and the company cashbook.</p></div>
+        <div><h1 className="text-2xl font-black text-neutral-900 dark:text-white">HR & Company Finance</h1><p className="text-sm text-neutral-500">Payroll, advances, staff expenses, receipts and the company cashbook.</p></div>
       </header>
 
       {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{error}</div>}
@@ -195,18 +195,18 @@ export default function HRManagementView({ showToast }) {
           <Field label="Period end"><input required type="date" max={today()} value={payrollForm.periodEnd} onChange={event => setPayrollForm({ ...payrollForm, periodEnd: event.target.value })} className={inputClass} /></Field>
           {payrollEmployee?.salaryFrequency === 'Hourly' && <Field label="Approved hours"><input required type="number" min="0.01" step="0.01" value={payrollForm.hours} onChange={event => setPayrollForm({ ...payrollForm, hours: event.target.value })} className={inputClass} /></Field>}
           <Field label={`Advance deduction (${currency})`}><input type="number" min="0" step="0.01" value={payrollForm.advanceDeduction} onChange={event => setPayrollForm({ ...payrollForm, advanceDeduction: event.target.value })} className={inputClass} /></Field>
-          <div className="flex items-end"><button disabled={working || !payrollEmployee} className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">Calculate & record</button></div>
+          <div className="flex items-end"><button disabled={working || !payrollEmployee} className="w-full rounded-lg bg-neutral-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">Calculate & record</button></div>
         </form>
       </Panel>
 
       <Panel title="Payroll records & payments" icon={ReceiptText} description="Partial payments are supported. Each payout reduces the company balance; the advance deduction is not counted as a second cash movement.">
-        {!summary?.payroll?.length ? <p className="text-sm text-slate-500">No payroll periods recorded yet.</p> : (
+        {!summary?.payroll?.length ? <p className="text-sm text-neutral-500">No payroll periods recorded yet.</p> : (
           <div className="space-y-3">
             {summary.payroll.map(record => {
               const dueCents = record.netPayCents - record.paidCents;
               const fields = paymentInputs[record.id] || { amount: (dueCents / 100).toFixed(2), method: 'Cash', reference: '' };
-              return <div key={record.id} className="grid gap-3 rounded-xl border border-slate-200 p-4 dark:border-gray-700 lg:grid-cols-[1.3fr_1fr_1fr_2fr] lg:items-center">
-                <div><p className="font-bold">{record.staffName}</p><p className="text-xs text-slate-500">{record.periodStart} – {record.periodEnd}</p></div>
+              return <div key={record.id} className="grid gap-3 rounded-xl border border-neutral-200 p-4 dark:border-gray-700 lg:grid-cols-[1.3fr_1fr_1fr_2fr] lg:items-center">
+                <div><p className="font-bold">{record.staffName}</p><p className="text-xs text-neutral-500">{record.periodStart} – {record.periodEnd}</p></div>
                 <div className="text-xs">Gross <b>{money(record.grossCents, currency)}</b><br />Advance deduction <b>{money(record.advanceDeductionCents, currency)}</b></div>
                 <div className="text-xs">Net <b>{money(record.netPayCents, currency)}</b><br />Paid <b>{money(record.paidCents, currency)}</b> · Due <b>{money(dueCents, currency)}</b><br /><span className="font-bold">{record.status}</span></div>
                 {dueCents > 0 && <form onSubmit={event => payPayroll(record, event)} className="grid gap-2 sm:grid-cols-3">
@@ -221,10 +221,10 @@ export default function HRManagementView({ showToast }) {
       </Panel>
 
       <Panel title="Staff advance & recovery history" icon={HandCoins} description="Every issued advance, payroll deduction and repayment remains in the audit trail with its staff member, reason and amount.">
-        {!summary?.staffTransactions?.length ? <p className="text-sm text-slate-500">No staff advances or repayments recorded yet.</p> : (
+        {!summary?.staffTransactions?.length ? <p className="text-sm text-neutral-500">No staff advances or repayments recorded yet.</p> : (
           <div className="overflow-x-auto"><table className="w-full min-w-[620px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-gray-900"><tr><th className="p-3">Date</th><th className="p-3">Staff member</th><th className="p-3">Action</th><th className="p-3">Reason / reference</th><th className="p-3 text-right">Amount</th></tr></thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+            <thead className="bg-neutral-50 text-xs uppercase text-neutral-500 dark:bg-gray-900"><tr><th className="p-3">Date</th><th className="p-3">Staff member</th><th className="p-3">Action</th><th className="p-3">Reason / reference</th><th className="p-3 text-right">Amount</th></tr></thead>
+            <tbody className="divide-y divide-neutral-100 dark:divide-gray-800">
               {summary.staffTransactions.map(transaction => <tr key={transaction.id}>
                 <td className="p-3 whitespace-nowrap">{new Date(transaction.createdAt).toLocaleString()}</td>
                 <td className="p-3">{staff.find(person => person.id === transaction.staffId)?.name || transaction.staffId}</td>
@@ -239,12 +239,12 @@ export default function HRManagementView({ showToast }) {
 
       <Panel title="Company cashbook" icon={Wallet} description={`Captured POS receipts, customer and supplier payments, payroll, advances and recorded expenses. Entries before the opening baseline (${summary?.openingBalanceAt ? new Date(summary.openingBalanceAt).toLocaleDateString() : 'not set'}) do not affect the current balance. This is consolidated company cash, not separate bank-account reconciliation.`}>
         <div className="mb-4 flex flex-wrap gap-4 text-sm"><span className="text-emerald-700">Recent inflow: <b>{money(totalCashIn, currency)}</b></span><span className="text-rose-700">Recent outflow: <b>{money(totalCashOut, currency)}</b></span></div>
-        {!summary?.ledger?.length ? <p className="text-sm text-slate-500">No money movements yet.</p> : (
+        {!summary?.ledger?.length ? <p className="text-sm text-neutral-500">No money movements yet.</p> : (
           <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-gray-900"><tr><th className="p-3">Date</th><th className="p-3">In / Out</th><th className="p-3">Category</th><th className="p-3">Description</th><th className="p-3">Payee / source</th><th className="p-3">Method / reference</th><th className="p-3 text-right">Amount</th></tr></thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
+            <thead className="bg-neutral-50 text-xs uppercase text-neutral-500 dark:bg-gray-900"><tr><th className="p-3">Date</th><th className="p-3">In / Out</th><th className="p-3">Category</th><th className="p-3">Description</th><th className="p-3">Payee / source</th><th className="p-3">Method / reference</th><th className="p-3 text-right">Amount</th></tr></thead>
+            <tbody className="divide-y divide-neutral-100 dark:divide-gray-800">
               {summary.ledger.map(entry => <tr key={entry.id}>
-                <td className="p-3 whitespace-nowrap">{new Date(entry.createdAt).toLocaleString()}{!entry.includedInBalance && <span className="ml-1 text-[10px] text-slate-400">pre-opening</span>}</td>
+                <td className="p-3 whitespace-nowrap">{new Date(entry.createdAt).toLocaleString()}{!entry.includedInBalance && <span className="ml-1 text-[10px] text-neutral-400">pre-opening</span>}</td>
                 <td className={`p-3 font-bold ${entry.direction === 'in' ? 'text-emerald-700' : 'text-rose-700'}`}>{entry.direction === 'in' ? <ArrowDownLeft className="mr-1 inline h-4 w-4" /> : <ArrowUpRight className="mr-1 inline h-4 w-4" />}{entry.direction === 'in' ? 'In' : 'Out'}</td>
                 <td className="p-3">{entry.category}</td>
                 <td className="p-3">{entry.description}</td>
@@ -261,7 +261,7 @@ export default function HRManagementView({ showToast }) {
 }
 
 function Field({ label, children }) {
-  return <label className="block space-y-1 text-xs font-semibold text-slate-700 dark:text-slate-200">{label}{children}</label>;
+  return <label className="block space-y-1 text-xs font-semibold text-neutral-700 dark:text-neutral-200">{label}{children}</label>;
 }
 
 function PaymentFields({ method, reference, onChange }) {
@@ -272,18 +272,18 @@ function PaymentFields({ method, reference, onChange }) {
 }
 
 function Panel({ title, icon: Icon, description, children }) {
-  return <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-[#111827]">
-    <div className="flex items-start gap-3"><div className="rounded-xl bg-slate-100 p-2 text-slate-700 dark:bg-gray-800 dark:text-slate-200"><Icon className="h-5 w-5" /></div><div><h2 className="font-bold text-slate-900 dark:text-white">{title}</h2><p className="mt-0.5 text-xs text-slate-500">{description}</p></div></div>
+  return <section className="space-y-4 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-[#181818]">
+    <div className="flex items-start gap-3"><div className="rounded-xl bg-neutral-100 p-2 text-neutral-700 dark:bg-gray-800 dark:text-neutral-200"><Icon className="h-5 w-5" /></div><div><h2 className="font-bold text-neutral-900 dark:text-white">{title}</h2><p className="mt-0.5 text-xs text-neutral-500">{description}</p></div></div>
     {children}
   </section>;
 }
 
 function Metric({ title, value, icon: Icon, tone }) {
   const tones = {
-    blue: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
+    blue: 'bg-neutral-50 text-neutral-700 dark:bg-neutral-950/40 dark:text-neutral-300',
     violet: 'bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300',
     amber: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
     rose: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
   };
-  return <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-gray-800 dark:bg-[#111827]"><div className="flex items-center justify-between"><span className="text-xs font-semibold text-slate-500">{title}</span><span className={`rounded-lg p-2 ${tones[tone]}`}><Icon className="h-4 w-4" /></span></div><p className="mt-3 text-xl font-black text-slate-900 dark:text-white">{value}</p></div>;
+  return <div className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-gray-800 dark:bg-[#181818]"><div className="flex items-center justify-between"><span className="text-xs font-semibold text-neutral-500">{title}</span><span className={`rounded-lg p-2 ${tones[tone]}`}><Icon className="h-4 w-4" /></span></div><p className="mt-3 text-xl font-black text-neutral-900 dark:text-white">{value}</p></div>;
 }

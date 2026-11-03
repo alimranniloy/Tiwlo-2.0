@@ -47,7 +47,7 @@ export default function AddProductModal({
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [newCatDesc, setNewCatDesc] = useState('');
-  const [newCatColor, setNewCatColor] = useState('#3B82F6');
+  const [newCatColor, setNewCatColor] = useState('#7b7b7b');
   const [savingCategory, setSavingCategory] = useState(false);
   const [localCategories, setLocalCategories] = useState(categories);
 
@@ -91,12 +91,12 @@ export default function AddProductModal({
   );
 
   const colorPresets = [
-    { name: 'Blue', hex: '#3B82F6' },
+    { name: 'Blue', hex: '#7b7b7b' },
     { name: 'Emerald', hex: '#10B981' },
-    { name: 'Purple', hex: '#8B5CF6' },
+    { name: 'Purple', hex: '#717171' },
     { name: 'Amber', hex: '#F59E0B' },
     { name: 'Rose', hex: '#F43F5E' },
-    { name: 'Cyan', hex: '#06B6D4' }
+    { name: 'Cyan', hex: '#939393' }
   ];
 
   // Synthesize realistic POS Barcode Scanner Beep
@@ -376,21 +376,21 @@ export default function AddProductModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-neutral-950/70 backdrop-blur-sm animate-in fade-in duration-200">
       {/* Modal Dialog */}
-      <div className="w-full max-w-2xl max-h-[94vh] flex flex-col bg-white dark:bg-[#111827] rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-gray-800 shadow-2xl overflow-hidden">
+      <div className="w-full max-w-2xl max-h-[94vh] flex flex-col bg-white dark:bg-[#181818] rounded-2xl sm:rounded-3xl border border-neutral-200 dark:border-gray-800 shadow-2xl overflow-hidden">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 dark:border-gray-800 bg-slate-50/70 dark:bg-gray-800/40">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-neutral-100 dark:border-gray-800 bg-neutral-50/70 dark:bg-gray-800/40">
           <div className="flex items-center space-x-2.5">
-            <span className="p-2 rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20">
+            <span className="p-2 rounded-xl bg-neutral-600 text-white shadow-md shadow-neutral-500/20">
               <Plus className="w-5 h-5" />
             </span>
             <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              <h3 className="text-base font-bold text-neutral-900 dark:text-white">
                 Add New Product
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
                 Direct image upload to server, inline category creation & optical barcode scanner
               </p>
             </div>
@@ -400,7 +400,7 @@ export default function AddProductModal({
                 stopCamera();
                 onClose();
               }}
-              className="w-8 h-8 rounded-full hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-400 hover:text-slate-700 dark:hover:text-white flex items-center justify-center transition"
+              className="w-8 h-8 rounded-full hover:bg-neutral-200 dark:hover:bg-gray-700 text-neutral-400 hover:text-neutral-700 dark:hover:text-white flex items-center justify-center transition"
             >
               <X className="w-4 h-4" />
             </button>
@@ -411,7 +411,7 @@ export default function AddProductModal({
             
             {/* 1. PRODUCT NAME & BASIC INFO */}
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+              <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                 Product Title / Name *
               </label>
               <input
@@ -420,14 +420,14 @@ export default function AddProductModal({
                 placeholder="e.g. Ergonomic Mechanical Keyboard"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-800/80 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40 font-medium"
+                className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-800/80 border border-neutral-200 dark:border-gray-700 rounded-xl text-neutral-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-500/40 font-medium"
               />
             </div>
 
             {/* 2. SKU & BARCODE WITH OPTICAL SCANNER */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                   SKU (Stock Keeping Unit) *
                 </label>
                 <div className="relative">
@@ -437,7 +437,7 @@ export default function AddProductModal({
                     placeholder="e.g. KB-RGB-99"
                     value={formData.sku}
                     onChange={(e) => setFormData({ ...formData, sku: e.target.value.toUpperCase() })}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-800/80 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-800 dark:text-white font-mono uppercase focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-800/80 border border-neutral-200 dark:border-gray-700 rounded-xl text-neutral-800 dark:text-white font-mono uppercase focus:outline-none focus:ring-2 focus:ring-neutral-500/40"
                   />
                   <button
                     type="button"
@@ -445,7 +445,7 @@ export default function AddProductModal({
                       const randSku = 'SKU-' + Math.floor(1000 + Math.random() * 9000);
                       setFormData(prev => ({ ...prev, sku: randSku }));
                     }}
-                    className="absolute right-2 top-2 px-2 py-0.5 text-[10px] font-bold rounded-md bg-slate-200 dark:bg-gray-700 hover:bg-slate-300 text-slate-700 dark:text-slate-200"
+                    className="absolute right-2 top-2 px-2 py-0.5 text-[10px] font-bold rounded-md bg-neutral-200 dark:bg-gray-700 hover:bg-neutral-300 text-neutral-700 dark:text-neutral-200"
                   >
                     Auto
                   </button>
@@ -454,7 +454,7 @@ export default function AddProductModal({
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="font-semibold text-slate-700 dark:text-slate-200">
+                  <label className="font-semibold text-neutral-700 dark:text-neutral-200">
                     Barcode (UPC / EAN-13)
                   </label>
                   <button
@@ -464,7 +464,7 @@ export default function AddProductModal({
                       if (!showScanner) startCamera();
                       else stopCamera();
                     }}
-                    className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                    className="text-[11px] font-bold text-neutral-600 dark:text-neutral-400 hover:underline flex items-center gap-1"
                   >
                     <Barcode className="w-3.5 h-3.5" />
                     <span>{showScanner ? 'Close Scanner' : 'Optical Scanner'}</span>
@@ -476,12 +476,12 @@ export default function AddProductModal({
                     placeholder="e.g. 8901234567890"
                     value={formData.barcode}
                     onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-800/80 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-800 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-800/80 border border-neutral-200 dark:border-gray-700 rounded-xl text-neutral-800 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-neutral-500/40"
                   />
                   <button
                     type="button"
                     onClick={handleGenerateBarcode}
-                    className="absolute right-2 top-2 px-2 py-0.5 text-[10px] font-bold rounded-md bg-blue-50 dark:bg-blue-900/50 hover:bg-blue-100 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                    className="absolute right-2 top-2 px-2 py-0.5 text-[10px] font-bold rounded-md bg-neutral-50 dark:bg-neutral-900/50 hover:bg-neutral-100 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800"
                   >
                     Generate
                   </button>
@@ -491,16 +491,16 @@ export default function AddProductModal({
 
             {/* SCANNER MODAL / INTERFACE IF EXPANDED */}
             {showScanner && (
-              <div className="p-4 rounded-2xl bg-slate-900 text-white border border-slate-700 shadow-xl space-y-3 animate-in zoom-in-95 duration-150">
+              <div className="p-4 rounded-2xl bg-neutral-900 text-white border border-neutral-700 shadow-xl space-y-3 animate-in zoom-in-95 duration-150">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
                     <span className="font-bold text-xs">StockPro Optical Barcode Sensor</span>
                   </div>
-                  <span className="text-[10px] text-slate-400">{scanStatus}</span>
+                  <span className="text-[10px] text-neutral-400">{scanStatus}</span>
                 </div>
 
-                <div className="relative w-full h-40 bg-black rounded-xl overflow-hidden flex items-center justify-center border border-slate-800">
+                <div className="relative w-full h-40 bg-black rounded-xl overflow-hidden flex items-center justify-center border border-neutral-800">
                   <video
                     ref={videoRef}
                     autoPlay
@@ -532,7 +532,7 @@ export default function AddProductModal({
                       stopCamera();
                       setShowScanner(false);
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+                    className="px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300"
                   >
                     Done
                   </button>
@@ -545,13 +545,13 @@ export default function AddProductModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="font-semibold text-slate-700 dark:text-slate-200">
+                    <label className="font-semibold text-neutral-700 dark:text-neutral-200">
                       Category *
                     </label>
                     <button
                       type="button"
                       onClick={() => setIsAddingCategory(!isAddingCategory)}
-                      className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800"
+                      className="text-[11px] font-bold text-neutral-600 dark:text-neutral-400 hover:underline flex items-center gap-1 bg-neutral-50 dark:bg-neutral-900/30 px-2 py-0.5 rounded-md border border-neutral-200 dark:border-neutral-800"
                       title="Create a new category instantly"
                     >
                       <Plus className="w-3 h-3 stroke-[2.5]" />
@@ -569,7 +569,7 @@ export default function AddProductModal({
                         subCategory: firstSub?.name || ''
                       });
                     }}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-800/80 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-800 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-800/80 border border-neutral-200 dark:border-gray-700 rounded-xl text-neutral-800 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-neutral-500/40"
                   >
                     {localCategories.map((c) => (
                       <option key={c.id || c.name} value={c.name}>
@@ -580,13 +580,13 @@ export default function AddProductModal({
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                  <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                     Subcategory (Optional)
                   </label>
                   <select
                     value={formData.subCategory}
                     onChange={(e) => setFormData({ ...formData, subCategory: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-800/80 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-800 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-800/80 border border-neutral-200 dark:border-gray-700 rounded-xl text-neutral-800 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-neutral-500/40"
                   >
                     <option value="">None / General</option>
                     {matchingSubcategories.map((s) => (
@@ -600,16 +600,16 @@ export default function AddProductModal({
 
               {/* INLINE QUICK CATEGORY CREATOR PANEL */}
               {isAddingCategory && (
-                <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/60 space-y-3 animate-in slide-in-from-top-2 duration-150">
+                <div className="p-3.5 rounded-2xl bg-neutral-50/70 dark:bg-neutral-950/30 border border-neutral-200 dark:border-neutral-900/60 space-y-3 animate-in slide-in-from-top-2 duration-150">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
-                      <FolderPlus className="w-4 h-4 text-blue-600" />
+                    <span className="font-bold text-xs text-neutral-900 dark:text-neutral-200 flex items-center gap-1.5">
+                      <FolderPlus className="w-4 h-4 text-neutral-600" />
                       <span>Quick Inline Category Creator (Saves to DB)</span>
                     </span>
                     <button
                       type="button"
                       onClick={() => setIsAddingCategory(false)}
-                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -622,7 +622,7 @@ export default function AddProductModal({
                         placeholder="Category Name (e.g. Gaming Gear)"
                         value={newCatName}
                         onChange={(e) => setNewCatName(e.target.value)}
-                        className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-slate-300 dark:border-gray-600 rounded-lg text-slate-800 dark:text-white text-xs font-semibold focus:outline-none"
+                        className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-neutral-300 dark:border-gray-600 rounded-lg text-neutral-800 dark:text-white text-xs font-semibold focus:outline-none"
                       />
                     </div>
                     <div>
@@ -631,20 +631,20 @@ export default function AddProductModal({
                         placeholder="Short Description..."
                         value={newCatDesc}
                         onChange={(e) => setNewCatDesc(e.target.value)}
-                        className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-slate-300 dark:border-gray-600 rounded-lg text-slate-800 dark:text-white text-xs focus:outline-none"
+                        className="w-full px-3 py-1.5 bg-white dark:bg-gray-800 border border-neutral-300 dark:border-gray-600 rounded-lg text-neutral-800 dark:text-white text-xs focus:outline-none"
                       />
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
                     <div className="flex items-center space-x-1.5">
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400">Color:</span>
+                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400">Color:</span>
                       {colorPresets.map(c => (
                         <button
                           key={c.name}
                           type="button"
                           onClick={() => setNewCatColor(c.hex)}
-                          className={`w-5 h-5 rounded-full transition-transform ${newCatColor === c.hex ? 'scale-125 ring-2 ring-blue-500' : 'hover:scale-110'}`}
+                          className={`w-5 h-5 rounded-full transition-transform ${newCatColor === c.hex ? 'scale-125 ring-2 ring-neutral-500' : 'hover:scale-110'}`}
                           style={{ backgroundColor: c.hex }}
                           title={c.name}
                         />
@@ -655,7 +655,7 @@ export default function AddProductModal({
                       type="button"
                       disabled={savingCategory || !newCatName.trim()}
                       onClick={handleCreateInlineCategory}
-                      className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs disabled:opacity-50 transition flex items-center space-x-1"
+                      className="px-3 py-1.5 rounded-lg bg-neutral-600 hover:bg-neutral-700 text-white font-bold text-xs shadow-xs disabled:opacity-50 transition flex items-center space-x-1"
                     >
                       {savingCategory ? (
                         <>
@@ -677,7 +677,7 @@ export default function AddProductModal({
             {/* 4. STOCK & SAFETY THRESHOLD */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                   Initial Stock Quantity
                 </label>
                 <input
@@ -685,12 +685,12 @@ export default function AddProductModal({
                   min="0"
                   value={formData.stock}
                   onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-800/80 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-800 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-800/80 border border-neutral-200 dark:border-gray-700 rounded-xl text-neutral-800 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-neutral-500/40"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                   Low Stock Safety Alert Point
                 </label>
                 <input
@@ -698,7 +698,7 @@ export default function AddProductModal({
                   min="1"
                   value={formData.minStock}
                   onChange={(e) => setFormData({ ...formData, minStock: parseInt(e.target.value) || 20 })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-gray-800/80 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-800 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-800/80 border border-neutral-200 dark:border-gray-700 rounded-xl text-neutral-800 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-neutral-500/40"
                 />
               </div>
             </div>
@@ -706,35 +706,35 @@ export default function AddProductModal({
             {/* 5. PRICING (RETAIL & COST) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                   Retail Selling Price ($) *
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-2.5 text-slate-400 font-bold">$</span>
+                  <span className="absolute left-3.5 top-2.5 text-neutral-400 font-bold">$</span>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-                    className="w-full pl-8 pr-3.5 py-2.5 bg-slate-50 dark:bg-gray-800/80 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-800 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    className="w-full pl-8 pr-3.5 py-2.5 bg-neutral-50 dark:bg-gray-800/80 border border-neutral-200 dark:border-gray-700 rounded-xl text-neutral-800 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-neutral-500/40"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                   Cost / Purchase Price ($)
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-2.5 text-slate-400 font-bold">$</span>
+                  <span className="absolute left-3.5 top-2.5 text-neutral-400 font-bold">$</span>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     value={formData.costPrice}
                     onChange={(e) => setFormData({ ...formData, costPrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full pl-8 pr-3.5 py-2.5 bg-slate-50 dark:bg-gray-800/80 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-800 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    className="w-full pl-8 pr-3.5 py-2.5 bg-neutral-50 dark:bg-gray-800/80 border border-neutral-200 dark:border-gray-700 rounded-xl text-neutral-800 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-neutral-500/40"
                   />
                 </div>
               </div>
@@ -743,7 +743,7 @@ export default function AddProductModal({
             {/* 6. LOCATION & SUPPLIER */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                   Shelf / Warehouse Bin
                 </label>
                 <input
@@ -751,12 +751,12 @@ export default function AddProductModal({
                   placeholder="e.g. Section C, Rack 4-B"
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  className="w-full px-3.5 py-2 bg-slate-50 dark:bg-gray-800/80 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-800 dark:text-white focus:outline-none"
+                  className="w-full px-3.5 py-2 bg-neutral-50 dark:bg-gray-800/80 border border-neutral-200 dark:border-gray-700 rounded-xl text-neutral-800 dark:text-white focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-200 mb-1">
                   Supplier / Vendor Name
                 </label>
                 <input
@@ -764,7 +764,7 @@ export default function AddProductModal({
                   placeholder="e.g. Apex Dynamics Ltd."
                   value={formData.supplierName}
                   onChange={(e) => setFormData({ ...formData, supplierName: e.target.value })}
-                  className="w-full px-3.5 py-2 bg-slate-50 dark:bg-gray-800/80 border border-slate-200 dark:border-gray-700 rounded-xl text-slate-800 dark:text-white focus:outline-none"
+                  className="w-full px-3.5 py-2 bg-neutral-50 dark:bg-gray-800/80 border border-neutral-200 dark:border-gray-700 rounded-xl text-neutral-800 dark:text-white focus:outline-none"
                 />
               </div>
             </div>
@@ -772,11 +772,11 @@ export default function AddProductModal({
             {/* 7. REAL MULTI-IMAGE UPLOAD & LOCAL DISK STORAGE */}
             <div className="space-y-2.5 pt-1">
               <div className="flex items-center justify-between">
-                <label className="font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
-                  <ImageIcon className="w-4 h-4 text-blue-500" />
+                <label className="font-bold text-neutral-800 dark:text-white flex items-center gap-1.5">
+                  <ImageIcon className="w-4 h-4 text-neutral-500" />
                   <span>Product Gallery Images (Saved to Server /uploads)</span>
                 </label>
-                <span className="text-[11px] text-slate-400">
+                <span className="text-[11px] text-neutral-400">
                   {formData.images.length} image{formData.images.length === 1 ? '' : 's'} attached
                 </span>
               </div>
@@ -785,7 +785,7 @@ export default function AddProductModal({
               <div
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleDrop}
-                className="relative border-2 border-dashed border-slate-300 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-400 rounded-2xl p-4 text-center bg-slate-50/50 dark:bg-gray-800/50 transition cursor-pointer group"
+                className="relative border-2 border-dashed border-neutral-300 dark:border-gray-700 hover:border-neutral-500 dark:hover:border-neutral-400 rounded-2xl p-4 text-center bg-neutral-50/50 dark:bg-gray-800/50 transition cursor-pointer group"
               >
                 <input
                   type="file"
@@ -795,7 +795,7 @@ export default function AddProductModal({
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                 />
                 <div className="flex flex-col items-center justify-center space-y-2 pointer-events-none">
-                  <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <div className="w-10 h-10 rounded-2xl bg-neutral-100 dark:bg-neutral-900/40 text-neutral-600 dark:text-neutral-400 flex items-center justify-center group-hover:scale-110 transition-transform">
                     {uploading ? (
                       <RefreshCw className="w-5 h-5 animate-spin" />
                     ) : (
@@ -803,11 +803,11 @@ export default function AddProductModal({
                     )}
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    <p className="text-xs font-bold text-neutral-700 dark:text-neutral-200">
                       {uploading ? 'Uploading to Server Disk...' : 'Click to Browse or Drag & Drop Multiple Images'}
                     </p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">
-                      PNG, JPG, WEBP up to 15MB each. Saved in local <code className="text-blue-500 font-mono">server/uploads/</code>
+                    <p className="text-[10px] text-neutral-400 mt-0.5">
+                      PNG, JPG, WEBP up to 15MB each. Saved in local <code className="text-neutral-500 font-mono">server/uploads/</code>
                     </p>
                   </div>
                 </div>
@@ -826,7 +826,7 @@ export default function AddProductModal({
                   {formData.images.map((imgUrl, idx) => (
                     <div
                       key={idx}
-                      className="group relative rounded-xl border border-slate-200 dark:border-gray-700 overflow-hidden bg-slate-100 dark:bg-gray-900 aspect-square shadow-xs"
+                      className="group relative rounded-xl border border-neutral-200 dark:border-gray-700 overflow-hidden bg-neutral-100 dark:bg-gray-900 aspect-square shadow-xs"
                     >
                       <img
                         src={imgUrl}
@@ -839,18 +839,18 @@ export default function AddProductModal({
 
                       {/* Primary Badge */}
                       {idx === 0 && (
-                        <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-blue-600 text-white font-black text-[9px] shadow-sm uppercase tracking-wider">
+                        <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-neutral-600 text-white font-black text-[9px] shadow-sm uppercase tracking-wider">
                           Primary
                         </span>
                       )}
 
                       {/* Action Overlay */}
-                      <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-1.5">
+                      <div className="absolute inset-0 bg-neutral-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-1.5">
                         {idx !== 0 && (
                           <button
                             type="button"
                             onClick={() => handleSetPrimary(idx)}
-                            className="p-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold"
+                            className="p-1.5 rounded-lg bg-neutral-600 hover:bg-neutral-500 text-white text-[10px] font-bold"
                             title="Set as Cover Image"
                           >
                             <Check className="w-3.5 h-3.5" />
@@ -872,7 +872,7 @@ export default function AddProductModal({
 
               {/* Quick Preset Fallbacks */}
               <div className="flex items-center space-x-2 pt-1">
-                <span className="text-[10px] text-slate-400">Quick Presets:</span>
+                <span className="text-[10px] text-neutral-400">Quick Presets:</span>
                 {presetImages.map((p) => (
                   <button
                     type="button"
@@ -887,7 +887,7 @@ export default function AddProductModal({
                         };
                       });
                     }}
-                    className="text-[10px] px-2 py-0.5 rounded-md border border-slate-200 dark:border-gray-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-800 transition"
+                    className="text-[10px] px-2 py-0.5 rounded-md border border-neutral-200 dark:border-gray-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-gray-800 transition"
                   >
                     + {p.label}
                   </button>
@@ -896,21 +896,21 @@ export default function AddProductModal({
             </div>
 
             {/* Actions / Buttons */}
-            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100 dark:border-gray-800">
+            <div className="flex items-center justify-end space-x-3 pt-4 border-t border-neutral-100 dark:border-gray-800">
               <button
                 type="button"
                 onClick={() => {
                   stopCamera();
                   onClose();
                 }}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-gray-800 rounded-xl transition"
+                className="px-4 py-2 text-xs font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-gray-800 rounded-xl transition"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading || uploading}
-                className="px-6 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg shadow-blue-500/25 transition flex items-center space-x-1.5 disabled:opacity-50"
+                className="px-6 py-2.5 text-xs font-bold text-white bg-neutral-600 hover:bg-neutral-700 rounded-xl shadow-lg shadow-neutral-500/25 transition flex items-center space-x-1.5 disabled:opacity-50"
               >
                 {loading ? (
                   <>

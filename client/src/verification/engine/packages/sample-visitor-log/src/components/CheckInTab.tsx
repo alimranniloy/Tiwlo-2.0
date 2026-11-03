@@ -90,15 +90,15 @@ export function CheckInTab() {
   return (
     <div className="space-y-6">
       {/* Webcam Feed */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="relative bg-slate-900 aspect-video max-h-80 flex items-center justify-center">
+      <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+        <div className="relative bg-neutral-900 aspect-video max-h-80 flex items-center justify-center">
           {camError ? (
             <div className="text-center p-8">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-red-400 mx-auto mb-3">
                 <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
               </svg>
               <p className="text-red-300 text-sm font-medium">Camera unavailable</p>
-              <p className="text-slate-500 text-xs mt-1">{camError}</p>
+              <p className="text-neutral-500 text-xs mt-1">{camError}</p>
             </div>
           ) : (
             <video
@@ -110,8 +110,8 @@ export function CheckInTab() {
             />
           )}
           {!ready && !camError && (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80">
-              <div className="flex items-center gap-3 text-slate-300">
+            <div className="absolute inset-0 flex items-center justify-center bg-neutral-900/80">
+              <div className="flex items-center gap-3 text-neutral-300">
                 <svg className="w-5 h-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -191,16 +191,16 @@ export function CheckInTab() {
 
       {/* No Match - Registration Form */}
       {noMatch && !registered && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+        <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-blue-600">
+            <div className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-neutral-600">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
               </svg>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-blue-900">New visitor detected</h3>
-              <p className="text-sm text-blue-700">Register to enable quick check-in next time.</p>
+              <h3 className="text-lg font-semibold text-neutral-900">New visitor detected</h3>
+              <p className="text-sm text-neutral-700">Register to enable quick check-in next time.</p>
             </div>
           </div>
           <div className="flex gap-3">
@@ -209,20 +209,20 @@ export function CheckInTab() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter your name"
-              className="flex-1 px-3 py-2 border border-blue-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:border-neutral-500"
               onKeyDown={(e) => e.key === 'Enter' && handleRegister()}
             />
             <button
               onClick={handleRegister}
               disabled={!name.trim() || registering}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 bg-neutral-600 text-white rounded-lg text-sm font-medium hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {registering ? 'Registering...' : 'Register'}
             </button>
           </div>
           <button
             onClick={reset}
-            className="mt-3 text-sm text-blue-600 hover:text-blue-800 underline"
+            className="mt-3 text-sm text-neutral-600 hover:text-neutral-800 underline"
           >
             Cancel
           </button>
@@ -254,21 +254,21 @@ export function CheckInTab() {
 
       {/* Recent Check-ins */}
       {recentCheckins.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-          <div className="px-4 py-3 border-b border-slate-100">
-            <h3 className="text-sm font-medium text-slate-700">Recent Check-ins</h3>
+        <div className="bg-white rounded-xl shadow-sm border border-neutral-200">
+          <div className="px-4 py-3 border-b border-neutral-100">
+            <h3 className="text-sm font-medium text-neutral-700">Recent Check-ins</h3>
           </div>
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-neutral-100">
             {recentCheckins.map((entry, i) => (
               <li key={i} className="px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className={`w-2 h-2 rounded-full ${entry.type === 'returning' ? 'bg-emerald-500' : 'bg-blue-500'}`} />
-                  <span className="text-sm text-slate-800 font-medium">{entry.name}</span>
-                  <span className={`text-xs px-1.5 py-0.5 rounded ${entry.type === 'returning' ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'}`}>
+                  <span className={`w-2 h-2 rounded-full ${entry.type === 'returning' ? 'bg-emerald-500' : 'bg-neutral-500'}`} />
+                  <span className="text-sm text-neutral-800 font-medium">{entry.name}</span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded ${entry.type === 'returning' ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-50 text-neutral-700'}`}>
                     {entry.type === 'returning' ? 'Returning' : 'New'}
                   </span>
                 </div>
-                <span className="text-xs text-slate-500">{entry.time}</span>
+                <span className="text-xs text-neutral-500">{entry.time}</span>
               </li>
             ))}
           </ul>

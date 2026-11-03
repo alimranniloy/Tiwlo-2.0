@@ -42,11 +42,11 @@ export default function RecentProductsTable({
   const getCategoryBadgeClass = (cat) => {
     switch (cat?.toLowerCase()) {
       case 'clothing':
-        return 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800/40';
+        return 'bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 border border-neutral-100 dark:border-neutral-800/40';
       case 'footwear':
         return 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-800/40';
       case 'electronics':
-        return 'bg-sky-50 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 border border-sky-100 dark:border-sky-800/40';
+        return 'bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 border border-neutral-100 dark:border-neutral-800/40';
       case 'accessories':
         return 'bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 border border-pink-100 dark:border-pink-800/40';
       case 'beauty & health':
@@ -54,7 +54,7 @@ export default function RecentProductsTable({
       case 'home & living':
         return 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-800/40';
       default:
-        return 'bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-slate-300';
+        return 'bg-neutral-100 dark:bg-gray-700 text-neutral-600 dark:text-neutral-300';
     }
   };
 
@@ -85,18 +85,18 @@ export default function RecentProductsTable({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 border border-slate-200/80 dark:border-gray-700/80 rounded-2xl p-3.5 sm:p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)] mb-7">
+    <div className="bg-white dark:bg-gray-800 border border-neutral-200/80 dark:border-gray-700/80 rounded-2xl p-3.5 sm:p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)] mb-7">
       {/* Table Header Controls */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 mb-5">
         <div className="flex items-start space-x-2.5">
-          <div className="w-5 h-5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+          <div className="w-5 h-5 rounded-md bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 flex items-center justify-center shrink-0 mt-0.5">
             <Box className="w-3.5 h-3.5" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+            <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
               Recent Products
             </h3>
-            <p className="text-[11px] text-slate-400 dark:text-slate-400">
+            <p className="text-[11px] text-neutral-400 dark:text-neutral-400">
               Latest added products to your inventory
             </p>
           </div>
@@ -107,13 +107,13 @@ export default function RecentProductsTable({
           <div className="flex items-center gap-2 flex-1 sm:flex-none">
             {/* Search Table */}
             <div className="relative flex-1 sm:w-48">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Search products..."
                 value={tableSearch}
                 onChange={(e) => setTableSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50/80 dark:bg-gray-700/50 border border-slate-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-800 dark:text-slate-100 placeholder-slate-400"
+                className="w-full pl-8 pr-3 py-1.5 text-xs bg-neutral-50/80 dark:bg-gray-700/50 border border-neutral-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-500/20 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400"
               />
             </div>
 
@@ -122,7 +122,7 @@ export default function RecentProductsTable({
               <select
                 value={tableCategory}
                 onChange={(e) => setTableCategory(e.target.value)}
-                className="appearance-none pl-3 pr-8 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-50/80 dark:bg-gray-700/50 border border-slate-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                className="appearance-none pl-3 pr-8 py-1.5 text-xs font-medium text-neutral-600 dark:text-neutral-300 bg-neutral-50/80 dark:bg-gray-700/50 border border-neutral-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-500/20 cursor-pointer"
               >
                 {categories.map((c) => (
                   <option key={c} value={c}>
@@ -130,18 +130,18 @@ export default function RecentProductsTable({
                   </option>
                 ))}
               </select>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <ChevronDown className="w-3.5 h-3.5 text-neutral-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
 
           {/* View Mode Toggle */}
-          <div className="flex items-center self-end sm:self-auto p-0.5 bg-slate-100 dark:bg-gray-700 rounded-xl border border-slate-200 dark:border-gray-600 shrink-0">
+          <div className="flex items-center self-end sm:self-auto p-0.5 bg-neutral-100 dark:bg-gray-700 rounded-xl border border-neutral-200 dark:border-gray-600 shrink-0">
             <button
               onClick={() => setViewMode('list')}
               className={`p-1.5 rounded-lg transition ${
                 viewMode === 'list'
-                  ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-white shadow-2xs'
-                  : 'text-slate-400 hover:text-slate-600'
+                  ? 'bg-white dark:bg-gray-600 text-neutral-600 dark:text-white shadow-2xs'
+                  : 'text-neutral-400 hover:text-neutral-600'
               }`}
               title="List view"
             >
@@ -151,8 +151,8 @@ export default function RecentProductsTable({
               onClick={() => setViewMode('grid')}
               className={`p-1.5 rounded-lg transition ${
                 viewMode === 'grid'
-                  ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-white shadow-2xs'
-                  : 'text-slate-400 hover:text-slate-600'
+                  ? 'bg-white dark:bg-gray-600 text-neutral-600 dark:text-white shadow-2xs'
+                  : 'text-neutral-400 hover:text-neutral-600'
               }`}
               title="Grid view"
             >
@@ -167,7 +167,7 @@ export default function RecentProductsTable({
         <div className="overflow-x-auto -mx-3.5 px-3.5 sm:mx-0 sm:px-0">
           <table className="w-full text-left text-xs min-w-[660px]">
             <thead>
-              <tr className="border-b border-slate-100 dark:border-gray-700/70 text-slate-400 dark:text-slate-400 font-semibold">
+              <tr className="border-b border-neutral-100 dark:border-gray-700/70 text-neutral-400 dark:text-neutral-400 font-semibold">
                 <th className="pb-3 pl-1 font-medium w-16">Image</th>
                 <th className="pb-3 font-medium">Product Name</th>
                 <th className="pb-3 font-medium">SKU</th>
@@ -178,10 +178,10 @@ export default function RecentProductsTable({
                 <th className="pb-3 pr-2 text-right font-medium">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-gray-700/40">
+            <tbody className="divide-y divide-neutral-100 dark:divide-gray-700/40">
               {products.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="py-8 text-center text-slate-400">
+                  <td colSpan="8" className="py-8 text-center text-neutral-400">
                     No products found. Add a product using the button above.
                   </td>
                 </tr>
@@ -189,11 +189,11 @@ export default function RecentProductsTable({
                 products.map((product) => (
                   <tr
                     key={product.id}
-                    className="hover:bg-slate-50/70 dark:hover:bg-gray-700/30 transition-colors group"
+                    className="hover:bg-neutral-50/70 dark:hover:bg-gray-700/30 transition-colors group"
                   >
                     {/* Image */}
                     <td className="py-3 pl-1">
-                      <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-gray-700 overflow-hidden border border-slate-200/70 dark:border-gray-600 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-gray-700 overflow-hidden border border-neutral-200/70 dark:border-gray-600 flex items-center justify-center shrink-0">
                         <img
                           src={product.image}
                           alt={product.name}
@@ -206,12 +206,12 @@ export default function RecentProductsTable({
                     </td>
 
                     {/* Name */}
-                    <td className="py-3 font-bold text-slate-800 dark:text-white">
+                    <td className="py-3 font-bold text-neutral-800 dark:text-white">
                       {product.name}
                     </td>
 
                     {/* SKU */}
-                    <td className="py-3 font-medium text-slate-500 dark:text-slate-400 font-mono">
+                    <td className="py-3 font-medium text-neutral-500 dark:text-neutral-400 font-mono">
                       {product.sku}
                     </td>
 
@@ -227,12 +227,12 @@ export default function RecentProductsTable({
                     </td>
 
                     {/* Stock */}
-                    <td className="py-3 font-semibold text-slate-700 dark:text-slate-200">
+                    <td className="py-3 font-semibold text-neutral-700 dark:text-neutral-200">
                       {product.stock}
                     </td>
 
                     {/* Price */}
-                    <td className="py-3 font-bold text-slate-800 dark:text-white">
+                    <td className="py-3 font-bold text-neutral-800 dark:text-white">
                       ${Number(product.price).toFixed(2)}
                     </td>
 
@@ -247,7 +247,7 @@ export default function RecentProductsTable({
                         onClick={() =>
                           setActiveMenuId(activeMenuId === product.id ? null : product.id)
                         }
-                        className="w-7 h-7 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 inline-flex items-center justify-center transition"
+                        className="w-7 h-7 rounded-lg hover:bg-neutral-100 dark:hover:bg-gray-700 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 inline-flex items-center justify-center transition"
                       >
                         <MoreHorizontal className="w-4 h-4" />
                       </button>
@@ -256,16 +256,16 @@ export default function RecentProductsTable({
                       {activeMenuId === product.id && (
                         <div
                           onMouseLeave={() => setActiveMenuId(null)}
-                          className="absolute right-0 top-10 w-44 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl shadow-xl py-1.5 z-40 animate-in fade-in duration-100 text-left"
+                          className="absolute right-0 top-10 w-44 bg-white dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 rounded-xl shadow-xl py-1.5 z-40 animate-in fade-in duration-100 text-left"
                         >
                           <button
                             onClick={() => {
                               setActiveMenuId(null);
                               onEditProduct(product);
                             }}
-                            className="w-full flex items-center px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-gray-700 transition"
+                            className="w-full flex items-center px-3 py-1.5 text-xs text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-gray-700 transition"
                           >
-                            <Edit className="w-3.5 h-3.5 mr-2 text-blue-500" />
+                            <Edit className="w-3.5 h-3.5 mr-2 text-neutral-500" />
                             Edit Product
                           </button>
                           {onOpenPrintBarcode && (
@@ -274,9 +274,9 @@ export default function RecentProductsTable({
                                 setActiveMenuId(null);
                                 onOpenPrintBarcode(product);
                               }}
-                              className="w-full flex items-center px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-gray-700 transition font-medium"
+                              className="w-full flex items-center px-3 py-1.5 text-xs text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-gray-700 transition font-medium"
                             >
-                              <Printer className="w-3.5 h-3.5 mr-2 text-indigo-500" />
+                              <Printer className="w-3.5 h-3.5 mr-2 text-neutral-500" />
                               Print Barcode
                             </button>
                           )}
@@ -285,7 +285,7 @@ export default function RecentProductsTable({
                               setActiveMenuId(null);
                               onQuickStockChange(product.id, 10);
                             }}
-                            className="w-full flex items-center px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-gray-700 transition"
+                            className="w-full flex items-center px-3 py-1.5 text-xs text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-gray-700 transition"
                           >
                             <Plus className="w-3.5 h-3.5 mr-2 text-emerald-500" />
                             Add Stock (+10)
@@ -295,12 +295,12 @@ export default function RecentProductsTable({
                               setActiveMenuId(null);
                               onQuickStockChange(product.id, -10);
                             }}
-                            className="w-full flex items-center px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-gray-700 transition"
+                            className="w-full flex items-center px-3 py-1.5 text-xs text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-gray-700 transition"
                           >
                             <Minus className="w-3.5 h-3.5 mr-2 text-amber-500" />
                             Reduce Stock (-10)
                           </button>
-                          <div className="border-t border-slate-100 dark:border-gray-700 my-1"></div>
+                          <div className="border-t border-neutral-100 dark:border-gray-700 my-1"></div>
                           <button
                             onClick={() => {
                               setActiveMenuId(null);
@@ -326,9 +326,9 @@ export default function RecentProductsTable({
           {products.map((product) => (
             <div
               key={product.id}
-              className="border border-slate-200/80 dark:border-gray-700 rounded-2xl p-4 hover:shadow-md transition bg-slate-50/50 dark:bg-gray-700/20 relative group"
+              className="border border-neutral-200/80 dark:border-gray-700 rounded-2xl p-4 hover:shadow-md transition bg-neutral-50/50 dark:bg-gray-700/20 relative group"
             >
-              <div className="w-full h-32 rounded-xl bg-slate-100 dark:bg-gray-700 overflow-hidden mb-3">
+              <div className="w-full h-32 rounded-xl bg-neutral-100 dark:bg-gray-700 overflow-hidden mb-3">
                 <img
                   src={product.image}
                   alt={product.name}
@@ -337,17 +337,17 @@ export default function RecentProductsTable({
               </div>
               <div className="flex items-start justify-between">
                 <div>
-                  <h4 className="text-xs font-bold text-slate-800 dark:text-white">
+                  <h4 className="text-xs font-bold text-neutral-800 dark:text-white">
                     {product.name}
                   </h4>
-                  <p className="text-[11px] font-mono text-slate-400">{product.sku}</p>
+                  <p className="text-[11px] font-mono text-neutral-400">{product.sku}</p>
                 </div>
                 {getStatusBadge(product.status, product.stock)}
               </div>
-              <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-200/60 dark:border-gray-700">
+              <div className="flex items-center justify-between mt-3 pt-2 border-t border-neutral-200/60 dark:border-gray-700">
                 <div>
-                  <span className="text-[10px] text-slate-400 block">Stock / Price</span>
-                  <span className="text-xs font-bold text-slate-800 dark:text-white">
+                  <span className="text-[10px] text-neutral-400 block">Stock / Price</span>
+                  <span className="text-xs font-bold text-neutral-800 dark:text-white">
                     {product.stock} units • ${Number(product.price).toFixed(2)}
                   </span>
                 </div>
@@ -355,7 +355,7 @@ export default function RecentProductsTable({
                   {onOpenPrintBarcode && (
                     <button
                       onClick={() => onOpenPrintBarcode(product)}
-                      className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition"
+                      className="p-1 rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-900/30 transition"
                       title="Print Barcode"
                     >
                       <Printer className="w-3.5 h-3.5" />
@@ -363,7 +363,7 @@ export default function RecentProductsTable({
                   )}
                   <button
                     onClick={() => onDeleteProduct(product)}
-                    className="text-slate-400 hover:text-rose-500 p-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/30 transition"
+                    className="text-neutral-400 hover:text-rose-500 p-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/30 transition"
                     title="Delete product"
                   >
                     <Trash2 className="w-3.5 h-3.5" />

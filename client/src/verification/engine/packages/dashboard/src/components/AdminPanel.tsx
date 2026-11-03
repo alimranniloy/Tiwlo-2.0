@@ -34,8 +34,8 @@ export function AdminPanel() {
           <h2 className="text-2xl font-semibold mb-2">Administration</h2>
           <p className="text-gray-400 text-sm">System health, models, and configuration.</p>
         </div>
-        <div className="flex items-center gap-3 text-indigo-400 text-sm">
-          <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+        <div className="flex items-center gap-3 text-neutral-400 text-sm">
+          <div className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
           Loading admin data...
         </div>
       </div>

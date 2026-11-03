@@ -36,13 +36,13 @@ export default function SocialSidebar() {
       id: 'p2',
       name: 'Badminton Club',
       abbr: 'BC',
-      bgColor: 'bg-[#9333EA]',
+      bgColor: 'bg-[#555555]',
     },
     {
       id: 'p3',
       name: 'UI/UX Community',
       abbr: 'UI',
-      bgColor: 'bg-[#00B4D8]',
+      bgColor: 'bg-[#909090]',
     },
     {
       id: 'p4',
@@ -57,7 +57,7 @@ export default function SocialSidebar() {
       {/* 1. User Profile Widget matching screenshot */}
       <div
         onClick={() => navigateTo('profile', currentUser?.handle || currentUser?.id)}
-        className="bg-white dark:bg-[#161822] rounded-2xl p-3 border border-[#EAECF0] dark:border-[#1E232F] flex items-center gap-3 shadow-[0_2px_8px_rgba(0,0,0,0.02)] mb-5 cursor-pointer hover:border-gray-300 dark:hover:border-gray-700 transition"
+        className="bg-white dark:bg-[#181818] rounded-2xl p-3 border border-[#ececec] dark:border-[#232323] flex items-center gap-3 shadow-[0_2px_8px_rgba(0,0,0,0.02)] mb-5 cursor-pointer hover:border-gray-300 dark:hover:border-gray-700 transition"
       >
         <img
           src={
@@ -68,10 +68,10 @@ export default function SocialSidebar() {
           className="w-10 h-10 rounded-full object-cover ring-1 ring-black/5"
         />
         <div className="flex flex-col min-w-0">
-          <span className="font-bold text-[13.5px] text-[#111827] dark:text-white truncate">
+          <span className="font-bold text-[13.5px] text-[#181818] dark:text-white truncate">
             {currentUser?.name || 'Ahmad Nur Fawaid'}
           </span>
-          <span className="text-[11.5px] text-[#9CA3AF] truncate">
+          <span className="text-[11.5px] text-[#a2a2a2] truncate">
             @{currentUser?.handle || 'fawait'}
           </span>
         </div>
@@ -96,20 +96,20 @@ export default function SocialSidebar() {
               }}
               className={`relative flex items-center gap-3.5 py-2.5 px-3 rounded-xl font-medium text-[13.5px] transition-all cursor-pointer text-left ${
                 isActive
-                  ? 'text-[#1E75FF] font-bold'
-                  : 'text-[#4B5563] dark:text-[#9CA3AF] hover:text-[#111827] dark:hover:text-white hover:bg-black/[0.02] dark:hover:bg-white/[0.03]'
+                  ? 'text-[#6c6c6c] font-bold'
+                  : 'text-[#545454] dark:text-[#a2a2a2] hover:text-[#181818] dark:hover:text-white hover:bg-black/[0.02] dark:hover:bg-white/[0.03]'
               }`}
             >
               {/* Left blue active vertical pill indicator bar */}
               {isActive && (
-                <span className="absolute -left-2 w-1.5 h-6 bg-[#1E75FF] rounded-r-full shadow-sm" />
+                <span className="absolute -left-2 w-1.5 h-6 bg-[#6c6c6c] rounded-r-full shadow-sm" />
               )}
 
               <Icon
                 className={`w-[19px] h-[19px] transition-colors ${
                   isActive
-                    ? 'text-[#1E75FF] stroke-[2.2]'
-                    : 'text-[#6B7280] dark:text-[#9CA3AF] stroke-[1.8]'
+                    ? 'text-[#6c6c6c] stroke-[2.2]'
+                    : 'text-[#727272] dark:text-[#a2a2a2] stroke-[1.8]'
                 }`}
               />
               <span>{item.label}</span>
@@ -120,7 +120,7 @@ export default function SocialSidebar() {
 
       {/* 3. PAGES YOU LIKE Section matching screenshot */}
       <div className="flex flex-col">
-        <span className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider px-3 mb-3">
+        <span className="text-[11px] font-bold text-[#a2a2a2] uppercase tracking-wider px-3 mb-3">
           Pages You Like
         </span>
 
@@ -138,7 +138,7 @@ export default function SocialSidebar() {
                 >
                   {page.abbr}
                 </div>
-                <span className="text-[13px] font-medium text-[#374151] dark:text-[#D1D5DB] group-hover:text-[#111827] dark:group-hover:text-white truncate">
+                <span className="text-[13px] font-medium text-[#404040] dark:text-[#d5d5d5] group-hover:text-[#181818] dark:group-hover:text-white truncate">
                   {page.name}
                 </span>
               </div>

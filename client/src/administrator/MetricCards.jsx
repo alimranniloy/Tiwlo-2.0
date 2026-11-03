@@ -11,7 +11,7 @@ export default function MetricCards({ metrics }) {
       period: metrics?.totalRevenue?.period ?? '',
       positive: metrics?.totalRevenue?.positive !== false,
       icon: DollarSign,
-      iconBg: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+      iconBg: 'bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400'
     },
     {
       id: 'orders',
@@ -21,7 +21,7 @@ export default function MetricCards({ metrics }) {
       period: metrics?.totalOrders?.period ?? '',
       positive: metrics?.totalOrders?.positive !== false,
       icon: ShoppingCart,
-      iconBg: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+      iconBg: 'bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400'
     },
     {
       id: 'customers',
@@ -31,7 +31,7 @@ export default function MetricCards({ metrics }) {
       period: metrics?.totalCustomers?.period ?? '',
       positive: metrics?.totalCustomers?.positive !== false,
       icon: Users,
-      iconBg: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+      iconBg: 'bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400'
     },
     {
       id: 'servers',
@@ -41,7 +41,7 @@ export default function MetricCards({ metrics }) {
       period: metrics?.activeCloudServers?.period ?? '',
       positive: metrics?.activeCloudServers?.positive !== false,
       icon: Cloud,
-      iconBg: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+      iconBg: 'bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400'
     }
   ];
 
@@ -52,10 +52,10 @@ export default function MetricCards({ metrics }) {
         return (
           <div
             key={c.id}
-            className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/70 dark:border-slate-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] transition-all duration-200"
+            className="p-5 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/70 dark:border-neutral-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] transition-all duration-200"
           >
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">
                 {c.title}
               </span>
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${c.iconBg}`}>
@@ -63,7 +63,7 @@ export default function MetricCards({ metrics }) {
               </div>
             </div>
 
-            <div className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight mb-2">
+            <div className="text-2xl font-bold text-neutral-900 dark:text-white tracking-tight mb-2">
               {c.value}
             </div>
 
@@ -81,7 +81,7 @@ export default function MetricCards({ metrics }) {
                 )}
                 {c.trend}
               </span>
-                <span className="text-slate-400 dark:text-slate-500">{c.period}</span>
+                <span className="text-neutral-400 dark:text-neutral-500">{c.period}</span>
               </div>
             )}
           </div>

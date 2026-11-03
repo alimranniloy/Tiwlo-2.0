@@ -29,19 +29,19 @@ export default function TrackOrderPage({ onNavigate, initialReference = '', init
 
   return (
     <main className="max-w-3xl mx-auto w-full px-4 py-10 space-y-6">
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-5">
+      <div className="bg-white rounded-3xl border border-neutral-200 p-6 sm:p-8 space-y-5">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+          <div className="w-11 h-11 rounded-2xl bg-neutral-50 text-neutral-600 flex items-center justify-center">
             <PackageCheck className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-slate-900">Track your order</h1>
-            <p className="text-xs text-slate-500">Enter the order/tracking number and the phone used at checkout.</p>
+            <h1 className="text-xl font-black text-neutral-900">Track your order</h1>
+            <p className="text-xs text-neutral-500">Enter the order/tracking number and the phone used at checkout.</p>
           </div>
         </div>
 
         <form onSubmit={handleTrack} className="grid sm:grid-cols-2 gap-3">
-          <label className="text-xs font-semibold text-slate-700">
+          <label className="text-xs font-semibold text-neutral-700">
             Order or tracking number
             <input
               required
@@ -49,11 +49,11 @@ export default function TrackOrderPage({ onNavigate, initialReference = '', init
               maxLength={120}
               value={reference}
               onChange={event => setReference(event.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5"
+              className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5"
               autoComplete="off"
             />
           </label>
-          <label className="text-xs font-semibold text-slate-700">
+          <label className="text-xs font-semibold text-neutral-700">
             Checkout phone number
             <input
               required
@@ -62,13 +62,13 @@ export default function TrackOrderPage({ onNavigate, initialReference = '', init
               maxLength={40}
               value={phone}
               onChange={event => setPhone(event.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5"
+              className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5"
               autoComplete="tel"
             />
           </label>
           <button
             disabled={loading}
-            className="sm:col-span-2 inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-60"
+            className="sm:col-span-2 inline-flex items-center justify-center gap-2 rounded-xl bg-neutral-600 px-4 py-3 text-xs font-bold text-white hover:bg-neutral-700 disabled:opacity-60"
           >
             <Search className="w-4 h-4" />
             {loading ? 'Checking...' : 'Track Order'}
@@ -83,23 +83,23 @@ export default function TrackOrderPage({ onNavigate, initialReference = '', init
         )}
 
         {order && (
-          <section aria-live="polite" className="border-t border-slate-100 pt-5 space-y-4">
+          <section aria-live="polite" className="border-t border-neutral-100 pt-5 space-y-4">
             <div className="grid sm:grid-cols-2 gap-3">
-              <div className="rounded-xl bg-slate-50 p-3">
-                <p className="text-[10px] uppercase font-bold text-slate-400">Order number</p>
-                <p className="mt-1 font-mono text-sm font-bold text-slate-900">{order.orderNumber}</p>
+              <div className="rounded-xl bg-neutral-50 p-3">
+                <p className="text-[10px] uppercase font-bold text-neutral-400">Order number</p>
+                <p className="mt-1 font-mono text-sm font-bold text-neutral-900">{order.orderNumber}</p>
               </div>
-              <div className="rounded-xl bg-slate-50 p-3">
-                <p className="text-[10px] uppercase font-bold text-slate-400">Order status</p>
-                <p className="mt-1 text-sm font-bold text-slate-900">{order.status}</p>
+              <div className="rounded-xl bg-neutral-50 p-3">
+                <p className="text-[10px] uppercase font-bold text-neutral-400">Order status</p>
+                <p className="mt-1 text-sm font-bold text-neutral-900">{order.status}</p>
               </div>
-              <div className="rounded-xl bg-slate-50 p-3">
-                <p className="text-[10px] uppercase font-bold text-slate-400">Payment status</p>
-                <p className="mt-1 text-sm font-bold text-slate-900">{order.paymentStatus}</p>
+              <div className="rounded-xl bg-neutral-50 p-3">
+                <p className="text-[10px] uppercase font-bold text-neutral-400">Payment status</p>
+                <p className="mt-1 text-sm font-bold text-neutral-900">{order.paymentStatus}</p>
               </div>
-              <div className="rounded-xl bg-slate-50 p-3">
-                <p className="text-[10px] uppercase font-bold text-slate-400">Courier / tracking</p>
-                <p className="mt-1 text-sm font-bold text-slate-900">
+              <div className="rounded-xl bg-neutral-50 p-3">
+                <p className="text-[10px] uppercase font-bold text-neutral-400">Courier / tracking</p>
+                <p className="mt-1 text-sm font-bold text-neutral-900">
                   {order.courierService || 'Courier not assigned'}
                   {order.trackingNumber ? ` · ${order.trackingNumber}` : ''}
                 </p>
@@ -108,7 +108,7 @@ export default function TrackOrderPage({ onNavigate, initialReference = '', init
                     href={order.trackingUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-2 inline-block text-xs font-semibold text-blue-600 hover:underline"
+                    className="mt-2 inline-block text-xs font-semibold text-neutral-600 hover:underline"
                   >
                     Track with courier
                   </a>
@@ -118,8 +118,8 @@ export default function TrackOrderPage({ onNavigate, initialReference = '', init
             <ol className="space-y-3">
               {(order.statusHistory || []).map((entry, index) => (
                 <li key={`${entry.status}-${entry.at}-${index}`} className="flex items-center justify-between gap-3 text-xs">
-                  <span className="font-semibold text-slate-700">{entry.status}</span>
-                  <time className="text-slate-500" dateTime={entry.at}>
+                  <span className="font-semibold text-neutral-700">{entry.status}</span>
+                  <time className="text-neutral-500" dateTime={entry.at}>
                     {entry.at ? new Date(entry.at).toLocaleString() : ''}
                   </time>
                 </li>
@@ -127,7 +127,7 @@ export default function TrackOrderPage({ onNavigate, initialReference = '', init
             </ol>
           </section>
         )}
-        <button type="button" onClick={() => onNavigate?.('home')} className="text-xs font-semibold text-blue-600 hover:underline">
+        <button type="button" onClick={() => onNavigate?.('home')} className="text-xs font-semibold text-neutral-600 hover:underline">
           Back to Store
         </button>
       </div>

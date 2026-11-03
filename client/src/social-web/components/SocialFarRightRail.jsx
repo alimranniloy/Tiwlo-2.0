@@ -14,7 +14,7 @@ export default function SocialFarRightRail() {
       id: 'yp2',
       name: 'Danny Club',
       badge: 'HS',
-      badgeColor: 'bg-[#8B5CF6]'
+      badgeColor: 'bg-[#717171]'
     }
   ];
 
@@ -59,7 +59,7 @@ export default function SocialFarRightRail() {
       id: 'f8',
       name: 'Joshua Harris',
       badge: 'JH',
-      badgeColor: 'bg-[#00B4D8]'
+      badgeColor: 'bg-[#909090]'
     },
     {
       id: 'f9',
@@ -79,7 +79,7 @@ export default function SocialFarRightRail() {
       id: 'g2',
       name: 'Topcoder Studio',
       badge: 'TI',
-      badgeColor: 'bg-[#8B5CF6]'
+      badgeColor: 'bg-[#717171]'
     },
     {
       id: 'g3',
@@ -93,7 +93,7 @@ export default function SocialFarRightRail() {
     <aside className="w-[180px] xl:w-[200px] flex flex-col py-5 pl-2 select-none flex-shrink-0">
       {/* 1. YOUR PAGES */}
       <div className="mb-6">
-        <span className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider block mb-2 px-1">
+        <span className="text-[11px] font-bold text-[#a2a2a2] uppercase tracking-wider block mb-2 px-1">
           Your Pages
         </span>
         <div className="flex flex-col gap-1.5">
@@ -116,7 +116,7 @@ export default function SocialFarRightRail() {
                   {p.badge}
                 </div>
               )}
-              <span className="text-[12.5px] font-medium text-[#374151] dark:text-[#D1D5DB] group-hover:text-[#111827] dark:group-hover:text-white truncate">
+              <span className="text-[12.5px] font-medium text-[#404040] dark:text-[#d5d5d5] group-hover:text-[#181818] dark:group-hover:text-white truncate">
                 {p.name}
               </span>
             </div>
@@ -126,7 +126,7 @@ export default function SocialFarRightRail() {
 
       {/* 2. FRIENDS */}
       <div className="mb-6">
-        <span className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider block mb-2 px-1">
+        <span className="text-[11px] font-bold text-[#a2a2a2] uppercase tracking-wider block mb-2 px-1">
           Friends
         </span>
         <div className="flex flex-col gap-1.5">
@@ -143,7 +143,7 @@ export default function SocialFarRightRail() {
                     alt={f.name}
                     className="w-7 h-7 rounded-full object-cover"
                   />
-                  <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-[#161822]" />
+                  <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-[#181818]" />
                 </div>
               ) : (
                 <div
@@ -152,7 +152,7 @@ export default function SocialFarRightRail() {
                   {f.badge}
                 </div>
               )}
-              <span className="text-[12.5px] font-medium text-[#374151] dark:text-[#D1D5DB] group-hover:text-[#111827] dark:group-hover:text-white truncate">
+              <span className="text-[12.5px] font-medium text-[#404040] dark:text-[#d5d5d5] group-hover:text-[#181818] dark:group-hover:text-white truncate">
                 {f.name}
               </span>
             </div>
@@ -162,7 +162,7 @@ export default function SocialFarRightRail() {
 
       {/* 3. GROUPS */}
       <div>
-        <span className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider block mb-2 px-1">
+        <span className="text-[11px] font-bold text-[#a2a2a2] uppercase tracking-wider block mb-2 px-1">
           Groups
         </span>
         <div className="flex flex-col gap-1.5">
@@ -177,7 +177,7 @@ export default function SocialFarRightRail() {
               >
                 {g.badge}
               </div>
-              <span className="text-[12.5px] font-medium text-[#374151] dark:text-[#D1D5DB] group-hover:text-[#111827] dark:group-hover:text-white truncate">
+              <span className="text-[12.5px] font-medium text-[#404040] dark:text-[#d5d5d5] group-hover:text-[#181818] dark:group-hover:text-white truncate">
                 {g.name}
               </span>
             </div>

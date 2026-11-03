@@ -103,7 +103,7 @@ export default function WebhookManager() {
               placeholder="https://example.com/webhook"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-sm text-gray-200 placeholder-gray-600 focus:border-cyan-600 focus:outline-none"
+              className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-sm text-gray-200 placeholder-gray-600 focus:border-neutral-600 focus:outline-none"
             />
             <div className="flex flex-wrap gap-1.5">
               {ALL_EVENT_TYPES.map((t) => (
@@ -112,7 +112,7 @@ export default function WebhookManager() {
                   onClick={() => toggleType(t)}
                   className={`text-[10px] px-2 py-1 rounded border transition-colors ${
                     selectedTypes.has(t)
-                      ? 'bg-cyan-900/50 border-cyan-700 text-cyan-300'
+                      ? 'bg-neutral-900/50 border-neutral-700 text-neutral-300'
                       : 'bg-gray-900 border-gray-700 text-gray-500 hover:text-gray-300'
                   }`}
                 >
@@ -123,7 +123,7 @@ export default function WebhookManager() {
             <button
               onClick={handleRegister}
               disabled={submitting || !url.trim() || selectedTypes.size === 0}
-              className="w-full bg-cyan-700 hover:bg-cyan-600 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm rounded px-3 py-1.5 transition-colors"
+              className="w-full bg-neutral-700 hover:bg-neutral-600 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm rounded px-3 py-1.5 transition-colors"
             >
               {submitting ? 'Registering...' : 'Register Webhook'}
             </button>
@@ -133,7 +133,7 @@ export default function WebhookManager() {
           {/* Active webhooks */}
           {loading ? (
             <div className="flex justify-center py-3">
-              <div className="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : webhooks.length === 0 ? (
             <p className="text-xs text-gray-600 text-center py-2">No webhooks registered</p>

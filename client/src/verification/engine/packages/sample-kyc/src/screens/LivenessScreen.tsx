@@ -70,7 +70,7 @@ export function LivenessScreen({ data: _data, onUpdate, onNext, onBack }: Props)
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-slate-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-50 flex items-center justify-center p-4">
       <div className="max-w-lg w-full">
         {/* Header */}
         <div className="mb-4 flex items-center gap-3">
@@ -78,20 +78,20 @@ export function LivenessScreen({ data: _data, onUpdate, onNext, onBack }: Props)
             {[1, 2, 3].map((s) => (
               <div
                 key={s}
-                className={`w-8 h-1 rounded-full ${s <= 3 ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                className={`w-8 h-1 rounded-full ${s <= 3 ? 'bg-neutral-600' : 'bg-neutral-200'}`}
               />
             ))}
           </div>
-          <span className="text-xs text-slate-500 font-medium">Step 3/3</span>
-          <h1 className="text-lg font-bold text-slate-800 ml-auto">Liveness Check</h1>
+          <span className="text-xs text-neutral-500 font-medium">Step 3/3</span>
+          <h1 className="text-lg font-bold text-neutral-800 ml-auto">Liveness Check</h1>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-6">
+        <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 p-6">
           {/* Challenge instruction */}
           {currentChallenge && !sessionComplete && (
             <div className="text-center mb-4">
-              <p className="text-2xl font-bold text-indigo-700">{currentChallenge.instruction}</p>
-              <p className="text-sm text-slate-500 mt-1">
+              <p className="text-2xl font-bold text-neutral-700">{currentChallenge.instruction}</p>
+              <p className="text-sm text-neutral-500 mt-1">
                 Challenge {currentIdx + 1} of {challenges.length}
               </p>
             </div>
@@ -106,7 +106,7 @@ export function LivenessScreen({ data: _data, onUpdate, onNext, onBack }: Props)
           )}
 
           {/* Webcam */}
-          <div className="relative rounded-xl overflow-hidden bg-slate-900 aspect-[4/3]">
+          <div className="relative rounded-xl overflow-hidden bg-neutral-900 aspect-[4/3]">
             <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
             {!ready && !camError && (
               <div className="absolute inset-0 flex items-center justify-center">
@@ -133,9 +133,9 @@ export function LivenessScreen({ data: _data, onUpdate, onNext, onBack }: Props)
                     ? 'bg-emerald-100 text-emerald-600'
                     : 'bg-red-100 text-red-600';
                 } else if (i === currentIdx && !sessionComplete) {
-                  classes += 'bg-indigo-100 text-indigo-600 ring-2 ring-indigo-400';
+                  classes += 'bg-neutral-100 text-neutral-600 ring-2 ring-neutral-400';
                 } else {
-                  classes += 'bg-slate-100 text-slate-400';
+                  classes += 'bg-neutral-100 text-neutral-400';
                 }
                 return (
                   <div key={i} className={classes}>
@@ -159,7 +159,7 @@ export function LivenessScreen({ data: _data, onUpdate, onNext, onBack }: Props)
               <button
                 onClick={handleSubmit}
                 disabled={!ready || loading}
-                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors cursor-pointer"
+                className="w-full py-3 bg-neutral-600 hover:bg-neutral-700 disabled:bg-neutral-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors cursor-pointer"
               >
                 {loading ? 'Submitting...' : 'Capture & Submit'}
               </button>
@@ -170,14 +170,14 @@ export function LivenessScreen({ data: _data, onUpdate, onNext, onBack }: Props)
           <div className="flex justify-between mt-6">
             <button
               onClick={onBack}
-              className="px-5 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors cursor-pointer"
+              className="px-5 py-2.5 text-sm font-medium text-neutral-600 hover:text-neutral-800 transition-colors cursor-pointer"
             >
               Back
             </button>
             {sessionComplete && (
               <button
                 onClick={onNext}
-                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors text-sm cursor-pointer"
+                className="px-6 py-2.5 bg-neutral-600 hover:bg-neutral-700 text-white font-semibold rounded-xl transition-colors text-sm cursor-pointer"
               >
                 View Results
               </button>

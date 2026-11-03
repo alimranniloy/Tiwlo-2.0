@@ -55,16 +55,16 @@ export default function EcommerceDashboard({
         </div>
       )}
       {/* Top Banner to switch back to Main Control Center */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 rounded-2xl bg-white dark:bg-gray-800/80 border border-slate-200/80 dark:border-gray-700/80 shadow-2xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 rounded-2xl bg-white dark:bg-gray-800/80 border border-neutral-200/80 dark:border-gray-700/80 shadow-2xs">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+          <div className="w-8 h-8 rounded-xl bg-neutral-600 text-white flex items-center justify-center shadow-xs">
             <Store className="w-4 h-4" />
           </div>
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+            <h2 className="text-sm font-bold text-neutral-900 dark:text-white">
               {currentStore?.storeName || 'Your Store'}
             </h2>
-            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-gray-600">
+            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-gray-700 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-gray-600">
               {currentStore?.tiwiId || ''}
             </span>
           </div>
@@ -73,11 +73,11 @@ export default function EcommerceDashboard({
         {onBackToCloud && (
           <button
             onClick={onBackToCloud}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-50 dark:bg-gray-700/60 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-neutral-50 dark:bg-gray-700/60 text-neutral-700 dark:text-neutral-200 text-xs font-semibold border border-neutral-200 dark:border-gray-600 hover:bg-neutral-50 dark:hover:bg-neutral-950/40 hover:text-neutral-600 dark:hover:text-neutral-400 transition cursor-pointer"
           >
-            <LayoutGrid className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <LayoutGrid className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
             <span>Main Control Center</span>
-            <ArrowLeft className="w-3.5 h-3.5 rotate-180 text-slate-400" />
+            <ArrowLeft className="w-3.5 h-3.5 rotate-180 text-neutral-400" />
           </button>
         )}
       </div>

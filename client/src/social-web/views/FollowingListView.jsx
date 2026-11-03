@@ -37,20 +37,20 @@ export default function FollowingListView() {
   return (
     <div className="w-full flex flex-col min-h-screen max-w-2xl mx-auto pb-20">
       {/* 1. Header with Pills */}
-      <div className="sticky top-0 z-20 bg-[#f0f2f5]/90 dark:bg-[#0a0a0f]/90 backdrop-blur-xl pb-3 mb-3 border-b border-black/[0.05] dark:border-white/[0.06]">
+      <div className="sticky top-0 z-20 bg-[#f2f2f2]/90 dark:bg-[#0a0a0a]/90 backdrop-blur-xl pb-3 mb-3 border-b border-black/[0.05] dark:border-white/[0.06]">
         <div className="h-14 flex items-center gap-3 px-1">
           <button
             onClick={() => navigateTo('profile', currentUser?.handle || currentUser?.id)}
-            className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] transition cursor-pointer active:scale-95"
+            className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#676767] dark:text-[#b3b3b3] transition cursor-pointer active:scale-95"
             title="Back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex flex-col">
-            <h1 className="text-[18px] font-bold text-[#1c1e21] dark:text-[#e4e6eb] leading-tight tracking-tight">
+            <h1 className="text-[18px] font-bold text-[#1e1e1e] dark:text-[#e6e6e6] leading-tight tracking-tight">
               {currentUser?.name || 'User'}
             </h1>
-            <span className="text-[12px] text-[#65676b] dark:text-[#8a8d91]">
+            <span className="text-[12px] text-[#676767] dark:text-[#8d8d8d]">
               @{currentUser?.handle || 'user'}
             </span>
           </div>
@@ -60,7 +60,7 @@ export default function FollowingListView() {
         <div className="flex items-center gap-2 px-1 mt-1">
           <button
             onClick={() => navigateTo('followers')}
-            className="px-4 py-1.5 rounded-xl text-[13px] font-medium bg-white dark:bg-[#16161f] text-[#65676b] dark:text-[#b0b3b8] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] border border-black/[0.05] dark:border-white/[0.06] transition cursor-pointer"
+            className="px-4 py-1.5 rounded-xl text-[13px] font-medium bg-white dark:bg-[#171717] text-[#676767] dark:text-[#b3b3b3] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] border border-black/[0.05] dark:border-white/[0.06] transition cursor-pointer"
           >
             Followers
           </button>
@@ -73,7 +73,7 @@ export default function FollowingListView() {
       </div>
 
       {/* 2. Users List as Modern Rounded Card */}
-      <div className="bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] divide-y divide-black/[0.04] dark:divide-white/[0.05] p-2 shadow-sm">
+      <div className="bg-white dark:bg-[#171717] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] divide-y divide-black/[0.04] dark:divide-white/[0.05] p-2 shadow-sm">
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />
@@ -94,17 +94,17 @@ export default function FollowingListView() {
                     className="w-11 h-11 rounded-xl object-cover ring-1 ring-black/10 dark:ring-white/10 flex-shrink-0"
                   />
                   <div className="flex flex-col min-w-0 leading-tight">
-                    <div className="flex items-center gap-1 font-semibold text-[14px] text-[#1c1e21] dark:text-[#e4e6eb] truncate">
+                    <div className="flex items-center gap-1 font-semibold text-[14px] text-[#1e1e1e] dark:text-[#e6e6e6] truncate">
                       <span className="truncate group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">{user.name}</span>
                       {user.isVerified && (
                         <CheckCircle2 className="w-3.5 h-3.5 text-violet-500 fill-current inline flex-shrink-0" />
                       )}
                     </div>
-                    <span className="text-[12px] text-[#65676b] dark:text-[#8a8d91] truncate">
+                    <span className="text-[12px] text-[#676767] dark:text-[#8d8d8d] truncate">
                       @{user.handle}
                     </span>
                     {user.bio && (
-                      <p className="text-[12px] text-[#65676b] dark:text-[#8a8d91] line-clamp-1 mt-0.5">
+                      <p className="text-[12px] text-[#676767] dark:text-[#8d8d8d] line-clamp-1 mt-0.5">
                         {user.bio}
                       </p>
                     )}
@@ -119,8 +119,8 @@ export default function FollowingListView() {
                   }}
                   className={`text-[12.5px] font-semibold px-4 py-2 rounded-xl transition active:scale-95 flex-shrink-0 cursor-pointer shadow-sm ${
                     isFollowing
-                      ? 'bg-black/[0.05] dark:bg-white/[0.08] text-[#1c1e21] dark:text-[#e4e6eb]'
-                      : 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-violet-500/20'
+                      ? 'bg-black/[0.05] dark:bg-white/[0.08] text-[#1e1e1e] dark:text-[#e6e6e6]'
+                      : 'bg-gradient-to-r from-violet-600 to-neutral-600 hover:from-violet-700 hover:to-neutral-700 text-white shadow-violet-500/20'
                   }`}
                 >
                   {isFollowing ? (
@@ -140,10 +140,10 @@ export default function FollowingListView() {
           })
         ) : (
           <div className="py-16 text-center">
-            <h3 className="font-bold text-[16px] text-[#1c1e21] dark:text-[#e4e6eb] mb-1">
+            <h3 className="font-bold text-[16px] text-[#1e1e1e] dark:text-[#e6e6e6] mb-1">
               You aren't following anyone yet
             </h3>
-            <p className="text-[12px] text-[#65676b] dark:text-[#8a8d91]">
+            <p className="text-[12px] text-[#676767] dark:text-[#8d8d8d]">
               Explore communities to find creators you find interesting.
             </p>
           </div>

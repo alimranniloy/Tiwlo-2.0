@@ -228,36 +228,36 @@ export default function CustomerAccountPage({ onNavigate, showToast }) {
     }
   };
 
-  if (loading) return <main className="mx-auto max-w-4xl px-4 py-12 text-sm text-slate-500">Loading your customer account…</main>;
+  if (loading) return <main className="mx-auto max-w-4xl px-4 py-12 text-sm text-neutral-500">Loading your customer account…</main>;
 
   if (!customer) {
     return (
       <main className="mx-auto max-w-lg px-4 py-12">
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-700"><ShieldCheck className="h-6 w-6" /></div>
-          <h1 className="text-2xl font-black text-slate-900">Your {storeSettings?.storeName || 'store'} account</h1>
-          <p className="mt-2 text-sm text-slate-500">Sign in with an email code to see your orders, saved addresses, and refund requests. This is separate from merchant accounts.</p>
+        <section className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm sm:p-8">
+          <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-50 text-neutral-700"><ShieldCheck className="h-6 w-6" /></div>
+          <h1 className="text-2xl font-black text-neutral-900">Your {storeSettings?.storeName || 'store'} account</h1>
+          <p className="mt-2 text-sm text-neutral-500">Sign in with an email code to see your orders, saved addresses, and refund requests. This is separate from merchant accounts.</p>
           {error && <p role="alert" className="mt-4 rounded-xl bg-rose-50 p-3 text-xs text-rose-700">{error}</p>}
           {!verificationToken ? (
             <form onSubmit={requestCode} className="mt-6 space-y-3">
-              <label className="block text-xs font-semibold text-slate-700">Email address
-                <input type="email" required value={email} onChange={event => setEmail(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm" autoComplete="email" />
+              <label className="block text-xs font-semibold text-neutral-700">Email address
+                <input type="email" required value={email} onChange={event => setEmail(event.target.value)} className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm" autoComplete="email" />
               </label>
-              <label className="block text-xs font-semibold text-slate-700">Name <span className="font-normal text-slate-400">(for a new account)</span>
-                <input value={name} onChange={event => setName(event.target.value)} maxLength={120} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm" autoComplete="name" />
+              <label className="block text-xs font-semibold text-neutral-700">Name <span className="font-normal text-neutral-400">(for a new account)</span>
+                <input value={name} onChange={event => setName(event.target.value)} maxLength={120} className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm" autoComplete="name" />
               </label>
-              <button disabled={busy} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{busy ? 'Sending…' : 'Send sign-in code'}</button>
+              <button disabled={busy} className="w-full rounded-xl bg-neutral-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{busy ? 'Sending…' : 'Send sign-in code'}</button>
             </form>
           ) : (
             <form onSubmit={verifyCode} className="mt-6 space-y-3">
-              <label className="block text-xs font-semibold text-slate-700">Six-digit email code
-                <input inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={event => setCode(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-center font-mono text-lg tracking-[0.4em]" autoComplete="one-time-code" />
+              <label className="block text-xs font-semibold text-neutral-700">Six-digit email code
+                <input inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={event => setCode(event.target.value)} className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-center font-mono text-lg tracking-[0.4em]" autoComplete="one-time-code" />
               </label>
-              <button disabled={busy} className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{busy ? 'Verifying…' : 'Verify and sign in'}</button>
-              <button type="button" onClick={() => { setVerificationToken(''); setCode(''); }} className="w-full py-2 text-xs font-semibold text-slate-500">Use a different email</button>
+              <button disabled={busy} className="w-full rounded-xl bg-neutral-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{busy ? 'Verifying…' : 'Verify and sign in'}</button>
+              <button type="button" onClick={() => { setVerificationToken(''); setCode(''); }} className="w-full py-2 text-xs font-semibold text-neutral-500">Use a different email</button>
             </form>
           )}
-          <button type="button" onClick={() => onNavigate?.('home')} className="mt-5 w-full text-xs font-semibold text-blue-700">Continue shopping</button>
+          <button type="button" onClick={() => onNavigate?.('home')} className="mt-5 w-full text-xs font-semibold text-neutral-700">Continue shopping</button>
         </section>
       </main>
     );
@@ -270,16 +270,16 @@ export default function CustomerAccountPage({ onNavigate, showToast }) {
   ];
   return (
     <main className="mx-auto w-full max-w-6xl space-y-5 px-4 py-8">
-      <header className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-white p-5">
+      <header className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-neutral-200 bg-white p-5">
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-700"><UserRound className="h-5 w-5" /></span>
-          <div><h1 className="text-xl font-black text-slate-900">Hello, {customer.name}</h1><p className="text-xs text-slate-500">{customer.email}</p></div>
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-neutral-50 text-neutral-700"><UserRound className="h-5 w-5" /></span>
+          <div><h1 className="text-xl font-black text-neutral-900">Hello, {customer.name}</h1><p className="text-xs text-neutral-500">{customer.email}</p></div>
         </div>
-        <button type="button" onClick={signOut} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">Sign out</button>
+        <button type="button" onClick={signOut} className="rounded-xl border border-neutral-200 px-3 py-2 text-xs font-semibold text-neutral-600">Sign out</button>
       </header>
       {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-xs text-rose-700">{error}</p>}
       <nav className="flex flex-wrap gap-2">
-        {tabs.map(([id, label]) => <button key={id} type="button" onClick={() => setTab(id)} className={`rounded-xl px-4 py-2 text-xs font-bold ${tab === id ? 'bg-blue-600 text-white' : 'border border-slate-200 bg-white text-slate-600'}`}>{label}</button>)}
+        {tabs.map(([id, label]) => <button key={id} type="button" onClick={() => setTab(id)} className={`rounded-xl px-4 py-2 text-xs font-bold ${tab === id ? 'bg-neutral-600 text-white' : 'border border-neutral-200 bg-white text-neutral-600'}`}>{label}</button>)}
       </nav>
 
       {tab === 'orders' && (
@@ -288,16 +288,16 @@ export default function CustomerAccountPage({ onNavigate, showToast }) {
             const editable = ['Pending', 'Confirmed'].includes(order.status || 'Pending');
             const activeRefund = (order.refundHistory || []).some(refund => ['requested', 'approved'].includes(refund.status));
             return (
-              <article key={order.id} className="rounded-2xl border border-slate-200 bg-white p-5">
+              <article key={order.id} className="rounded-2xl border border-neutral-200 bg-white p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div><p className="text-sm font-bold text-slate-900">Order {order.invoiceNumber}</p><p className="text-xs text-slate-500">{order.date ? new Date(order.date).toLocaleDateString() : ''}</p></div>
-                  <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">{order.status} · {order.paymentStatus}</span>
+                  <div><p className="text-sm font-bold text-neutral-900">Order {order.invoiceNumber}</p><p className="text-xs text-neutral-500">{order.date ? new Date(order.date).toLocaleDateString() : ''}</p></div>
+                  <span className="rounded-full bg-neutral-50 px-3 py-1 text-xs font-semibold text-neutral-700">{order.status} · {order.paymentStatus}</span>
                 </div>
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 text-xs">
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 pt-3 text-xs">
                   <span>{order.items?.length || 0} item(s)</span><strong>{formatStoreCurrency(order.totalAmount, { ...storeSettings, currency: order.currency || storeSettings.currency })}</strong>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <button type="button" onClick={() => onNavigate?.('track', { reference: order.invoiceNumber, phone: order.customerPhone || customer.phone })} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold">Track order</button>
+                  <button type="button" onClick={() => onNavigate?.('track', { reference: order.invoiceNumber, phone: order.customerPhone || customer.phone })} className="rounded-lg border border-neutral-200 px-3 py-2 text-xs font-semibold">Track order</button>
                   {editable && <button type="button" onClick={() => {
                     const address = order.shippingAddress || {};
                     setEditOrderId(order.id);
@@ -309,11 +309,11 @@ export default function CustomerAccountPage({ onNavigate, showToast }) {
                       billingAddress: order.billingAddress || null,
                       hasBillingAddress: Boolean(order.billingAddress)
                     });
-                  }} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold">Edit details</button>}
+                  }} className="rounded-lg border border-neutral-200 px-3 py-2 text-xs font-semibold">Edit details</button>}
                   {storeSettings?.refundRequestsEnabled !== false && ['Paid', 'Partially Refunded'].includes(order.paymentStatus) && !activeRefund && <button type="button" onClick={() => setRefundRequest({ orderId: order.id, amount: order.totalAmount, reason: '' })} className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">Request refund</button>}
                 </div>
                 {editOrderId === order.id && orderEdit && (
-                  <form onSubmit={saveOrderEdit} className="mt-4 grid gap-2 border-t border-slate-100 pt-4 sm:grid-cols-2">
+                  <form onSubmit={saveOrderEdit} className="mt-4 grid gap-2 border-t border-neutral-100 pt-4 sm:grid-cols-2">
                     {[
                       ['customerName', 'Name'],
                       ['customerPhone', 'Phone'],
@@ -326,9 +326,9 @@ export default function CustomerAccountPage({ onNavigate, showToast }) {
                     ].map(([key, label]) => {
                       const nested = key.startsWith('shippingAddress.');
                       const value = nested ? orderEdit.shippingAddress[key.split('.')[1]] : orderEdit[key];
-                      return <label key={key} className="text-[11px] font-semibold text-slate-600">{label}<input required={nested && ['street', 'country'].includes(key.split('.')[1])} value={value || ''} onChange={event => setOrderEdit(current => nested ? { ...current, shippingAddress: { ...current.shippingAddress, [key.split('.')[1]]: event.target.value } } : { ...current, [key]: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs" /></label>;
+                      return <label key={key} className="text-[11px] font-semibold text-neutral-600">{label}<input required={nested && ['street', 'country'].includes(key.split('.')[1])} value={value || ''} onChange={event => setOrderEdit(current => nested ? { ...current, shippingAddress: { ...current.shippingAddress, [key.split('.')[1]]: event.target.value } } : { ...current, [key]: event.target.value })} className="mt-1 w-full rounded-lg border border-neutral-200 px-2.5 py-2 text-xs" /></label>;
                     })}
-                    <label className="sm:col-span-2 flex items-center gap-2 text-[11px] font-semibold text-slate-600">
+                    <label className="sm:col-span-2 flex items-center gap-2 text-[11px] font-semibold text-neutral-600">
                       <input type="checkbox" checked={orderEdit.hasBillingAddress} onChange={event => setOrderEdit(current => ({
                         ...current,
                         hasBillingAddress: event.target.checked,
@@ -337,59 +337,59 @@ export default function CustomerAccountPage({ onNavigate, showToast }) {
                       Use a separate billing address
                     </label>
                     {orderEdit.hasBillingAddress && ['street', 'city', 'region', 'postalCode', 'country'].map(key => (
-                      <label key={key} className="text-[11px] font-semibold capitalize text-slate-600">Billing {key}
+                      <label key={key} className="text-[11px] font-semibold capitalize text-neutral-600">Billing {key}
                         <input required={['street', 'country'].includes(key)} value={orderEdit.billingAddress?.[key] || ''} onChange={event => setOrderEdit(current => ({
                           ...current,
                           billingAddress: { ...current.billingAddress, [key]: event.target.value }
-                        }))} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs" />
+                        }))} className="mt-1 w-full rounded-lg border border-neutral-200 px-2.5 py-2 text-xs" />
                       </label>
                     ))}
-                    <div className="sm:col-span-2 flex justify-end gap-2"><button type="button" onClick={() => { setEditOrderId(''); setOrderEdit(null); }} className="rounded-lg border border-slate-200 px-3 py-2 text-xs">Cancel</button><button disabled={busy} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white">Save changes</button></div>
+                    <div className="sm:col-span-2 flex justify-end gap-2"><button type="button" onClick={() => { setEditOrderId(''); setOrderEdit(null); }} className="rounded-lg border border-neutral-200 px-3 py-2 text-xs">Cancel</button><button disabled={busy} className="rounded-lg bg-neutral-600 px-3 py-2 text-xs font-bold text-white">Save changes</button></div>
                   </form>
                 )}
                 {(order.refundHistory || []).map(refund => <p key={refund.id} className="mt-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">Refund request: {refund.status.replaceAll('_', ' ')} · {formatStoreCurrency(refund.amount, storeSettings)}</p>)}
               </article>
             );
           })}
-          {orders.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center"><Package className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-semibold text-slate-700">No orders found for this store account yet.</p><button type="button" onClick={() => onNavigate?.('home')} className="mt-3 text-xs font-bold text-blue-700">Start shopping</button></div>}
+          {orders.length === 0 && <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-10 text-center"><Package className="mx-auto h-8 w-8 text-neutral-300" /><p className="mt-3 text-sm font-semibold text-neutral-700">No orders found for this store account yet.</p><button type="button" onClick={() => onNavigate?.('home')} className="mt-3 text-xs font-bold text-neutral-700">Start shopping</button></div>}
         </section>
       )}
 
       {refundRequest && (
         <form onSubmit={submitRefund} className="rounded-2xl border border-amber-200 bg-white p-5">
-          <h2 className="text-sm font-bold text-slate-900">Request a refund</h2>
-          <p className="mt-1 text-xs text-slate-500">The store must review this request. This does not automatically move money or confirm a gateway refund.</p>
+          <h2 className="text-sm font-bold text-neutral-900">Request a refund</h2>
+          <p className="mt-1 text-xs text-neutral-500">The store must review this request. This does not automatically move money or confirm a gateway refund.</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <label className="text-xs font-semibold">Amount<input type="number" min="0.01" max={orders.find(order => order.id === refundRequest.orderId)?.totalAmount} step="0.01" required value={refundRequest.amount} onChange={event => setRefundRequest({ ...refundRequest, amount: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
-            <label className="text-xs font-semibold">Reason<textarea required maxLength={1000} value={refundRequest.reason} onChange={event => setRefundRequest({ ...refundRequest, reason: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" /></label>
+            <label className="text-xs font-semibold">Amount<input type="number" min="0.01" max={orders.find(order => order.id === refundRequest.orderId)?.totalAmount} step="0.01" required value={refundRequest.amount} onChange={event => setRefundRequest({ ...refundRequest, amount: event.target.value })} className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2" /></label>
+            <label className="text-xs font-semibold">Reason<textarea required maxLength={1000} value={refundRequest.reason} onChange={event => setRefundRequest({ ...refundRequest, reason: event.target.value })} className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2" /></label>
           </div>
-          <div className="mt-3 flex justify-end gap-2"><button type="button" onClick={() => setRefundRequest(null)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs">Cancel</button><button disabled={busy} className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white">Send request</button></div>
+          <div className="mt-3 flex justify-end gap-2"><button type="button" onClick={() => setRefundRequest(null)} className="rounded-lg border border-neutral-200 px-3 py-2 text-xs">Cancel</button><button disabled={busy} className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white">Send request</button></div>
         </form>
       )}
 
       {tab === 'addresses' && (
         <section className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-2">
-            {(customer.addresses || []).map(item => <article key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between"><p className="font-bold text-slate-900">{item.label || 'Address'} {item.isDefault && <span className="ml-2 text-[10px] text-emerald-700">Default</span>}</p><div className="flex gap-3"><button type="button" onClick={() => { setEditingAddressId(item.id); setAddress({ ...emptyAddress, ...item }); }} className="text-xs font-semibold text-blue-700">Edit</button><button type="button" onClick={() => removeAddress(item.id)} className="text-xs font-semibold text-rose-600">Remove</button></div></div><p className="mt-2 text-xs text-slate-600">{item.recipient} · {item.phone}<br />{item.line1} {item.line2}<br />{item.city}, {item.region} {item.postalCode}, {item.country}</p></article>)}
-            {(customer.addresses || []).length === 0 && <p className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-xs text-slate-500">Save an address for faster checkout.</p>}
+            {(customer.addresses || []).map(item => <article key={item.id} className="rounded-2xl border border-neutral-200 bg-white p-4"><div className="flex items-center justify-between"><p className="font-bold text-neutral-900">{item.label || 'Address'} {item.isDefault && <span className="ml-2 text-[10px] text-emerald-700">Default</span>}</p><div className="flex gap-3"><button type="button" onClick={() => { setEditingAddressId(item.id); setAddress({ ...emptyAddress, ...item }); }} className="text-xs font-semibold text-neutral-700">Edit</button><button type="button" onClick={() => removeAddress(item.id)} className="text-xs font-semibold text-rose-600">Remove</button></div></div><p className="mt-2 text-xs text-neutral-600">{item.recipient} · {item.phone}<br />{item.line1} {item.line2}<br />{item.city}, {item.region} {item.postalCode}, {item.country}</p></article>)}
+            {(customer.addresses || []).length === 0 && <p className="rounded-xl border border-dashed border-neutral-300 bg-white p-6 text-xs text-neutral-500">Save an address for faster checkout.</p>}
           </div>
-          <form onSubmit={saveAddress} className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2">
+          <form onSubmit={saveAddress} className="grid gap-2 rounded-2xl border border-neutral-200 bg-white p-4 sm:grid-cols-2">
             <h2 className="sm:col-span-2 text-sm font-bold">{editingAddressId ? 'Edit delivery address' : 'Add delivery address'}</h2>
-            {Object.entries({ label: 'Label', recipient: 'Recipient', phone: 'Phone', line1: 'Address line 1', line2: 'Address line 2', city: 'City', region: 'State/region', postalCode: 'Postal code', country: 'Country', countryCode: 'Country code (ISO-2, optional)' }).map(([key, label]) => <label key={key} className="text-[11px] font-semibold text-slate-600">{label}<input required={!['line2', 'region', 'postalCode', 'countryCode'].includes(key)} maxLength={key === 'countryCode' ? 2 : undefined} value={address[key]} onChange={event => setAddress(current => ({ ...current, [key]: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs" /></label>)}
+            {Object.entries({ label: 'Label', recipient: 'Recipient', phone: 'Phone', line1: 'Address line 1', line2: 'Address line 2', city: 'City', region: 'State/region', postalCode: 'Postal code', country: 'Country', countryCode: 'Country code (ISO-2, optional)' }).map(([key, label]) => <label key={key} className="text-[11px] font-semibold text-neutral-600">{label}<input required={!['line2', 'region', 'postalCode', 'countryCode'].includes(key)} maxLength={key === 'countryCode' ? 2 : undefined} value={address[key]} onChange={event => setAddress(current => ({ ...current, [key]: event.target.value }))} className="mt-1 w-full rounded-lg border border-neutral-200 px-2.5 py-2 text-xs" /></label>)}
             <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={address.isDefault} onChange={event => setAddress(current => ({ ...current, isDefault: event.target.checked }))} />Default address</label>
-            <button disabled={busy} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white">{editingAddressId ? 'Update address' : 'Save address'}</button>
+            <button disabled={busy} className="rounded-lg bg-neutral-600 px-3 py-2 text-xs font-bold text-white">{editingAddressId ? 'Update address' : 'Save address'}</button>
           </form>
         </section>
       )}
 
       {tab === 'profile' && (
-        <form onSubmit={saveProfile} className="grid max-w-2xl gap-3 rounded-2xl border border-slate-200 bg-white p-5 sm:grid-cols-2">
-          <div className="sm:col-span-2 flex items-center gap-2 text-sm font-bold text-slate-800"><BadgeCheck className="h-4 w-4 text-emerald-600" />Verified email: {customer.email}</div>
-          <label className="text-xs font-semibold text-slate-600">Name<input required maxLength={120} value={profileDraft.name} onChange={event => setProfileDraft(current => ({ ...current, name: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5" /></label>
-          <label className="text-xs font-semibold text-slate-600">Phone<input maxLength={40} value={profileDraft.phone} onChange={event => setProfileDraft(current => ({ ...current, phone: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2.5" /></label>
-          <div className="sm:col-span-2 flex items-center gap-2 text-xs text-slate-500"><MapPin className="h-4 w-4" />{customer.addresses?.length || 0} saved address(es)</div>
-          <p className="sm:col-span-2 text-xs text-slate-500">Customer identity and order records are private to this storefront.</p>
-          <button disabled={busy} className="sm:col-span-2 rounded-lg bg-blue-600 px-3 py-2.5 text-xs font-bold text-white">Save profile</button>
+        <form onSubmit={saveProfile} className="grid max-w-2xl gap-3 rounded-2xl border border-neutral-200 bg-white p-5 sm:grid-cols-2">
+          <div className="sm:col-span-2 flex items-center gap-2 text-sm font-bold text-neutral-800"><BadgeCheck className="h-4 w-4 text-emerald-600" />Verified email: {customer.email}</div>
+          <label className="text-xs font-semibold text-neutral-600">Name<input required maxLength={120} value={profileDraft.name} onChange={event => setProfileDraft(current => ({ ...current, name: event.target.value }))} className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2.5" /></label>
+          <label className="text-xs font-semibold text-neutral-600">Phone<input maxLength={40} value={profileDraft.phone} onChange={event => setProfileDraft(current => ({ ...current, phone: event.target.value }))} className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2.5" /></label>
+          <div className="sm:col-span-2 flex items-center gap-2 text-xs text-neutral-500"><MapPin className="h-4 w-4" />{customer.addresses?.length || 0} saved address(es)</div>
+          <p className="sm:col-span-2 text-xs text-neutral-500">Customer identity and order records are private to this storefront.</p>
+          <button disabled={busy} className="sm:col-span-2 rounded-lg bg-neutral-600 px-3 py-2.5 text-xs font-bold text-white">Save profile</button>
         </form>
       )}
     </main>

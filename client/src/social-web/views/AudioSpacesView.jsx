@@ -104,21 +104,21 @@ export default function AudioSpacesView() {
   return (
     <div className="w-full flex flex-col min-h-screen max-w-4xl mx-auto pb-20">
       {/* 1. Header Bar */}
-      <div className="sticky top-0 z-20 bg-[#f0f2f5]/90 dark:bg-[#0a0a0f]/90 backdrop-blur-xl px-2 py-3 flex items-center justify-between border-b border-black/[0.05] dark:border-white/[0.06] mb-4">
+      <div className="sticky top-0 z-20 bg-[#f2f2f2]/90 dark:bg-[#0a0a0a]/90 backdrop-blur-xl px-2 py-3 flex items-center justify-between border-b border-black/[0.05] dark:border-white/[0.06] mb-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigateTo('feed')}
-            className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] transition cursor-pointer active:scale-95"
+            className="w-10 h-10 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center justify-center text-[#676767] dark:text-[#b3b3b3] transition cursor-pointer active:scale-95"
             title="Back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-[18px] font-bold text-[#1c1e21] dark:text-[#e4e6eb] flex items-center gap-2">
+            <h1 className="text-[18px] font-bold text-[#1e1e1e] dark:text-[#e6e6e6] flex items-center gap-2">
               <Radio className="w-5 h-5 text-rose-500 animate-pulse" />
               <span>Audio Spaces</span>
             </h1>
-            <span className="text-[12px] text-[#65676b] dark:text-[#8a8d91]">
+            <span className="text-[12px] text-[#676767] dark:text-[#8d8d8d]">
               Live audio conversations and interactive stages
             </span>
           </div>
@@ -127,7 +127,7 @@ export default function AudioSpacesView() {
         {!activeSpace && !showCreate && (
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white px-4 py-2 rounded-xl font-semibold text-[13px] shadow-md shadow-violet-500/20 active:scale-95 transition cursor-pointer"
+            className="flex items-center gap-1.5 bg-gradient-to-r from-violet-600 to-neutral-600 hover:from-violet-700 hover:to-neutral-700 text-white px-4 py-2 rounded-xl font-semibold text-[13px] shadow-md shadow-violet-500/20 active:scale-95 transition cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Host a Space</span>
@@ -137,17 +137,17 @@ export default function AudioSpacesView() {
 
       {/* 2. In-Page Create Space Form (Strictly No Popups) */}
       {showCreate && (
-        <div className="bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-6 shadow-sm mb-4">
-          <h2 className="text-[17px] font-bold text-[#1c1e21] dark:text-[#e4e6eb] mb-1">
+        <div className="bg-white dark:bg-[#171717] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-6 shadow-sm mb-4">
+          <h2 className="text-[17px] font-bold text-[#1e1e1e] dark:text-[#e6e6e6] mb-1">
             Start a Live Space
           </h2>
-          <p className="text-[13px] text-[#65676b] dark:text-[#8a8d91] mb-4">
+          <p className="text-[13px] text-[#676767] dark:text-[#8d8d8d] mb-4">
             Pick a topic and go live right now with voice communication.
           </p>
 
           <form onSubmit={handleCreateSpace} className="space-y-4">
             <div>
-              <label className="text-[12px] font-semibold text-[#65676b] dark:text-[#8a8d91] block mb-1.5">
+              <label className="text-[12px] font-semibold text-[#676767] dark:text-[#8d8d8d] block mb-1.5">
                 What do you want to talk about?
               </label>
               <input
@@ -155,18 +155,18 @@ export default function AudioSpacesView() {
                 placeholder="e.g. Discussing the new React 19 Compiler"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                className="w-full h-11 px-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] text-[14px] text-[#1c1e21] dark:text-[#e4e6eb] outline-none focus:ring-2 focus:ring-violet-500/30"
+                className="w-full h-11 px-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] text-[14px] text-[#1e1e1e] dark:text-[#e6e6e6] outline-none focus:ring-2 focus:ring-violet-500/30"
               />
             </div>
 
             <div>
-              <label className="text-[12px] font-semibold text-[#65676b] dark:text-[#8a8d91] block mb-1.5">
+              <label className="text-[12px] font-semibold text-[#676767] dark:text-[#8d8d8d] block mb-1.5">
                 Topic Category
               </label>
               <select
                 value={newTopic}
                 onChange={(e) => setNewTopic(e.target.value)}
-                className="w-full h-11 px-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] text-[14px] text-[#1c1e21] dark:text-[#e4e6eb] outline-none focus:ring-2 focus:ring-violet-500/30 cursor-pointer"
+                className="w-full h-11 px-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.08] text-[14px] text-[#1e1e1e] dark:text-[#e6e6e6] outline-none focus:ring-2 focus:ring-violet-500/30 cursor-pointer"
               >
                 <option value="Tech & AI">Tech & AI</option>
                 <option value="Creators">Creators</option>
@@ -179,13 +179,13 @@ export default function AudioSpacesView() {
               <button
                 type="button"
                 onClick={() => setShowCreate(false)}
-                className="px-5 py-2.5 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] font-semibold text-[13px] text-[#65676b] dark:text-[#8a8d91] transition cursor-pointer"
+                className="px-5 py-2.5 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.06] font-semibold text-[13px] text-[#676767] dark:text-[#8d8d8d] transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold text-[13px] px-6 py-2.5 rounded-xl shadow-md shadow-violet-500/20 active:scale-95 transition cursor-pointer"
+                className="bg-gradient-to-r from-violet-600 to-neutral-600 hover:from-violet-700 hover:to-neutral-700 text-white font-semibold text-[13px] px-6 py-2.5 rounded-xl shadow-md shadow-violet-500/20 active:scale-95 transition cursor-pointer"
               >
                 Go Live Now
               </button>
@@ -196,7 +196,7 @@ export default function AudioSpacesView() {
 
       {/* 3. Active Space Stage Dock (If user is inside a space) */}
       {activeSpace && (
-        <div className="bg-gradient-to-b from-[#181824] to-[#12121a] text-white rounded-3xl border border-white/10 p-6 shadow-2xl mb-6 relative overflow-hidden">
+        <div className="bg-gradient-to-b from-[#191919] to-[#131313] text-white rounded-3xl border border-white/10 p-6 shadow-2xl mb-6 relative overflow-hidden">
           <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/10">
             <div>
               <span className="flex items-center gap-1.5 text-xs font-bold text-rose-400 bg-rose-500/10 px-2.5 py-0.5 rounded-full w-fit mb-1.5">
@@ -286,7 +286,7 @@ export default function AudioSpacesView() {
 
       {/* 4. Live Spaces Catalog */}
       <div className="space-y-3">
-        <h2 className="text-[16px] font-bold text-[#1c1e21] dark:text-[#e4e6eb] px-1">
+        <h2 className="text-[16px] font-bold text-[#1e1e1e] dark:text-[#e6e6e6] px-1">
           Happening Now ({spaces.length})
         </h2>
 
@@ -295,7 +295,7 @@ export default function AudioSpacesView() {
             <div
               key={sp.id}
               onClick={() => handleJoinSpace(sp)}
-              className="bg-white dark:bg-[#16161f] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-5 shadow-sm hover:shadow-md dark:hover:shadow-black/30 transition-all cursor-pointer flex flex-col justify-between group"
+              className="bg-white dark:bg-[#171717] rounded-2xl border border-black/[0.05] dark:border-white/[0.06] p-5 shadow-sm hover:shadow-md dark:hover:shadow-black/30 transition-all cursor-pointer flex flex-col justify-between group"
             >
               <div>
                 <div className="flex items-center justify-between mb-3">
@@ -308,7 +308,7 @@ export default function AudioSpacesView() {
                   </span>
                 </div>
 
-                <h3 className="font-bold text-[16px] text-[#1c1e21] dark:text-[#e4e6eb] group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors leading-snug mb-3">
+                <h3 className="font-bold text-[16px] text-[#1e1e1e] dark:text-[#e6e6e6] group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors leading-snug mb-3">
                   {sp.title}
                 </h3>
 
@@ -319,20 +319,20 @@ export default function AudioSpacesView() {
                     className="w-8 h-8 rounded-xl object-cover ring-1 ring-black/10 dark:ring-white/10"
                   />
                   <div className="text-xs">
-                    <span className="font-semibold text-[#1c1e21] dark:text-[#e4e6eb] block">{sp.hostName}</span>
-                    <span className="text-[#65676b] dark:text-[#8a8d91]">Host</span>
+                    <span className="font-semibold text-[#1e1e1e] dark:text-[#e6e6e6] block">{sp.hostName}</span>
+                    <span className="text-[#676767] dark:text-[#8d8d8d]">Host</span>
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center justify-between pt-4 border-t border-black/[0.05] dark:border-white/[0.06] mt-4">
-                <div className="flex items-center gap-3 text-xs text-[#65676b] dark:text-[#8a8d91]">
+                <div className="flex items-center gap-3 text-xs text-[#676767] dark:text-[#8d8d8d]">
                   <span className="flex items-center gap-1">
                     <Mic className="w-3.5 h-3.5 text-violet-500" />
                     {sp.speakersCount} speakers
                   </span>
                   <span className="flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5 text-indigo-500" />
+                    <Users className="w-3.5 h-3.5 text-neutral-500" />
                     {sp.listenerCount} listening
                   </span>
                 </div>

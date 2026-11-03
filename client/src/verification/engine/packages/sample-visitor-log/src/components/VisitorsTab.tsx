@@ -26,7 +26,7 @@ export function VisitorsTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="flex items-center gap-3 text-slate-500">
+        <div className="flex items-center gap-3 text-neutral-500">
           <svg className="w-5 h-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -43,15 +43,15 @@ export function VisitorsTab() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-800">
+        <h2 className="text-lg font-semibold text-neutral-800">
           Enrolled Visitors
-          <span className="ml-2 text-sm font-normal text-slate-500">
+          <span className="ml-2 text-sm font-normal text-neutral-500">
             ({totalVisitors} total across {watchlists.length} watchlist{watchlists.length !== 1 ? 's' : ''})
           </span>
         </h2>
         <button
           onClick={loadWatchlists}
-          className="text-sm text-slate-600 hover:text-slate-800 flex items-center gap-1"
+          className="text-sm text-neutral-600 hover:text-neutral-800 flex items-center gap-1"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
             <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
@@ -72,17 +72,17 @@ export function VisitorsTab() {
 
       {/* Empty State */}
       {watchlists.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-16 h-16 text-slate-300 mx-auto mb-4">
+        <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-12 text-center">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-16 h-16 text-neutral-300 mx-auto mb-4">
             <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
           </svg>
-          <h3 className="text-sm font-medium text-slate-600 mb-1">No visitors registered yet</h3>
-          <p className="text-xs text-slate-400">Use the Check In tab to register new visitors.</p>
+          <h3 className="text-sm font-medium text-neutral-600 mb-1">No visitors registered yet</h3>
+          <p className="text-xs text-neutral-400">Use the Check In tab to register new visitors.</p>
         </div>
       ) : (
         <div className="grid gap-4">
           {watchlists.map((wl) => (
-            <div key={wl.name} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+            <div key={wl.name} className="bg-white rounded-xl shadow-sm border border-neutral-200 p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
@@ -91,13 +91,13 @@ export function VisitorsTab() {
                     </svg>
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-slate-800">{wl.name}</h3>
-                    <p className="text-xs text-slate-500">Watchlist</p>
+                    <h3 className="text-sm font-semibold text-neutral-800">{wl.name}</h3>
+                    <p className="text-xs text-neutral-500">Watchlist</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-slate-800">{wl.size}</p>
-                  <p className="text-xs text-slate-500">visitor{wl.size !== 1 ? 's' : ''} enrolled</p>
+                  <p className="text-2xl font-bold text-neutral-800">{wl.size}</p>
+                  <p className="text-xs text-neutral-500">visitor{wl.size !== 1 ? 's' : ''} enrolled</p>
                 </div>
               </div>
             </div>

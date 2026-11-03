@@ -9,7 +9,7 @@ export default function StatCards({ stats }) {
       value: stats?.totalProducts ?? '—',
       color: 'blue',
       icon: Box,
-      iconBg: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800/40'
+      iconBg: 'bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 border border-neutral-100 dark:border-neutral-800/40'
     },
     {
       id: 'stock',
@@ -38,7 +38,7 @@ export default function StatCards({ stats }) {
   ];
 
   const borderGlowClass = {
-    blue: 'hover:border-blue-400/60 dark:hover:border-blue-500/60',
+    blue: 'hover:border-neutral-400/60 dark:hover:border-neutral-500/60',
     emerald: 'hover:border-emerald-400/60 dark:hover:border-emerald-500/60',
     purple: 'hover:border-purple-400/60 dark:hover:border-purple-500/60',
     amber: 'hover:border-amber-400/60 dark:hover:border-amber-500/60'
@@ -51,20 +51,20 @@ export default function StatCards({ stats }) {
         return (
           <div
             key={card.id}
-            className={`bg-white dark:bg-gray-800 border border-slate-200/80 dark:border-gray-700/80 rounded-2xl p-3.5 sm:p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex flex-col justify-between overflow-hidden transition-all duration-200 ${borderGlowClass[card.color]}`}
+            className={`bg-white dark:bg-gray-800 border border-neutral-200/80 dark:border-gray-700/80 rounded-2xl p-3.5 sm:p-5 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex flex-col justify-between overflow-hidden transition-all duration-200 ${borderGlowClass[card.color]}`}
           >
             <div className="flex items-center space-x-2 sm:space-x-3 mb-2 sm:mb-3">
               <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-full flex items-center justify-center shrink-0 ${card.iconBg}`}>
                 <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
-              <span className="text-[11px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 truncate">
+              <span className="text-[11px] sm:text-xs font-medium text-neutral-500 dark:text-neutral-400 truncate">
                 {card.title}
               </span>
             </div>
-            <div className="text-xl sm:text-[28px] font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
+            <div className="text-xl sm:text-[28px] font-extrabold text-neutral-900 dark:text-white tracking-tight leading-none">
               {card.value}
             </div>
-            <p className="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
+            <p className="mt-2 text-[11px] text-neutral-400 dark:text-neutral-500">
               {stats ? 'Current total' : 'Data unavailable'}
             </p>
           </div>

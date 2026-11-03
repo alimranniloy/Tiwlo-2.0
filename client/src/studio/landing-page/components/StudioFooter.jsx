@@ -17,11 +17,11 @@ export default function StudioFooter({ onNavigateAuth, onNavigateTab }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Top Rounded Banner Card */}
-        <div className="rounded-3xl bg-slate-100/80 border border-slate-200/70 p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 mb-12 shadow-xs">
+        <div className="rounded-3xl bg-neutral-100/80 border border-neutral-200/70 p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 mb-12 shadow-xs">
 
           {/* Left: Brand & Tagline */}
           <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-slate-950 text-white flex items-center justify-center shadow-xs shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-neutral-950 text-white flex items-center justify-center shadow-xs shrink-0">
               <svg
                 className="w-5 h-5"
                 viewBox="0 0 24 24"
@@ -36,26 +36,26 @@ export default function StudioFooter({ onNavigateAuth, onNavigateTab }) {
               </svg>
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-950 tracking-tight leading-none mb-1">
+              <h3 className="text-lg font-bold text-neutral-950 tracking-tight leading-none mb-1">
                 Tiwlo Studio
               </h3>
-              <p className="text-xs text-slate-500 font-medium">
+              <p className="text-xs text-neutral-500 font-medium">
                 Music Level • Distribution
               </p>
             </div>
           </div>
 
           {/* Center: Mission Mantra */}
-          <div className="text-center text-sm font-medium text-slate-600 tracking-wide">
-            Create <span className="text-slate-400 mx-1.5">•</span> Level Up{' '}
-            <span className="text-slate-400 mx-1.5">•</span> Go Global
+          <div className="text-center text-sm font-medium text-neutral-600 tracking-wide">
+            Create <span className="text-neutral-400 mx-1.5">•</span> Level Up{' '}
+            <span className="text-neutral-400 mx-1.5">•</span> Go Global
           </div>
 
           {/* Right: CTA Button */}
           <div>
             <button
               onClick={handleGetStarted}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-slate-950 text-white text-sm font-semibold shadow-sm hover:bg-slate-800 transition-all cursor-pointer group"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-neutral-950 text-white text-sm font-semibold shadow-sm hover:bg-neutral-800 transition-all cursor-pointer group"
             >
               <span>Get Started</span>
               <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
@@ -64,7 +64,7 @@ export default function StudioFooter({ onNavigateAuth, onNavigateTab }) {
         </div>
 
         {/* Bottom Legal & Socials Bar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-4 border-t border-slate-200/50 text-xs text-slate-500">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-4 border-t border-neutral-200/50 text-xs text-neutral-500">
           <div>
             © {new Date().getFullYear()} Tiwlo Studio. All rights reserved.
           </div>
@@ -72,21 +72,21 @@ export default function StudioFooter({ onNavigateAuth, onNavigateTab }) {
           <div className="flex items-center gap-6">
             <a
               href="#privacy"
-              className="hover:text-slate-900 transition-colors"
+              className="hover:text-neutral-900 transition-colors"
               onClick={(e) => e.preventDefault()}
             >
               Privacy
             </a>
             <a
               href="#terms"
-              className="hover:text-slate-900 transition-colors"
+              className="hover:text-neutral-900 transition-colors"
               onClick={(e) => e.preventDefault()}
             >
               Terms
             </a>
             <a
               href="#contact"
-              className="hover:text-slate-900 transition-colors"
+              className="hover:text-neutral-900 transition-colors"
               onClick={(e) => e.preventDefault()}
             >
               Contact
@@ -94,13 +94,13 @@ export default function StudioFooter({ onNavigateAuth, onNavigateTab }) {
           </div>
 
           {/* Social Icons */}
-          <div className="flex items-center gap-4 text-slate-700">
+          <div className="flex items-center gap-4 text-neutral-700">
             {/* YouTube */}
             <a
               href="https://youtube.com"
               target="_blank"
               rel="noreferrer"
-              className="hover:text-slate-950 transition-colors"
+              className="hover:text-neutral-950 transition-colors"
               aria-label="YouTube"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -113,7 +113,7 @@ export default function StudioFooter({ onNavigateAuth, onNavigateTab }) {
               href="https://spotify.com"
               target="_blank"
               rel="noreferrer"
-              className="hover:text-slate-950 transition-colors"
+              className="hover:text-neutral-950 transition-colors"
               aria-label="Spotify"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -126,7 +126,7 @@ export default function StudioFooter({ onNavigateAuth, onNavigateTab }) {
               href="https://instagram.com"
               target="_blank"
               rel="noreferrer"
-              className="hover:text-slate-950 transition-colors"
+              className="hover:text-neutral-950 transition-colors"
               aria-label="Instagram"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -139,7 +139,7 @@ export default function StudioFooter({ onNavigateAuth, onNavigateTab }) {
               href="https://x.com"
               target="_blank"
               rel="noreferrer"
-              className="hover:text-slate-950 transition-colors"
+              className="hover:text-neutral-950 transition-colors"
               aria-label="X"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">

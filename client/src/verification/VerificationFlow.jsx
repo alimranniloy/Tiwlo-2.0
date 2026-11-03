@@ -58,8 +58,8 @@ function FlowRouter() {
   };
 
   return (
-    <div className="relative min-h-screen w-full bg-[#F8FAFC] text-slate-900">
-      <div className="mx-auto flex min-h-screen w-full max-w-[560px] flex-col bg-white shadow-sm sm:border-x sm:border-slate-200">
+    <div className="relative min-h-screen w-full bg-[#fafafa] text-neutral-900">
+      <div className="mx-auto flex min-h-screen w-full max-w-[560px] flex-col bg-white shadow-sm sm:border-x sm:border-neutral-200">
         {renderCurrentStep()}
       </div>
     </div>
@@ -130,16 +130,16 @@ function MobileHandoff({ token, initialStep, onComplete, onCancel }) {
       <section className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-sm">
         {isLoading ? (
           <>
-            <LoaderCircle className="mx-auto h-10 w-10 animate-spin text-blue-600" />
+            <LoaderCircle className="mx-auto h-10 w-10 animate-spin text-neutral-600" />
             <h1 className="mt-5 text-lg font-semibold">Opening secure verification</h1>
-            <p className="mt-2 text-sm text-slate-500">Connecting this phone to your verification session…</p>
+            <p className="mt-2 text-sm text-neutral-500">Connecting this phone to your verification session…</p>
           </>
         ) : (
           <>
             <AlertCircle className="mx-auto h-10 w-10 text-rose-600" />
             <h1 className="mt-5 text-lg font-semibold">Link unavailable</h1>
-            <p role="alert" className="mt-2 text-sm text-slate-500">{error}</p>
-            <p className="mt-4 text-sm text-slate-500">Return to the desktop and scan its current QR code.</p>
+            <p role="alert" className="mt-2 text-sm text-neutral-500">{error}</p>
+            <p className="mt-4 text-sm text-neutral-500">Return to the desktop and scan its current QR code.</p>
           </>
         )}
       </section>
@@ -151,9 +151,9 @@ function MobileStartNotice() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f8f9fa] px-6 text-center">
       <section className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-sm">
-        <Smartphone className="mx-auto h-10 w-10 text-blue-600" />
+        <Smartphone className="mx-auto h-10 w-10 text-neutral-600" />
         <h1 className="mt-5 text-xl font-semibold">Start verification on your computer</h1>
-        <p className="mt-2 text-sm leading-6 text-slate-500">
+        <p className="mt-2 text-sm leading-6 text-neutral-500">
           Open the verification page on your computer and scan its one-time QR code with this phone.
         </p>
       </section>

@@ -36,10 +36,10 @@ export default function HeroSection() {
   const href = getSafeHref(banner.link);
   const isExternal = href && new URL(href).origin !== window.location.origin;
   const content = (
-    <div className="relative min-h-48 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+    <div className="relative min-h-48 overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-100">
       <img src={banner.image} alt={banner.title || ''} className="h-full min-h-48 w-full object-cover" />
       {(banner.title || banner.subtitle) && (
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 to-transparent px-5 pb-4 pt-12 text-white">
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-neutral-950/80 to-transparent px-5 pb-4 pt-12 text-white">
           {banner.title && <h2 className="text-lg font-bold">{banner.title}</h2>}
           {banner.subtitle && <p className="mt-1 text-xs text-white/90">{banner.subtitle}</p>}
         </div>
@@ -67,7 +67,7 @@ export default function HeroSection() {
               type="button"
               aria-label="Previous banner"
               onClick={() => setActiveIndex(index => (index - 1 + banners.length) % banners.length)}
-              className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 text-slate-800 shadow hover:bg-white"
+              className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 text-neutral-800 shadow hover:bg-white"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -75,7 +75,7 @@ export default function HeroSection() {
               type="button"
               aria-label="Next banner"
               onClick={() => setActiveIndex(index => (index + 1) % banners.length)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 text-slate-800 shadow hover:bg-white"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 text-neutral-800 shadow hover:bg-white"
             >
               <ChevronRight className="h-4 w-4" />
             </button>

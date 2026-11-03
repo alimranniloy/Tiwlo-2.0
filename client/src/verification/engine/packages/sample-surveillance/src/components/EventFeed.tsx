@@ -3,7 +3,7 @@ import type { EventInfo } from '../api'
 import { getRecentEvents } from '../api'
 
 const EVENT_COLORS: Record<string, { bg: string; text: string; icon: string }> = {
-  FACE_DETECTED: { bg: 'bg-blue-500/15', text: 'text-blue-400', icon: 'M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0' },
+  FACE_DETECTED: { bg: 'bg-neutral-500/15', text: 'text-neutral-400', icon: 'M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0' },
   FACE_MATCHED: { bg: 'bg-red-500/15', text: 'text-red-400', icon: 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z' },
   WATCHLIST_ALERT: { bg: 'bg-red-500/15', text: 'text-red-400', icon: 'M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0' },
   PERSON_ENTERED: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', icon: 'M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9' },
@@ -98,12 +98,12 @@ export default function EventFeed() {
       <div className="flex-1 overflow-y-auto space-y-1.5 min-h-0 pr-1 scrollbar-thin">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="w-5 h-5 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : error ? (
           <div className="text-center py-12">
             <p className="text-xs text-gray-500">{error}</p>
-            <button onClick={refresh} className="text-xs text-cyan-400 hover:underline mt-1">Retry</button>
+            <button onClick={refresh} className="text-xs text-neutral-400 hover:underline mt-1">Retry</button>
           </div>
         ) : events.length === 0 ? (
           <div className="text-center py-12">

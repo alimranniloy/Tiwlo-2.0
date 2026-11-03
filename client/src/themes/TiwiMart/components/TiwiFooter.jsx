@@ -16,13 +16,13 @@ export default function TiwiFooter() {
   ].filter(Boolean).join(', ');
 
   return (
-    <footer className="bg-[#0b1329] text-[#94a3b8] text-xs pt-8 pb-6 border-t border-slate-800 mt-10">
+    <footer className="bg-[#131313] text-[#a1a1a1] text-xs pt-8 pb-6 border-t border-neutral-800 mt-10">
       <div className="max-w-[1440px] mx-auto px-4 lg:px-8 space-y-5">
         <div className="flex items-center space-x-2">
           {storeSettings?.storeLogo ? (
             <img src={storeSettings.storeLogo} alt="" className="h-8 max-w-32 object-contain" />
           ) : (
-            <ShoppingCart className="w-5 h-5 text-[#38bdf8]" />
+            <ShoppingCart className="w-5 h-5 text-[#737373]" />
           )}
           <span className="text-lg font-black text-white">{storeName}</span>
         </div>
@@ -54,7 +54,7 @@ export default function TiwiFooter() {
             )}
           </address>
         )}
-        <p className="pt-4 border-t border-slate-800/80">
+        <p className="pt-4 border-t border-neutral-800/80">
           © {new Date().getFullYear()} {storeName}
         </p>
       </div>

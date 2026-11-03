@@ -74,14 +74,14 @@ export function DocumentPanel() {
           <button
             onClick={handleScan}
             disabled={!docFile || loading}
-            className="w-full px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm font-medium transition-colors"
+            className="w-full px-6 py-2.5 bg-neutral-600 hover:bg-neutral-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm font-medium transition-colors"
           >
             {loading ? 'Scanning...' : 'Scan Document'}
           </button>
 
           {loading && (
-            <div className="flex items-center gap-3 text-indigo-400 text-sm">
-              <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+            <div className="flex items-center gap-3 text-neutral-400 text-sm">
+              <div className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
               Processing document...
             </div>
           )}
@@ -99,7 +99,7 @@ export function DocumentPanel() {
               {/* Document type badge */}
               <div className="bg-gray-900 rounded-xl border border-gray-800 p-4 space-y-4">
                 <div className="flex items-center gap-3">
-                  <span className="px-3 py-1 bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 rounded-full text-sm font-medium">
+                  <span className="px-3 py-1 bg-neutral-600/20 text-neutral-400 border border-neutral-500/30 rounded-full text-sm font-medium">
                     {result.document_type || 'Unknown'}
                   </span>
                   {result.mrz?.valid && (
@@ -113,7 +113,7 @@ export function DocumentPanel() {
                     </span>
                   )}
                   {result.face && (
-                    <span className="px-3 py-1 bg-cyan-600/20 text-cyan-400 border border-cyan-500/30 rounded-full text-xs font-medium">
+                    <span className="px-3 py-1 bg-neutral-600/20 text-neutral-400 border border-neutral-500/30 rounded-full text-xs font-medium">
                       Face detected
                     </span>
                   )}
@@ -168,7 +168,7 @@ export function DocumentPanel() {
                 <button
                   onClick={handleVerify}
                   disabled={!selfieFile || verifyLoading}
-                  className="w-full px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm font-medium transition-colors"
+                  className="w-full px-6 py-2.5 bg-neutral-600 hover:bg-neutral-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm font-medium transition-colors"
                 >
                   {verifyLoading ? 'Verifying...' : 'Compare to Document Face'}
                 </button>

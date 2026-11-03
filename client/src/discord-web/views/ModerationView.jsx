@@ -5,10 +5,10 @@ export default function ModerationView({ onNavigate }) {
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-16 font-sans bg-white">
       {/* 1. Modern Google Header */}
-      <div className="border-b border-[#E0E2EC] pb-5">
+      <div className="border-b border-[#e2e2e2] pb-5">
         <button
           onClick={() => onNavigate('/discord')}
-          className="inline-flex items-center gap-2 text-[13px] font-medium text-[#0B57D0] hover:text-[#0842A0] cursor-pointer mb-2.5"
+          className="inline-flex items-center gap-2 text-[13px] font-medium text-[#000000] hover:text-[#3c3c3c] cursor-pointer mb-2.5"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Console Overview</span>
@@ -24,12 +24,12 @@ export default function ModerationView({ onNavigate }) {
         </p>
       </div>
 
-      <div className="bg-white border border-[#E0E2EC] rounded-2xl p-6 sm:p-8 space-y-5 shadow-none">
-        <h2 className="text-[16px] font-medium text-[#1F1F1F] border-b border-[#F0F4F9] pb-3">
+      <div className="bg-white border border-[#e2e2e2] rounded-2xl p-6 sm:p-8 space-y-5 shadow-none">
+        <h2 className="text-[16px] font-medium text-[#1F1F1F] border-b border-[#f4f4f4] pb-3">
           Active Defense Rules
         </h2>
 
-        <div className="space-y-4 divide-y divide-[#F0F4F9]">
+        <div className="space-y-4 divide-y divide-[#f4f4f4]">
           <div className="flex items-center justify-between pt-4 first:pt-0">
             <div>
               <h4 className="text-[13px] font-medium text-[#1F1F1F]">Anti-Spam Rate Limiter</h4>
@@ -39,7 +39,7 @@ export default function ModerationView({ onNavigate }) {
               type="checkbox"
               checked={false}
               disabled
-              className="w-5 h-5 rounded-lg accent-[#0B57D0] cursor-pointer"
+              className="w-5 h-5 rounded-lg accent-[#000000] cursor-pointer"
             />
           </div>
 
@@ -52,7 +52,7 @@ export default function ModerationView({ onNavigate }) {
               type="checkbox"
               checked={false}
               disabled
-              className="w-5 h-5 rounded-lg accent-[#0B57D0] cursor-pointer"
+              className="w-5 h-5 rounded-lg accent-[#000000] cursor-pointer"
             />
           </div>
 
@@ -65,7 +65,7 @@ export default function ModerationView({ onNavigate }) {
               type="checkbox"
               checked={false}
               disabled
-              className="w-5 h-5 rounded-lg accent-[#0B57D0] cursor-pointer"
+              className="w-5 h-5 rounded-lg accent-[#000000] cursor-pointer"
             />
           </div>
 
@@ -78,12 +78,12 @@ export default function ModerationView({ onNavigate }) {
               type="checkbox"
               checked={false}
               disabled
-              className="w-5 h-5 rounded-lg accent-[#0B57D0] cursor-pointer"
+              className="w-5 h-5 rounded-lg accent-[#000000] cursor-pointer"
             />
           </div>
         </div>
 
-        <p className="pt-4 border-t border-[#F0F4F9] text-[12px] text-[#747775]">These rules are informational only; no policies are saved or enforced.</p>
+        <p className="pt-4 border-t border-[#f4f4f4] text-[12px] text-[#747775]">These rules are informational only; no policies are saved or enforced.</p>
       </div>
     </div>
   );

@@ -299,7 +299,7 @@ function TiwiMartContent({
   }, [products, selectedProductId]);
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans selection:bg-blue-600 selection:text-white pb-16 lg:pb-0 flex flex-col justify-between">
+    <div className="min-h-screen bg-[#fafafa] text-neutral-900 font-sans selection:bg-neutral-600 selection:text-white pb-16 lg:pb-0 flex flex-col justify-between">
       <div>
         {/* 1. Top Announcement & Utility Bar matching screenshot */}
         <TopUtilityBar
@@ -351,13 +351,13 @@ function TiwiMartContent({
         {/* Search feedback row */}
         {searchQuery && routeState.page === 'home' && (
           <div className="max-w-[1440px] mx-auto px-4 lg:px-8 pt-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center justify-between">
-              <p className="text-xs font-bold text-blue-900">
-                Showing {filteredProducts.length} results for: "<span className="text-blue-600">{searchQuery}</span>"
+            <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3 flex items-center justify-between">
+              <p className="text-xs font-bold text-neutral-900">
+                Showing {filteredProducts.length} results for: "<span className="text-neutral-600">{searchQuery}</span>"
               </p>
               <button
                 onClick={() => setSearchQuery('')}
-                className="text-xs font-bold text-blue-600 hover:underline"
+                className="text-xs font-bold text-neutral-600 hover:underline"
               >
                 Clear Search
               </button>
@@ -444,9 +444,9 @@ function TiwiMartContent({
           );
           return page ? (
             <main className="mx-auto w-full max-w-5xl px-4 py-10">
-              <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
+              <article className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm sm:p-10">
                 {page.image && <img src={page.image} alt="" className="mb-8 max-h-[420px] w-full rounded-2xl object-cover" />}
-                <h1 className="mb-6 text-3xl font-black text-slate-900">{page.title}</h1>
+                <h1 className="mb-6 text-3xl font-black text-neutral-900">{page.title}</h1>
                 <div
                   className="prose prose-slate max-w-none break-words"
                   dangerouslySetInnerHTML={{ __html: page.content || '' }}
@@ -455,8 +455,8 @@ function TiwiMartContent({
             </main>
           ) : (
             <main className="mx-auto w-full max-w-3xl px-4 py-16 text-center">
-              <h1 className="text-2xl font-bold text-slate-900">Page not found</h1>
-              <button type="button" onClick={() => navigateTo('home')} className="mt-4 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Back to store</button>
+              <h1 className="text-2xl font-bold text-neutral-900">Page not found</h1>
+              <button type="button" onClick={() => navigateTo('home')} className="mt-4 rounded-xl bg-neutral-600 px-4 py-2 text-sm font-semibold text-white">Back to store</button>
             </main>
           );
         })()}
@@ -491,7 +491,7 @@ function TiwiMartContent({
                 onViewProduct={(prod) => navigateTo('product', { id: prod.id })}
               />
             ) : (
-              <p className="max-w-[1440px] mx-auto px-4 lg:px-8 py-8 text-sm text-slate-500">
+              <p className="max-w-[1440px] mx-auto px-4 lg:px-8 py-8 text-sm text-neutral-500">
                 {activeSpecialFilter === 'wishlist'
                   ? 'Your wishlist is empty. Save a product with the heart button to see it here.'
                   : 'No products match your search or category.'}

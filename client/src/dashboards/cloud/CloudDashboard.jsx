@@ -256,7 +256,7 @@ export default function CloudDashboard({
               <button
                 type="button"
                 onClick={() => setActiveNav('dashboard')}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 px-3.5 py-2 text-xs font-semibold text-neutral-700 transition hover:bg-neutral-50"
               >
                 Back to Cloud Dashboard
               </button>

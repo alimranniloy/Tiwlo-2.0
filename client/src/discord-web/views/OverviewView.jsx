@@ -44,7 +44,7 @@ export default function OverviewView({
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16 font-sans bg-white">
       {/* 1. Modern Google Header Action Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#E0E2EC] pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#e2e2e2] pb-5">
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-xl sm:text-2xl font-normal text-[#1F1F1F] tracking-tight">
@@ -60,7 +60,7 @@ export default function OverviewView({
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => onNavigate('/discord/bots/new')}
-            className="inline-flex items-center gap-1.5 px-5 py-2.5 text-[13px] font-medium text-white bg-[#0B57D0] hover:bg-[#0842A0] rounded-full transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 text-[13px] font-medium text-white bg-[#000000] hover:bg-[#3c3c3c] rounded-full transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>Add bot</span>
@@ -68,9 +68,9 @@ export default function OverviewView({
 
           <button
             onClick={() => onNavigate('/discord/servers/new')}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-[#0B57D0] bg-white border border-[#747775]/30 hover:bg-[#F0F4F9] rounded-full transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-[#000000] bg-white border border-[#747775]/30 hover:bg-[#f4f4f4] rounded-full transition-colors cursor-pointer"
           >
-            <Plus className="w-4 h-4 text-[#0B57D0]" />
+            <Plus className="w-4 h-4 text-[#000000]" />
             <span>Connect server</span>
           </button>
         </div>
@@ -79,13 +79,13 @@ export default function OverviewView({
       {/* 2. Modern Google KPI Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Metric 1 */}
-        <div className="bg-white border border-[#E0E2EC] rounded-2xl p-5 hover:border-[#C4C7C5] transition-all">
+        <div className="bg-white border border-[#e2e2e2] rounded-2xl p-5 hover:border-[#C4C7C5] transition-all">
           <div className="text-[12px] font-medium text-[#747775]">
             Registered Bots
           </div>
           <div className="text-2xl font-normal text-[#1F1F1F] mt-1.5 flex items-center gap-2">
             <span>{botsRegisteredCount}</span>
-            <span className="text-xs px-3 py-0.5 rounded-full bg-[#F0F4F9] text-[#444746] font-medium">
+            <span className="text-xs px-3 py-0.5 rounded-full bg-[#f4f4f4] text-[#444746] font-medium">
               Created in this account
             </span>
           </div>
@@ -95,7 +95,7 @@ export default function OverviewView({
         </div>
 
         {/* Metric 2 */}
-        <div className="bg-white border border-[#E0E2EC] rounded-2xl p-5 hover:border-[#C4C7C5] transition-all">
+        <div className="bg-white border border-[#e2e2e2] rounded-2xl p-5 hover:border-[#C4C7C5] transition-all">
           <div className="text-[12px] font-medium text-[#747775]">
             Connected Environments
           </div>
@@ -108,7 +108,7 @@ export default function OverviewView({
         </div>
 
         {/* Metric 3 */}
-        <div className="bg-white border border-[#E0E2EC] rounded-2xl p-5 hover:border-[#C4C7C5] transition-all">
+        <div className="bg-white border border-[#e2e2e2] rounded-2xl p-5 hover:border-[#C4C7C5] transition-all">
           <div className="text-[12px] font-medium text-[#747775]">
             Community Reach
           </div>
@@ -141,12 +141,12 @@ export default function OverviewView({
                 value={serverSearch}
                 onChange={(e) => setServerSearch(e.target.value)}
                 placeholder="Filter servers..."
-                className="bg-[#F0F4F9] border border-transparent rounded-full pl-9 pr-4 py-1.5 text-[12px] text-[#1F1F1F] placeholder-[#747775] focus:outline-none focus:bg-white focus:border-[#0B57D0] transition-colors"
+                className="bg-[#f4f4f4] border border-transparent rounded-full pl-9 pr-4 py-1.5 text-[12px] text-[#1F1F1F] placeholder-[#747775] focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
               />
             </div>
             <button
               onClick={() => onNavigate('/discord/servers')}
-              className="text-[13px] font-medium text-[#0B57D0] hover:underline cursor-pointer"
+              className="text-[13px] font-medium text-[#000000] hover:underline cursor-pointer"
             >
               View all servers →
             </button>
@@ -160,16 +160,16 @@ export default function OverviewView({
               <div
                 key={server.id}
                 onClick={() => onNavigate(`/discord/servers/${server.id}`)}
-                className="bg-white border border-[#E0E2EC] hover:border-[#0B57D0] rounded-2xl p-5 flex flex-col justify-between transition-all hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] cursor-pointer group"
+                className="bg-white border border-[#e2e2e2] hover:border-[#000000] rounded-2xl p-5 flex flex-col justify-between transition-all hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] cursor-pointer group"
               >
                 <div>
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-[#C2E7FF] text-[#001D35] flex items-center justify-center font-bold text-sm shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-[#e1e1e1] text-[#191919] flex items-center justify-center font-bold text-sm shrink-0">
                         {server.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0">
-                        <h3 className="text-[14px] font-medium text-[#1F1F1F] truncate group-hover:text-[#0B57D0] transition-colors">
+                        <h3 className="text-[14px] font-medium text-[#1F1F1F] truncate group-hover:text-[#000000] transition-colors">
                           {server.name}
                         </h3>
                         <p className="text-[12px] text-[#747775]">
@@ -180,7 +180,7 @@ export default function OverviewView({
                   </div>
 
                   {/* Assigned Bots */}
-                  <div className="mt-4 pt-3 border-t border-[#F0F4F9]">
+                  <div className="mt-4 pt-3 border-t border-[#f4f4f4]">
                     <div className="text-[11px] font-medium text-[#747775] uppercase tracking-wider mb-2">
                       Active bot daemons
                     </div>
@@ -189,7 +189,7 @@ export default function OverviewView({
                         {server.bots.map((b) => (
                           <span
                             key={b.id || b.name}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-[#F0F4F9] text-[#1F1F1F]"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-[#f4f4f4] text-[#1F1F1F]"
                           >
                             <span className="w-1.5 h-1.5 rounded-full bg-[#137333]" />
                             {b.name}
@@ -202,7 +202,7 @@ export default function OverviewView({
                   </div>
                 </div>
 
-                <div className="mt-4 pt-2 flex items-center justify-between text-[12px] text-[#0B57D0] font-medium">
+                <div className="mt-4 pt-2 flex items-center justify-between text-[12px] text-[#000000] font-medium">
                   <span>Manage server</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </div>
@@ -210,12 +210,12 @@ export default function OverviewView({
             ))}
           </div>
         ) : (
-          <div className="bg-white border border-[#E0E2EC] rounded-2xl p-10 text-center">
+          <div className="bg-white border border-[#e2e2e2] rounded-2xl p-10 text-center">
             <Server className="w-8 h-8 text-[#C4C7C5] mx-auto mb-2" />
             <p className="text-[14px] font-medium text-[#1F1F1F]">No servers connected</p>
             <button
               onClick={() => onNavigate('/discord/servers/new')}
-              className="mt-3 px-5 py-2 text-[13px] font-medium text-white bg-[#0B57D0] rounded-full hover:bg-[#0842A0] cursor-pointer"
+              className="mt-3 px-5 py-2 text-[13px] font-medium text-white bg-[#000000] rounded-full hover:bg-[#3c3c3c] cursor-pointer"
             >
               Connect first server
             </button>
@@ -224,15 +224,15 @@ export default function OverviewView({
       </div>
 
       {/* 4. Active Bots Table */}
-      <div className="bg-white border border-[#E0E2EC] rounded-2xl overflow-hidden shadow-none">
-        <div className="px-6 py-4 border-b border-[#E0E2EC] bg-[#FFFFFF] flex items-center justify-between">
+      <div className="bg-white border border-[#e2e2e2] rounded-2xl overflow-hidden shadow-none">
+        <div className="px-6 py-4 border-b border-[#e2e2e2] bg-[#FFFFFF] flex items-center justify-between">
           <div>
             <h2 className="text-[15px] font-medium text-[#1F1F1F]">Managed Bot Daemons</h2>
             <p className="text-[11px] text-[#747775]">Active workers registered in your console.</p>
           </div>
           <button
             onClick={() => onNavigate('/discord/bots')}
-            className="text-[12px] font-medium text-[#0B57D0] hover:underline cursor-pointer"
+            className="text-[12px] font-medium text-[#000000] hover:underline cursor-pointer"
           >
             View all bots →
           </button>
@@ -241,7 +241,7 @@ export default function OverviewView({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[13px] border-collapse min-w-[700px]">
             <thead>
-              <tr className="bg-[#F0F4F9]/60 border-b border-[#E0E2EC] text-[11px] font-medium text-[#747775] uppercase tracking-wider">
+              <tr className="bg-[#f4f4f4]/60 border-b border-[#e2e2e2] text-[11px] font-medium text-[#747775] uppercase tracking-wider">
                 <th className="py-3 px-6">Bot Name</th>
                 <th className="py-3 px-6">Status</th>
                 <th className="py-3 px-6">Connected Servers</th>
@@ -249,7 +249,7 @@ export default function OverviewView({
                 <th className="py-3 px-6 text-right pr-6">Manage</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E0E2EC]/60">
+            <tbody className="divide-y divide-[#e2e2e2]/60">
               {bots.length === 0 ? (
                 <tr>
                   <td colSpan="5" className="py-8 text-center text-[#747775]">
@@ -258,16 +258,16 @@ export default function OverviewView({
                 </tr>
               ) : (
                 bots.map((bot) => (
-                  <tr key={bot.id} className="hover:bg-[#F0F4F9]/40 transition-colors">
+                  <tr key={bot.id} className="hover:bg-[#f4f4f4]/40 transition-colors">
                     <td className="py-3.5 px-6">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-xl bg-[#C2E7FF] text-[#001D35] flex items-center justify-center font-bold text-xs">
+                        <div className="w-8 h-8 rounded-xl bg-[#e1e1e1] text-[#191919] flex items-center justify-center font-bold text-xs">
                           <Bot className="w-4 h-4" />
                         </div>
                         <div>
                           <button
                             onClick={() => onNavigate(`/discord/bots/${bot.id}`)}
-                            className="font-medium text-[#0B57D0] hover:underline cursor-pointer"
+                            className="font-medium text-[#000000] hover:underline cursor-pointer"
                           >
                             {bot.name}
                           </button>
@@ -276,7 +276,7 @@ export default function OverviewView({
                       </div>
                     </td>
                     <td className="py-3.5 px-6">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium ${bot.status === 'online' ? 'bg-[#C4EED0] text-[#072711]' : 'bg-[#F0F4F9] text-[#444746]'}`}>
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium ${bot.status === 'online' ? 'bg-[#C4EED0] text-[#072711]' : 'bg-[#f4f4f4] text-[#444746]'}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${bot.status === 'online' ? 'bg-[#137333]' : 'bg-[#747775]'}`} />
                         <span>{bot.status || 'Status unavailable'}</span>
                       </span>
@@ -290,7 +290,7 @@ export default function OverviewView({
                     <td className="py-3.5 px-6 text-right pr-6">
                       <button
                         onClick={() => onNavigate(`/discord/bots/${bot.id}`)}
-                        className="text-[12px] font-medium text-[#0B57D0] hover:underline cursor-pointer"
+                        className="text-[12px] font-medium text-[#000000] hover:underline cursor-pointer"
                       >
                         Configure
                       </button>
@@ -304,14 +304,14 @@ export default function OverviewView({
       </div>
 
       {/* 5. Live Operations Audit Stream */}
-      <div className="bg-white border border-[#E0E2EC] rounded-2xl p-6 shadow-none">
-        <div className="flex items-center justify-between border-b border-[#F0F4F9] pb-3 mb-4">
+      <div className="bg-white border border-[#e2e2e2] rounded-2xl p-6 shadow-none">
+        <div className="flex items-center justify-between border-b border-[#f4f4f4] pb-3 mb-4">
           <h2 className="text-[15px] font-medium text-[#1F1F1F]">
             Recent Console Events
           </h2>
           <button
             onClick={() => onNavigate('/discord/activity')}
-            className="text-[12px] font-medium text-[#0B57D0] hover:underline cursor-pointer"
+            className="text-[12px] font-medium text-[#000000] hover:underline cursor-pointer"
           >
             Full activity log →
           </button>
@@ -320,16 +320,16 @@ export default function OverviewView({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[12px] border-collapse">
             <thead>
-              <tr className="border-b border-[#E0E2EC] text-[#747775] uppercase text-[11px] font-medium bg-[#F0F4F9]/60">
+              <tr className="border-b border-[#e2e2e2] text-[#747775] uppercase text-[11px] font-medium bg-[#f4f4f4]/60">
                 <th className="py-2.5 px-4">Timestamp</th>
                 <th className="py-2.5 px-4">Activity</th>
                 <th className="py-2.5 px-4">Server / Scope</th>
                 <th className="py-2.5 px-4 text-right pr-4">State</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E0E2EC]/60">
+            <tbody className="divide-y divide-[#e2e2e2]/60">
               {recentActivities.slice(0, 5).map((act, i) => (
-                <tr key={i} className="hover:bg-[#F0F4F9]/40">
+                <tr key={i} className="hover:bg-[#f4f4f4]/40">
                   <td className="py-3 px-4 text-[#747775] font-mono">{act.createdAt ? new Date(act.createdAt).toLocaleString() : '—'}</td>
                   <td className="py-3 px-4 font-medium text-[#1F1F1F]">{act.action}</td>
                   <td className="py-3 px-4 text-[#444746]">{act.serverName || '—'}</td>

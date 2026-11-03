@@ -35,7 +35,7 @@ export default function PopularImagesCard({ onDeployImage }) {
       color: '#93227F',
       svg: (
         <svg viewBox="0 0 24 24" className="w-5 h-5">
-          <circle cx="12" cy="12" r="10" fill="#262577" />
+          <circle cx="12" cy="12" r="10" fill="#2b2b2b" />
           <rect x="7" y="7" width="4" height="4" fill="#E54E27" />
           <rect x="13" y="7" width="4" height="4" fill="#93227F" />
           <rect x="7" y="13" width="4" height="4" fill="#4B9038" />
@@ -47,26 +47,26 @@ export default function PopularImagesCard({ onDeployImage }) {
       id: 'almalinux',
       name: 'AlmaLinux 9',
       os: 'AlmaLinux',
-      color: '#0F2D6B',
+      color: '#2b2b2b',
       svg: (
         <svg viewBox="0 0 24 24" className="w-5 h-5">
-          <circle cx="12" cy="12" r="10" fill="#0F2D6B" />
-          <path d="M8 8h3v8H8zm5 0h3v8h-3z" fill="#00C9FF" />
+          <circle cx="12" cy="12" r="10" fill="#2b2b2b" />
+          <path d="M8 8h3v8H8zm5 0h3v8h-3z" fill="#a2a2a2" />
         </svg>
       )
     }
   ];
 
   return (
-    <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#111827] border border-slate-200/70 dark:border-gray-800 shadow-2xs flex flex-col justify-between">
+    <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#181818] border border-neutral-200/70 dark:border-gray-800 shadow-2xs flex flex-col justify-between">
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+          <h3 className="text-xs font-bold text-neutral-400 dark:text-neutral-400 uppercase tracking-wider">
             Popular images
           </h3>
           <button
             onClick={() => onDeployImage?.('Ubuntu 22.04 LTS')}
-            className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 cursor-pointer"
+            className="text-xs font-bold text-neutral-600 dark:text-neutral-400 hover:text-neutral-700 cursor-pointer"
           >
             View all
           </button>
@@ -83,10 +83,10 @@ export default function PopularImagesCard({ onDeployImage }) {
                   {img.svg}
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight">
+                  <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200 leading-tight">
                     {img.name}
                   </p>
-                  <p className="text-[10px] text-slate-400 font-medium">
+                  <p className="text-[10px] text-neutral-400 font-medium">
                     {img.os}
                   </p>
                 </div>
@@ -94,7 +94,7 @@ export default function PopularImagesCard({ onDeployImage }) {
 
               <button
                 onClick={() => onDeployImage?.(img.name)}
-                className="px-2.5 py-1 rounded-lg bg-blue-50/80 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 dark:hover:text-white text-[11px] font-bold transition cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-neutral-50/80 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-600 hover:text-white dark:hover:bg-neutral-600 dark:hover:text-white text-[11px] font-bold transition cursor-pointer"
               >
                 Deploy
               </button>

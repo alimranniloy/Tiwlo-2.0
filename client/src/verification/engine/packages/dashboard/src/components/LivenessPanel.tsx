@@ -87,14 +87,14 @@ export function LivenessPanel() {
                 max="5"
                 value={numChallenges}
                 onChange={(e) => setNumChallenges(parseInt(e.target.value))}
-                className="w-24 accent-indigo-500"
+                className="w-24 accent-neutral-500"
               />
               <span className="text-sm font-mono text-gray-300 w-4">{numChallenges}</span>
             </div>
             <button
               onClick={handleStartSession}
               disabled={loading}
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm font-medium transition-colors"
+              className="px-6 py-2.5 bg-neutral-600 hover:bg-neutral-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm font-medium transition-colors"
             >
               {loading ? 'Starting...' : 'Start Session'}
             </button>
@@ -137,7 +137,7 @@ export function LivenessPanel() {
                             ? 'bg-green-500'
                             : 'bg-red-500'
                           : i === session.current_challenge_index && !isCompleted
-                          ? 'bg-indigo-500 animate-pulse'
+                          ? 'bg-neutral-500 animate-pulse'
                           : 'bg-gray-700'
                       }`}
                     />
@@ -151,7 +151,7 @@ export function LivenessPanel() {
                     ? 'bg-green-600/20 text-green-400'
                     : session.status === 'expired'
                     ? 'bg-red-600/20 text-red-400'
-                    : 'bg-indigo-600/20 text-indigo-400'
+                    : 'bg-neutral-600/20 text-neutral-400'
                 }`}>
                   {session.status}
                 </span>
@@ -160,11 +160,11 @@ export function LivenessPanel() {
 
             {/* Current challenge instruction */}
             {currentChallenge && (
-              <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-6 text-center">
-                <div className="text-xs text-indigo-400 uppercase tracking-wider mb-2">
+              <div className="bg-neutral-500/10 border border-neutral-500/30 rounded-xl p-6 text-center">
+                <div className="text-xs text-neutral-400 uppercase tracking-wider mb-2">
                   Challenge {session.current_challenge_index + 1} of {session.challenges.length}
                 </div>
-                <div className="text-xl font-semibold text-indigo-300">
+                <div className="text-xl font-semibold text-neutral-300">
                   {currentChallenge}
                 </div>
               </div>
@@ -184,7 +184,7 @@ export function LivenessPanel() {
                 <button
                   onClick={handleSubmitFrame}
                   disabled={!frameFile || submitLoading}
-                  className="w-full px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm font-medium transition-colors"
+                  className="w-full px-6 py-2.5 bg-neutral-600 hover:bg-neutral-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm font-medium transition-colors"
                 >
                   {submitLoading ? 'Submitting...' : 'Submit Frame'}
                 </button>

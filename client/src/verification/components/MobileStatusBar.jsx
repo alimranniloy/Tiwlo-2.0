@@ -5,7 +5,7 @@ import React from 'react';
  */
 export default function MobileStatusBar({ time = "9:41", dark = false }) {
   return (
-    <div className={`w-full flex items-center justify-between px-7 pt-3.5 pb-2 select-none text-[13px] font-semibold tracking-tight ${dark ? 'text-white' : 'text-slate-900'}`}>
+    <div className={`w-full flex items-center justify-between px-7 pt-3.5 pb-2 select-none text-[13px] font-semibold tracking-tight ${dark ? 'text-white' : 'text-neutral-900'}`}>
       {/* Time */}
       <span className="font-semibold tracking-tight">{time}</span>
 
@@ -29,10 +29,10 @@ export default function MobileStatusBar({ time = "9:41", dark = false }) {
 
         {/* Battery */}
         <div className="flex items-center">
-          <div className={`w-5 h-2.5 rounded-[3px] border ${dark ? 'border-white' : 'border-slate-900'} p-0.5 flex items-center`}>
-            <div className={`h-full w-full rounded-[1px] ${dark ? 'bg-white' : 'bg-slate-900'}`} />
+          <div className={`w-5 h-2.5 rounded-[3px] border ${dark ? 'border-white' : 'border-neutral-900'} p-0.5 flex items-center`}>
+            <div className={`h-full w-full rounded-[1px] ${dark ? 'bg-white' : 'bg-neutral-900'}`} />
           </div>
-          <div className={`w-0.5 h-1 rounded-r-[1px] ${dark ? 'bg-white' : 'bg-slate-900'} ml-[1px]`} />
+          <div className={`w-0.5 h-1 rounded-r-[1px] ${dark ? 'bg-white' : 'bg-neutral-900'} ml-[1px]`} />
         </div>
       </div>
     </div>
