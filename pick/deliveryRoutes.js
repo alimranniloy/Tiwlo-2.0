@@ -249,12 +249,12 @@ function sendInputError(res, error) {
   return true;
 }
 
-export function createPickDeliveryRouter({ requireUser }) {
+export function createPickDeliveryRouter({ requireUser, query = queryPg }) {
   const router = express.Router();
 
-  router.get('/options', requireUser, async (_req, res, next) => {
+  router.get('/options', requireUser, async (req, res, next) => {
     try {
-      const { rows } = await queryPg(
+      const { rows } = await query(
         `SELECT vehicle_type AS "vehicleType", name_en AS "nameEn",
                 max_capacity_kg::float8 AS "maxCapacityKg",
                 pickup_range_meters AS "pickupRangeMeters",
