@@ -1,3 +1,10 @@
+export const PICK_DELIVERY_REVIEW_SCHEMA_SQL = `
+  ALTER TABLE pick.delivery_profiles
+    ADD COLUMN IF NOT EXISTS reviewed_by VARCHAR(64)
+      REFERENCES system_users(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+`;
+
 export const PICK_SCHEMA_SQL = `
   CREATE SCHEMA IF NOT EXISTS pick;
 
@@ -217,6 +224,7 @@ export const PICK_SCHEMA_SQL = `
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
+  ${PICK_DELIVERY_REVIEW_SCHEMA_SQL}
   CREATE INDEX IF NOT EXISTS pick_delivery_profiles_duty_idx
     ON pick.delivery_profiles(vehicle_type, application_status, is_on_duty, current_location_at);
 

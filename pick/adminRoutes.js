@@ -13,6 +13,18 @@ const router = express.Router();
 const PRODUCT_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ORDER_STATUSES = new Set(['preparing', 'in_transit', 'delivered']);
 
+export const REVIEW_PICK_DELIVERY_APPLICATION_SQL = `
+  UPDATE pick.delivery_profiles
+  SET application_status = $2::varchar, application_note = $3,
+      reviewed_by = $4, reviewed_at = CURRENT_TIMESTAMP,
+      is_on_duty = CASE WHEN $2::varchar = 'approved' THEN is_on_duty ELSE FALSE END,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE tiwlo_user_id = $1
+  RETURNING tiwlo_user_id AS id, application_status AS "applicationStatus",
+            application_note AS "applicationNote", reviewed_at AS "reviewedAt",
+            is_on_duty AS "isOnDuty"
+`;
+
 router.use(requireAdmin);
 
 function isRecord(value) {
@@ -685,18 +697,9 @@ router.patch('/riders/:id', async (req, res, next) => {
       return res.status(400).json({ error: 'Choose approved or rejected for the rider application.' });
     }
     const note = optionalText(req.body?.applicationNote, 'review note', 1000);
-    const { rows } = await queryPg(
-      `UPDATE pick.delivery_profiles
-       SET application_status = $2, application_note = $3,
-           reviewed_by = $4, reviewed_at = CURRENT_TIMESTAMP,
-           is_on_duty = CASE WHEN $2 = 'approved' THEN is_on_duty ELSE FALSE END,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE tiwlo_user_id = $1
-       RETURNING tiwlo_user_id AS id, application_status AS "applicationStatus",
-                 application_note AS "applicationNote", reviewed_at AS "reviewedAt",
-                 is_on_duty AS "isOnDuty"`,
-      [req.params.id, status, note, req.adminUser.id]
-    );
+    const { rows } = await queryPg(REVIEW_PICK_DELIVERY_APPLICATION_SQL, [
+      req.params.id, status, note, req.adminUser.id
+    ]);
     if (!rows[0]) return res.status(404).json({ error: 'PICK delivery application not found.' });
     return res.json({ rider: rows[0] });
   } catch (error) {
