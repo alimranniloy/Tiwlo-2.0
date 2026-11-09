@@ -1,5 +1,11 @@
 export const MOBILE_APP_SSO_RETURN_TO = 'tiwlo://auth/callback';
 export const PICK_MOBILE_SSO_RETURN_TO = 'pick://auth/callback';
+export const PICK_DELIVERY_MOBILE_SSO_RETURN_TO = 'pickdelivery://auth/callback';
+
+export function isPickMobileSsoReturnUrl(returnTo) {
+  return returnTo === PICK_MOBILE_SSO_RETURN_TO ||
+    returnTo === PICK_DELIVERY_MOBILE_SSO_RETURN_TO;
+}
 
 export function isAllowedWebSsoReturnUrl(returnTo, { dashboardHost, dashboardHosts = [], mailHost, platformHost }) {
   try {
@@ -32,7 +38,7 @@ export function isAllowedWebSsoReturnUrl(returnTo, { dashboardHost, dashboardHos
 
 export function isAllowedSocialReturnUrl(returnTo, allowlist) {
   return returnTo === MOBILE_APP_SSO_RETURN_TO ||
-    returnTo === PICK_MOBILE_SSO_RETURN_TO ||
+    isPickMobileSsoReturnUrl(returnTo) ||
     isAllowedWebSsoReturnUrl(returnTo, allowlist);
 }
 

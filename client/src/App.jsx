@@ -401,6 +401,7 @@ export default function App() {
             'expired',
             'social_flow',
             'pick_account',
+            'pick_delivery',
             'pick_code_challenge',
             'pick_state'
           ]) {
@@ -426,6 +427,7 @@ export default function App() {
             'sso_login',
             'mail_return',
             'pick_account',
+            'pick_delivery',
             'pick_code_challenge',
             'pick_state'
           ]) {
@@ -654,6 +656,7 @@ export default function App() {
         'restore_token',
         'expired',
         'pick_account',
+        'pick_delivery',
         'pick_code_challenge',
         'pick_state'
       ]
@@ -684,6 +687,7 @@ export default function App() {
         'sso_login',
         'mail_return',
         'pick_account',
+        'pick_delivery',
         'pick_code_challenge',
         'pick_state'
       ]
@@ -933,8 +937,12 @@ export default function App() {
     }
     if (
       isAuthHost &&
-      searchParams.get('pick_account') === '1' &&
-      searchParams.get('return_to') === 'pick://auth/callback'
+      (
+        (searchParams.get('pick_account') === '1' &&
+          searchParams.get('return_to') === 'pick://auth/callback') ||
+        (searchParams.get('pick_delivery') === '1' &&
+          searchParams.get('return_to') === 'pickdelivery://auth/callback')
+      )
     ) {
       setAuthChecking(false);
       return () => {

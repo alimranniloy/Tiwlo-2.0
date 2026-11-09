@@ -1,15 +1,18 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   StyleSheet,
   ScrollView,
 } from 'react-native';
+import Constants from 'expo-constants';
+import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import { Header } from '../components/common/Header';
 import { PickIcon } from '../components/common/PickIcon';
 import { ScreenContainer, SYSTEM_INSETS } from '../components/common/ScreenContainer';
 import { useLanguage } from '../context/LanguageContext';
-import type { PickOrder } from '../services/orders';
+import { getOrders, type PickOrder } from '../services/orders';
 
 interface OrderTrackingScreenProps {
   onBack: () => void;
@@ -21,6 +24,66 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({
   order,
 }) => {
   const { t } = useLanguage();
+  const [liveOrder, setLiveOrder] = useState<PickOrder | null>(null);
+  const [liveError, setLiveError] = useState('');
+  const [syncing, setSyncing] = useState(false);
+  const mapRef = useRef<MapView>(null);
+  const mapsConfigured = Constants.expoConfig?.extra?.googleMapsConfigured === true;
+  const trackingOrder = liveOrder?.id === order?.id && order
+    ? { ...order, ...liveOrder }
+    : order;
+  const recipientPin = trackingOrder?.parcelDetails?.recipient;
+  const riderPin = trackingOrder?.deliveryTracking;
+  const initialRegion = useMemo<Region>(() => ({
+    latitude: riderPin?.latitude ?? recipientPin?.latitude ?? 23.8103,
+    longitude: riderPin?.longitude ?? recipientPin?.longitude ?? 90.4125,
+    latitudeDelta: 0.035,
+    longitudeDelta: 0.035,
+  }), [riderPin?.latitude, riderPin?.longitude, recipientPin?.latitude, recipientPin?.longitude]);
+  const orderId = order?.id;
+  const orderType = order?.orderType;
+  const orderStatus = order?.status;
+  const liveStatus = liveOrder && liveOrder.id === orderId ? liveOrder.status : orderStatus;
+  useEffect(() => {
+    if (!orderId || orderType !== 'parcel' || liveStatus === 'delivered') return undefined;
+    let active = true;
+    let loading = false;
+    const refreshTracking = async () => {
+      if (loading) return;
+      loading = true;
+      setSyncing(true);
+      try {
+        const orders = await getOrders();
+        const updatedOrder = orders.find((item) => item.id === orderId);
+        if (active && updatedOrder) {
+          setLiveOrder(updatedOrder);
+          setLiveError('');
+        }
+      } catch (error) {
+        if (active) {
+          setLiveError(error instanceof Error
+            ? error.message
+            : 'Live delivery status could not be refreshed.');
+        }
+      } finally {
+        loading = false;
+        if (active) setSyncing(false);
+      }
+    };
+    void refreshTracking();
+    const interval = setInterval(() => void refreshTracking(), 15_000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [orderId, orderType, liveStatus]);
+
+  useEffect(() => {
+    if (riderPin?.latitude === null || riderPin?.latitude === undefined ||
+        riderPin.longitude === null || riderPin.longitude === undefined) return;
+    mapRef.current?.animateToRegion(initialRegion, 350);
+  }, [initialRegion, riderPin?.latitude, riderPin?.longitude]);
+
   const stages = [
     { id: 'placed', title: t('Order placed', 'অর্ডার করা হয়েছে') },
     { id: 'confirmed', title: t('Order confirmed', 'অর্ডার নিশ্চিত') },
@@ -28,7 +91,7 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({
     { id: 'out_for_delivery', title: t('Out for delivery', 'ডেলিভারির পথে') },
     { id: 'delivered', title: t('Delivered', 'ডেলিভারি সম্পন্ন') },
   ];
-  const status = order?.status.toLowerCase() || '';
+  const status = trackingOrder?.status.toLowerCase() || '';
   const stageIndex = status === 'cancelled' || status === 'canceled' || status === 'failed'
     ? -1
     : status === 'delivered'
@@ -42,7 +105,7 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({
             : 0;
   const formatStatus = (value: string) =>
     value.replace(/[_-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
-  const paymentStatus = order?.paymentStatus.toLowerCase() || '';
+  const paymentStatus = trackingOrder?.paymentStatus.toLowerCase() || '';
   const paymentStatusLabel = paymentStatus === 'paid'
     ? t('Payment complete', 'পেমেন্ট সম্পন্ন')
     : paymentStatus === 'pending'
@@ -66,26 +129,82 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Map space is kept until dispatch provides live rider coordinates. */}
         <View style={styles.mapContainer}>
-          <Text style={styles.mapOrderId}>
-            {order ? `#${order.id.slice(0, 8).toUpperCase()}` : t('Order unavailable', 'অর্ডার পাওয়া যায়নি')}
-          </Text>
+          {mapsConfigured && trackingOrder?.orderType === 'parcel' ? (
+            <MapView
+              ref={mapRef}
+              provider={PROVIDER_GOOGLE}
+              style={StyleSheet.absoluteFill}
+              initialRegion={initialRegion}
+              showsCompass
+            >
+              {recipientPin?.latitude !== undefined && recipientPin.longitude !== undefined ? (
+                <Marker
+                  coordinate={{ latitude: recipientPin.latitude, longitude: recipientPin.longitude }}
+                  title={t('Delivery destination', 'ডেলিভারির গন্তব্য')}
+                  pinColor="#17A56B"
+                />
+              ) : null}
+              {riderPin?.latitude !== null && riderPin?.latitude !== undefined &&
+                riderPin.longitude !== null && riderPin.longitude !== undefined ? (
+                  <Marker
+                    coordinate={{ latitude: riderPin.latitude, longitude: riderPin.longitude }}
+                    title={riderPin.riderName || t('PICK Delivery partner', 'PICK ডেলিভারি পার্টনার')}
+                    description={t('Live rider location', 'পার্টনারের বর্তমান অবস্থান')}
+                    pinColor="#111827"
+                  />
+                ) : null}
+            </MapView>
+          ) : (
+            <Text style={styles.mapOrderId}>
+              {trackingOrder ? `#${trackingOrder.id.slice(0, 8).toUpperCase()}` : t('Order unavailable', 'অর্ডার পাওয়া যায়নি')}
+            </Text>
+          )}
+          {trackingOrder?.deliveryTracking ? (
+            <View style={styles.liveBadge}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveBadgeText}>
+                {riderPin?.latitude !== null && riderPin?.latitude !== undefined
+                  ? t('Rider live', 'রাইডার লাইভ')
+                  : t('Rider assigned', 'রাইডার বরাদ্দ হয়েছে')}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Status Info */}
         <View style={styles.statusSection}>
           <Text style={styles.statusHeadline}>
-            {order ? formatStatus(order.status) : t('Order unavailable', 'অর্ডার পাওয়া যায়নি')}
+            {trackingOrder ? formatStatus(trackingOrder.status) : t('Order unavailable', 'অর্ডার পাওয়া যায়নি')}
           </Text>
           <Text style={styles.statusHelper}>
-            {order?.deliveryAddress || t('No delivery address available', 'ডেলিভারির ঠিকানা নেই')}
+            {trackingOrder?.deliveryAddress || t('No delivery address available', 'ডেলিভারির ঠিকানা নেই')}
           </Text>
-          {order && order.paymentMethod.toLowerCase() !== 'cod' && paymentStatusLabel ? (
+          {trackingOrder?.deliveryTracking ? (
+            <View style={styles.riderCard}>
+              <Text style={styles.riderName}>
+                {trackingOrder.deliveryTracking.riderName || t('PICK Delivery partner', 'PICK ডেলিভারি পার্টনার')}
+              </Text>
+              <Text style={styles.riderDetail}>
+                {formatStatus(trackingOrder.deliveryTracking.status)}
+                {trackingOrder.deliveryTracking.vehicleType
+                  ? ` · ${formatStatus(trackingOrder.deliveryTracking.vehicleType)}`
+                  : ''}
+              </Text>
+              {trackingOrder.deliveryTracking.latitude === null ? (
+                <Text style={styles.riderDetail}>
+                  {t('Waiting for the next rider location update.', 'রাইডারের পরবর্তী লোকেশন আপডেটের অপেক্ষায়।')}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+          {trackingOrder && trackingOrder.paymentMethod.toLowerCase() !== 'cod' && paymentStatusLabel ? (
             <Text style={styles.paymentStatus}>
               {t('Payment', 'পেমেন্ট')}: {paymentStatusLabel}
             </Text>
           ) : null}
+          {liveError ? <Text accessibilityRole="alert" style={styles.liveError}>{liveError}</Text> : null}
+          {syncing ? <ActivityIndicator size="small" color="#17A56B" style={styles.syncIndicator} /> : null}
           {paymentStatus === 'pending' ? (
             <Text style={styles.paymentHint}>
               {t(
@@ -105,8 +224,8 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({
           </Text>
 
           {stages.map((step, index) => {
-            const isCompleted = order !== null && index < stageIndex;
-            const isActive = order !== null && index === stageIndex;
+            const isCompleted = trackingOrder !== null && index < stageIndex;
+            const isActive = trackingOrder !== null && index === stageIndex;
             const isLast = index === stages.length - 1;
 
             return (
@@ -174,6 +293,29 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#71717A',
   },
+  liveBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#17A56B',
+  },
+  liveBadgeText: {
+    color: '#17251F',
+    fontSize: 11,
+    fontWeight: '700',
+  },
   statusSection: {
     marginBottom: 16,
   },
@@ -187,6 +329,32 @@ const styles = StyleSheet.create({
   statusHelper: {
     fontSize: 14,
     color: '#71717A',
+  },
+  riderCard: {
+    marginTop: 12,
+    borderRadius: 12,
+    backgroundColor: '#F3F8F5',
+    padding: 12,
+  },
+  riderName: {
+    color: '#17251F',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  riderDetail: {
+    color: '#637269',
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  liveError: {
+    color: '#B42318',
+    fontSize: 12,
+    marginTop: 8,
+  },
+  syncIndicator: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
   },
   paymentStatus: {
     fontSize: 14,

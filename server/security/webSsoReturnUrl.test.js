@@ -70,6 +70,8 @@ test('allows only the fixed Tiwlo app callback for mobile social sign-in', () =>
   assert.equal(isAllowedSocialReturnUrl('tiwlo://evil/callback', hosts), false);
   assert.equal(isAllowedSocialReturnUrl('pick://auth/callback', hosts), true);
   assert.equal(isAllowedSocialReturnUrl('pick://evil/callback', hosts), false);
+  assert.equal(isAllowedSocialReturnUrl('pickdelivery://auth/callback', hosts), true);
+  assert.equal(isAllowedSocialReturnUrl('pickdelivery://evil/callback', hosts), false);
   assert.equal(isAllowedSocialReturnUrl('javascript:alert(1)', hosts), false);
   assert.equal(
     isAllowedSocialReturnUrl('https://tiwlo.com/dashboard', hosts),

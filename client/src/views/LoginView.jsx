@@ -37,9 +37,14 @@ export default function LoginView({
 }) {
   const isPickAppSignIn = (() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get('pick_account') === '1' &&
-      params.get('return_to') === 'pick://auth/callback';
+    return (
+      (params.get('pick_account') === '1' &&
+        params.get('return_to') === 'pick://auth/callback') ||
+      (params.get('pick_delivery') === '1' &&
+        params.get('return_to') === 'pickdelivery://auth/callback')
+    );
   })();
+  const isPickDeliveryAppSignIn = new URLSearchParams(window.location.search).get('pick_delivery') === '1';
   const [socialAuthInitial] = useState(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const socialError = searchParams.get('social_error');
@@ -93,7 +98,9 @@ export default function LoginView({
   const [socialProfileLoading, setSocialProfileLoading] = useState(socialAuthInitial.profileRequired);
   const [pickSocialProfile] = useState(() =>
     socialAuthInitial.profileRequired &&
-    new URLSearchParams(window.location.search).get('return_to') === 'pick://auth/callback'
+    ['pick://auth/callback', 'pickdelivery://auth/callback'].includes(
+      new URLSearchParams(window.location.search).get('return_to')
+    )
   );
   const [pickAddressVerification, setPickAddressVerification] = useState(null);
   const [socialProfileChallengeToken] = useState(() =>
@@ -1248,11 +1255,13 @@ export default function LoginView({
             <>
               <div>
                 <h1 className="text-[24px] font-normal text-[#1F1F1F] dark:text-[#E3E3E3] leading-tight">
-                  {isPickAppSignIn ? 'Continue to PICK' : 'Sign in'}
+                  {isPickAppSignIn
+                    ? isPickDeliveryAppSignIn ? 'Continue to PICK Delivery' : 'Continue to PICK'
+                    : 'Sign in'}
                 </h1>
                 <p className="text-[14px] text-[#444746] dark:text-[#C4C7C5] mt-1 leading-normal">
                   {isPickAppSignIn
-                    ? 'Sign in with the Tiwlo account you want to use in PICK.'
+                    ? `Sign in with the Tiwlo account you want to use in ${isPickDeliveryAppSignIn ? 'PICK Delivery' : 'PICK'}.`
                     : 'to continue to Tiwlo ID'}
                 </p>
               </div>

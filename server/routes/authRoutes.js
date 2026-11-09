@@ -37,7 +37,7 @@ import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import {
   getWebSsoBridgeUrl,
   isAllowedSocialReturnUrl,
-  PICK_MOBILE_SSO_RETURN_TO,
+  isPickMobileSsoReturnUrl,
   MOBILE_APP_SSO_RETURN_TO,
   isAllowedWebSsoReturnUrl
 } from '../security/webSsoReturnUrl.js';
@@ -623,7 +623,7 @@ async function startSocialLogin(provider, req, res) {
   if (!isAllowedSocialReturnUrl(requestedReturnTo, returnAllowlist)) {
     return res.status(400).send('Invalid sign-in return destination.');
   }
-  if (requestedReturnTo === PICK_MOBILE_SSO_RETURN_TO &&
+  if (isPickMobileSsoReturnUrl(requestedReturnTo) &&
       (!isValidPickCodeChallenge(req.query.pick_code_challenge) ||
        typeof req.query.pick_state !== 'string' ||
        !/^[A-Za-z0-9_-]{32,128}$/.test(req.query.pick_state))) {
@@ -696,7 +696,7 @@ async function completeSocialLogin(provider, req, res) {
       })) {
     return res.status(400).send('Social sign-in could not verify the OAuth state. Please try again.');
   }
-  if (savedState.returnTo === PICK_MOBILE_SSO_RETURN_TO &&
+  if (isPickMobileSsoReturnUrl(savedState.returnTo) &&
       (!isValidPickCodeChallenge(savedState.pickCodeChallenge) ||
        typeof savedState.pickState !== 'string' ||
        !/^[A-Za-z0-9_-]{32,128}$/.test(savedState.pickState))) {
@@ -728,14 +728,14 @@ async function completeSocialLogin(provider, req, res) {
     const user = await findOrCreateSocialUser({
       provider,
       ...identity,
-      signupSource: savedState.returnTo === PICK_MOBILE_SSO_RETURN_TO ? 'pick_app' : 'tiwlo'
+      signupSource: isPickMobileSsoReturnUrl(savedState.returnTo) ? 'pick_app' : 'tiwlo'
     });
     const socialReturnTo = savedState.returnToExplicit === true
       ? savedState.returnTo
       : getSocialDefaultReturnTo(user);
     const socialData = await SocialDB.getData();
     const socialProfile = socialData.profiles?.[user.id] || {};
-    const isPickMobileLogin = socialReturnTo === PICK_MOBILE_SSO_RETURN_TO;
+    const isPickMobileLogin = isPickMobileSsoReturnUrl(socialReturnTo);
     if (
       !user.dateOfBirth ||
       !user.phone?.trim() ||
@@ -756,7 +756,7 @@ async function completeSocialLogin(provider, req, res) {
         [
           hashSocialProfileChallenge(challengeToken),
           user.id,
-          socialReturnTo === PICK_MOBILE_SSO_RETURN_TO ? PICK_MOBILE_SSO_RETURN_TO : ''
+          isPickMobileSsoReturnUrl(socialReturnTo) ? socialReturnTo : ''
         ]
       );
       res.cookie('tiwlo_social_profile', challengeToken, getSocialProfileChallengeCookieOptions(req));
@@ -777,9 +777,9 @@ async function completeSocialLogin(provider, req, res) {
         message: challenge.message
       }));
     }
-    if (socialReturnTo === PICK_MOBILE_SSO_RETURN_TO) {
+    if (isPickMobileSsoReturnUrl(socialReturnTo)) {
       const challenge = await createMobileSocialAuthChallenge(user);
-      const callback = new URL(PICK_MOBILE_SSO_RETURN_TO);
+      const callback = new URL(socialReturnTo);
       callback.hash = new URLSearchParams({
         state: savedState.pickState,
         auth_challenge: challenge.type,
@@ -816,14 +816,15 @@ async function completeSocialLogin(provider, req, res) {
     return renderWebSsoHandoff(res, handoff.consumeUrl, handoff.code, sessionToken);
   } catch (error) {
     if (error.code === 'ACCOUNT_DISABLED') {
-      if (savedState.returnTo === PICK_MOBILE_SSO_RETURN_TO && socialIdentity?.email) {
+      if (isPickMobileSsoReturnUrl(savedState.returnTo) && socialIdentity?.email) {
         try {
           const disabledUser = await MasterDB.findUserByIdentifier(socialIdentity.email);
           if (disabledUser?.isBanned) {
             const callbackUrl = await createPickMobileHandoff({
               userId: disabledUser.id,
               codeChallenge: savedState.pickCodeChallenge,
-              state: savedState.pickState
+              state: savedState.pickState,
+              callbackUrl: savedState.returnTo
             });
             res.setHeader('Cache-Control', 'no-store');
             return res.redirect(303, callbackUrl);
@@ -998,7 +999,7 @@ router.post('/auth/social/complete-profile', async (req, res) => {
     }
     userId = challenge.rows[0].user_id;
     profileReturnTo = challenge.rows[0].return_to || '';
-    const pickAppProfile = profileReturnTo === PICK_MOBILE_SSO_RETURN_TO;
+    const pickAppProfile = isPickMobileSsoReturnUrl(profileReturnTo);
     if (pickAppProfile && !/^\+8801[3-9]\d{8}$/.test(phone)) {
       await client.query('ROLLBACK');
       return res.status(422).json({ error: 'Enter a valid Bangladesh mobile number.' });
@@ -1077,7 +1078,7 @@ router.post('/auth/social/complete-profile', async (req, res) => {
       'DELETE FROM system_social_profile_challenges WHERE token_hash = $1',
       [hashSocialProfileChallenge(challengeToken)]
     );
-    if (profileReturnTo === PICK_MOBILE_SSO_RETURN_TO) {
+    if (isPickMobileSsoReturnUrl(profileReturnTo)) {
       const challenge = await createMobileSocialAuthChallenge(user);
       clearOAuthMfaCookie(res, req);
       res.clearCookie('tiwlo_social_profile', {

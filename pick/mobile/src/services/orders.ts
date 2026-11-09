@@ -45,6 +45,17 @@ export interface PickOrder {
   paymentStatus: string;
   paymentProvider: string | null;
   paymentExpiresAt?: string | null;
+  deliveryTracking?: {
+    status: string;
+    riderName: string;
+    vehicleType: string;
+    latitude: number | null;
+    longitude: number | null;
+    locationUpdatedAt: string | null;
+    acceptedAt: string;
+    pickedUpAt: string | null;
+    deliveredAt: string | null;
+  } | null;
   createdAt: string;
   items: PickOrderItem[];
   parcelDetails?: {
@@ -153,6 +164,9 @@ function parseOrder(value: unknown): PickOrder {
     paymentProvider: typeof order.paymentProvider === 'string' ? order.paymentProvider : null,
     paymentExpiresAt: typeof order.paymentExpiresAt === 'string' ? order.paymentExpiresAt : null,
     createdAt: order.createdAt,
+    deliveryTracking: order.deliveryTracking && typeof order.deliveryTracking === 'object'
+      ? order.deliveryTracking as PickOrder['deliveryTracking']
+      : null,
     items,
     ...(order.parcelDetails && typeof order.parcelDetails === 'object'
       ? { parcelDetails: order.parcelDetails as PickOrder['parcelDetails'] }

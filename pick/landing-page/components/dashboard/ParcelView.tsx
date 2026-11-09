@@ -85,8 +85,8 @@ export const ParcelView: React.FC = () => {
       <section className="ios-card overflow-hidden">
         <div className="border-b border-black/5 px-5 py-4"><h3 className="font-semibold">Parcel orders</h3></div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[850px] text-left text-sm">
-            <thead className="bg-paper text-xs text-ink/50"><tr><th className="px-4 py-3">Order / time</th><th className="px-4 py-3">Sender</th><th className="px-4 py-3">Recipient / destination</th><th className="px-4 py-3">Package</th><th className="px-4 py-3">Fee / payment</th><th className="px-4 py-3">Status</th></tr></thead>
+          <table className="w-full min-w-[1000px] text-left text-sm">
+            <thead className="bg-paper text-xs text-ink/50"><tr><th className="px-4 py-3">Order / time</th><th className="px-4 py-3">Sender</th><th className="px-4 py-3">Recipient / destination</th><th className="px-4 py-3">Package</th><th className="px-4 py-3">Fee / payment</th><th className="px-4 py-3">Delivery partner</th><th className="px-4 py-3">Status</th></tr></thead>
             <tbody>
               {(data?.orders || []).map((order) => {
                 const parcel = order.parcelDetails
@@ -96,10 +96,11 @@ export const ParcelView: React.FC = () => {
                   <td className="px-4 py-3"><strong>{parcel?.recipient?.name || '—'}</strong><div className="text-xs text-ink/55">{parcel?.recipient?.phone || ''}</div><div className="max-w-56 text-xs text-ink/45">{parcel?.recipient?.address || order.deliveryAddress}</div></td>
                   <td className="px-4 py-3">{parcel?.package?.categoryName || '—'}<div className="text-xs text-ink/55">{parcel?.package?.weight ? `${parcel.package.weight} kg` : 'Weight not saved'} · {parcel?.vehicle?.nameEn || 'Vehicle not saved'}</div></td>
                   <td className="px-4 py-3 font-semibold">{money(order.total)}<div className="text-xs font-normal text-ink/55">{order.paymentMethod} · {order.paymentStatus}</div></td>
+                  <td className="px-4 py-3">{order.deliveryTracking?.riderName || 'Unassigned'}{order.deliveryTracking && <div className="text-xs text-ink/55">{order.deliveryTracking.status.replaceAll('_', ' ')}{order.deliveryTracking.latitude !== null && order.deliveryTracking.longitude !== null ? ` · ${order.deliveryTracking.latitude.toFixed(4)}, ${order.deliveryTracking.longitude.toFixed(4)}` : ''}</div>}</td>
                   <td className="px-4 py-3">{order.status.replaceAll('_', ' ')}</td>
                 </tr>
               })}
-              {!loading && !error && !data?.orders.length && <tr><td colSpan={6} className="px-4 py-12 text-center text-sm text-ink/50">No parcel orders have been placed yet.</td></tr>}
+              {!loading && !error && !data?.orders.length && <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-ink/50">No parcel orders have been placed yet.</td></tr>}
             </tbody>
           </table>
         </div>

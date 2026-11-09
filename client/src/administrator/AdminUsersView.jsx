@@ -198,7 +198,7 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
             </span>
           </div>
           <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
-            View, search, edit, ban, or delete user accounts across the entire platform.
+            View, search, edit, ban, or delete user accounts across the entire platform. PICK Delivery status does not replace a user’s Tiwlo role.
           </p>
         </div>
 
@@ -333,13 +333,35 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
 
                       {/* Account creation source */}
                       <td className="py-2.5 px-3">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          u.registrationSource === 'pick_app'
-                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
-                            : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400'
-                        }`}>
-                          {u.registrationSource === 'pick_app' ? 'PICK' : 'Tiwlo'}
-                        </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            u.registrationSource === 'pick_app'
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                              : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400'
+                          }`}>
+                            {u.registrationSource === 'pick_app' ? 'PICK' : 'Tiwlo'}
+                          </span>
+                          {u.deliveryRegistration ? (
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                u.deliveryRegistration.status === 'approved'
+                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                                  : u.deliveryRegistration.status === 'pending'
+                                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                                    : 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300'
+                              }`}
+                              title={`Vehicle: ${u.deliveryRegistration.vehicleType || 'not set'}`}
+                            >
+                              {u.deliveryRegistration.status === 'pending'
+                                ? 'Delivery · Awaiting review'
+                                : u.deliveryRegistration.status === 'rejected'
+                                  ? 'Delivery · Update required'
+                                  : u.deliveryRegistration.isOnDuty
+                                    ? 'Delivery · On duty'
+                                    : 'Delivery · Approved · Duty off'}
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
 
                       {/* Role */}

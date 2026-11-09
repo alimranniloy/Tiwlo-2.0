@@ -10,6 +10,7 @@ import {
   verifyHostedPaymentReturn
 } from '../server/routes/storePaymentGatewayService.js';
 import { getPlatformUrl } from '../server/config/platformConfig.js';
+import { notifyDeliveryPartnersForOrder } from './deliveryRoutes.js';
 
 export const PICK_MOBILE_PAYMENT_CALLBACK = 'pick://payment/callback';
 const PICK_PAYMENT_CURRENCIES = Object.freeze({ bkash: 'BDT', sslcommerz: 'BDT' });
@@ -91,7 +92,7 @@ export async function setPickPaymentStatus(orderId, paymentStatus, transactionId
   try {
     await client.query('BEGIN');
     const { rows } = await client.query(
-      'SELECT payment_status FROM pick.orders WHERE id = $1 FOR UPDATE',
+      'SELECT payment_status, order_type FROM pick.orders WHERE id = $1 FOR UPDATE',
       [orderId]
     );
     const order = rows[0];
@@ -129,6 +130,12 @@ export async function setPickPaymentStatus(orderId, paymentStatus, transactionId
       [orderId]
     );
     await client.query('COMMIT');
+    if (paymentStatus === 'paid' && order.order_type === 'parcel' &&
+        updated[0]?.status === 'placed') {
+      notifyDeliveryPartnersForOrder(orderId).catch((notificationError) => {
+        console.error('PICK Delivery paid-parcel notification failed:', notificationError);
+      });
+    }
     return updated[0] || null;
   } catch (error) {
     try {

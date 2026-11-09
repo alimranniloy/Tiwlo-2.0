@@ -121,6 +121,17 @@ export interface AdminOrder {
     package?: { categoryName?: string; weight?: number }
     vehicle?: { nameEn?: string }
   } | null
+  deliveryTracking?: {
+    status: string
+    riderName: string
+    vehicleType: string
+    latitude: number | null
+    longitude: number | null
+    locationUpdatedAt: string | null
+    acceptedAt: string
+    pickedUpAt: string | null
+    deliveredAt: string | null
+  } | null
   items: AdminOrderItem[]
 }
 

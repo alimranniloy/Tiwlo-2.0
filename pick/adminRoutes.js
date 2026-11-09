@@ -108,6 +108,7 @@ async function getOrders({ orderType = null, limit = 500 } = {}) {
             COALESCE(p.phone, u.phone, '') AS "customerPhone",
             COALESCE(p.delivery_area, '') AS "deliveryArea",
             o.parcel_details AS "parcelDetails",
+            delivery.tracking AS "deliveryTracking",
             COALESCE(items.items, '[]'::json) AS items
      FROM pick.orders o
      JOIN system_users u ON u.id = o.tiwlo_user_id
@@ -124,6 +125,30 @@ async function getOrders({ orderType = null, limit = 500 } = {}) {
        ) ORDER BY i.id) AS items
        FROM pick.order_items i WHERE i.order_id = o.id
      ) items ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT jsonb_build_object(
+         'status', a.status,
+         'riderName', COALESCE(rider.name, rider.store_name, ''),
+         'vehicleType', d.vehicle_type,
+         'latitude', CASE
+           WHEN a.status IN ('accepted', 'picked_up')
+             AND d.current_location_at >= CURRENT_TIMESTAMP - INTERVAL '2 minutes'
+           THEN d.current_latitude ELSE NULL END,
+         'longitude', CASE
+           WHEN a.status IN ('accepted', 'picked_up')
+             AND d.current_location_at >= CURRENT_TIMESTAMP - INTERVAL '2 minutes'
+           THEN d.current_longitude ELSE NULL END,
+         'locationUpdatedAt', d.current_location_at,
+         'acceptedAt', a.accepted_at,
+         'pickedUpAt', a.picked_up_at,
+         'deliveredAt', a.delivered_at
+       ) AS tracking
+       FROM pick.delivery_assignments a
+       JOIN pick.delivery_profiles d ON d.tiwlo_user_id = a.rider_user_id
+       JOIN system_users rider ON rider.id = a.rider_user_id
+       WHERE a.order_id = o.id AND a.status <> 'cancelled'
+       ORDER BY a.accepted_at DESC LIMIT 1
+     ) delivery ON TRUE
      WHERE ($1::text IS NULL OR o.order_type = $1)
      ORDER BY o.created_at DESC
      LIMIT $2`,
@@ -548,11 +573,137 @@ router.put('/settings/grocery-delivery-fee', async (req, res, next) => {
   }
 });
 
-router.get('/riders', (_req, res) => res.json({
-  riders: [],
-  connected: false,
-  message: 'PICK has no rider account or live fleet service connected yet.'
-}));
+router.get('/riders', async (_req, res, next) => {
+  try {
+    const [{ rows: riders }, { rows: counts }] = await Promise.all([
+      queryPg(
+        `SELECT d.tiwlo_user_id AS id, u.name, u.email,
+                COALESCE(p.phone, u.phone, '') AS phone,
+                COALESCE(p.delivery_address, '') AS address,
+                COALESCE(p.delivery_area, '') AS area,
+                d.vehicle_type AS "vehicleType", vp.name_en AS "vehicleName",
+                d.vehicle_capacity_kg::float8 AS "vehicleCapacityKg",
+                d.vehicle_registration AS "vehicleRegistration",
+                d.application_status AS "applicationStatus",
+                d.application_note AS "applicationNote",
+                d.reviewed_at AS "reviewedAt",
+                (d.is_on_duty AND u.is_banned = FALSE) AS "isOnDuty",
+                CASE WHEN d.current_location_at >= CURRENT_TIMESTAMP - INTERVAL '2 minutes'
+                  THEN d.current_latitude ELSE NULL END AS latitude,
+                CASE WHEN d.current_location_at >= CURRENT_TIMESTAMP - INTERVAL '2 minutes'
+                  THEN d.current_longitude ELSE NULL END AS longitude,
+                d.current_location_at AS "locationUpdatedAt",
+                d.created_at AS "appliedAt"
+         FROM pick.delivery_profiles d
+         JOIN system_users u ON u.id = d.tiwlo_user_id
+         JOIN pick.delivery_vehicle_policies vp ON vp.vehicle_type = d.vehicle_type
+         LEFT JOIN pick.profiles p ON p.tiwlo_user_id = d.tiwlo_user_id
+         ORDER BY CASE d.application_status
+                    WHEN 'pending' THEN 0
+                    WHEN 'approved' THEN 1 ELSE 2 END,
+                  d.created_at DESC
+         LIMIT 500`
+      ),
+      queryPg(
+        `SELECT COUNT(*) FILTER (WHERE d.application_status = 'pending')::int AS pending,
+                COUNT(*) FILTER (WHERE d.application_status = 'approved')::int AS approved,
+                COUNT(*) FILTER (WHERE d.application_status = 'rejected')::int AS rejected,
+                COUNT(*) FILTER (
+                  WHERE d.application_status = 'approved' AND d.is_on_duty
+                    AND u.is_banned = FALSE
+                )::int AS online
+         FROM pick.delivery_profiles d
+         JOIN system_users u ON u.id = d.tiwlo_user_id`
+      )
+    ]);
+    return res.json({
+      connected: true,
+      riders,
+      counts: counts[0] || { pending: 0, approved: 0, rejected: 0, online: 0 }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get('/delivery-policies', async (_req, res, next) => {
+  try {
+    const { rows } = await queryPg(
+      `SELECT vehicle_type AS "vehicleType", name_en AS "nameEn",
+              max_capacity_kg::float8 AS "maxCapacityKg",
+              pickup_range_meters AS "pickupRangeMeters",
+              delivery_range_meters AS "deliveryRangeMeters", active
+       FROM pick.delivery_vehicle_policies
+       ORDER BY pickup_range_meters, vehicle_type`
+    );
+    return res.json({ policies: rows });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.put('/delivery-policies/:vehicleType', async (req, res, next) => {
+  try {
+    const capacity = finiteNumber(req.body?.maxCapacityKg, 'maximum capacity', {
+      min: 0.1,
+      max: 100000
+    });
+    const pickupRange = finiteNumber(req.body?.pickupRangeMeters, 'pickup range', {
+      min: 100,
+      max: 100000
+    });
+    const deliveryRange = finiteNumber(req.body?.deliveryRangeMeters, 'delivery range', {
+      min: 100,
+      max: 200000
+    });
+    if (!Number.isInteger(pickupRange) || !Number.isInteger(deliveryRange)) {
+      return res.status(400).json({ error: 'Pickup and delivery ranges must be whole metres.' });
+    }
+    const { rows } = await queryPg(
+      `UPDATE pick.delivery_vehicle_policies
+       SET max_capacity_kg = $2, pickup_range_meters = $3,
+           delivery_range_meters = $4, updated_at = CURRENT_TIMESTAMP
+       WHERE vehicle_type = $1
+       RETURNING vehicle_type AS "vehicleType", name_en AS "nameEn",
+                 max_capacity_kg::float8 AS "maxCapacityKg",
+                 pickup_range_meters AS "pickupRangeMeters",
+                 delivery_range_meters AS "deliveryRangeMeters", active`,
+      [req.params.vehicleType, capacity, pickupRange, deliveryRange]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'PICK delivery vehicle policy not found.' });
+    return res.json({ policy: rows[0] });
+  } catch (error) {
+    if (sendInputError(res, error)) return;
+    return next(error);
+  }
+});
+
+router.patch('/riders/:id', async (req, res, next) => {
+  try {
+    const status = req.body?.applicationStatus;
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Choose approved or rejected for the rider application.' });
+    }
+    const note = optionalText(req.body?.applicationNote, 'review note', 1000);
+    const { rows } = await queryPg(
+      `UPDATE pick.delivery_profiles
+       SET application_status = $2, application_note = $3,
+           reviewed_by = $4, reviewed_at = CURRENT_TIMESTAMP,
+           is_on_duty = CASE WHEN $2 = 'approved' THEN is_on_duty ELSE FALSE END,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE tiwlo_user_id = $1
+       RETURNING tiwlo_user_id AS id, application_status AS "applicationStatus",
+                 application_note AS "applicationNote", reviewed_at AS "reviewedAt",
+                 is_on_duty AS "isOnDuty"`,
+      [req.params.id, status, note, req.adminUser.id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'PICK delivery application not found.' });
+    return res.json({ rider: rows[0] });
+  } catch (error) {
+    if (sendInputError(res, error)) return;
+    return next(error);
+  }
+});
 
 router.get('/coverage', async (_req, res, next) => {
   try {

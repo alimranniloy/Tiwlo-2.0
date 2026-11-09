@@ -13,6 +13,11 @@ import { PLATFORM_CONFIG } from '../server/config/platformConfig.js';
 import adminRoutes from './adminRoutes.js';
 import { findCoverageZone } from './coverage.js';
 import { getPickGroceryDeliveryFee, parseGroceryDeliveryFee } from './pricing.js';
+import {
+  createPickDeliveryRouter,
+  notifyDeliveryPartnersForOrder
+} from './deliveryRoutes.js';
+import { PICK_DELIVERY_MOBILE_CALLBACK } from './deliverySso.js';
 import { securityLimiters } from '../server/plugins/security/index.js';
 import {
   getPickPaymentGateway,
@@ -48,8 +53,11 @@ export function hashPickCodeVerifier(value) {
   return crypto.createHash('sha256').update(value).digest('base64url');
 }
 
-export function createPickCallbackUrl({ code, state }) {
-  const callback = new URL(PICK_MOBILE_CALLBACK);
+export function createPickCallbackUrl({ code, state, callbackUrl = PICK_MOBILE_CALLBACK }) {
+  if (![PICK_MOBILE_CALLBACK, PICK_DELIVERY_MOBILE_CALLBACK].includes(callbackUrl)) {
+    throw new TypeError('Invalid PICK mobile callback.');
+  }
+  const callback = new URL(callbackUrl);
   callback.searchParams.set('code', code);
   callback.searchParams.set('state', state);
   return callback.toString();
@@ -59,10 +67,12 @@ export async function createPickMobileHandoff({
   userId,
   codeChallenge,
   state,
+  callbackUrl = PICK_MOBILE_CALLBACK,
   query = queryPg
 }) {
   if (!userId || !isValidPickCodeChallenge(codeChallenge) ||
-      typeof state !== 'string' || !/^[A-Za-z0-9_-]{32,128}$/.test(state)) {
+      typeof state !== 'string' || !/^[A-Za-z0-9_-]{32,128}$/.test(state) ||
+      ![PICK_MOBILE_CALLBACK, PICK_DELIVERY_MOBILE_CALLBACK].includes(callbackUrl)) {
     throw new TypeError('Invalid PICK sign-in handoff.');
   }
   const code = crypto.randomBytes(32).toString('base64url');
@@ -73,7 +83,7 @@ export async function createPickMobileHandoff({
      VALUES ($1, $2, $3, CURRENT_TIMESTAMP + INTERVAL '90 seconds')`,
     [codeHash, userId, codeChallenge]
   );
-  return createPickCallbackUrl({ code, state });
+  return createPickCallbackUrl({ code, state, callbackUrl });
 }
 
 export async function createPickAppealSession(userId) {
@@ -104,16 +114,22 @@ async function getTiwloSession(req) {
   return token ? MasterDB.getSession(token, req) : null;
 }
 
-export function getPickMobileLoginUrl({ codeChallenge, state, mode }) {
+export function getPickMobileLoginUrl({ codeChallenge, state, mode, app = 'pick' }) {
+  if (app !== 'pick' && app !== 'delivery') {
+    throw new TypeError('Invalid PICK mobile app.');
+  }
+  const callbackUrl = app === 'delivery'
+    ? PICK_DELIVERY_MOBILE_CALLBACK
+    : PICK_MOBILE_CALLBACK;
   const authOrigin = PLATFORM_CONFIG.authDomain.startsWith('http')
     ? PLATFORM_CONFIG.authDomain
     : `https://${PLATFORM_CONFIG.authDomain}`;
   const loginUrl = new URL(mode === 'signup' ? '/create-account' : '/login', authOrigin);
-  loginUrl.searchParams.set('return_to', PICK_MOBILE_CALLBACK);
+  loginUrl.searchParams.set('return_to', callbackUrl);
   loginUrl.searchParams.set('sso_login', '1');
   loginUrl.searchParams.set('pick_code_challenge', codeChallenge);
   loginUrl.searchParams.set('pick_state', state);
-  loginUrl.searchParams.set('pick_account', '1');
+  loginUrl.searchParams.set(app === 'delivery' ? 'pick_delivery' : 'pick_account', '1');
   return loginUrl.toString();
 }
 
@@ -187,16 +203,19 @@ router.get('/auth/mobile-start', async (req, res, next) => {
     const codeChallenge = String(req.query.code_challenge || '');
     const state = String(req.query.state || '');
     const mode = req.query.mode === 'signup' ? 'signup' : 'login';
+    const app = req.query.app === 'delivery' ? 'delivery' : 'pick';
     if (!isValidPickCodeChallenge(codeChallenge) ||
         !/^[A-Za-z0-9_-]{32,128}$/.test(state)) {
       return res.status(400).json({ error: 'Invalid PICK sign-in request.' });
     }
 
-    return res.redirect(303, getPickMobileLoginUrl({ codeChallenge, state, mode }));
+    return res.redirect(303, getPickMobileLoginUrl({ codeChallenge, state, mode, app }));
   } catch (error) {
     return next(error);
   }
 });
+
+router.use('/delivery', createPickDeliveryRouter({ requireUser }));
 
 router.post('/auth/verify-address', requireUser, securityLimiters.addressVerification, async (req, res, next) => {
   try {
@@ -944,6 +963,9 @@ router.post('/orders/parcel', requireUser, async (req, res, next) => {
         });
       }
     }
+    notifyDeliveryPartnersForOrder(orderResult.rows[0].id).catch((notificationError) => {
+      console.error('PICK Delivery parcel-offer notification failed:', notificationError);
+    });
     return res.status(201).json({ order: orderResult.rows[0] });
   } catch (error) {
     if (client) {
@@ -1157,6 +1179,7 @@ router.get('/orders', requireUser, async (req, res, next) => {
               o.payment_status AS "paymentStatus", o.payment_provider AS "paymentProvider",
               o.payment_expires_at AS "paymentExpiresAt",
               o.parcel_details AS "parcelDetails",
+              delivery.tracking AS "deliveryTracking",
               COALESCE(jsonb_agg(jsonb_build_object(
                 'id', i.id, 'productId', i.product_id,
                 'nameEn', i.product_name_en, 'nameBn', i.product_name_bn,
@@ -1165,8 +1188,32 @@ router.get('/orders', requireUser, async (req, res, next) => {
               )) FILTER (WHERE i.id IS NOT NULL), '[]'::jsonb) AS items
        FROM pick.orders o
        LEFT JOIN pick.order_items i ON i.order_id = o.id
+       LEFT JOIN LATERAL (
+         SELECT jsonb_build_object(
+           'status', a.status,
+           'riderName', COALESCE(u.name, u.store_name, ''),
+           'vehicleType', d.vehicle_type,
+           'latitude', CASE
+             WHEN a.status IN ('accepted', 'picked_up')
+               AND d.current_location_at >= CURRENT_TIMESTAMP - INTERVAL '2 minutes'
+             THEN d.current_latitude ELSE NULL END,
+           'longitude', CASE
+             WHEN a.status IN ('accepted', 'picked_up')
+               AND d.current_location_at >= CURRENT_TIMESTAMP - INTERVAL '2 minutes'
+             THEN d.current_longitude ELSE NULL END,
+           'locationUpdatedAt', d.current_location_at,
+           'acceptedAt', a.accepted_at,
+           'pickedUpAt', a.picked_up_at,
+           'deliveredAt', a.delivered_at
+         ) AS tracking
+         FROM pick.delivery_assignments a
+         JOIN pick.delivery_profiles d ON d.tiwlo_user_id = a.rider_user_id
+         JOIN system_users u ON u.id = a.rider_user_id
+         WHERE a.order_id = o.id AND a.status <> 'cancelled'
+         ORDER BY a.accepted_at DESC LIMIT 1
+       ) delivery ON TRUE
        WHERE o.tiwlo_user_id = $1
-       GROUP BY o.id
+       GROUP BY o.id, delivery.tracking
        ORDER BY o.created_at DESC
        LIMIT 100`,
       [req.tiwloSession.user.id]

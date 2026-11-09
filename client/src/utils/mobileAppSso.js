@@ -1,8 +1,9 @@
 const MOBILE_APP_CALLBACK = 'tiwlo://auth/callback';
 const PICK_APP_CALLBACK = 'pick://auth/callback';
+const PICK_DELIVERY_APP_CALLBACK = 'pickdelivery://auth/callback';
 
 async function returnPickSignInToApp({ returnTo, sessionToken, challenge, apiBase }) {
-  if (returnTo !== PICK_APP_CALLBACK) return false;
+  if (returnTo !== PICK_APP_CALLBACK && returnTo !== PICK_DELIVERY_APP_CALLBACK) return false;
   let result = challenge;
   if (!result) {
     if (!sessionToken) throw new Error('The sign-in session is missing.');
@@ -26,8 +27,9 @@ async function returnPickSignInToApp({ returnTo, sessionToken, challenge, apiBas
 
   localStorage.removeItem('stockpro_session');
   localStorage.removeItem('stockpro_user');
-  const state = new URLSearchParams(window.location.search).get('pick_state') || '';
-  const callback = new URL(PICK_APP_CALLBACK);
+  const searchParams = new URLSearchParams(window.location.search);
+  const state = searchParams.get('pick_state') || '';
+  const callback = new URL(returnTo);
   callback.hash = new URLSearchParams({
     state,
     auth_challenge: result.challengeType,

@@ -178,6 +178,67 @@ export const PICK_SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS pick_orders_pending_payment_expiry_idx
     ON pick.orders(payment_expires_at) WHERE payment_status = 'pending';
 
+  CREATE TABLE IF NOT EXISTS pick.delivery_vehicle_policies (
+    vehicle_type VARCHAR(32) PRIMARY KEY,
+    name_en VARCHAR(64) NOT NULL,
+    max_capacity_kg NUMERIC(10, 2) NOT NULL CHECK (max_capacity_kg > 0),
+    pickup_range_meters INTEGER NOT NULL CHECK (pickup_range_meters BETWEEN 100 AND 100000),
+    delivery_range_meters INTEGER NOT NULL CHECK (delivery_range_meters BETWEEN 100 AND 200000),
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  INSERT INTO pick.delivery_vehicle_policies
+    (vehicle_type, name_en, max_capacity_kg, pickup_range_meters, delivery_range_meters)
+  VALUES
+    ('walking', 'Walking', 10, 1500, 6000),
+    ('bicycle', 'Bicycle', 25, 4000, 12000),
+    ('motorbike', 'Motorbike', 35, 8000, 25000),
+    ('car', 'Car', 150, 12000, 40000),
+    ('pickup', 'Pickup truck', 500, 15000, 50000)
+  ON CONFLICT (vehicle_type) DO NOTHING;
+
+  CREATE TABLE IF NOT EXISTS pick.delivery_profiles (
+    tiwlo_user_id VARCHAR(64) PRIMARY KEY REFERENCES pick.users(tiwlo_user_id) ON DELETE CASCADE,
+    vehicle_type VARCHAR(32) NOT NULL REFERENCES pick.delivery_vehicle_policies(vehicle_type),
+    vehicle_capacity_kg NUMERIC(10, 2) NOT NULL CHECK (vehicle_capacity_kg > 0),
+    vehicle_registration VARCHAR(80) NOT NULL DEFAULT '',
+    application_status VARCHAR(16) NOT NULL DEFAULT 'pending'
+      CHECK (application_status IN ('pending', 'approved', 'rejected')),
+    application_note TEXT NOT NULL DEFAULT '',
+    reviewed_by VARCHAR(64) REFERENCES system_users(id) ON DELETE SET NULL,
+    reviewed_at TIMESTAMPTZ,
+    is_on_duty BOOLEAN NOT NULL DEFAULT FALSE,
+    current_latitude DOUBLE PRECISION CHECK (current_latitude IS NULL OR current_latitude BETWEEN -90 AND 90),
+    current_longitude DOUBLE PRECISION CHECK (current_longitude IS NULL OR current_longitude BETWEEN -180 AND 180),
+    current_accuracy DOUBLE PRECISION,
+    current_location_at TIMESTAMPTZ,
+    expo_push_token VARCHAR(255),
+    last_seen_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS pick_delivery_profiles_duty_idx
+    ON pick.delivery_profiles(vehicle_type, application_status, is_on_duty, current_location_at);
+
+  CREATE TABLE IF NOT EXISTS pick.delivery_assignments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id UUID NOT NULL REFERENCES pick.orders(id) ON DELETE CASCADE,
+    rider_user_id VARCHAR(64) NOT NULL REFERENCES pick.delivery_profiles(tiwlo_user_id) ON DELETE RESTRICT,
+    status VARCHAR(16) NOT NULL DEFAULT 'accepted'
+      CHECK (status IN ('accepted', 'picked_up', 'delivered', 'cancelled')),
+    accepted_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    picked_up_at TIMESTAMPTZ,
+    delivered_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  ALTER TABLE pick.delivery_assignments
+    DROP CONSTRAINT IF EXISTS delivery_assignments_order_id_key;
+  CREATE UNIQUE INDEX IF NOT EXISTS pick_delivery_assignments_order_active_idx
+    ON pick.delivery_assignments(order_id) WHERE status <> 'cancelled';
+  CREATE INDEX IF NOT EXISTS pick_delivery_assignments_rider_active_idx
+    ON pick.delivery_assignments(rider_user_id, status)
+    WHERE status IN ('accepted', 'picked_up');
+
   CREATE TABLE IF NOT EXISTS pick.settings (
     key VARCHAR(128) PRIMARY KEY,
     value TEXT NOT NULL,

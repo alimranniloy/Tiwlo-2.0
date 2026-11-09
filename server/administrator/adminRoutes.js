@@ -832,10 +832,24 @@ router.get('/users', requireAdmin, async (req, res) => {
     const rawUsers = await MasterDB.getUsers();
     const { allStores: stores } = (await getAggregatedStoreData());
     const pickUsersResult = await queryPg(
-      `SELECT tiwlo_user_id, registration_source FROM pick.users`
+      `SELECT pu.tiwlo_user_id, pu.registration_source,
+              d.application_status AS delivery_application_status,
+              d.vehicle_type AS delivery_vehicle_type,
+              d.is_on_duty AS delivery_is_on_duty
+       FROM pick.users pu
+       LEFT JOIN pick.delivery_profiles d ON d.tiwlo_user_id = pu.tiwlo_user_id`
     );
     const registrationSources = new Map(
       pickUsersResult.rows.map(row => [row.tiwlo_user_id, row.registration_source])
+    );
+    const deliveryRegistrations = new Map(
+      pickUsersResult.rows
+        .filter(row => row.delivery_application_status)
+        .map(row => [row.tiwlo_user_id, {
+          status: row.delivery_application_status,
+          vehicleType: row.delivery_vehicle_type,
+          isOnDuty: row.delivery_is_on_duty === true
+        }])
     );
 
     const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -853,6 +867,7 @@ router.get('/users', requireAdmin, async (req, res) => {
       );
 
         const storeCount = userStores.length;
+        const deliveryRegistration = deliveryRegistrations.get(u.id);
 
       return {
         id: u.id,
@@ -860,6 +875,9 @@ router.get('/users', requireAdmin, async (req, res) => {
         name: u.name || u.storeName || 'System User',
         email: u.email,
         registrationSource: registrationSources.get(u.id) || 'tiwlo',
+        deliveryRegistration: deliveryRegistration
+          ? { ...deliveryRegistration, isOnDuty: deliveryRegistration.isOnDuty && !u.isBanned }
+          : null,
         role: u.role || 'owner',
         planId: u.planId || 'free',
         planName: u.planName || u.planId || 'Unknown',

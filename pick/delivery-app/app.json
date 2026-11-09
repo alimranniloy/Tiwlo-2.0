@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "PICK Delivery",
+    "slug": "pick-delivery",
+    "scheme": "pickdelivery",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "../mobile/assets/logos/app-icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pick.delivery"
+    },
+    "android": {
+      "package": "com.pick.delivery",
+      "adaptiveIcon": {
+        "backgroundColor": "#111827",
+        "foregroundImage": "../mobile/assets/android-icon-foreground.png",
+        "monochromeImage": "../mobile/assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "PICK Delivery uses your location to find nearby parcel jobs.",
+          "locationAlwaysAndWhenInUsePermission": "PICK Delivery shares your live location with PICK only while you are on duty.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true,
+          "isIosBackgroundLocationEnabled": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "pick-delivery-orders",
+          "color": "#17A56B"
+        }
+      ],
+      "expo-font",
+      "expo-image",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": false
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

@@ -2,7 +2,12 @@ import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
 import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
-import { API_ORIGIN, PICK_API_URL, PICK_AUTH_CALLBACK } from '../config/api';
+import {
+  API_ORIGIN,
+  PICK_API_URL,
+  PICK_AUTH_CALLBACK,
+  PICK_DELIVERY_AUTH_CALLBACK
+} from '../config/api';
 
 const SESSION_KEY = 'pick.tiwlo.session';
 const APPEAL_SESSION_KEY = 'pick.tiwlo.appeal_session';
@@ -147,9 +152,10 @@ function toBase64Url(value: string): string {
   return value.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-async function exchangeCallbackUrl(callbackUrl: string): Promise<AuthResult> {
+async function exchangeCallbackUrl(callbackUrl: string, app: 'pick' | 'delivery'): Promise<AuthResult> {
   const callback = new URL(callbackUrl);
-  if (`${callback.protocol}//${callback.host}${callback.pathname}` !== PICK_AUTH_CALLBACK) {
+  const expectedCallback = app === 'delivery' ? PICK_DELIVERY_AUTH_CALLBACK : PICK_AUTH_CALLBACK;
+  if (`${callback.protocol}//${callback.host}${callback.pathname}` !== expectedCallback) {
     throw new Error('The sign-in return link is invalid.');
   }
 
@@ -200,7 +206,7 @@ async function exchangeCallbackUrl(callbackUrl: string): Promise<AuthResult> {
   return session;
 }
 
-async function createPendingAuthRequest() {
+async function createPendingAuthRequest(app: 'pick' | 'delivery') {
   const verifier = bytesToHex(await Crypto.getRandomBytesAsync(32));
   const state = bytesToHex(await Crypto.getRandomBytesAsync(32));
   const codeChallenge = toBase64Url(await Crypto.digestStringAsync(
@@ -212,13 +218,16 @@ async function createPendingAuthRequest() {
     SecureStore.setItemAsync(PENDING_VERIFIER_KEY, verifier),
     SecureStore.setItemAsync(PENDING_STATE_KEY, state)
   ]);
-  const callbackUrl = Linking.createURL('auth/callback', { scheme: 'pick' });
-  if (callbackUrl !== PICK_AUTH_CALLBACK) {
+  const callbackUrl = Linking.createURL('auth/callback', {
+    scheme: app === 'delivery' ? 'pickdelivery' : 'pick'
+  });
+  const expectedCallback = app === 'delivery' ? PICK_DELIVERY_AUTH_CALLBACK : PICK_AUTH_CALLBACK;
+  if (callbackUrl !== expectedCallback) {
     await Promise.all([
       SecureStore.deleteItemAsync(PENDING_VERIFIER_KEY),
       SecureStore.deleteItemAsync(PENDING_STATE_KEY)
     ]);
-    throw new Error('PICK sign-in is unavailable in this app environment. Use a development or production build.');
+    throw new Error('Tiwlo sign-in is unavailable in this app environment. Use a development or production build.');
   }
   return { codeChallenge, callbackUrl };
 }
@@ -230,14 +239,18 @@ async function clearPendingAuthRequest() {
   ]);
 }
 
-export async function startTiwloSignIn(mode: 'login' | 'signup' = 'login'): Promise<AuthResult | null> {
-  const { codeChallenge, callbackUrl } = await createPendingAuthRequest();
+export async function startTiwloSignIn(
+  mode: 'login' | 'signup' = 'login',
+  app: 'pick' | 'delivery' = 'pick'
+): Promise<AuthResult | null> {
+  const { codeChallenge, callbackUrl } = await createPendingAuthRequest(app);
   const state = await SecureStore.getItemAsync(PENDING_STATE_KEY);
   if (!state) throw new Error('The sign-in request could not be prepared. Please try again.');
   const startUrl = new URL(`${PICK_API_URL}/auth/mobile-start`);
   startUrl.searchParams.set('code_challenge', codeChallenge);
   startUrl.searchParams.set('state', state);
   startUrl.searchParams.set('mode', mode);
+  startUrl.searchParams.set('app', app);
 
   try {
     const result = await WebBrowser.openAuthSessionAsync(startUrl.toString(), callbackUrl);
@@ -245,7 +258,7 @@ export async function startTiwloSignIn(mode: 'login' | 'signup' = 'login'): Prom
       await clearPendingAuthRequest();
       return null;
     }
-    return await exchangeCallbackUrl(result.url);
+    return await exchangeCallbackUrl(result.url, app);
   } catch (error) {
     await clearPendingAuthRequest();
     throw error;
@@ -253,17 +266,20 @@ export async function startTiwloSignIn(mode: 'login' | 'signup' = 'login'): Prom
 }
 
 export async function startPickSocialSignIn(
-  provider: 'google' | 'github'
+  provider: 'google' | 'github',
+  app: 'pick' | 'delivery' = 'pick'
 ): Promise<AuthResult | AuthChallenge | null> {
   await clearPendingAuthChallenge();
-  const { codeChallenge, callbackUrl } = await createPendingAuthRequest();
+  const { codeChallenge, callbackUrl } = await createPendingAuthRequest(app);
   const state = await SecureStore.getItemAsync(PENDING_STATE_KEY);
   try {
     if (!state) throw new Error('The sign-in request could not be prepared. Please try again.');
     const startUrl = new URL(`${API_ORIGIN}/api/auth/${provider}`);
-    startUrl.searchParams.set('return_to', PICK_AUTH_CALLBACK);
+    const appCallback = app === 'delivery' ? PICK_DELIVERY_AUTH_CALLBACK : PICK_AUTH_CALLBACK;
+    startUrl.searchParams.set('return_to', appCallback);
     startUrl.searchParams.set('pick_code_challenge', codeChallenge);
     startUrl.searchParams.set('pick_state', state);
+    if (app === 'delivery') startUrl.searchParams.set('pick_delivery', '1');
     const result = await WebBrowser.openAuthSessionAsync(startUrl.toString(), callbackUrl);
     if (result.type !== 'success') {
       await clearPendingAuthRequest();
@@ -271,7 +287,8 @@ export async function startPickSocialSignIn(
     }
 
     const callback = new URL(result.url);
-    if (`${callback.protocol}//${callback.host}${callback.pathname}` !== PICK_AUTH_CALLBACK) {
+    const expectedCallback = app === 'delivery' ? PICK_DELIVERY_AUTH_CALLBACK : PICK_AUTH_CALLBACK;
+    if (`${callback.protocol}//${callback.host}${callback.pathname}` !== expectedCallback) {
       throw new Error('The sign-in return link is invalid.');
     }
     const callbackData = new URLSearchParams(callback.hash.slice(1));
@@ -294,7 +311,7 @@ export async function startPickSocialSignIn(
       await savePendingAuthChallenge(challenge);
       return challenge;
     }
-    return await exchangeCallbackUrl(result.url);
+    return await exchangeCallbackUrl(result.url, app);
   } catch (error) {
     await clearPendingAuthRequest();
     throw error;

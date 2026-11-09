@@ -93,6 +93,22 @@ test('creates a callback URL containing only the one-time code and state', () =>
   assert.equal(callback.hash, '');
 });
 
+test('creates a separate allow-listed callback for PICK Delivery', () => {
+  const callback = new URL(createPickCallbackUrl({
+    code: 'a'.repeat(43),
+    state: 'b'.repeat(43),
+    callbackUrl: 'pickdelivery://auth/callback'
+  }));
+  assert.equal(callback.protocol, 'pickdelivery:');
+  assert.equal(callback.host, 'auth');
+  assert.equal(callback.pathname, '/callback');
+  assert.throws(() => createPickCallbackUrl({
+    code: 'a'.repeat(43),
+    state: 'b'.repeat(43),
+    callbackUrl: 'https://evil.example/callback'
+  }), /Invalid PICK mobile callback/);
+});
+
 test('creates PICK login URLs that preserve the callback and force account selection', () => {
   const url = new URL(getPickMobileLoginUrl({
     codeChallenge: 'c'.repeat(43),
@@ -106,6 +122,18 @@ test('creates PICK login URLs that preserve the callback and force account selec
   assert.equal(url.searchParams.get('pick_code_challenge'), 'c'.repeat(43));
   assert.equal(url.searchParams.get('pick_state'), 's'.repeat(43));
   assert.equal(url.searchParams.get('pick_account'), '1');
+});
+
+test('creates PICK Delivery login URLs without changing the customer app callback', () => {
+  const url = new URL(getPickMobileLoginUrl({
+    codeChallenge: 'c'.repeat(43),
+    state: 's'.repeat(43),
+    mode: 'login',
+    app: 'delivery'
+  }));
+  assert.equal(url.searchParams.get('return_to'), 'pickdelivery://auth/callback');
+  assert.equal(url.searchParams.get('pick_delivery'), '1');
+  assert.equal(url.searchParams.has('pick_account'), false);
 });
 
 test('stores only a hashed, expiring one-time handoff code', async () => {
@@ -134,4 +162,16 @@ test('stores only a hashed, expiring one-time handoff code', async () => {
     state: 's'.repeat(43),
     query: async () => ({ rows: [] })
   }), /Invalid PICK sign-in handoff/);
+  let invalidCallbackQueryCount = 0;
+  await assert.rejects(createPickMobileHandoff({
+    userId: 'tiwlo-user-1',
+    codeChallenge,
+    state: 's'.repeat(43),
+    callbackUrl: 'https://evil.example/callback',
+    query: async () => {
+      invalidCallbackQueryCount += 1;
+      return { rows: [] };
+    }
+  }), /Invalid PICK sign-in handoff/);
+  assert.equal(invalidCallbackQueryCount, 0);
 });

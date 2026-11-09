@@ -48,6 +48,7 @@ type AuthMode = 'login' | 'signup';
 interface AuthScreenProps {
   onAuthenticated: (user: PickUser) => void;
   offline?: boolean;
+  app?: 'pick' | 'delivery';
 }
 
 function isAuthChallenge(value: unknown): value is AuthChallenge {
@@ -67,7 +68,11 @@ function normalizePhoneIdentifier(value: string, dialingCode: string): string {
   return digits ? `${dialingCode}${digits}` : identifier;
 }
 
-export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated, offline = false }) => {
+export const AuthScreen: React.FC<AuthScreenProps> = ({
+  onAuthenticated,
+  offline = false,
+  app = 'pick'
+}) => {
   const { t } = useLanguage();
   const [mode, setMode] = useState<AuthMode>('login');
   const [step, setStep] = useState<AuthStep>('form');
@@ -155,12 +160,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated, offline
   });
 
   const handleTiwloSignUp = () => run(async () => {
-    const result = await startTiwloSignIn('signup');
+    const result = await startTiwloSignIn('signup', app);
     if (result) onAuthenticated(result.user);
   });
 
   const handleSocialSignIn = (provider: 'google' | 'github') => run(async () => {
-    const result = await startPickSocialSignIn(provider);
+    const result = await startPickSocialSignIn(provider, app);
     if (!result) return;
     if ('sessionToken' in result && result.user) {
       onAuthenticated(result.user);
