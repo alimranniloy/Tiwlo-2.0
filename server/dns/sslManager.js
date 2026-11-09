@@ -234,7 +234,7 @@ server {
         root /var/www/tiwlo/pick/landing-page/out;
         index index.html;
         try_files $uri $uri.html $uri/ =404;
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; connect-src 'self' https:; form-action 'self' https://${PLATFORM_CONFIG.authDomain}; frame-ancestors 'none'" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; connect-src 'self' https:; form-action 'self' https://${PLATFORM_CONFIG.authDomain}; frame-ancestors 'none'" always;
     }
 
     location /api/ {

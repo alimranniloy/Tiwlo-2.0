@@ -102,6 +102,8 @@ export function DashboardShell() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-paper p-6">
         <div className="ios-card max-w-lg p-8 text-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logos/land-logo-black.png" alt="PICK" className="mx-auto h-7 w-auto" />
           <h1 className="text-xl font-semibold text-ink">PICK Admin</h1>
           <p className="mt-3 text-sm text-ink/60">{authError || 'Checking your Tiwlo administrator session…'}</p>
           {authError && (
