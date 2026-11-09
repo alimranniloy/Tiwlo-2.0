@@ -9,6 +9,14 @@ module.exports = ({ config }) => {
     ...config,
     plugins: [
       ...(config.plugins || expo.plugins || []),
+      [
+        'expo-build-properties',
+        {
+          android: {
+            enableMinifyInReleaseBuilds: false,
+          },
+        },
+      ],
       ...(androidGoogleMapsApiKey || iosGoogleMapsApiKey
         ? [
             [

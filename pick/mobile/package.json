@@ -6,6 +6,7 @@
     "@expo/vector-icons": "^15.0.2",
     "country-codes-list": "^3.2.0",
     "expo": "~58.0.23",
+    "expo-build-properties": "~58.0.12",
     "expo-constants": "~58.0.15",
     "expo-crypto": "~58.0.7",
     "expo-font": "~58.0.11",
