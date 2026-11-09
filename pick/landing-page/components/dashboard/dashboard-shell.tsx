@@ -62,16 +62,19 @@ export function DashboardShell() {
       })
       .catch((error: unknown) => {
         if (!active) return
+        const isAdminDenied = error instanceof PickAdminApiError &&
+          error.status === 403 &&
+          error.message === 'Forbidden. Admin privileges required.'
         if (error instanceof PickAdminApiError && error.status === 401) {
           setAuthError('Redirecting to Tiwlo sign-in…')
           startTiwloAuth('login')
           return
         }
-        if (error instanceof PickAdminApiError && error.status === 403 && active) {
+        if (isAdminDenied) {
           setAccessDenied(true)
         }
         setAuthError(
-          error instanceof PickAdminApiError && error.status === 403
+          isAdminDenied
             ? 'A Tiwlo admin or super admin account is required to access this dashboard.'
             : error instanceof Error ? error.message : 'Could not verify the Tiwlo administrator session.',
         )

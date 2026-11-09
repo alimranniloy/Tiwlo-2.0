@@ -132,8 +132,8 @@ function serializeUser(user, profile) {
     email: user.email || '',
     phone: profile?.phone || user.phone || '',
     avatar: user.avatar || null,
-    deliveryAddress: profile?.delivery_address || '',
-    deliveryAddressVerified: Boolean(profile?.delivery_address_verified_at && profile?.delivery_address),
+    deliveryAddress: profile?.delivery_address || user.address || user.billingDetails?.address || '',
+    deliveryAddressVerified: user.addressVerified === true,
     deliveryLatitude: profile?.delivery_latitude ?? null,
     deliveryLongitude: profile?.delivery_longitude ?? null,
     deliveryArea: profile?.delivery_area || '',
@@ -442,7 +442,7 @@ router.post('/address-verification', requireUser, async (req, res, next) => {
   const token = typeof req.body?.verificationToken === 'string'
     ? req.body.verificationToken
     : '';
-  if (!/^[A-Za-z0-9_-]{40,50}$/.test(token)) {
+  if (token && !/^[A-Za-z0-9_-]{40,50}$/.test(token)) {
     return res.status(400).json({ error: 'Verify your delivery address before continuing.' });
   }
 
@@ -452,19 +452,74 @@ router.post('/address-verification', requireUser, async (req, res, next) => {
     if (!pool) throw new Error('PostgreSQL is unavailable.');
     client = await pool.connect();
     await client.query('BEGIN');
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const verifiedResult = await client.query(
-      `DELETE FROM pick.address_verifications
-       WHERE token_hash = $1 AND tiwlo_user_id = $2
-         AND expires_at > CURRENT_TIMESTAMP
-       RETURNING formatted_address, latitude, longitude, area, postal_code,
-                 plus_code, place_id`,
-      [tokenHash, req.tiwloSession.user.id]
-    );
-    const verified = verifiedResult.rows[0];
+    let verified;
+    if (token) {
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const verifiedResult = await client.query(
+        `DELETE FROM pick.address_verifications
+         WHERE token_hash = $1 AND tiwlo_user_id = $2
+           AND expires_at > CURRENT_TIMESTAMP
+         RETURNING formatted_address, latitude, longitude, area, postal_code,
+                   plus_code, place_id`,
+        [tokenHash, req.tiwloSession.user.id]
+      );
+      verified = verifiedResult.rows[0];
+    } else {
+      const sharedVerification = await client.query(
+        `SELECT address_verified_at, address_verified_location
+         FROM system_users
+         WHERE id = $1
+         FOR SHARE`,
+        [req.tiwloSession.user.id]
+      );
+      const location = sharedVerification.rows[0]?.address_verified_location;
+      if (!sharedVerification.rows[0]?.address_verified_at || !location) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({
+          error: 'Verify your address in Tiwlo before continuing.',
+          code: 'ADDRESS_VERIFICATION_REQUIRED'
+        });
+      }
+      verified = {
+        formatted_address: location.formattedAddress,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        area: location.area,
+        postal_code: location.postalCode,
+        plus_code: location.plusCode,
+        place_id: location.placeId || ''
+      };
+    }
     if (!verified) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Address verification expired. Verify your address again.' });
+      return res.status(token ? 400 : 409).json({
+        error: token
+          ? 'Address verification expired. Verify your address again.'
+          : 'Tiwlo address verification is unavailable. Try again.'
+      });
+    }
+    if (
+      typeof verified.formatted_address !== 'string' ||
+      !verified.formatted_address.trim() ||
+      typeof verified.latitude !== 'number' ||
+      !Number.isFinite(verified.latitude) ||
+      verified.latitude < -90 ||
+      verified.latitude > 90 ||
+      typeof verified.longitude !== 'number' ||
+      !Number.isFinite(verified.longitude) ||
+      verified.longitude < -180 ||
+      verified.longitude > 180 ||
+      typeof verified.area !== 'string' ||
+      !verified.area.trim() ||
+      typeof verified.postal_code !== 'string' ||
+      !verified.postal_code.trim() ||
+      typeof verified.plus_code !== 'string' ||
+      !verified.plus_code.trim()
+    ) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        error: 'Tiwlo has not saved a complete verified address for this account.'
+      });
     }
 
     const zonesResult = await client.query(

@@ -239,6 +239,11 @@ app.use(async (req, res, next) => {
         const isAuthRequest = req.path === '/api/auth' || req.path.startsWith('/api/auth/');
         const isAddressVerificationRequest = req.path === '/api/address-verification' ||
           req.path.startsWith('/api/address-verification/');
+        const isPickProfileBootstrap = req.method === 'GET' && req.path === '/api/pick/me';
+        const isAdminApiRequest = req.path === '/api/admin' ||
+          req.path.startsWith('/api/admin/') ||
+          req.path === '/api/pick/admin' ||
+          req.path.startsWith('/api/pick/admin/');
         if (
           req.path !== '/api/graphql' &&
           isProtectedApiRequest &&
@@ -246,6 +251,7 @@ app.use(async (req, res, next) => {
           sessionData.user.identityVerified !== true &&
           !isIdentityVerificationRequest &&
           !isAddressVerificationRequest &&
+          !isAdminApiRequest &&
           !isAuthRequest
         ) {
           return res.status(403).json({
@@ -259,6 +265,8 @@ app.use(async (req, res, next) => {
           isProtectedApiRequest &&
           !isAuthRequest &&
           !isAddressVerificationRequest &&
+          !isPickProfileBootstrap &&
+          !isAdminApiRequest &&
           sessionData.user.addressVerified !== true
         ) {
           return res.status(403).json({
