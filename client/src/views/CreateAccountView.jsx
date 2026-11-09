@@ -109,7 +109,6 @@ export default function CreateAccountView({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [socialProfileLoading, setSocialProfileLoading] = useState(socialProfileMode);
-  const [pickAddressVerification, setPickAddressVerification] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [createdResult, setCreatedResult] = useState(null);
   const [copiedId, setCopiedId] = useState(false);
@@ -137,6 +136,10 @@ export default function CreateAccountView({
   const [handleError, setHandleError] = useState('');
   const [handleAvailable, setHandleAvailable] = useState(false);
   const [isCheckingHandle, setIsCheckingHandle] = useState(false);
+
+  const [phoneError, setPhoneError] = useState('');
+  const [phoneAvailable, setPhoneAvailable] = useState(false);
+  const [isCheckingPhone, setIsCheckingPhone] = useState(false);
 
   useEffect(() => {
     if (!socialProfileMode) return undefined;
@@ -320,6 +323,57 @@ export default function CreateAccountView({
     };
   }, [formData.handle, socialProfileMode, socialProfileChallengeToken]);
 
+  useEffect(() => {
+    let active = true;
+    const phone = formData.phoneNational?.trim()
+      ? `${selectedCountry.dial} ${formData.phoneNational.trim()}`
+      : (formData.phone?.trim() || '');
+    const digits = phone.replace(/\D/g, '');
+    if (!phone) {
+      setPhoneError('');
+      setPhoneAvailable(!socialProfileMode);
+      setIsCheckingPhone(false);
+      return () => { active = false; };
+    }
+    if (digits.length < 7 || digits.length > 15) {
+      setPhoneError('');
+      setPhoneAvailable(false);
+      setIsCheckingPhone(false);
+      return () => { active = false; };
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        setIsCheckingPhone(true);
+        const response = await fetch(`${API_BASE}/auth/check-phone`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || typeof result.available !== 'boolean') {
+          throw new Error(result.error || 'Could not check mobile number availability.');
+        }
+        if (!active) return;
+        setPhoneAvailable(result.available);
+        setPhoneError(result.available ? '' : 'This mobile number is already linked to an account.');
+      } catch (error) {
+        if (active) {
+          setPhoneAvailable(false);
+          setPhoneError(error.message || 'Could not check mobile number availability. Try again.');
+        }
+      } finally {
+        if (active) setIsCheckingPhone(false);
+      }
+    }, 350);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [formData.phone, formData.phoneNational, selectedCountry.dial, socialProfileMode]);
+
   // Cooldown countdown timer for OTP resend
   useEffect(() => {
     let timer;
@@ -361,8 +415,10 @@ export default function CreateAccountView({
 
   const updateField = (field, val) => {
     setFormData(prev => ({ ...prev, [field]: val }));
-    if (pickSocialProfile && ['address', 'addressLine2', 'city', 'postalCode', 'country'].includes(field)) {
-      setPickAddressVerification(null);
+    if (field === 'phone' || field === 'phoneNational' || field === 'phoneCountryCode') {
+      setPhoneError('');
+      setPhoneAvailable(false);
+      setIsCheckingPhone(false);
     }
     if (field === 'handle') {
       setHandleAvailable(false);
@@ -370,43 +426,6 @@ export default function CreateAccountView({
       setIsCheckingHandle(false);
     }
     setErrorMsg('');
-  };
-
-  const handleVerifyPickAddress = async () => {
-    const fullAddress = [
-      formData.address.trim(),
-      formData.addressLine2.trim(),
-      formData.city.trim(),
-      formData.postalCode.trim(),
-      formData.country
-    ].filter(Boolean).join(', ');
-    if (fullAddress.length < 8 || fullAddress.length > 1000) {
-      setErrorMsg('Enter a complete delivery address before verifying it.');
-      return;
-    }
-    setLoading(true);
-    setErrorMsg('');
-    try {
-      const response = await fetch(`${API_BASE}/pick/auth/verify-address`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: fullAddress })
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok || result.verified !== true || !result.verificationToken || !result.address) {
-        throw new Error(result.error || 'Google could not verify this delivery address.');
-      }
-      setPickAddressVerification({
-        token: result.verificationToken,
-        formattedAddress: result.address.formattedAddress
-      });
-      setErrorMsg('');
-    } catch (error) {
-      setPickAddressVerification(null);
-      setErrorMsg(error.message || 'Google could not verify this delivery address.');
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Password strength calculation
@@ -542,7 +561,7 @@ export default function CreateAccountView({
       }
     }
 
-    if (!formData.address.trim()) {
+    if (!pickSocialProfile && !formData.address.trim()) {
       setErrorMsg('Please enter your street address.');
       return;
     }
@@ -551,6 +570,30 @@ export default function CreateAccountView({
     const completePhone = formData.phoneNational?.trim()
       ? `${selectedCountry.dial} ${formData.phoneNational.trim()}`
       : (formData.phone?.trim() || '');
+    const phoneDigits = completePhone.replace(/\D/g, '');
+    if (completePhone && (phoneDigits.length < 7 || phoneDigits.length > 15)) {
+      setPhoneError('Enter a valid phone number.');
+      setErrorMsg('Please enter a valid phone number.');
+      return;
+    }
+    if (pickSocialProfile) {
+      let normalizedPhoneDigits = phoneDigits;
+      if (normalizedPhoneDigits.startsWith('00')) normalizedPhoneDigits = normalizedPhoneDigits.slice(2);
+      if (normalizedPhoneDigits.length === 14 && normalizedPhoneDigits.startsWith('8800')) {
+        normalizedPhoneDigits = `880${normalizedPhoneDigits.slice(4)}`;
+      }
+      if (normalizedPhoneDigits.length === 11 && normalizedPhoneDigits.startsWith('0')) {
+        normalizedPhoneDigits = `880${normalizedPhoneDigits.slice(1)}`;
+      }
+      if (!/^8801[3-9]\d{8}$/.test(normalizedPhoneDigits)) {
+        setErrorMsg('Enter a valid Bangladesh mobile number for your PICK account.');
+        return;
+      }
+    }
+    if (completePhone && (isCheckingPhone || !phoneAvailable || phoneError)) {
+      setErrorMsg(phoneError || 'Wait for the mobile number availability check to finish.');
+      return;
+    }
 
     const effectiveName = formData.accountType === 'business'
       ? formData.businessName.trim()
@@ -577,11 +620,11 @@ export default function CreateAccountView({
         setErrorMsg('Please enter a valid phone number.');
         return;
       }
-      if (!formData.city.trim() || !formData.country) {
+      if (!pickSocialProfile && (!formData.city.trim() || !formData.country)) {
         setErrorMsg('Please enter your city and country.');
         return;
       }
-      const fullAddress = [
+      const fullAddress = pickSocialProfile ? '' : [
         formData.address.trim(),
         formData.addressLine2.trim(),
         formData.city.trim(),
@@ -592,11 +635,6 @@ export default function CreateAccountView({
         setErrorMsg('Your address must be 2,000 characters or fewer.');
         return;
       }
-      if (pickSocialProfile && !pickAddressVerification?.token) {
-        setErrorMsg('Verify your delivery address with Google before continuing.');
-        return;
-      }
-
       setLoading(true);
       setErrorMsg('');
       try {
@@ -620,9 +658,6 @@ export default function CreateAccountView({
             country: formData.country,
             postalCode: formData.postalCode.trim(),
             gender: formData.gender,
-            ...(pickSocialProfile
-              ? { pickAddressVerificationToken: pickAddressVerification.token }
-              : {})
           })
         });
         const result = await response.json().catch(() => ({}));
@@ -1767,6 +1802,8 @@ export default function CreateAccountView({
                     </select>
                   </div>
 
+                  {!pickSocialProfile && (
+                    <>
                   {/* Primary Street Address */}
                   <div>
                     <label className="block text-[13px] font-medium text-[#1f1f1f] mb-1.5">
@@ -1824,26 +1861,7 @@ export default function CreateAccountView({
                       />
                     </div>
                   </div>
-                  {pickSocialProfile && (
-                    <div className="mt-3">
-                      <button
-                        type="button"
-                        onClick={handleVerifyPickAddress}
-                        disabled={loading}
-                        className={`w-full px-3.5 py-3 rounded-[4px] border text-[14px] font-medium transition-colors ${
-                          pickAddressVerification
-                            ? 'border-[#137333] bg-[#f0f7f1] text-[#137333]'
-                            : 'border-[#747775] bg-white text-[#1f1f1f] hover:bg-[#f8f9fa]'
-                        } disabled:opacity-60`}
-                      >
-                        {pickAddressVerification ? 'Delivery address verified with Google' : 'Verify delivery address with Google'}
-                      </button>
-                      {pickAddressVerification && (
-                        <p className="mt-2 text-[12px] leading-5 text-[#137333]">
-                          {pickAddressVerification.formattedAddress}
-                        </p>
-                      )}
-                    </div>
+                    </>
                   )}
 
                   {/* Phone with Country Code Selector (Google Style) */}
@@ -1939,6 +1957,21 @@ export default function CreateAccountView({
                         </>
                       )}
                     </div>
+                    {isCheckingPhone && (
+                      <p className="mt-1.5 text-[12px] text-[#5f6368]" aria-live="polite">
+                        Checking mobile number...
+                      </p>
+                    )}
+                    {phoneError && (
+                      <p className="mt-1.5 text-[12px] text-[#d93025]" role="alert">
+                        {phoneError}
+                      </p>
+                    )}
+                    {phoneAvailable && (formData.phoneNational || formData.phone) && (
+                      <p className="mt-1.5 text-[12px] text-[#137333]" aria-live="polite">
+                        This mobile number is available.
+                      </p>
+                    )}
                     <p className="text-[11px] text-[#747775] mt-1.5">
                       We will use this phone number for account security alerts and verification.
                     </p>

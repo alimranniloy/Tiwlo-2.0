@@ -200,6 +200,19 @@ export const MasterDB = {
     return result.rows.length > 0;
   },
 
+  async isSignupPhoneTaken(phone, excludeUserId = null) {
+    const key = normalizePhoneIdentifier(phone);
+    if (!key) return false;
+    const result = await queryPg(
+      `SELECT 1 FROM system_users
+       WHERE tiwlo_signup_phone_key(phone) = $1
+         AND ($2::text IS NULL OR id <> $2)
+       LIMIT 1`,
+      [key, excludeUserId]
+    );
+    return result.rows.length > 0;
+  },
+
   async updateUser(userId, updates = {}) {
     if (updates.email !== undefined) {
       if (!isPgActive()) throw new Error('PostgreSQL is unavailable; email changes are disabled.');

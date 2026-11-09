@@ -42,6 +42,8 @@ import {
   isAllowedWebSsoReturnUrl
 } from '../security/webSsoReturnUrl.js';
 import {
+  createPickAppealSession,
+  createPickMobileHandoff,
   isValidPickCodeChallenge
 } from '../../pick/routes.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
@@ -54,6 +56,7 @@ import {
   normalizePhoneIdentifier,
   normalizeSignupEmail,
   isDuplicateAccountError,
+  isDuplicatePhoneError,
   isDuplicateBrowserError
 } from '../security/signupIdentity.js';
 import { recordDuplicateSignupSignal } from '../security/signupBrowser.js';
@@ -523,6 +526,7 @@ async function completeSocialLogin(provider, req, res) {
     }));
   }
 
+  let socialIdentity = null;
   try {
     const credentials = await getSocialProviderCredentials(provider);
     if (!credentials) {
@@ -534,6 +538,7 @@ async function completeSocialLogin(provider, req, res) {
       }));
     }
     const identity = await fetchSocialProfile(provider, req.query.code, credentials);
+    socialIdentity = identity;
     const user = await findOrCreateSocialUser({
       provider,
       ...identity,
@@ -544,12 +549,15 @@ async function completeSocialLogin(provider, req, res) {
       : getSocialDefaultReturnTo(user);
     const socialData = await SocialDB.getData();
     const socialProfile = socialData.profiles?.[user.id] || {};
+    const isPickMobileLogin = socialReturnTo === PICK_MOBILE_SSO_RETURN_TO;
     if (
       !user.dateOfBirth ||
-      !user.address?.trim() ||
       !user.phone?.trim() ||
-      !user.billingDetails?.city?.trim() ||
-      !user.billingDetails?.country?.trim() ||
+      (!isPickMobileLogin && (
+        !user.address?.trim() ||
+        !user.billingDetails?.city?.trim() ||
+        !user.billingDetails?.country?.trim()
+      )) ||
       !socialProfile.handle?.trim()
     ) {
       const challengeToken = crypto.randomBytes(32).toString('base64url');
@@ -621,6 +629,22 @@ async function completeSocialLogin(provider, req, res) {
     return renderWebSsoHandoff(res, handoff.consumeUrl, handoff.code, sessionToken);
   } catch (error) {
     if (error.code === 'ACCOUNT_DISABLED') {
+      if (savedState.returnTo === PICK_MOBILE_SSO_RETURN_TO && socialIdentity?.email) {
+        try {
+          const disabledUser = await MasterDB.findUserByIdentifier(socialIdentity.email);
+          if (disabledUser?.isBanned) {
+            const callbackUrl = await createPickMobileHandoff({
+              userId: disabledUser.id,
+              codeChallenge: savedState.pickCodeChallenge,
+              state: savedState.pickState
+            });
+            res.setHeader('Cache-Control', 'no-store');
+            return res.redirect(303, callbackUrl);
+          }
+        } catch (handoffError) {
+          console.error('[SocialAuth] Could not start PICK disabled-account review flow:', handoffError.message);
+        }
+      }
       return res.redirect(getSocialLoginUrl(provider, {
         returnTo: savedState.returnTo,
         error: 'disabled',
@@ -739,7 +763,7 @@ router.post('/auth/social/complete-profile', async (req, res) => {
   const handle = typeof req.body?.handle === 'string'
     ? req.body.handle.trim().replace(/^@/, '').toLowerCase()
     : '';
-  const phone = typeof req.body?.phone === 'string' ? req.body.phone.trim() : '';
+  const requestedPhone = typeof req.body?.phone === 'string' ? req.body.phone.trim() : '';
   const city = typeof req.body?.city === 'string' ? req.body.city.trim() : '';
   const country = typeof req.body?.country === 'string' ? req.body.country.trim() : '';
   const postalCode = typeof req.body?.postalCode === 'string' ? req.body.postalCode.trim() : '';
@@ -754,11 +778,11 @@ router.post('/auth/social/complete-profile', async (req, res) => {
   if (!/^[a-z0-9_]{3,30}$/.test(handle)) {
     return res.status(422).json({ error: 'Username must be 3-30 characters and can only contain letters, numbers, and underscores.' });
   }
-  if (!address || address.length > 2000 || !city || city.length > 100 || !country || country.length > 100) {
-    return res.status(422).json({ error: 'Enter your street address, city, and country.' });
+  if (address.length > 2000 || city.length > 100 || country.length > 100) {
+    return res.status(422).json({ error: 'Some address details are too long.' });
   }
-  const phoneDigits = phone.replace(/\D/g, '');
-  if (phoneDigits.length < 7 || phoneDigits.length > 15 || phone.length > 32) {
+  const phone = normalizePhoneIdentifier(requestedPhone);
+  if (!phone || requestedPhone.length > 32) {
     return res.status(422).json({ error: 'Enter a valid phone number.' });
   }
   if (postalCode.length > 32 || gender.length > 50) {
@@ -787,29 +811,19 @@ router.post('/auth/social/complete-profile', async (req, res) => {
     }
     userId = challenge.rows[0].user_id;
     profileReturnTo = challenge.rows[0].return_to || '';
-    let verifiedPickAddress = null;
-    if (challenge.rows[0].return_to === PICK_MOBILE_SSO_RETURN_TO) {
-      const verificationToken = typeof req.body?.pickAddressVerificationToken === 'string'
-        ? req.body.pickAddressVerificationToken
-        : '';
-      if (!/^[A-Za-z0-9_-]{40,50}$/.test(verificationToken)) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'Verify your delivery address with Google before continuing.' });
-      }
-      const tokenHash = crypto.createHash('sha256').update(verificationToken).digest('hex');
-      const verified = await client.query(
-        `DELETE FROM pick.address_verifications
-         WHERE token_hash = $1 AND expires_at > CURRENT_TIMESTAMP
-         RETURNING formatted_address, latitude, longitude, area, postal_code,
-                   plus_code, place_id`,
-        [tokenHash]
-      );
-      verifiedPickAddress = verified.rows[0] || null;
-      if (!verifiedPickAddress) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'Your Google address verification expired. Verify the address again.' });
-      }
-      address = verifiedPickAddress.formatted_address;
+    const pickAppProfile = profileReturnTo === PICK_MOBILE_SSO_RETURN_TO;
+    if (pickAppProfile && !/^\+8801[3-9]\d{8}$/.test(phone)) {
+      await client.query('ROLLBACK');
+      return res.status(422).json({ error: 'Enter a valid Bangladesh mobile number.' });
+    }
+    if (!pickAppProfile && (!address || !city || !country)) {
+      await client.query('ROLLBACK');
+      return res.status(422).json({ error: 'Enter your street address, city, and country.' });
+    }
+    if (pickAppProfile) address = '';
+    if (await MasterDB.isSignupPhoneTaken(phone, userId)) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'This mobile number is already linked to an account.' });
     }
     if (await SocialDB.isHandleTaken(handle, userId)) {
       await client.query('ROLLBACK');
@@ -824,46 +838,6 @@ router.post('/auth/social/complete-profile', async (req, res) => {
        WHERE id = $1`,
       [userId, name, dateOfBirth, address, phone, city, country, postalCode]
     );
-    if (verifiedPickAddress) {
-      await client.query(
-        `INSERT INTO pick.users (tiwlo_user_id, registration_source)
-         VALUES ($1, 'tiwlo')
-         ON CONFLICT (tiwlo_user_id) DO NOTHING`,
-        [userId]
-      );
-      await client.query(
-        `INSERT INTO pick.profiles
-           (tiwlo_user_id, display_name, phone, delivery_address,
-            delivery_latitude, delivery_longitude, delivery_area,
-            delivery_postal_code, delivery_plus_code, delivery_place_id,
-            delivery_address_verified_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)
-         ON CONFLICT (tiwlo_user_id) DO UPDATE SET
-           display_name = EXCLUDED.display_name,
-           phone = EXCLUDED.phone,
-           delivery_address = EXCLUDED.delivery_address,
-           delivery_latitude = EXCLUDED.delivery_latitude,
-           delivery_longitude = EXCLUDED.delivery_longitude,
-           delivery_area = EXCLUDED.delivery_area,
-           delivery_postal_code = EXCLUDED.delivery_postal_code,
-           delivery_plus_code = EXCLUDED.delivery_plus_code,
-           delivery_place_id = EXCLUDED.delivery_place_id,
-           delivery_address_verified_at = EXCLUDED.delivery_address_verified_at,
-           updated_at = CURRENT_TIMESTAMP`,
-        [
-          userId,
-          name,
-          phone,
-          verifiedPickAddress.formatted_address,
-          verifiedPickAddress.latitude,
-          verifiedPickAddress.longitude,
-          verifiedPickAddress.area,
-          verifiedPickAddress.postal_code,
-          verifiedPickAddress.plus_code,
-          verifiedPickAddress.place_id
-        ]
-      );
-    }
     const socialProfileWrite = await client.query(
       `INSERT INTO social_profiles
          (id, tiwi_id, name, handle, location, phone, gender, birthday, updated_at)
@@ -879,7 +853,7 @@ router.post('/auth/social/complete-profile', async (req, res) => {
          birthday = EXCLUDED.birthday,
          updated_at = CURRENT_TIMESTAMP
        RETURNING id`,
-      [userId, name, `@${handle}`, `${city}, ${country}`, phone, gender || 'Rather not say', dateOfBirth]
+      [userId, name, `@${handle}`, [city, country].filter(Boolean).join(', '), phone, gender || 'Rather not say', dateOfBirth]
     );
     if (!socialProfileWrite.rows[0]) {
       throw new Error('Could not persist the social username.');
@@ -988,6 +962,9 @@ router.post('/auth/social/complete-profile', async (req, res) => {
     });
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
+    if (isDuplicatePhoneError(error)) {
+      return res.status(409).json({ error: 'This mobile number is already linked to an account.' });
+    }
     if (error.code === '23505') {
       return res.status(409).json({ error: 'That username is already taken. Choose another.' });
     }
@@ -1042,6 +1019,34 @@ router.post('/auth/check-email', async (req, res) => {
   } catch (err) {
     console.error('Check email error:', err);
     return res.status(503).json({ error: 'Email availability is temporarily unavailable.' });
+  }
+});
+
+router.post('/auth/check-phone', securityLimiters.phoneAvailability, async (req, res) => {
+  try {
+    const phone = normalizePhoneIdentifier(req.body?.phone);
+    if (!phone) {
+      return res.status(400).json({ error: 'Enter a valid phone number.' });
+    }
+    let excludeUserId = null;
+    const challengeToken = getSocialProfileChallengeToken(req);
+    if (challengeToken) {
+      const { rows } = await queryPg(
+        `SELECT user_id FROM system_social_profile_challenges
+         WHERE token_hash = $1 AND expires_at > CURRENT_TIMESTAMP`,
+        [hashSocialProfileChallenge(challengeToken)]
+      );
+      excludeUserId = rows[0]?.user_id || null;
+    }
+    const available = !(await MasterDB.isSignupPhoneTaken(phone, excludeUserId));
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({
+      available,
+      message: available ? undefined : 'This mobile number is already linked to an account.'
+    });
+  } catch (error) {
+    console.error('Check phone availability error:', error);
+    return res.status(503).json({ error: 'Phone availability is temporarily unavailable.' });
   }
 });
 
@@ -1121,46 +1126,31 @@ router.post('/auth/register', selectRegistrationGuards, async (req, res) => {
       });
     }
 
-    let billingAddress = billingDetails?.address?.trim() || address?.trim();
-    if (!billingAddress) {
+    let billingAddress = billingDetails?.address?.trim() || address?.trim() || '';
+    if (signupSource !== 'pick_app' && !billingAddress) {
       return res.status(400).json({ error: 'Billing address is required' });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
-    let accountPhone = phone?.trim() || '';
-    let verifiedPickAddress = null;
+    const requestedPhone = typeof phone === 'string' && phone.trim()
+      ? phone.trim()
+      : typeof billingDetails?.phone === 'string'
+        ? billingDetails.phone.trim()
+        : '';
+    const accountPhone = requestedPhone ? normalizePhoneIdentifier(requestedPhone) : '';
+    if (requestedPhone && !accountPhone) {
+      return res.status(400).json({ error: 'Enter a valid phone number.' });
+    }
     if (signupSource === 'pick_app') {
-      accountPhone = normalizePhoneIdentifier(accountPhone) || '';
       if (!/^\+8801[3-9]\d{8}$/.test(accountPhone)) {
         return res.status(400).json({ error: 'Enter a valid Bangladesh mobile number.' });
       }
-      const usersWithPhone = await MasterDB.getUsers();
-      if (usersWithPhone.some(user =>
-        normalizePhoneIdentifier(user.phone || '') === accountPhone
-      )) {
-        return res.status(409).json({ error: 'This mobile number is already linked to an account.' });
-      }
-
-      const verificationToken = typeof req.body?.pickAddressVerificationToken === 'string'
-        ? req.body.pickAddressVerificationToken
-        : '';
-      if (!/^[A-Za-z0-9_-]{40,50}$/.test(verificationToken)) {
-        return res.status(400).json({ error: 'Verify your delivery address with Google before creating your account.' });
-      }
-      const tokenHash = crypto.createHash('sha256').update(verificationToken).digest('hex');
-      const verifiedAddress = await queryPg(
-        `DELETE FROM pick.address_verifications
-         WHERE token_hash = $1 AND formatted_address = $2
-           AND expires_at > CURRENT_TIMESTAMP
-         RETURNING formatted_address, latitude, longitude, area, postal_code,
-                   plus_code, place_id`,
-        [tokenHash, billingAddress]
-      );
-      verifiedPickAddress = verifiedAddress.rows[0] || null;
-      if (!verifiedPickAddress) {
-        return res.status(400).json({ error: 'Your Google address verification expired. Verify the address again.' });
-      }
-      billingAddress = verifiedPickAddress.formatted_address;
+      billingAddress = '';
+    }
+    if (accountPhone && await MasterDB.isSignupPhoneTaken(accountPhone)) {
+      recordDuplicateSignupSignal(req, 'phone_already_registered')
+        .catch(error => console.warn('[Register] Could not record duplicate phone signal:', error.message));
+      return res.status(409).json({ error: 'This mobile number is already linked to an account.' });
     }
 
     // 1. Strict Email Uniqueness Check (Shield against duplicate accounts)
@@ -1208,9 +1198,7 @@ router.post('/auth/register', selectRegistrationGuards, async (req, res) => {
       address: billingAddress,
       city: billingDetails?.city || '',
       country: billingDetails?.country || '',
-      phone: signupSource === 'pick_app'
-        ? accountPhone
-        : billingDetails?.phone || phone || '',
+      phone: accountPhone,
       postalCode: billingDetails?.postalCode || ''
     };
 
@@ -1250,7 +1238,7 @@ router.post('/auth/register', selectRegistrationGuards, async (req, res) => {
             delivery_latitude, delivery_longitude, delivery_area,
             delivery_postal_code, delivery_plus_code, delivery_place_id,
             delivery_address_verified_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULL)
          ON CONFLICT (tiwlo_user_id) DO UPDATE SET
            display_name = EXCLUDED.display_name,
            phone = EXCLUDED.phone,
@@ -1261,19 +1249,19 @@ router.post('/auth/register', selectRegistrationGuards, async (req, res) => {
            delivery_postal_code = EXCLUDED.delivery_postal_code,
            delivery_plus_code = EXCLUDED.delivery_plus_code,
            delivery_place_id = EXCLUDED.delivery_place_id,
-           delivery_address_verified_at = EXCLUDED.delivery_address_verified_at,
+           delivery_address_verified_at = NULL,
            updated_at = CURRENT_TIMESTAMP`,
         [
           newUser.id,
           newUser.name || effectiveDisplayName,
           accountPhone,
-          verifiedPickAddress.formatted_address,
-          verifiedPickAddress.latitude,
-          verifiedPickAddress.longitude,
-          verifiedPickAddress.area,
-          verifiedPickAddress.postal_code,
-          verifiedPickAddress.plus_code,
-          verifiedPickAddress.place_id
+          '',
+          null,
+          null,
+          '',
+          '',
+          '',
+          ''
         ]
       );
     }
@@ -1368,6 +1356,9 @@ router.post('/auth/register', selectRegistrationGuards, async (req, res) => {
         .catch(error => console.warn('[Register] Could not record duplicate email signal:', error.message));
       return res.status(409).json({ error: 'An account already uses this email. Please sign in or recover your existing account.' });
     }
+    if (isDuplicatePhoneError(err)) {
+      return res.status(409).json({ error: 'This mobile number is already linked to an account.' });
+    }
     console.error('Registration error:', err);
     res.status(500).json({ error: 'Failed to create new account' });
   }
@@ -1446,7 +1437,7 @@ router.post('/auth/login', securityLimiters.login, securityLimiters.otpRequestIp
         userAgent: req.get('user-agent')
       });
       (await logActivity('alert', `Disabled Account Sign-In Blocked`, `Target: ${cleanId} from IP ${clientIp}`));
-      return res.status(403).json({
+      const disabledResponse = {
         error: 'Your Tiwlo Account has been disabled.',
         isBanned: true,
         email: user.email,
@@ -1456,7 +1447,11 @@ router.post('/auth/login', securityLimiters.login, securityLimiters.otpRequestIp
         tiwiId: user.tiwiId || user.storeId || null,
         banReason: user.banReason || 'Your account was disabled due to a violation of platform policies.',
         bannedAt: user.bannedAt
-      });
+      };
+      if (req.body?.clientSource === 'pick_app') {
+        disabledResponse.appealSessionToken = await createPickAppealSession(user.id);
+      }
+      return res.status(403).json(disabledResponse);
     }
 
     await BruteForceShield.recordSuccess(clientIp);

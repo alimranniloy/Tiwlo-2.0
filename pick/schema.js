@@ -30,6 +30,7 @@ export const PICK_SCHEMA_SQL = `
 
   CREATE TABLE IF NOT EXISTS pick.address_verifications (
     token_hash CHAR(64) PRIMARY KEY,
+    tiwlo_user_id VARCHAR(64) REFERENCES pick.users(tiwlo_user_id) ON DELETE CASCADE,
     input_address TEXT NOT NULL,
     formatted_address TEXT NOT NULL,
     latitude DOUBLE PRECISION NOT NULL CHECK (latitude BETWEEN -90 AND 90),
@@ -41,6 +42,8 @@ export const PICK_SCHEMA_SQL = `
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
+  ALTER TABLE pick.address_verifications
+    ADD COLUMN IF NOT EXISTS tiwlo_user_id VARCHAR(64) REFERENCES pick.users(tiwlo_user_id) ON DELETE CASCADE;
   CREATE INDEX IF NOT EXISTS pick_address_verifications_expiry_idx
     ON pick.address_verifications(expires_at);
 
@@ -194,4 +197,13 @@ export const PICK_SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS pick_mobile_sso_handoffs_expiry_idx
     ON pick.mobile_sso_handoffs(expires_at);
+
+  CREATE TABLE IF NOT EXISTS pick.account_appeal_sessions (
+    token_hash CHAR(64) PRIMARY KEY,
+    tiwlo_user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS pick_account_appeal_sessions_expiry_idx
+    ON pick.account_appeal_sessions(expires_at);
 `;

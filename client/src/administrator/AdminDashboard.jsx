@@ -19,6 +19,7 @@ import AdminIdentityVerificationPage from './AdminIdentityVerificationPage';
 import AdminSocialLoginSettings from './AdminSocialLoginSettings';
 import AdminGoogleMapsSettings from './AdminGoogleMapsSettings';
 import AdminPlatformPaymentsView from './AdminPlatformPaymentsView';
+import AdminPickAccountAppealsView from './AdminPickAccountAppealsView';
 import { Calendar, Sparkles } from 'lucide-react';
 import { useTheme } from '../config/themeConfig';
 
@@ -173,6 +174,8 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
               showToast={showToast}
               currentUser={currentUser}
             />
+          ) : activeView === 'pick-account-appeals' ? (
+            <AdminPickAccountAppealsView />
           ) : activeView === 'google-drive' ? (
             <AdminGoogleDrivePage showToast={showToast} />
           ) : activeView === 'social-login' ? (

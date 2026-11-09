@@ -1,5 +1,6 @@
 import express from 'express';
 import { MasterDB, TenantDB } from '../db/multiTenant.js';
+import { SupportDB } from '../db/supportDb.js';
 import {
   sendAccountDisabledEmail,
   sendAccountRestoredEmail,
@@ -27,6 +28,55 @@ import {
 import { getStorageSyncStatus, startStorageSync } from '../db/mediaMigration.js';
 
 const router = express.Router();
+const PICK_APPEAL_CATEGORY = 'PICK Account Appeal';
+const PICK_APPEAL_STATUSES = new Set(['OPEN', 'IN_PROGRESS', 'REJECTED', 'RESOLVED']);
+
+router.get('/pick-account-appeals', requireAdmin, async (_req, res) => {
+  try {
+    const tickets = await SupportDB.getTickets();
+    const appeals = tickets
+      .filter((ticket) => ticket.category === PICK_APPEAL_CATEGORY)
+      .sort((a, b) => Date.parse(b.createdAt || 0) - Date.parse(a.createdAt || 0));
+    return res.json({ success: true, appeals });
+  } catch (error) {
+    console.error('[Admin PICK Appeals] Could not load review requests:', error.message);
+    return res.status(503).json({ error: 'Could not load PICK account review requests.' });
+  }
+});
+
+router.patch('/pick-account-appeals/:id', requireAdmin, async (req, res) => {
+  try {
+    const status = typeof req.body?.status === 'string' ? req.body.status.toUpperCase() : '';
+    if (!PICK_APPEAL_STATUSES.has(status)) {
+      return res.status(400).json({ error: 'Choose a supported account review status.' });
+    }
+    const resolutionNotes = req.body?.resolutionNotes === undefined
+      ? ''
+      : typeof req.body.resolutionNotes === 'string'
+        ? req.body.resolutionNotes.trim()
+        : null;
+    if (resolutionNotes === null || resolutionNotes.length > 2000) {
+      return res.status(400).json({ error: 'Enter a review note with at most 2000 characters.' });
+    }
+    if (status === 'REJECTED' && !resolutionNotes) {
+      return res.status(400).json({ error: 'Add a reason before rejecting this request.' });
+    }
+    const ticket = await SupportDB.getTicketById(req.params.id);
+    if (!ticket || ticket.category !== PICK_APPEAL_CATEGORY) {
+      return res.status(404).json({ error: 'PICK account review request was not found.' });
+    }
+    const appeal = await SupportDB.updateTicket(ticket.id, {
+      status,
+      resolutionNotes,
+      reviewedBy: req.adminUser.id,
+      reviewedAt: new Date().toISOString()
+    });
+    return res.json({ success: true, appeal });
+  } catch (error) {
+    console.error('[Admin PICK Appeals] Could not update review request:', error.message);
+    return res.status(503).json({ error: 'Could not update the PICK account review request.' });
+  }
+});
 
 router.get('/storage/google-drive', requireAdmin, async (req, res) => {
   try {

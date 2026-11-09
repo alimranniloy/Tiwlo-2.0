@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 import { MasterDB } from '../server/db/multiTenant.js';
+import { SupportDB } from '../server/db/supportDb.js';
 import { getPgPool, queryPg } from '../server/db/postgres.js';
 import { getGoogleMapsApiKey } from '../server/db/googleMapsSettings.js';
 import {
@@ -63,6 +64,21 @@ export async function createPickMobileHandoff({
   return createPickCallbackUrl({ code, state });
 }
 
+export async function createPickAppealSession(userId) {
+  const user = await MasterDB.findUserByIdentifier(userId);
+  if (!user?.isBanned) throw new Error('An account review session can only be issued to a disabled account.');
+
+  const token = crypto.randomBytes(32).toString('base64url');
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  await queryPg('DELETE FROM pick.account_appeal_sessions WHERE expires_at <= CURRENT_TIMESTAMP');
+  await queryPg(
+    `INSERT INTO pick.account_appeal_sessions (token_hash, tiwlo_user_id, expires_at)
+     VALUES ($1, $2, CURRENT_TIMESTAMP + INTERVAL '24 hours')`,
+    [tokenHash, user.id]
+  );
+  return token;
+}
+
 function getSessionToken(req) {
   const authorization = req.headers.authorization;
   return (authorization?.startsWith('Bearer ') ? authorization.slice(7).trim() : '') ||
@@ -117,11 +133,14 @@ function serializeUser(user, profile) {
     phone: profile?.phone || user.phone || '',
     avatar: user.avatar || null,
     deliveryAddress: profile?.delivery_address || '',
+    deliveryAddressVerified: Boolean(profile?.delivery_address_verified_at && profile?.delivery_address),
     deliveryLatitude: profile?.delivery_latitude ?? null,
     deliveryLongitude: profile?.delivery_longitude ?? null,
     deliveryArea: profile?.delivery_area || '',
     deliveryPostalCode: profile?.delivery_postal_code || '',
-    deliveryPlusCode: profile?.delivery_plus_code || ''
+    deliveryPlusCode: profile?.delivery_plus_code || '',
+    isBanned: Boolean(user.isBanned),
+    banReason: user.banReason || ''
   };
 }
 
@@ -129,7 +148,18 @@ async function requireUser(req, res, next) {
   try {
     const session = await getTiwloSession(req);
     if (!session?.user) return res.status(401).json({ error: 'Tiwlo sign-in required.' });
-    if (session.user.isBanned) return res.status(403).json({ error: 'This Tiwlo account is disabled.' });
+    if (session.user.isBanned) {
+      const profile = await queryPg(
+        'SELECT * FROM pick.profiles WHERE tiwlo_user_id = $1',
+        [session.user.id]
+      );
+      return res.status(403).json({
+        error: 'This Tiwlo account is disabled.',
+        isBanned: true,
+        banReason: session.user.banReason || '',
+        user: serializeUser(session.user, profile.rows[0])
+      });
+    }
     req.tiwloSession = session;
     await ensurePickUser(session.user);
     return next();
@@ -163,7 +193,7 @@ router.get('/auth/mobile-start', async (req, res, next) => {
   }
 });
 
-router.post('/auth/verify-address', securityLimiters.addressVerification, async (req, res, next) => {
+router.post('/auth/verify-address', requireUser, securityLimiters.addressVerification, async (req, res, next) => {
   try {
     const address = typeof req.body?.address === 'string' ? req.body.address.trim() : '';
     const verified = await verifyGoogleAddress({
@@ -178,12 +208,13 @@ router.post('/auth/verify-address', securityLimiters.addressVerification, async 
     );
     await queryPg(
       `INSERT INTO pick.address_verifications
-         (token_hash, input_address, formatted_address, latitude, longitude,
+         (token_hash, tiwlo_user_id, input_address, formatted_address, latitude, longitude,
           area, postal_code, plus_code, place_id, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
                CURRENT_TIMESTAMP + INTERVAL '15 minutes')`,
       [
         tokenHash,
+        req.tiwloSession.user.id,
         address,
         verified.formattedAddress,
         verified.latitude,
@@ -250,26 +281,131 @@ router.post('/auth/mobile-token', async (req, res, next) => {
     if (!handoff) return res.status(401).json({ error: 'PICK sign-in link expired or already used.' });
 
     const user = await MasterDB.findUserByIdentifier(handoff.tiwlo_user_id);
-    if (!user || user.isBanned) return res.status(403).json({ error: 'This Tiwlo account is unavailable.' });
-    const { sessionToken } = await MasterDB.createSession(
-      user.id,
-      user.tiwiId || user.storeId || null,
-      user.email,
-      req
-    );
+    if (!user) return res.status(403).json({ error: 'This Tiwlo account is unavailable.' });
     await ensurePickUser(user);
     const profileResult = await queryPg(
       'SELECT * FROM pick.profiles WHERE tiwlo_user_id = $1',
       [user.id]
     );
     res.setHeader('Cache-Control', 'no-store');
+    if (user.isBanned) {
+      const appealSessionToken = await createPickAppealSession(user.id);
+      return res.json({
+        success: true,
+        appealSessionToken,
+        isBanned: true,
+        banReason: user.banReason || '',
+        user: serializeUser(user, profileResult.rows[0])
+      });
+    }
+    const { sessionToken } = await MasterDB.createSession(
+      user.id,
+      user.tiwiId || user.storeId || null,
+      user.email,
+      req
+    );
     return res.json({
       success: true,
       sessionToken,
       user: serializeUser(user, profileResult.rows[0])
     });
+
   } catch (error) {
     if (error instanceof TypeError) return res.status(400).json({ error: error.message });
+    return next(error);
+  }
+});
+
+async function requireAppealSession(req, res, next) {
+  try {
+    const session = await getTiwloSession(req);
+    if (session?.user?.isBanned) {
+      req.tiwloSession = session;
+      return next();
+    }
+    if (session?.user) {
+      return res.status(403).json({ error: 'Account review requests are only available for disabled accounts.' });
+    }
+
+    const token = getSessionToken(req);
+    if (!token) return res.status(401).json({ error: 'Tiwlo sign-in required.' });
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const { rows } = await queryPg(
+      `SELECT tiwlo_user_id FROM pick.account_appeal_sessions
+       WHERE token_hash = $1 AND expires_at > CURRENT_TIMESTAMP`,
+      [tokenHash]
+    );
+    if (!rows[0]) return res.status(401).json({ error: 'Account review session expired. Sign in again.' });
+
+    const user = await MasterDB.findUserByIdentifier(rows[0].tiwlo_user_id);
+    if (!user?.isBanned) {
+      await queryPg('DELETE FROM pick.account_appeal_sessions WHERE token_hash = $1', [tokenHash]);
+      return res.status(403).json({ error: 'Account review requests are only available for disabled accounts.' });
+    }
+    req.tiwloSession = { user };
+    return next();
+  } catch (error) {
+    return next(error);
+  }
+}
+
+const PICK_APPEAL_CATEGORY = 'PICK Account Appeal';
+
+router.get('/account-appeals', requireAppealSession, async (req, res, next) => {
+  try {
+    const tickets = await SupportDB.getTickets(req.tiwloSession.user.id);
+    const appeal = tickets
+      .filter((ticket) => ticket.category === PICK_APPEAL_CATEGORY)
+      .sort((a, b) => Date.parse(b.createdAt || 0) - Date.parse(a.createdAt || 0))[0] || null;
+    const profile = await queryPg(
+      'SELECT * FROM pick.profiles WHERE tiwlo_user_id = $1',
+      [req.tiwloSession.user.id]
+    );
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({
+      appeal,
+      user: serializeUser(req.tiwloSession.user, profile.rows[0])
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post('/account-appeals', requireAppealSession, securityLimiters.pickAccountAppeal, async (req, res, next) => {
+  try {
+    const description = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+    if (description.length < 20 || description.length > 5000) {
+      return res.status(400).json({ error: 'Describe your account review request in 20 to 5000 characters.' });
+    }
+
+    const user = req.tiwloSession.user;
+    const tickets = await SupportDB.getTickets(user.id);
+    const latestAppeal = tickets
+      .filter((ticket) => ticket.category === PICK_APPEAL_CATEGORY)
+      .sort((a, b) => Date.parse(b.createdAt || 0) - Date.parse(a.createdAt || 0))[0];
+    if (latestAppeal && String(latestAppeal.status).toUpperCase() !== 'REJECTED') {
+      return res.status(409).json({
+        error: 'Your account review request is already being handled.',
+        appeal: latestAppeal
+      });
+    }
+
+    const appeal = await SupportDB.createTicket({
+      id: `pick_appeal_${crypto.randomUUID()}`,
+      ticketId: `PICK-AP-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
+      userId: user.id,
+      userEmail: user.email || '',
+      userName: user.name || user.storeName || 'PICK customer',
+      subject: 'PICK disabled account review',
+      description,
+      category: PICK_APPEAL_CATEGORY,
+      clientSource: 'pick_app',
+      priority: 'HIGH',
+      status: 'OPEN'
+    });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(201).json({ appeal });
+  } catch (error) {
     return next(error);
   }
 });
@@ -279,6 +415,10 @@ router.post('/auth/logout', async (req, res, next) => {
     const token = getSessionToken(req);
     if (token && await MasterDB.getSession(token, req)) {
       await MasterDB.deleteSession(token);
+    }
+    if (token) {
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      await queryPg('DELETE FROM pick.account_appeal_sessions WHERE token_hash = $1', [tokenHash]);
     }
     return res.sendStatus(204);
   } catch (error) {
@@ -295,6 +435,84 @@ router.get('/me', requireUser, async (req, res, next) => {
     return res.json({ user: serializeUser(req.tiwloSession.user, profile.rows[0]) });
   } catch (error) {
     return next(error);
+  }
+});
+
+router.post('/address-verification', requireUser, async (req, res, next) => {
+  const token = typeof req.body?.verificationToken === 'string'
+    ? req.body.verificationToken
+    : '';
+  if (!/^[A-Za-z0-9_-]{40,50}$/.test(token)) {
+    return res.status(400).json({ error: 'Verify your delivery address before continuing.' });
+  }
+
+  const pool = getPgPool();
+  let client;
+  try {
+    if (!pool) throw new Error('PostgreSQL is unavailable.');
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const verifiedResult = await client.query(
+      `DELETE FROM pick.address_verifications
+       WHERE token_hash = $1 AND tiwlo_user_id = $2
+         AND expires_at > CURRENT_TIMESTAMP
+       RETURNING formatted_address, latitude, longitude, area, postal_code,
+                 plus_code, place_id`,
+      [tokenHash, req.tiwloSession.user.id]
+    );
+    const verified = verifiedResult.rows[0];
+    if (!verified) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Address verification expired. Verify your address again.' });
+    }
+
+    const zonesResult = await client.query(
+      `SELECT id, name_en AS "nameEn", name_bn AS "nameBn",
+              center_latitude AS "centerLatitude",
+              center_longitude AS "centerLongitude",
+              radius_meters AS "radiusMeters", active
+       FROM pick.coverage_zones
+       WHERE active = TRUE
+       ORDER BY radius_meters, name_en`
+    );
+    const coverage = findCoverageZone(verified.latitude, verified.longitude, zonesResult.rows);
+    const profileResult = await client.query(
+      `UPDATE pick.profiles
+       SET delivery_address = $2, delivery_latitude = $3, delivery_longitude = $4,
+           delivery_area = $5, delivery_postal_code = $6, delivery_plus_code = $7,
+           delivery_place_id = $8, delivery_address_verified_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE tiwlo_user_id = $1
+       RETURNING *`,
+      [
+        req.tiwloSession.user.id,
+        verified.formatted_address,
+        verified.latitude,
+        verified.longitude,
+        verified.area,
+        verified.postal_code,
+        verified.plus_code,
+        verified.place_id
+      ]
+    );
+    if (!profileResult.rows[0]) throw new Error('PICK profile is unavailable.');
+    if (coverage.available) {
+      await client.query(
+        'DELETE FROM pick.coverage_waitlist WHERE tiwlo_user_id = $1',
+        [req.tiwloSession.user.id]
+      );
+    }
+    await client.query('COMMIT');
+    return res.json({
+      user: serializeUser(req.tiwloSession.user, profileResult.rows[0]),
+      coverage
+    });
+  } catch (error) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
+    return next(error);
+  } finally {
+    client?.release();
   }
 });
 
@@ -319,6 +537,9 @@ router.patch('/profile', requireUser, async (req, res, next) => {
        SET display_name = COALESCE($2, display_name),
            phone = COALESCE($3, phone),
            delivery_address = COALESCE($4, delivery_address),
+           delivery_address_verified_at = CASE
+             WHEN $4 IS NOT NULL AND delivery_address IS DISTINCT FROM $4
+             THEN NULL ELSE delivery_address_verified_at END,
            updated_at = CURRENT_TIMESTAMP
        WHERE tiwlo_user_id = $1
        RETURNING *`,
@@ -805,7 +1026,9 @@ router.post('/location/reverse-geocode', requireUser, async (req, res, next) => 
       `UPDATE pick.profiles
        SET delivery_address = $2, delivery_latitude = $3, delivery_longitude = $4,
            delivery_accuracy = $5, delivery_area = $6, delivery_postal_code = $7,
-           delivery_plus_code = $8, updated_at = CURRENT_TIMESTAMP
+           delivery_plus_code = $8, delivery_place_id = $9,
+           delivery_address_verified_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
        WHERE tiwlo_user_id = $1`,
       [
         req.tiwloSession.user.id,
@@ -815,7 +1038,8 @@ router.post('/location/reverse-geocode', requireUser, async (req, res, next) => 
         accuracy,
         address.area,
         address.postalCode,
-        address.plusCode
+        address.plusCode,
+        address.placeId
       ]
     );
     if (coverage.available) {

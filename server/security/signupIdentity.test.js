@@ -29,6 +29,8 @@ test('malformed and non-string signup emails are rejected', () => {
 test('phone identifiers normalize Bangladesh national and international formats', () => {
   assert.equal(normalizePhoneIdentifier('01712 345678'), '+8801712345678');
   assert.equal(normalizePhoneIdentifier('+880 (1712) 345678'), '+8801712345678');
+  assert.equal(normalizePhoneIdentifier('+880 01712 345678'), '+8801712345678');
+  assert.equal(normalizePhoneIdentifier('00880 01712 345678'), '+8801712345678');
   assert.equal(normalizePhoneIdentifier('001 650 555 0100'), '+16505550100');
   assert.equal(normalizePhoneIdentifier('TIW-12345'), null);
   assert.equal(normalizePhoneIdentifier('123'), null);

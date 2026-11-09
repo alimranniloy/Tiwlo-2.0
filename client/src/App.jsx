@@ -14,6 +14,7 @@ import {
   getPlatformUrl,
   PLATFORM_DOMAIN,
   FREE_SUBDOMAIN_DOMAIN,
+  PICK_DASHBOARD_URL,
   isStorefrontSubdomainHost
 } from './config/platformConfig';
 import { updateSeoMetadata } from './utils/seo';
@@ -112,7 +113,10 @@ const getSafeRedirectTarget = (value) => {
     const identityDashboardUrl = new URL(`https://${FREE_SUBDOMAIN_DOMAIN}`);
     const target = new URL(value, platformUrl);
     const isRelative = value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\');
-    const isConfiguredDashboard = target.origin === dashboardUrl.origin || target.origin === identityDashboardUrl.origin;
+    const pickDashboardUrl = new URL(PICK_DASHBOARD_URL);
+    const isConfiguredDashboard = target.origin === dashboardUrl.origin ||
+      target.origin === identityDashboardUrl.origin ||
+      target.origin === pickDashboardUrl.origin;
     const isAllowedOrigin = target.origin === platformUrl.origin || isConfiguredDashboard;
     if (!isRelative && !isConfiguredDashboard) {
       return null;
@@ -141,6 +145,7 @@ const getSafeReturnToTarget = (value) => {
     const uidsDashboardUrl = new URL(getUidsDashboardUrl());
     const mailUrl = new URL(getMailUrl());
     const tpanelUrl = new URL(getTPanelUrl());
+    const pickDashboardUrl = new URL(PICK_DASHBOARD_URL);
     const isAllowedOrigin = [
       platformUrl.origin,
       dashboardUrl.origin,
@@ -148,7 +153,8 @@ const getSafeReturnToTarget = (value) => {
       mainAppUrl.origin,
       uidsDashboardUrl.origin,
       mailUrl.origin,
-      tpanelUrl.origin
+      tpanelUrl.origin,
+      pickDashboardUrl.origin
     ].includes(target.origin);
     const isLocalTarget = target.protocol === 'http:' &&
       (target.hostname === 'localhost' || target.hostname.endsWith('.localhost'));

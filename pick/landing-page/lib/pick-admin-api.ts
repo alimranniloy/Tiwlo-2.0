@@ -13,15 +13,28 @@ export async function pickAdminRequest<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const response = await fetch(`/api/pick/admin${path}`, {
-    ...init,
-    credentials: 'include',
-    cache: 'no-store',
-    headers: {
-      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
-      ...init.headers,
-    },
-  })
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), 15000)
+  let response: Response
+  try {
+    response = await fetch(`/api/pick/admin${path}`, {
+      ...init,
+      signal: controller.signal,
+      credentials: 'include',
+      cache: 'no-store',
+      headers: {
+        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+        ...init.headers,
+      },
+    })
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new PickAdminApiError('The request timed out. Check your connection and try again.', 408)
+    }
+    throw error
+  } finally {
+    window.clearTimeout(timeout)
+  }
   const result: unknown = response.status === 204
     ? null
     : await response.json().catch(() => null)

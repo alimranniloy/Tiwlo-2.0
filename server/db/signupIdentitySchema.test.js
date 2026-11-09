@@ -7,8 +7,9 @@ import { signupEmailKey } from '../security/signupIdentity.js';
 test('PostgreSQL signup enforcement handles aliases, legacy data, updates and rollback', async () => {
   const db = new PGlite();
   try {
-    await db.exec(`CREATE TABLE system_users (id TEXT PRIMARY KEY, email TEXT UNIQUE, is_banned BOOLEAN DEFAULT false);
-      INSERT INTO system_users VALUES ('legacy-1', 'old.user@gmail.com', false), ('legacy-2', 'olduser+tag@gmail.com', false);`);
+    await db.exec(`CREATE TABLE system_users (id TEXT PRIMARY KEY, email TEXT UNIQUE, phone TEXT, is_banned BOOLEAN DEFAULT false);
+      INSERT INTO system_users (id, email, is_banned)
+      VALUES ('legacy-1', 'old.user@gmail.com', false), ('legacy-2', 'olduser+tag@gmail.com', false);`);
     await db.exec(signupIdentitySchema);
     await db.exec(signupIdentitySchema); // Idempotent migration, including preexisting duplicates.
     for (const email of ['test.user+tag@gmail.com', 'testuser@googlemail.com', 'person+tag@company.com']) {
@@ -34,6 +35,29 @@ test('PostgreSQL signup enforcement handles aliases, legacy data, updates and ro
     assert.equal(burst.filter(result => result.status === 'fulfilled').length, 1);
     assert.equal(burst.filter(result => result.status === 'rejected' && result.reason.code === '23505').length, 11);
     assert.equal((await db.query("SELECT count(*)::int AS count FROM system_users WHERE tiwlo_signup_email_key(email) = 'olduser@gmail.com'")).rows[0].count, 2);
+
+    const insertPhone = (id, phone) => db.query(
+      'INSERT INTO system_users (id, email, phone) VALUES ($1, $2, $3)',
+      [id, `${id}@example.com`, phone]
+    );
+    const duplicatePhone = { code: '23505', constraint: 'system_users_signup_phone_unique' };
+    await insertPhone('phone-one', '01712 345678');
+    await assert.rejects(insertPhone('phone-two', '+880 1712 345678'), duplicatePhone);
+    await assert.rejects(insertPhone('phone-three', '+880 01712 345678'), duplicatePhone);
+    await insertPhone('phone-four', '+1 (650) 555-0100');
+    await assert.rejects(
+      db.query("UPDATE system_users SET phone = '001 650 555 0100' WHERE id = 'phone-one'"),
+      duplicatePhone
+    );
+    const phoneBurst = await Promise.allSettled(Array.from(
+      { length: 10 },
+      (_, index) => insertPhone(`phone-burst-${index}`, '+880 1812 345678')
+    ));
+    assert.equal(phoneBurst.filter(result => result.status === 'fulfilled').length, 1);
+    assert.equal(
+      phoneBurst.filter(result => result.status === 'rejected' && result.reason.code === '23505').length,
+      9
+    );
   } finally {
     await db.close();
   }

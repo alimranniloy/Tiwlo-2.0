@@ -111,6 +111,12 @@ export const securityLimiters = {
     getIdentity: (req) => signupEmailKey(req.body?.email),
     error: 'Too many signup attempts for this email. Please sign in or try again later.'
   }),
+  phoneAvailability: createLimiter({
+    policyId: 'auth_phone_availability',
+    windowMs: hour,
+    limit: 120,
+    error: 'Too many phone availability checks. Please wait and try again.'
+  }),
   registrationBrowser: createLimiter({
     policyId: 'auth_registration_browser',
     windowMs: day,
@@ -131,6 +137,13 @@ export const securityLimiters = {
     limit: 30,
     error: 'Too many sign-in requests. Please wait and try again.'
   }),
+  pickAccountAppeal: createLimiter({
+    policyId: 'pick_account_appeal',
+    windowMs: hour,
+    limit: 5,
+    getIdentity: (req) => req.tiwloSession?.user?.id,
+    error: 'Too many account review requests. Please try again later.'
+  }),
   sensitiveReauth: createLimiter({
     policyId: 'sensitive_action_reauth_account',
     windowMs: hour,
@@ -142,7 +155,10 @@ export const securityLimiters = {
     policyId: 'address_verification_account',
     windowMs: hour,
     limit: 5,
-    getIdentity: (req) => req.activeUser?.id ? `user:${req.activeUser.id}` : getClientNetwork(req),
+    getIdentity: (req) => {
+      const userId = req.activeUser?.id || req.tiwloSession?.user?.id;
+      return userId ? `user:${userId}` : getClientNetwork(req);
+    },
     error: 'Too many address verification attempts. Please try again later.'
   }),
   loginLocation: createLimiter({

@@ -16,7 +16,7 @@ import { FinanceView } from './FinanceView'
 import { BroadcastsView } from './BroadcastsView'
 import { SettingsView } from './SettingsView'
 import { pickAdminRequest, PickAdminApiError } from '@/lib/pick-admin-api'
-import { startTiwloAuth } from '@/lib/tiwlo-auth'
+import { getTiwloAuthUrl, startTiwloAuth } from '@/lib/tiwlo-auth'
 import Link from 'next/link'
 
 const AreaCoverageView = dynamic(() => import('./AreaCoverageView').then((m) => m.AreaCoverageView), {
@@ -63,6 +63,7 @@ export function DashboardShell() {
       .catch((error: unknown) => {
         if (!active) return
         if (error instanceof PickAdminApiError && error.status === 401) {
+          setAuthError('Redirecting to Tiwlo sign-in…')
           startTiwloAuth('login')
           return
         }
@@ -119,6 +120,14 @@ export function DashboardShell() {
                 Try again
               </button>
             )
+          )}
+          {authError && !accessDenied && (
+            <a
+              href={getTiwloAuthUrl('login')}
+              className="mt-3 inline-flex rounded-full border border-black/10 px-5 py-2.5 text-sm font-semibold text-ink"
+            >
+              Continue to Tiwlo login
+            </a>
           )}
         </div>
       </main>
