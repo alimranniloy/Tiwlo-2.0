@@ -36,6 +36,10 @@ export default function CreateAccountView({
   const [socialProfileMode] = useState(() =>
     new URLSearchParams(window.location.search).get('social_profile') === 'required'
   );
+  const [pickSocialProfile] = useState(() =>
+    socialProfileMode &&
+    new URLSearchParams(window.location.search).get('return_to') === 'pick://auth/callback'
+  );
   const [socialProfileChallengeToken] = useState(() =>
     new URLSearchParams(window.location.hash.slice(1)).get('social_profile_token') || ''
   );
@@ -105,6 +109,7 @@ export default function CreateAccountView({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [socialProfileLoading, setSocialProfileLoading] = useState(socialProfileMode);
+  const [pickAddressVerification, setPickAddressVerification] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [createdResult, setCreatedResult] = useState(null);
   const [copiedId, setCopiedId] = useState(false);
@@ -356,12 +361,52 @@ export default function CreateAccountView({
 
   const updateField = (field, val) => {
     setFormData(prev => ({ ...prev, [field]: val }));
+    if (pickSocialProfile && ['address', 'addressLine2', 'city', 'postalCode', 'country'].includes(field)) {
+      setPickAddressVerification(null);
+    }
     if (field === 'handle') {
       setHandleAvailable(false);
       setHandleError('');
       setIsCheckingHandle(false);
     }
     setErrorMsg('');
+  };
+
+  const handleVerifyPickAddress = async () => {
+    const fullAddress = [
+      formData.address.trim(),
+      formData.addressLine2.trim(),
+      formData.city.trim(),
+      formData.postalCode.trim(),
+      formData.country
+    ].filter(Boolean).join(', ');
+    if (fullAddress.length < 8 || fullAddress.length > 1000) {
+      setErrorMsg('Enter a complete delivery address before verifying it.');
+      return;
+    }
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const response = await fetch(`${API_BASE}/pick/auth/verify-address`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: fullAddress })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.verified !== true || !result.verificationToken || !result.address) {
+        throw new Error(result.error || 'Google could not verify this delivery address.');
+      }
+      setPickAddressVerification({
+        token: result.verificationToken,
+        formattedAddress: result.address.formattedAddress
+      });
+      setErrorMsg('');
+    } catch (error) {
+      setPickAddressVerification(null);
+      setErrorMsg(error.message || 'Google could not verify this delivery address.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Password strength calculation
@@ -547,6 +592,10 @@ export default function CreateAccountView({
         setErrorMsg('Your address must be 2,000 characters or fewer.');
         return;
       }
+      if (pickSocialProfile && !pickAddressVerification?.token) {
+        setErrorMsg('Verify your delivery address with Google before continuing.');
+        return;
+      }
 
       setLoading(true);
       setErrorMsg('');
@@ -570,7 +619,10 @@ export default function CreateAccountView({
             city: formData.city.trim(),
             country: formData.country,
             postalCode: formData.postalCode.trim(),
-            gender: formData.gender
+            gender: formData.gender,
+            ...(pickSocialProfile
+              ? { pickAddressVerificationToken: pickAddressVerification.token }
+              : {})
           })
         });
         const result = await response.json().catch(() => ({}));
@@ -581,10 +633,18 @@ export default function CreateAccountView({
           }
           throw new Error(result.error || 'Could not save your profile. Please try again.');
         }
+        const returnTo = new URLSearchParams(window.location.search).get('return_to');
+        if (result.pickAuthChallenge && await returnSocialSignInToApp({
+          returnTo,
+          challenge: result.pickAuthChallenge,
+          apiBase: API_BASE
+        })) return;
+        if (!result.sessionToken) {
+          throw new Error('Could not complete sign-in. Please try again.');
+        }
         const loginParams = new URLSearchParams({
           social_flow: '1'
         });
-        const returnTo = new URLSearchParams(window.location.search).get('return_to');
         if (await returnSocialSignInToApp({
           returnTo,
           sessionToken: result.sessionToken,
@@ -1764,6 +1824,27 @@ export default function CreateAccountView({
                       />
                     </div>
                   </div>
+                  {pickSocialProfile && (
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        onClick={handleVerifyPickAddress}
+                        disabled={loading}
+                        className={`w-full px-3.5 py-3 rounded-[4px] border text-[14px] font-medium transition-colors ${
+                          pickAddressVerification
+                            ? 'border-[#137333] bg-[#f0f7f1] text-[#137333]'
+                            : 'border-[#747775] bg-white text-[#1f1f1f] hover:bg-[#f8f9fa]'
+                        } disabled:opacity-60`}
+                      >
+                        {pickAddressVerification ? 'Delivery address verified with Google' : 'Verify delivery address with Google'}
+                      </button>
+                      {pickAddressVerification && (
+                        <p className="mt-2 text-[12px] leading-5 text-[#137333]">
+                          {pickAddressVerification.formattedAddress}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Phone with Country Code Selector (Google Style) */}
                   <div>

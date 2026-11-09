@@ -27,7 +27,13 @@ export function Navbar({ onOpenLogin }: { onOpenLogin: () => void }) {
   }
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 px-4 pt-4">
+    <header
+      className={`fixed inset-x-0 top-0 z-50 border-b px-4 pt-4 transition-all duration-300 ${
+        scrolled || open
+          ? 'border-black/10 bg-white/95 pb-3 shadow-sm backdrop-blur-xl'
+          : 'border-transparent bg-transparent'
+      }`}
+    >
       <div
         className={`mx-auto flex max-w-5xl items-center justify-between rounded-full py-2 pl-5 pr-2 transition-all duration-300 ${
           scrolled || open ? 'glass' : 'border border-transparent bg-transparent'
@@ -55,7 +61,7 @@ export function Navbar({ onOpenLogin }: { onOpenLogin: () => void }) {
             onClick={onOpenLogin}
             className="hidden h-10 items-center gap-1.5 rounded-full bg-ink px-5 text-[13px] font-semibold text-white transition-all hover:bg-black active:scale-[0.97] sm:inline-flex"
           >
-            Admin Login
+            Login
             <ArrowRight size={14} />
           </button>
           <button
@@ -87,7 +93,7 @@ export function Navbar({ onOpenLogin }: { onOpenLogin: () => void }) {
             }}
             className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-ink text-sm font-semibold text-white"
           >
-            Admin Login <ArrowRight size={15} />
+            Login <ArrowRight size={15} />
           </button>
         </div>
       )}

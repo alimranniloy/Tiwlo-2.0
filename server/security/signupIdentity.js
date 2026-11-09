@@ -20,6 +20,17 @@ export function signupEmailKey(value) {
     : email;
 }
 
+export function normalizePhoneIdentifier(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed || !/^[+()\d\s.-]+$/.test(trimmed)) return null;
+  let digits = trimmed.replace(/\D/g, '');
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  if (digits.length === 11 && digits.startsWith('0')) digits = `880${digits.slice(1)}`;
+  if (digits.length < 7 || digits.length > 15) return null;
+  return `+${digits}`;
+}
+
 export function isDuplicateAccountError(error) {
   return error?.code === 'DUPLICATE_ACCOUNT' ||
     (error?.code === '23505' && ['system_users_email_key', 'system_users_signup_email_unique'].includes(error.constraint));

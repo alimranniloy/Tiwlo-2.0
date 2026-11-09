@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeSignupEmail, signupEmailKey } from './signupIdentity.js';
+import {
+  normalizePhoneIdentifier,
+  normalizeSignupEmail,
+  signupEmailKey
+} from './signupIdentity.js';
 
 test('consumer Gmail aliases map to one signup identity', () => {
   for (const email of [' Test.User@gmail.com ', 'testuser+second@gmail.com', 'TEST.USER+tag@googlemail.com']) {
@@ -20,4 +24,12 @@ test('malformed and non-string signup emails are rejected', () => {
     `${'a'.repeat(65)}@example.com`, 'a@example.com\nBcc: other@example.com']) {
     assert.equal(normalizeSignupEmail(email), null, JSON.stringify(email));
   }
+});
+
+test('phone identifiers normalize Bangladesh national and international formats', () => {
+  assert.equal(normalizePhoneIdentifier('01712 345678'), '+8801712345678');
+  assert.equal(normalizePhoneIdentifier('+880 (1712) 345678'), '+8801712345678');
+  assert.equal(normalizePhoneIdentifier('001 650 555 0100'), '+16505550100');
+  assert.equal(normalizePhoneIdentifier('TIW-12345'), null);
+  assert.equal(normalizePhoneIdentifier('123'), null);
 });

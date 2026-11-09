@@ -1,6 +1,11 @@
 import { readState, saveState, listState } from './stateDocuments.js';
 import { randomUUID } from 'node:crypto';
-import { normalizeSignupEmail, signupEmailKey, duplicateAccountError } from '../security/signupIdentity.js';
+import {
+  normalizePhoneIdentifier,
+  normalizeSignupEmail,
+  signupEmailKey,
+  duplicateAccountError
+} from '../security/signupIdentity.js';
 import { getPgPool, isPgActive, queryPg } from './postgres.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { getStoreSubdomainAvailability, isStoreSubdomainAvailable, normalizeStoreSubdomain } from './storeSubdomain.js';
@@ -166,13 +171,20 @@ export const MasterDB = {
     if (!identifier) return null;
     const clean = identifier.trim().toLowerCase();
     const users = await this.getUsers();
-
-    return users.find(u =>
+    const directMatch = users.find(u =>
       (u.id && String(u.id).toLowerCase() === clean) ||
       (u.email && String(u.email).toLowerCase() === clean) ||
       (u.tiwiId && String(u.tiwiId).toLowerCase() === clean) ||
       (u.storeId && String(u.storeId).toLowerCase() === clean)
     );
+    if (directMatch) return directMatch;
+
+    const phone = normalizePhoneIdentifier(identifier);
+    if (!phone) return null;
+    const phoneMatches = users.filter(user =>
+      normalizePhoneIdentifier(user.phone || '') === phone
+    );
+    return phoneMatches.length === 1 ? phoneMatches[0] : null;
   },
 
   async isSignupEmailTaken(email, excludeUserId = null) {

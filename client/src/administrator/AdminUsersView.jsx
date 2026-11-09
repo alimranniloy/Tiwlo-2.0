@@ -275,6 +275,7 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
               <tr className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 bg-neutral-50/50 dark:bg-neutral-800/30 border-b border-neutral-100 dark:border-neutral-800">
                 <th className="py-2.5 px-4">User</th>
                 <th className="py-2.5 px-3">Tiwi ID</th>
+                <th className="py-2.5 px-3">Source</th>
                 <th className="py-2.5 px-3">Role</th>
                 <th className="py-2.5 px-3 text-center">Stores</th>
                 <th className="py-2.5 px-3">Plan</th>
@@ -285,18 +286,18 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
             <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/60">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-neutral-400">
+                  <td colSpan={8} className="py-12 text-center text-neutral-400">
                     <div className="w-6 h-6 border-2 border-neutral-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                     <span>Loading users (20 per page)...</span>
                   </td>
                 </tr>
               ) : fetchError ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-rose-500">{fetchError}</td>
+                  <td colSpan={8} className="py-12 text-center text-rose-500">{fetchError}</td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-neutral-400">
+                  <td colSpan={8} className="py-12 text-center text-neutral-400">
                     No users found matching your search.
                   </td>
                 </tr>
@@ -328,6 +329,17 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
                       {/* Tiwi ID */}
                       <td className="py-2.5 px-3 font-mono font-medium text-neutral-600 dark:text-neutral-400 text-[11px]">
                         {u.tiwiId}
+                      </td>
+
+                      {/* Account creation source */}
+                      <td className="py-2.5 px-3">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          u.registrationSource === 'pick_app'
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                            : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400'
+                        }`}>
+                          {u.registrationSource === 'pick_app' ? 'PICK' : 'Tiwlo'}
+                        </span>
                       </td>
 
                       {/* Role */}

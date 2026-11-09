@@ -231,6 +231,14 @@ export const registrationGuards = [
   securityLimiters.registrationBrowserMonthly
 ];
 
+export const pickRegistrationGuards = [
+  prepareSignupRequest,
+  securityLimiters.registration,
+  securityLimiters.registrationDaily,
+  securityLimiters.registrationMonthly,
+  securityLimiters.registrationEmail
+];
+
 export default {
   id: 'security',
   name: 'Tiwlo Security Controls',

@@ -3,8 +3,11 @@ export const PICK_SCHEMA_SQL = `
 
   CREATE TABLE IF NOT EXISTS pick.users (
     tiwlo_user_id VARCHAR(64) PRIMARY KEY REFERENCES system_users(id) ON DELETE CASCADE,
+    registration_source VARCHAR(32) NOT NULL DEFAULT 'tiwlo',
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
+  ALTER TABLE pick.users
+    ADD COLUMN IF NOT EXISTS registration_source VARCHAR(32) NOT NULL DEFAULT 'tiwlo';
 
   CREATE TABLE IF NOT EXISTS pick.profiles (
     tiwlo_user_id VARCHAR(64) PRIMARY KEY REFERENCES pick.users(tiwlo_user_id) ON DELETE CASCADE,
@@ -17,8 +20,29 @@ export const PICK_SCHEMA_SQL = `
     delivery_area VARCHAR(255),
     delivery_postal_code VARCHAR(32),
     delivery_plus_code VARCHAR(128),
+    delivery_place_id VARCHAR(255),
+    delivery_address_verified_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
+  ALTER TABLE pick.profiles
+    ADD COLUMN IF NOT EXISTS delivery_place_id VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS delivery_address_verified_at TIMESTAMPTZ;
+
+  CREATE TABLE IF NOT EXISTS pick.address_verifications (
+    token_hash CHAR(64) PRIMARY KEY,
+    input_address TEXT NOT NULL,
+    formatted_address TEXT NOT NULL,
+    latitude DOUBLE PRECISION NOT NULL CHECK (latitude BETWEEN -90 AND 90),
+    longitude DOUBLE PRECISION NOT NULL CHECK (longitude BETWEEN -180 AND 180),
+    area VARCHAR(255) NOT NULL,
+    postal_code VARCHAR(32) NOT NULL,
+    plus_code VARCHAR(128) NOT NULL,
+    place_id VARCHAR(255) NOT NULL DEFAULT '',
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS pick_address_verifications_expiry_idx
+    ON pick.address_verifications(expires_at);
 
   CREATE TABLE IF NOT EXISTS pick.coverage_zones (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

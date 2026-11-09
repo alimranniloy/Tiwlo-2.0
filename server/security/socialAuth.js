@@ -176,7 +176,8 @@ export async function findOrCreateSocialUser({
   name,
   avatar,
   dateOfBirth,
-  address
+  address,
+  signupSource = 'tiwlo'
 }) {
   if (!PROVIDERS.has(provider) || typeof providerUserId !== 'string' || !providerUserId.trim()) {
     throw new TypeError('The provider identity is invalid.');
@@ -213,6 +214,7 @@ export async function findOrCreateSocialUser({
       if (userId) user = await MasterDB.findUserByIdentifier(userId);
     }
 
+    let createdBySocialLogin = false;
     if (!userId) {
       const safeName = typeof name === 'string' ? name.trim().slice(0, 255) : '';
       const displayName = safeName || normalizedEmail.split('@')[0];
@@ -236,6 +238,7 @@ export async function findOrCreateSocialUser({
         );
         userId = inserted.rows[0]?.id || null;
         if (userId) {
+          createdBySocialLogin = true;
           user = {
             id: userId,
             tiwiId,
@@ -283,6 +286,14 @@ export async function findOrCreateSocialUser({
     if (!userId) throw new Error('Could not create or link the Tiwlo account.');
     user = user || await MasterDB.findUserByIdentifier(userId);
     if (!user) throw new Error('Could not resolve the Tiwlo account for this social identity.');
+    if (createdBySocialLogin && signupSource === 'pick_app') {
+      await client.query(
+        `INSERT INTO pick.users (tiwlo_user_id, registration_source)
+         VALUES ($1, 'pick_app')
+         ON CONFLICT (tiwlo_user_id) DO NOTHING`,
+        [user.id]
+      );
+    }
     const avatarUrl = typeof avatar === 'string' && avatar.startsWith('https://') ? avatar : '';
     const shouldSetAvatar = avatarUrl && (
       !user.avatar || user.avatar.startsWith('https://ui-avatars.com/')

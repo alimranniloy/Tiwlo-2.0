@@ -781,6 +781,12 @@ router.get('/users', requireAdmin, async (req, res) => {
   try {
     const rawUsers = await MasterDB.getUsers();
     const { allStores: stores } = (await getAggregatedStoreData());
+    const pickUsersResult = await queryPg(
+      `SELECT tiwlo_user_id, registration_source FROM pick.users`
+    );
+    const registrationSources = new Map(
+      pickUsersResult.rows.map(row => [row.tiwlo_user_id, row.registration_source])
+    );
 
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20)); // Strictly default 20
@@ -803,6 +809,7 @@ router.get('/users', requireAdmin, async (req, res) => {
         tiwiId: u.tiwiId || u.storeId || '',
         name: u.name || u.storeName || 'System User',
         email: u.email,
+        registrationSource: registrationSources.get(u.id) || 'tiwlo',
         role: u.role || 'owner',
         planId: u.planId || 'free',
         planName: u.planName || u.planId || 'Unknown',
@@ -826,6 +833,7 @@ router.get('/users', requireAdmin, async (req, res) => {
         u.tiwiId.toLowerCase().includes(query) ||
         String(u.email || '').toLowerCase().includes(query) ||
         u.name.toLowerCase().includes(query) ||
+        (query === 'pick' && u.registrationSource === 'pick_app') ||
         (u.id && u.id.toLowerCase().includes(query))
       );
     }

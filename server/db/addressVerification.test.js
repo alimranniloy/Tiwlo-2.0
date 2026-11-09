@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isValidLiveLocation, reverseGeocodeAddress } from './addressVerification.js';
+import {
+  isValidLiveLocation,
+  reverseGeocodeAddress,
+  verifyGoogleAddress
+} from './addressVerification.js';
 
 const googleResponse = {
   status: 'OK',
@@ -87,4 +91,50 @@ test('missing Google API key fails without requesting a non-Google fallback', as
     }
   }), /Google Maps API key is not configured/);
   assert.equal(fetchCount, 0);
+});
+
+test('typed address verification geocodes and normalizes through Google', async () => {
+  const calls = [];
+  const result = await verifyGoogleAddress({
+    address: 'House 10, Road 2, Dhaka 1212, Bangladesh',
+    apiKey: 'test-key',
+    fetchImpl: async (url) => {
+      calls.push(new URL(url));
+      if (calls.length === 1) {
+        return Response.json({
+          status: 'OK',
+          results: [{
+            place_id: 'typed-place',
+            geometry: {
+              location: { lat: 23.8103, lng: 90.4125 },
+              location_type: 'ROOFTOP'
+            }
+          }]
+        });
+      }
+      return Response.json(googleResponse);
+    }
+  });
+
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].searchParams.get('address'), 'House 10, Road 2, Dhaka 1212, Bangladesh');
+  assert.equal(calls[1].searchParams.get('latlng'), '23.8103,90.4125');
+  assert.deepEqual(result, {
+    formattedAddress: 'Dhaka 1212, Bangladesh',
+    area: 'Dhaka',
+    postalCode: '1212',
+    plusCode: '7MMG+JX Dhaka',
+    compoundPlusCode: '7MMG+JX Dhaka, Bangladesh',
+    placeId: 'typed-place',
+    latitude: 23.8103,
+    longitude: 90.4125
+  });
+});
+
+test('typed address verification rejects incomplete, unresolvable addresses', async () => {
+  await assert.rejects(verifyGoogleAddress({
+    address: 'Dhaka',
+    apiKey: 'test-key',
+    fetchImpl: async () => Response.json({ status: 'ZERO_RESULTS', results: [] })
+  }), /complete delivery address/);
 });

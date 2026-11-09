@@ -96,3 +96,63 @@ export async function reverseGeocodeAddress({
 
   throw lastError;
 }
+
+export async function verifyGoogleAddress({
+  address,
+  apiKey,
+  fetchImpl = globalThis.fetch
+}) {
+  const cleanAddress = typeof address === 'string' ? address.trim() : '';
+  if (cleanAddress.length < 8 || cleanAddress.length > 1000) {
+    throw new TypeError('Enter a complete delivery address.');
+  }
+  if (typeof apiKey !== 'string' || !apiKey.trim()) {
+    throw new Error('Google Maps API key is not configured.');
+  }
+
+  const url = new URL('https://maps.googleapis.com/maps/api/geocode/json');
+  url.searchParams.set('address', cleanAddress);
+  url.searchParams.set('region', 'bd');
+  url.searchParams.set('key', apiKey.trim());
+
+  let lastError = new Error('Google could not verify this delivery address.');
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetchImpl(url, { signal: AbortSignal.timeout(6000) });
+      if (!response.ok) {
+        throw new Error(`Google Geocoding API returned HTTP ${response.status}.`);
+      }
+
+      const result = await response.json();
+      const match = result.status === 'OK' && Array.isArray(result.results)
+        ? result.results.find(item =>
+          Number.isFinite(item.geometry?.location?.lat) &&
+          Number.isFinite(item.geometry?.location?.lng) &&
+          ['ROOFTOP', 'RANGE_INTERPOLATED', 'GEOMETRIC_CENTER', 'APPROXIMATE']
+            .includes(item.geometry?.location_type)
+        )
+        : null;
+      if (!match) {
+        throw new Error(`Google could not verify this address (${result.status || 'UNKNOWN_ERROR'}).`);
+      }
+
+      const resolved = await reverseGeocodeAddress({
+        latitude: match.geometry.location.lat,
+        longitude: match.geometry.location.lng,
+        apiKey,
+        fetchImpl
+      });
+      return {
+        ...resolved,
+        latitude: match.geometry.location.lat,
+        longitude: match.geometry.location.lng,
+        placeId: match.place_id || resolved.placeId
+      };
+    } catch (error) {
+      lastError = error;
+      if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 350));
+    }
+  }
+
+  throw lastError;
+}

@@ -3,11 +3,16 @@ import { createRequire } from 'node:module';
 import { MasterDB } from '../server/db/multiTenant.js';
 import { getPgPool, queryPg } from '../server/db/postgres.js';
 import { getGoogleMapsApiKey } from '../server/db/googleMapsSettings.js';
-import { reverseGeocodeAddress, isValidLiveLocation } from '../server/db/addressVerification.js';
+import {
+  reverseGeocodeAddress,
+  isValidLiveLocation,
+  verifyGoogleAddress
+} from '../server/db/addressVerification.js';
 import { PLATFORM_CONFIG } from '../server/config/platformConfig.js';
 import adminRoutes from './adminRoutes.js';
 import { findCoverageZone } from './coverage.js';
 import { getPickGroceryDeliveryFee, parseGroceryDeliveryFee } from './pricing.js';
+import { securityLimiters } from '../server/plugins/security/index.js';
 import {
   getPickPaymentGateway,
   registerPickPaymentRoutes,
@@ -83,23 +88,30 @@ function getLoginUrl({ codeChallenge, state, mode }) {
 }
 
 async function ensurePickUser(user) {
+  const registrationSource = user.authMethod === 'pick_credentials' ? 'pick_app' : 'tiwlo';
   await queryPg(
-    `INSERT INTO pick.users (tiwlo_user_id)
-     VALUES ($1)
+    `INSERT INTO pick.users (tiwlo_user_id, registration_source)
+     VALUES ($1, $2)
      ON CONFLICT (tiwlo_user_id) DO NOTHING`,
-    [user.id]
+    [user.id, registrationSource]
   );
   await queryPg(
-    `INSERT INTO pick.profiles (tiwlo_user_id, display_name, phone)
-     VALUES ($1, $2, $3)
+    `INSERT INTO pick.profiles (tiwlo_user_id, display_name, phone, delivery_address)
+     VALUES ($1, $2, $3, $4)
      ON CONFLICT (tiwlo_user_id) DO NOTHING`,
-    [user.id, user.name || user.storeName || '', user.phone || '']
+    [
+      user.id,
+      user.name || user.storeName || '',
+      user.phone || '',
+      user.address || user.billingDetails?.address || ''
+    ]
   );
 }
 
 function serializeUser(user, profile) {
   return {
     id: user.id,
+    tiwiId: user.tiwiId || user.storeId || '',
     name: profile?.display_name || user.name || user.storeName || '',
     email: user.email || '',
     phone: profile?.phone || user.phone || '',
@@ -147,6 +159,57 @@ router.get('/auth/mobile-start', async (req, res, next) => {
     }
     return res.redirect(303, getLoginUrl({ codeChallenge, state, mode }));
   } catch (error) {
+    return next(error);
+  }
+});
+
+router.post('/auth/verify-address', securityLimiters.addressVerification, async (req, res, next) => {
+  try {
+    const address = typeof req.body?.address === 'string' ? req.body.address.trim() : '';
+    const verified = await verifyGoogleAddress({
+      address,
+      apiKey: await getGoogleMapsApiKey()
+    });
+    const token = crypto.randomBytes(32).toString('base64url');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    await queryPg(
+      `DELETE FROM pick.address_verifications
+       WHERE expires_at <= CURRENT_TIMESTAMP`
+    );
+    await queryPg(
+      `INSERT INTO pick.address_verifications
+         (token_hash, input_address, formatted_address, latitude, longitude,
+          area, postal_code, plus_code, place_id, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
+               CURRENT_TIMESTAMP + INTERVAL '15 minutes')`,
+      [
+        tokenHash,
+        address,
+        verified.formattedAddress,
+        verified.latitude,
+        verified.longitude,
+        verified.area,
+        verified.postalCode,
+        verified.plusCode,
+        verified.placeId
+      ]
+    );
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({
+      verified: true,
+      verificationToken: token,
+      address: {
+        formattedAddress: verified.formattedAddress,
+        area: verified.area,
+        postalCode: verified.postalCode,
+        plusCode: verified.plusCode,
+        latitude: verified.latitude,
+        longitude: verified.longitude,
+        placeId: verified.placeId
+      }
+    });
+  } catch (error) {
+    if (error instanceof TypeError) return res.status(400).json({ error: error.message });
     return next(error);
   }
 });

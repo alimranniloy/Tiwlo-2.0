@@ -100,8 +100,11 @@ export async function initPgSchema() {
       CREATE TABLE IF NOT EXISTS system_social_profile_challenges (
         token_hash BYTEA PRIMARY KEY,
         user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
+        return_to TEXT NOT NULL DEFAULT '',
         expires_at TIMESTAMP WITH TIME ZONE NOT NULL
       );
+      ALTER TABLE system_social_profile_challenges
+        ADD COLUMN IF NOT EXISTS return_to TEXT NOT NULL DEFAULT '';
 
       -- Keep standalone initialization compatible with docker/init-db.sql and
       -- the fields used by MasterDB. ADD COLUMN is safe for existing installs.

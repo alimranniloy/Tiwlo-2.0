@@ -17,6 +17,7 @@ import { BroadcastsView } from './BroadcastsView'
 import { SettingsView } from './SettingsView'
 import { pickAdminRequest, PickAdminApiError } from '@/lib/pick-admin-api'
 import { startTiwloAuth } from '@/lib/tiwlo-auth'
+import Link from 'next/link'
 
 const AreaCoverageView = dynamic(() => import('./AreaCoverageView').then((m) => m.AreaCoverageView), {
   ssr: false,
@@ -49,6 +50,7 @@ export function DashboardShell() {
   const [tab, setTab] = useState<DashboardTab>('overview')
   const [user, setUser] = useState<AdminUser | null>(null)
   const [authError, setAuthError] = useState('')
+  const [accessDenied, setAccessDenied] = useState(false)
   const [logoutError, setLogoutError] = useState('')
   const [loggingOut, setLoggingOut] = useState(false)
 
@@ -63,6 +65,9 @@ export function DashboardShell() {
         if (error instanceof PickAdminApiError && error.status === 401) {
           startTiwloAuth('login')
           return
+        }
+        if (error instanceof PickAdminApiError && error.status === 403 && active) {
+          setAccessDenied(true)
         }
         setAuthError(
           error instanceof PickAdminApiError && error.status === 403
@@ -99,12 +104,21 @@ export function DashboardShell() {
           <h1 className="text-xl font-semibold text-ink">PICK Admin</h1>
           <p className="mt-3 text-sm text-ink/60">{authError || 'Checking your Tiwlo administrator session…'}</p>
           {authError && (
-            <button
-              onClick={() => startTiwloAuth('login')}
-              className="mt-5 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-white"
-            >
-              Sign in with Tiwlo
-            </button>
+            accessDenied ? (
+              <Link
+                href="/"
+                className="mt-5 inline-flex rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-white"
+              >
+                Return to PICK
+              </Link>
+            ) : (
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-5 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-white"
+              >
+                Try again
+              </button>
+            )
           )}
         </div>
       </main>

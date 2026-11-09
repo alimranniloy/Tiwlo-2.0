@@ -64,6 +64,11 @@ export default function LoginView({
     avatar: ''
   });
   const [socialProfileLoading, setSocialProfileLoading] = useState(socialAuthInitial.profileRequired);
+  const [pickSocialProfile] = useState(() =>
+    socialAuthInitial.profileRequired &&
+    new URLSearchParams(window.location.search).get('return_to') === 'pick://auth/callback'
+  );
+  const [pickAddressVerification, setPickAddressVerification] = useState(null);
   const [socialProfileChallengeToken] = useState(() =>
     new URLSearchParams(window.location.hash.slice(1)).get('social_profile_token') || ''
   );
@@ -160,6 +165,42 @@ export default function LoginView({
     return returnSocialSignInToApp({ returnTo, sessionToken, apiBase: API_BASE });
   };
 
+  const handleVerifyPickAddress = async () => {
+    const fullAddress = [
+      socialProfile.address.trim(),
+      socialProfile.addressLine2.trim(),
+      socialProfile.city.trim(),
+      socialProfile.postalCode.trim(),
+      socialProfile.country
+    ].filter(Boolean).join(', ');
+    if (fullAddress.length < 8 || fullAddress.length > 1000) {
+      setErrorMsg('Enter a complete delivery address before verifying it.');
+      return;
+    }
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const response = await fetch(`${API_BASE}/pick/auth/verify-address`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: fullAddress })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.verified !== true || !result.verificationToken || !result.address) {
+        throw new Error(result.error || 'Google could not verify this delivery address.');
+      }
+      setPickAddressVerification({
+        token: result.verificationToken,
+        formattedAddress: result.address.formattedAddress
+      });
+    } catch (error) {
+      setPickAddressVerification(null);
+      setErrorMsg(error.message || 'Google could not verify this delivery address.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCompleteSocialProfile = async (event) => {
     event.preventDefault();
     const birthYear = Number(socialProfile.birthYear);
@@ -211,6 +252,10 @@ export default function LoginView({
       setErrorMsg('Your address must be 2,000 characters or fewer.');
       return;
     }
+    if (pickSocialProfile && !pickAddressVerification?.token) {
+      setErrorMsg('Verify your delivery address with Google before continuing.');
+      return;
+    }
 
     setLoading(true);
     setErrorMsg('');
@@ -234,14 +279,25 @@ export default function LoginView({
           city: socialProfile.city.trim(),
           country: socialProfile.country,
           postalCode: socialProfile.postalCode.trim(),
-          gender: socialProfile.gender
+          gender: socialProfile.gender,
+          ...(pickSocialProfile
+            ? { pickAddressVerificationToken: pickAddressVerification.token }
+            : {})
         })
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok || !result.success || !result.sessionToken || !result.user) {
+      if (!response.ok || !result.success) {
         throw new Error(result.error || 'Could not save your required profile details.');
       }
       const returnTo = new URLSearchParams(window.location.search).get('return_to');
+      if (result.pickAuthChallenge && await returnSocialSignInToApp({
+        returnTo,
+        challenge: result.pickAuthChallenge,
+        apiBase: API_BASE
+      })) return;
+      if (!result.sessionToken || !result.user) {
+        throw new Error('Could not complete sign-in. Please try again.');
+      }
       if (await returnSocialSignInToApp({
         returnTo,
         sessionToken: result.sessionToken,
@@ -977,10 +1033,13 @@ export default function LoginView({
                     </label>
                     <select
                       value={socialProfile.country}
-                      onChange={event => setSocialProfile(current => ({
-                        ...current,
-                        country: event.target.value
-                      }))}
+                      onChange={event => {
+                        setPickAddressVerification(null);
+                        setSocialProfile(current => ({
+                          ...current,
+                          country: event.target.value
+                        }));
+                      }}
                       required
                       className="w-full cursor-pointer rounded-[4px] border border-[#747775] bg-white px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000]"
                     >
@@ -1024,10 +1083,13 @@ export default function LoginView({
                     <input
                       type="text"
                       value={socialProfile.address}
-                      onChange={event => setSocialProfile(current => ({
-                        ...current,
-                        address: event.target.value
-                      }))}
+                      onChange={event => {
+                        setPickAddressVerification(null);
+                        setSocialProfile(current => ({
+                          ...current,
+                          address: event.target.value
+                        }));
+                      }}
                       placeholder="Street address, P.O. box, company name, c/o"
                       required
                       className="w-full rounded-[4px] border border-[#747775] px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] placeholder:text-[#747775]"
@@ -1041,10 +1103,13 @@ export default function LoginView({
                     <input
                       type="text"
                       value={socialProfile.addressLine2}
-                      onChange={event => setSocialProfile(current => ({
-                        ...current,
-                        addressLine2: event.target.value
-                      }))}
+                      onChange={event => {
+                        setPickAddressVerification(null);
+                        setSocialProfile(current => ({
+                          ...current,
+                          addressLine2: event.target.value
+                        }));
+                      }}
                       placeholder="Apt, Suite, Unit, Building, Floor, etc."
                       className="w-full rounded-[4px] border border-[#747775] px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] placeholder:text-[#747775]"
                     />
@@ -1058,10 +1123,13 @@ export default function LoginView({
                       <input
                         type="text"
                         value={socialProfile.city}
-                        onChange={event => setSocialProfile(current => ({
-                          ...current,
-                          city: event.target.value
-                        }))}
+                        onChange={event => {
+                          setPickAddressVerification(null);
+                          setSocialProfile(current => ({
+                            ...current,
+                            city: event.target.value
+                          }));
+                        }}
                         placeholder="Dhaka"
                         required
                         className="w-full rounded-[4px] border border-[#747775] px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] placeholder:text-[#747775]"
@@ -1074,15 +1142,40 @@ export default function LoginView({
                       <input
                         type="text"
                         value={socialProfile.postalCode}
-                        onChange={event => setSocialProfile(current => ({
-                          ...current,
-                          postalCode: event.target.value
-                        }))}
+                        onChange={event => {
+                          setPickAddressVerification(null);
+                          setSocialProfile(current => ({
+                            ...current,
+                            postalCode: event.target.value
+                          }));
+                        }}
                         placeholder="1212"
                         className="w-full rounded-[4px] border border-[#747775] px-3.5 py-3 text-[14px] text-[#1f1f1f] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] placeholder:text-[#747775]"
                       />
                     </div>
                   </div>
+
+                  {pickSocialProfile && (
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        onClick={handleVerifyPickAddress}
+                        disabled={loading}
+                        className={`w-full rounded-[4px] border px-3.5 py-3 text-[14px] font-medium transition-colors ${
+                          pickAddressVerification
+                            ? 'border-[#137333] bg-[#f0f7f1] text-[#137333]'
+                            : 'border-[#747775] bg-white text-[#1f1f1f] hover:bg-[#f8f9fa]'
+                        } disabled:opacity-60`}
+                      >
+                        {pickAddressVerification ? 'Delivery address verified with Google' : 'Verify delivery address with Google'}
+                      </button>
+                      {pickAddressVerification && (
+                        <p className="mt-2 text-[12px] leading-5 text-[#137333]">
+                          {pickAddressVerification.formattedAddress}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   <div>
                     <label className="mb-1.5 block text-[13px] font-medium text-[#1f1f1f] dark:text-[#E3E3E3]">

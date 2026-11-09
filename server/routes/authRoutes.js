@@ -42,12 +42,20 @@ import {
   isAllowedWebSsoReturnUrl
 } from '../security/webSsoReturnUrl.js';
 import {
-  createPickMobileHandoff,
   isValidPickCodeChallenge
 } from '../../pick/routes.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
-import { securityLimiters, registrationGuards } from '../plugins/security/index.js';
-import { normalizeSignupEmail, isDuplicateAccountError, isDuplicateBrowserError } from '../security/signupIdentity.js';
+import {
+  securityLimiters,
+  registrationGuards,
+  pickRegistrationGuards
+} from '../plugins/security/index.js';
+import {
+  normalizePhoneIdentifier,
+  normalizeSignupEmail,
+  isDuplicateAccountError,
+  isDuplicateBrowserError
+} from '../security/signupIdentity.js';
 import { recordDuplicateSignupSignal } from '../security/signupBrowser.js';
 import { recordSuccessfulLoginDevice } from '../security/loginRisk.js';
 import { requireRecentReauth } from '../security/recentReauth.js';
@@ -254,6 +262,7 @@ async function createMobileSocialAuthChallenge(user) {
   return {
     type: displayedType,
     tempToken: challenge.token,
+    emailMasked: maskEmail(user.email),
     message: `Enter the 6-digit code sent to ${maskEmail(user.email)}.`
   };
 }
@@ -525,7 +534,11 @@ async function completeSocialLogin(provider, req, res) {
       }));
     }
     const identity = await fetchSocialProfile(provider, req.query.code, credentials);
-    const user = await findOrCreateSocialUser({ provider, ...identity });
+    const user = await findOrCreateSocialUser({
+      provider,
+      ...identity,
+      signupSource: savedState.returnTo === PICK_MOBILE_SSO_RETURN_TO ? 'pick_app' : 'tiwlo'
+    });
     const socialReturnTo = savedState.returnToExplicit === true
       ? savedState.returnTo
       : getSocialDefaultReturnTo(user);
@@ -544,9 +557,13 @@ async function completeSocialLogin(provider, req, res) {
         'DELETE FROM system_social_profile_challenges WHERE expires_at <= CURRENT_TIMESTAMP'
       );
       await queryPg(
-        `INSERT INTO system_social_profile_challenges (token_hash, user_id, expires_at)
-         VALUES ($1, $2, CURRENT_TIMESTAMP + INTERVAL '30 minutes')`,
-        [hashSocialProfileChallenge(challengeToken), user.id]
+        `INSERT INTO system_social_profile_challenges (token_hash, user_id, return_to, expires_at)
+         VALUES ($1, $2, $3, CURRENT_TIMESTAMP + INTERVAL '30 minutes')`,
+        [
+          hashSocialProfileChallenge(challengeToken),
+          user.id,
+          socialReturnTo === PICK_MOBILE_SSO_RETURN_TO ? PICK_MOBILE_SSO_RETURN_TO : ''
+        ]
       );
       res.cookie('tiwlo_social_profile', challengeToken, getSocialProfileChallengeCookieOptions(req));
       return res.redirect(getSocialProfileCompletionUrl(provider, {
@@ -565,6 +582,19 @@ async function completeSocialLogin(provider, req, res) {
         temp_token: challenge.tempToken,
         message: challenge.message
       }));
+    }
+    if (socialReturnTo === PICK_MOBILE_SSO_RETURN_TO) {
+      const challenge = await createMobileSocialAuthChallenge(user);
+      const callback = new URL(PICK_MOBILE_SSO_RETURN_TO);
+      callback.hash = new URLSearchParams({
+        state: savedState.pickState,
+        auth_challenge: challenge.type,
+        temp_token: challenge.tempToken,
+        email_masked: challenge.emailMasked,
+        message: challenge.message
+      }).toString();
+      res.setHeader('Cache-Control', 'no-store');
+      return res.redirect(303, callback.toString());
     }
 
     const { sessionToken } = await MasterDB.createSession(user.id, tiwiId, user.email, req);
@@ -587,15 +617,6 @@ async function completeSocialLogin(provider, req, res) {
       location: 'Dhaka, Bangladesh',
       timestamp: new Date().toUTCString()
     }).catch(error => console.error('[Login Alert Email Error]', error));
-    if (socialReturnTo === PICK_MOBILE_SSO_RETURN_TO) {
-      const callbackUrl = await createPickMobileHandoff({
-        userId: user.id,
-        codeChallenge: savedState.pickCodeChallenge,
-        state: savedState.pickState
-      });
-      res.setHeader('Cache-Control', 'no-store');
-      return res.redirect(303, callbackUrl);
-    }
     const handoff = await createWebSsoHandoff(user.id, socialReturnTo);
     return renderWebSsoHandoff(res, handoff.consumeUrl, handoff.code, sessionToken);
   } catch (error) {
@@ -713,7 +734,7 @@ router.post('/auth/social/check-handle', async (req, res) => {
 router.post('/auth/social/complete-profile', async (req, res) => {
   const challengeToken = getSocialProfileChallengeToken(req);
   const dateOfBirth = req.body?.dateOfBirth;
-  const address = typeof req.body?.address === 'string' ? req.body.address.trim() : '';
+  let address = typeof req.body?.address === 'string' ? req.body.address.trim() : '';
   const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
   const handle = typeof req.body?.handle === 'string'
     ? req.body.handle.trim().replace(/^@/, '').toLowerCase()
@@ -747,6 +768,7 @@ router.post('/auth/social/complete-profile', async (req, res) => {
   const pool = getPgPool();
   const client = await pool.connect();
   let userId;
+  let profileReturnTo = '';
   try {
     await client.query('BEGIN');
     await client.query(
@@ -754,7 +776,7 @@ router.post('/auth/social/complete-profile', async (req, res) => {
       [`social-handle:${handle}`]
     );
     const challenge = await client.query(
-      `SELECT user_id FROM system_social_profile_challenges
+      `SELECT user_id, return_to FROM system_social_profile_challenges
        WHERE token_hash = $1 AND expires_at > CURRENT_TIMESTAMP
        FOR UPDATE`,
       [hashSocialProfileChallenge(challengeToken)]
@@ -764,6 +786,31 @@ router.post('/auth/social/complete-profile', async (req, res) => {
       return res.status(401).json({ error: 'Profile completion session expired. Please sign in again.' });
     }
     userId = challenge.rows[0].user_id;
+    profileReturnTo = challenge.rows[0].return_to || '';
+    let verifiedPickAddress = null;
+    if (challenge.rows[0].return_to === PICK_MOBILE_SSO_RETURN_TO) {
+      const verificationToken = typeof req.body?.pickAddressVerificationToken === 'string'
+        ? req.body.pickAddressVerificationToken
+        : '';
+      if (!/^[A-Za-z0-9_-]{40,50}$/.test(verificationToken)) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Verify your delivery address with Google before continuing.' });
+      }
+      const tokenHash = crypto.createHash('sha256').update(verificationToken).digest('hex');
+      const verified = await client.query(
+        `DELETE FROM pick.address_verifications
+         WHERE token_hash = $1 AND expires_at > CURRENT_TIMESTAMP
+         RETURNING formatted_address, latitude, longitude, area, postal_code,
+                   plus_code, place_id`,
+        [tokenHash]
+      );
+      verifiedPickAddress = verified.rows[0] || null;
+      if (!verifiedPickAddress) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Your Google address verification expired. Verify the address again.' });
+      }
+      address = verifiedPickAddress.formatted_address;
+    }
     if (await SocialDB.isHandleTaken(handle, userId)) {
       await client.query('ROLLBACK');
       return res.status(409).json({ error: 'That username is already taken. Choose another.' });
@@ -777,6 +824,46 @@ router.post('/auth/social/complete-profile', async (req, res) => {
        WHERE id = $1`,
       [userId, name, dateOfBirth, address, phone, city, country, postalCode]
     );
+    if (verifiedPickAddress) {
+      await client.query(
+        `INSERT INTO pick.users (tiwlo_user_id, registration_source)
+         VALUES ($1, 'tiwlo')
+         ON CONFLICT (tiwlo_user_id) DO NOTHING`,
+        [userId]
+      );
+      await client.query(
+        `INSERT INTO pick.profiles
+           (tiwlo_user_id, display_name, phone, delivery_address,
+            delivery_latitude, delivery_longitude, delivery_area,
+            delivery_postal_code, delivery_plus_code, delivery_place_id,
+            delivery_address_verified_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)
+         ON CONFLICT (tiwlo_user_id) DO UPDATE SET
+           display_name = EXCLUDED.display_name,
+           phone = EXCLUDED.phone,
+           delivery_address = EXCLUDED.delivery_address,
+           delivery_latitude = EXCLUDED.delivery_latitude,
+           delivery_longitude = EXCLUDED.delivery_longitude,
+           delivery_area = EXCLUDED.delivery_area,
+           delivery_postal_code = EXCLUDED.delivery_postal_code,
+           delivery_plus_code = EXCLUDED.delivery_plus_code,
+           delivery_place_id = EXCLUDED.delivery_place_id,
+           delivery_address_verified_at = EXCLUDED.delivery_address_verified_at,
+           updated_at = CURRENT_TIMESTAMP`,
+        [
+          userId,
+          name,
+          phone,
+          verifiedPickAddress.formatted_address,
+          verifiedPickAddress.latitude,
+          verifiedPickAddress.longitude,
+          verifiedPickAddress.area,
+          verifiedPickAddress.postal_code,
+          verifiedPickAddress.plus_code,
+          verifiedPickAddress.place_id
+        ]
+      );
+    }
     const socialProfileWrite = await client.query(
       `INSERT INTO social_profiles
          (id, tiwi_id, name, handle, location, phone, gender, birthday, updated_at)
@@ -829,6 +916,24 @@ router.post('/auth/social/complete-profile', async (req, res) => {
       'DELETE FROM system_social_profile_challenges WHERE token_hash = $1',
       [hashSocialProfileChallenge(challengeToken)]
     );
+    if (profileReturnTo === PICK_MOBILE_SSO_RETURN_TO) {
+      const challenge = await createMobileSocialAuthChallenge(user);
+      clearOAuthMfaCookie(res, req);
+      res.clearCookie('tiwlo_social_profile', {
+        ...getSocialProfileChallengeCookieOptions(req),
+        maxAge: undefined
+      });
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({
+        success: true,
+        pickAuthChallenge: {
+          challengeType: challenge.type,
+          tempToken: challenge.tempToken,
+          emailMasked: challenge.emailMasked,
+          message: challenge.message
+        }
+      });
+    }
     const tiwiId = user.tiwiId || user.storeId || null;
     const { sessionToken } = await MasterDB.createSession(user.id, tiwiId, user.email, req);
     await recordSuccessfulLoginDevice(user, req).catch(error => {
@@ -956,8 +1061,26 @@ router.all('/auth/check-availability', async (req, res) => {
   }
 });
 
+function selectRegistrationGuards(req, res, next) {
+  const guards = req.body?.signupSource === 'pick_app'
+    ? pickRegistrationGuards
+    : registrationGuards;
+  let index = 0;
+  const run = (error) => {
+    if (error) return next(error);
+    const guard = guards[index++];
+    if (!guard) return next();
+    try {
+      return guard(req, res, run);
+    } catch (guardError) {
+      return next(guardError);
+    }
+  };
+  return run();
+}
+
 // Register
-router.post('/auth/register', ...registrationGuards, async (req, res) => {
+router.post('/auth/register', selectRegistrationGuards, async (req, res) => {
   try {
     if (hasUnverifiedSsoIdentity(req.body)) {
       return res.status(400).json({
@@ -981,6 +1104,7 @@ router.post('/auth/register', ...registrationGuards, async (req, res) => {
       gender,
       billingDetails,
     } = req.body;
+    const signupSource = req.body?.signupSource === 'pick_app' ? 'pick_app' : 'tiwlo';
 
     if (!email || !email.includes('@')) {
       return res.status(400).json({ error: 'A valid email address is required' });
@@ -997,12 +1121,47 @@ router.post('/auth/register', ...registrationGuards, async (req, res) => {
       });
     }
 
-    const billingAddress = billingDetails?.address?.trim() || address?.trim();
+    let billingAddress = billingDetails?.address?.trim() || address?.trim();
     if (!billingAddress) {
       return res.status(400).json({ error: 'Billing address is required' });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
+    let accountPhone = phone?.trim() || '';
+    let verifiedPickAddress = null;
+    if (signupSource === 'pick_app') {
+      accountPhone = normalizePhoneIdentifier(accountPhone) || '';
+      if (!/^\+8801[3-9]\d{8}$/.test(accountPhone)) {
+        return res.status(400).json({ error: 'Enter a valid Bangladesh mobile number.' });
+      }
+      const usersWithPhone = await MasterDB.getUsers();
+      if (usersWithPhone.some(user =>
+        normalizePhoneIdentifier(user.phone || '') === accountPhone
+      )) {
+        return res.status(409).json({ error: 'This mobile number is already linked to an account.' });
+      }
+
+      const verificationToken = typeof req.body?.pickAddressVerificationToken === 'string'
+        ? req.body.pickAddressVerificationToken
+        : '';
+      if (!/^[A-Za-z0-9_-]{40,50}$/.test(verificationToken)) {
+        return res.status(400).json({ error: 'Verify your delivery address with Google before creating your account.' });
+      }
+      const tokenHash = crypto.createHash('sha256').update(verificationToken).digest('hex');
+      const verifiedAddress = await queryPg(
+        `DELETE FROM pick.address_verifications
+         WHERE token_hash = $1 AND formatted_address = $2
+           AND expires_at > CURRENT_TIMESTAMP
+         RETURNING formatted_address, latitude, longitude, area, postal_code,
+                   plus_code, place_id`,
+        [tokenHash, billingAddress]
+      );
+      verifiedPickAddress = verifiedAddress.rows[0] || null;
+      if (!verifiedPickAddress) {
+        return res.status(400).json({ error: 'Your Google address verification expired. Verify the address again.' });
+      }
+      billingAddress = verifiedPickAddress.formatted_address;
+    }
 
     // 1. Strict Email Uniqueness Check (Shield against duplicate accounts)
     const emailTaken = await SocialDB.isEmailTaken(normalizedEmail);
@@ -1049,7 +1208,9 @@ router.post('/auth/register', ...registrationGuards, async (req, res) => {
       address: billingAddress,
       city: billingDetails?.city || '',
       country: billingDetails?.country || '',
-      phone: billingDetails?.phone || phone || '',
+      phone: signupSource === 'pick_app'
+        ? accountPhone
+        : billingDetails?.phone || phone || '',
       postalCode: billingDetails?.postalCode || ''
     };
 
@@ -1060,8 +1221,8 @@ router.post('/auth/register', ...registrationGuards, async (req, res) => {
       name: (accountType === 'business' ? (name || effectiveDisplayName) : effectiveDisplayName)?.trim(),
       businessName: businessName?.trim() || (accountType === 'business' ? effectiveDisplayName : ''),
       accountType,
-      address: address?.trim() || '',
-      phone: phone?.trim() || '',
+      address: billingAddress,
+      phone: accountPhone,
       email: normalizedEmail,
       password,
       dateOfBirth: dateOfBirth || birthday || '',
@@ -1071,10 +1232,51 @@ router.post('/auth/register', ...registrationGuards, async (req, res) => {
       planId: selectedPlan.planId,
       planName: selectedPlan.planName,
       subdomain,
-      authMethod: 'credentials',
+      authMethod: signupSource === 'pick_app' ? 'pick_credentials' : 'credentials',
       emailVerified: false,
       twoFactorEnabled: false
     });
+
+    if (signupSource === 'pick_app') {
+      await queryPg(
+        `INSERT INTO pick.users (tiwlo_user_id, registration_source)
+         VALUES ($1, 'pick_app')
+         ON CONFLICT (tiwlo_user_id) DO NOTHING`,
+        [newUser.id]
+      );
+      await queryPg(
+        `INSERT INTO pick.profiles
+           (tiwlo_user_id, display_name, phone, delivery_address,
+            delivery_latitude, delivery_longitude, delivery_area,
+            delivery_postal_code, delivery_plus_code, delivery_place_id,
+            delivery_address_verified_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)
+         ON CONFLICT (tiwlo_user_id) DO UPDATE SET
+           display_name = EXCLUDED.display_name,
+           phone = EXCLUDED.phone,
+           delivery_address = EXCLUDED.delivery_address,
+           delivery_latitude = EXCLUDED.delivery_latitude,
+           delivery_longitude = EXCLUDED.delivery_longitude,
+           delivery_area = EXCLUDED.delivery_area,
+           delivery_postal_code = EXCLUDED.delivery_postal_code,
+           delivery_plus_code = EXCLUDED.delivery_plus_code,
+           delivery_place_id = EXCLUDED.delivery_place_id,
+           delivery_address_verified_at = EXCLUDED.delivery_address_verified_at,
+           updated_at = CURRENT_TIMESTAMP`,
+        [
+          newUser.id,
+          newUser.name || effectiveDisplayName,
+          accountPhone,
+          verifiedPickAddress.formatted_address,
+          verifiedPickAddress.latitude,
+          verifiedPickAddress.longitude,
+          verifiedPickAddress.area,
+          verifiedPickAddress.postal_code,
+          verifiedPickAddress.plus_code,
+          verifiedPickAddress.place_id
+        ]
+      );
+    }
 
     // 3. Immediately Provision Unique Profile in SocialDB to prevent any profile routing collisions
     try {
@@ -1176,7 +1378,7 @@ router.post('/auth/login', securityLimiters.login, securityLimiters.otpRequestIp
   try {
     const { identifier, password } = req.body;
     if (!identifier || !password) {
-      return res.status(400).json({ error: 'Please enter both your Email/Tiwi ID and password.' });
+      return res.status(400).json({ error: 'Please enter your phone, email, or Tiwi ID and password.' });
     }
 
     const clientIp = req.ip || req.socket?.remoteAddress || '127.0.0.1';
@@ -2362,6 +2564,7 @@ router.post('/auth/sso/mobile-social-challenge', securityLimiters.otpRequestIp, 
       success: true,
       challengeType: challenge.type,
       tempToken: challenge.tempToken,
+      emailMasked: challenge.emailMasked,
       message: challenge.message
     });
   } catch (error) {
