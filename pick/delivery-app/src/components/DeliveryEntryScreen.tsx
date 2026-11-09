@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { AccountDisabledScreen } from '../../../mobile/src/screens/AccountDisabledScreen';
 import { AuthScreen } from '../../../mobile/src/screens/2_AuthScreen';
+import { SplashScreen } from '../../../mobile/src/screens/1_SplashScreen';
 import {
   clearStoredPickSession,
   getStoredPickSession,
@@ -16,12 +17,15 @@ import {
 } from '../../../mobile/src/services/auth';
 import { DeliveryApp } from '../components/DeliveryApp';
 
-export default function DeliveryEntryScreen() {
+export function DeliveryEntryScreen() {
   const [user, setUser] = useState<PickUser | null>(null);
   const [disabled, setDisabled] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [showSplash, setShowSplash] = useState(true);
   const [connectionError, setConnectionError] = useState('');
   const [retryNumber, setRetryNumber] = useState(0);
+
+  const finishSplash = useCallback(() => setShowSplash(false), []);
 
   useEffect(() => {
     let active = true;
@@ -56,6 +60,10 @@ export default function DeliveryEntryScreen() {
     setUser(disabledUser);
     setDisabled(true);
   }, []);
+
+  if (showSplash) {
+    return <SplashScreen onNext={finishSplash} />;
+  }
 
   if (checking) {
     return (

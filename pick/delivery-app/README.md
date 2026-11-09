@@ -1,6 +1,6 @@
 # PICK Delivery
 
-PICK Delivery is a separate Expo Router app for delivery partners. It shares the existing PICK/Tiwlo authentication, address verification, and account-review screens from `pick/mobile`; keep that sibling folder and its assets in the repository when bundling this app.
+PICK Delivery is a separate Expo app for delivery partners. It shares the existing PICK/Tiwlo authentication, address verification, and account-review screens from `pick/mobile`; keep that sibling folder and its assets in the repository when bundling this app. Metro resolves the shared screens against this app's single React installation to avoid duplicate React runtimes.
 
 ## Local development
 

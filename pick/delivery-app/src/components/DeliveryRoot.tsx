@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
-import { Stack } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LanguageProvider } from '../../../mobile/src/context/LanguageContext';
+import { DeliveryEntryScreen } from './DeliveryEntryScreen';
 import { ensureDeliveryNotificationChannel } from '../services/deliveryLocation';
 
 Notifications.setNotificationHandler({
@@ -15,7 +15,7 @@ Notifications.setNotificationHandler({
   })
 });
 
-export default function RootLayout() {
+export function DeliveryRoot() {
   useEffect(() => {
     ensureDeliveryNotificationChannel().catch((error: unknown) => {
       console.error('PICK Delivery notification channel setup failed:', error);
@@ -26,7 +26,7 @@ export default function RootLayout() {
     <LanguageProvider>
       <SafeAreaProvider>
         <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false, animation: 'fade' }} />
+        <DeliveryEntryScreen />
       </SafeAreaProvider>
     </LanguageProvider>
   );
