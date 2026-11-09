@@ -12,6 +12,7 @@ import { ScreenContainer, SYSTEM_INSETS } from '../../components/common/ScreenCo
 import { useLanguage } from '../../context/LanguageContext';
 import { PackageDetailsData } from './ParcelPackageDetailsScreen';
 import { RecipientData } from './ParcelRecipientScreen';
+import { getParcelCategoryName } from './parcelCategories';
 import type { PaymentMethod, PaymentProvider } from '../../services/orders';
 
 interface ParcelReviewScreenProps {
@@ -23,6 +24,7 @@ interface ParcelReviewScreenProps {
   vehicle: {
     id: string;
     name: string;
+    nameEn: string;
     price: number;
     eta: string;
     icon: IconName;
@@ -37,14 +39,15 @@ export const ParcelReviewScreen: React.FC<ParcelReviewScreenProps> = ({
   recipientData,
   vehicle,
 }) => {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
+  const isEn = language === 'en';
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
 
   const totalFare = vehicle.price;
 
   return (
     <ScreenContainer applyTopInset applyBottomInset={false}>
-      <Header title="অর্ডার নিশ্চিতকরণ" onBack={onBack} />
+      <Header title={t('Review your parcel', 'অর্ডার নিশ্চিতকরণ')} onBack={onBack} />
 
       <ScrollView
         contentContainerStyle={[
@@ -54,15 +57,16 @@ export const ParcelReviewScreen: React.FC<ParcelReviewScreenProps> = ({
         showsVerticalScrollIndicator={false}
       >
         {/* Route Details - Flat on background */}
-        <Text style={styles.sectionHeading}>ডেলিভারি রুট</Text>
+        <Text style={styles.sectionHeading}>{t('DELIVERY ROUTE', 'ডেলিভারি রুট')}</Text>
         <View style={styles.section}>
           <View style={styles.routeRow}>
             <View style={styles.pointDotGreen} />
             <View style={styles.routeInfo}>
-              <Text style={styles.routeRole}>পিকআপ</Text>
+              <Text style={styles.routeRole}>{t('PICKUP', 'পিকআপ')}</Text>
               <Text style={styles.routeAddress}>{recipientData.senderAddress}</Text>
+              <Text style={styles.routeContact}>{t('Map pin confirmed', 'ম্যাপ পিন নিশ্চিত')}</Text>
               <Text style={styles.routeContact}>
-                {recipientData.senderName} ({recipientData.senderPhone})
+                {recipientData.senderName} · {recipientData.senderPhone}
               </Text>
             </View>
           </View>
@@ -72,54 +76,66 @@ export const ParcelReviewScreen: React.FC<ParcelReviewScreenProps> = ({
           <View style={styles.routeRow}>
             <View style={styles.pointSquareBlack} />
             <View style={styles.routeInfo}>
-              <Text style={styles.routeRole}>ডেলিভারি</Text>
+              <Text style={styles.routeRole}>{t('DELIVERY', 'ডেলিভারি')}</Text>
               <Text style={styles.routeAddress}>
                 {recipientData.recipientAddress}
               </Text>
+              <Text style={styles.routeContact}>{t('Map pin confirmed', 'ম্যাপ পিন নিশ্চিত')}</Text>
               <Text style={styles.routeContact}>
-                {recipientData.recipientName} ({recipientData.recipientPhone})
+                {recipientData.recipientName} · {recipientData.recipientPhone}
               </Text>
             </View>
           </View>
         </View>
 
         {/* Package & Vehicle Summary */}
-        <Text style={styles.sectionHeading}>পার্সেল ও বাহন</Text>
+        <Text style={styles.sectionHeading}>{t('PARCEL & VEHICLE', 'পার্সেল ও বাহন')}</Text>
         <View style={styles.section}>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>বাহন</Text>
             <Text style={styles.infoValue}>
-              {vehicle.name} ({vehicle.eta})
+              {isEn ? vehicle.nameEn : vehicle.name} ({vehicle.eta})
             </Text>
           </View>
           <View style={styles.hairlineDivider} />
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>প্যাকেজের ধরন</Text>
-            <Text style={styles.infoValue}>{packageData.categoryName}</Text>
+            <Text style={styles.infoLabel}>{t('Package type', 'প্যাকেজের ধরন')}</Text>
+            <Text style={styles.infoValue}>
+              {getParcelCategoryName(packageData.categoryId, language) || packageData.categoryName}
+            </Text>
           </View>
           <View style={styles.hairlineDivider} />
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>ওজন</Text>
-            <Text style={styles.infoValue}>{packageData.weight} কেজি</Text>
+            <Text style={styles.infoLabel}>{t('Weight', 'ওজন')}</Text>
+            <Text style={styles.infoValue}>{packageData.weight} {t('kg', 'কেজি')}</Text>
+          </View>
+          <View style={styles.hairlineDivider} />
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>{t('Fare paid by', 'ভাড়া দেবেন')}</Text>
+            <Text style={styles.infoValue}>
+              {recipientData.whoPays === 'sender'
+                ? t('Sender', 'প্রেরক')
+                : t('Recipient', 'প্রাপক')}
+            </Text>
           </View>
         </View>
 
         {/* Fare Summary */}
-        <Text style={styles.sectionHeading}>ভাড়ার বিবরণ</Text>
+        <Text style={styles.sectionHeading}>{t('FARE SUMMARY', 'ভাড়ার বিবরণ')}</Text>
         <View style={styles.section}>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>ডেলিভারি চার্জ</Text>
+            <Text style={styles.infoLabel}>{t('Delivery fee', 'ডেলিভারি চার্জ')}</Text>
             <Text style={styles.infoValue}>৳{vehicle.price}</Text>
           </View>
           <View style={styles.hairlineDivider} />
           <View style={styles.infoRow}>
-            <Text style={styles.infoTotalLabel}>সর্বমোট</Text>
+            <Text style={styles.infoTotalLabel}>{t('Total', 'সর্বমোট')}</Text>
             <Text style={styles.infoTotalValue}>৳{totalFare}</Text>
           </View>
         </View>
 
         {/* Payment Method */}
-        <Text style={styles.sectionHeading}>পেমেন্ট মেথড</Text>
+        <Text style={styles.sectionHeading}>{t('PAYMENT METHOD', 'পেমেন্ট মেথড')}</Text>
         <View style={styles.section}>
           {paymentProviders.map((provider, index) => (
             <React.Fragment key={provider.id}>
@@ -166,7 +182,7 @@ export const ParcelReviewScreen: React.FC<ParcelReviewScreenProps> = ({
           activeOpacity={0.85}
         >
           <Text style={styles.primaryButtonText}>
-            অর্ডার নিশ্চিত করুন • ৳{totalFare}
+            {t('Confirm parcel', 'অর্ডার নিশ্চিত করুন')} · ৳{totalFare}
           </Text>
         </TouchableOpacity>
       </View>

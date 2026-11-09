@@ -35,6 +35,11 @@ export default function LoginView({
   onAccountDisabled,
   showToast
 }) {
+  const isPickAppSignIn = (() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('pick_account') === '1' &&
+      params.get('return_to') === 'pick://auth/callback';
+  })();
   const [socialAuthInitial] = useState(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const socialError = searchParams.get('social_error');
@@ -60,6 +65,8 @@ export default function LoginView({
   const [viewMode, setViewMode] = useState(socialAuthInitial.viewMode);
 
   const [identifier, setIdentifier] = useState('');
+  const [phoneIdentifier, setPhoneIdentifier] = useState('');
+  const [loginMethod, setLoginMethod] = useState('phone');
   const [loginPhoneCountry, setLoginPhoneCountry] = useState(
     COUNTRY_OPTIONS.find(country => country.code === 'BD') || COUNTRY_OPTIONS[0]
   );
@@ -389,15 +396,20 @@ export default function LoginView({
   // Step 1: Standard Credentials Login Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!identifier.trim() || !password) {
-      setErrorMsg('Enter a phone, email or Tiwi ID and password');
+    const loginValue = loginMethod === 'phone' ? phoneIdentifier : identifier;
+    if (!loginValue.trim() || !password) {
+      setErrorMsg(loginMethod === 'phone'
+        ? 'Enter your phone number and password'
+        : 'Enter your email or Tiwi ID and password');
       return;
     }
 
     try {
       setLoading(true);
       setErrorMsg('');
-      const loginIdentifier = normalizeLoginIdentifier(identifier, loginPhoneCountry.dial);
+      const loginIdentifier = loginMethod === 'phone'
+        ? normalizeLoginIdentifier(phoneIdentifier, loginPhoneCountry.dial)
+        : identifier.trim();
 
       const minTimer = new Promise((resolve) => setTimeout(resolve, 600));
 
@@ -422,8 +434,8 @@ export default function LoginView({
         if (authResult.data.requiresEmailVerification) {
           setEmailVerifyData({
             tempToken: authResult.data.tempToken,
-            email: authResult.data.email || identifier,
-            emailMasked: authResult.data.emailMasked || identifier,
+            email: authResult.data.email || loginValue,
+            emailMasked: authResult.data.emailMasked || loginValue,
             code: ''
           });
           setResendCountdown(60);
@@ -437,7 +449,7 @@ export default function LoginView({
         if (authResult.data.requires2FA) {
           setTwoFactorData({
             tempToken: authResult.data.tempToken,
-            email: authResult.data.email || identifier,
+            email: authResult.data.email || loginValue,
             emailMasked: authResult.data.emailMasked || 'your registered email',
             code: ''
           });
@@ -452,7 +464,7 @@ export default function LoginView({
         if (authResult.data.requires2FASetup) {
           setSetup2FAData({
             tempToken: authResult.data.tempToken,
-            email: authResult.data.email || identifier,
+            email: authResult.data.email || loginValue,
             emailMasked: authResult.data.emailMasked || 'your registered email',
             code: ''
           });
@@ -474,7 +486,7 @@ export default function LoginView({
           localStorage.removeItem('stockpro_session');
           localStorage.removeItem('stockpro_user');
           const banInfo = {
-            email: authResult.data.email || identifier,
+            email: authResult.data.email || loginValue,
             name: authResult.data.name,
             avatar: authResult.data.avatar,
             storeName: authResult.data.storeName,
@@ -1236,10 +1248,12 @@ export default function LoginView({
             <>
               <div>
                 <h1 className="text-[24px] font-normal text-[#1F1F1F] dark:text-[#E3E3E3] leading-tight">
-                  Sign in
+                  {isPickAppSignIn ? 'Continue to PICK' : 'Sign in'}
                 </h1>
                 <p className="text-[14px] text-[#444746] dark:text-[#C4C7C5] mt-1 leading-normal">
-                  to continue to Tiwlo ID
+                  {isPickAppSignIn
+                    ? 'Sign in with the Tiwlo account you want to use in PICK.'
+                    : 'to continue to Tiwlo ID'}
                 </p>
               </div>
 
@@ -1304,9 +1318,36 @@ export default function LoginView({
 
               {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Email or Tiwi ID */}
                 <div>
+                  <div className="mb-3 flex rounded-[8px] bg-[#f1f3f4] p-1 dark:bg-[#303030]">
+                    {[
+                      { value: 'phone', label: 'Phone number' },
+                      { value: 'email', label: 'Email' }
+                    ].map(option => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          setLoginMethod(option.value);
+                          if (option.value === 'email') {
+                            setLoginCountryDropdownOpen(false);
+                            setLoginCountrySearch('');
+                          }
+                        }}
+                        aria-pressed={loginMethod === option.value}
+                        className={`min-w-0 flex-1 rounded-[6px] px-3 py-2 text-[13px] font-medium transition ${
+                          loginMethod === option.value
+                            ? 'bg-white text-[#1f1f1f] shadow-sm dark:bg-[#4a4a4a] dark:text-[#E3E3E3]'
+                            : 'text-[#5f6368] dark:text-[#B8B8B8]'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
                   <div className="relative flex overflow-visible rounded-[8px] border border-[#747775] dark:border-[#8E918F] focus-within:border-[#000000] focus-within:ring-1 focus-within:ring-[#000000]">
+                    {loginMethod === 'phone' ? (
+                      <>
                     <button
                       type="button"
                       onClick={() => setLoginCountryDropdownOpen(open => !open)}
@@ -1319,13 +1360,26 @@ export default function LoginView({
                       <ChevronDown className="h-3.5 w-3.5 text-[#747775]" />
                     </button>
                     <input
-                      type="text"
-                      value={identifier}
-                      onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder="Phone, email or Tiwi ID"
+                      type="tel"
+                      value={phoneIdentifier}
+                      onChange={(e) => setPhoneIdentifier(e.target.value)}
+                      placeholder="Phone number"
                       required
                       className="w-full min-w-0 rounded-r-[7px] bg-transparent px-3 py-3.5 text-[14px] text-[#1F1F1F] outline-none transition placeholder:text-[#747775] dark:text-[#E3E3E3]"
                     />
+                      </>
+                    ) : (
+                      <input
+                        type="text"
+                        value={identifier}
+                        onChange={(e) => setIdentifier(e.target.value)}
+                        placeholder="Email or Tiwi ID"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        required
+                        className="w-full min-w-0 rounded-[7px] bg-transparent px-3 py-3.5 text-[14px] text-[#1F1F1F] outline-none transition placeholder:text-[#747775] dark:text-[#E3E3E3]"
+                      />
+                    )}
                     {loginCountryDropdownOpen && (
                       <>
                         <button
@@ -1406,6 +1460,7 @@ export default function LoginView({
                       type="button"
                       onClick={() => {
                         setErrorMsg('');
+                        if (loginMethod === 'phone') setIdentifier('');
                         setViewMode('forgot_request');
                       }}
                       className="text-[13px] font-medium text-[#000000] dark:text-[#c4c4c4] hover:underline cursor-pointer"

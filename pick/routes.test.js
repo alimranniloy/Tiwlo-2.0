@@ -2,8 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import {
+  areValidParcelPins,
   createPickCallbackUrl,
   createPickMobileHandoff,
+  getPickMobileLoginUrl,
   hashPickCodeVerifier,
   isValidPickCodeChallenge,
   parseGroceryDeliveryFee
@@ -62,6 +64,21 @@ test('validates PKCE S256 challenges and verifiers', () => {
   assert.throws(() => hashPickCodeVerifier('short'), /Invalid sign-in verifier/);
 });
 
+test('requires finite in-range pickup and delivery map pins', () => {
+  assert.equal(areValidParcelPins(
+    { latitude: 23.8103, longitude: 90.4125 },
+    { latitude: 23.7806, longitude: 90.4070 }
+  ), true);
+  assert.equal(areValidParcelPins(
+    { latitude: 23.8103, longitude: 90.4125 },
+    { latitude: null, longitude: null }
+  ), false);
+  assert.equal(areValidParcelPins(
+    { latitude: 91, longitude: 90 },
+    { latitude: 23.7806, longitude: 90.4070 }
+  ), false);
+});
+
 test('creates a callback URL containing only the one-time code and state', () => {
   const callback = new URL(createPickCallbackUrl({
     code: 'a'.repeat(43),
@@ -74,6 +91,21 @@ test('creates a callback URL containing only the one-time code and state', () =>
   assert.equal(callback.searchParams.get('code'), 'a'.repeat(43));
   assert.equal(callback.searchParams.get('state'), 'b'.repeat(43));
   assert.equal(callback.hash, '');
+});
+
+test('creates PICK login URLs that preserve the callback and force account selection', () => {
+  const url = new URL(getPickMobileLoginUrl({
+    codeChallenge: 'c'.repeat(43),
+    state: 's'.repeat(43),
+    mode: 'signup'
+  }));
+
+  assert.equal(url.pathname, '/create-account');
+  assert.equal(url.searchParams.get('return_to'), 'pick://auth/callback');
+  assert.equal(url.searchParams.get('sso_login'), '1');
+  assert.equal(url.searchParams.get('pick_code_challenge'), 'c'.repeat(43));
+  assert.equal(url.searchParams.get('pick_state'), 's'.repeat(43));
+  assert.equal(url.searchParams.get('pick_account'), '1');
 });
 
 test('stores only a hashed, expiring one-time handoff code', async () => {

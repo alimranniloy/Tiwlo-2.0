@@ -72,6 +72,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated, offline
   const [mode, setMode] = useState<AuthMode>('login');
   const [step, setStep] = useState<AuthStep>('form');
   const [email, setEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [loginMethod, setLoginMethod] = useState<'phone' | 'email'>('phone');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [challenge, setChallenge] = useState<AuthChallenge | null>(null);
@@ -146,7 +148,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated, offline
   };
 
   const handleSubmit = () => run(async () => {
-    beginChallenge(await loginPickAccount(normalizePhoneIdentifier(email, selectedCountry.dial), password));
+    const identifier = loginMethod === 'phone'
+      ? normalizePhoneIdentifier(phoneNumber, selectedCountry.dial)
+      : email.trim();
+    beginChallenge(await loginPickAccount(identifier, password));
   });
 
   const handleTiwloSignUp = () => run(async () => {
@@ -345,29 +350,66 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated, offline
                 {t('Welcome back', 'আবার স্বাগতম')}
               </Text>
               <Text style={styles.helperText}>
-                {t('Sign in with your phone, email or Tiwi ID.', 'ফোন, ইমেইল অথবা Tiwi ID দিয়ে লগইন করুন।')}
+                {t('Sign in with your phone or email.', 'ফোন অথবা ইমেইল দিয়ে লগইন করুন।')}
               </Text>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.label}>{t('Phone, email or Tiwi ID', 'ফোন, ইমেইল অথবা Tiwi ID')}</Text>
+                <View style={styles.loginMethodRow}>
+                  {(['phone', 'email'] as const).map((method) => {
+                    const selected = loginMethod === method;
+                    return (
+                      <TouchableOpacity
+                        key={method}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                        style={[
+                          styles.loginMethodButton,
+                          selected && styles.loginMethodButtonSelected
+                        ]}
+                        onPress={() => setLoginMethod(method)}
+                        disabled={busy}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[
+                          styles.loginMethodText,
+                          selected && styles.loginMethodTextSelected
+                        ]}>
+                          {method === 'phone'
+                            ? t('Phone number', 'ফোন নম্বর')
+                            : t('Email', 'ইমেইল')}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <Text style={styles.label}>
+                  {loginMethod === 'phone'
+                    ? t('Phone number', 'ফোন নম্বর')
+                    : t('Email or Tiwi ID', 'ইমেইল অথবা Tiwi ID')}
+                </Text>
                 <View style={styles.phoneInputRow}>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel={t('Choose country calling code', 'দেশের কলিং কোড বেছে নিন')}
-                    style={styles.countryCodeButton}
-                    onPress={() => setCountryPickerVisible(true)}
-                    disabled={busy}
-                  >
-                    <Text style={styles.countryFlag}>{selectedCountry.flag}</Text>
-                    <Text style={styles.countryDial}>{selectedCountry.dial}</Text>
-                    <Text style={styles.countryChevron}>⌄</Text>
-                  </TouchableOpacity>
+                  {loginMethod === 'phone' && (
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityLabel={t('Choose country calling code', 'দেশের কলিং কোড বেছে নিন')}
+                      style={styles.countryCodeButton}
+                      onPress={() => setCountryPickerVisible(true)}
+                      disabled={busy}
+                    >
+                      <Text style={styles.countryFlag}>{selectedCountry.flag}</Text>
+                      <Text style={styles.countryDial}>{selectedCountry.dial}</Text>
+                      <Text style={styles.countryChevron}>⌄</Text>
+                    </TouchableOpacity>
+                  )}
                   <TextInput
                     style={styles.phoneInput}
-                    value={email}
-                    onChangeText={setEmail}
-                    placeholder={t('Phone, email or Tiwi ID', 'ফোন, ইমেইল অথবা Tiwi ID')}
+                    value={loginMethod === 'phone' ? phoneNumber : email}
+                    onChangeText={loginMethod === 'phone' ? setPhoneNumber : setEmail}
+                    placeholder={loginMethod === 'phone'
+                      ? t('Phone number', 'ফোন নম্বর')
+                      : t('Email or Tiwi ID', 'ইমেইল অথবা Tiwi ID')}
                     placeholderTextColor="#A1A1AA"
+                    keyboardType={loginMethod === 'phone' ? 'phone-pad' : 'email-address'}
                     autoCapitalize="none"
                     autoCorrect={false}
                     editable={!busy}
@@ -378,6 +420,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated, offline
               <TouchableOpacity
                 style={styles.forgotLink}
                 onPress={() => {
+                  if (loginMethod === 'phone') setEmail('');
                   setStep('forgot_request');
                   setError('');
                   setNotice('');
@@ -685,6 +728,30 @@ const styles = StyleSheet.create({
   },
   fieldGroup: { marginBottom: 15 },
   label: { fontSize: 13, fontWeight: '600', color: '#3F3F46', marginBottom: 7 },
+  loginMethodRow: {
+    flexDirection: 'row',
+    padding: 4,
+    marginBottom: 12,
+    backgroundColor: '#F4F4F5',
+    borderRadius: 9
+  },
+  loginMethodButton: {
+    flex: 1,
+    minHeight: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 6
+  },
+  loginMethodButtonSelected: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1
+  },
+  loginMethodText: { color: '#71717A', fontSize: 13, fontWeight: '600' },
+  loginMethodTextSelected: { color: '#09090B' },
   input: {
     minHeight: 50,
     borderWidth: 1,

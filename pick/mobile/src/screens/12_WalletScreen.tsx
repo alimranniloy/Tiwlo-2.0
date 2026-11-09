@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   StyleSheet,
@@ -9,15 +10,20 @@ import { Header } from '../components/common/Header';
 import { BottomNav } from '../components/common/BottomNav';
 import { ScreenContainer, SYSTEM_INSETS } from '../components/common/ScreenContainer';
 import { useLanguage } from '../context/LanguageContext';
+import type { PaymentProvider } from '../services/orders';
 
 interface WalletScreenProps {
   onBack: () => void;
   onTabPress: (tab: string) => void;
+  paymentProviders: PaymentProvider[];
+  paymentProvidersLoading: boolean;
 }
 
 export const WalletScreen: React.FC<WalletScreenProps> = ({
   onBack,
   onTabPress,
+  paymentProviders,
+  paymentProvidersLoading,
 }) => {
   const { t } = useLanguage();
 
@@ -45,14 +51,38 @@ export const WalletScreen: React.FC<WalletScreenProps> = ({
           </Text>
         </View>
 
-        {/* Payment Methods */}
+        {/* Tiwlo platform payment gateways available for PICK orders */}
         <Text style={styles.sectionHeading}>
-          {t('Payment Methods', 'পেমেন্ট মেথড')}
+          {t('Online payment methods', 'অনলাইন পেমেন্ট')}
         </Text>
         <View style={styles.section}>
-          <Text style={styles.methodDetails}>
-            {t('No payment methods are connected', 'কোনো পেমেন্ট পদ্ধতি সংযুক্ত নেই')}
-          </Text>
+          {paymentProvidersLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#09090B" />
+            </View>
+          ) : paymentProviders.length > 0 ? (
+            paymentProviders.map((provider, index) => (
+              <React.Fragment key={provider.id}>
+                {index > 0 && <View style={styles.hairlineDivider} />}
+                <View style={styles.methodRow}>
+                  <View style={styles.methodInfo}>
+                    <Text style={styles.methodName}>{provider.name}</Text>
+                    <Text style={styles.methodDetails}>
+                      {t('Available for PICK orders', 'PICK অর্ডারের জন্য চালু আছে')}
+                    </Text>
+                  </View>
+                  <Text style={styles.currency}>{provider.currency}</Text>
+                </View>
+              </React.Fragment>
+            ))
+          ) : (
+            <Text style={styles.methodDetails}>
+              {t(
+                'No online gateway is currently enabled for PICK orders',
+                'PICK অর্ডারের জন্য এখন কোনো অনলাইন গেটওয়ে চালু নেই'
+              )}
+            </Text>
+          )}
         </View>
 
         {/* Transactions */}
@@ -132,6 +162,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
   },
+  loadingContainer: {
+    minHeight: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   methodInfo: {
     flex: 1,
     marginLeft: 12,
@@ -145,6 +180,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#71717A',
     marginTop: 2,
+  },
+  currency: {
+    color: '#71717A',
+    fontSize: 12,
+    fontWeight: '600',
   },
   txRow: {
     flexDirection: 'row',

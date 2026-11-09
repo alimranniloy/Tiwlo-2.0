@@ -11,6 +11,7 @@ export interface ParcelVehicle {
   eta: string;
   capacity: string;
   capacityEn: string;
+  maxWeightKg: number;
   icon: IconName;
 }
 
@@ -66,9 +67,21 @@ export async function getParcelVehicles(): Promise<ParcelVehicle[]> {
       eta: `${etaMinutes} min`,
       capacity: `${maxWeight} কেজি পর্যন্ত`,
       capacityEn: `Up to ${maxWeight} kg`,
+      maxWeightKg: maxWeight,
       icon
     };
   });
+}
+
+export async function getParcelAddressForPin(latitude: number, longitude: number): Promise<string> {
+  const result = await parcelRequest('/location/parcel-geocode', {
+    method: 'POST',
+    body: JSON.stringify({ latitude, longitude })
+  });
+  if (typeof result.address !== 'string' || !result.address.trim()) {
+    throw new Error('The PICK server could not resolve this map pin to an address.');
+  }
+  return result.address.trim();
 }
 
 export async function createParcelOrder(input: {
@@ -88,7 +101,12 @@ export async function createParcelOrder(input: {
     name: string;
     phone: string;
     address: string;
+    latitude: number | null;
+    longitude: number | null;
     floor: string;
+    senderAddress: string;
+    senderLatitude: number | null;
+    senderLongitude: number | null;
     senderFloor: string;
     requirePin: boolean;
     whoPays: 'sender' | 'recipient';

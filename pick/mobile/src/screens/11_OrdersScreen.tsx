@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   StyleSheet,
@@ -45,7 +46,9 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({
     `${isEn ? item.nameEn : item.nameBn} (${item.quantity} ${isEn ? item.unitEn : item.unitBn})`
   ).join(', ') || (
     order.parcelDetails
-      ? `${isEn ? order.parcelDetails.package?.categoryName || 'Parcel' : order.parcelDetails.package?.categoryName || 'পার্সেল'}${
+      ? `${isEn
+        ? order.parcelDetails.package?.categoryNameEn || order.parcelDetails.package?.categoryName || 'Parcel'
+        : order.parcelDetails.package?.categoryNameBn || order.parcelDetails.package?.categoryName || 'পার্সেল'}${
         order.parcelDetails.recipient?.address ? ` • ${order.parcelDetails.recipient.address}` : ''
       }`
       : ''
@@ -97,7 +100,9 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({
         ]}
       >
         {loading ? (
-          <Text style={styles.orderItems}>{t('Loading orders...', 'অর্ডার লোড হচ্ছে...')}</Text>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#09090B" />
+          </View>
         ) : visibleOrders.length === 0 ? (
           <AnimatedEmptyState
             animation="orders"
@@ -208,6 +213,11 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 20,
     paddingTop: 8,
+  },
+  loadingContainer: {
+    minHeight: 320,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   orderRow: {
     paddingVertical: 18,

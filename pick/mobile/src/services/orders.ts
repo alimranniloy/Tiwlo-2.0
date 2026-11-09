@@ -48,9 +48,29 @@ export interface PickOrder {
   createdAt: string;
   items: PickOrderItem[];
   parcelDetails?: {
-    sender?: { name?: string; phone?: string; address?: string; floor?: string };
-    recipient?: { name?: string; phone?: string; address?: string; floor?: string };
-    package?: { categoryName?: string; weight?: number; declaredValue?: number };
+    sender?: {
+      name?: string;
+      phone?: string;
+      address?: string;
+      latitude?: number;
+      longitude?: number;
+      floor?: string;
+    };
+    recipient?: {
+      name?: string;
+      phone?: string;
+      address?: string;
+      latitude?: number;
+      longitude?: number;
+      floor?: string;
+    };
+    package?: {
+      categoryName?: string;
+      categoryNameEn?: string;
+      categoryNameBn?: string;
+      weight?: number;
+      declaredValue?: number;
+    };
     vehicle?: { id?: string; nameEn?: string; nameBn?: string };
   };
 }

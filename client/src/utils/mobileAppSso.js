@@ -24,6 +24,8 @@ async function returnPickSignInToApp({ returnTo, sessionToken, challenge, apiBas
     throw new Error('Could not start PICK security verification.');
   }
 
+  localStorage.removeItem('stockpro_session');
+  localStorage.removeItem('stockpro_user');
   const state = new URLSearchParams(window.location.search).get('pick_state') || '';
   const callback = new URL(PICK_APP_CALLBACK);
   callback.hash = new URLSearchParams({

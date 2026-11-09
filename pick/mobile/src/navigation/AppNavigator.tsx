@@ -9,10 +9,13 @@ import { LocationPermissionScreen } from '../screens/3_LocationPermissionScreen'
 import { CoverageAvailableScreen } from '../screens/CoverageAvailableScreen';
 import { CoverageUnavailableScreen } from '../screens/CoverageUnavailableScreen';
 import { NoNetworkScreen } from '../screens/NoNetworkScreen';
+import { ParcelLandingScreen } from '../screens/ParcelLandingScreen';
+import { RainDelayScreen } from '../screens/RainDelayScreen';
 import { HomeScreen } from '../screens/5_HomeScreen';
 import { SendParcelScreen, VehicleOption } from '../screens/6_SendParcelScreen';
 import { ParcelPackageDetailsScreen, PackageDetailsData } from '../screens/parcel/ParcelPackageDetailsScreen';
 import { ParcelRecipientScreen, RecipientData } from '../screens/parcel/ParcelRecipientScreen';
+import { ParcelLocationPickerScreen, ParcelLocationKind } from '../screens/parcel/ParcelLocationPickerScreen';
 import { ParcelReviewScreen } from '../screens/parcel/ParcelReviewScreen';
 import { FoodRestaurantsScreen } from '../screens/7_FoodRestaurantsScreen';
 import { ProductDetailScreen } from '../screens/8_ProductDetailScreen';
@@ -58,10 +61,13 @@ export type ScreenKey =
   | 'location_permission'
   | 'location_success'
   | 'coverage_unavailable'
+  | 'rain_delay'
   | 'home'
+  | 'parcel_intro'
   | 'send_parcel'
   | 'parcel_package_details'
   | 'parcel_recipient'
+  | 'parcel_location_picker'
   | 'parcel_review'
   | 'food_restaurants'
   | 'product_detail'
@@ -94,6 +100,7 @@ export const AppNavigator: React.FC = () => {
   const [cart, setCart] = useState<CartEntry[]>([]);
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
   const [paymentProviders, setPaymentProviders] = useState<PaymentProvider[]>([]);
+  const [paymentProvidersLoading, setPaymentProvidersLoading] = useState(false);
   const [orders, setOrders] = useState<PickOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -116,10 +123,14 @@ export const AppNavigator: React.FC = () => {
     senderName: '',
     senderPhone: '',
     senderAddress: '',
+    senderLatitude: null,
+    senderLongitude: null,
     senderFloor: '',
     recipientName: '',
     recipientPhone: '',
     recipientAddress: '',
+    recipientLatitude: null,
+    recipientLongitude: null,
     recipientFloor: '',
     requirePin: true,
     whoPays: 'sender',
@@ -127,6 +138,7 @@ export const AppNavigator: React.FC = () => {
   });
 
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleOption | null>(null);
+  const [editingParcelLocation, setEditingParcelLocation] = useState<ParcelLocationKind>('pickup');
 
   const currentScreen = history[history.length - 1] ?? 'home';
   const currentUserId = user?.id;
@@ -195,7 +207,9 @@ export const AppNavigator: React.FC = () => {
   }, [currentScreen, isOffline, showNotice, user]);
 
   useEffect(() => {
-    if (isOffline || !['orders', 'order_tracking'].includes(currentScreen) || !user) return;
+    if (isOffline ||
+        !['orders', 'order_tracking', 'parcel_intro'].includes(currentScreen) ||
+        !user) return;
     let active = true;
     getOrders()
       .then((result) => {
@@ -218,7 +232,8 @@ export const AppNavigator: React.FC = () => {
   }, [currentScreen, isOffline, showNotice, user]);
 
   useEffect(() => {
-    if (isOffline || !user || !['checkout', 'parcel_review'].includes(currentScreen)) return;
+    if (isOffline || !user ||
+        !['checkout', 'parcel_review', 'wallet'].includes(currentScreen)) return;
     let active = true;
     getPaymentProviders()
       .then((providers) => {
@@ -231,6 +246,9 @@ export const AppNavigator: React.FC = () => {
             error instanceof Error ? error.message : 'Could not load Tiwlo payment methods.'
           );
         }
+      })
+      .finally(() => {
+        if (active) setPaymentProvidersLoading(false);
       });
     return () => {
       active = false;
@@ -286,7 +304,13 @@ export const AppNavigator: React.FC = () => {
   const navigate = useCallback((screen: ScreenKey) => {
     if (currentScreen === screen) return;
     if (screen === 'checkout') setDeliveryFee(null);
-    if (screen === 'orders' || screen === 'order_tracking') setOrdersLoading(true);
+    if (screen === 'orders' || screen === 'order_tracking' || screen === 'parcel_intro') {
+      setOrdersLoading(true);
+    }
+    if (['checkout', 'parcel_review', 'wallet'].includes(screen)) {
+      setPaymentProvidersLoading(true);
+      setPaymentProviders([]);
+    }
     if (screen === 'send_parcel') setParcelVehiclesLoading(true);
 
     if (['home', 'orders', 'wallet', 'profile'].includes(screen)) {
@@ -341,7 +365,7 @@ export const AppNavigator: React.FC = () => {
         navigate('profile');
         break;
       case 'parcel':
-        navigate('send_parcel');
+        navigate('parcel_intro');
         break;
       default:
         navigate('home');
@@ -354,7 +378,9 @@ export const AppNavigator: React.FC = () => {
       ...current,
       senderName: signedInUser.name,
       senderPhone: signedInUser.phone,
-      senderAddress: signedInUser.deliveryAddress
+      senderAddress: signedInUser.deliveryAddress,
+      senderLatitude: signedInUser.deliveryLatitude,
+      senderLongitude: signedInUser.deliveryLongitude
     }));
     if (signedInUser.isBanned) {
       replaceScreen('account_disabled');
@@ -371,7 +397,7 @@ export const AppNavigator: React.FC = () => {
         return;
       }
       setDeliveryCoverage(savedCoverage.coverage);
-      replaceScreen(savedCoverage.coverage.available ? 'home' : 'coverage_unavailable');
+      replaceScreen(savedCoverage.coverage.available ? 'rain_delay' : 'coverage_unavailable');
     } catch (error) {
       showNotice(
         'Coverage unavailable',
@@ -411,7 +437,9 @@ export const AppNavigator: React.FC = () => {
     setWaitlistError('');
     setRecipientData((current) => ({
       ...current,
-      senderAddress: result.user.deliveryAddress
+      senderAddress: result.user.deliveryAddress,
+      senderLatitude: result.user.deliveryLatitude,
+      senderLongitude: result.user.deliveryLongitude
     }));
     replaceScreen(result.coverage.available ? 'location_success' : 'coverage_unavailable');
   };
@@ -425,7 +453,9 @@ export const AppNavigator: React.FC = () => {
           ...current,
           senderName: session.user.name,
           senderPhone: session.user.phone,
-          senderAddress: session.user.deliveryAddress
+          senderAddress: session.user.deliveryAddress,
+          senderLatitude: session.user.deliveryLatitude,
+          senderLongitude: session.user.deliveryLongitude
         }));
         await routeSignedInUser(session.user);
       } else {
@@ -487,7 +517,7 @@ export const AppNavigator: React.FC = () => {
         if (!savedCoverage.coverage.available && currentScreen !== 'coverage_unavailable') {
           setHistory(['coverage_unavailable']);
         } else if (savedCoverage.coverage.available && currentScreen === 'coverage_unavailable') {
-          setHistory(['home']);
+          setHistory(['rain_delay']);
         }
       } catch (error) {
         if (error instanceof PickAccountDisabledError) {
@@ -520,7 +550,9 @@ export const AppNavigator: React.FC = () => {
       setUser((current) => current ? { ...current, ...address } : current);
       setRecipientData((current) => ({
         ...current,
-        senderAddress: address.deliveryAddress
+        senderAddress: address.deliveryAddress,
+        senderLatitude: address.deliveryLatitude,
+        senderLongitude: address.deliveryLongitude
       }));
       replaceScreen(coverage.available ? 'location_success' : 'coverage_unavailable');
     } catch (error) {
@@ -618,7 +650,12 @@ export const AppNavigator: React.FC = () => {
           name: recipientData.recipientName,
           phone: recipientData.recipientPhone,
           address: recipientData.recipientAddress,
+          latitude: recipientData.recipientLatitude,
+          longitude: recipientData.recipientLongitude,
           floor: recipientData.recipientFloor,
+          senderAddress: recipientData.senderAddress,
+          senderLatitude: recipientData.senderLatitude,
+          senderLongitude: recipientData.senderLongitude,
           senderFloor: recipientData.senderFloor,
           requirePin: recipientData.requirePin,
           whoPays: recipientData.whoPays,
@@ -677,13 +714,16 @@ export const AppNavigator: React.FC = () => {
       case 'location_success':
         return (
           <CoverageAvailableScreen
-            onContinue={() => navigate('home')}
+            onContinue={() => replaceScreen('rain_delay')}
             onEditLocation={() => navigate('location_permission')}
             address={user?.deliveryAddress || ''}
             areaNameEn={deliveryCoverage?.zone?.nameEn || ''}
             areaNameBn={deliveryCoverage?.zone?.nameBn || ''}
           />
         );
+
+      case 'rain_delay':
+        return <RainDelayScreen onContinue={() => replaceScreen('home')} />;
 
       case 'coverage_unavailable':
         return (
@@ -709,7 +749,7 @@ export const AppNavigator: React.FC = () => {
             onCartChange={updateCart}
             onSelectCategory={(categoryId) => {
               if (categoryId === 'parcel' || categoryId === 'pickup') {
-                navigate('send_parcel');
+                navigate('parcel_intro');
               } else {
                 setSelectedCategoryId(categoryId);
                 navigate('food_restaurants');
@@ -727,12 +767,33 @@ export const AppNavigator: React.FC = () => {
           />
         );
 
+      case 'parcel_intro': {
+        const latestParcel = orders
+          .filter((order) => order.orderType === 'parcel')
+          .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0] ?? null;
+        return (
+          <ParcelLandingScreen
+            area={user?.deliveryArea || deliveryCoverage?.zone?.nameEn || ''}
+            coverageAvailable={deliveryCoverage?.available === true}
+            latestParcel={latestParcel}
+            loading={ordersLoading}
+            onBack={goBack}
+            onSendParcel={() => navigate('send_parcel')}
+          />
+        );
+      }
+
       case 'send_parcel':
         return (
           <SendParcelScreen
             onBack={goBack}
-            onOpenPackageDetails={() => navigate('parcel_package_details')}
+            onOpenLocation={(kind) => {
+              setEditingParcelLocation(kind);
+              navigate('parcel_location_picker');
+            }}
             onOpenRecipient={() => navigate('parcel_recipient')}
+            onPackageDataChange={setPackageData}
+            onWhoPaysChange={(whoPays) => setRecipientData((current) => ({ ...current, whoPays }))}
             onOpenReview={(vehicle) => {
               setSelectedVehicle(vehicle);
               navigate('parcel_review');
@@ -741,6 +802,43 @@ export const AppNavigator: React.FC = () => {
             vehiclesLoading={parcelVehiclesLoading}
             packageData={packageData}
             recipientData={recipientData}
+          />
+        );
+
+      case 'parcel_location_picker':
+        return (
+          <ParcelLocationPickerScreen
+            kind={editingParcelLocation}
+            initialPin={editingParcelLocation === 'pickup'
+              ? {
+                  address: recipientData.senderAddress,
+                  latitude: recipientData.senderLatitude,
+                  longitude: recipientData.senderLongitude,
+                }
+              : {
+                  address: recipientData.recipientAddress,
+                  latitude: recipientData.recipientLatitude,
+                  longitude: recipientData.recipientLongitude,
+                }}
+            onBack={goBack}
+            onSave={(pin) => {
+              if (editingParcelLocation === 'pickup') {
+                setRecipientData((current) => ({
+                  ...current,
+                  senderAddress: pin.address,
+                  senderLatitude: pin.latitude,
+                  senderLongitude: pin.longitude,
+                }));
+              } else {
+                setRecipientData((current) => ({
+                  ...current,
+                  recipientAddress: pin.address,
+                  recipientLatitude: pin.latitude,
+                  recipientLongitude: pin.longitude,
+                }));
+              }
+              goBack();
+            }}
           />
         );
 
@@ -767,8 +865,13 @@ export const AppNavigator: React.FC = () => {
           return (
             <SendParcelScreen
               onBack={goBack}
-              onOpenPackageDetails={() => navigate('parcel_package_details')}
+              onOpenLocation={(kind) => {
+                setEditingParcelLocation(kind);
+                navigate('parcel_location_picker');
+              }}
               onOpenRecipient={() => navigate('parcel_recipient')}
+              onPackageDataChange={setPackageData}
+              onWhoPaysChange={(whoPays) => setRecipientData((current) => ({ ...current, whoPays }))}
               onOpenReview={setSelectedVehicle}
               vehicles={parcelVehicles}
               vehiclesLoading={parcelVehiclesLoading}
@@ -876,6 +979,8 @@ export const AppNavigator: React.FC = () => {
           <WalletScreen
             onBack={goBack}
             onTabPress={handleTabPress}
+            paymentProviders={paymentProviders}
+            paymentProvidersLoading={paymentProvidersLoading}
           />
         );
 
@@ -904,10 +1009,14 @@ export const AppNavigator: React.FC = () => {
                   senderName: '',
                   senderPhone: '',
                   senderAddress: '',
+                  senderLatitude: null,
+                  senderLongitude: null,
                   senderFloor: '',
                   recipientName: '',
                   recipientPhone: '',
                   recipientAddress: '',
+                  recipientLatitude: null,
+                  recipientLongitude: null,
                   recipientFloor: '',
                   requirePin: true,
                   whoPays: 'sender',

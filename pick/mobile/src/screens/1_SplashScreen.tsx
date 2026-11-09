@@ -79,7 +79,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onNext }) => {
                 width: footerSize,
                 height: footerSize,
                 left: (width - footerSize) / 2,
-                top: (footerHeight - footerSize) / 2,
+                top: 0,
               },
             ]}
           />

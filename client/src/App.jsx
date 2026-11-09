@@ -136,6 +136,9 @@ const getSafeReturnToTarget = (value) => {
   if (typeof value !== 'string' || !value.trim()) {
     return null;
   }
+  if (value === 'pick://auth/callback' || value === 'tiwlo://auth/callback') {
+    return value;
+  }
   try {
     const target = new URL(value);
     const platformUrl = new URL(getPlatformUrl());
@@ -389,7 +392,18 @@ export default function App() {
         if (pathname === 'login' || pathname === 'signin') {
           if (isAuthSubdomain()) return 'login';
           const authParams = new URLSearchParams();
-          for (const key of ['logout', 'return_to', 'sso_login', 'mail_return', 'restore_token', 'expired', 'social_flow']) {
+          for (const key of [
+            'logout',
+            'return_to',
+            'sso_login',
+            'mail_return',
+            'restore_token',
+            'expired',
+            'social_flow',
+            'pick_account',
+            'pick_code_challenge',
+            'pick_state'
+          ]) {
             if (searchParams.has(key)) authParams.set(key, searchParams.get(key));
           }
           if (isDashboardSubdomain() && !authParams.has('return_to')) {
@@ -406,7 +420,15 @@ export default function App() {
         if (pathname === 'create-account' || pathname === 'register' || pathname === 'signup' || pathname === 'create-store' || pathname.startsWith('create-store/')) {
           if (isAuthSubdomain()) return 'create-account';
           const registrationParams = new URLSearchParams();
-          for (const key of ['redirect', 'return_to', 'sso_login', 'mail_return']) {
+          for (const key of [
+            'redirect',
+            'return_to',
+            'sso_login',
+            'mail_return',
+            'pick_account',
+            'pick_code_challenge',
+            'pick_state'
+          ]) {
             if (searchParams.has(key)) registrationParams.set(key, searchParams.get(key));
           }
           if (isDashboardSubdomain()) {
@@ -624,7 +646,17 @@ export default function App() {
       }
       setActiveTab('login');
       const authParams = new URLSearchParams(window.location.search);
-      const loginQuery = ['redirect', 'return_to', 'sso_login', 'mail_return', 'restore_token', 'expired']
+      const loginQuery = [
+        'redirect',
+        'return_to',
+        'sso_login',
+        'mail_return',
+        'restore_token',
+        'expired',
+        'pick_account',
+        'pick_code_challenge',
+        'pick_state'
+      ]
         .filter((key) => authParams.has(key))
         .map((key) => [key, authParams.get(key)]);
       const loginSearch = new URLSearchParams(loginQuery).toString();
@@ -646,7 +678,15 @@ export default function App() {
       }
       setActiveTab('create-account');
       const authParams = new URLSearchParams(window.location.search);
-      const signupQuery = ['redirect', 'return_to', 'sso_login', 'mail_return']
+      const signupQuery = [
+        'redirect',
+        'return_to',
+        'sso_login',
+        'mail_return',
+        'pick_account',
+        'pick_code_challenge',
+        'pick_state'
+      ]
         .filter((key) => authParams.has(key))
         .map((key) => [key, authParams.get(key)]);
       const signupSearch = new URLSearchParams(signupQuery).toString();
@@ -886,6 +926,16 @@ export default function App() {
       !searchParams.has('web_sso_return_to');
 
     if (isAuthHost && (searchParams.get('logout') === '1' || sessionStorage.getItem('tiwlo_explicit_logout') === '1')) {
+      setAuthChecking(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+    if (
+      isAuthHost &&
+      searchParams.get('pick_account') === '1' &&
+      searchParams.get('return_to') === 'pick://auth/callback'
+    ) {
       setAuthChecking(false);
       return () => {
         isMounted = false;

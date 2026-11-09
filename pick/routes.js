@@ -24,9 +24,21 @@ const require = createRequire(new URL('../server/package.json', import.meta.url)
 const express = require('express');
 export const PICK_MOBILE_CALLBACK = 'pick://auth/callback';
 const router = express.Router();
+const PARCEL_CATEGORIES = {
+  docs: { en: 'Documents & files', bn: 'কাগজপত্র ও ফাইল' },
+  gadgets: { en: 'Electronics', bn: 'ইলেকট্রনিক্স' },
+  clothes: { en: 'Clothes & gifts', bn: 'পোশাক ও উপহার' },
+  fragile: { en: 'Fragile items', bn: 'ভঙ্গুর সামগ্রী' },
+  box: { en: 'Box or carton', bn: 'কার্টন ও বক্স' }
+};
 
 export function isValidPickCodeChallenge(value) {
   return typeof value === 'string' && /^[A-Za-z0-9_-]{43}$/.test(value);
+}
+
+export function areValidParcelPins(sender, recipient) {
+  return isValidLiveLocation({ ...sender, accuracy: 0 }) &&
+    isValidLiveLocation({ ...recipient, accuracy: 0 });
 }
 
 export function hashPickCodeVerifier(value) {
@@ -92,14 +104,16 @@ async function getTiwloSession(req) {
   return token ? MasterDB.getSession(token, req) : null;
 }
 
-function getLoginUrl({ codeChallenge, state, mode }) {
+export function getPickMobileLoginUrl({ codeChallenge, state, mode }) {
   const authOrigin = PLATFORM_CONFIG.authDomain.startsWith('http')
     ? PLATFORM_CONFIG.authDomain
     : `https://${PLATFORM_CONFIG.authDomain}`;
   const loginUrl = new URL(mode === 'signup' ? '/create-account' : '/login', authOrigin);
   loginUrl.searchParams.set('return_to', PICK_MOBILE_CALLBACK);
+  loginUrl.searchParams.set('sso_login', '1');
   loginUrl.searchParams.set('pick_code_challenge', codeChallenge);
   loginUrl.searchParams.set('pick_state', state);
+  loginUrl.searchParams.set('pick_account', '1');
   return loginUrl.toString();
 }
 
@@ -178,16 +192,7 @@ router.get('/auth/mobile-start', async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid PICK sign-in request.' });
     }
 
-    const session = await getTiwloSession(req);
-    if (session?.user && !session.user.isBanned) {
-      const callbackUrl = await createPickMobileHandoff({
-        userId: session.user.id,
-        codeChallenge,
-        state
-      });
-      return res.redirect(303, callbackUrl);
-    }
-    return res.redirect(303, getLoginUrl({ codeChallenge, state, mode }));
+    return res.redirect(303, getPickMobileLoginUrl({ codeChallenge, state, mode }));
   } catch (error) {
     return next(error);
   }
@@ -800,17 +805,32 @@ router.post('/orders/parcel', requireUser, async (req, res, next) => {
   }
   const weight = Number(parcel.weight);
   const declaredValue = Number(parcel.value);
+  const categoryId = typeof parcel.categoryId === 'string' ? parcel.categoryId : '';
+  const category = Object.prototype.hasOwnProperty.call(PARCEL_CATEGORIES, categoryId)
+    ? PARCEL_CATEGORIES[categoryId]
+    : null;
   const recipientName = typeof recipient.name === 'string' ? recipient.name.trim() : '';
   const recipientPhone = typeof recipient.phone === 'string' ? recipient.phone.trim() : '';
   const recipientAddress = typeof recipient.address === 'string' ? recipient.address.trim() : '';
   const requestedSenderName = typeof recipient.senderName === 'string' ? recipient.senderName.trim() : '';
   const requestedSenderPhone = typeof recipient.senderPhone === 'string' ? recipient.senderPhone.trim() : '';
+  const senderAddress = typeof recipient.senderAddress === 'string' ? recipient.senderAddress.trim() : '';
+  const senderLatitude = recipient.senderLatitude;
+  const senderLongitude = recipient.senderLongitude;
+  const recipientLatitude = recipient.latitude;
+  const recipientLongitude = recipient.longitude;
   if (!Number.isFinite(weight) || weight <= 0 || weight > 1000 ||
       !Number.isFinite(declaredValue) || declaredValue < 0 || declaredValue > 10000000 ||
+      !category ||
       !recipientName || recipientName.length > 255 ||
       !recipientPhone || recipientPhone.length > 64 ||
       requestedSenderName.length > 255 || requestedSenderPhone.length > 64 ||
-      !recipientAddress || recipientAddress.length > 1000) {
+      !senderAddress || senderAddress.length > 1000 ||
+      !recipientAddress || recipientAddress.length > 1000 ||
+      !areValidParcelPins(
+        { latitude: senderLatitude, longitude: senderLongitude },
+        { latitude: recipientLatitude, longitude: recipientLongitude }
+      )) {
     return res.status(400).json({ error: 'Enter valid parcel and recipient details.' });
   }
   const pool = getPgPool();
@@ -827,10 +847,9 @@ router.post('/orders/parcel', requireUser, async (req, res, next) => {
     const profile = profileResult.rows[0];
     const senderName = requestedSenderName || profile?.display_name || req.tiwloSession.user.name || '';
     const senderPhone = requestedSenderPhone || profile?.phone || req.tiwloSession.user.phone || '';
-    const senderAddress = profile?.delivery_address?.trim() || '';
-    if (!senderName || !senderPhone || !senderAddress) {
+    if (!senderName || !senderPhone) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Complete your Tiwlo profile and delivery address before sending a parcel.' });
+      return res.status(400).json({ error: 'Complete your Tiwlo profile before sending a parcel.' });
     }
     if (paymentMethod === 'sslcommerz' && !String(profile?.phone || req.tiwloSession.user.phone || '').trim()) {
       await client.query('ROLLBACK');
@@ -857,17 +876,23 @@ router.post('/orders/parcel', requireUser, async (req, res, next) => {
         name: senderName,
         phone: senderPhone,
         address: senderAddress,
+        latitude: senderLatitude,
+        longitude: senderLongitude,
         floor: typeof recipient.senderFloor === 'string' ? recipient.senderFloor.slice(0, 255) : ''
       },
       recipient: {
         name: recipientName,
         phone: recipientPhone,
         address: recipientAddress,
+        latitude: recipientLatitude,
+        longitude: recipientLongitude,
         floor: typeof recipient.floor === 'string' ? recipient.floor.slice(0, 255) : ''
       },
       package: {
-        categoryId: typeof parcel.categoryId === 'string' ? parcel.categoryId.slice(0, 64) : '',
-        categoryName: typeof parcel.categoryName === 'string' ? parcel.categoryName.slice(0, 255) : '',
+        categoryId,
+        categoryName: category.en,
+        categoryNameEn: category.en,
+        categoryNameBn: category.bn,
         weight,
         declaredValue,
         handleWithCare: parcel.handleWithCare === true,
@@ -1147,6 +1172,23 @@ router.get('/orders', requireUser, async (req, res, next) => {
       [req.tiwloSession.user.id]
     );
     return res.json({ orders: result.rows });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post('/location/parcel-geocode', requireUser, securityLimiters.addressVerification, async (req, res, next) => {
+  try {
+    const { latitude, longitude } = req.body || {};
+    if (!isValidLiveLocation({ latitude, longitude, accuracy: 0 })) {
+      return res.status(400).json({ error: 'A valid map pin is required.' });
+    }
+    const address = await reverseGeocodeAddress({
+      latitude,
+      longitude,
+      apiKey: await getGoogleMapsApiKey()
+    });
+    return res.json({ address: address.formattedAddress });
   } catch (error) {
     return next(error);
   }
