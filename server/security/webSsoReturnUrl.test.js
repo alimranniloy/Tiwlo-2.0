@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   getWebSsoBridgeUrl,
+  isAllowedSocialReturnUrl,
   isAllowedWebSsoReturnUrl
 } from './webSsoReturnUrl.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
@@ -64,6 +65,18 @@ test('rejects non-HTTPS and untrusted SSO return URLs', () => {
   assert.equal(isAllowedWebSsoReturnUrl('/oneprofile', hosts), false);
 });
 
+test('allows only the fixed Tiwlo app callback for mobile social sign-in', () => {
+  assert.equal(isAllowedSocialReturnUrl('tiwlo://auth/callback', hosts), true);
+  assert.equal(isAllowedSocialReturnUrl('tiwlo://evil/callback', hosts), false);
+  assert.equal(isAllowedSocialReturnUrl('pick://auth/callback', hosts), true);
+  assert.equal(isAllowedSocialReturnUrl('pick://evil/callback', hosts), false);
+  assert.equal(isAllowedSocialReturnUrl('javascript:alert(1)', hosts), false);
+  assert.equal(
+    isAllowedSocialReturnUrl('https://tiwlo.com/dashboard', hosts),
+    true
+  );
+});
+
 test('allows platform app routes but rejects auth and API endpoints', () => {
   assert.equal(
     isAllowedWebSsoReturnUrl('https://tiwlo.com/dashboard', hosts),
@@ -79,6 +92,21 @@ test('allows platform app routes but rejects auth and API endpoints', () => {
   );
   assert.equal(
     isAllowedWebSsoReturnUrl('https://tiwlo.com/api/auth/sso/web-start', hosts),
+    false
+  );
+});
+
+test('allows the PICK dashboard as a Tiwlo-authenticated SSO return destination', () => {
+  const allowlist = {
+    ...hosts,
+    dashboardHosts: [PLATFORM_CONFIG.pickDashboardHost]
+  };
+  assert.equal(
+    isAllowedWebSsoReturnUrl(`https://${PLATFORM_CONFIG.pickDashboardHost}/dashboard`, allowlist),
+    true
+  );
+  assert.equal(
+    isAllowedWebSsoReturnUrl(`https://${PLATFORM_CONFIG.pickDashboardHost}/api/auth/sso/consume-handoff`, allowlist),
     false
   );
 });

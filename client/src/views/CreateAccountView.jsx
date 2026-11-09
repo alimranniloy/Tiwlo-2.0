@@ -2,6 +2,7 @@ import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useState, useEffect } from 'react';
 import { getPlatformUrl } from '../config/platformConfig';
 import { COUNTRY_OPTIONS, MONTH_OPTIONS, getDaysInBirthMonth } from '../utils/accountFormOptions';
+import { returnSocialSignInToApp } from '../utils/mobileAppSso';
 import {
   Eye,
   EyeOff,
@@ -584,6 +585,11 @@ export default function CreateAccountView({
           social_flow: '1'
         });
         const returnTo = new URLSearchParams(window.location.search).get('return_to');
+        if (await returnSocialSignInToApp({
+          returnTo,
+          sessionToken: result.sessionToken,
+          apiBase: API_BASE
+        })) return;
         if (returnTo) loginParams.set('return_to', returnTo);
         window.location.replace(`/login?${loginParams.toString()}`);
       } catch (error) {
@@ -2391,9 +2397,17 @@ export default function CreateAccountView({
                   <div className="pt-4">
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={async () => {
                         const u = createdResult.user || { tiwiId: createdResult.tiwiId };
-                        const tok = createdResult.sessionToken || localStorage.getItem('stockpro_session');
+                        const returnTo = new URLSearchParams(window.location.search).get('return_to');
+                        const tok = createdResult.sessionToken || (
+                          returnTo ? null : localStorage.getItem('stockpro_session')
+                        );
+                        if (await returnSocialSignInToApp({
+                          returnTo,
+                          sessionToken: tok,
+                          apiBase: API_BASE
+                        })) return;
                         onRegisterSuccess?.(u, tok);
                       }}
                       className="w-full sm:w-auto min-w-[220px] h-10 px-8 bg-[#000000] hover:bg-[#3c3c3c] text-white rounded-full text-[14px] font-medium shadow-xs cursor-pointer inline-flex items-center justify-center gap-2 transition-all"

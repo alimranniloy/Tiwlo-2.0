@@ -319,6 +319,28 @@ if [[ -d "$ROOT_DIR/client/dist" ]]; then
   find "$ROOT_DIR/client/dist" -type f -exec chmod 644 {} +
 fi
 
+# Build the PICK React landing page and admin dashboard as a static subdomain app.
+if [[ -d "$ROOT_DIR/pick/landing-page" ]]; then
+  PICK_WEB_DIR="$ROOT_DIR/pick/landing-page"
+  if [[ ! -d "$PICK_WEB_DIR/node_modules/next" ]]; then
+    if command -v pnpm >/dev/null 2>&1; then
+      (cd "$PICK_WEB_DIR" && pnpm install --frozen-lockfile)
+    elif command -v corepack >/dev/null 2>&1; then
+      (cd "$PICK_WEB_DIR" && corepack pnpm install --frozen-lockfile)
+    else
+      echo "Error: pnpm or Corepack is required to build the PICK dashboard."
+      exit 1
+    fi
+  fi
+  if command -v pnpm >/dev/null 2>&1; then
+    (cd "$PICK_WEB_DIR" && pnpm run build)
+  else
+    (cd "$PICK_WEB_DIR" && corepack pnpm run build)
+  fi
+  find "$PICK_WEB_DIR/out" -type d -exec chmod 755 {} +
+  find "$PICK_WEB_DIR/out" -type f -exec chmod 644 {} +
+fi
+
 # 3. Backend Dependencies
 echo "--- Step 3: Installing Backend Production Dependencies ---"
 if [[ -d "$ROOT_DIR/server" ]]; then
@@ -356,6 +378,12 @@ if command -v pm2 >/dev/null 2>&1; then
   echo "PM2 services active."
 else
   echo "Warning: PM2 not found in PATH."
+fi
+
+if [[ -d "$ROOT_DIR/pick/landing-page" ]] && [[ "$MODE" != "--docker" && "$MODE" != "docker" ]]; then
+  echo "--- Provisioning pick.tiwlo.com DNS-backed HTTPS ---"
+  cd "$ROOT_DIR"
+  node --input-type=module -e "import('./server/dns/sslManager.js').then(({ provisionPickDashboardSsl }) => provisionPickDashboardSsl()).catch((error) => { console.error(error); process.exit(1); })"
 fi
 
 # 4b. Configure Nginx Media Reverse Proxy for /upload and /uploads

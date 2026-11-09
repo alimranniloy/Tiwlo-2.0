@@ -1,3 +1,6 @@
+export const MOBILE_APP_SSO_RETURN_TO = 'tiwlo://auth/callback';
+export const PICK_MOBILE_SSO_RETURN_TO = 'pick://auth/callback';
+
 export function isAllowedWebSsoReturnUrl(returnTo, { dashboardHost, dashboardHosts = [], mailHost, platformHost }) {
   try {
     const target = new URL(returnTo);
@@ -25,6 +28,12 @@ export function isAllowedWebSsoReturnUrl(returnTo, { dashboardHost, dashboardHos
   } catch {
     return false;
   }
+}
+
+export function isAllowedSocialReturnUrl(returnTo, allowlist) {
+  return returnTo === MOBILE_APP_SSO_RETURN_TO ||
+    returnTo === PICK_MOBILE_SSO_RETURN_TO ||
+    isAllowedWebSsoReturnUrl(returnTo, allowlist);
 }
 
 export function getWebSsoBridgeUrl(returnTo, { platformUrl, dashboardHost, mailHost }) {

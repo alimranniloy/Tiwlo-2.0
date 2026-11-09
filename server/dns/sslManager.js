@@ -20,6 +20,7 @@ export const SSL_CONFIG = {
   PRIMARY_DOMAIN: PLATFORM_CONFIG.primaryDomain,
   DOMAINS: [
     ...PLATFORM_CONFIG.managedDomains.flatMap(domain => [domain, `*.${domain}`]),
+    PLATFORM_CONFIG.pickDashboardHost,
     getSubdomain(PLATFORM_CONFIG.wwwSubdomain),
     getSubdomain(PLATFORM_CONFIG.authSubdomain),
     getSubdomain(PLATFORM_CONFIG.tpanelSubdomain),
@@ -105,6 +106,7 @@ export function generateNginxConfig(primaryDomain = SSL_CONFIG.PRIMARY_DOMAIN) {
   const certPath = primaryCertificate?.certificatePath;
   const keyPath = primaryCertificate?.keyPath;
   const hasSsl = Boolean(primaryCertificate);
+  const pickDashboardCertificate = getCertificatePaths(PLATFORM_CONFIG.pickDashboardHost) || primaryCertificate;
   const dedicatedDomains = PLATFORM_CONFIG.managedDomains
     .filter(domain => domain !== primaryDomain && getCertificatePaths(domain))
     .map(domain => ({ domain, certificate: getCertificatePaths(domain) }));
@@ -113,7 +115,7 @@ export function generateNginxConfig(primaryDomain = SSL_CONFIG.PRIMARY_DOMAIN) {
     PLATFORM_CONFIG.serverIpv4
   ])].filter(name => !dedicatedDomains.some(
     ({ domain }) => name === domain || name === `*.${domain}`
-  ));
+  ) && name !== PLATFORM_CONFIG.pickDashboardHost);
   const ssoFormActionHosts = PLATFORM_CONFIG.managedDomains
     .flatMap(domain => [`https://${domain}`, `https://*.${domain}`])
     .join(' ');
@@ -207,6 +209,100 @@ server {
     ${commonLocations}
 }
 `).join('');
+  const pickDashboardHttpsServer = pickDashboardCertificate ? `
+
+# ========================================================
+# HTTPS Server (${PLATFORM_CONFIG.pickDashboardHost})
+# ========================================================
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name ${PLATFORM_CONFIG.pickDashboardHost};
+
+    ssl_certificate ${pickDashboardCertificate.certificatePath};
+    ssl_certificate_key ${pickDashboardCertificate.keyPath};
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    client_max_body_size 100M;
+
+    location /.well-known/acme-challenge/ {
+        root ${SSL_CONFIG.CERTBOT_WEBROOT};
+        allow all;
+    }
+
+    location / {
+        root /var/www/tiwlo/pick/landing-page/out;
+        index index.html;
+        try_files $uri $uri.html $uri/ =404;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; connect-src 'self' https:; form-action 'self' https://${PLATFORM_CONFIG.authDomain}; frame-ancestors 'none'" always;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:5001/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_buffering off;
+        proxy_request_buffering off;
+    }
+}
+` : '';
+  const pickDashboardHttpRedirect = pickDashboardCertificate ? `
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${PLATFORM_CONFIG.pickDashboardHost};
+
+    location /.well-known/acme-challenge/ {
+        root ${SSL_CONFIG.CERTBOT_WEBROOT};
+        allow all;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+` : '';
+  const pickDashboardHttpServer = !pickDashboardCertificate ? `
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${PLATFORM_CONFIG.pickDashboardHost};
+
+    location /.well-known/acme-challenge/ {
+        root ${SSL_CONFIG.CERTBOT_WEBROOT};
+        allow all;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:5001/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_buffering off;
+        proxy_request_buffering off;
+    }
+
+    location / {
+        root /var/www/tiwlo/pick/landing-page/out;
+        index index.html;
+        try_files $uri $uri.html $uri/ =404;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https: http:; connect-src 'self' https:; form-action 'self' https://${PLATFORM_CONFIG.authDomain}; frame-ancestors 'none'" always;
+    }
+}
+` : '';
 
   if (hasSsl) {
     return `
@@ -232,6 +328,7 @@ server {
     }
 }
 
+${pickDashboardHttpRedirect}
 # ========================================================
 # HTTPS Server (Port 443) -> Full Wildcard SSL (*.${SSL_CONFIG.PRIMARY_DOMAIN})
 # ========================================================
@@ -259,7 +356,8 @@ server {
     ${commonLocations}
 }
 ${dedicatedHttpsServers}
-`;
+    ${pickDashboardHttpsServer}
+    `;
   }
 
   // Fallback HTTP configuration
@@ -278,6 +376,9 @@ server {
 
     ${commonLocations}
 }
+${pickDashboardHttpRedirect}
+${pickDashboardHttpServer}
+${pickDashboardHttpsServer}
 `;
 }
 
@@ -289,9 +390,50 @@ export function applyNginxConfig() {
 
   const confContent = generateNginxConfig();
   fs.writeFileSync(SSL_CONFIG.NGINX_CONF, confContent, 'utf8');
+  const enabledConfig = '/etc/nginx/sites-enabled/tiwlo';
+  fs.mkdirSync(path.dirname(enabledConfig), { recursive: true });
+  if (!fs.existsSync(enabledConfig)) {
+    fs.symlinkSync(SSL_CONFIG.NGINX_CONF, enabledConfig);
+  }
 
   execSync('nginx -t && systemctl reload nginx', { stdio: 'inherit' });
   console.log('✅ Nginx configuration reloaded successfully with Wildcard SSL.');
+}
+
+export function provisionPickDashboardSsl() {
+  if (process.platform === 'win32') {
+    console.log('ℹ️ PICK dashboard SSL provisioning is available on the Linux production host.');
+    return false;
+  }
+  if (process.env.SSL_PROVIDER === 'caddy') return true;
+
+  const host = PLATFORM_CONFIG.pickDashboardHost;
+  const validHost = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/.test(host);
+  if (!validHost || !host.endsWith(`.${PLATFORM_CONFIG.primaryDomain}`)) {
+    throw new Error('PICK dashboard host must be a valid Tiwlo subdomain.');
+  }
+
+  const certificate = getCertificatePaths(host);
+  if (!certificate) {
+    ensurePrerequisites();
+    applyNginxConfig();
+    execFileSync('certbot', [
+      'certonly',
+      '--webroot',
+      '--webroot-path', SSL_CONFIG.CERTBOT_WEBROOT,
+      '--domain', host,
+      '--email', SSL_CONFIG.EMAIL,
+      '--agree-tos',
+      '--non-interactive',
+      '--keep-until-expiring'
+    ], { stdio: 'inherit' });
+  }
+
+  if (!getCertificatePaths(host) && !getCertificatePaths(PLATFORM_CONFIG.primaryDomain)) {
+    throw new Error(`Certbot did not produce a usable certificate for ${host}.`);
+  }
+  applyNginxConfig();
+  return true;
 }
 
 /**

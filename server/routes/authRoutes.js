@@ -36,8 +36,15 @@ import { SocialDB } from '../social/socialDb.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import {
   getWebSsoBridgeUrl,
+  isAllowedSocialReturnUrl,
+  PICK_MOBILE_SSO_RETURN_TO,
+  MOBILE_APP_SSO_RETURN_TO,
   isAllowedWebSsoReturnUrl
 } from '../security/webSsoReturnUrl.js';
+import {
+  createPickMobileHandoff,
+  isValidPickCodeChallenge
+} from '../../pick/routes.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
 import { securityLimiters, registrationGuards } from '../plugins/security/index.js';
 import { normalizeSignupEmail, isDuplicateAccountError, isDuplicateBrowserError } from '../security/signupIdentity.js';
@@ -162,13 +169,20 @@ function renderWebSsoHandoff(res, consumeUrl, code, sessionToken) {
   return res.status(200).type('html').send(`<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Signing in</title></head><body><form id="handoff" method="post" action="${safeAction}" hidden><input type="hidden" name="handoffCode" value="${code}"><input type="hidden" name="sessionToken" value="${sessionToken}"></form><script nonce="${nonce}">document.getElementById('handoff').submit()</script></body></html>`);
 }
 
-function getSocialLoginUrl(provider, { returnTo, error = '' } = {}) {
+function getSocialLoginUrl(provider, {
+  returnTo,
+  error = '',
+  pickCodeChallenge,
+  pickState
+} = {}) {
   const authOrigin = PLATFORM_CONFIG.authDomain.startsWith('http')
     ? PLATFORM_CONFIG.authDomain
     : `https://${PLATFORM_CONFIG.authDomain}`;
   const loginUrl = new URL('/login', authOrigin);
   loginUrl.searchParams.set('social_flow', '1');
   if (returnTo) loginUrl.searchParams.set('return_to', returnTo);
+  if (pickCodeChallenge) loginUrl.searchParams.set('pick_code_challenge', pickCodeChallenge);
+  if (pickState) loginUrl.searchParams.set('pick_state', pickState);
   if (error) loginUrl.searchParams.set('social_error', `${provider}:${error}`);
   return loginUrl.toString();
 }
@@ -180,7 +194,12 @@ function getSocialDefaultReturnTo(user) {
   return `https://${PLATFORM_CONFIG.primaryDomain}${path}`;
 }
 
-function getSocialProfileCompletionUrl(provider, { returnTo, challengeToken }) {
+function getSocialProfileCompletionUrl(provider, {
+  returnTo,
+  challengeToken,
+  pickCodeChallenge,
+  pickState
+}) {
   const authOrigin = PLATFORM_CONFIG.authDomain.startsWith('http')
     ? PLATFORM_CONFIG.authDomain
     : `https://${PLATFORM_CONFIG.authDomain}`;
@@ -189,6 +208,8 @@ function getSocialProfileCompletionUrl(provider, { returnTo, challengeToken }) {
   profileUrl.searchParams.set('social_profile', 'required');
   profileUrl.searchParams.set('social_provider', provider);
   if (returnTo) profileUrl.searchParams.set('return_to', returnTo);
+  if (pickCodeChallenge) profileUrl.searchParams.set('pick_code_challenge', pickCodeChallenge);
+  if (pickState) profileUrl.searchParams.set('pick_state', pickState);
   profileUrl.hash = new URLSearchParams({ social_profile_token: challengeToken }).toString();
   return profileUrl.toString();
 }
@@ -211,6 +232,36 @@ function setSocialMfaCookie(res, req, token) {
   delete legacyOptions.maxAge;
   res.clearCookie('tiwlo_oauth_mfa', legacyOptions);
   res.cookie('tiwlo_oauth_mfa', token, getSocialMfaCookieOptions(req));
+}
+
+async function createMobileSocialAuthChallenge(user) {
+  const challengeType = user.twoFactorEnabled ? 'login_2fa' : 'setup_2fa';
+  const challenge = await generateSecureOtp(
+    user.email,
+    challengeType,
+    challengeType === 'login_2fa' ? 10 : 15
+  );
+  const emailResult = await sendTwoFactorOtpEmail({
+    to: user.email,
+    name: user.name || user.storeName,
+    code: challenge.code
+  }).catch(error => ({ success: false, delivered: false, error: error.message }));
+  if (!emailResult?.success) {
+    await deleteOtpSession(challenge.token);
+    throw new Error('We could not send your verification code. Please try signing in again shortly.');
+  }
+  const displayedType = challengeType === 'login_2fa' ? '2fa' : 'setup2fa';
+  return {
+    type: displayedType,
+    tempToken: challenge.token,
+    message: `Enter the 6-digit code sent to ${maskEmail(user.email)}.`
+  };
+}
+
+function getMobileAppCallbackUrl(params) {
+  const callback = new URL(MOBILE_APP_SSO_RETURN_TO);
+  callback.hash = new URLSearchParams(params).toString();
+  return callback.toString();
 }
 
 function getSocialProfileChallengeCookieOptions(req) {
@@ -365,13 +416,20 @@ async function startSocialLogin(provider, req, res) {
   const requestedReturnTo = hasRequestedReturnTo
     ? req.query.return_to
     : `https://${PLATFORM_CONFIG.primaryDomain}/dashboard`;
-  if (!isAllowedWebSsoReturnUrl(requestedReturnTo, {
+  const returnAllowlist = {
     dashboardHost: PLATFORM_CONFIG.dashboardHost,
-    dashboardHosts: [PLATFORM_CONFIG.freeSubdomainDomain],
+    dashboardHosts: [PLATFORM_CONFIG.freeSubdomainDomain, PLATFORM_CONFIG.pickDashboardHost],
     mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`,
     platformHost: PLATFORM_CONFIG.primaryDomain
-  })) {
+  };
+  if (!isAllowedSocialReturnUrl(requestedReturnTo, returnAllowlist)) {
     return res.status(400).send('Invalid sign-in return destination.');
+  }
+  if (requestedReturnTo === PICK_MOBILE_SSO_RETURN_TO &&
+      (!isValidPickCodeChallenge(req.query.pick_code_challenge) ||
+       typeof req.query.pick_state !== 'string' ||
+       !/^[A-Za-z0-9_-]{32,128}$/.test(req.query.pick_state))) {
+    return res.status(400).send('Invalid PICK sign-in request.');
   }
 
   const state = crypto.randomBytes(32).toString('base64url');
@@ -379,7 +437,13 @@ async function startSocialLogin(provider, req, res) {
   clearSocialStateCookie(res, req, provider);
   res.cookie(
     cookieName,
-    JSON.stringify({ state, returnTo: requestedReturnTo, returnToExplicit: hasRequestedReturnTo }),
+    JSON.stringify({
+      state,
+      returnTo: requestedReturnTo,
+      returnToExplicit: hasRequestedReturnTo,
+      pickCodeChallenge: req.query.pick_code_challenge,
+      pickState: req.query.pick_state
+    }),
     getSocialStateCookieOptions(req)
   );
   const callbackUrl = getSocialCallbackUrl(provider);
@@ -426,23 +490,39 @@ async function completeSocialLogin(provider, req, res) {
   clearSocialStateCookie(res, req, provider);
   if (!savedState || !sameState(callbackState, savedState.state) ||
       typeof savedState.returnTo !== 'string' ||
-      !isAllowedWebSsoReturnUrl(savedState.returnTo, {
+      !isAllowedSocialReturnUrl(savedState.returnTo, {
         dashboardHost: PLATFORM_CONFIG.dashboardHost,
-        dashboardHosts: [PLATFORM_CONFIG.freeSubdomainDomain],
+        dashboardHosts: [PLATFORM_CONFIG.freeSubdomainDomain, PLATFORM_CONFIG.pickDashboardHost],
         mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`,
         platformHost: PLATFORM_CONFIG.primaryDomain
       })) {
     return res.status(400).send('Social sign-in could not verify the OAuth state. Please try again.');
   }
+  if (savedState.returnTo === PICK_MOBILE_SSO_RETURN_TO &&
+      (!isValidPickCodeChallenge(savedState.pickCodeChallenge) ||
+       typeof savedState.pickState !== 'string' ||
+       !/^[A-Za-z0-9_-]{32,128}$/.test(savedState.pickState))) {
+    return res.status(400).send('PICK sign-in could not verify the app request. Please try again.');
+  }
 
   if (typeof req.query.error === 'string' || typeof req.query.code !== 'string') {
-    return res.redirect(getSocialLoginUrl(provider, { returnTo: savedState.returnTo, error: 'cancelled' }));
+    return res.redirect(getSocialLoginUrl(provider, {
+      returnTo: savedState.returnTo,
+      error: 'cancelled',
+      pickCodeChallenge: savedState.pickCodeChallenge,
+      pickState: savedState.pickState
+    }));
   }
 
   try {
     const credentials = await getSocialProviderCredentials(provider);
     if (!credentials) {
-      return res.redirect(getSocialLoginUrl(provider, { returnTo: savedState.returnTo, error: 'unavailable' }));
+      return res.redirect(getSocialLoginUrl(provider, {
+        returnTo: savedState.returnTo,
+        error: 'unavailable',
+        pickCodeChallenge: savedState.pickCodeChallenge,
+        pickState: savedState.pickState
+      }));
     }
     const identity = await fetchSocialProfile(provider, req.query.code, credentials);
     const user = await findOrCreateSocialUser({ provider, ...identity });
@@ -471,10 +551,22 @@ async function completeSocialLogin(provider, req, res) {
       res.cookie('tiwlo_social_profile', challengeToken, getSocialProfileChallengeCookieOptions(req));
       return res.redirect(getSocialProfileCompletionUrl(provider, {
         returnTo: socialReturnTo,
-        challengeToken
+        challengeToken,
+        pickCodeChallenge: savedState.pickCodeChallenge,
+        pickState: savedState.pickState
       }));
     }
     const tiwiId = user.tiwiId || user.storeId || null;
+    if (socialReturnTo === MOBILE_APP_SSO_RETURN_TO) {
+      const challenge = await createMobileSocialAuthChallenge(user);
+      res.setHeader('Cache-Control', 'no-store');
+      return res.redirect(303, getMobileAppCallbackUrl({
+        auth_challenge: challenge.type,
+        temp_token: challenge.tempToken,
+        message: challenge.message
+      }));
+    }
+
     const { sessionToken } = await MasterDB.createSession(user.id, tiwiId, user.email, req);
     await recordSuccessfulLoginDevice(user, req).catch(error => {
       console.warn('[Login Risk] Could not record trusted device:', error.message);
@@ -495,14 +587,33 @@ async function completeSocialLogin(provider, req, res) {
       location: 'Dhaka, Bangladesh',
       timestamp: new Date().toUTCString()
     }).catch(error => console.error('[Login Alert Email Error]', error));
+    if (socialReturnTo === PICK_MOBILE_SSO_RETURN_TO) {
+      const callbackUrl = await createPickMobileHandoff({
+        userId: user.id,
+        codeChallenge: savedState.pickCodeChallenge,
+        state: savedState.pickState
+      });
+      res.setHeader('Cache-Control', 'no-store');
+      return res.redirect(303, callbackUrl);
+    }
     const handoff = await createWebSsoHandoff(user.id, socialReturnTo);
     return renderWebSsoHandoff(res, handoff.consumeUrl, handoff.code, sessionToken);
   } catch (error) {
     if (error.code === 'ACCOUNT_DISABLED') {
-      return res.redirect(getSocialLoginUrl(provider, { returnTo: savedState.returnTo, error: 'disabled' }));
+      return res.redirect(getSocialLoginUrl(provider, {
+        returnTo: savedState.returnTo,
+        error: 'disabled',
+        pickCodeChallenge: savedState.pickCodeChallenge,
+        pickState: savedState.pickState
+      }));
     }
     console.error(`[SocialAuth] ${provider} callback failed:`, error.message);
-    return res.redirect(getSocialLoginUrl(provider, { returnTo: savedState.returnTo, error: 'failed' }));
+    return res.redirect(getSocialLoginUrl(provider, {
+      returnTo: savedState.returnTo,
+      error: 'failed',
+      pickCodeChallenge: savedState.pickCodeChallenge,
+      pickState: savedState.pickState
+    }));
   }
 }
 
@@ -2125,7 +2236,7 @@ router.get('/auth/sso/web-start', async (req, res) => {
     const returnTo = String(req.query.return_to || '').trim();
     const allowedReturn = isAllowedWebSsoReturnUrl(returnTo, {
       dashboardHost: PLATFORM_CONFIG.dashboardHost,
-      dashboardHosts: [PLATFORM_CONFIG.freeSubdomainDomain],
+      dashboardHosts: [PLATFORM_CONFIG.freeSubdomainDomain, PLATFORM_CONFIG.pickDashboardHost],
       mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`,
       platformHost: PLATFORM_CONFIG.primaryDomain
     });
@@ -2166,7 +2277,7 @@ router.post('/auth/sso/web-start', async (req, res) => {
     const returnTo = String(req.body?.return_to || '').trim();
     const allowedReturn = isAllowedWebSsoReturnUrl(returnTo, {
       dashboardHost: PLATFORM_CONFIG.dashboardHost,
-      dashboardHosts: [PLATFORM_CONFIG.freeSubdomainDomain],
+      dashboardHosts: [PLATFORM_CONFIG.freeSubdomainDomain, PLATFORM_CONFIG.pickDashboardHost],
       mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`,
       platformHost: PLATFORM_CONFIG.primaryDomain
     });
@@ -2213,7 +2324,7 @@ router.post('/auth/sso/consume-handoff', async (req, res) => {
 
     const allowlist = {
       dashboardHost: PLATFORM_CONFIG.dashboardHost,
-      dashboardHosts: [PLATFORM_CONFIG.freeSubdomainDomain],
+      dashboardHosts: [PLATFORM_CONFIG.freeSubdomainDomain, PLATFORM_CONFIG.pickDashboardHost],
       mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`,
       platformHost: PLATFORM_CONFIG.primaryDomain
     };
@@ -2233,6 +2344,29 @@ router.post('/auth/sso/consume-handoff', async (req, res) => {
   } catch (err) {
     console.error('Web SSO handoff consumption error:', err);
     return res.status(500).send('Could not complete sign-in. Please try again.');
+  }
+});
+
+// Mobile social sign-in verification
+router.post('/auth/sso/mobile-social-challenge', securityLimiters.otpRequestIp, async (req, res) => {
+  try {
+    res.setHeader('Cache-Control', 'no-store');
+    const token = getRequestSessionToken(req);
+    const sessionData = token ? await MasterDB.getSession(token, req) : null;
+    const user = sessionData?.user;
+    if (!user) return res.status(401).json({ error: 'Your social sign-in session expired. Please sign in again.' });
+    if (user.isBanned) return res.status(403).json({ error: 'This Tiwlo account is disabled.' });
+
+    const challenge = await createMobileSocialAuthChallenge(user);
+    return res.json({
+      success: true,
+      challengeType: challenge.type,
+      tempToken: challenge.tempToken,
+      message: challenge.message
+    });
+  } catch (error) {
+    console.error('Mobile social verification challenge error:', error);
+    return res.status(500).json({ error: error.message || 'Could not start social sign-in verification.' });
   }
 });
 

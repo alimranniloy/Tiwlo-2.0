@@ -39,6 +39,7 @@ import authRoutes from './routes/authRoutes.js';
 import domainRoutes from './routes/domainRoutes.js';
 import subdomainRoutes from './routes/subdomainRoutes.js';
 import { findActiveCustomDomain } from './domains/domainService.js';
+import pickRoutes, { initializePickSchema } from '../pick/index.js';
 
 import socialRoutes, { resumePendingVideoProcessing } from './social/socialRoutes.js';
 import { SocialDB } from './social/socialDb.js';
@@ -380,6 +381,7 @@ const applicationRoutes = [
   ['/api/tpanel', tpanelRoutes], ['/api/support', supportRoutes],
   ['/api/email', emailRoutes], ['/api/mail', emailRoutes],
   ['/api/plugins/discord', discordRoutes], ['/api/discord', discordRoutes], ['/api', authRoutes],
+  ['/api/pick', pickRoutes],
   ['/api/domains', domainRoutes], ['/api/cloud', cloudRoutes],
   ['/api/verification', verificationRoutes],
   ['/api', securityRoutes], ['/api', systemRoutes], ['/api', storeRoutes]
@@ -419,6 +421,7 @@ app.use('/api/mail', emailRoutes);
 
 // Discord Bot & Community Manager Gateway
 app.use('/api/discord', discordRoutes);
+app.use('/api/pick', pickRoutes);
 
 // Authentication, 2FA, Profiles & SSO Handshake (Mounted first to handle public login/register/check endpoints)
 app.use('/api', authRoutes);
@@ -569,6 +572,7 @@ async function startServer() {
   }
   const { runMigration } = await import('./db/migrate.js');
   await runMigration();
+  await initializePickSchema();
   BillingDB.startPendingTopupExpiry();
   if (postgresReady) {
     const { bootstrapGoogleDriveServiceAccountFromEnv } = await import('./administrator/googleDriveStorage.js');

@@ -1,6 +1,7 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useState, useEffect, useRef } from 'react';
 import { COUNTRY_OPTIONS, MONTH_OPTIONS, getDaysInBirthMonth } from '../utils/accountFormOptions';
+import { returnSocialSignInToApp } from '../utils/mobileAppSso';
 import {
   Eye,
   EyeOff,
@@ -144,9 +145,19 @@ export default function LoginView({
 
   const startSocialLogin = (provider) => {
     const params = new URLSearchParams();
-    const returnTo = new URLSearchParams(window.location.search).get('return_to');
+    const search = new URLSearchParams(window.location.search);
+    const returnTo = search.get('return_to');
     if (returnTo) params.set('return_to', returnTo);
+    for (const key of ['pick_code_challenge', 'pick_state']) {
+      const value = search.get(key);
+      if (value) params.set(key, value);
+    }
     window.location.assign(`/api/auth/${provider}${params.size ? `?${params}` : ''}`);
+  };
+
+  const returnToPickApp = async (sessionToken) => {
+    const returnTo = new URLSearchParams(window.location.search).get('return_to');
+    return returnSocialSignInToApp({ returnTo, sessionToken, apiBase: API_BASE });
   };
 
   const handleCompleteSocialProfile = async (event) => {
@@ -230,6 +241,12 @@ export default function LoginView({
       if (!response.ok || !result.success || !result.sessionToken || !result.user) {
         throw new Error(result.error || 'Could not save your required profile details.');
       }
+      const returnTo = new URLSearchParams(window.location.search).get('return_to');
+      if (await returnSocialSignInToApp({
+        returnTo,
+        sessionToken: result.sessionToken,
+        apiBase: API_BASE
+      })) return;
       localStorage.setItem('stockpro_session', result.sessionToken);
       localStorage.setItem('stockpro_user', JSON.stringify(result.user));
       showToast?.(`Welcome back, ${result.user.name || result.user.storeName || 'User'}!`);
@@ -370,6 +387,7 @@ export default function LoginView({
         }
 
         // Direct session bypass if neither is required
+        if (await returnToPickApp(authResult.data.sessionToken)) return;
         localStorage.setItem('stockpro_session', authResult.data.sessionToken);
         localStorage.setItem('stockpro_user', JSON.stringify(authResult.data.user));
         showToast?.(`Welcome back, ${authResult.data.user.storeName || 'User'}!`);
@@ -577,6 +595,7 @@ export default function LoginView({
       const data = await res.json();
 
       if (res.ok && data?.success) {
+        if (await returnToPickApp(data.sessionToken)) return;
         localStorage.setItem('stockpro_session', data.sessionToken);
         localStorage.setItem('stockpro_user', JSON.stringify(data.user));
         showToast?.(`Welcome back, ${data.user.name || data.user.storeName}!`);
@@ -658,6 +677,7 @@ export default function LoginView({
       const data = await res.json();
 
       if (res.ok && data?.success) {
+        if (await returnToPickApp(data.sessionToken)) return;
         localStorage.setItem('stockpro_session', data.sessionToken);
         localStorage.setItem('stockpro_user', JSON.stringify(data.user));
         showToast?.(data.message || `2-Step Verification enabled! Welcome, ${data.user.name || data.user.storeName}!`);
