@@ -951,7 +951,13 @@ router.post('/users/:id/ban', requireAdmin, requireRecentReauth, async (req, res
     });
     if (!targetUser) return res.status(404).json({ error: 'User not found in system.' });
     if (newBanStatus) {
-      await MasterDB.revokeUserSessions(targetUser.id);
+      const pickAccount = await queryPg(
+        'SELECT 1 FROM pick.users WHERE tiwlo_user_id = $1 LIMIT 1',
+        [targetUser.id]
+      );
+      if (!pickAccount.rows[0]) {
+        await MasterDB.revokeUserSessions(targetUser.id);
+      }
       await recordSecurityEvent({
         eventType: 'admin.account_disabled',
         severity: 'warning',

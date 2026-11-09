@@ -1,25 +1,23 @@
+import { all as getAllCountries } from 'country-codes-list';
+
 export const COUNTRY_OPTIONS = [
-  { code: 'BD', name: 'Bangladesh', dial: '+880', flag: '🇧🇩', placeholder: '1700-000000' },
-  { code: 'US', name: 'United States', dial: '+1', flag: '🇺🇸', placeholder: '(555) 000-0000' },
-  { code: 'GB', name: 'United Kingdom', dial: '+44', flag: '🇬🇧', placeholder: '7911 123456' },
-  { code: 'CA', name: 'Canada', dial: '+1', flag: '🇨🇦', placeholder: '(555) 000-0000' },
-  { code: 'AU', name: 'Australia', dial: '+61', flag: '🇦🇺', placeholder: '412 345 678' },
-  { code: 'IN', name: 'India', dial: '+91', flag: '🇮🇳', placeholder: '98765 43210' },
-  { code: 'AE', name: 'United Arab Emirates', dial: '+971', flag: '🇦🇪', placeholder: '50 123 4567' },
-  { code: 'SA', name: 'Saudi Arabia', dial: '+966', flag: '🇸🇦', placeholder: '50 123 4567' },
-  { code: 'SG', name: 'Singapore', dial: '+65', flag: '🇸🇬', placeholder: '8123 4567' },
-  { code: 'MY', name: 'Malaysia', dial: '+60', flag: '🇲🇾', placeholder: '12-345 6789' },
-  { code: 'PK', name: 'Pakistan', dial: '+92', flag: '🇵🇰', placeholder: '300 1234567' },
-  { code: 'DE', name: 'Germany', dial: '+49', flag: '🇩🇪', placeholder: '151 12345678' },
-  { code: 'FR', name: 'France', dial: '+33', flag: '🇫🇷', placeholder: '6 12 34 56 78' },
-  { code: 'IT', name: 'Italy', dial: '+39', flag: '🇮🇹', placeholder: '312 345 6789' },
-  { code: 'ES', name: 'Spain', dial: '+34', flag: '🇪🇸', placeholder: '612 34 56 78' },
-  { code: 'NL', name: 'Netherlands', dial: '+31', flag: '🇳🇱', placeholder: '6 12345678' },
-  { code: 'BR', name: 'Brazil', dial: '+55', flag: '🇧🇷', placeholder: '11 91234-5678' },
-  { code: 'JP', name: 'Japan', dial: '+81', flag: '🇯🇵', placeholder: '90-1234-5678' },
-  { code: 'KR', name: 'South Korea', dial: '+82', flag: '🇰🇷', placeholder: '10-1234-5678' },
-  { code: 'TR', name: 'Turkey', dial: '+90', flag: '🇹🇷', placeholder: '512 345 67 89' }
+  ...getAllCountries()
+    .filter(country => /^\d{1,3}$/.test(country.countryCallingCode))
+    .map(country => ({
+      code: country.countryCode,
+      name: country.countryNameEn,
+      dial: `+${country.countryCallingCode}`,
+      flag: country.flag,
+      placeholder: ''
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 ];
+
+const bangladeshOption = COUNTRY_OPTIONS.find(country => country.code === 'BD');
+if (bangladeshOption) {
+  COUNTRY_OPTIONS.splice(COUNTRY_OPTIONS.indexOf(bangladeshOption), 1);
+  COUNTRY_OPTIONS.unshift(bangladeshOption);
+}
 
 export const MONTH_OPTIONS = [
   { value: '01', name: 'January' },

@@ -220,8 +220,12 @@ app.use(async (req, res, next) => {
       const sessionData = await MasterDB.getSession(token, req);
       if (sessionData?.user) {
         req.activeUser = sessionData.user;
+        const isPickAccountStatusRequest = req.path === '/api/pick/me' ||
+          req.path === '/api/pick/account-status' ||
+          req.path === '/api/pick/account-appeals' ||
+          req.path === '/api/pick/auth/logout';
         if (sessionData.user.isBanned &&
-            req.path !== '/api/graphql' &&
+            !isPickAccountStatusRequest &&
             !req.path.startsWith('/api/auth/disabled') &&
             !req.path.startsWith('/api/auth/appeal') &&
             !req.path.startsWith('/api/auth/session') &&
@@ -240,6 +244,8 @@ app.use(async (req, res, next) => {
         const isAddressVerificationRequest = req.path === '/api/address-verification' ||
           req.path.startsWith('/api/address-verification/');
         const isPickProfileBootstrap = req.method === 'GET' && req.path === '/api/pick/me';
+        const isPickAccountStatusPath = req.path === '/api/pick/account-status' ||
+          req.path === '/api/pick/account-appeals';
         const isAdminApiRequest = req.path === '/api/admin' ||
           req.path.startsWith('/api/admin/') ||
           req.path === '/api/pick/admin' ||
@@ -251,6 +257,8 @@ app.use(async (req, res, next) => {
           sessionData.user.identityVerified !== true &&
           !isIdentityVerificationRequest &&
           !isAddressVerificationRequest &&
+          !isPickProfileBootstrap &&
+          !isPickAccountStatusPath &&
           !isAdminApiRequest &&
           !isAuthRequest
         ) {
@@ -266,6 +274,7 @@ app.use(async (req, res, next) => {
           !isAuthRequest &&
           !isAddressVerificationRequest &&
           !isPickProfileBootstrap &&
+          !isPickAccountStatusPath &&
           !isAdminApiRequest &&
           sessionData.user.addressVerified !== true
         ) {

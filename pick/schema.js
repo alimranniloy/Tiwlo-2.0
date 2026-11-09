@@ -47,6 +47,16 @@ export const PICK_SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS pick_address_verifications_expiry_idx
     ON pick.address_verifications(expires_at);
 
+  CREATE TABLE IF NOT EXISTS pick.pending_auth_addresses (
+    token_hash CHAR(64) PRIMARY KEY,
+    tiwlo_user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
+    location JSONB NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS pick_pending_auth_addresses_expiry_idx
+    ON pick.pending_auth_addresses(expires_at);
+
   CREATE TABLE IF NOT EXISTS pick.coverage_zones (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name_en VARCHAR(128) NOT NULL,

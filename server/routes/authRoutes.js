@@ -64,6 +64,11 @@ import { recordSuccessfulLoginDevice } from '../security/loginRisk.js';
 import { requireRecentReauth } from '../security/recentReauth.js';
 import { getPgPool, queryPg } from '../db/postgres.js';
 import {
+  isValidLiveLocation,
+  reverseGeocodeAddress
+} from '../db/addressVerification.js';
+import { getGoogleMapsApiKey } from '../db/googleMapsSettings.js';
+import {
   findOrCreateSocialUser,
   getSocialCallbackUrl,
   getSocialProviderCredentials,
@@ -72,6 +77,187 @@ import {
 } from '../security/socialAuth.js';
 
 const router = express.Router();
+
+function requiresPickAddressVerification(req, user) {
+  return (
+    req.body?.clientSource === 'pick_app' ||
+    user.authMethod === 'pick_credentials'
+  ) && user.addressVerified !== true;
+}
+
+router.post('/auth/pick-address-verification', securityLimiters.addressVerification, async (req, res) => {
+  const { tempToken, latitude, longitude, accuracy } = req.body || {};
+  if (typeof tempToken !== 'string' || !tempToken) {
+    return res.status(401).json({ error: 'Your sign-in verification expired. Start again.' });
+  }
+  if (!isValidLiveLocation({ latitude, longitude, accuracy })) {
+    return res.status(400).json({
+      error: 'Valid GPS coordinates and reported accuracy are required.'
+    });
+  }
+
+  try {
+    const challenge = await getOtpSession(tempToken);
+    if (!challenge || !['login_2fa', 'setup_2fa'].includes(challenge.type)) {
+      return res.status(401).json({ error: 'Your sign-in verification expired. Start again.' });
+    }
+    const user = await MasterDB.findUserByIdentifier(challenge.email);
+    if (!user) return res.status(404).json({ error: 'User account not found.' });
+    if (user.isBanned) {
+      return res.status(403).json({ error: 'Your Tiwlo account is disabled.', code: 'ACCOUNT_DISABLED' });
+    }
+    const location = {
+      latitude,
+      longitude,
+      accuracyMeters: accuracy,
+      ...await reverseGeocodeAddress({
+        latitude,
+        longitude,
+        apiKey: await getGoogleMapsApiKey()
+      })
+    };
+
+    const tokenHash = crypto.createHash('sha256').update(tempToken).digest('hex');
+    await queryPg(
+      `DELETE FROM pick.pending_auth_addresses
+       WHERE expires_at <= CURRENT_TIMESTAMP`
+    );
+    await queryPg(
+      `INSERT INTO pick.pending_auth_addresses
+         (token_hash, tiwlo_user_id, location, expires_at)
+       VALUES ($1, $2, $3::jsonb, CURRENT_TIMESTAMP + INTERVAL '15 minutes')
+       ON CONFLICT (token_hash) DO UPDATE
+       SET location = EXCLUDED.location,
+           expires_at = EXCLUDED.expires_at`,
+      [tokenHash, user.id, JSON.stringify(location)]
+    );
+
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({ success: true, verified: true });
+  } catch (error) {
+    console.error('[PICK AddressVerification] Pre-auth verification failed:', error.message);
+    return res.status(error instanceof TypeError ? 400 : 503).json({
+      error: error instanceof TypeError
+        ? error.message
+        : 'Tiwlo could not verify your current location. Please try again.'
+    });
+  }
+});
+
+async function completePendingPickAddressVerification(tempToken, user, req) {
+  const tokenHash = crypto.createHash('sha256').update(tempToken).digest('hex');
+  const pool = getPgPool();
+  if (!pool) throw new Error('PostgreSQL is unavailable.');
+  const client = await pool.connect();
+  let completed = false;
+  let verifiedAccuracyMeters = 0;
+  try {
+    await client.query('BEGIN');
+    const pending = await client.query(
+      `SELECT tiwlo_user_id, location
+       FROM pick.pending_auth_addresses
+       WHERE token_hash = $1 AND expires_at > CURRENT_TIMESTAMP
+       FOR UPDATE`,
+      [tokenHash]
+    );
+    if (!pending.rows[0]) {
+      await client.query('COMMIT');
+      return false;
+    }
+    if (pending.rows[0].tiwlo_user_id !== user.id) {
+      throw new Error('Pending address verification does not match the signed-in account.');
+    }
+
+    const location = pending.rows[0].location;
+    verifiedAccuracyMeters = location.accuracyMeters;
+    const updatedUser = await client.query(
+      `UPDATE system_users
+       SET address_verified_at = CURRENT_TIMESTAMP,
+           address_verified_location = $2::jsonb,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING id`,
+      [user.id, JSON.stringify(location)]
+    );
+    if (!updatedUser.rows[0]) throw new Error('The signed-in account could not be found.');
+
+    await client.query(
+      `INSERT INTO pick.users (tiwlo_user_id, registration_source)
+       VALUES ($1, $2)
+       ON CONFLICT (tiwlo_user_id) DO NOTHING`,
+      [user.id, user.authMethod === 'pick_credentials' ? 'pick_app' : 'tiwlo']
+    );
+    await client.query(
+      `INSERT INTO pick.profiles
+         (tiwlo_user_id, display_name, phone, delivery_address, delivery_latitude,
+          delivery_longitude, delivery_accuracy, delivery_area, delivery_postal_code,
+          delivery_plus_code, delivery_place_id, delivery_address_verified_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+       ON CONFLICT (tiwlo_user_id) DO UPDATE SET
+         delivery_address = EXCLUDED.delivery_address,
+         delivery_latitude = EXCLUDED.delivery_latitude,
+         delivery_longitude = EXCLUDED.delivery_longitude,
+         delivery_accuracy = EXCLUDED.delivery_accuracy,
+         delivery_area = EXCLUDED.delivery_area,
+         delivery_postal_code = EXCLUDED.delivery_postal_code,
+         delivery_plus_code = EXCLUDED.delivery_plus_code,
+         delivery_place_id = EXCLUDED.delivery_place_id,
+         delivery_address_verified_at = CURRENT_TIMESTAMP,
+         updated_at = CURRENT_TIMESTAMP`,
+      [
+        user.id,
+        user.name || user.storeName || '',
+        user.phone || '',
+        location.formattedAddress,
+        location.latitude,
+        location.longitude,
+        location.accuracyMeters,
+        location.area,
+        location.postalCode,
+        location.plusCode,
+        location.placeId
+      ]
+    );
+    await client.query(
+      'DELETE FROM pick.pending_auth_addresses WHERE token_hash = $1',
+      [tokenHash]
+    );
+    await client.query('COMMIT');
+    completed = true;
+    user.addressVerified = true;
+    user.address = location.formattedAddress;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  if (completed) {
+    recordSecurityEvent({
+      eventType: 'address_verification.succeeded',
+      severity: 'info',
+      userId: user.id,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+      details: { provider: 'google', accuracyMeters: verifiedAccuracyMeters, client: 'pick_app' }
+    }).catch(error => {
+      console.error('[PICK AddressVerification] Could not record success audit event:', error.message);
+    });
+  }
+  return completed;
+}
+
+async function movePendingPickAddressVerification(oldToken, newToken, userId) {
+  const oldTokenHash = crypto.createHash('sha256').update(oldToken).digest('hex');
+  const newTokenHash = crypto.createHash('sha256').update(newToken).digest('hex');
+  await queryPg(
+    `UPDATE pick.pending_auth_addresses
+     SET token_hash = $2, expires_at = CURRENT_TIMESTAMP + INTERVAL '15 minutes'
+     WHERE token_hash = $1 AND tiwlo_user_id = $3`,
+    [oldTokenHash, newTokenHash, userId]
+  );
+}
 
 function getRequestSessionToken(req) {
   const authHeader = req.headers.authorization;
@@ -598,6 +784,7 @@ async function completeSocialLogin(provider, req, res) {
         state: savedState.pickState,
         auth_challenge: challenge.type,
         temp_token: challenge.tempToken,
+        requires_address_verification: user.addressVerified === true ? 'false' : 'true',
         email_masked: challenge.emailMasked,
         message: challenge.message
       }).toString();
@@ -903,6 +1090,7 @@ router.post('/auth/social/complete-profile', async (req, res) => {
         pickAuthChallenge: {
           challengeType: challenge.type,
           tempToken: challenge.tempToken,
+          requiresAddressVerification: user.addressVerified !== true,
           emailMasked: challenge.emailMasked,
           message: challenge.message
         }
@@ -1512,6 +1700,7 @@ router.post('/auth/login', securityLimiters.login, securityLimiters.otpRequestIp
       return res.json({
         success: true,
         requires2FASetup: true,
+        requiresAddressVerification: requiresPickAddressVerification(req, user),
         tempToken: otpResult.token,
         email: user.email,
         emailMasked: masked,
@@ -1539,6 +1728,7 @@ router.post('/auth/login', securityLimiters.login, securityLimiters.otpRequestIp
     return res.json({
       success: true,
       requires2FA: true,
+      requiresAddressVerification: requiresPickAddressVerification(req, user),
       tempToken: otpResult.token,
       email: user.email,
       emailMasked: masked,
@@ -1619,6 +1809,12 @@ router.post('/auth/verify-2fa', async (req, res) => {
       await MasterDB.deleteSession(verification.sessionToken);
       return res.status(404).json({ error: 'User account not found.' });
     }
+    try {
+      await completePendingPickAddressVerification(tempToken, user, req);
+    } catch (error) {
+      await MasterDB.deleteSession(verification.sessionToken);
+      throw error;
+    }
 
     const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
     const tiwiId = user.tiwiId || user.storeId;
@@ -1697,6 +1893,7 @@ router.post('/auth/resend-2fa', securityLimiters.otpRequestIp, securityLimiters.
 
     await deleteOtpSession(tempToken);
     const newOtp = await generateSecureOtp(user.email, 'login_2fa', 10);
+    await movePendingPickAddressVerification(tempToken, newOtp.token, user.id);
     if (req.cookies?.tiwlo_oauth_mfa) {
       setSocialMfaCookie(res, req, newOtp.token);
     }
@@ -1747,6 +1944,7 @@ router.post('/auth/resend-setup-2fa', securityLimiters.otpRequestIp, securityLim
 
     await deleteOtpSession(tempToken);
     const newOtp = await generateSecureOtp(user.email, 'setup_2fa', 15);
+    await movePendingPickAddressVerification(tempToken, newOtp.token, user.id);
     if (req.cookies?.tiwlo_oauth_mfa) {
       setSocialMfaCookie(res, req, newOtp.token);
     }
@@ -1795,6 +1993,7 @@ router.post('/auth/setup-2fa', async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'User account not found.' });
     }
+    await completePendingPickAddressVerification(tempToken, user, req);
 
     const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
     const tiwiId = user.tiwiId || user.storeId;
@@ -1887,6 +2086,7 @@ router.post('/auth/verify-email', async (req, res) => {
         success: true,
         emailVerified: true,
         requires2FA: true,
+        requiresAddressVerification: user.authMethod === 'pick_credentials' && user.addressVerified !== true,
         tempToken: twoFaOtp.token,
         email: user.email,
         emailMasked: masked,
@@ -1906,6 +2106,7 @@ router.post('/auth/verify-email', async (req, res) => {
         success: true,
         emailVerified: true,
         requires2FASetup: true,
+        requiresAddressVerification: user.authMethod === 'pick_credentials' && user.addressVerified !== true,
         tempToken: setupOtp.token,
         email: user.email,
         emailMasked: masked,

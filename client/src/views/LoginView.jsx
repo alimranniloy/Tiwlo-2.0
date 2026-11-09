@@ -7,12 +7,27 @@ import {
   EyeOff,
   AlertCircle,
   RotateCw,
-  ShieldCheck
+  ShieldCheck,
+  ChevronDown,
+  Search
 } from 'lucide-react';
 import TiwloPageLoader from '../components/TiwloUniqueLoader';
 import AuthBrandPanel from '../components/auth/AuthBrandPanel';
 
 const API_BASE = '/api';
+
+function normalizeLoginIdentifier(value, dialingCode) {
+  const identifier = value.trim();
+  if (!identifier || !/^[\d\s()+.-]+$/.test(identifier)) return identifier;
+  if (identifier.startsWith('+')) return `+${identifier.slice(1).replace(/\D/g, '')}`;
+  if (identifier.startsWith('00')) return `+${identifier.slice(2).replace(/\D/g, '')}`;
+
+  let digits = identifier.replace(/\D/g, '');
+  const countryDigits = dialingCode.replace(/\D/g, '');
+  if (digits.startsWith(countryDigits)) return `+${digits}`;
+  digits = digits.replace(/^0+/, '');
+  return digits ? `${dialingCode}${digits}` : identifier;
+}
 
 export default function LoginView({
   onLoginSuccess,
@@ -45,6 +60,11 @@ export default function LoginView({
   const [viewMode, setViewMode] = useState(socialAuthInitial.viewMode);
 
   const [identifier, setIdentifier] = useState('');
+  const [loginPhoneCountry, setLoginPhoneCountry] = useState(
+    COUNTRY_OPTIONS.find(country => country.code === 'BD') || COUNTRY_OPTIONS[0]
+  );
+  const [loginCountryDropdownOpen, setLoginCountryDropdownOpen] = useState(false);
+  const [loginCountrySearch, setLoginCountrySearch] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -370,13 +390,14 @@ export default function LoginView({
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!identifier.trim() || !password) {
-      setErrorMsg('Enter an email or Tiwi ID and password');
+      setErrorMsg('Enter a phone, email or Tiwi ID and password');
       return;
     }
 
     try {
       setLoading(true);
       setErrorMsg('');
+      const loginIdentifier = normalizeLoginIdentifier(identifier, loginPhoneCountry.dial);
 
       const minTimer = new Promise((resolve) => setTimeout(resolve, 600));
 
@@ -384,7 +405,7 @@ export default function LoginView({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ identifier: identifier.trim(), password })
+        body: JSON.stringify({ identifier: loginIdentifier, password })
       })
         .then(async (res) => {
           const data = await res.json().catch(() => ({}));
@@ -1285,15 +1306,79 @@ export default function LoginView({
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Email or Tiwi ID */}
                 <div>
-                  <div className="relative">
+                  <div className="relative flex overflow-visible rounded-[8px] border border-[#747775] dark:border-[#8E918F] focus-within:border-[#000000] focus-within:ring-1 focus-within:ring-[#000000]">
+                    <button
+                      type="button"
+                      onClick={() => setLoginCountryDropdownOpen(open => !open)}
+                      className="flex shrink-0 items-center gap-1.5 rounded-l-[7px] border-r border-[#dcdcdc] bg-[#f8f9fa] px-3 text-[13px] text-[#1f1f1f] dark:border-[#4a4a4a] dark:bg-[#2b2b2b] dark:text-[#E3E3E3]"
+                      aria-label="Choose phone country code"
+                      aria-expanded={loginCountryDropdownOpen}
+                    >
+                      <span className="text-[17px] leading-none">{loginPhoneCountry.flag}</span>
+                      <span className="font-medium">{loginPhoneCountry.dial}</span>
+                      <ChevronDown className="h-3.5 w-3.5 text-[#747775]" />
+                    </button>
                     <input
                       type="text"
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder="Email or Tiwi ID"
+                      placeholder="Phone, email or Tiwi ID"
                       required
-                      className="w-full px-4 py-3.5 rounded-[8px] border border-[#747775] dark:border-[#8E918F] bg-transparent text-[14px] text-[#1F1F1F] dark:text-[#E3E3E3] outline-none focus:border-[#000000] focus:ring-1 focus:ring-[#000000] transition placeholder:text-[#747775]"
+                      className="w-full min-w-0 rounded-r-[7px] bg-transparent px-3 py-3.5 text-[14px] text-[#1F1F1F] outline-none transition placeholder:text-[#747775] dark:text-[#E3E3E3]"
                     />
+                    {loginCountryDropdownOpen && (
+                      <>
+                        <button
+                          type="button"
+                          className="fixed inset-0 z-40 cursor-default"
+                          aria-label="Close country code list"
+                          onClick={() => {
+                            setLoginCountryDropdownOpen(false);
+                            setLoginCountrySearch('');
+                          }}
+                        />
+                        <div className="absolute left-0 top-full z-50 mt-1 flex max-h-72 w-72 flex-col overflow-hidden rounded-[8px] border border-[#dcdcdc] bg-white shadow-lg dark:border-[#4a4a4a] dark:bg-[#242424]">
+                          <div className="border-b border-[#f1f3f4] p-2 dark:border-[#3f3f3f]">
+                            <div className="flex items-center gap-2 rounded-[6px] border border-[#dcdcdc] bg-[#f8f9fa] px-2.5 py-1.5 dark:border-[#4a4a4a] dark:bg-[#303030]">
+                              <Search className="h-3.5 w-3.5 text-[#747775]" />
+                              <input
+                                type="search"
+                                value={loginCountrySearch}
+                                onChange={event => setLoginCountrySearch(event.target.value)}
+                                placeholder="Search country or code"
+                                className="w-full bg-transparent text-xs text-[#1f1f1f] outline-none dark:text-[#E3E3E3]"
+                                autoFocus
+                              />
+                            </div>
+                          </div>
+                          <div className="max-h-56 overflow-y-auto">
+                            {COUNTRY_OPTIONS
+                              .filter(country => `${country.name} ${country.code} ${country.dial}`
+                                .toLowerCase().includes(loginCountrySearch.trim().toLowerCase()))
+                              .map(country => (
+                                <button
+                                  key={country.code}
+                                  type="button"
+                                  onClick={() => {
+                                    setLoginPhoneCountry(country);
+                                    setLoginCountryDropdownOpen(false);
+                                    setLoginCountrySearch('');
+                                  }}
+                                  className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-xs hover:bg-[#f4f4f4] dark:hover:bg-[#333333] ${
+                                    loginPhoneCountry.code === country.code
+                                      ? 'bg-[#efefef] font-medium text-[#000000] dark:bg-[#343434] dark:text-[#fafafa]'
+                                      : 'text-[#1f1f1f] dark:text-[#E3E3E3]'
+                                  }`}
+                                >
+                                  <span className="text-[16px]">{country.flag}</span>
+                                  <span className="flex-1 truncate">{country.name}</span>
+                                  <span className="font-mono text-[11px] text-[#636363] dark:text-[#b8b8b8]">{country.dial}</span>
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 

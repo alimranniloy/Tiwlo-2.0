@@ -73,7 +73,7 @@ export async function createPickAppealSession(userId) {
   await queryPg('DELETE FROM pick.account_appeal_sessions WHERE expires_at <= CURRENT_TIMESTAMP');
   await queryPg(
     `INSERT INTO pick.account_appeal_sessions (token_hash, tiwlo_user_id, expires_at)
-     VALUES ($1, $2, CURRENT_TIMESTAMP + INTERVAL '24 hours')`,
+     VALUES ($1, $2, CURRENT_TIMESTAMP + INTERVAL '30 days')`,
     [tokenHash, user.id]
   );
   return token;
@@ -433,6 +433,102 @@ router.get('/me', requireUser, async (req, res, next) => {
       [req.tiwloSession.user.id]
     );
     return res.json({ user: serializeUser(req.tiwloSession.user, profile.rows[0]) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get('/account-status', async (req, res, next) => {
+  try {
+    let user;
+    let appealTokenHash = '';
+    const session = await getTiwloSession(req);
+    if (session?.user) {
+      user = session.user;
+    } else {
+      const token = getSessionToken(req);
+      if (!token) return res.status(401).json({ error: 'PICK session expired.' });
+      appealTokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const appealSession = await queryPg(
+        `SELECT tiwlo_user_id FROM pick.account_appeal_sessions
+         WHERE token_hash = $1 AND expires_at > CURRENT_TIMESTAMP`,
+        [appealTokenHash]
+      );
+      if (!appealSession.rows[0]) {
+        return res.status(401).json({ error: 'Account status session expired. Sign in again.' });
+      }
+      user = await MasterDB.findUserByIdentifier(appealSession.rows[0].tiwlo_user_id);
+    }
+
+    if (!user) return res.status(404).json({ error: 'The Tiwlo account could not be found.' });
+    const profile = await queryPg(
+      'SELECT * FROM pick.profiles WHERE tiwlo_user_id = $1',
+      [user.id]
+    );
+    if (user.isBanned) {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({
+        status: 'disabled',
+        user: serializeUser(user, profile.rows[0])
+      });
+    }
+
+    if (appealTokenHash) {
+      await queryPg(
+        'DELETE FROM pick.account_appeal_sessions WHERE token_hash = $1',
+        [appealTokenHash]
+      );
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({
+        status: 'restored',
+        user: serializeUser(user, profile.rows[0])
+      });
+    }
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({
+      status: 'active',
+      sessionToken: getSessionToken(req),
+      user: serializeUser(user, profile.rows[0])
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get('/coverage/status', requireUser, async (req, res, next) => {
+  try {
+    const profileResult = await queryPg(
+      `SELECT delivery_address AS "deliveryAddress",
+              delivery_latitude AS latitude, delivery_longitude AS longitude
+       FROM pick.profiles
+       WHERE tiwlo_user_id = $1`,
+      [req.tiwloSession.user.id]
+    );
+    const profile = profileResult.rows[0];
+    if (
+      !profile ||
+      typeof profile.latitude !== 'number' ||
+      !Number.isFinite(profile.latitude) ||
+      typeof profile.longitude !== 'number' ||
+      !Number.isFinite(profile.longitude)
+    ) {
+      return res.json({ hasLocation: false, coverage: null });
+    }
+
+    const zonesResult = await queryPg(
+      `SELECT id, name_en AS "nameEn", name_bn AS "nameBn",
+              center_latitude AS "centerLatitude",
+              center_longitude AS "centerLongitude",
+              radius_meters AS "radiusMeters", active
+       FROM pick.coverage_zones
+       WHERE active = TRUE
+       ORDER BY radius_meters, name_en`
+    );
+    return res.json({
+      hasLocation: true,
+      address: profile.deliveryAddress || '',
+      coverage: findCoverageZone(profile.latitude, profile.longitude, zonesResult.rows)
+    });
   } catch (error) {
     return next(error);
   }

@@ -10,6 +10,12 @@ catalog tables and does not import or seed the mobile app's mock products.
 Products and categories must be populated with real PICK inventory before
 they appear in the app.
 
+## Mobile app
+
+The Expo React Native customer app is maintained in `pick/mobile`. It uses
+these PICK endpoints for authentication, profile, catalog, location, checkout,
+orders, and parcel delivery.
+
 ## PICK public site and admin
 
 The React/Next.js landing page and admin dashboard live in `pick/landing-page`.

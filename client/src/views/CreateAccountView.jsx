@@ -164,7 +164,9 @@ export default function CreateAccountView({
         const [birthYear = '', birthMonth = '', birthDay = ''] = (profile.dateOfBirth || '').split('-');
         const matchedCountry = COUNTRY_OPTIONS.find(country => country.name === profile.country) || COUNTRY_OPTIONS[0];
         const rawPhone = profile.phone || '';
-        const phoneCountry = COUNTRY_OPTIONS.find(country => rawPhone.startsWith(country.dial)) || matchedCountry;
+        const phoneCountry = COUNTRY_OPTIONS.find(country =>
+          country.code === matchedCountry.code && rawPhone.startsWith(country.dial)
+        ) || COUNTRY_OPTIONS.find(country => rawPhone.startsWith(country.dial)) || matchedCountry;
         const phoneNational = rawPhone.startsWith(phoneCountry.dial)
           ? rawPhone.slice(phoneCountry.dial.length).trim()
           : rawPhone;
