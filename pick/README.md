@@ -67,6 +67,8 @@ are placed in the callback URL.
 - `GET /api/pick/parcel/vehicles` — configured parcel vehicles and server-side rates.
 - `POST /api/pick/orders/parcel` — create a parcel order with its server-quoted vehicle rate and optionally start hosted payment.
 - `GET /api/pick/orders` — current user's grocery and parcel order history.
+- `GET /api/pick/updates/:app` — public Android update policy for PICK or PICK Delivery.
+- `GET /api/pick/updates/:app/apk` — download the currently published Android installer.
 - `GET /api/pick/payments/:orderId` — authenticated payment/order status.
 - `GET /api/pick/admin/session` — verify a Tiwlo administrator session.
 - `GET /api/pick/admin/overview` — actual PICK order/payment summary.
@@ -77,7 +79,8 @@ are placed in the callback URL.
 - `GET /api/pick/admin/orders` and `PATCH /api/pick/admin/orders/:id/status` — review orders and advance supported grocery-order statuses.
 - `GET /api/pick/admin/users` — Tiwlo-linked PICK profiles and stored order totals.
 - `GET /api/pick/admin/parcels` and `/api/pick/admin/finance` — actual parcel orders, vehicle rates, and payment states.
-- `GET /api/pick/admin/settings` and `PUT /api/pick/admin/settings/grocery-delivery-fee` — read and persist the fee used by mobile checkout.
+- `GET /api/pick/admin/settings`, `PUT /api/pick/admin/settings/grocery-delivery-fee`, and `PUT /api/pick/admin/settings/grocery-pickup-location` — configure grocery fees and the shared pickup hub used for rider dispatch.
+- `GET /api/pick/admin/settings` and `POST|DELETE /api/pick/admin/settings/app-updates/:app[/apk]` — manage separate PICK and PICK Delivery Android versions, APKs, and optional Play Store links from App Updates in the dashboard. PICK Merchant is reserved but not enabled.
 - `POST /api/pick/location/reverse-geocode` — resolve and save a GPS delivery location
   using the Google Maps key already configured in Tiwlo and return its live
   match against configured service areas.
@@ -100,10 +103,12 @@ platform gateways configured in Tiwlo Admin, without exposing credentials to
 PICK clients. Only enabled bKash and SSLCOMMERZ gateways configured for live
 BDT checkout are offered. The Tiwlo server verifies provider callbacks before
 marking an order paid; online orders remain pending until verification. Pending
-payments expire after 20 minutes and release reserved grocery stock. A verified
+payments expire after 20 minutes and release reserved grocery stock. Unpaid
+pending-payment orders are deleted after 24 hours; their reserved stock is
+released before deletion. A verified
 payment received after expiry is marked for payment review instead of being
 silently treated as a fulfillable order. Cash on delivery remains available.
-Wallet and live rider coordinates are not backed by a PICK service yet.
+Grocery delivery offers require an administrator-configured shared PICK pickup hub and a saved customer delivery pin. Eligible partners must be approved, on duty, recently located, in the same active coverage zone, and within their configured pickup and delivery ranges.
 
 The mobile app loads the category and product endpoints for Home, groceries,
 and product details. Variant prices must be configured for each listed unit;

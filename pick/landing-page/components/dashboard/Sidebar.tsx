@@ -5,6 +5,7 @@ import {
   Bell,
   Bike,
   ClipboardList,
+  Download,
   Layers,
   LayoutDashboard,
   LogOut,
@@ -30,6 +31,7 @@ export type DashboardTab =
   | 'finance'
   | 'broadcasts'
   | 'settings'
+  | 'app_updates'
 
 interface SidebarProps {
   currentTab: DashboardTab
@@ -72,6 +74,7 @@ const groups: {
       { id: 'finance', en: 'Finances & Ledger', bn: 'ওয়ালেট ও পেমেন্ট', icon: <Wallet size={17} /> },
       { id: 'broadcasts', en: 'Push Broadcasts', bn: 'পুশ নোটিফিকেশন', icon: <Bell size={17} /> },
       { id: 'settings', en: 'Platform Controls', bn: 'প্ল্যাটফর্ম সেটিংস', icon: <Sliders size={17} /> },
+      { id: 'app_updates', en: 'App Updates', bn: 'অ্যাপ আপডেট', icon: <Download size={17} /> },
     ],
   },
 ]

@@ -5,11 +5,16 @@ import {
   canTransitionDeliveryJob,
   DEFAULT_DELIVERY_VEHICLE_POLICIES,
   getDeliveryOrderStatus,
+  isGroceryDeliveryJobEligible,
   isDeliveryJobEligible,
   isValidDriverLocation,
   normalizeDeliveryVehicleType,
   validateVehicleCapacity
 } from './deliveryLogic.js';
+import {
+  getPickGroceryPickupLocation,
+  parsePickGroceryPickupLocation
+} from './pricing.js';
 
 const require = createRequire(new URL('../server/package.json', import.meta.url));
 const express = require('express');
@@ -78,7 +83,7 @@ async function loadCoverageZones(executor = queryPg) {
 }
 
 async function loadEligibleOffers(driver, executor = queryPg) {
-  const [{ rows: policyRows }, { rows: orderRows }, zones] = await Promise.all([
+  const [{ rows: policyRows }, { rows: orderRows }, zones, pickupLocation] = await Promise.all([
     executor(
       `SELECT vehicle_type AS "vehicleType", name_en AS "nameEn",
               max_capacity_kg::float8 AS "maxCapacityKg",
@@ -88,18 +93,30 @@ async function loadEligibleOffers(driver, executor = queryPg) {
       [driver.vehicleType]
     ),
     executor(
-      `SELECT o.id, o.status, o.payment_method AS "paymentMethod",
+      `SELECT o.id, o.order_type AS "orderType", o.status,
+              o.payment_method AS "paymentMethod",
               o.payment_status AS "paymentStatus", o.total::float8 AS total,
               o.created_at AS "createdAt", o.parcel_details AS "parcelDetails",
               o.delivery_address AS "deliveryAddress",
-              v.id AS "requestedVehicleId", v.name_en AS "requestedVehicleName"
+              o.delivery_latitude::float8 AS "deliveryLatitude",
+              o.delivery_longitude::float8 AS "deliveryLongitude",
+              v.id AS "requestedVehicleId", v.name_en AS "requestedVehicleName",
+              COALESCE(items.items, '[]'::json) AS items
        FROM pick.orders o
-       JOIN pick.parcel_vehicles v
+       LEFT JOIN pick.parcel_vehicles v
          ON v.id = COALESCE(o.parcel_details->'vehicle'->>'id', '')
-       WHERE o.order_type = 'parcel'
+       LEFT JOIN LATERAL (
+         SELECT json_agg(json_build_object(
+           'name', i.product_name_en,
+           'quantity', i.quantity::float8,
+           'unit', i.unit_en
+         ) ORDER BY i.id) AS items
+         FROM pick.order_items i WHERE i.order_id = o.id
+       ) items ON TRUE
+       WHERE o.order_type IN ('grocery', 'parcel')
          AND o.status IN ('placed', 'preparing')
          AND (o.payment_method = 'cod' OR o.payment_status = 'paid')
-         AND v.active = TRUE
+         AND (o.order_type = 'grocery' OR v.active = TRUE)
          AND NOT EXISTS (
            SELECT 1 FROM pick.delivery_assignments a
            WHERE a.order_id = o.id AND a.status <> 'cancelled'
@@ -107,7 +124,8 @@ async function loadEligibleOffers(driver, executor = queryPg) {
        ORDER BY o.created_at ASC
        LIMIT 250`
     ),
-    loadCoverageZones(executor)
+    loadCoverageZones(executor),
+    getPickGroceryPickupLocation(executor)
   ]);
   const policy = policyRows[0];
   if (!policy) return [];
@@ -115,50 +133,85 @@ async function loadEligibleOffers(driver, executor = queryPg) {
     const parcelDetails = typeof order.parcelDetails === 'string'
       ? JSON.parse(order.parcelDetails)
       : order.parcelDetails;
+    const candidateDriver = {
+      ...driver,
+      latitude: driver.currentLatitude,
+      longitude: driver.currentLongitude,
+      accuracy: driver.currentAccuracy
+    };
+    if (order.orderType === 'grocery') {
+      return pickupLocation && isGroceryDeliveryJobEligible({
+        driver: candidateDriver,
+        order,
+        pickupLocation,
+        policy,
+        coverageZones: zones
+      });
+    }
     const requestedType = normalizeDeliveryVehicleType(
       `${order.requestedVehicleId || ''} ${order.requestedVehicleName || ''}`
     );
     return requestedType === driver.vehicleType && isDeliveryJobEligible({
-      driver: {
-        ...driver,
-        latitude: driver.currentLatitude,
-        longitude: driver.currentLongitude,
-        accuracy: driver.currentAccuracy
-      },
+      driver: candidateDriver,
       order: { ...order, parcelDetails },
       policy,
       coverageZones: zones
     });
   }).map((order) => ({
     id: order.id,
+    orderType: order.orderType,
     status: order.status,
     createdAt: order.createdAt,
     total: order.total,
     deliveryAddress: order.deliveryAddress,
-    pickupAddress: order.parcelDetails?.sender?.address || '',
-    pickupLatitude: Number(order.parcelDetails?.sender?.latitude),
-    pickupLongitude: Number(order.parcelDetails?.sender?.longitude),
-    recipientAddress: order.parcelDetails?.recipient?.address || '',
-    recipientLatitude: Number(order.parcelDetails?.recipient?.latitude),
-    recipientLongitude: Number(order.parcelDetails?.recipient?.longitude),
+    pickupAddress: order.orderType === 'grocery'
+      ? pickupLocation.address
+      : order.parcelDetails?.sender?.address || '',
+    pickupLatitude: order.orderType === 'grocery'
+      ? pickupLocation.latitude
+      : Number(order.parcelDetails?.sender?.latitude),
+    pickupLongitude: order.orderType === 'grocery'
+      ? pickupLocation.longitude
+      : Number(order.parcelDetails?.sender?.longitude),
+    recipientAddress: order.orderType === 'grocery'
+      ? order.deliveryAddress
+      : order.parcelDetails?.recipient?.address || '',
+    recipientLatitude: order.orderType === 'grocery'
+      ? order.deliveryLatitude
+      : Number(order.parcelDetails?.recipient?.latitude),
+    recipientLongitude: order.orderType === 'grocery'
+      ? order.deliveryLongitude
+      : Number(order.parcelDetails?.recipient?.longitude),
     recipientName: order.parcelDetails?.recipient?.name || '',
-    weightKg: Number(order.parcelDetails?.package?.weight),
-    category: order.parcelDetails?.package?.categoryNameEn || '',
-    vehicleName: order.requestedVehicleName
+    weightKg: order.orderType === 'grocery'
+      ? null
+      : Number(order.parcelDetails?.package?.weight),
+    category: order.orderType === 'grocery'
+      ? 'Grocery order'
+      : order.parcelDetails?.package?.categoryNameEn || '',
+    vehicleName: order.requestedVehicleName || policy.nameEn,
+    items: order.items || []
   }));
 }
 
-async function sendExpoPushNotifications(tokens, orderId) {
-  const messages = tokens.map((to) => ({
+export function createDeliveryPushMessages(tokens, orderId, orderType = 'parcel') {
+  const isGrocery = orderType === 'grocery';
+  return tokens.map((to) => ({
     to,
-    title: 'New PICK parcel nearby',
-    body: 'A parcel that matches your vehicle is ready to accept.',
+    title: isGrocery ? 'New PICK grocery delivery nearby' : 'New PICK parcel nearby',
+    body: isGrocery
+      ? 'A grocery order in your area is ready to accept.'
+      : 'A parcel that matches your vehicle is ready to accept.',
     sound: 'default',
     priority: 'high',
-    channelId: 'pick-delivery-orders',
+    channelId: 'pick-delivery-orders-v2',
     ttl: 30,
-    data: { type: 'parcel_offer', orderId }
+    data: { type: isGrocery ? 'grocery_offer' : 'parcel_offer', orderId }
   }));
+}
+
+async function sendExpoPushNotifications(tokens, orderId, orderType) {
+  const messages = createDeliveryPushMessages(tokens, orderId, orderType);
   for (let offset = 0; offset < messages.length; offset += 100) {
     const response = await fetch('https://exp.host/--/api/v2/push/send', {
       method: 'POST',
@@ -213,16 +266,20 @@ export async function notifyDeliveryPartnersForOrder(orderId, executor = queryPg
   );
   if (!drivers.length) return;
   const { rows: orderRows } = await executor(
-    `SELECT o.id, o.status, o.payment_method AS "paymentMethod",
+    `SELECT o.id, o.order_type AS "orderType", o.status,
+            o.payment_method AS "paymentMethod",
             o.payment_status AS "paymentStatus", o.parcel_details AS "parcelDetails",
+            o.delivery_address AS "deliveryAddress",
+            o.delivery_latitude::float8 AS "deliveryLatitude",
+            o.delivery_longitude::float8 AS "deliveryLongitude",
             v.id AS "requestedVehicleId", v.name_en AS "requestedVehicleName"
      FROM pick.orders o
-     JOIN pick.parcel_vehicles v
+     LEFT JOIN pick.parcel_vehicles v
        ON v.id = COALESCE(o.parcel_details->'vehicle'->>'id', '')
-     WHERE o.id = $1 AND o.order_type = 'parcel'
+     WHERE o.id = $1 AND o.order_type IN ('grocery', 'parcel')
        AND o.status IN ('placed', 'preparing')
        AND (o.payment_method = 'cod' OR o.payment_status = 'paid')
-       AND v.active = TRUE`,
+       AND (o.order_type = 'grocery' OR v.active = TRUE)`,
     [orderId]
   );
   const order = orderRows[0];
@@ -230,17 +287,29 @@ export async function notifyDeliveryPartnersForOrder(orderId, executor = queryPg
   const parcelDetails = typeof order.parcelDetails === 'string'
     ? JSON.parse(order.parcelDetails)
     : order.parcelDetails;
-  const zones = await loadCoverageZones(executor);
-  const tokens = drivers.filter((driver) =>
-    normalizeDeliveryVehicleType(`${order.requestedVehicleId} ${order.requestedVehicleName}`) === driver.vehicleType &&
-    isDeliveryJobEligible({
-      driver: { ...driver, currentLatitude: driver.latitude, currentLongitude: driver.longitude },
-      order: { ...order, parcelDetails },
-      policy: driver,
-      coverageZones: zones
-    })
-  ).map((driver) => driver.pushToken);
-  if (tokens.length) await sendExpoPushNotifications(tokens, order.id);
+  const [zones, pickupLocation] = await Promise.all([
+    loadCoverageZones(executor),
+    getPickGroceryPickupLocation(executor)
+  ]);
+  const tokens = drivers.filter((driver) => {
+    if (order.orderType === 'grocery') {
+      return isGroceryDeliveryJobEligible({
+        driver: { ...driver, currentLatitude: driver.latitude, currentLongitude: driver.longitude },
+        order,
+        pickupLocation,
+        policy: driver,
+        coverageZones: zones
+      });
+    }
+    return normalizeDeliveryVehicleType(`${order.requestedVehicleId} ${order.requestedVehicleName}`) === driver.vehicleType &&
+      isDeliveryJobEligible({
+        driver: { ...driver, currentLatitude: driver.latitude, currentLongitude: driver.longitude },
+        order: { ...order, parcelDetails },
+        policy: driver,
+        coverageZones: zones
+      });
+  }).map((driver) => driver.pushToken);
+  if (tokens.length) await sendExpoPushNotifications(tokens, order.id, order.orderType);
 }
 
 function sendInputError(res, error) {
@@ -339,13 +408,13 @@ export function createPickDeliveryRouter({ requireUser, query = queryPg }) {
       if (typeof isOnDuty !== 'boolean') {
         return res.status(400).json({ error: 'Choose whether you want to go on duty.' });
       }
-      const profile = await loadDriverProfile(req.tiwloSession.user.id);
+      const profile = await loadDriverProfile(req.tiwloSession.user.id, query);
       if (!profile) return res.status(409).json({ error: 'Complete your delivery-partner application first.' });
       if (isOnDuty && req.tiwloSession.user.addressVerified !== true) {
         return res.status(403).json({ error: 'Verify your Tiwlo address before starting delivery duty.' });
       }
       if (!isOnDuty) {
-        const { rows: activeJobs } = await queryPg(
+        const { rows: activeJobs } = await query(
           `SELECT 1 FROM pick.delivery_assignments
            WHERE rider_user_id = $1 AND status IN ('accepted', 'picked_up')
            LIMIT 1`,
@@ -359,6 +428,14 @@ export function createPickDeliveryRouter({ requireUser, query = queryPg }) {
         if (profile.applicationStatus !== 'approved') {
           return res.status(403).json({ error: 'Your delivery-partner application must be approved before duty starts.' });
         }
+        const { rows: pushRows } = await query(
+          `SELECT expo_push_token AS "pushToken"
+           FROM pick.delivery_profiles WHERE tiwlo_user_id = $1`,
+          [req.tiwloSession.user.id]
+        );
+        if (!pushRows[0]?.pushToken) {
+          return res.status(409).json({ error: 'Register parcel notifications before going on duty. Duty stays off until background alerts are ready.' });
+        }
         if (!isValidDriverLocation({
           latitude: profile.currentLatitude,
           longitude: profile.currentLongitude,
@@ -370,13 +447,13 @@ export function createPickDeliveryRouter({ requireUser, query = queryPg }) {
         const coverage = findCoverageZone(
           profile.currentLatitude,
           profile.currentLongitude,
-          await loadCoverageZones()
+          await loadCoverageZones(query)
         );
         if (!coverage.available) {
           return res.status(409).json({ error: 'PICK Delivery is not available at your current location.' });
         }
       }
-      await queryPg(
+      await query(
         `UPDATE pick.delivery_profiles
          SET is_on_duty = $2, updated_at = CURRENT_TIMESTAMP,
              last_seen_at = CURRENT_TIMESTAMP
@@ -502,16 +579,44 @@ export function createPickDeliveryRouter({ requireUser, query = queryPg }) {
       const { rows } = await queryPg(
         `SELECT a.id AS "assignmentId", a.status, a.accepted_at AS "acceptedAt",
                 a.picked_up_at AS "pickedUpAt", a.updated_at AS "updatedAt",
-                o.id AS "orderId", o.total::float8 AS total,
+                o.id AS "orderId", o.order_type AS "orderType",
+                o.total::float8 AS total,
                 o.parcel_details AS "parcelDetails",
-                o.delivery_address AS "deliveryAddress"
+                o.delivery_address AS "deliveryAddress",
+                o.delivery_latitude::float8 AS "deliveryLatitude",
+                o.delivery_longitude::float8 AS "deliveryLongitude",
+                COALESCE(items.items, '[]'::json) AS items
          FROM pick.delivery_assignments a
          JOIN pick.orders o ON o.id = a.order_id
+         LEFT JOIN LATERAL (
+           SELECT json_agg(json_build_object(
+             'name', i.product_name_en,
+             'quantity', i.quantity::float8,
+             'unit', i.unit_en
+           ) ORDER BY i.id) AS items
+           FROM pick.order_items i WHERE i.order_id = o.id
+         ) items ON TRUE
          WHERE a.rider_user_id = $1 AND a.status IN ('accepted', 'picked_up')
          ORDER BY a.accepted_at DESC`,
         [req.tiwloSession.user.id]
       );
-      return res.json({ jobs: rows });
+      const pickupLocation = rows.some((job) => job.orderType === 'grocery')
+        ? await getPickGroceryPickupLocation()
+        : null;
+      return res.json({
+        jobs: rows.map((job) => ({
+          ...job,
+          pickupAddress: job.orderType === 'grocery'
+            ? pickupLocation?.address || ''
+            : job.parcelDetails?.sender?.address || '',
+          pickupLatitude: job.orderType === 'grocery'
+            ? pickupLocation?.latitude ?? null
+            : job.parcelDetails?.sender?.latitude ?? null,
+          pickupLongitude: job.orderType === 'grocery'
+            ? pickupLocation?.longitude ?? null
+            : job.parcelDetails?.sender?.longitude ?? null
+        }))
+      });
     } catch (error) {
       return next(error);
     }
@@ -525,23 +630,27 @@ export function createPickDeliveryRouter({ requireUser, query = queryPg }) {
       client = await pool.connect();
       await client.query('BEGIN');
       const orderResult = await client.query(
-        `SELECT o.id, o.status, o.payment_method AS "paymentMethod",
+        `SELECT o.id, o.order_type AS "orderType", o.status,
+                o.payment_method AS "paymentMethod",
                 o.payment_status AS "paymentStatus", o.parcel_details AS "parcelDetails",
+                o.delivery_address AS "deliveryAddress",
+                o.delivery_latitude::float8 AS "deliveryLatitude",
+                o.delivery_longitude::float8 AS "deliveryLongitude",
                 v.id AS "requestedVehicleId", v.name_en AS "requestedVehicleName"
          FROM pick.orders o
-         JOIN pick.parcel_vehicles v
+         LEFT JOIN pick.parcel_vehicles v
            ON v.id = COALESCE(o.parcel_details->'vehicle'->>'id', '')
-         WHERE o.id = $1 AND o.order_type = 'parcel'
+         WHERE o.id = $1 AND o.order_type IN ('grocery', 'parcel')
            AND o.status IN ('placed', 'preparing')
            AND (o.payment_method = 'cod' OR o.payment_status = 'paid')
-           AND v.active = TRUE
+           AND (o.order_type = 'grocery' OR v.active = TRUE)
          FOR UPDATE OF o`,
         [req.params.orderId]
       );
       const order = orderResult.rows[0];
       if (!order) {
         await client.query('ROLLBACK');
-        return res.status(404).json({ error: 'This parcel is no longer available.' });
+        return res.status(404).json({ error: 'This delivery request is no longer available.' });
       }
       const profileResult = await client.query(
         `SELECT d.tiwlo_user_id AS "userId",
@@ -574,23 +683,37 @@ export function createPickDeliveryRouter({ requireUser, query = queryPg }) {
       const parcelDetails = typeof order.parcelDetails === 'string'
         ? JSON.parse(order.parcelDetails)
         : order.parcelDetails;
-      const eligible = driver &&
-        normalizeDeliveryVehicleType(`${order.requestedVehicleId} ${order.requestedVehicleName}`) === driver.vehicleType &&
-        !activeJobs.length &&
-        isDeliveryJobEligible({
-          driver: {
-            ...driver,
-            latitude: driver.currentLatitude,
-            longitude: driver.currentLongitude,
-            accuracy: driver.currentAccuracy
-          },
+      const pickupLocation = order.orderType === 'grocery'
+        ? parsePickGroceryPickupLocation((await client.query(
+          'SELECT value FROM pick.settings WHERE key = $1 LIMIT 1',
+          ['grocery_pickup_location']
+        )).rows[0]?.value)
+        : null;
+      const driverForEligibility = driver && {
+        ...driver,
+        latitude: driver.currentLatitude,
+        longitude: driver.currentLongitude,
+        accuracy: driver.currentAccuracy
+      };
+      const transactionQuery = (sql, params) => client.query(sql, params);
+      const eligible = driver && !activeJobs.length && (order.orderType === 'grocery'
+        ? isGroceryDeliveryJobEligible({
+          driver: driverForEligibility,
+          order,
+          pickupLocation,
+          policy: driver,
+          coverageZones: await loadCoverageZones(transactionQuery)
+        })
+        : normalizeDeliveryVehicleType(`${order.requestedVehicleId} ${order.requestedVehicleName}`) === driver.vehicleType &&
+          isDeliveryJobEligible({
+          driver: driverForEligibility,
           order: { ...order, parcelDetails },
           policy: driver,
-          coverageZones: await loadCoverageZones(client)
-        });
+          coverageZones: await loadCoverageZones(transactionQuery)
+        }));
       if (!eligible) {
         await client.query('ROLLBACK');
-        return res.status(409).json({ error: 'This parcel no longer matches your vehicle, location, or availability.' });
+        return res.status(409).json({ error: 'This delivery no longer matches your vehicle, location, or availability.' });
       }
       const { rows: assignments } = await client.query(
         `INSERT INTO pick.delivery_assignments (order_id, rider_user_id, status)
@@ -614,7 +737,7 @@ export function createPickDeliveryRouter({ requireUser, query = queryPg }) {
         }
       }
       if (error?.code === '23505') {
-        return res.status(409).json({ error: 'This parcel or another delivery has already been accepted.' });
+        return res.status(409).json({ error: 'This delivery or another request has already been accepted.' });
       }
       return next(error);
     } finally {

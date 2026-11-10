@@ -16,6 +16,19 @@ export const PICK_MOBILE_PAYMENT_CALLBACK = 'pick://payment/callback';
 const PICK_PAYMENT_CURRENCIES = Object.freeze({ bkash: 'BDT', sslcommerz: 'BDT' });
 let expiryTimer = null;
 
+export const STALE_PENDING_PICK_ORDERS_SQL = `
+  SELECT id FROM pick.orders
+  WHERE created_at <= CURRENT_TIMESTAMP - INTERVAL '24 hours'
+    AND payment_status <> 'paid'
+    AND (
+      status IN ('pending', 'pending_payment')
+      OR payment_status IN ('pending', 'expired')
+    )
+  ORDER BY created_at
+  LIMIT 100
+  FOR UPDATE SKIP LOCKED
+`;
+
 export function getPickPaymentProviders(gateways) {
   return Object.entries(PICK_PAYMENT_CURRENCIES).flatMap(([id, currency]) => {
     const gateway = gateways?.[id];
@@ -130,10 +143,9 @@ export async function setPickPaymentStatus(orderId, paymentStatus, transactionId
       [orderId]
     );
     await client.query('COMMIT');
-    if (paymentStatus === 'paid' && order.order_type === 'parcel' &&
-        updated[0]?.status === 'placed') {
+    if (paymentStatus === 'paid' && updated[0]?.status === 'placed') {
       notifyDeliveryPartnersForOrder(orderId).catch((notificationError) => {
-        console.error('PICK Delivery paid-parcel notification failed:', notificationError);
+        console.error('PICK Delivery paid-order notification failed:', notificationError);
       });
     }
     return updated[0] || null;
@@ -367,10 +379,37 @@ export async function expirePendingPickPayments() {
   }
 }
 
+export async function deleteStalePendingPickOrders() {
+  const pool = getPgPool();
+  if (!pool) return 0;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(STALE_PENDING_PICK_ORDERS_SQL);
+    for (const { id } of rows) {
+      await releaseOrderInventory(client, id);
+      await client.query('DELETE FROM pick.orders WHERE id = $1', [id]);
+    }
+    await client.query('COMMIT');
+    return rows.length;
+  } catch (error) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('PICK stale-order cleanup rollback failed:', rollbackError);
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export function startPickPaymentExpiry() {
   if (expiryTimer) return;
   const run = () => expirePendingPickPayments().catch(error => {
     console.error('[PICK payment] Pending payment expiry failed:', error.message);
+  }).then(() => deleteStalePendingPickOrders()).catch(error => {
+    console.error('[PICK orders] Stale pending-order cleanup failed:', error.message);
   });
   run();
   expiryTimer = setInterval(run, 60_000);

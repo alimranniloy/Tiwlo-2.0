@@ -166,6 +166,8 @@ export const PICK_SCHEMA_SQL = `
     payment_expires_at TIMESTAMPTZ,
     inventory_released BOOLEAN NOT NULL DEFAULT FALSE,
     parcel_details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    delivery_latitude DOUBLE PRECISION CHECK (delivery_latitude IS NULL OR delivery_latitude BETWEEN -90 AND 90),
+    delivery_longitude DOUBLE PRECISION CHECK (delivery_longitude IS NULL OR delivery_longitude BETWEEN -180 AND 180),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
@@ -179,11 +181,25 @@ export const PICK_SCHEMA_SQL = `
     ADD COLUMN IF NOT EXISTS payment_transaction_id VARCHAR(255),
     ADD COLUMN IF NOT EXISTS payment_return_token_hash CHAR(64),
     ADD COLUMN IF NOT EXISTS payment_expires_at TIMESTAMPTZ,
-    ADD COLUMN IF NOT EXISTS inventory_released BOOLEAN NOT NULL DEFAULT FALSE;
+    ADD COLUMN IF NOT EXISTS inventory_released BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS delivery_latitude DOUBLE PRECISION,
+    ADD COLUMN IF NOT EXISTS delivery_longitude DOUBLE PRECISION;
+  UPDATE pick.orders o
+  SET delivery_latitude = p.delivery_latitude,
+      delivery_longitude = p.delivery_longitude
+  FROM pick.profiles p
+  WHERE o.order_type = 'grocery'
+    AND o.tiwlo_user_id = p.tiwlo_user_id
+    AND (o.delivery_latitude IS NULL OR o.delivery_longitude IS NULL)
+    AND p.delivery_latitude IS NOT NULL
+    AND p.delivery_longitude IS NOT NULL;
   CREATE INDEX IF NOT EXISTS pick_orders_user_created_idx
     ON pick.orders(tiwlo_user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS pick_orders_pending_payment_expiry_idx
     ON pick.orders(payment_expires_at) WHERE payment_status = 'pending';
+  CREATE INDEX IF NOT EXISTS pick_orders_stale_pending_idx
+    ON pick.orders(created_at)
+    WHERE status IN ('pending', 'pending_payment') OR payment_status IN ('pending', 'expired');
 
   CREATE TABLE IF NOT EXISTS pick.delivery_vehicle_policies (
     vehicle_type VARCHAR(32) PRIMARY KEY,
@@ -260,12 +276,19 @@ export const PICK_SCHEMA_SQL = `
     product_id UUID REFERENCES pick.products(id) ON DELETE SET NULL,
     product_name_en VARCHAR(255) NOT NULL,
     product_name_bn VARCHAR(255) NOT NULL,
+    product_image_url TEXT NOT NULL DEFAULT '',
     unit_en VARCHAR(128) NOT NULL,
     unit_bn VARCHAR(128) NOT NULL,
     quantity NUMERIC(12, 3) NOT NULL CHECK (quantity > 0),
     unit_price NUMERIC(12, 2) NOT NULL CHECK (unit_price >= 0),
     line_total NUMERIC(12, 2) NOT NULL CHECK (line_total >= 0)
   );
+  ALTER TABLE pick.order_items
+    ADD COLUMN IF NOT EXISTS product_image_url TEXT NOT NULL DEFAULT '';
+  UPDATE pick.order_items i
+  SET product_image_url = p.image_url
+  FROM pick.products p
+  WHERE i.product_id = p.id AND i.product_image_url = '' AND p.image_url <> '';
 
   CREATE TABLE IF NOT EXISTS pick.mobile_sso_handoffs (
     code_hash CHAR(64) PRIMARY KEY,

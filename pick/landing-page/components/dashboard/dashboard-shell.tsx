@@ -30,13 +30,14 @@ const info: Record<DashboardTab, { title: string; subtitle: string }> = {
   products: { title: 'পণ্য ও স্টক (Products & Inventory)', subtitle: 'Manage the catalog and inventory used in PICK checkout.' },
   categories: { title: 'Categories', subtitle: 'Manage categories available in the PICK app.' },
   orders: { title: 'Orders Pipeline', subtitle: 'Review and update grocery orders created in PICK.' },
-  riders: { title: 'Delivery Riders & Fleet Hubs', subtitle: 'Rider dispatch is not connected to PICK yet.' },
+  riders: { title: 'Delivery Riders & Fleet Hubs', subtitle: 'Review delivery partners and their dispatch eligibility.' },
   users: { title: 'Registered App Customers', subtitle: 'Tiwlo accounts that have used PICK.' },
   parcel: { title: 'Parcel Courier', subtitle: 'PICK parcel orders and configured vehicle rates.' },
   promotions: { title: 'Promotions & Coupons', subtitle: 'Promotion checkout is not connected to PICK yet.' },
   finance: { title: 'Payments & Order Ledger', subtitle: 'Payment states and amounts recorded for PICK orders.' },
   broadcasts: { title: 'Push Broadcasts', subtitle: 'Push notification delivery is not configured for PICK yet.' },
   settings: { title: 'PICK Checkout Settings', subtitle: 'Settings used by the PICK mobile checkout API.' },
+  app_updates: { title: 'PICK App Updates', subtitle: 'Publish and manage Android app versions.' },
 }
 
 interface AdminUser {
@@ -160,7 +161,8 @@ export function DashboardShell() {
           {tab === 'promotions' && <PromotionsView />}
           {tab === 'finance' && <FinanceView />}
           {tab === 'broadcasts' && <BroadcastsView />}
-          {tab === 'settings' && <SettingsView />}
+          {tab === 'settings' && <SettingsView section="checkout" />}
+          {tab === 'app_updates' && <SettingsView section="app_updates" />}
         </main>
       </div>
     </div>

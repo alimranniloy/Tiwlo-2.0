@@ -12,7 +12,11 @@ import {
 import { PLATFORM_CONFIG } from '../server/config/platformConfig.js';
 import adminRoutes from './adminRoutes.js';
 import { findCoverageZone } from './coverage.js';
-import { getPickGroceryDeliveryFee, parseGroceryDeliveryFee } from './pricing.js';
+import {
+  getPickGroceryDeliveryFee,
+  getPickGroceryPickupLocation,
+  parseGroceryDeliveryFee
+} from './pricing.js';
 import {
   createPickDeliveryRouter,
   notifyDeliveryPartnersForOrder
@@ -24,6 +28,11 @@ import {
   registerPickPaymentRoutes,
   startPickHostedPayment
 } from './payments.js';
+import {
+  getPickAppUpdatePublicInfo,
+  getPickAppUpdateSettings
+} from './appUpdates.js';
+import { readMediaBuffer } from '../server/db/mediaStorage.js';
 
 const require = createRequire(new URL('../server/package.json', import.meta.url));
 const express = require('express');
@@ -36,6 +45,35 @@ const PARCEL_CATEGORIES = {
   fragile: { en: 'Fragile items', bn: 'ভঙ্গুর সামগ্রী' },
   box: { en: 'Box or carton', bn: 'কার্টন ও বক্স' }
 };
+
+router.get('/updates/:app', async (req, res, next) => {
+  try {
+    const appUpdate = await getPickAppUpdatePublicInfo(req.params.app);
+    return res.json(appUpdate);
+  } catch (error) {
+    if (error instanceof TypeError) return res.status(404).json({ error: error.message });
+    return next(error);
+  }
+});
+
+router.get('/updates/:app/apk', async (req, res, next) => {
+  try {
+    const appUpdate = await getPickAppUpdateSettings(req.params.app);
+    if (!appUpdate.apkPath) {
+      return res.status(404).json({ error: 'No Android APK is currently available.' });
+    }
+    const media = await readMediaBuffer(appUpdate.apkPath);
+    if (!media?.data) return res.status(404).json({ error: 'The Android APK is unavailable.' });
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    res.setHeader('Content-Length', media.data.length);
+    res.setHeader('Content-Disposition', `attachment; filename="${req.params.app}-update.apk"`);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.send(media.data);
+  } catch (error) {
+    if (error instanceof TypeError) return res.status(404).json({ error: error.message });
+    return next(error);
+  }
+});
 
 export function isValidPickCodeChallenge(value) {
   return typeof value === 'string' && /^[A-Za-z0-9_-]{43}$/.test(value);
@@ -957,9 +995,14 @@ router.post('/orders/parcel', requireUser, async (req, res, next) => {
           ...payment
         });
       } catch (error) {
-        return res.status(502).json({
-          error: error.message || 'The payment checkout could not be started.',
-          orderId: orderResult.rows[0].id
+        return res.status(201).json({
+          order: {
+            ...orderResult.rows[0],
+            status: 'payment_failed',
+            paymentStatus: 'failed',
+            paymentProvider: paymentMethod
+          },
+          checkoutError: error.message || 'The payment checkout could not be started.'
         });
       }
     }
@@ -983,13 +1026,20 @@ router.post('/orders/parcel', requireUser, async (req, res, next) => {
 
 router.post('/orders', requireUser, async (req, res, next) => {
   let deliveryFee;
+  let groceryPickupLocation;
   try {
     deliveryFee = await getPickGroceryDeliveryFee();
+    groceryPickupLocation = await getPickGroceryPickupLocation();
   } catch (error) {
     return next(error);
   }
   if (deliveryFee === null) {
     return res.status(503).json({ error: 'Grocery delivery pricing is not configured.' });
+  }
+  if (!groceryPickupLocation) {
+    return res.status(503).json({
+      error: 'PICK grocery delivery is not ready yet. The delivery pickup location has not been configured.'
+    });
   }
 
   const requestedItems = req.body?.items;
@@ -1029,24 +1079,31 @@ router.post('/orders', requireUser, async (req, res, next) => {
     client = await pool.connect();
     await client.query('BEGIN');
     const profileResult = await client.query(
-      `SELECT display_name, phone, delivery_address
+      `SELECT display_name, phone, delivery_address,
+              delivery_latitude AS "deliveryLatitude",
+              delivery_longitude AS "deliveryLongitude"
        FROM pick.profiles WHERE tiwlo_user_id = $1 FOR UPDATE`,
       [req.tiwloSession.user.id]
     );
-    const deliveryAddress = profileResult.rows[0]?.delivery_address?.trim();
-    if (!deliveryAddress) {
+    const profile = profileResult.rows[0];
+    const deliveryAddress = profile?.delivery_address?.trim();
+    if (!deliveryAddress ||
+        !Number.isFinite(profile?.deliveryLatitude) ||
+        !Number.isFinite(profile?.deliveryLongitude)) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Set a delivery address before placing an order.' });
+      return res.status(400).json({
+        error: 'Set a delivery location with a map pin before placing a grocery order.'
+      });
     }
     if (paymentMethod === 'sslcommerz' &&
-        !String(profileResult.rows[0]?.phone || req.tiwloSession.user.phone || '').trim()) {
+        !String(profile?.phone || req.tiwloSession.user.phone || '').trim()) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Add a phone number to your Tiwlo profile before using SSLCOMMERZ.' });
     }
 
     const productIds = [...new Set([...mergedItems.values()].map((item) => item.productId))];
     const productsResult = await client.query(
-      `SELECT id, name_en, name_bn, unit_en, unit_bn, units_en, units_bn,
+      `SELECT id, name_en, name_bn, unit_en, unit_bn, units_en, units_bn, image_url,
               unit_prices, stock_quantity, active
        FROM pick.products
        WHERE id = ANY($1::uuid[])
@@ -1096,23 +1153,37 @@ router.post('/orders', requireUser, async (req, res, next) => {
     const total = Math.round((subtotal + deliveryFee) * 100) / 100;
     const orderResult = await client.query(
       `INSERT INTO pick.orders
-         (tiwlo_user_id, order_type, status, delivery_address, subtotal, delivery_fee, total, payment_method)
-       VALUES ($1, 'grocery', 'placed', $2, $3, $4, $5, $6)
+         (tiwlo_user_id, order_type, status, delivery_address, subtotal, delivery_fee,
+          total, payment_method, delivery_latitude, delivery_longitude)
+       VALUES ($1, 'grocery', 'placed', $2, $3, $4, $5, $6, $7, $8)
        RETURNING id, order_type AS "orderType", status, delivery_address AS "deliveryAddress",
                  subtotal::float8 AS subtotal, delivery_fee::float8 AS "deliveryFee",
-                 total::float8 AS total, payment_method AS "paymentMethod", created_at AS "createdAt"`,
-      [req.tiwloSession.user.id, deliveryAddress, subtotal, deliveryFee, total, paymentMethod]
+                 total::float8 AS total, payment_method AS "paymentMethod",
+                 delivery_latitude::float8 AS "deliveryLatitude",
+                 delivery_longitude::float8 AS "deliveryLongitude",
+                 created_at AS "createdAt"`,
+      [
+        req.tiwloSession.user.id,
+        deliveryAddress,
+        subtotal,
+        deliveryFee,
+        total,
+        paymentMethod,
+        profile.deliveryLatitude,
+        profile.deliveryLongitude
+      ]
     );
     const order = orderResult.rows[0];
     for (const item of orderItems) {
       await client.query(
         `INSERT INTO pick.order_items
-           (order_id, product_id, product_name_en, product_name_bn, unit_en, unit_bn,
+           (order_id, product_id, product_name_en, product_name_bn, product_image_url, unit_en, unit_bn,
             quantity, unit_price, line_total)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [
           order.id, item.product.id, item.product.name_en, item.product.name_bn,
-          item.unitEn, item.unitBn, item.quantity, item.unitPrice, item.lineTotal
+          item.product.image_url || '', item.unitEn, item.unitBn,
+          item.quantity, item.unitPrice, item.lineTotal
         ]
       );
     }
@@ -1148,12 +1219,20 @@ router.post('/orders', requireUser, async (req, res, next) => {
           ...payment
         });
       } catch (error) {
-        return res.status(502).json({
-          error: error.message || 'The payment checkout could not be started.',
-          orderId: order.id
+        return res.status(201).json({
+          order: {
+            ...order,
+            status: 'payment_failed',
+            paymentStatus: 'failed',
+            paymentProvider: paymentMethod
+          },
+          checkoutError: error.message || 'The payment checkout could not be started.'
         });
       }
     }
+    notifyDeliveryPartnersForOrder(order.id).catch((notificationError) => {
+      console.error('PICK Delivery grocery-offer notification failed:', notificationError);
+    });
     return res.status(201).json({ order });
   } catch (error) {
     if (client) {
@@ -1175,6 +1254,8 @@ router.get('/orders', requireUser, async (req, res, next) => {
       `SELECT o.id, o.order_type AS "orderType", o.status,
               o.delivery_address AS "deliveryAddress", o.subtotal::float8 AS subtotal,
               o.delivery_fee::float8 AS "deliveryFee", o.total::float8 AS total,
+              o.delivery_latitude::float8 AS "deliveryLatitude",
+              o.delivery_longitude::float8 AS "deliveryLongitude",
               o.payment_method AS "paymentMethod", o.created_at AS "createdAt",
               o.payment_status AS "paymentStatus", o.payment_provider AS "paymentProvider",
               o.payment_expires_at AS "paymentExpiresAt",
@@ -1183,6 +1264,7 @@ router.get('/orders', requireUser, async (req, res, next) => {
               COALESCE(jsonb_agg(jsonb_build_object(
                 'id', i.id, 'productId', i.product_id,
                 'nameEn', i.product_name_en, 'nameBn', i.product_name_bn,
+                'image', i.product_image_url,
                 'unitEn', i.unit_en, 'unitBn', i.unit_bn,
                 'quantity', i.quantity, 'unitPrice', i.unit_price, 'lineTotal', i.line_total
               )) FILTER (WHERE i.id IS NOT NULL), '[]'::jsonb) AS items
@@ -1210,6 +1292,7 @@ router.get('/orders', requireUser, async (req, res, next) => {
          JOIN pick.delivery_profiles d ON d.tiwlo_user_id = a.rider_user_id
          JOIN system_users u ON u.id = a.rider_user_id
          WHERE a.order_id = o.id AND a.status <> 'cancelled'
+           AND (o.payment_method = 'cod' OR o.payment_status = 'paid')
          ORDER BY a.accepted_at DESC LIMIT 1
        ) delivery ON TRUE
        WHERE o.tiwlo_user_id = $1

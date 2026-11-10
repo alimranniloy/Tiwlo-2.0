@@ -3,12 +3,28 @@ import { createRequire } from 'node:module';
 import { queryPg } from '../server/db/postgres.js';
 import { requireAdmin } from '../server/administrator/adminRoutes.js';
 import { getAvailablePickPaymentProviders } from './payments.js';
-import { getPickGroceryDeliveryFee } from './pricing.js';
+import { deleteMedia, storeMedia } from '../server/db/mediaStorage.js';
+import {
+  getPickAppUpdateSettings,
+  getPickAppUpdateTarget,
+  normalizePickAppUpdateSettings,
+  PICK_APP_UPDATE_TARGETS,
+  validatePickPlayStoreUrl
+} from './appUpdates.js';
+import {
+  getPickGroceryDeliveryFee,
+  getPickGroceryPickupLocation
+} from './pricing.js';
 import { findCoverageZone, normalizeCoverageZone } from './coverage.js';
 
 const require = createRequire(new URL('../server/package.json', import.meta.url));
 const express = require('express');
+const multer = require('multer');
 const router = express.Router();
+const appUpdateUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 200 * 1024 * 1024, files: 1 }
+});
 
 const PRODUCT_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ORDER_STATUSES = new Set(['preparing', 'in_transit', 'delivered']);
@@ -553,15 +569,166 @@ router.get('/finance', async (_req, res, next) => {
 
 router.get('/settings', async (_req, res, next) => {
   try {
-    const [deliveryFee, providers] = await Promise.all([
+    const [deliveryFee, groceryPickupLocation, providers, appUpdates] = await Promise.all([
       getPickGroceryDeliveryFee(),
-      getAvailablePickPaymentProviders()
+      getPickGroceryPickupLocation(),
+      getAvailablePickPaymentProviders(),
+      Promise.all(Object.keys(PICK_APP_UPDATE_TARGETS).map(async (appId) => {
+        const settings = await getPickAppUpdateSettings(appId);
+        return [appId, {
+          version: settings.version,
+          playStoreEnabled: settings.playStoreEnabled,
+          playStoreUrl: settings.playStoreUrl,
+          hasApk: Boolean(settings.apkPath)
+        }];
+      }))
     ]);
     return res.json({
       groceryDeliveryFee: deliveryFee,
-      paymentProviders: providers
+      groceryPickupLocation,
+      paymentProviders: providers,
+      appUpdates: Object.fromEntries(appUpdates)
     });
   } catch (error) {
+    return next(error);
+  }
+});
+
+router.post('/settings/app-updates/:app', appUpdateUpload.single('apk'), async (req, res, next) => {
+  let uploadedPath = null;
+  try {
+    const appId = req.params.app;
+    const target = getPickAppUpdateTarget(appId);
+    if (!target) return res.status(404).json({ error: 'Choose PICK or PICK Delivery.' });
+
+    const version = typeof req.body?.version === 'string' ? req.body.version.trim() : '';
+    if (!version || version.length > 32 || !/^\d+(?:\.\d+){0,3}$/.test(version)) {
+      return res.status(400).json({ error: 'Enter a valid app version, such as 1.2.0.' });
+    }
+    const playStoreEnabled = req.body?.playStoreEnabled === 'true';
+    const playStoreUrl = playStoreEnabled
+      ? validatePickPlayStoreUrl(req.body?.playStoreUrl, appId)
+      : '';
+    if (playStoreEnabled && !playStoreUrl) {
+      return res.status(400).json({
+        error: `Enter the Google Play URL for ${target.packageName}.`
+      });
+    }
+
+    const existing = await getPickAppUpdateSettings(appId);
+    let apkPath = existing.apkPath;
+    if (req.file) {
+      const isApk = req.file.originalname.toLowerCase().endsWith('.apk') &&
+        req.file.buffer.length >= 4 &&
+        req.file.buffer[0] === 0x50 &&
+        req.file.buffer[1] === 0x4b;
+      if (!isApk) {
+        return res.status(400).json({ error: 'Upload a valid Android APK file.' });
+      }
+      const sha256 = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+      uploadedPath = `/upload/pick/app-updates/${appId}-${sha256}-${crypto.randomUUID()}.apk`;
+      await storeMedia({
+        aliases: [uploadedPath],
+        buffer: req.file.buffer,
+        contentType: 'application/vnd.android.package-archive',
+        originalFilename: `${appId}-${sha256}.apk`,
+        ownerId: req.adminUser.id,
+        purpose: 'pick_app_update',
+        reviewStatus: 'approved'
+      });
+      apkPath = uploadedPath;
+    }
+
+    if (!playStoreEnabled && !apkPath) {
+      return res.status(400).json({ error: 'Upload an APK or enable the Google Play link.' });
+    }
+    const settings = { version, playStoreEnabled, playStoreUrl, apkPath };
+    await queryPg(
+      `INSERT INTO pick.settings (key, value, updated_by)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (key) DO UPDATE
+       SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by,
+           updated_at = CURRENT_TIMESTAMP`,
+      [target.settingKey, JSON.stringify(settings), req.adminUser.id]
+    );
+
+    if (existing.apkPath && existing.apkPath !== apkPath) {
+      try {
+        await deleteMedia(existing.apkPath);
+      } catch (cleanupError) {
+        console.error('[PICK app updates] Replaced APK cleanup failed:', cleanupError.message);
+      }
+    }
+    return res.json({
+      appUpdate: {
+        version,
+        playStoreEnabled,
+        playStoreUrl,
+        hasApk: Boolean(apkPath)
+      }
+    });
+  } catch (error) {
+    if (uploadedPath) {
+      try {
+        await deleteMedia(uploadedPath);
+      } catch (cleanupError) {
+        console.error('[PICK app updates] Failed APK cleanup after save error:', cleanupError.message);
+      }
+    }
+    return next(error);
+  }
+});
+
+router.delete('/settings/app-updates/:app/apk', async (req, res, next) => {
+  try {
+    const appId = req.params.app;
+    const target = getPickAppUpdateTarget(appId);
+    if (!target) return res.status(404).json({ error: 'Choose PICK or PICK Delivery.' });
+    const existing = await getPickAppUpdateSettings(appId);
+    const settings = normalizePickAppUpdateSettings({
+      ...existing,
+      apkPath: null,
+      ...(!existing.playStoreEnabled ? { version: '' } : {})
+    });
+    await queryPg(
+      `INSERT INTO pick.settings (key, value, updated_by)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (key) DO UPDATE
+       SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by,
+           updated_at = CURRENT_TIMESTAMP`,
+      [target.settingKey, JSON.stringify(settings), req.adminUser.id]
+    );
+    if (existing.apkPath) await deleteMedia(existing.apkPath);
+    return res.json({
+      appUpdate: {
+        version: settings.version,
+        playStoreEnabled: settings.playStoreEnabled,
+        playStoreUrl: settings.playStoreUrl,
+        hasApk: false
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.put('/settings/grocery-pickup-location', async (req, res, next) => {
+  try {
+    const address = requiredText(req.body?.address, 'grocery pickup address', 500);
+    const latitude = finiteNumber(req.body?.latitude, 'pickup latitude', { min: -90, max: 90 });
+    const longitude = finiteNumber(req.body?.longitude, 'pickup longitude', { min: -180, max: 180 });
+    const location = { address, latitude, longitude };
+    await queryPg(
+      `INSERT INTO pick.settings (key, value, updated_by)
+       VALUES ('grocery_pickup_location', $1, $2)
+       ON CONFLICT (key) DO UPDATE
+       SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by,
+           updated_at = CURRENT_TIMESTAMP`,
+      [JSON.stringify(location), req.adminUser.id]
+    );
+    return res.json({ groceryPickupLocation: location });
+  } catch (error) {
+    if (sendInputError(res, error)) return;
     return next(error);
   }
 });

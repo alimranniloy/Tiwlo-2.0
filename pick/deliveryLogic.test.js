@@ -4,6 +4,7 @@ import {
   DEFAULT_DELIVERY_VEHICLE_POLICIES,
   canTransitionDeliveryJob,
   getDeliveryOrderStatus,
+  isGroceryDeliveryJobEligible,
   isDeliveryJobEligible,
   normalizeDeliveryVehicleType,
   validateVehicleCapacity
@@ -69,6 +70,46 @@ test('offers jobs only to approved, on-duty, nearby, in-coverage drivers with ca
   assert.equal(isDeliveryJobEligible({
     driver: { ...driver, currentLocationAt: '2000-01-01T00:00:00Z' },
     order,
+    policy,
+    coverageZones: zones
+  }), false);
+});
+
+test('offers grocery jobs only when the hub, customer, and available rider share a valid delivery route', () => {
+  const pickupLocation = { address: 'PICK Hub', latitude: 23.811, longitude: 90.413 };
+  const groceryOrder = { deliveryLatitude: 23.812, deliveryLongitude: 90.414 };
+  assert.equal(isGroceryDeliveryJobEligible({
+    driver,
+    order: groceryOrder,
+    pickupLocation,
+    policy,
+    coverageZones: zones
+  }), true);
+  assert.equal(isGroceryDeliveryJobEligible({
+    driver: { ...driver, applicationStatus: 'pending' },
+    order: groceryOrder,
+    pickupLocation,
+    policy,
+    coverageZones: zones
+  }), false);
+  assert.equal(isGroceryDeliveryJobEligible({
+    driver,
+    order: groceryOrder,
+    pickupLocation: { ...pickupLocation, latitude: 24 },
+    policy,
+    coverageZones: zones
+  }), false);
+  assert.equal(isGroceryDeliveryJobEligible({
+    driver,
+    order: { deliveryLatitude: null, deliveryLongitude: null },
+    pickupLocation,
+    policy,
+    coverageZones: zones
+  }), false);
+  assert.equal(isGroceryDeliveryJobEligible({
+    driver: { ...driver, vehicleCapacityKg: 0 },
+    order: groceryOrder,
+    pickupLocation,
     policy,
     coverageZones: zones
   }), false);
