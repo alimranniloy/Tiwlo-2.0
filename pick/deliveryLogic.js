@@ -171,6 +171,27 @@ export function isGroceryDeliveryJobEligible({
     deliveryDistanceMeters <= Number(policy.deliveryRangeMeters);
 }
 
+export function countAvailableGroceryDrivers({
+  drivers,
+  deliveryLatitude,
+  deliveryLongitude,
+  pickupLocation,
+  coverageZones,
+  now = Date.now(),
+  maxLocationAgeMs = 120_000
+}) {
+  const order = { deliveryLatitude, deliveryLongitude };
+  return drivers.filter((driver) => isGroceryDeliveryJobEligible({
+    driver,
+    order,
+    pickupLocation,
+    policy: driver,
+    coverageZones,
+    now,
+    maxLocationAgeMs
+  })).length;
+}
+
 export function canTransitionDeliveryJob(currentStatus, nextStatus) {
   return JOB_TRANSITIONS[currentStatus]?.has(nextStatus) === true;
 }

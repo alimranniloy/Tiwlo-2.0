@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   DEFAULT_DELIVERY_VEHICLE_POLICIES,
   canTransitionDeliveryJob,
+  countAvailableGroceryDrivers,
   getDeliveryOrderStatus,
   isGroceryDeliveryJobEligible,
   isDeliveryJobEligible,
@@ -113,6 +114,35 @@ test('offers grocery jobs only when the hub, customer, and available rider share
     policy,
     coverageZones: zones
   }), false);
+});
+
+test('counts only on-duty riders within their configured pickup and delivery ranges', () => {
+  const pickupLocation = { address: 'PICK Hub', latitude: 23.811, longitude: 90.413 };
+  const groceryOrder = { deliveryLatitude: 23.812, deliveryLongitude: 90.414 };
+  const nearbyDriver = {
+    ...driver,
+    ...policy,
+    pickupRangeMeters: 1000,
+    currentLatitude: driver.latitude,
+    currentLongitude: driver.longitude
+  };
+  const distantDriver = {
+    ...nearbyDriver,
+    latitude: 23.84,
+    currentLatitude: 23.84
+  };
+  assert.equal(countAvailableGroceryDrivers({
+    drivers: [nearbyDriver, distantDriver],
+    ...groceryOrder,
+    pickupLocation,
+    coverageZones: zones
+  }), 1);
+  assert.equal(countAvailableGroceryDrivers({
+    drivers: [{ ...nearbyDriver, isOnDuty: false }],
+    ...groceryOrder,
+    pickupLocation,
+    coverageZones: zones
+  }), 0);
 });
 
 test('enforces delivery-job transitions and mirrors progress to customer order status', () => {

@@ -96,7 +96,76 @@ test('delivery vehicle options include the authenticated user address status', a
   });
 });
 
-test('delivery duty stays off until a push token is registered', async () => {
+test('delivery availability counts only currently eligible nearby on-duty partners', async () => {
+  const now = new Date();
+  const statements = [];
+  const drivers = [23.8103, 23.84].map((latitude) => ({
+    vehicleType: 'bicycle',
+    vehicleCapacityKg: 20,
+    applicationStatus: 'approved',
+    isOnDuty: true,
+    latitude,
+    longitude: 90.4125,
+    accuracy: 10,
+    currentLocationAt: now,
+    maxCapacityKg: 25,
+    pickupRangeMeters: 1000,
+    deliveryRangeMeters: 12000
+  }));
+  const router = createPickDeliveryRouter({
+    requireUser: (_req, _res, next) => next(),
+    query: async (sql) => {
+      statements.push(sql);
+      if (sql.includes('FROM pick.profiles')) {
+        return { rows: [{ latitude: 23.812, longitude: 90.414 }] };
+      }
+      if (sql.includes('FROM pick.settings')) {
+        return {
+          rows: [{
+            value: JSON.stringify({
+              address: 'PICK Hub',
+              latitude: 23.811,
+              longitude: 90.413
+            })
+          }]
+        };
+      }
+      if (sql.includes('FROM pick.coverage_zones')) {
+        return {
+          rows: [{
+            id: 'zone-1',
+            active: true,
+            centerLatitude: 23.8103,
+            centerLongitude: 90.4125,
+            radiusMeters: 10000
+          }]
+        };
+      }
+      if (sql.includes('FROM pick.delivery_profiles d')) return { rows: drivers };
+      throw new Error(`Unexpected query: ${sql}`);
+    }
+  });
+  const availabilityRoute = router.stack
+    .find((layer) => layer.route?.path === '/availability')?.route;
+  assert.ok(availabilityRoute, 'the availability route is registered');
+
+  const handler = availabilityRoute.stack[availabilityRoute.stack.length - 1].handle;
+  let responseBody;
+  let routeError;
+  await handler(
+    { tiwloSession: { user: { id: 'customer-1' } } },
+    { json(body) { responseBody = body; return body; } },
+    (error) => { routeError = error; }
+  );
+
+  assert.equal(routeError, undefined);
+  assert.deepEqual(responseBody, { status: 'available', count: 1 });
+  const driverQuery = statements.find((sql) => sql.includes('FROM pick.delivery_profiles d'));
+  assert.ok(driverQuery.includes("a.status IN ('accepted', 'picked_up')"));
+  assert.equal(driverQuery.includes('expo_push_token IS NOT NULL'), false);
+});
+
+test('delivery duty can start without push notification registration', async () => {
   const statements = [];
   const router = createPickDeliveryRouter({
     requireUser: (_req, _res, next) => next(),
@@ -121,7 +190,20 @@ test('delivery duty stays off until a push token is registered', async () => {
           }]
         };
       }
-      if (sql.includes('SELECT expo_push_token')) return { rows: [{ pushToken: null }] };
+      if (sql.includes('FROM pick.coverage_zones')) {
+        return {
+          rows: [{
+            id: 'zone-1',
+            nameEn: 'Dhaka',
+            nameBn: 'ঢাকা',
+            centerLatitude: 23.78,
+            centerLongitude: 90.41,
+            radiusMeters: 5000,
+            active: true
+          }]
+        };
+      }
+      if (sql.includes('SET is_on_duty = $2')) return { rows: [] };
       throw new Error(`Unexpected query: ${sql}`);
     }
   });
@@ -152,7 +234,8 @@ test('delivery duty stays off until a push token is registered', async () => {
   });
 
   assert.equal(routeError, undefined);
-  assert.equal(statusCode, 409);
-  assert.match(responseBody.error, /Register parcel notifications/);
-  assert.equal(statements.some((sql) => sql.includes('SET is_on_duty = $2')), false);
+  assert.equal(statusCode, 200);
+  assert.deepEqual(responseBody, { isOnDuty: true });
+  assert.equal(statements.some((sql) => sql.includes('expo_push_token')), false);
+  assert.equal(statements.some((sql) => sql.includes('SET is_on_duty = $2')), true);
 });

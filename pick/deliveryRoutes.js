@@ -3,6 +3,7 @@ import { getPgPool, queryPg } from '../server/db/postgres.js';
 import { findCoverageZone } from './coverage.js';
 import {
   canTransitionDeliveryJob,
+  countAvailableGroceryDrivers,
   DEFAULT_DELIVERY_VEHICLE_POLICIES,
   getDeliveryOrderStatus,
   isGroceryDeliveryJobEligible,
@@ -257,7 +258,6 @@ export async function notifyDeliveryPartnersForOrder(orderId, executor = queryPg
      WHERE d.application_status = 'approved'
        AND d.is_on_duty = TRUE
        AND d.current_location_at >= CURRENT_TIMESTAMP - INTERVAL '2 minutes'
-       AND d.expo_push_token IS NOT NULL
        AND NOT EXISTS (
          SELECT 1 FROM pick.delivery_assignments a
          WHERE a.rider_user_id = d.tiwlo_user_id
@@ -308,7 +308,8 @@ export async function notifyDeliveryPartnersForOrder(orderId, executor = queryPg
         policy: driver,
         coverageZones: zones
       });
-  }).map((driver) => driver.pushToken);
+  }).map((driver) => driver.pushToken)
+    .filter((token) => typeof token === 'string' && token.length > 0);
   if (tokens.length) await sendExpoPushNotifications(tokens, order.id, order.orderType);
 }
 
@@ -320,6 +321,72 @@ function sendInputError(res, error) {
 
 export function createPickDeliveryRouter({ requireUser, query = queryPg }) {
   const router = express.Router();
+
+  router.get('/availability', requireUser, async (req, res, next) => {
+    try {
+      const { rows: profileRows } = await query(
+        `SELECT delivery_latitude::float8 AS latitude,
+                delivery_longitude::float8 AS longitude
+         FROM pick.profiles
+         WHERE tiwlo_user_id = $1`,
+        [req.tiwloSession.user.id]
+      );
+      const location = profileRows[0];
+      if (location?.latitude === null || location?.latitude === undefined ||
+          location?.longitude === null || location?.longitude === undefined ||
+          !Number.isFinite(Number(location.latitude)) ||
+          !Number.isFinite(Number(location.longitude))) {
+        return res.json({ status: 'unknown', count: 0 });
+      }
+
+      const [pickupLocation, coverageZones, { rows: drivers }] = await Promise.all([
+        getPickGroceryPickupLocation(query),
+        loadCoverageZones(query),
+        query(
+          `SELECT d.vehicle_type AS "vehicleType",
+                  d.vehicle_capacity_kg::float8 AS "vehicleCapacityKg",
+                  d.application_status AS "applicationStatus",
+                  d.is_on_duty AS "isOnDuty",
+                  d.current_latitude::float8 AS latitude,
+                  d.current_longitude::float8 AS longitude,
+                  d.current_accuracy::float8 AS accuracy,
+                  d.current_location_at AS "currentLocationAt",
+                  p.max_capacity_kg::float8 AS "maxCapacityKg",
+                  p.pickup_range_meters AS "pickupRangeMeters",
+                  p.delivery_range_meters AS "deliveryRangeMeters"
+           FROM pick.delivery_profiles d
+           JOIN system_users u ON u.id = d.tiwlo_user_id AND u.is_banned = FALSE
+           JOIN pick.delivery_vehicle_policies p
+             ON p.vehicle_type = d.vehicle_type AND p.active = TRUE
+           WHERE d.application_status = 'approved'
+             AND d.is_on_duty = TRUE
+             AND d.current_location_at >= CURRENT_TIMESTAMP - INTERVAL '2 minutes'
+             AND NOT EXISTS (
+               SELECT 1 FROM pick.delivery_assignments a
+               WHERE a.rider_user_id = d.tiwlo_user_id
+                 AND a.status IN ('accepted', 'picked_up')
+             )`
+        )
+      ]);
+
+      if (!pickupLocation) {
+        return res.json({ status: 'unavailable', count: 0 });
+      }
+      const count = countAvailableGroceryDrivers({
+        drivers,
+        deliveryLatitude: Number(location.latitude),
+        deliveryLongitude: Number(location.longitude),
+        pickupLocation,
+        coverageZones
+      });
+      return res.json({
+        status: count > 0 ? 'available' : 'unavailable',
+        count
+      });
+    } catch (error) {
+      return next(error);
+    }
+  });
 
   router.get('/options', requireUser, async (req, res, next) => {
     try {
@@ -427,14 +494,6 @@ export function createPickDeliveryRouter({ requireUser, query = queryPg }) {
       if (isOnDuty) {
         if (profile.applicationStatus !== 'approved') {
           return res.status(403).json({ error: 'Your delivery-partner application must be approved before duty starts.' });
-        }
-        const { rows: pushRows } = await query(
-          `SELECT expo_push_token AS "pushToken"
-           FROM pick.delivery_profiles WHERE tiwlo_user_id = $1`,
-          [req.tiwloSession.user.id]
-        );
-        if (!pushRows[0]?.pushToken) {
-          return res.status(409).json({ error: 'Register parcel notifications before going on duty. Duty stays off until background alerts are ready.' });
         }
         if (!isValidDriverLocation({
           latitude: profile.currentLatitude,

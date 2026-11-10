@@ -33,6 +33,7 @@ import {
   getPickAppUpdateSettings
 } from './appUpdates.js';
 import { readMediaBuffer } from '../server/db/mediaStorage.js';
+import { getGoogleDrivingEstimate } from './liveTracking.js';
 
 const require = createRequire(new URL('../server/package.json', import.meta.url));
 const express = require('express');
@@ -1303,6 +1304,63 @@ router.get('/orders', requireUser, async (req, res, next) => {
     );
     return res.json({ orders: result.rows });
   } catch (error) {
+    return next(error);
+  }
+});
+
+router.get('/orders/:orderId/tracking-route', requireUser, async (req, res, next) => {
+  try {
+    const result = await queryPg(
+      `SELECT
+         d.current_latitude::float8 AS "riderLatitude",
+         d.current_longitude::float8 AS "riderLongitude",
+         COALESCE(
+           (o.parcel_details->'recipient'->>'latitude')::float8,
+           o.delivery_latitude::float8
+         ) AS "destinationLatitude",
+         COALESCE(
+           (o.parcel_details->'recipient'->>'longitude')::float8,
+           o.delivery_longitude::float8
+         ) AS "destinationLongitude"
+       FROM pick.orders o
+       JOIN pick.delivery_assignments a ON a.order_id = o.id
+       JOIN pick.delivery_profiles d ON d.tiwlo_user_id = a.rider_user_id
+       WHERE o.id = $1 AND o.tiwlo_user_id = $2
+         AND a.status IN ('accepted', 'picked_up')
+         AND d.current_location_at >= CURRENT_TIMESTAMP - INTERVAL '2 minutes'
+         AND d.current_latitude IS NOT NULL AND d.current_longitude IS NOT NULL
+         AND COALESCE(
+           (o.parcel_details->'recipient'->>'latitude')::float8,
+           o.delivery_latitude::float8
+         ) IS NOT NULL
+         AND COALESCE(
+           (o.parcel_details->'recipient'->>'longitude')::float8,
+           o.delivery_longitude::float8
+         ) IS NOT NULL
+         AND (o.payment_method = 'cod' OR o.payment_status = 'paid')
+       ORDER BY a.accepted_at DESC
+       LIMIT 1`,
+      [req.params.orderId, req.tiwloSession.user.id]
+    );
+    const tracking = result.rows[0];
+    if (!tracking) {
+      return res.status(404).json({ error: 'A live delivery route is not available yet.' });
+    }
+
+    const estimate = await getGoogleDrivingEstimate({
+      origin: {
+        latitude: tracking.riderLatitude,
+        longitude: tracking.riderLongitude
+      },
+      destination: {
+        latitude: tracking.destinationLatitude,
+        longitude: tracking.destinationLongitude
+      },
+      apiKey: await getGoogleMapsApiKey()
+    });
+    return res.json(estimate);
+  } catch (error) {
+    console.error('[PICK] Failed to calculate live delivery route:', error);
     return next(error);
   }
 });
