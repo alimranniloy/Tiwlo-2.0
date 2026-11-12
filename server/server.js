@@ -179,7 +179,11 @@ app.post('/internal/email/inbound', express.raw({
   limit: '26mb'
 }), async (req, res) => {
   const remoteAddress = req.socket.remoteAddress;
-  if (remoteAddress !== '127.0.0.1' && remoteAddress !== '::1' && remoteAddress !== '::ffff:127.0.0.1') {
+  const trustedDeliveryAddress = String(process.env.TIWLO_INBOUND_TRUSTED_IP || '').trim();
+  if (remoteAddress !== '127.0.0.1' && remoteAddress !== '::1' &&
+      remoteAddress !== '::ffff:127.0.0.1' &&
+      (!trustedDeliveryAddress || remoteAddress !== trustedDeliveryAddress &&
+        remoteAddress !== `::ffff:${trustedDeliveryAddress}`)) {
     return res.sendStatus(403);
   }
   const expectedToken = readInboundDeliveryToken();

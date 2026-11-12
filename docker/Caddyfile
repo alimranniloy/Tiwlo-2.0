@@ -11,7 +11,13 @@
 
 # HTTP is used only for the ACME challenge and then redirected to HTTPS.
 http:// {
-    redir https://{host}{uri} permanent
+    handle /.well-known/acme-challenge/* {
+        root * /var/www/certbot
+        file_server
+    }
+    handle {
+        redir https://{host}{uri} permanent
+    }
 }
 
 # Point wildcard tenant hostnames and platform-owned domains here. Caddy obtains

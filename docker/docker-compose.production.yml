@@ -8,6 +8,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-tiwlo_master}
     volumes:
       - tiwlo_pgdata_v2:/var/lib/postgresql/data
+    # Host Postfix needs a private connection for its PostgreSQL mailbox map.
+    ports:
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
@@ -193,6 +196,12 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5000
+      TIWLO_INBOUND_TOKEN: ${TIWLO_INBOUND_TOKEN:?TIWLO_INBOUND_TOKEN is required}
+      TIWLO_INBOUND_TRUSTED_IP: 172.30.240.1
+      SMTP_PROVIDER: local_postfix
+      SMTP_HOST: host.docker.internal
+      SMTP_PORT: 25
+      SMTP_SECURE: "false"
       SSL_PROVIDER: caddy
       TIWLO_RUST_BACKEND_URL: http://rust:7100
       TIWLO_INTERNAL_IDENTITY_SECRET: ${TIWLO_INTERNAL_IDENTITY_SECRET}
@@ -212,6 +221,11 @@ services:
     volumes:
       - tiwlo_uploads:/app/upload
       - tiwlo_app_data:/app/server/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      # Host Postfix delivers inbound mail through this loopback-only endpoint.
+      - "127.0.0.1:5001:5001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -233,6 +247,7 @@ services:
       - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - /var/www/certbot:/var/www/certbot:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
@@ -250,4 +265,7 @@ volumes:
 
 networks:
   tiwlo:
+    ipam:
+      config:
+        - subnet: 172.30.240.0/24
     driver: bridge

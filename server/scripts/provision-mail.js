@@ -242,6 +242,7 @@ function configurePostfix(mailboxProbe) {
     ['myhostname', mailHost],
     ['myorigin', domain],
     ['mydestination', '$myhostname, localhost.localdomain, localhost'],
+    ['mynetworks', `127.0.0.0/8, [::1]/128, ${process.env.TIWLO_DOCKER_SUBNET || '172.30.240.0/24'}`],
     ['inet_interfaces', 'all'],
     ['virtual_mailbox_domains', domain],
     ['virtual_mailbox_maps', `pgsql:${mapPath}`],
