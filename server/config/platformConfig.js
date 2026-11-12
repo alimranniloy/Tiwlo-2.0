@@ -42,6 +42,8 @@ const managedDomains = Object.freeze([...new Set([
   ...configuredDomainList,
   ...[
     subdomain('VITE_AUTH_SUBDOMAIN', 'auth'),
+    'api',
+    'pick',
     subdomain('VITE_TPANEL_SUBDOMAIN', 'tpanel'),
     subdomain('VITE_DNS1_SUBDOMAIN', 'dns1'),
     subdomain('VITE_DNS2_SUBDOMAIN', 'dns2'),
