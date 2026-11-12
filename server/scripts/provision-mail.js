@@ -265,6 +265,8 @@ function configurePostfix(mailboxProbe) {
     ['smtpd_reject_unlisted_recipient', 'yes'],
     ['smtpd_tls_security_level', 'may'],
     ['smtp_tls_security_level', 'may'],
+    ['smtp_address_preference', PLATFORM_CONFIG.serverIpv6 ? 'ipv6' : 'any'],
+    ['relayhost', ''],
     ['smtpd_milters', ensureMilter('smtpd_milters')],
     ['non_smtpd_milters', ensureMilter('non_smtpd_milters')],
     ['milter_default_action', 'accept'],

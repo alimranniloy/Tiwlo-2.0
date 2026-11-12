@@ -175,6 +175,13 @@ fi
 if [[ "$MODE" == "--docker" || "$MODE" == "docker" ]]; then
   echo "=== Running Docker Deployment Mode ==="
   ENV_FILE="$ROOT_DIR/docker/.env.production"
+  touch "$ROOT_DIR/.env"
+  chmod 600 "$ROOT_DIR/.env"
+
+  if ! grep -q '^TIWLO_INBOUND_TOKEN=.' "$ROOT_DIR/.env"; then
+    sed -i '/^TIWLO_INBOUND_TOKEN=/d' "$ROOT_DIR/.env"
+    printf 'TIWLO_INBOUND_TOKEN=%s\n' "$(openssl rand -hex 32)" >> "$ROOT_DIR/.env"
+  fi
 
   if ! command -v docker >/dev/null 2>&1; then
     apt-get update
@@ -208,7 +215,24 @@ EOF
     printf 'OPENBIOMETRICS_SHARED_TOKEN=%s\n' "$(openssl rand -hex 32)" >> "$ENV_FILE"
   fi
   cd "$ROOT_DIR"
-  docker compose --env-file .env --env-file docker/.env.production -f docker/docker-compose.production.yml up -d --build --remove-orphans
+  docker compose --env-file .env --env-file docker/.env.production -f docker/docker-compose.production.yml up -d --build --remove-orphans --wait --wait-timeout 1200
+
+  echo "--- Provisioning host Postfix for Docker mail ---"
+  ensure_node_dependencies "$ROOT_DIR/server" "--omit=dev"
+  POSTGRES_USER="$(sed -n 's/^POSTGRES_USER=//p' "$ENV_FILE" | head -n 1)"
+  POSTGRES_DB="$(sed -n 's/^POSTGRES_DB=//p' "$ENV_FILE" | head -n 1)"
+  POSTGRES_PASSWORD="$(sed -n 's/^POSTGRES_PASSWORD=//p' "$ENV_FILE" | head -n 1)"
+  POSTGRES_USER="${POSTGRES_USER:-tiwlo}"
+  POSTGRES_DB="${POSTGRES_DB:-tiwlo_master}"
+  if [[ -z "$POSTGRES_PASSWORD" ]]; then
+    echo "Error: POSTGRES_PASSWORD is missing from $ENV_FILE." >&2
+    exit 1
+  fi
+  export DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:5432/${POSTGRES_DB}"
+  export TIWLO_DOCKER_SUBNET="172.30.240.0/24"
+  node "$ROOT_DIR/server/scripts/provision-mail.js"
+  unset DATABASE_URL TIWLO_DOCKER_SUBNET POSTGRES_USER POSTGRES_DB POSTGRES_PASSWORD
+
   docker compose --env-file .env --env-file docker/.env.production -f docker/docker-compose.production.yml ps
   exit 0
 fi
