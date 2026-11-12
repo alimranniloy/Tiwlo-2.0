@@ -133,7 +133,7 @@ router.get('/tls/allow', async (req, res) => {
 
 router.use((req, res, next) => {
   // Never intercept auth, public media, or health endpoints
-  if (req.path.startsWith('/auth') || req.path.startsWith('/media') || req.path === '/health' || req.path === '/ffmpeg-status' || req.path.startsWith('/tls')) {
+  if (req.path.startsWith('/auth') || req.path.startsWith('/public') || req.path.startsWith('/media') || req.path === '/health' || req.path === '/ffmpeg-status' || req.path.startsWith('/tls')) {
     return next();
   }
   if (!req.activeUser) return res.status(401).json({ error: 'Authentication required' });
