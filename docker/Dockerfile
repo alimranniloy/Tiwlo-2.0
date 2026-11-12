@@ -88,7 +88,7 @@ ENV PORT=5000
 # Runtime tools used by the application. FFmpeg is required for reliable
 # production video inspection/transcoding jobs, while PostgreSQL client is
 # used by health and maintenance jobs.
-RUN apk add --no-cache postgresql-client ffmpeg
+RUN apk add --no-cache postgresql-client ffmpeg spamassassin-client
 
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/server ./server

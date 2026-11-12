@@ -19,8 +19,15 @@ function scanForSpam(rawMessage) {
   if (process.env.NODE_ENV !== 'production') return Promise.resolve({ isSpam: false, score: null });
 
   const spamcPath = process.env.TIWLO_SPAMC_PATH || '/usr/bin/spamc';
+  const spamcArgs = ['-c', '-s', String(MAX_RAW_MESSAGE_BYTES)];
+  const spamcHost = String(process.env.TIWLO_SPAMC_HOST || '').trim();
+  const spamcPort = Number.parseInt(process.env.TIWLO_SPAMC_PORT || '', 10);
+  if (spamcHost) spamcArgs.push('-d', spamcHost);
+  if (Number.isInteger(spamcPort) && spamcPort > 0 && spamcPort <= 65535) {
+    spamcArgs.push('-p', String(spamcPort));
+  }
   return new Promise((resolve, reject) => {
-    const scanner = spawn(spamcPath, ['-c', '-s', String(MAX_RAW_MESSAGE_BYTES)], {
+    const scanner = spawn(spamcPath, spamcArgs, {
       stdio: ['pipe', 'pipe', 'pipe']
     });
     let output = '';

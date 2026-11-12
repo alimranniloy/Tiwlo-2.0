@@ -203,6 +203,8 @@ services:
       SMTP_PORT: 25
       SMTP_SECURE: "false"
       SMTP_TLS_SERVERNAME: mail.${VITE_PRIMARY_DOMAIN:-tiwlo.com}
+      TIWLO_SPAMC_HOST: host.docker.internal
+      TIWLO_SPAMC_PORT: 783
       SSL_PROVIDER: caddy
       TIWLO_RUST_BACKEND_URL: http://rust:7100
       TIWLO_INTERNAL_IDENTITY_SECRET: ${TIWLO_INTERNAL_IDENTITY_SECRET}

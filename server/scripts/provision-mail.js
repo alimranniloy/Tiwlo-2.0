@@ -162,9 +162,17 @@ function configureSpamAssassin() {
   } else {
     contents = `${contents.replace(/\s*$/, '')}\nENABLED=1\n`;
   }
+  const dockerSubnet = process.env.TIWLO_DOCKER_SUBNET || '172.30.240.0/24';
+  const spamdOptions = `--create-prefs --max-children 5 --helper-home-dir --listen-ip=172.17.0.1 --allowed-ips=${dockerSubnet}`;
+  if (/^\s*OPTIONS\s*=/m.test(contents)) {
+    contents = contents.replace(/^\s*OPTIONS\s*=.*$/m, `OPTIONS="${spamdOptions}"`);
+  } else {
+    contents = `${contents.replace(/\s*$/, '')}\nOPTIONS="${spamdOptions}"\n`;
+  }
   writeFileSecurely(defaultsPath, contents, 0o644);
   run('spamassassin', ['--lint']);
   run('systemctl', ['enable', '--now', 'spamd']);
+  run('systemctl', ['restart', 'spamd']);
   run('systemctl', ['is-active', '--quiet', 'spamd']);
   run('spamc', ['-V']);
 }
