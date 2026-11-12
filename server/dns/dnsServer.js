@@ -287,7 +287,7 @@ async function handleDnsRequest(request, send, rinfo) {
             const name = question.name;
             if (record.type === 'A' && queryType === Packet.TYPE.A) addARecord(response, name, record.content, record.ttl);
             else if (record.type === 'AAAA' && queryType === Packet.TYPE.AAAA) addAaaaRecord(response, name, record.content, record.ttl);
-            else if (record.type === 'CNAME' && queryType === Packet.TYPE.CNAME) response.answers.push({ name, type: Packet.TYPE.CNAME, class: Packet.CLASS.IN, ttl: record.ttl, domain: record.content });
+            else if (record.type === 'CNAME') response.answers.push({ name, type: Packet.TYPE.CNAME, class: Packet.CLASS.IN, ttl: record.ttl, domain: record.content });
             else if (record.type === 'MX' && queryType === Packet.TYPE.MX) {
               response.answers.push({ name, type: Packet.TYPE.MX, class: Packet.CLASS.IN, ttl: record.ttl, exchange: record.content, priority: record.priority });
               addARecord(response, record.content, DNS_CONFIG.PUBLIC_MAIL_IP);
