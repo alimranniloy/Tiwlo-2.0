@@ -219,12 +219,14 @@ export async function resolveActiveCustomDomain(domain) {
   if (!isPgActive()) return null;
   const normalized = domainToASCII(String(domain || '').trim().toLowerCase().replace(/\.$/, ''));
   if (!normalized) return null;
+  const candidates = normalized.split('.').map((_label, index, labels) => labels.slice(index).join('.'));
   const { rows } = await queryPg(
-    `SELECT tiwi_id FROM system_custom_domains
-     WHERE domain = $1 AND status = 'active' AND ssl_status = 'active' LIMIT 1`,
-    [normalized]
+    `SELECT domain, tiwi_id FROM system_custom_domains
+     WHERE domain = ANY($1::text[]) AND status = 'active' AND ssl_status = 'active'
+     ORDER BY LENGTH(domain) DESC LIMIT 1`,
+    [candidates]
   );
-  return rows[0] ? { domain: normalized, tiwiId: rows[0].tiwi_id } : null;
+  return rows[0] ? { domain: rows[0].domain, tiwiId: rows[0].tiwi_id } : null;
 }
 
 export async function findActiveCustomDomain(domain) {
