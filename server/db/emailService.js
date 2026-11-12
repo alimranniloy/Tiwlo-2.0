@@ -206,7 +206,7 @@ export function createTransporter(config = getEmailConfig()) {
     });
   }
 
-  // Standard External SMTP / SSL / TLS Relay (Brevo, Resend, SendGrid, Custom)
+  // Standard external SMTP / SSL / TLS relay.
   return nodemailer.createTransport({
     host,
     port: Number.parseInt(process.env.SMTP_PORT || smtp.port || '587', 10),
