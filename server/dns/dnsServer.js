@@ -257,6 +257,61 @@ async function handleDnsRequest(request, send, rinfo) {
       if (response.answers.length > 0) return send(response);
     }
 
+    // Platform zone records are authoritative database data so admin edits apply
+    // directly to DNS answers. Dynamic ACME and domain-verification TXT records
+    // remain handled by their dedicated paths below.
+    if (authorityZone.platform && queryDomain === DNS_CONFIG.PRIMARY_DOMAIN ||
+        authorityZone.platform && queryDomain.endsWith(`.${DNS_CONFIG.PRIMARY_DOMAIN}`)) {
+      const relativeName = queryDomain === DNS_CONFIG.PRIMARY_DOMAIN
+        ? '@'
+        : queryDomain.slice(0, -(DNS_CONFIG.PRIMARY_DOMAIN.length + 1));
+      const isDynamicTxt = queryType === Packet.TYPE.TXT &&
+        (queryDomain.startsWith('_acme-challenge') || queryDomain === `_tiwlo-verification.${DNS_CONFIG.PRIMARY_DOMAIN}`);
+      if (isPgActive() && !isDynamicTxt) {
+        const { rows: exactRecords } = await queryPg(
+          `SELECT type, content, ttl, priority, enabled FROM system_platform_dns_records
+           WHERE zone=$1 AND name=$2 ORDER BY type, priority NULLS FIRST`,
+          [DNS_CONFIG.PRIMARY_DOMAIN, relativeName]
+        );
+        let records = exactRecords;
+        if (!records.length && relativeName !== '@') {
+          records = (await queryPg(
+            `SELECT type, content, ttl, priority, enabled FROM system_platform_dns_records
+             WHERE zone=$1 AND name='*' ORDER BY type, priority NULLS FIRST`,
+            [DNS_CONFIG.PRIMARY_DOMAIN]
+          )).rows;
+        }
+        if (records.length) {
+          for (const record of records) {
+            if (!record.enabled) continue;
+            const name = question.name;
+            if (record.type === 'A' && queryType === Packet.TYPE.A) addARecord(response, name, record.content, record.ttl);
+            else if (record.type === 'AAAA' && queryType === Packet.TYPE.AAAA) addAaaaRecord(response, name, record.content, record.ttl);
+            else if (record.type === 'CNAME' && queryType === Packet.TYPE.CNAME) response.answers.push({ name, type: Packet.TYPE.CNAME, class: Packet.CLASS.IN, ttl: record.ttl, domain: record.content });
+            else if (record.type === 'MX' && queryType === Packet.TYPE.MX) {
+              response.answers.push({ name, type: Packet.TYPE.MX, class: Packet.CLASS.IN, ttl: record.ttl, exchange: record.content, priority: record.priority });
+              addARecord(response, record.content, DNS_CONFIG.PUBLIC_MAIL_IP);
+              addAaaaRecord(response, record.content, DNS_CONFIG.PUBLIC_MAIL_IPV6);
+            } else if (record.type === 'NS' && queryType === Packet.TYPE.NS) response.answers.push({ name, type: Packet.TYPE.NS, class: Packet.CLASS.IN, ttl: record.ttl, ns: record.content });
+            else if (record.type === 'TXT' && queryType === Packet.TYPE.TXT) response.answers.push({ name, type: Packet.TYPE.TXT, class: Packet.CLASS.IN, ttl: record.ttl, data: record.content.match(/.{1,240}/g) || [''] });
+          }
+          if (queryType === Packet.TYPE.NS) {
+            for (const record of records.filter((item) => item.enabled && item.type === 'NS')) {
+              const target = record.content.toLowerCase().replace(/\.$/, '');
+              if (target === DNS_CONFIG.NS1) {
+                addARecord(response, record.content, DNS_CONFIG.PUBLIC_DNS_IP);
+                addAaaaRecord(response, record.content, DNS_CONFIG.PUBLIC_DNS_IPV6);
+              } else if (target === DNS_CONFIG.NS2) {
+                addARecord(response, record.content, DNS_CONFIG.PUBLIC_DNS_IP);
+                addAaaaRecord(response, record.content, DNS_CONFIG.PUBLIC_DNS_IPV6);
+              }
+            }
+          }
+          return send(response);
+        }
+      }
+    }
+
     // 3. Handle DNS Query Types
     switch (queryType) {
       // -------------------------------------------------------------

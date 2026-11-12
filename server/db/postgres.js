@@ -2,6 +2,7 @@ import pg from 'pg';
 import { STATE_SCHEMA_SQL } from './stateDocuments.js';
 import { signupIdentitySchema } from './signupIdentitySchema.js';
 import { ensureDiscordSchema } from '../discord/discordSchema.js';
+import { ensurePlatformDnsSchema } from '../dns/platformDnsRecords.js';
 const { Pool } = pg;
 
 // PostgreSQL Connection Pool Configuration
@@ -1186,6 +1187,7 @@ export async function initPgSchema() {
 
     `);
     await ensureDiscordSchema(p);
+    await ensurePlatformDnsSchema(p);
     await p.query(STATE_SCHEMA_SQL);
     await p.query(signupIdentitySchema);
     await p.query('DELETE FROM system_security_rate_limits WHERE expires_at <= CURRENT_TIMESTAMP');

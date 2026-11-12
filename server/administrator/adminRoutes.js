@@ -1,4 +1,6 @@
 import express from 'express';
+import { randomUUID } from 'node:crypto';
+import { isIPv4, isIPv6 } from 'node:net';
 import { MasterDB, TenantDB } from '../db/multiTenant.js';
 import { SupportDB } from '../db/supportDb.js';
 import {
@@ -26,10 +28,98 @@ import {
   setDriveStorageActive
 } from './googleDriveStorage.js';
 import { getStorageSyncStatus, startStorageSync } from '../db/mediaMigration.js';
+import { getDefaultPlatformDnsRecords, PLATFORM_DNS_RECORD_TYPES } from '../dns/platformDnsRecords.js';
+import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 
 const router = express.Router();
 const PICK_APPEAL_CATEGORY = 'PICK Account Appeal';
 const PICK_APPEAL_STATUSES = new Set(['OPEN', 'IN_PROGRESS', 'REJECTED', 'RESOLVED']);
+
+const DNS_HOST_TARGET = /^(?=.{1,253}\.?$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*\.?$/i;
+function validateDnsRecord(input = {}) {
+  const name = String(input.name || '').trim().toLowerCase();
+  const type = String(input.type || '').trim().toUpperCase();
+  const content = String(input.content ?? '').trim();
+  const ttl = Number(input.ttl ?? 300);
+  const priority = type === 'MX' ? Number(input.priority ?? 10) : null;
+  if (!name || name.length > 253 || !(name === '@' || name === '*' || /^[a-z0-9_*-]+(?:\.[a-z0-9_*-]+)*$/i.test(name))) {
+    throw new Error('Enter a valid relative DNS name, such as @, www, or _dmarc.');
+  }
+  if (!PLATFORM_DNS_RECORD_TYPES.includes(type)) throw new Error('Choose a supported DNS record type.');
+  if (!content || content.length > 4096 || /[\r\n\0]/.test(content)) throw new Error('Enter valid DNS record content.');
+  if (!Number.isInteger(ttl) || ttl < 60 || ttl > 86400) throw new Error('TTL must be between 60 and 86400 seconds.');
+  if (type === 'A' && !isIPv4(content)) throw new Error('A records require an IPv4 address.');
+  if (type === 'AAAA' && !isIPv6(content)) throw new Error('AAAA records require an IPv6 address.');
+  if (['CNAME', 'MX', 'NS'].includes(type) && !DNS_HOST_TARGET.test(content)) throw new Error(`${type} records require a valid hostname.`);
+  if (type === 'MX' && (!Number.isInteger(priority) || priority < 0 || priority > 65535)) throw new Error('MX priority must be between 0 and 65535.');
+  return { name, type, content, ttl, priority };
+}
+
+router.get('/dns/records', requireAdmin, async (_req, res) => {
+  try {
+    const zone = PLATFORM_CONFIG.primaryDomain;
+    const { rows } = await queryPg(
+      `SELECT id, zone, name, type, content, ttl, priority, system_key AS "systemKey",
+              is_system AS "isSystem", enabled, created_at AS "createdAt", updated_at AS "updatedAt"
+       FROM system_platform_dns_records WHERE zone = $1 ORDER BY name, type, priority NULLS FIRST, content`,
+      [zone]
+    );
+    return res.json({ success: true, zone, records: rows, defaults: getDefaultPlatformDnsRecords() });
+  } catch (error) {
+    console.error('[Admin DNS] Could not load records:', error.message);
+    return res.status(503).json({ error: 'Could not load DNS records.' });
+  }
+});
+
+router.post('/dns/records', requireAdmin, requireRecentReauth, async (req, res) => {
+  try {
+    const record = validateDnsRecord(req.body);
+    const id = `dns_${randomUUID().replace(/-/g, '')}`;
+    const zone = PLATFORM_CONFIG.primaryDomain;
+    const { rows } = await queryPg(
+      `INSERT INTO system_platform_dns_records
+        (id, zone, name, type, content, ttl, priority, enabled, created_by, updated_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,TRUE,$8,$8) RETURNING *`,
+      [id, zone, record.name, record.type, record.content, record.ttl, record.priority, req.adminUser.id]
+    );
+    res.status(201).json({ success: true, record: rows[0] });
+  } catch (error) {
+    const status = error.code === '23505' ? 409 : error.message.startsWith('Enter ') || error.message.startsWith('Choose ') || error.message.startsWith('TTL ') || error.message.startsWith('A ') || error.message.startsWith('AAAA ') || error.message.startsWith('MX ') || error.message.startsWith('CNAME ') || error.message.startsWith('NS ') ? 400 : 500;
+    res.status(status).json({ error: status === 500 ? 'Could not add DNS record.' : error.message });
+  }
+});
+
+router.put('/dns/records/:id', requireAdmin, requireRecentReauth, async (req, res) => {
+  try {
+    const record = validateDnsRecord(req.body);
+    const { rows } = await queryPg(
+      `UPDATE system_platform_dns_records SET name=$1, type=$2, content=$3, ttl=$4, priority=$5,
+         enabled=TRUE, is_system=FALSE, updated_by=$6, updated_at=CURRENT_TIMESTAMP
+       WHERE id=$7 AND zone=$8 RETURNING *`,
+      [record.name, record.type, record.content, record.ttl, record.priority, req.adminUser.id, req.params.id, PLATFORM_CONFIG.primaryDomain]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'DNS record not found.' });
+    res.json({ success: true, record: rows[0] });
+  } catch (error) {
+    const status = error.code === '23505' ? 409 : 400;
+    res.status(status).json({ error: error.message || 'Could not update DNS record.' });
+  }
+});
+
+router.delete('/dns/records/:id', requireAdmin, requireRecentReauth, async (req, res) => {
+  try {
+    const { rows } = await queryPg(
+      `UPDATE system_platform_dns_records SET enabled=FALSE, is_system=FALSE, updated_by=$1,
+         updated_at=CURRENT_TIMESTAMP WHERE id=$2 AND zone=$3 RETURNING id`,
+      [req.adminUser.id, req.params.id, PLATFORM_CONFIG.primaryDomain]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'DNS record not found.' });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[Admin DNS] Could not delete record:', error.message);
+    res.status(500).json({ error: 'Could not delete DNS record.' });
+  }
+});
 
 router.get('/pick-account-appeals', requireAdmin, async (_req, res) => {
   try {

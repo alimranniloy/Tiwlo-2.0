@@ -72,6 +72,7 @@ export default function AdminSidebar({
       title: 'SYSTEM',
       items: [
         { id: 'platform-payments', label: 'Payment Gateways', icon: CreditCard },
+        { id: 'dns', label: 'DNS Records', icon: Globe },
         { id: 'users', label: 'Users', icon: UserCheck },
         { id: 'user-locations', label: 'User Locations', icon: MapPin },
         { id: 'pick-account-appeals', label: 'PICK Account Reviews', icon: LifeBuoy },
