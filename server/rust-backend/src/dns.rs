@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::net::IpAddr;
 
 #[derive(Debug, Deserialize)]
 pub struct RecordPolicyRequest {
@@ -22,12 +23,17 @@ pub fn validate(input: RecordPolicyRequest) -> RecordPolicyResponse {
     let record_type = input.record_type.trim().to_ascii_uppercase();
     let name = input.name.trim().to_ascii_lowercase();
     let value = input.value.trim().trim_end_matches('.').to_owned();
-    let error = if !matches!(record_type.as_str(), "A" | "CNAME" | "TXT" | "NS") {
-        Some("record type must be A, CNAME, TXT, or NS".to_owned())
+    let parsed_ip = value.parse::<IpAddr>();
+    let error = if !matches!(record_type.as_str(), "A" | "AAAA" | "CNAME" | "TXT" | "NS") {
+        Some("record type must be A, AAAA, CNAME, TXT, or NS".to_owned())
     } else if name.is_empty() || value.is_empty() {
         Some("record name and value are required".to_owned())
     } else if !(60..=86400).contains(&input.ttl) {
         Some("TTL must be between 60 and 86400 seconds".to_owned())
+    } else if record_type == "A" && !matches!(parsed_ip, Ok(IpAddr::V4(_))) {
+        Some("A record value must be a valid IPv4 address".to_owned())
+    } else if record_type == "AAAA" && !matches!(parsed_ip, Ok(IpAddr::V6(_))) {
+        Some("AAAA record value must be a valid IPv6 address".to_owned())
     } else if matches!(record_type.as_str(), "CNAME" | "NS")
         && !is_hostname(&value)
     {

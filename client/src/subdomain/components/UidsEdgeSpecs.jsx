@@ -27,7 +27,7 @@ export default function UidsEdgeSpecs() {
     },
     {
       title: 'DNS Records',
-      desc: 'Add A, CNAME, and TXT records for your registered domain.',
+      desc: 'Add A, AAAA, CNAME, and TXT records for your registered domain.',
       icon: <RefreshCw className="w-4 h-4 text-neutral-600" />,
       bg: 'bg-neutral-50'
     },

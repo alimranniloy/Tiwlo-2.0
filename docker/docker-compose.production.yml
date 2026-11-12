@@ -7,13 +7,97 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-tiwlo_master}
     volumes:
-      - tiwlo_pgdata:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - tiwlo_pgdata_v2:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 12
+    networks: [tiwlo]
+
+  dns:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        VITE_PRIMARY_DOMAIN: ${VITE_PRIMARY_DOMAIN:-tiwlo.com}
+        VITE_STORE_DOMAIN: ${VITE_STORE_DOMAIN:-}
+        VITE_FREE_SUBDOMAIN_DOMAIN: ${VITE_FREE_SUBDOMAIN_DOMAIN:-uids.app}
+        VITE_MANAGED_DOMAINS: ${VITE_MANAGED_DOMAINS:-}
+        VITE_SERVER_IPV4: ${VITE_SERVER_IPV4:-}
+        VITE_SERVER_IPV6: ${VITE_SERVER_IPV6:-}
+        VITE_AUTH_DOMAIN: ${VITE_AUTH_DOMAIN:-auth.tiwlo.com}
+        VITE_DASHBOARD_URL: ${VITE_DASHBOARD_URL:-https://uids.app}
+        VITE_WWW_SUBDOMAIN: ${VITE_WWW_SUBDOMAIN:-www}
+        VITE_AUTH_SUBDOMAIN: ${VITE_AUTH_SUBDOMAIN:-auth}
+        VITE_TPANEL_SUBDOMAIN: ${VITE_TPANEL_SUBDOMAIN:-tpanel}
+        VITE_DNS1_SUBDOMAIN: ${VITE_DNS1_SUBDOMAIN:-dns1}
+        VITE_DNS2_SUBDOMAIN: ${VITE_DNS2_SUBDOMAIN:-dns2}
+        VITE_MAIL_SUBDOMAIN: ${VITE_MAIL_SUBDOMAIN:-tmail}
+        VITE_MTA_SUBDOMAIN: ${VITE_MTA_SUBDOMAIN:-mail}
+        VITE_DRIVE_SUBDOMAIN: ${VITE_DRIVE_SUBDOMAIN:-drive}
+    command: ["node", "server/dns/dnsServer.js"]
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      NODE_ENV: production
+      DNS_HOST: 0.0.0.0
+      DNS_PORT: 53
+      VITE_PRIMARY_DOMAIN: ${VITE_PRIMARY_DOMAIN:-tiwlo.com}
+      VITE_FREE_SUBDOMAIN_DOMAIN: ${VITE_FREE_SUBDOMAIN_DOMAIN:-uids.app}
+      VITE_MANAGED_DOMAINS: ${VITE_MANAGED_DOMAINS:-}
+      VITE_DNS1_SUBDOMAIN: ${VITE_DNS1_SUBDOMAIN:-dns1}
+      VITE_DNS2_SUBDOMAIN: ${VITE_DNS2_SUBDOMAIN:-dns2}
+      VITE_AUTH_DOMAIN: ${VITE_AUTH_DOMAIN:-auth.tiwlo.com}
+      VITE_DASHBOARD_URL: ${VITE_DASHBOARD_URL:-https://uids.app}
+      VITE_MAIL_SUBDOMAIN: ${VITE_MAIL_SUBDOMAIN:-tmail}
+      VITE_MTA_SUBDOMAIN: ${VITE_MTA_SUBDOMAIN:-mail}
+      VITE_DNS_TTL: ${VITE_DNS_TTL:-300}
+      VITE_DNS_NS_TTL: ${VITE_DNS_NS_TTL:-86400}
+      VITE_DNS_SOA_TTL: ${VITE_DNS_SOA_TTL:-3600}
+      VITE_DNS_DMARC_POLICY: ${VITE_DNS_DMARC_POLICY:-quarantine}
+      VITE_DNS_SPF_POLICY: ${VITE_DNS_SPF_POLICY:-~all}
+      VITE_DKIM_SELECTOR: ${VITE_DKIM_SELECTOR:-tiwlo}
+      VITE_SERVER_IPV4: ${VITE_SERVER_IPV4:-}
+      VITE_SERVER_IPV6: ${VITE_SERVER_IPV6:-}
+      DATABASE_URL: postgres://${POSTGRES_USER:-tiwlo}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-tiwlo_master}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-tiwlo}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB:-tiwlo_master}
+    ports:
+      - target: 53
+        published: "53"
+        protocol: tcp
+        host_ip: "${VITE_SERVER_IPV4:-127.0.0.1}"
+      - target: 53
+        published: "53"
+        protocol: udp
+        host_ip: "${VITE_SERVER_IPV4:-127.0.0.1}"
+      - target: 53
+        published: "53"
+        protocol: tcp
+        host_ip: "${VITE_SERVER_IPV6:-::1}"
+      - target: 53
+        published: "53"
+        protocol: udp
+        host_ip: "${VITE_SERVER_IPV6:-::1}"
+    volumes:
+      - tiwlo_app_data:/app/server/data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "const { UDPClient } = require('./server/node_modules/dns2'); UDPClient({ dns: '127.0.0.1', timeout: 2000 })(process.env.VITE_PRIMARY_DOMAIN, 'SOA', undefined, { recursive: false }).then(r => { process.exitCode = r.header.rcode === 0 && r.answers.length ? 0 : 1; }).catch(() => process.exit(1));"
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks: [tiwlo]
 
   redis:
@@ -86,6 +170,23 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      args:
+        VITE_PRIMARY_DOMAIN: ${VITE_PRIMARY_DOMAIN:-tiwlo.com}
+        VITE_STORE_DOMAIN: ${VITE_STORE_DOMAIN:-}
+        VITE_FREE_SUBDOMAIN_DOMAIN: ${VITE_FREE_SUBDOMAIN_DOMAIN:-uids.app}
+        VITE_MANAGED_DOMAINS: ${VITE_MANAGED_DOMAINS:-}
+        VITE_SERVER_IPV4: ${VITE_SERVER_IPV4:-}
+        VITE_SERVER_IPV6: ${VITE_SERVER_IPV6:-}
+        VITE_AUTH_DOMAIN: ${VITE_AUTH_DOMAIN:-auth.tiwlo.com}
+        VITE_DASHBOARD_URL: ${VITE_DASHBOARD_URL:-https://uids.app}
+        VITE_WWW_SUBDOMAIN: ${VITE_WWW_SUBDOMAIN:-www}
+        VITE_AUTH_SUBDOMAIN: ${VITE_AUTH_SUBDOMAIN:-auth}
+        VITE_TPANEL_SUBDOMAIN: ${VITE_TPANEL_SUBDOMAIN:-tpanel}
+        VITE_DNS1_SUBDOMAIN: ${VITE_DNS1_SUBDOMAIN:-dns1}
+        VITE_DNS2_SUBDOMAIN: ${VITE_DNS2_SUBDOMAIN:-dns2}
+        VITE_MAIL_SUBDOMAIN: ${VITE_MAIL_SUBDOMAIN:-tmail}
+        VITE_MTA_SUBDOMAIN: ${VITE_MTA_SUBDOMAIN:-mail}
+        VITE_DRIVE_SUBDOMAIN: ${VITE_DRIVE_SUBDOMAIN:-drive}
     restart: unless-stopped
     env_file:
       - ../.env
@@ -103,6 +204,8 @@ services:
       DB_USER: ${POSTGRES_USER:-tiwlo}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_NAME: ${POSTGRES_DB:-tiwlo_master}
+      VITE_SERVER_IPV4: ${VITE_SERVER_IPV4:-}
+      VITE_SERVER_IPV6: ${VITE_SERVER_IPV6:-}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       OPENBIOMETRICS_API_URL: http://biometrics:8000
       OPENBIOMETRICS_SHARED_TOKEN: ${OPENBIOMETRICS_SHARED_TOKEN:?OPENBIOMETRICS_SHARED_TOKEN is required}
@@ -137,7 +240,7 @@ services:
     networks: [tiwlo]
 
 volumes:
-  tiwlo_pgdata:
+  tiwlo_pgdata_v2:
   tiwlo_redisdata:
   tiwlo_uploads:
   caddy_data:

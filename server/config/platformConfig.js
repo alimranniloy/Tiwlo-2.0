@@ -1,4 +1,5 @@
 import './loadRootEnv.js';
+import { isIPv4, isIPv6 } from 'node:net';
 
 const cleanDomain = (value, fallback = '') => String(value || '')
   .trim()
@@ -25,13 +26,31 @@ const configuredDomainList = String(process.env.VITE_MANAGED_DOMAINS || '')
   .split(',')
   .map(domain => cleanDomain(domain))
   .filter(Boolean);
+const subdomain = (key, fallback) => String(process.env[key] || fallback).trim().toLowerCase();
+const serverIpv4 = String(process.env.VITE_SERVER_IPV4 || '').trim();
+const serverIpv6 = String(process.env.VITE_SERVER_IPV6 || '').trim();
+if (serverIpv4 && !isIPv4(serverIpv4)) {
+  throw new Error('VITE_SERVER_IPV4 must be a valid public IPv4 address or blank.');
+}
+if (serverIpv6 && !isIPv6(serverIpv6)) {
+  throw new Error('VITE_SERVER_IPV6 must be a valid public IPv6 address or blank.');
+}
 const managedDomains = Object.freeze([...new Set([
   primaryDomain,
   storeDomain,
   freeSubdomainDomain,
-  ...configuredDomainList
+  ...configuredDomainList,
+  ...[
+    subdomain('VITE_AUTH_SUBDOMAIN', 'auth'),
+    subdomain('VITE_TPANEL_SUBDOMAIN', 'tpanel'),
+    subdomain('VITE_DNS1_SUBDOMAIN', 'dns1'),
+    subdomain('VITE_DNS2_SUBDOMAIN', 'dns2'),
+    subdomain('VITE_MAIL_SUBDOMAIN', 'tmail'),
+    subdomain('VITE_MTA_SUBDOMAIN', 'mail'),
+    subdomain('VITE_DRIVE_SUBDOMAIN', 'drive'),
+    subdomain('VITE_WWW_SUBDOMAIN', 'www')
+  ].map(label => `${label}.${primaryDomain}`)
 ])]);
-const subdomain = (key, fallback) => String(process.env[key] || fallback).trim().toLowerCase();
 const email = (key, fallback) => `${subdomain(key, fallback)}@${primaryDomain}`;
 
 export const PLATFORM_CONFIG = Object.freeze({
@@ -44,7 +63,12 @@ export const PLATFORM_CONFIG = Object.freeze({
   pickDashboardHost: `pick.${primaryDomain}`,
   cookieDomain: `.${sessionCookieDomain}`,
   authDomain: cleanDomain(process.env.VITE_AUTH_DOMAIN, `auth.${primaryDomain}`),
-  serverIpv4: process.env.VITE_SERVER_IPV4 || '',
+  serverIpv4,
+  serverIpv6,
+  serverAddresses: Object.freeze([
+    ...(serverIpv4 ? [{ type: 'A', value: serverIpv4 }] : []),
+    ...(serverIpv6 ? [{ type: 'AAAA', value: serverIpv6 }] : [])
+  ]),
   wwwSubdomain: subdomain('VITE_WWW_SUBDOMAIN', 'www'),
   authSubdomain: subdomain('VITE_AUTH_SUBDOMAIN', 'auth'),
   tpanelSubdomain: subdomain('VITE_TPANEL_SUBDOMAIN', 'tpanel'),

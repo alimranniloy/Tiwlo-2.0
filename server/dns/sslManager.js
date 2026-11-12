@@ -111,8 +111,7 @@ export function generateNginxConfig(primaryDomain = SSL_CONFIG.PRIMARY_DOMAIN) {
     .filter(domain => domain !== primaryDomain && getCertificatePaths(domain))
     .map(domain => ({ domain, certificate: getCertificatePaths(domain) }));
   const primaryServerNames = [...new Set([
-    ...SSL_CONFIG.DOMAINS,
-    PLATFORM_CONFIG.serverIpv4
+    ...SSL_CONFIG.DOMAINS
   ])].filter(name => !dedicatedDomains.some(
     ({ domain }) => name === domain || name === `*.${domain}`
   ) && name !== PLATFORM_CONFIG.pickDashboardHost);
@@ -470,6 +469,7 @@ export function provisionCustomDomain(domain) {
   const httpConfig = `
 server {
     listen 80;
+    listen [::]:80;
     server_name ${cleanDomain};
     location /.well-known/acme-challenge/ {
         root ${SSL_CONFIG.CERTBOT_WEBROOT};
@@ -484,6 +484,7 @@ server {
   const httpsConfig = `
 server {
     listen 443 ssl http2;
+    listen [::]:443 ssl http2;
     server_name ${cleanDomain};
     ssl_certificate /etc/letsencrypt/live/${cleanDomain}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${cleanDomain}/privkey.pem;

@@ -15,7 +15,7 @@ export default function UidsFaq() {
     },
     {
       q: 'Can I manage DNS records?',
-      a: 'Yes. After registration, open Domains in your Tiwlo dashboard to manage A, CNAME, and TXT records.'
+      a: 'Yes. After registration, open Domains in your Tiwlo dashboard to manage A, AAAA, CNAME, and TXT records.'
     },
     {
       q: 'Does every subdomain get an automatic SSL certificate?',
@@ -23,7 +23,7 @@ export default function UidsFaq() {
     },
     {
       q: 'Can I point custom A or TXT records to a custom VPS or server?',
-      a: 'Yes. A, CNAME, and TXT records can be added from the Domains page after you register a name.'
+      a: 'Yes. A, AAAA, CNAME, and TXT records can be added from the Domains page after you register a name.'
     },
     {
       q: 'Does a free subdomain expire?',

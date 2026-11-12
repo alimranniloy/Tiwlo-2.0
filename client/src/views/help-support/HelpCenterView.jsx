@@ -77,7 +77,7 @@ export default function HelpCenterView({ initialQuery = '', onBack, onOpenInbox 
       snippet: 'Details on ownership verification, certificate generation, and renewal.',
       content: `Custom domains require an explicit verification and provisioning step:
 1. Prove domain ownership by adding the TXT record returned by the authenticated domain API.
-2. Point the domain A record to the Tiwlo server and request SSL after DNS is ready.
+2. Point an A and/or AAAA record to the Tiwlo server, or delegate the domain to dns1 and dns2 supplied by Tiwlo; request SSL after DNS is ready.
 3. Nginx Certbot deployments use the system renewal timer; Docker deployments use Caddy on-demand TLS after the domain is activated.`
     }
   ];

@@ -3,8 +3,7 @@ import { readState } from '../db/stateDocuments.js';
  * Tiwlo Enterprise Authoritative DNS Server
  * 
  * High-performance, anti-DDoS, authoritative nameserver for Tiwlo Platform.
- * Serves primary records for configured Tiwlo domains and nameservers only.
- * Customer custom domains use records at their own DNS provider.
+ * Serves configured Tiwlo domains plus domains delegated to Tiwlo nameservers.
  *
  * Security Features:
  * - Authoritative Only (Recursion Available = false) -> Prevents Open Resolver abuse
@@ -16,6 +15,7 @@ import { readState } from '../db/stateDocuments.js';
 import dns2 from 'dns2';
 import fs from 'fs';
 import path from 'path';
+import { isIPv4, isIPv6 } from 'node:net';
 import { fileURLToPath } from 'url';
 import { PLATFORM_CONFIG, getSubdomain } from '../config/platformConfig.js';
 import { isPgActive, queryPg, testPgConnection } from '../db/postgres.js';
@@ -29,11 +29,14 @@ const __dirname = path.dirname(__filename);
 // CONFIGURATION & CONSTANTS
 // ==========================================
 export const DNS_CONFIG = {
-  // Keep the origin private when traffic is served through an edge. These
-  // addresses must be explicitly configured; never fall back to the origin.
-  PUBLIC_EDGE_IP: process.env.DNS_PUBLIC_EDGE_IP || '',
-  PUBLIC_DNS_IP: process.env.DNS_PUBLIC_IP || '',
-  PUBLIC_MAIL_IP: process.env.DNS_PUBLIC_MAIL_IP || process.env.DNS_PUBLIC_EDGE_IP || '',
+  // Provider-independent public origin addresses. Optional legacy DNS_*
+  // overrides are retained for installations with a separate edge or mail host.
+  PUBLIC_EDGE_IP: process.env.DNS_PUBLIC_EDGE_IP || PLATFORM_CONFIG.serverIpv4,
+  PUBLIC_EDGE_IPV6: process.env.DNS_PUBLIC_EDGE_IPV6 || PLATFORM_CONFIG.serverIpv6,
+  PUBLIC_DNS_IP: process.env.DNS_PUBLIC_IP || PLATFORM_CONFIG.serverIpv4,
+  PUBLIC_DNS_IPV6: process.env.DNS_PUBLIC_IPV6 || PLATFORM_CONFIG.serverIpv6,
+  PUBLIC_MAIL_IP: process.env.DNS_PUBLIC_MAIL_IP || PLATFORM_CONFIG.serverIpv4,
+  PUBLIC_MAIL_IPV6: process.env.DNS_PUBLIC_MAIL_IPV6 || PLATFORM_CONFIG.serverIpv6,
   PRIMARY_DOMAIN: PLATFORM_CONFIG.primaryDomain,
   STORE_DOMAIN: PLATFORM_CONFIG.storeDomain,
   MANAGED_DOMAINS: PLATFORM_CONFIG.managedDomains,
@@ -62,14 +65,27 @@ export const DNS_CONFIG = {
 };
 
 function isPlatformHost(queryDomain) {
-  return queryDomain === DNS_CONFIG.DASHBOARD_HOST || queryDomain === DNS_CONFIG.AUTH_HOST;
+  return [DNS_CONFIG.DASHBOARD_HOST, DNS_CONFIG.AUTH_HOST].some(host =>
+    queryDomain === host || queryDomain.endsWith(`.${host}`)
+  );
 }
 
 function addARecord(response, name, address, ttl = DNS_CONFIG.DEFAULT_TTL) {
-  if (!address) return;
+  if (!isIPv4(address)) return;
   response.answers.push({
     name,
     type: Packet.TYPE.A,
+    class: Packet.CLASS.IN,
+    ttl,
+    address
+  });
+}
+
+function addAaaaRecord(response, name, address, ttl = DNS_CONFIG.DEFAULT_TTL) {
+  if (!isIPv6(address)) return;
+  response.answers.push({
+    name,
+    type: Packet.TYPE.AAAA,
     class: Packet.CLASS.IN,
     ttl,
     address
@@ -124,26 +140,39 @@ setInterval(() => {
 // ==========================================
 // DYNAMIC DOMAIN RESOLVER LOGIC
 // ==========================================
-/**
- * Checks if a domain is owned by Tiwlo or delegated to our nameserver
- */
-function isDomainAuthoritative(queryDomain) {
-  if (!queryDomain) return false;
-  const d = queryDomain.toLowerCase().replace(/\.$/, '');
+const authorityCache = new Map();
+async function findAuthoritativeZone(queryDomain) {
+  const host = String(queryDomain || '').toLowerCase().replace(/\.$/, '');
+  const platformDomain = DNS_CONFIG.MANAGED_DOMAINS
+    .filter(domain => host === domain || host.endsWith(`.${domain}`))
+    .sort((left, right) => right.length - left.length)[0];
+  if (platformDomain) return { domain: platformDomain, platform: true };
+  if (!isPgActive()) return null;
 
-  // 1. All tiwlo domains and subdomains
-  if (DNS_CONFIG.MANAGED_DOMAINS.some(
-    domain => d === domain || d.endsWith(`.${domain}`)
-  )) {
-    return true;
-  }
+  const cached = authorityCache.get(host);
+  if (cached && cached.expiresAt > Date.now()) return cached.zone;
 
-  // 2. Nameservers
-  if (d === DNS_CONFIG.NS1 || d === DNS_CONFIG.NS2) {
-    return true;
-  }
-
-  return false;
+  const labels = host.split('.');
+  const candidates = labels.map((_label, index) => labels.slice(index).join('.'))
+    .filter(domain => domain.includes('.'));
+  const { rows } = await queryPg(
+    `SELECT domain, verification_token, status
+     FROM system_custom_domains
+     WHERE domain = ANY($1::text[])
+       AND status IN ('pending_verification', 'verified', 'active')
+     ORDER BY LENGTH(domain) DESC
+     LIMIT 1`,
+    [candidates]
+  );
+  const zone = rows[0] ? {
+    domain: rows[0].domain,
+    platform: false,
+    verified: ['verified', 'active'].includes(rows[0].status),
+    active: rows[0].status === 'active',
+    verificationToken: rows[0].verification_token
+  } : null;
+  authorityCache.set(host, { zone, expiresAt: Date.now() + (zone ? 10000 : 2000) });
+  return zone;
 }
 
 // ==========================================
@@ -175,7 +204,8 @@ async function handleDnsRequest(request, send, rinfo) {
     const queryType = question.type;
 
     // 2. Authoritative check
-    if (!isDomainAuthoritative(queryDomain)) {
+    const authorityZone = await findAuthoritativeZone(queryDomain);
+    if (!authorityZone) {
       // Reject unauthorized recursive queries
       response.header.rcode = Packet.RCODE.REFUSED;
       return send(response);
@@ -183,29 +213,39 @@ async function handleDnsRequest(request, send, rinfo) {
 
     response.header.rcode = Packet.RCODE.NOERROR;
 
-    let claimedSubdomain = false;
+    let claimedSubdomain = null;
     if (isPgActive() && queryDomain.endsWith(`.${PLATFORM_CONFIG.freeSubdomainDomain}`)) {
+      const labels = queryDomain.split('.');
+      const candidates = labels.map((_label, index) => labels.slice(index).join('.'));
       const { rows: domainRows } = await queryPg(
-        `SELECT id
+        `SELECT id, domain
          FROM system_free_subdomains
-         WHERE domain = $1 AND status = 'active'
+         WHERE domain = ANY($1::text[]) AND status = 'active'
+         ORDER BY LENGTH(domain) DESC
          LIMIT 1`,
-        [queryDomain]
+        [candidates]
       );
-      claimedSubdomain = domainRows.length > 0;
+      claimedSubdomain = domainRows[0] || null;
       const rows = claimedSubdomain
         ? (await queryPg(
           `SELECT type, name, value, ttl
            FROM system_free_subdomain_records r
-           JOIN system_free_subdomains d ON d.id = r.subdomain_id
-           WHERE d.domain = $1 AND d.status = 'active'`,
-          [queryDomain]
+           WHERE r.subdomain_id = $1`,
+          [claimedSubdomain.id]
         )).rows
         : [];
       for (const record of rows) {
+        const recordHost = record.name === '@'
+          ? claimedSubdomain.domain
+          : record.name.endsWith(`.${claimedSubdomain.domain}`)
+            ? record.name
+            : `${record.name}.${claimedSubdomain.domain}`;
+        if (recordHost !== queryDomain) continue;
         const name = question.name;
         if (record.type === 'A' && queryType === Packet.TYPE.A) {
-          response.answers.push({ name, type: Packet.TYPE.A, class: Packet.CLASS.IN, ttl: record.ttl, address: record.value });
+          addARecord(response, name, record.value, record.ttl);
+        } else if (record.type === 'AAAA' && queryType === Packet.TYPE.AAAA) {
+          addAaaaRecord(response, name, record.value, record.ttl);
         } else if (record.type === 'CNAME' && queryType === Packet.TYPE.CNAME) {
           response.answers.push({ name, type: Packet.TYPE.CNAME, class: Packet.CLASS.IN, ttl: record.ttl, domain: record.value });
         } else if (record.type === 'TXT' && queryType === Packet.TYPE.TXT) {
@@ -237,6 +277,21 @@ async function handleDnsRequest(request, send, rinfo) {
         break;
       }
 
+      case Packet.TYPE.AAAA: {
+        if (queryDomain.endsWith(`.${PLATFORM_CONFIG.freeSubdomainDomain}`) &&
+            !claimedSubdomain && !isPlatformHost(queryDomain)) {
+          response.header.rcode = Packet.RCODE.NXDOMAIN;
+          return send(response);
+        }
+        const address = queryDomain === DNS_CONFIG.NS1 || queryDomain === DNS_CONFIG.NS2
+          ? DNS_CONFIG.PUBLIC_DNS_IPV6
+          : queryDomain === DNS_CONFIG.MAIL_HOST
+            ? DNS_CONFIG.PUBLIC_MAIL_IPV6
+            : DNS_CONFIG.PUBLIC_EDGE_IPV6;
+        addAaaaRecord(response, question.name, address);
+        break;
+      }
+
       // -------------------------------------------------------------
       // TYPE NS (Nameservers)
       // -------------------------------------------------------------
@@ -265,6 +320,8 @@ async function handleDnsRequest(request, send, rinfo) {
         // Include glue records in additionals
         addARecord(response, DNS_CONFIG.NS1, DNS_CONFIG.PUBLIC_DNS_IP);
         addARecord(response, DNS_CONFIG.NS2, DNS_CONFIG.PUBLIC_DNS_IP);
+        addAaaaRecord(response, DNS_CONFIG.NS1, DNS_CONFIG.PUBLIC_DNS_IPV6);
+        addAaaaRecord(response, DNS_CONFIG.NS2, DNS_CONFIG.PUBLIC_DNS_IPV6);
         break;
       }
 
@@ -273,7 +330,7 @@ async function handleDnsRequest(request, send, rinfo) {
       // -------------------------------------------------------------
       case Packet.TYPE.SOA: {
         response.answers.push({
-          name: question.name,
+          name: authorityZone.domain,
           type: Packet.TYPE.SOA,
           class: Packet.CLASS.IN,
           ttl: DNS_CONFIG.SOA_TTL,
@@ -292,6 +349,7 @@ async function handleDnsRequest(request, send, rinfo) {
       // TYPE MX (Mail Exchange)
       // -------------------------------------------------------------
       case Packet.TYPE.MX: {
+        if (!authorityZone.platform) break;
         response.answers.push({
           name: question.name,
           type: Packet.TYPE.MX,
@@ -328,33 +386,43 @@ async function handleDnsRequest(request, send, rinfo) {
           break;
         }
 
+        if (!authorityZone.platform && queryDomain === `_tiwlo-verification.${authorityZone.domain}` && authorityZone.verificationToken) {
+          response.answers.push({
+            name: question.name,
+            type: Packet.TYPE.TXT,
+            class: Packet.CLASS.IN,
+            ttl: DNS_CONFIG.DEFAULT_TTL,
+            data: `tiwlo-domain-verification=${authorityZone.verificationToken}`
+          });
+          break;
+        }
+
         // 1. Dynamic ACME Challenge for Wildcard SSL
-        if (queryDomain.startsWith('_acme-challenge')) {
+        if (queryDomain.startsWith('_acme-challenge') &&
+            (authorityZone.platform || authorityZone.active) &&
+            (authorityZone.platform || queryDomain.endsWith(`.${authorityZone.domain}`))) {
           try {
             const tokens = await readState('dns', 'acme', {});
-            {
-              const list = tokens[queryDomain] ||
-                tokens[`_acme-challenge.${DNS_CONFIG.PRIMARY_DOMAIN}`] ||
-                tokens[DNS_CONFIG.PRIMARY_DOMAIN];
-              if (list) {
-                const tokenArray = Array.isArray(list) ? list : [list];
-                tokenArray.forEach(val => {
-                  response.answers.push({
-                    name: question.name,
-                    type: Packet.TYPE.TXT,
-                    class: Packet.CLASS.IN,
-                    ttl: 10,
-                    data: String(val)
-                  });
+            const list = tokens[queryDomain];
+            if (list) {
+              const tokenArray = Array.isArray(list) ? list : [list];
+              tokenArray.forEach(val => {
+                response.answers.push({
+                  name: question.name,
+                  type: Packet.TYPE.TXT,
+                  class: Packet.CLASS.IN,
+                  ttl: 10,
+                  data: String(val)
                 });
-                break;
-              }
+              });
+              break;
             }
           } catch (acmeErr) {
             console.warn('⚠️ [DNS ACME] Error reading ACME tokens:', acmeErr.message);
           }
         }
 
+        if (!authorityZone.platform) break;
         if (queryDomain.startsWith('_dmarc')) {
           response.answers.push({
             name: question.name,
@@ -379,6 +447,18 @@ async function handleDnsRequest(request, send, rinfo) {
       // TYPE CNAME
       // -------------------------------------------------------------
       case Packet.TYPE.CNAME: {
+        if (!authorityZone.platform) {
+          if (queryDomain === `www.${authorityZone.domain}`) {
+            response.answers.push({
+              name: question.name,
+              type: Packet.TYPE.CNAME,
+              class: Packet.CLASS.IN,
+              ttl: DNS_CONFIG.DEFAULT_TTL,
+              domain: authorityZone.domain
+            });
+          }
+          break;
+        }
         response.answers.push({
           name: question.name,
           type: Packet.TYPE.CNAME,
@@ -398,13 +478,10 @@ async function handleDnsRequest(request, send, rinfo) {
       }
 
       // -------------------------------------------------------------
-      // TYPE AAAA (IPv6) or Others:
-      // Return NOERROR with 0 answers (prompts client to use IPv4 A)
-      // -------------------------------------------------------------
       default: {
         // Return NOERROR with SOA in authorities
         response.authorities.push({
-          name: DNS_CONFIG.PRIMARY_DOMAIN,
+          name: authorityZone.domain,
           type: Packet.TYPE.SOA,
           class: Packet.CLASS.IN,
           ttl: DNS_CONFIG.SOA_TTL,
@@ -454,10 +531,10 @@ export async function startDnsServer() {
     console.log('====================================================');
     console.log('🚀 TIWLO AUTHORITATIVE DNS SERVER RUNNING');
     console.log(`📡 Interface: ${DNS_CONFIG.HOST}:${DNS_CONFIG.PORT} (UDP/TCP)`);
-    console.log(`🌐 Public edge address configured: ${DNS_CONFIG.PUBLIC_EDGE_IP ? 'yes' : 'no'}`);
-    console.log(`🛡️ Origin fallback disabled: ${!DNS_CONFIG.PUBLIC_EDGE_IP}`);
-    if (!DNS_CONFIG.PUBLIC_EDGE_IP || !DNS_CONFIG.PUBLIC_DNS_IP) {
-      console.warn('⚠️ Configure DNS_PUBLIC_EDGE_IP and DNS_PUBLIC_IP before publishing DNS records.');
+    console.log(`🌐 Public edge addresses configured: ${DNS_CONFIG.PUBLIC_EDGE_IP || '-'} / ${DNS_CONFIG.PUBLIC_EDGE_IPV6 || '-'}`);
+    console.log(`🛡️ Nameserver glue: ${DNS_CONFIG.PUBLIC_DNS_IP || '-'} / ${DNS_CONFIG.PUBLIC_DNS_IPV6 || '-'}`);
+    if (!DNS_CONFIG.PUBLIC_EDGE_IP && !DNS_CONFIG.PUBLIC_EDGE_IPV6) {
+      console.warn('⚠️ Configure at least one server address (VITE_SERVER_IPV4 or VITE_SERVER_IPV6) before publishing DNS records.');
     }
     console.log(`🏷️  Nameservers: ${DNS_CONFIG.NS1}, ${DNS_CONFIG.NS2}`);
     console.log('🛡️  Security: Authoritative-Only (Anti-Amplification DDoS & RRL Active)');

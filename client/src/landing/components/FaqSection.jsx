@@ -11,7 +11,7 @@ export default function FaqSection({ onNavigate }) {
     },
     {
       q: 'Can I connect my own custom domain with automated SSL?',
-      a: 'Growth, Pro, and Enterprise accounts can connect a custom domain through the authenticated domain API. Add the requested TXT ownership record and point its A record to the Tiwlo server; after verification, the system can provision SSL. DNS records must be added at your domain provider.'
+      a: 'Growth, Pro, and Enterprise accounts can connect a custom domain through the authenticated domain API. Add the requested TXT ownership record and point an A/AAAA record to the Tiwlo server, or delegate the domain to Tiwlo nameservers; after verification, the system provisions SSL automatically.'
     },
     {
       q: 'How does Tiwlo’s isolated multi-tenant database protect my business data?',

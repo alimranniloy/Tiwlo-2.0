@@ -91,12 +91,12 @@ export default function GuidesView({ onBack }) {
         {
           num: 2,
           title: 'Add the verification and address records',
-          desc: 'At your DNS provider, add the TXT record returned by the API and an A record pointing the domain to the returned Tiwlo server IP.'
+          desc: 'At your DNS provider, add the TXT record returned by the API and an A and/or AAAA record pointing to the returned Tiwlo server IP. You can also delegate the domain to the Tiwlo nameservers.'
         },
         {
           num: 3,
           title: 'Verify and request SSL',
-          desc: 'Call POST /api/domains/:id/verify after adding the TXT record. When the A record points to Tiwlo, POST /api/domains/:id/provision requests SSL. DNS propagation time varies by provider.'
+          desc: 'Call POST /api/domains/:id/verify after adding the TXT record. When an A/AAAA record or Tiwlo nameserver delegation points to Tiwlo, POST /api/domains/:id/provision activates automatic SSL. DNS propagation time varies by provider.'
         }
       ]
     },

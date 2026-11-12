@@ -56,7 +56,8 @@ this repository without registrar API credentials. SMTP delivery also requires
 valid provider or local Postfix configuration; the bootstrap never fabricates
 credentials or reports these services healthy without a check.
 
-Set `VITE_SERVER_IPV4` in the protected runtime/build environment when custom
-domain DNS records or server-address displays are needed. It is intentionally
-blank in the example environment file so the origin address is not published
-in source control.
+Set `VITE_SERVER_IPV4` and/or `VITE_SERVER_IPV6` in the protected runtime/build
+environment when custom-domain DNS records or server-address displays are
+needed. At least one address is required for production DNS/domain provisioning;
+the examples leave both blank so host addresses are not published in source
+control.

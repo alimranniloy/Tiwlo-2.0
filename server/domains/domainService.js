@@ -1,5 +1,4 @@
 import { randomBytes } from 'crypto';
-import { isIPv4 } from 'net';
 import { domainToASCII } from 'url';
 import { promises as dns } from 'dns';
 import { isPgActive, queryPg } from '../db/postgres.js';
@@ -24,8 +23,8 @@ function requireDatabase() {
 }
 
 function requireServerAddress() {
-  if (!isIPv4(PLATFORM_CONFIG.serverIpv4)) {
-    throw new DomainServiceError('The platform server IPv4 address is not configured correctly.', 503);
+  if (!PLATFORM_CONFIG.serverAddresses.length) {
+    throw new DomainServiceError('Configure VITE_SERVER_IPV4, VITE_SERVER_IPV6, or both before provisioning domains.', 503);
   }
 }
 
@@ -67,9 +66,18 @@ function serializeDomain(row) {
         value: `${VERIFICATION_PREFIX}${row.verification_token}`
       },
       address: {
-        type: 'A',
+        type: PLATFORM_CONFIG.serverAddresses[0]?.type || 'A',
         name: row.domain,
-        value: PLATFORM_CONFIG.serverIpv4
+        value: PLATFORM_CONFIG.serverAddresses[0]?.value || '',
+        records: PLATFORM_CONFIG.serverAddresses.map(({ type, value }) => ({
+          type,
+          name: row.domain,
+          value
+        })),
+        nameservers: [
+          `${PLATFORM_CONFIG.dns1Subdomain}.${PLATFORM_CONFIG.primaryDomain}`,
+          `${PLATFORM_CONFIG.dns2Subdomain}.${PLATFORM_CONFIG.primaryDomain}`
+        ]
       }
     }
   };
@@ -223,6 +231,18 @@ export async function findActiveCustomDomain(domain) {
   return Boolean(await resolveActiveCustomDomain(domain));
 }
 
+export async function findActiveFreeSubdomain(domain) {
+  if (!isPgActive()) return false;
+  const normalized = domainToASCII(String(domain || '').trim().toLowerCase().replace(/\.$/, ''));
+  if (!normalized) return false;
+  const { rows } = await queryPg(
+    `SELECT id FROM system_free_subdomains
+     WHERE domain = $1 AND status = 'active' LIMIT 1`,
+    [normalized]
+  );
+  return rows.length > 0;
+}
+
 export async function deletePendingUserDomain({ userId, id }) {
   requireDatabase();
   const { rowCount } = await queryPg(
@@ -237,15 +257,39 @@ export async function deletePendingUserDomain({ userId, id }) {
 
 export async function verifyDomainAddress(domain) {
   requireServerAddress();
-  let addresses = [];
+  const resolve = async (method) => {
+    try {
+      return await dns[method](domain);
+    } catch (error) {
+      if (['ENODATA', 'ENOTFOUND', 'ENODOMAIN', 'ESERVFAIL', 'ETIMEOUT'].includes(error.code)) return [];
+      throw error;
+    }
+  };
+  const [ipv4, ipv6] = await Promise.all([resolve('resolve4'), resolve('resolve6')]);
+  const addresses = { A: ipv4, AAAA: ipv6 };
+  const expectedAddresses = PLATFORM_CONFIG.serverAddresses;
+  return {
+    ready: expectedAddresses.some(({ type, value }) => addresses[type]?.includes(value)),
+    addresses: [...ipv4, ...ipv6],
+    ipv4Addresses: ipv4,
+    ipv6Addresses: ipv6,
+    expectedAddresses,
+    expectedAddress: expectedAddresses[0]?.value || ''
+  };
+}
+
+
+export async function verifyDomainNameservers(domain) {
+  requireServerAddress();
+  const expected = [
+    `${PLATFORM_CONFIG.dns1Subdomain}.${PLATFORM_CONFIG.primaryDomain}`.toLowerCase(),
+    `${PLATFORM_CONFIG.dns2Subdomain}.${PLATFORM_CONFIG.primaryDomain}`.toLowerCase()
+  ];
+  let nameservers = [];
   try {
-    addresses = await dns.resolve4(domain);
+    nameservers = (await dns.resolveNs(domain)).map(value => value.toLowerCase().replace(/\.$/, ''));
   } catch (error) {
     if (!['ENODATA', 'ENOTFOUND', 'ENODOMAIN', 'ESERVFAIL', 'ETIMEOUT'].includes(error.code)) throw error;
   }
-  return {
-    ready: addresses.includes(PLATFORM_CONFIG.serverIpv4),
-    addresses,
-    expectedAddress: PLATFORM_CONFIG.serverIpv4
-  };
+  return { ready: expected.every(value => nameservers.includes(value)), nameservers, expectedNameservers: expected };
 }

@@ -19,7 +19,7 @@ import { testPgConnection } from './db/postgres.js';
 import { BillingDB } from './db/billing.js';
 import { streamStoredMedia } from './db/mediaStorage.js';
 import { MasterDB } from './db/multiTenant.js';
-import { resolveActiveStore, tenantContext } from './db/storeDataAdapter.js';
+import { resolveActiveStore, resolveStorefrontHost, tenantContext } from './db/storeDataAdapter.js';
 import { createGraphQLMiddleware } from './graphql/index.js';
 import { createApplicationGraphQL, protectAsyncRouter } from './graphql/applicationApi.js';
 import { InputSanitizer } from './security/cryptoSecurity.js';
@@ -70,6 +70,8 @@ const app = express();
 configureTrustedProxy(app);
 const PORT = process.env.PORT || 5000;
 const HTTP_PORT = Number.parseInt(process.env.HTTP_PORT || String(Number(PORT) + 1), 10);
+const LISTEN_ADDRESS = process.env.TIWLO_BIND_ADDRESS ||
+  (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
 await initializeOptionalSecurity();
 const apiRateLimitStore = getRateLimitStore('tiwlo:api');
 
@@ -142,7 +144,7 @@ app.use(cors({
     if (allowedOrigins.includes(origin)) return callback(null, true);
     try {
       const hostname = new URL(origin).hostname.toLowerCase();
-      if ([PLATFORM_CONFIG.primaryDomain, PLATFORM_CONFIG.storeDomain, PLATFORM_CONFIG.freeSubdomainDomain].some(
+      if (PLATFORM_CONFIG.managedDomains.some(
         domain => hostname === domain || hostname.endsWith(`.${domain}`)
       )) {
         return callback(null, true);
@@ -515,22 +517,28 @@ app.get('/favicon.ico', (req, res) => {
 
 const CLIENT_DIST = path.join(__dirname, '../client/dist');
 if (fs.existsSync(CLIENT_DIST)) {
-  app.get('*', (req, res, next) => {
+  app.get('*', async (req, res, next) => {
     if (req.path.startsWith('/api') || req.path.startsWith('/graphql') || req.path.includes('.') || !req.accepts('html')) {
       return next();
     }
     const indexPath = path.join(CLIENT_DIST, 'index.html');
     if (fs.existsSync(indexPath)) {
       try {
+        const requestHostname = requestHost(req);
+        const customStore = !PLATFORM_CONFIG.managedDomains.some(domain =>
+          requestHostname === domain || requestHostname.endsWith(`.${domain}`)
+        ) ? await resolveStorefrontHost(requestHostname) : null;
         const metadata = getSeoMetadata({
-          hostname: requestHost(req),
+          hostname: requestHostname,
           pathname: req.path,
           protocol: req.protocol,
           platformDomain: PLATFORM_CONFIG.primaryDomain,
           freeSubdomainDomain: PLATFORM_CONFIG.freeSubdomainDomain,
           mailSubdomain: PLATFORM_CONFIG.mailSubdomain,
           dashboardUrl: PLATFORM_CONFIG.dashboardUrl,
-          authDomain: PLATFORM_CONFIG.authDomain
+          authDomain: PLATFORM_CONFIG.authDomain,
+          storeName: customStore?.storeName,
+          customDomain: Boolean(customStore)
         });
         let html = fs.readFileSync(indexPath, 'utf8');
         const metaTags = [
@@ -620,20 +628,20 @@ async function startServer() {
 
   if (httpsOptions) {
     const httpsServer = https.createServer(httpsOptions, app);
-    httpsServer.listen(PORT, '127.0.0.1', () => {
+    httpsServer.listen(PORT, LISTEN_ADDRESS, () => {
       console.log(`🔒 Tiwlo StockPro Secure HTTPS Server (loopback only) running on https://127.0.0.1:${PORT}`);
     });
 
     const httpServer = http.createServer(app);
-    httpServer.listen(HTTP_PORT, '127.0.0.1', () => {
+    httpServer.listen(HTTP_PORT, LISTEN_ADDRESS, () => {
       console.log(`🌐 Tiwlo local HTTP Server (loopback only) running on http://127.0.0.1:${HTTP_PORT}`);
     });
   } else {
-    app.listen(PORT, '127.0.0.1', () => {
+    app.listen(PORT, LISTEN_ADDRESS, () => {
       console.log(`StockPro Backend Server (loopback only) running on http://127.0.0.1:${PORT}`);
     });
     const inboundHttpServer = http.createServer(app);
-    inboundHttpServer.listen(HTTP_PORT, '127.0.0.1', () => {
+    inboundHttpServer.listen(HTTP_PORT, LISTEN_ADDRESS, () => {
       console.log(`Tiwlo local mail-delivery endpoint listening on 127.0.0.1:${HTTP_PORT}`);
     });
   }

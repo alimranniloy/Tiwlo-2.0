@@ -18,7 +18,8 @@ import {
 import { getFfmpegStatus } from '../security/videoProcessor.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { MasterDB } from '../db/multiTenant.js';
-import { findActiveCustomDomain } from '../domains/domainService.js';
+import { findActiveCustomDomain, findActiveFreeSubdomain } from '../domains/domainService.js';
+import { resolveStorefrontHost } from '../db/storeDataAdapter.js';
 import { hashSecuritySubject, listSecurityEvents, recordSecurityEvent } from '../db/securityPersistence.js';
 import { requireRecentReauth } from '../security/recentReauth.js';
 import { queryPg } from '../db/postgres.js';
@@ -111,12 +112,15 @@ router.get('/tls/allow', async (req, res) => {
   const primaryDomain = PLATFORM_CONFIG.primaryDomain;
   if (!requestedHost || !primaryDomain) return res.sendStatus(403);
 
-  const allowedDomains = [primaryDomain, PLATFORM_CONFIG.storeDomain];
-  const isAllowedDomain = allowedDomains.some(
-    domain => requestedHost === domain || requestedHost.endsWith(`.${domain}`)
-  );
-  if (isAllowedDomain) return res.sendStatus(200);
+  if (PLATFORM_CONFIG.managedDomains.includes(requestedHost)) return res.sendStatus(200);
   try {
+    if (requestedHost.endsWith(`.${PLATFORM_CONFIG.freeSubdomainDomain}`)) {
+      return res.sendStatus(await findActiveFreeSubdomain(requestedHost) ? 200 : 403);
+    }
+    if (requestedHost.endsWith(`.${PLATFORM_CONFIG.primaryDomain}`) ||
+        requestedHost.endsWith(`.${PLATFORM_CONFIG.storeDomain}`)) {
+      return res.sendStatus(await resolveStorefrontHost(requestedHost) ? 200 : 403);
+    }
     return res.sendStatus(await findActiveCustomDomain(requestedHost) ? 200 : 403);
   } catch (error) {
     console.error('[SystemRoutes] Could not validate custom TLS domain:', error);

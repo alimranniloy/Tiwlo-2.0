@@ -16,7 +16,9 @@ export function getSeoMetadata({
   freeSubdomainDomain = 'uids.app',
   mailSubdomain = 'mail',
   dashboardUrl = `https://uids.${platformDomain}`,
-  authDomain = `auth.${platformDomain}`
+  authDomain = `auth.${platformDomain}`,
+  storeName = '',
+  customDomain = false
 }) {
   const host = cleanHost(hostname);
   const path = cleanPath(pathname);
@@ -53,6 +55,23 @@ export function getSeoMetadata({
       siteName: 'UIDS.app',
       indexable: path === '/',
       canonicalHost: freeSubdomainDomain
+    };
+  } else if (customDomain && storeName) {
+    page = {
+      title: `${storeName} Online Store`,
+      description: `Shop products and services from ${storeName}.`,
+      image: '/seo/tiwlo-og.png',
+      imageAlt: `${storeName} online store`,
+      siteName: storeName,
+      indexable: path === '/',
+      canonicalHost: host
+    };
+  } else if (customDomain) {
+    page = {
+      ...page,
+      title: 'Online Store',
+      indexable: path === '/',
+      canonicalHost: host
     };
   } else if (isMailHost || path === '/email' || path.startsWith('/email/') || path === '/mail' || path.startsWith('/mail/')) {
     page = {

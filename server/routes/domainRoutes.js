@@ -11,6 +11,7 @@ import {
   listUserDomains,
   markDomainSslStatus,
   verifyDomainAddress,
+  verifyDomainNameservers,
   verifyUserDomain
 } from '../domains/domainService.js';
 
@@ -56,7 +57,7 @@ router.post('/', domainActionLimiter, requireRecentReauth, async (req, res) => {
     });
     res.status(201).json({
       domain,
-      instructions: 'Add the provided TXT record to prove ownership and an A record pointing to the provided server IP. Then call the verify endpoint.'
+      instructions: 'Add the provided TXT record to prove ownership, then point an A and/or AAAA record at the supplied server address. Alternatively, delegate the domain to the supplied Tiwlo nameservers. Then call the verify endpoint.'
     });
   } catch (error) {
     sendDomainError(res, error);
@@ -66,8 +67,11 @@ router.post('/', domainActionLimiter, requireRecentReauth, async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const domain = await getUserDomain({ userId: getUserId(req), id: req.params.id });
-    const dns = await verifyDomainAddress(domain.domain);
-    res.json({ domain, dns });
+    const [dns, nameservers] = await Promise.all([
+      verifyDomainAddress(domain.domain),
+      verifyDomainNameservers(domain.domain)
+    ]);
+    res.json({ domain, dns, nameservers });
   } catch (error) {
     sendDomainError(res, error);
   }
@@ -76,11 +80,15 @@ router.get('/:id', async (req, res) => {
 router.post('/:id/verify', domainActionLimiter, requireRecentReauth, async (req, res) => {
   try {
     const domain = await verifyUserDomain({ userId: getUserId(req), id: req.params.id });
-    const dns = await verifyDomainAddress(domain.domain);
+    const [dns, nameservers] = await Promise.all([
+      verifyDomainAddress(domain.domain),
+      verifyDomainNameservers(domain.domain)
+    ]);
     res.json({
       domain,
       dns,
-      readyForSsl: domain.status === 'verified' && dns.ready
+      nameservers,
+      readyForSsl: domain.status === 'verified' && (dns.ready || nameservers.ready)
     });
   } catch (error) {
     sendDomainError(res, error);
@@ -98,11 +106,15 @@ router.post('/:id/provision', domainActionLimiter, requireRecentReauth, async (r
     if (domain.status !== 'verified') {
       return res.status(409).json({ error: 'Verify DNS ownership before requesting SSL.' });
     }
-    const dns = await verifyDomainAddress(domain.domain);
-    if (!dns.ready) {
+    const [dns, nameservers] = await Promise.all([
+      verifyDomainAddress(domain.domain),
+      verifyDomainNameservers(domain.domain)
+    ]);
+    if (!dns.ready && !nameservers.ready) {
       return res.status(409).json({
-        error: 'The domain A record does not point to this server yet.',
-        dns
+        error: 'The domain A/AAAA record does not point to this server and the domain is not yet delegated to both Tiwlo nameservers.',
+        dns,
+        nameservers
       });
     }
 

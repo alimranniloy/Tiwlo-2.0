@@ -5,9 +5,7 @@
     # a platform host or an active, verified custom domain. This keeps the
     # on-demand endpoint from being abused to request arbitrary certificates.
     on_demand_tls {
-        ask http://app:5000/api/tls/allow
-        interval 2m
-        burst 10
+        ask http://app:5001/api/tls/allow
     }
 }
 
@@ -16,13 +14,13 @@ http:// {
     redir https://{host}{uri} permanent
 }
 
-# A wildcard DNS record (*.PRIMARY_DOMAIN) points every tenant subdomain here.
-# Caddy obtains and renews each required certificate automatically on first use.
+# Point wildcard tenant hostnames and platform-owned domains here. Caddy obtains
+# a separate certificate for each authorized hostname on first use.
 https:// {
     tls {
         on_demand
     }
     encode zstd gzip
     header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; connect-src 'self' https: http: ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
-    reverse_proxy app:5000
+    reverse_proxy app:5001
 }

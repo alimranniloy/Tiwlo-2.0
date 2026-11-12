@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Check, Copy, Edit3, Globe2, MoreVertical, Plus, RefreshCw, Server, Trash2 } from 'lucide-react';
 import { openMaterialDialog } from '../../../components/MaterialDialogProvider.jsx';
+import { DNS1_SUBDOMAIN, DNS2_SUBDOMAIN, PLATFORM_DOMAIN } from '../../../config/platformConfig.js';
 
 const EMPTY_RECORD = { type: 'A', name: '@', value: '', ttl: 300 };
 
@@ -75,7 +76,10 @@ export default function DomainsView({ currentUser, showToast }) {
     loadRecords(selected);
   }, [selected?.id]);
 
-  const nameservers = useMemo(() => selected?.nameservers || ['dns1.tiwlo.com', 'dns2.tiwlo.com'], [selected]);
+  const nameservers = useMemo(() => selected?.nameservers || [
+    `${DNS1_SUBDOMAIN}.${PLATFORM_DOMAIN}`,
+    `${DNS2_SUBDOMAIN}.${PLATFORM_DOMAIN}`
+  ], [selected]);
   const nsRecords = records.filter(item => item.type === 'NS');
   const otherRecords = records.filter(item => item.type !== 'NS');
 
@@ -135,7 +139,7 @@ export default function DomainsView({ currentUser, showToast }) {
   const recordForm = (
     <form onSubmit={submitRecord} className="grid gap-3 rounded-xl border border-[#dcdcdc] bg-[#fafafa] p-4 md:grid-cols-[120px_1fr_1.5fr_100px_auto]">
       <select value={record.type} onChange={event => setRecord({ ...record, type: event.target.value })} className="rounded-lg border border-[#dcdcdc] bg-white px-3 py-2 text-sm">
-        <option>A</option><option>CNAME</option><option>TXT</option><option>NS</option>
+        <option>A</option><option>AAAA</option><option>CNAME</option><option>TXT</option><option>NS</option>
       </select>
       <input value={record.name} onChange={event => setRecord({ ...record, name: event.target.value })} placeholder="Name, e.g. @" className="rounded-lg border border-[#dcdcdc] bg-white px-3 py-2 text-sm" required />
       <input value={record.value} onChange={event => setRecord({ ...record, value: event.target.value })} placeholder={record.type === 'NS' ? 'ns1.example.com' : 'Value'} className="rounded-lg border border-[#dcdcdc] bg-white px-3 py-2 text-sm" required />
@@ -178,7 +182,7 @@ export default function DomainsView({ currentUser, showToast }) {
               <div className="mt-5 border-t border-[#eaeaea] pt-5"><div className="flex items-center gap-2"><Server className="h-5 w-5 text-[#696969]" /><h3 className="font-bold">Nameservers</h3></div><p className="mt-1 text-sm text-[#636363]">You can use multiple nameservers. Add custom NS records below when this domain is delegated to them.</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{nameservers.map(value => <button key={value} type="button" onClick={() => copy(value)} className="flex items-center justify-between rounded-lg border border-[#dcdcdc] px-3 py-2 text-left text-sm hover:bg-[#fafafa]"><span>{value}</span>{copied === value ? <Check className="h-4 w-4 text-[#188038]" /> : <Copy className="h-4 w-4 text-[#696969]" />}</button>)}</div></div>
             </section>
             <section className="rounded-xl border border-[#dcdcdc] bg-white p-5"><div className="flex items-center justify-between"><div><h3 className="text-lg font-normal">Nameserver records</h3><p className="mt-1 text-sm text-[#636363]">Add, edit, or delete multiple NS records for this domain.</p></div><Server className="h-5 w-5 text-[#696969]" /></div><div className="mt-4">{nsRecords.length ? recordsTable(nsRecords) : <p className="rounded-lg bg-[#fafafa] p-4 text-sm text-[#636363]">No custom NS records configured.</p>}</div><div className="mt-4">{recordForm}</div></section>
-            <section className="rounded-xl border border-[#dcdcdc] bg-white p-5"><h3 className="text-lg font-normal">Other DNS records</h3><p className="mt-1 text-sm text-[#636363]">A, CNAME, and TXT records served only for {selected.domain}.</p><div className="mt-4">{otherRecords.length ? recordsTable(otherRecords) : <p className="rounded-lg bg-[#fafafa] p-4 text-sm text-[#636363]">No records configured.</p>}</div></section>
+            <section className="rounded-xl border border-[#dcdcdc] bg-white p-5"><h3 className="text-lg font-normal">Other DNS records</h3><p className="mt-1 text-sm text-[#636363]">A, AAAA, CNAME, TXT, and NS records served only for {selected.domain}.</p><div className="mt-4">{otherRecords.length ? recordsTable(otherRecords) : <p className="rounded-lg bg-[#fafafa] p-4 text-sm text-[#636363]">No records configured.</p>}</div></section>
           </>}
         </main>
       </div>

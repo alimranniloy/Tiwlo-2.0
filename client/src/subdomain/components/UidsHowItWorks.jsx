@@ -17,7 +17,7 @@ export default function UidsHowItWorks({ onGetStarted }) {
     {
       num: '02',
       title: 'Manage DNS',
-      desc: 'Open Domains in your dashboard to add A, CNAME, or TXT records.',
+      desc: 'Open Domains in your dashboard to add A, AAAA, CNAME, or TXT records.',
       icon: <Globe2 className="w-4 h-4 text-neutral-600" />,
       tag: 'Zero-Config'
     },

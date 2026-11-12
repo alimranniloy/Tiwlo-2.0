@@ -219,7 +219,7 @@ export default function PricingPlansView({
     },
     {
       q: 'Can I connect my own custom domain later?',
-      a: 'Yes. Growth Retailer, Pro Business, and Enterprise VIP plans include custom domains. Add the required TXT and A records at your DNS provider, then use Tiwlo’s authenticated domain API to verify the domain and request HTTPS provisioning. The dashboard workflow is coming later.'
+      a: 'Yes. Growth Retailer, Pro Business, and Enterprise VIP plans include custom domains. Add the required TXT record and an A/AAAA record, or delegate the domain to Tiwlo nameservers, then use Tiwlo’s authenticated domain API to verify it and request HTTPS. The dashboard workflow is coming later.'
     },
     {
       q: 'Can I switch or cancel my plan at any time?',
