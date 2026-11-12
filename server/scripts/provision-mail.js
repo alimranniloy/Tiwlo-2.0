@@ -154,7 +154,8 @@ function ensureDeliveryCredentials() {
 }
 
 function configureSpamAssassin() {
-  const defaultsPath = '/etc/default/spamassassin';
+  // Debian's systemd unit reads /etc/default/spamd (not spamassassin).
+  const defaultsPath = '/etc/default/spamd';
   backupConfigOnce(defaultsPath);
   let contents = fs.existsSync(defaultsPath) ? fs.readFileSync(defaultsPath, 'utf8') : '';
   if (/^\s*ENABLED\s*=/m.test(contents)) {
