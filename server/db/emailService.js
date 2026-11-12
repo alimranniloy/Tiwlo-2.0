@@ -70,7 +70,10 @@ export function getEmailConfig() {
       secure: process.env.SMTP_SECURE === 'true',
       ignoreTLS: true,
       tls: {
-        rejectUnauthorized: process.env.SMTP_TLS_REJECT_UNAUTHORIZED !== 'false'
+        rejectUnauthorized: process.env.SMTP_TLS_REJECT_UNAUTHORIZED !== 'false',
+        ...(process.env.SMTP_TLS_SERVERNAME
+          ? { servername: process.env.SMTP_TLS_SERVERNAME }
+          : {})
       }
     },
     dnsRecords: {
