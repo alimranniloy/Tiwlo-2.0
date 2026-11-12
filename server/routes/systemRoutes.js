@@ -117,6 +117,9 @@ router.get('/tls/allow', async (req, res) => {
     if (requestedHost.endsWith(`.${PLATFORM_CONFIG.freeSubdomainDomain}`)) {
       return res.sendStatus(await findActiveFreeSubdomain(requestedHost) ? 200 : 403);
     }
+    // The platform wildcard DNS sends every first-party subdomain here. Allow
+    // Caddy to issue per-host certificates even before a tenant/store exists.
+    if (requestedHost.endsWith(`.${primaryDomain}`)) return res.sendStatus(200);
     if (requestedHost.endsWith(`.${PLATFORM_CONFIG.primaryDomain}`) ||
         requestedHost.endsWith(`.${PLATFORM_CONFIG.storeDomain}`)) {
       return res.sendStatus(await resolveStorefrontHost(requestedHost) ? 200 : 403);

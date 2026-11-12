@@ -615,7 +615,19 @@ async function persistStoreImageUpload(req, purpose) {
 router.get('/public/storefront', async (req, res) => {
   try {
     const store = await resolveStorefrontHost(req.hostname);
-    if (!store) return res.status(404).json({ error: 'Storefront not found.' });
+    if (!store) {
+      const host = String(req.hostname || '').toLowerCase().replace(/\.$/, '');
+      const suffix = `.${PLATFORM_CONFIG.primaryDomain}`;
+      if (host.endsWith(suffix) && !PLATFORM_CONFIG.managedDomains.includes(host)) {
+        const storeName = host.slice(0, -suffix.length).replaceAll('.', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+        return res.json({
+          settings: { isStorefront: true, storeName, storeTitle: `${storeName} Store`, activeTheme: 'TiwiMart' },
+          products: [],
+          categories: []
+        });
+      }
+      return res.status(404).json({ error: 'Storefront not found.' });
+    }
 
     const storefrontData = await tenantContext.run({ tiwiId: store.tiwiId }, async () => {
       const [products, categories, storedSettings, reviews] = await Promise.all([
