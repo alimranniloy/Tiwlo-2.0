@@ -94,8 +94,14 @@ export const AiActionsEngine = {
    * Action 2: Autonomously Close / Resolve Ticket
    */
   async resolveTicket({ ticketId, resolutionReason = 'Issue resolved in live session', userId = null }) {
+    if (!ticketId || !userId || userId === 'guest' || userId === 'guest_session') {
+      return { success: false, error: 'Authenticated ticket ownership is required to resolve a ticket' };
+    }
     const db = (await readSupportDB());
-    const ticket = db.tickets.find(t => t.id === ticketId || t.ticketId === ticketId || t.serialNumber?.includes(ticketId));
+    const ticket = db.tickets.find(t =>
+      (t.id === ticketId || t.ticketId === ticketId || t.serialNumber?.includes(ticketId)) &&
+      t.userId === userId
+    );
 
     if (ticket) {
       ticket.status = 'Resolved';
@@ -113,7 +119,7 @@ export const AiActionsEngine = {
       };
     }
 
-    return { success: false, error: 'Ticket not found' };
+    return { success: false, error: 'Ticket not found or unauthorized' };
   },
 
   /**
@@ -262,9 +268,12 @@ export const AiActionsEngine = {
    */
   async manageDroplet({ dropletNameOrId, action = 'reboot', userId = null }) {
     try {
+      if (!userId || userId === 'guest' || userId === 'guest_session') {
+        return { success: false, error: 'Authentication required to manage cloud droplets.' };
+      }
       const cloud = await CloudDB.getCloudDashboardData(userId);
       const droplet = (cloud?.droplets || []).find(d =>
-        d.id === dropletNameOrId || d.name?.toLowerCase() === dropletNameOrId.toLowerCase()
+        d.id === dropletNameOrId || d.name?.toLowerCase() === String(dropletNameOrId || '').toLowerCase()
       );
 
       if (!droplet) {
@@ -272,7 +281,7 @@ export const AiActionsEngine = {
       }
 
       if (action === 'reboot') {
-        await CloudDB.updateDropletStatus(droplet.id, 'Running');
+        await CloudDB.updateDropletStatus(userId, droplet.id, 'Running');
         return {
           success: true,
           action: 'reboot',
@@ -280,7 +289,7 @@ export const AiActionsEngine = {
           message: `Graceful ACPI reboot initiated for ${droplet.name} (${droplet.ip}). Server will be fully operational in ~12 seconds.`
         };
       } else if (action === 'suspend') {
-        await CloudDB.updateDropletStatus(droplet.id, 'Stopped');
+        await CloudDB.updateDropletStatus(userId, droplet.id, 'Stopped');
         return {
           success: true,
           action: 'suspend',
@@ -288,7 +297,7 @@ export const AiActionsEngine = {
           message: `Droplet ${droplet.name} has been suspended (Stopped). Billing compute hours are now paused.`
         };
       } else if (action === 'start') {
-        await CloudDB.updateDropletStatus(droplet.id, 'Running');
+        await CloudDB.updateDropletStatus(userId, droplet.id, 'Running');
         return {
           success: true,
           action: 'start',

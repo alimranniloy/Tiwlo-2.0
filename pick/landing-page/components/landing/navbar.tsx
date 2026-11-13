@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ArrowRight, Menu, X } from 'lucide-react'
+import { ArrowRight, Menu, ShieldCheck, X } from 'lucide-react'
+import type { TiwloSessionUser } from '@/lib/tiwlo-auth'
 
 const links = [
   { id: 'how-it-works', label: 'How it works' },
@@ -10,7 +11,13 @@ const links = [
   { id: 'download', label: 'Get the app' },
 ]
 
-export function Navbar({ onOpenLogin }: { onOpenLogin: () => void }) {
+export function Navbar({
+  onOpenLogin,
+  sessionUser,
+}: {
+  onOpenLogin: () => void
+  sessionUser?: TiwloSessionUser | null
+}) {
   const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
 
@@ -56,12 +63,18 @@ export function Navbar({ onOpenLogin }: { onOpenLogin: () => void }) {
           ))}
         </nav>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          {sessionUser && (
+            <span className="hidden items-center gap-1.5 rounded-full bg-black/5 px-3 py-1.5 text-xs font-medium text-ink/75 lg:inline-flex">
+              <ShieldCheck size={13} className="text-emerald-600" />
+              {sessionUser.name}
+            </span>
+          )}
           <button
             onClick={onOpenLogin}
             className="hidden h-10 items-center gap-1.5 rounded-full bg-ink px-5 text-[13px] font-semibold text-white transition-all hover:bg-black active:scale-[0.97] sm:inline-flex"
           >
-            Login
+            {sessionUser ? 'Dashboard' : 'Login'}
             <ArrowRight size={14} />
           </button>
           <button
@@ -93,7 +106,7 @@ export function Navbar({ onOpenLogin }: { onOpenLogin: () => void }) {
             }}
             className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-ink text-sm font-semibold text-white"
           >
-            Login <ArrowRight size={15} />
+            {sessionUser ? `Continue as ${sessionUser.name}` : 'Login'} <ArrowRight size={15} />
           </button>
         </div>
       )}

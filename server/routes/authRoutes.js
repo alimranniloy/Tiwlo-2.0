@@ -387,7 +387,7 @@ function getSocialLoginUrl(provider, {
 function getSocialDefaultReturnTo(user) {
   const isSuperAdmin = user?.role === 'super_admin' ||
     user?.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
-  const path = isSuperAdmin ? '/administrator' : '/dashboard';
+  const path = isSuperAdmin ? '/administrator' : '/workspace';
   return `https://${PLATFORM_CONFIG.primaryDomain}${path}`;
 }
 
@@ -613,7 +613,7 @@ async function startSocialLogin(provider, req, res) {
   const hasRequestedReturnTo = typeof req.query.return_to === 'string' && req.query.return_to.length > 0;
   const requestedReturnTo = hasRequestedReturnTo
     ? req.query.return_to
-    : `https://${PLATFORM_CONFIG.primaryDomain}/dashboard`;
+    : `https://${PLATFORM_CONFIG.primaryDomain}/workspace`;
   const returnAllowlist = {
     dashboardHost: PLATFORM_CONFIG.dashboardHost,
     dashboardHosts: [PLATFORM_CONFIG.freeSubdomainDomain, PLATFORM_CONFIG.pickDashboardHost],
@@ -756,7 +756,7 @@ async function completeSocialLogin(provider, req, res) {
         [
           hashSocialProfileChallenge(challengeToken),
           user.id,
-          isPickMobileSsoReturnUrl(socialReturnTo) ? socialReturnTo : ''
+          socialReturnTo || ''
         ]
       );
       res.cookie('tiwlo_social_profile', challengeToken, getSocialProfileChallengeCookieOptions(req));
@@ -1126,6 +1126,7 @@ router.post('/auth/social/complete-profile', async (req, res) => {
     return res.json({
       success: true,
       sessionToken,
+      returnTo: profileReturnTo || '',
       user: {
         id: user.id,
         tiwiId,
@@ -1190,7 +1191,7 @@ router.post('/auth/social-check', (_req, res) => {
 });
 
 // Check Email
-router.post('/auth/check-email', async (req, res) => {
+router.post('/auth/check-email', securityLimiters.emailAvailability, async (req, res) => {
   try {
     const { email } = req.body;
     if (!normalizeSignupEmail(email)) {
@@ -1240,7 +1241,7 @@ router.post('/auth/check-phone', securityLimiters.phoneAvailability, async (req,
 });
 
 // Availability Checker (Unified Email & Username/Handle Availability)
-router.all('/auth/check-availability', async (req, res) => {
+router.all('/auth/check-availability', securityLimiters.emailAvailability, async (req, res) => {
   try {
     const email = req.query.email || req.body?.email || '';
     const handle = req.query.handle || req.query.username || req.body?.handle || req.body?.username || '';
@@ -1772,7 +1773,7 @@ router.post('/auth/reauth/request', securityLimiters.sensitiveReauth, securityLi
   }
 });
 
-router.post('/auth/reauth/verify', async (req, res) => {
+router.post('/auth/reauth/verify', securityLimiters.otpVerifyIp, securityLimiters.otpVerifyToken, async (req, res) => {
   const user = req.activeUser;
   const { tempToken, otpCode } = req.body || {};
   if (!user?.id || !user.email || !tempToken || !otpCode) {
@@ -1792,7 +1793,7 @@ router.post('/auth/reauth/verify', async (req, res) => {
 });
 
 // Verify 2FA
-router.post('/auth/verify-2fa', async (req, res) => {
+router.post('/auth/verify-2fa', securityLimiters.otpVerifyIp, securityLimiters.otpVerifyToken, async (req, res) => {
   try {
     const tempToken = req.body?.tempToken || req.cookies?.tiwlo_oauth_mfa;
     const { otpCode } = req.body || {};
@@ -1977,7 +1978,7 @@ router.post('/auth/resend-setup-2fa', securityLimiters.otpRequestIp, securityLim
 });
 
 // Setup 2FA
-router.post('/auth/setup-2fa', async (req, res) => {
+router.post('/auth/setup-2fa', securityLimiters.otpVerifyIp, securityLimiters.otpVerifyToken, async (req, res) => {
   try {
     const tempToken = req.body?.tempToken || req.cookies?.tiwlo_oauth_mfa;
     const { otpCode } = req.body || {};
@@ -2054,7 +2055,7 @@ router.post('/auth/setup-2fa', async (req, res) => {
 });
 
 // Verify Email
-router.post('/auth/verify-email', async (req, res) => {
+router.post('/auth/verify-email', securityLimiters.otpVerifyIp, securityLimiters.otpVerifyToken, async (req, res) => {
   try {
     const { tempToken, otpCode } = req.body;
     if (!tempToken || !otpCode) {
@@ -2301,7 +2302,7 @@ router.post('/auth/forgot-password/request', securityLimiters.otpRequestIp, secu
   }
 });
 
-router.post('/auth/forgot-password/verify-code', async (req, res) => {
+router.post('/auth/forgot-password/verify-code', securityLimiters.otpVerifyIp, securityLimiters.otpVerifyToken, async (req, res) => {
   const { resetToken, otpCode } = req.body;
   if (!resetToken || !otpCode) {
     return res.status(400).json({ error: 'Reset token and 6-digit code are required.' });
@@ -2346,7 +2347,7 @@ router.post('/auth/forgot-password/reset', async (req, res) => {
 });
 
 // Forgot Password Verify
-router.post('/auth/forgot-password/verify', async (req, res) => {
+router.post('/auth/forgot-password/verify', securityLimiters.otpVerifyIp, securityLimiters.otpVerifyToken, async (req, res) => {
   try {
     const { resetToken, otpCode, newPassword } = req.body;
     if (!resetToken || !otpCode || !newPassword) {
@@ -2934,7 +2935,13 @@ router.put('/auth/profile', async (req, res) => {
       }
       updates.avatar = avatar;
     }
-    if (coverPhoto) updates.coverPhoto = coverPhoto;
+    if (coverPhoto !== undefined) {
+      if (typeof coverPhoto !== 'string' || coverPhoto.length > 4096 ||
+          !(coverPhoto.startsWith('https://') || coverPhoto.startsWith('/api/upload/') || coverPhoto.startsWith('/upload/') || coverPhoto.startsWith('/cloud-'))) {
+        return res.status(422).json({ error: 'Cover photo URL is invalid.' });
+      }
+      updates.coverPhoto = coverPhoto;
+    }
     if (address !== undefined) {
       if (typeof address !== 'string' || address.trim().length > 2000) {
         return res.status(422).json({ error: 'Address must be 2,000 characters or fewer.' });

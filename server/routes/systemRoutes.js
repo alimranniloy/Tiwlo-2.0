@@ -105,9 +105,13 @@ router.get('/ffmpeg-status', async (req, res) => {
 });
 
 // Caddy calls this before requesting an on-demand TLS certificate. Only this
-// deployment's primary domain and its own subdomains are approved. The route
+// deployment's primary domain and its verified subdomains are approved. The route
 // deliberately stays before the authenticated system-route middleware.
 router.get('/tls/allow', async (req, res) => {
+  const remoteIp = String(req.socket?.remoteAddress || '');
+  const isLoopback = remoteIp === '127.0.0.1' || remoteIp === '::1' || remoteIp === '::ffff:127.0.0.1';
+  if (!isLoopback) return res.sendStatus(403);
+
   const requestedHost = String(req.query.domain || '').trim().toLowerCase().replace(/\.$/, '');
   const primaryDomain = PLATFORM_CONFIG.primaryDomain;
   if (!requestedHost || !primaryDomain) return res.sendStatus(403);
@@ -117,12 +121,11 @@ router.get('/tls/allow', async (req, res) => {
     if (requestedHost.endsWith(`.${PLATFORM_CONFIG.freeSubdomainDomain}`)) {
       return res.sendStatus(await findActiveFreeSubdomain(requestedHost) ? 200 : 403);
     }
-    // The platform wildcard DNS sends every first-party subdomain here. Allow
-    // Caddy to issue per-host certificates even before a tenant/store exists.
-    if (requestedHost.endsWith(`.${primaryDomain}`)) return res.sendStatus(200);
     if (requestedHost.endsWith(`.${PLATFORM_CONFIG.primaryDomain}`) ||
         requestedHost.endsWith(`.${PLATFORM_CONFIG.storeDomain}`)) {
-      return res.sendStatus(await resolveStorefrontHost(requestedHost) ? 200 : 403);
+      const verifiedStore = await resolveStorefrontHost(requestedHost);
+      const verifiedFreeSub = !verifiedStore ? await findActiveFreeSubdomain(requestedHost) : null;
+      return res.sendStatus((verifiedStore || verifiedFreeSub) ? 200 : 403);
     }
     return res.sendStatus(await findActiveCustomDomain(requestedHost) ? 200 : 403);
   } catch (error) {
@@ -397,7 +400,7 @@ const defaultSystemSettings = {
   enableLowStockAlerts: true
 };
 
-router.get('/system/settings', async (req, res) => {
+router.get('/system/settings', requireAdmin, async (req, res) => {
   try {
     res.json(await MasterDB.getSystemSettings(defaultSystemSettings));
   } catch (error) {
@@ -475,8 +478,8 @@ router.put('/admin/google-maps', requireAdmin, requireRecentReauth, async (req, 
   }
 });
 
-// System Info
-router.get('/system/info', async (req, res) => {
+// System Info (Admin Only)
+router.get('/system/info', requireAdmin, async (req, res) => {
   const products = (await readData(PRODUCTS_FILE, []));
   const categories = (await readData(CATEGORIES_FILE, []));
   const subcategories = (await readData(SUBCATEGORIES_FILE, []));
@@ -542,6 +545,10 @@ router.get('/activities', async (req, res) => {
 });
 
 router.delete('/activities/:id', async (req, res) => {
+  const role = req.activeUser?.role;
+  if (role !== 'admin' && role !== 'owner') {
+    return res.status(403).json({ error: 'Only store owners or administrators can delete activity logs' });
+  }
   const activities = (await readData(ACTIVITIES_FILE, []));
   const { id } = req.params;
   const filtered = activities.filter(a => a.id !== id);
@@ -550,6 +557,10 @@ router.delete('/activities/:id', async (req, res) => {
 });
 
 router.delete('/activities', async (req, res) => {
+  const role = req.activeUser?.role;
+  if (role !== 'admin' && role !== 'owner') {
+    return res.status(403).json({ error: 'Only store owners or administrators can clear activity logs' });
+  }
   (await writeData(ACTIVITIES_FILE, []));
   res.json({ message: 'All activities cleared' });
 });

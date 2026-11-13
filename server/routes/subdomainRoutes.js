@@ -47,7 +47,7 @@ router.get('/check', checkLimiter, async (req, res) => {
   }
 });
 
-router.post('/claim', claimLimiter, requireRecentReauth, async (req, res) => {
+router.post('/claim', claimLimiter, async (req, res) => {
   try {
     if (!req.activeUser?.id) return res.status(401).json({ error: 'Authentication required.' });
     if (!req.cookies?.uids_device) {
@@ -95,7 +95,7 @@ router.get('/:id/records', async (req, res) => {
   }
 });
 
-router.post('/:id/records', requireRecentReauth, async (req, res) => {
+router.post('/:id/records', async (req, res) => {
   try {
     const payload = await createDnsRecordWithRust({
       user: req.activeUser,
@@ -109,7 +109,7 @@ router.post('/:id/records', requireRecentReauth, async (req, res) => {
   }
 });
 
-router.patch('/:id/records/:recordId', requireRecentReauth, async (req, res) => {
+router.patch('/:id/records/:recordId', async (req, res) => {
   try {
     res.json(await updateDnsRecordWithRust({
       user: req.activeUser,
@@ -123,7 +123,7 @@ router.patch('/:id/records/:recordId', requireRecentReauth, async (req, res) => 
   }
 });
 
-router.delete('/:id/records/:recordId', requireRecentReauth, async (req, res) => {
+router.delete('/:id/records/:recordId', async (req, res) => {
   try {
     await deleteDnsRecordWithRust({
       user: req.activeUser,

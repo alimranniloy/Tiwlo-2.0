@@ -1,14 +1,35 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, ArrowRight, ShieldCheck } from 'lucide-react'
-import { getTiwloAuthUrl } from '@/lib/tiwlo-auth'
+import { fetchTiwloSession, getTiwloAuthUrl, type TiwloSessionUser } from '@/lib/tiwlo-auth'
 
 export function AuthRedirect({ mode }: { mode: 'login' | 'signup' }) {
   const authUrl = getTiwloAuthUrl(mode)
 
   const [openingApp, setOpeningApp] = useState(false)
+  const [sessionUser, setSessionUser] = useState<TiwloSessionUser | null>(null)
+  const [checkingSession, setCheckingSession] = useState(true)
+
+  useEffect(() => {
+    let active = true
+    fetchTiwloSession()
+      .then((user) => {
+        if (!active) return
+        setSessionUser(user)
+        setCheckingSession(false)
+        if (user) {
+          window.location.replace('/dashboard')
+        }
+      })
+      .catch(() => {
+        if (active) setCheckingSession(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   const openPICKApp = () => {
     if (!/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
@@ -74,10 +95,18 @@ export function AuthRedirect({ mode }: { mode: 'login' | 'signup' }) {
               {mode === 'login' ? 'PICK account' : 'Join PICK'}
             </p>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-              {mode === 'login' ? 'Sign in to continue' : 'Create your account'}
+              {sessionUser
+                ? `Welcome back, ${sessionUser.name}`
+                : mode === 'login'
+                  ? 'Sign in to continue'
+                  : 'Create your account'}
             </h2>
             <p className="mt-3 text-sm leading-6 text-ink/60">
-              Use the Tiwlo sign-in and account creation flow. Tiwlo administrators can access the PICK dashboard.
+              {sessionUser
+                ? `Signed in with your Tiwlo account (${sessionUser.email}). Redirecting to PICK…`
+                : checkingSession
+                  ? 'Checking your Tiwlo session…'
+                  : 'Use the Tiwlo sign-in and account creation flow. Tiwlo administrators can access the PICK dashboard.'}
             </p>
           </div>
 
@@ -87,23 +116,35 @@ export function AuthRedirect({ mode }: { mode: 'login' | 'signup' }) {
           </div>
 
           <div className="mt-6 flex flex-col gap-3">
-            {mode === 'login' && (
-              <button
-                type="button"
-                onClick={openPICKApp}
+            {sessionUser ? (
+              <Link
+                href="/dashboard"
                 className="flex min-h-12 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white transition-colors hover:bg-black"
               >
-                {openingApp ? 'Opening PICK…' : 'Open PICK app'}
+                Continue to PICK Dashboard
                 <ArrowRight size={16} />
-              </button>
+              </Link>
+            ) : (
+              <>
+                {mode === 'login' && (
+                  <button
+                    type="button"
+                    onClick={openPICKApp}
+                    className="flex min-h-12 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white transition-colors hover:bg-black"
+                  >
+                    {openingApp ? 'Opening PICK…' : 'Open PICK app'}
+                    <ArrowRight size={16} />
+                  </button>
+                )}
+                <a
+                  href={authUrl}
+                  className="flex min-h-12 items-center justify-center gap-2 rounded-full border border-black/10 px-5 text-sm font-semibold text-ink transition-colors hover:bg-black/5"
+                >
+                  {mode === 'login' ? 'Continue in browser' : 'Create account with Tiwlo'}
+                  <ArrowRight size={16} />
+                </a>
+              </>
             )}
-            <a
-              href={authUrl}
-              className="flex min-h-12 items-center justify-center gap-2 rounded-full border border-black/10 px-5 text-sm font-semibold text-ink transition-colors hover:bg-black/5"
-            >
-              {mode === 'login' ? 'Continue in browser' : 'Create account with Tiwlo'}
-              <ArrowRight size={16} />
-            </a>
           </div>
 
           <p className="mt-6 text-center text-sm text-ink/60">

@@ -22,6 +22,7 @@ import UidsFooter from './components/UidsFooter';
  * 7. In-page dedicated Claim wizard (Zero Popups/Modals).
  */
 export default function UidsLandingPage({
+  currentUser,
   onNavigateTab,
   onNavigateAuth
 }) {
@@ -85,6 +86,7 @@ export default function UidsLandingPage({
 
         {/* Navigation Bar (Mobile shows ONLY Login; uids.app centered on all screens) */}
         <UidsNavbar
+          currentUser={currentUser}
           onNavigateAuth={onNavigateAuth}
           onScrollTo={handleScrollTo}
           activeSection={activeSection}
@@ -113,6 +115,7 @@ export default function UidsLandingPage({
           {/* In-Page Dedicated Claim Console (Expands on Search, NO Popups) */}
           {showClaimConsole && (
             <UidsClaimConsole
+              currentUser={currentUser}
               subdomain={subdomain}
               suffix={selectedSuffix}
               availability={availability}

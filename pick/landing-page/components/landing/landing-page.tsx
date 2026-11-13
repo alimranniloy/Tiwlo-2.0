@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navbar } from './navbar'
 import { Hero } from './hero'
 import { StatsMarquee } from './stats-marquee'
@@ -9,26 +9,35 @@ import { Coverage } from './coverage'
 import { Courier } from './courier'
 import { DownloadApp } from './download-app'
 import { Footer } from './footer'
-import { LoginModal } from './login-modal'
+import { fetchTiwloSession, type TiwloSessionUser } from '@/lib/tiwlo-auth'
 
 export function LandingPage() {
-  const [loginOpen, setLoginOpen] = useState(false)
-  const open = () => setLoginOpen(true)
+  const [sessionUser, setSessionUser] = useState<TiwloSessionUser | null>(null)
+
+  useEffect(() => {
+    let active = true
+    fetchTiwloSession().then((user) => {
+      if (active) setSessionUser(user)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const openLoginOrDashboard = () => {
+    window.location.assign(sessionUser ? '/dashboard' : '/login')
+  }
 
   return (
     <main>
-      <Navbar onOpenLogin={open} />
+      <Navbar onOpenLogin={openLoginOrDashboard} sessionUser={sessionUser} />
       <Hero />
       <StatsMarquee />
       <HowItWorks />
-      <Coverage onOpenLogin={open} />
+      <Coverage onOpenLogin={openLoginOrDashboard} sessionUser={sessionUser} />
       <Courier />
       <DownloadApp />
       <Footer />
-      <LoginModal
-        isOpen={loginOpen}
-        onClose={() => setLoginOpen(false)}
-      />
     </main>
   )
 }

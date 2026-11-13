@@ -57,14 +57,21 @@ export const isStorefrontSubdomainHost = (hostname = typeof window === 'undefine
   }
   const label = host.slice(0, -suffix.length);
   const reservedLabels = [
+    'api',
+    'pick',
+    'workspace',
+    'dashboard',
+    'admin',
+    'administrator',
     WWW_SUBDOMAIN,
     AUTH_SUBDOMAIN,
     TPANEL_SUBDOMAIN,
     DNS1_SUBDOMAIN,
     DNS2_SUBDOMAIN,
     MAIL_SUBDOMAIN,
+    MTA_SUBDOMAIN,
     DRIVE_SUBDOMAIN
-  ].map(value => String(value).toLowerCase());
+  ].filter(Boolean).map(value => String(value).toLowerCase());
   return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label) &&
     !reservedLabels.includes(label);
 };

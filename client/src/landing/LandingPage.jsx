@@ -663,10 +663,10 @@ export default function LandingPage({ onNavigate, currentUser }) {
           <div className="ml-auto hidden items-center gap-2 xl:flex">
             <button
               type="button"
-              onClick={() => navigate(currentUser ? 'dashboard' : 'login')}
+              onClick={() => navigate(currentUser ? 'workspace' : 'login')}
               className="rounded-full px-4 py-2 text-sm font-bold transition hover:bg-[#f4f4f4]"
             >
-              {currentUser ? 'Dashboard' : 'Sign in'}
+              {currentUser ? 'Workspace' : 'Sign in'}
             </button>
             <button
               type="button"
@@ -711,10 +711,10 @@ export default function LandingPage({ onNavigate, currentUser }) {
             <div className="mt-2 grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => navigate(currentUser ? 'dashboard' : 'login')}
+                onClick={() => navigate(currentUser ? 'workspace' : 'login')}
                 className="rounded-full py-2.5 text-center text-sm font-bold ring-1 ring-[#e4e4e4]"
               >
-                {currentUser ? 'Dashboard' : 'Sign in'}
+                {currentUser ? 'Workspace' : 'Sign in'}
               </button>
               <button
                 type="button"

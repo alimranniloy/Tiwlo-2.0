@@ -228,8 +228,13 @@ export default function CreateAccountView({
 
   const startSocialLogin = (provider) => {
     const params = new URLSearchParams();
-    const returnTo = new URLSearchParams(window.location.search).get('return_to');
+    const search = new URLSearchParams(window.location.search);
+    const returnTo = search.get('return_to');
     if (returnTo) params.set('return_to', returnTo);
+    for (const key of ['pick_code_challenge', 'pick_state']) {
+      const value = search.get(key);
+      if (value) params.set(key, value);
+    }
     window.location.assign(`/api/auth/${provider}${params.toString() ? `?${params}` : ''}`);
   };
 
@@ -670,7 +675,7 @@ export default function CreateAccountView({
           }
           throw new Error(result.error || 'Could not save your profile. Please try again.');
         }
-        const returnTo = new URLSearchParams(window.location.search).get('return_to');
+        const returnTo = new URLSearchParams(window.location.search).get('return_to') || result.returnTo || '';
         if (result.pickAuthChallenge && await returnSocialSignInToApp({
           returnTo,
           challenge: result.pickAuthChallenge,
@@ -679,16 +684,22 @@ export default function CreateAccountView({
         if (!result.sessionToken) {
           throw new Error('Could not complete sign-in. Please try again.');
         }
-        const loginParams = new URLSearchParams({
-          social_flow: '1'
-        });
         if (await returnSocialSignInToApp({
           returnTo,
           sessionToken: result.sessionToken,
           apiBase: API_BASE
         })) return;
-        if (returnTo) loginParams.set('return_to', returnTo);
-        window.location.replace(`/login?${loginParams.toString()}`);
+        localStorage.setItem('stockpro_session', result.sessionToken);
+        if (result.user) {
+          localStorage.setItem('stockpro_user', JSON.stringify(result.user));
+        }
+        showToast?.(`Welcome to Tiwlo, ${result.user?.name || formData.fullName}!`, 'success');
+        if (returnTo && !new URLSearchParams(window.location.search).get('return_to')) {
+          const url = new URL(window.location.href);
+          url.searchParams.set('return_to', returnTo);
+          window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+        }
+        onRegisterSuccess?.(result.user, result.sessionToken);
       } catch (error) {
         setErrorMsg(error.message || 'Could not save your profile. Please try again.');
       } finally {
@@ -2528,7 +2539,7 @@ export default function CreateAccountView({
                       }}
                       className="w-full sm:w-auto min-w-[220px] h-10 px-8 bg-[#000000] hover:bg-[#3c3c3c] text-white rounded-full text-[14px] font-medium shadow-xs cursor-pointer inline-flex items-center justify-center gap-2 transition-all"
                     >
-                      <span>Continue to Dashboard</span>
+                      <span>Continue to Workspace</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>

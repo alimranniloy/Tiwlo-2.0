@@ -653,6 +653,37 @@ export const BillingDB = {
     };
   },
 
+  async chargeSubscriptionPlan(userId, amountUsd, planName = 'Store Subscription') {
+    const chargeAmount = Number(amountUsd);
+    if (!userId) {
+      return { success: false, statusCode: 401, error: 'Authentication required for subscription billing.' };
+    }
+    if (!Number.isFinite(chargeAmount) || chargeAmount <= 0) {
+      return { success: true, chargedAmount: 0 };
+    }
+    const { rows } = await queryPg(
+      `UPDATE cloud_billing_accounts
+       SET credits = COALESCE(credits, 0) - $2,
+           monthly_spend = COALESCE(monthly_spend, 0) + $2,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE user_id = $1 AND COALESCE(credits, 0) >= $2
+       RETURNING credits`,
+      [userId, chargeAmount]
+    );
+    if (!rows[0]) {
+      return {
+        success: false,
+        statusCode: 402,
+        error: `Insufficient verified billing credits ($${chargeAmount.toFixed(2)} USD required for ${planName}). Please top up your billing credits first.`
+      };
+    }
+    return {
+      success: true,
+      chargedAmount: chargeAmount,
+      remainingCredits: Number(rows[0].credits)
+    };
+  },
+
   async createBudget() {
     throw new Error('Cloud usage metering is not connected. No budget alert was saved.');
   },

@@ -35,8 +35,9 @@ export const UserBrain = {
       }
 
       const supportDB = (await readSupportDB());
-      const userTickets = (supportDB.tickets || []).filter(t => !t.userId || t.userId === userId);
-      const userConversations = (supportDB.conversations || []).filter(c => !c.userId || c.userId === userId || c.id.includes(userId));
+      const validIds = new Set([user.id, user.tiwiId].filter(Boolean));
+      const userTickets = (supportDB.tickets || []).filter(t => t.userId && validIds.has(t.userId));
+      const userConversations = (supportDB.conversations || []).filter(c => c.userId && validIds.has(c.userId));
 
       const droplets = cloudData?.droplets || [];
       const metrics = cloudData?.metrics || {

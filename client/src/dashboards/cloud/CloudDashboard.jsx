@@ -177,10 +177,10 @@ export default function CloudDashboard({
         setActiveNav={(nav) => {
           setActiveNav(nav);
           try {
-            if (nav === 'workspace') window.history.pushState(null, '', '/workspace');
+            if (nav === 'dashboard' || nav === 'workspace') window.history.pushState(null, '', '/workspace');
+            else if (nav === 'workspace-hub') window.history.pushState(null, '', '/workspace/hub');
             else if (nav === 'marketplace') window.history.pushState(null, '', '/marketplace');
             else if (nav === 'identity') window.history.pushState(null, '', '/identity');
-            else if (nav === 'dashboard') window.history.pushState(null, '', '/');
             else if (nav === 'whatsapp-automation') window.history.pushState(null, '', '/whatsapp-automation');
           } catch (e) {}
         }}
@@ -368,44 +368,44 @@ export default function CloudDashboard({
                 }}
               />
             </div>
-          ) : (activeNav === 'workspace' || activeNav.startsWith('workspace')) ? (
+          ) : (activeNav === 'workspace-hub' || activeNav === 'workspace/hub' || activeNav.startsWith('workspace/')) ? (
             <div className="max-w-[1500px] mx-auto">
               {activeNav === 'workspace/billing' ? (
                 <WorkspaceBillingView
                   onBack={() => {
-                    setActiveNav('workspace');
-                    try { window.history.pushState(null, '', '/workspace'); } catch (e) {}
+                    setActiveNav('workspace-hub');
+                    try { window.history.pushState(null, '', '/workspace/hub'); } catch (e) {}
                   }}
                   onNavigate={(target) => {
-                    setActiveNav(target);
-                    try { window.history.pushState(null, '', `/${target}`); } catch (e) {}
+                    setActiveNav(target === 'workspace' ? 'workspace-hub' : target);
+                    try { window.history.pushState(null, '', `/${target === 'workspace' ? 'workspace/hub' : target}`); } catch (e) {}
                   }}
                 />
               ) : activeNav === 'workspace/operations' ? (
                 <WorkspaceOperationsView
                   onBack={() => {
-                    setActiveNav('workspace');
-                    try { window.history.pushState(null, '', '/workspace'); } catch (e) {}
+                    setActiveNav('workspace-hub');
+                    try { window.history.pushState(null, '', '/workspace/hub'); } catch (e) {}
                   }}
                   onNavigate={(target) => {
-                    setActiveNav(target);
-                    try { window.history.pushState(null, '', `/${target}`); } catch (e) {}
+                    setActiveNav(target === 'workspace' ? 'workspace-hub' : target);
+                    try { window.history.pushState(null, '', `/${target === 'workspace' ? 'workspace/hub' : target}`); } catch (e) {}
                   }}
                 />
               ) : activeNav.startsWith('workspace/service/') ? (
                 <WorkspaceServiceDetailView
                   serviceId={activeNav.replace('workspace/service/', '')}
                   onBack={() => {
-                    setActiveNav('workspace');
-                    try { window.history.pushState(null, '', '/workspace'); } catch (e) {}
+                    setActiveNav('workspace-hub');
+                    try { window.history.pushState(null, '', '/workspace/hub'); } catch (e) {}
                   }}
                   onNavigate={(target) => {
                     if (target === 'discord') {
                       onNavigateTab?.(target);
                       return;
                     }
-                    setActiveNav(target);
-                    try { window.history.pushState(null, '', `/${target}`); } catch (e) {}
+                    setActiveNav(target === 'workspace' ? 'workspace-hub' : target);
+                    try { window.history.pushState(null, '', `/${target === 'workspace' ? 'workspace/hub' : target}`); } catch (e) {}
                   }}
                 />
               ) : (
@@ -413,8 +413,8 @@ export default function CloudDashboard({
                   onOpenStoreDashboard={launchStoreConsole}
                   showToast={showToast}
                   onNavigate={(target) => {
-                    setActiveNav(target);
-                    try { window.history.pushState(null, '', `/${target}`); } catch (e) {}
+                    setActiveNav(target === 'workspace' ? 'workspace-hub' : target);
+                    try { window.history.pushState(null, '', `/${target === 'workspace' ? 'workspace/hub' : target}`); } catch (e) {}
                   }}
                 />
               )}

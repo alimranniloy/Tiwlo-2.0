@@ -111,13 +111,14 @@ export const TiwiAI = {
       const lowerQuery = userMessage.toLowerCase();
       const lowerReply = responseText.toLowerCase();
 
-      // Autonomous Action A: Auto-Resolve Ticket
+      // Autonomous Action A: Auto-Resolve Ticket (strictly for authenticated ticket owner)
       if (
+        isLoggedIn &&
+        activeTicketId &&
         (lowerQuery.includes('working now') || lowerQuery.includes('it works') || lowerQuery.includes('fixed') || lowerQuery.includes('problem solved') || lowerQuery.includes('thank you, it is resolved'))
       ) {
-        const targetId = activeTicketId || 'TWTK-1008';
         const resolveResult = await AiActionsEngine.resolveTicket({
-          ticketId: targetId,
+          ticketId: activeTicketId,
           resolutionReason: 'Resolved by customer confirmation in live support session',
           userId
         });
@@ -133,10 +134,11 @@ export const TiwiAI = {
 
       // Autonomous Action B: Auto-Create Official Ticket on Critical / Tough Situations
       else if (
-        lowerQuery.includes('create ticket') || lowerQuery.includes('open a ticket') ||
+        isLoggedIn &&
+        (lowerQuery.includes('create ticket') || lowerQuery.includes('open a ticket') ||
         lowerQuery.includes('server crashed') || lowerQuery.includes('kernel panic') ||
         lowerQuery.includes('database down') || lowerQuery.includes('emergency') ||
-        lowerQuery.includes('severe')
+        lowerQuery.includes('severe'))
       ) {
         const autoTicket = await AiActionsEngine.autoCreateTicket({
           subject: userMessage.slice(0, 80),
@@ -156,8 +158,8 @@ export const TiwiAI = {
         }
       }
 
-      // Autonomous Action C: Droplet Reboot Execution
-      else if (lowerQuery.includes('reboot') || lowerQuery.includes('restart droplet')) {
+      // Autonomous Action C: Droplet Reboot Execution (strictly for authenticated user)
+      else if (isLoggedIn && (lowerQuery.includes('reboot') || lowerQuery.includes('restart droplet'))) {
         const rebootResult = await AiActionsEngine.manageDroplet({
           dropletNameOrId: 'web-server-01',
           action: 'reboot',
@@ -172,20 +174,8 @@ export const TiwiAI = {
       }
 
       // Autonomous Action D: Account Lookup, Password Reset & OTP Dispatch
-      const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/;
-      const emailMatch = userMessage.match(emailRegex);
-      let targetEmail = emailMatch ? emailMatch[1] : (userEmail && userEmail.includes('@') ? userEmail : null);
-
-      if (!targetEmail) {
-        for (const m of [...conversationHistory].reverse()) {
-          const mEmail = m.text?.match(emailRegex);
-          if (mEmail) {
-            targetEmail = mEmail[1];
-            break;
-          }
-        }
-      }
-
+      // Security: Only dispatch automated emails for an authenticated user's own verified email.
+      // Unauthenticated visitors are directed to the rate-limited /login recovery flow to prevent enumeration & email bombing.
       const isAffirmative = /^(yes|yeah|yep|sure|ok|okay|send|please|go ahead|দাও|হ্যাঁ|হ্যা|পাঠাও|পাঠিয়ে দাও|পাঠান|সেন্ড কর)/i.test(userMessage.trim());
       const isPasswordReset = /reset|recovery|recover|forgot|password|পাসওয়ার্ড|রিকভারি|ভুলে গেছি/i.test(lowerQuery);
       const mentionsOtp = /otp|verification code|code|verify|login code|কোড|ওটিপি/i.test(lowerQuery);
@@ -193,15 +183,11 @@ export const TiwiAI = {
       const lastAgentMsg = [...conversationHistory].reverse().find(m => m.sender === 'agent')?.text || '';
       const agentOfferedOtp = /otp|verification code|code to your email|ইমেইলে ওটিপি|কোড পাঠাবো|রিকভারি|রিসেট/i.test(lastAgentMsg);
 
-      if (targetEmail) {
-        // Query database to verify account existence
-        const accountInfo = await AiActionsEngine.findUserAccount(targetEmail);
-
+      if (isLoggedIn && userEmail && userEmail.includes('@')) {
         if (isPasswordReset || (agentOfferedOtp && isAffirmative && (lastAgentMsg.includes('পাসওয়ার্ড') || lastAgentMsg.includes('password')))) {
-          // Send Password Recovery Email via Tiwlo SMTP
           const resetResult = await AiActionsEngine.generateAndSendPasswordReset({
-            targetEmail,
-            userName: accountInfo.found ? accountInfo.name : userName
+            targetEmail: userEmail,
+            userName
           });
           if (resetResult.success) {
             executedAction = {
@@ -209,14 +195,13 @@ export const TiwiAI = {
               email: resetResult.email,
               message: resetResult.message
             };
-            responseText = `Hello ${accountInfo.found ? accountInfo.name : 'Customer'}! I have checked our system and dispatched an official password recovery email to ${resetResult.email}. It contains your 6-digit security code and instructions to reset your password. Please check your inbox (and spam folder), or visit ${getPlatformUrl('login')} to complete recovery.`;
+            responseText = `Hello ${userName || 'Customer'}! I have dispatched an official password recovery email to your registered address (${resetResult.email}). Please check your inbox (and spam folder), or visit ${getPlatformUrl('login')} to complete recovery.`;
           }
-        } else if ((agentOfferedOtp && isAffirmative) || mentionsOtp || lowerQuery.includes('send') || lowerQuery.includes('পাঠাও')) {
-          // Send 2FA / Login Verification OTP via Tiwlo SMTP
+        } else if ((agentOfferedOtp && isAffirmative) || mentionsOtp) {
           const otpResult = await AiActionsEngine.generateAndSendOTP({
-            targetEmail,
+            targetEmail: userEmail,
             userId,
-            userName: accountInfo.found ? accountInfo.name : userName,
+            userName,
             purpose: 'Account Verification & Secure Access'
           });
           if (otpResult.success) {
@@ -225,9 +210,11 @@ export const TiwiAI = {
               email: otpResult.email,
               message: otpResult.message
             };
-            responseText = `Hello ${accountInfo.found ? accountInfo.name : 'Customer'}! I have dispatched a 6-digit verification code to ${otpResult.email} via our secure mail delivery system. Please check your inbox (and spam folder).`;
+            responseText = `Hello ${userName || 'Customer'}! I have dispatched a 6-digit verification code to your registered address (${otpResult.email}). Please check your inbox (and spam folder).`;
           }
         }
+      } else if (!isLoggedIn && (isPasswordReset || mentionsOtp)) {
+        responseText = `For your account security, please use our protected recovery page at ${getPlatformUrl('login')} and select "Forgot Password" to receive a verification code.`;
       }
 
       return {

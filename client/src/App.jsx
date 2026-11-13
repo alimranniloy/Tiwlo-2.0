@@ -783,12 +783,22 @@ export default function App() {
       return;
     }
 
-    if (tabId === 'dashboard' && activeTab !== 'dashboard') {
+    if ((tabId === 'dashboard' || tabId === 'workspace') && activeTab !== 'dashboard' && activeTab !== 'workspace') {
       setDashboardLoading(true);
     }
-    setActiveTab(tabId);
+    setActiveTab(tabId === 'dashboard' ? 'workspace' : tabId);
     try {
-      const targetPath = tabId === 'landing' ? '/' : (tabId === 'dashboard' ? (currentUser ? '/' : '/dashboard') : (tabId === 'administrator' ? '/administrator' : (tabId === 'account-disabled' ? '/account-disabled' : (tabId === 'security-checkup' ? '/security-checkup' : (tabId === 'not-found' ? window.location.pathname : `/${tabId}`)))));
+      const targetPath = tabId === 'landing'
+        ? '/'
+        : (tabId === 'dashboard' || tabId === 'workspace'
+          ? '/workspace'
+          : (tabId === 'administrator'
+            ? '/administrator'
+            : (tabId === 'account-disabled'
+              ? '/account-disabled'
+              : (tabId === 'security-checkup'
+                ? '/security-checkup'
+                : (tabId === 'not-found' ? window.location.pathname : `/${tabId}`)))));
       if (window.location.pathname !== targetPath) {
         window.history.pushState(null, '', targetPath);
       }
@@ -1032,7 +1042,7 @@ export default function App() {
 
               const isUidsAuthorizationRoute = isDashboardSubdomain() && initialPath === 'authorize';
               const safeReturnTo = getSafeReturnToTarget(returnTo);
-              if (data.user.addressVerified !== true) {
+              if (data.user.authMethod === 'pick_credentials' && data.user.addressVerified !== true) {
                 if (isAuthHost) {
                   redirectAfterAuthentication(getAddressVerificationUrl(data.user));
                 } else {
@@ -1070,14 +1080,14 @@ export default function App() {
                   ? safeRedirect
                   : (isSuper ? '/administrator' : null);
                 redirectAfterAuthentication(
-                  safeReturnTo || (target ? getMainAppUrl(target) : getMainAppUrl('/dashboard'))
+                  safeReturnTo || (target ? getMainAppUrl(target) : getMainAppUrl('/workspace'))
                 );
                 return;
               }
 
               if (isDashboardSubdomain() && !isUidsLandingRoot) {
                 const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
-                if (!path || path === 'dashboard' || path === 'login') {
+                if (!path || path === 'dashboard' || path === 'workspace' || path === 'login') {
                   setActiveTab('oneprofile');
                   window.history.replaceState(null, '', '/oneprofile');
                   return;
@@ -1101,13 +1111,16 @@ export default function App() {
               }
               const isSuper = data.user.role === 'super_admin' || data.user.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
               if (!isUidsLandingRoot && (path === '' || path === 'login' || path === 'landing')) {
-                setActiveTab(isSuper ? 'administrator' : 'dashboard');
-                window.history.replaceState(null, '', isSuper ? '/administrator' : '/');
-              } else if (path === 'dashboard') {
-                setActiveTab('dashboard');
+                setActiveTab(isSuper ? 'administrator' : 'workspace');
+                window.history.replaceState(null, '', isSuper ? '/administrator' : '/workspace');
+              } else if (path === 'dashboard' || path === 'workspace') {
+                setActiveTab('workspace');
+                if (path === 'dashboard') {
+                  window.history.replaceState(null, '', `/workspace${window.location.search}${window.location.hash}`);
+                }
               } else if (path === 'administrator' && !isSuper) {
-                setActiveTab('dashboard');
-                window.history.replaceState(null, '', '/');
+                setActiveTab('workspace');
+                window.history.replaceState(null, '', '/workspace');
               }
               return;
             }
@@ -1302,7 +1315,7 @@ export default function App() {
       // The MFA endpoint has already created the session. Keep the user out of
       // the completed OTP form and let the primary app restore that session
       // from the shared first-party cookie.
-      window.location.replace(getMainAppUrl('/dashboard'));
+      window.location.replace(returnTo || getMainAppUrl('/workspace'));
     }
   }
 
@@ -1343,7 +1356,9 @@ export default function App() {
       getMainAppUrl(),
       getDashboardUrl(),
       `https://${FREE_SUBDOMAIN_DOMAIN}`,
-      getMailUrl()
+      getMailUrl(),
+      getTPanelUrl(),
+      PICK_DASHBOARD_URL
     ].map(url => new URL(url).origin);
     if (destination.protocol === 'https:' && webSsoOrigins.includes(destination.origin)) {
       void startWebSsoHandoff(destination.toString());
@@ -1384,7 +1399,7 @@ export default function App() {
     if (!returnTarget || new URL(returnTarget, getPlatformUrl()).pathname === '/address-verification') {
       const isSuperAdmin = user?.role === 'super_admin' ||
         user?.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
-      returnTarget = getMainAppUrl(isSuperAdmin ? '/administrator' : '/dashboard');
+      returnTarget = getMainAppUrl(isSuperAdmin ? '/administrator' : '/workspace');
     }
 
     const url = new URL(getMainAppUrl('/address-verification'));
@@ -1394,7 +1409,7 @@ export default function App() {
 
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
-    if (user?.addressVerified !== true) {
+    if (user?.authMethod === 'pick_credentials' && user?.addressVerified !== true) {
       const addressUrl = new URL(getAddressVerificationUrl(user));
       if (isAuthSubdomain() || addressUrl.origin !== window.location.origin) {
         redirectAfterAuthentication(addressUrl.toString());
@@ -1433,7 +1448,7 @@ export default function App() {
         return;
       }
 
-      let targetPath = '/dashboard';
+      let targetPath = '/workspace';
       if (redirectUrl) {
         targetPath = redirectUrl;
       } else if (user?.role === 'super_admin' || user?.email === 'tiwloltd@gmail.com') {
@@ -1443,21 +1458,21 @@ export default function App() {
       const safeTarget = getSafeRedirectTarget(targetPath);
       const destination = safeTarget
         ? (safeTarget.startsWith('http') ? safeTarget : getMainAppUrl(safeTarget))
-        : getMainAppUrl('/dashboard');
+        : getMainAppUrl('/workspace');
       redirectAfterAuthentication(destination);
       return;
     }
     if (user?.role === 'super_admin' || user?.email === 'tiwloltd@gmail.com') {
       handleTabChange('administrator');
     } else {
-      handleTabChange('dashboard');
+      handleTabChange('workspace');
       setDashboardLoading(false);
     }
   };
 
   const handleRegisterSuccess = (user) => {
     setCurrentUser(user);
-    if (user?.addressVerified !== true) {
+    if (user?.authMethod === 'pick_credentials' && user?.addressVerified !== true) {
       const addressUrl = new URL(getAddressVerificationUrl(user));
       if (isAuthSubdomain() || addressUrl.origin !== window.location.origin) {
         redirectAfterAuthentication(addressUrl.toString());
@@ -1479,13 +1494,13 @@ export default function App() {
       const requestedRedirect = registerParams.has('dashboard')
         ? null
         : getSafeRedirectTarget(registerParams.get('redirect'));
-      const target = safeReturnTo || requestedRedirect || (isSuper ? '/administrator' : '/dashboard');
+      const target = safeReturnTo || requestedRedirect || (isSuper ? '/administrator' : '/workspace');
       const destination = target.startsWith('http') ? target : getMainAppUrl(target);
       redirectAfterAuthentication(destination);
       return;
     }
     setDashboardLoading(true);
-    handleTabChange('dashboard');
+    handleTabChange('workspace');
   };
 
   const handleLogout = async () => {
@@ -2045,7 +2060,7 @@ export default function App() {
       )}
 
       {/* Unique Glassmorphic Loader for entering Dashboard (3.5 to 5s smooth sync) */}
-      {dashboardLoading && (activeTab === 'dashboard' || activeTab === 'ecommerce-dashboard') && (
+      {dashboardLoading && (activeTab === 'dashboard' || activeTab === 'workspace' || activeTab === 'ecommerce-dashboard') && (
         <TiwloPageLoader />
       )}
 
@@ -2063,7 +2078,7 @@ export default function App() {
         {authChecking && (activeTab === 'administrator' || activeTab === 'admin' || activeTab === 'tpanel') ? (
           <TiwloPageLoader />
         ) : !authChecking && currentUser &&
-          (currentUser.addressVerified !== true || activeTab === 'address-verification') ? (
+          ((currentUser.authMethod === 'pick_credentials' && currentUser.addressVerified !== true) || activeTab === 'address-verification') ? (
           <AddressVerificationView
             onSignOut={handleLogout}
             onVerified={() => {
@@ -2080,7 +2095,7 @@ export default function App() {
               const isSuperAdmin = verifiedUser?.role === 'super_admin' ||
                 verifiedUser?.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
               redirectAfterAuthentication(
-                getMainAppUrl(isSuperAdmin ? '/administrator' : '/dashboard')
+                getMainAppUrl(isSuperAdmin ? '/administrator' : '/workspace')
               );
             }}
           />
@@ -2298,13 +2313,17 @@ export default function App() {
         />
       ) : (activeTab === 'subdomain' || (typeof activeTab === 'string' && (activeTab.startsWith('subdomain') || activeTab.startsWith('uidis') || activeTab.startsWith('uids')))) ? (
         <SubdomainLanding
+          currentUser={currentUser}
           onNavigateAuth={(mode, returnPath = null) => {
+            if (currentUser) {
+              const targetPath = returnPath || '/oneprofile';
+              window.location.assign(getUidsDashboardUrl(targetPath));
+              return;
+            }
             const authPath = mode === 'signup' ? '/create-account' : '/login';
-            const nextTarget = returnPath
-              ? getMainAppUrl(returnPath)
-              : getUidsDashboardUrl('/oneprofile');
-            const returnTo = getUidsDashboardUrl(`/authorize?next=${encodeURIComponent(nextTarget)}`);
-            const params = new URLSearchParams({ return_to: returnTo, sso_login: '1' });
+            const returnTo = getUidsDashboardUrl(returnPath || '/oneprofile');
+            const params = new URLSearchParams({ return_to: returnTo });
+            if (mode === 'signup') params.set('sso_login', '1');
             window.location.replace(getAuthUrl(`${authPath}?${params}`));
           }}
           onNavigateTab={handleTabChange}
@@ -2314,6 +2333,7 @@ export default function App() {
           currentUser={currentUser}
           setCurrentUser={setCurrentUser}
           onNavigateTab={handleTabChange}
+          showToast={showToast}
         />
       ) : (activeTab === 'verification' || (typeof activeTab === 'string' && activeTab.startsWith('verification'))) ? (
         <Suspense fallback={<TiwloPageLoader text="Loading Identity Verification..." />}>
@@ -2334,16 +2354,16 @@ export default function App() {
                 redirectAfterAuthentication(returnTo);
                 return;
               }
-              handleTabChange('dashboard');
+              handleTabChange('workspace');
             }}
             onCancel={() => handleTabChange(
-              currentUser?.identityVerificationRequired ? 'identity-required' : 'dashboard'
+              currentUser?.identityVerificationRequired ? 'identity-required' : 'workspace'
             )}
           />
         </Suspense>
       ) : activeTab === 'pos' ? (
         <POSView
-          onBack={() => handleTabChange('dashboard')}
+          onBack={() => handleTabChange('workspace')}
           products={products}
           categories={categories}
           customers={customers}
@@ -2357,12 +2377,12 @@ export default function App() {
           currentUser={currentUser}
           setCurrentUser={setCurrentUser}
           showToast={showToast}
-          onBackToApp={() => handleTabChange('dashboard')}
+          onBackToApp={() => handleTabChange('workspace')}
         />
       ) : (activeTab === 'dashboard' || activeTab === 'identity' || activeTab === 'billing' || activeTab.startsWith('billing') || activeTab === 'domains' || activeTab === 'workspace' || activeTab.startsWith('workspace') || activeTab === 'marketplace' || activeTab.startsWith('marketplace') || activeTab === 'whatsapp-automation' || activeTab.startsWith('whatsapp-automation')) ? (
         <CloudDashboard
           currentUser={currentUser}
-          initialNav={activeTab === 'identity' ? 'identity' : activeTab === 'billing' || activeTab.startsWith('billing') ? 'billing' : activeTab === 'domains' ? 'domains' : activeTab.startsWith('workspace') ? activeTab : activeTab.startsWith('marketplace') ? activeTab : activeTab.startsWith('whatsapp-automation') ? 'whatsapp-automation' : 'dashboard'}
+          initialNav={activeTab === 'identity' ? 'identity' : activeTab === 'billing' || activeTab.startsWith('billing') ? 'billing' : activeTab === 'domains' ? 'domains' : activeTab.startsWith('workspace/') ? activeTab : activeTab === 'workspace-hub' ? 'workspace-hub' : activeTab.startsWith('marketplace') ? activeTab : activeTab.startsWith('whatsapp-automation') ? 'whatsapp-automation' : 'dashboard'}
           onLogout={handleLogout}
           onOpenStoreDashboard={handleStoreConsoleLaunch}
           onNavigateTab={handleTabChange}

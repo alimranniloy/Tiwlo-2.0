@@ -117,6 +117,27 @@ export const securityLimiters = {
     limit: 120,
     error: 'Too many phone availability checks. Please wait and try again.'
   }),
+  emailAvailability: createLimiter({
+    policyId: 'auth_email_availability',
+    windowMs: hour,
+    limit: 120,
+    error: 'Too many availability checks. Please wait and try again.'
+  }),
+  otpVerifyIp: createLimiter({
+    policyId: 'auth_otp_verify_ip_15m',
+    windowMs: 15 * 60 * 1000,
+    limit: 15,
+    error: 'Too many verification code attempts from this network. Please wait and try again.'
+  }),
+  otpVerifyToken: createLimiter({
+    policyId: 'auth_otp_verify_token_15m',
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    getIdentity: (req) => req.activeUser?.id
+      ? `user:${req.activeUser.id}`
+      : String(req.body?.tempToken || req.body?.resetToken || req.cookies?.tiwlo_oauth_mfa || getClientNetwork(req)),
+    error: 'Too many verification code attempts. Please request a new code or try again later.'
+  }),
   registrationBrowser: createLimiter({
     policyId: 'auth_registration_browser',
     windowMs: day,

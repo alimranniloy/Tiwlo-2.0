@@ -282,6 +282,7 @@ app.use(async (req, res, next) => {
           !isPickProfileBootstrap &&
           !isPickAccountStatusPath &&
           !isAdminApiRequest &&
+          sessionData.user.authMethod === 'pick_credentials' &&
           sessionData.user.addressVerified !== true
         ) {
           return res.status(403).json({
@@ -518,6 +519,89 @@ app.get('/favicon.ico', (req, res) => {
   }
   res.status(204).end();
 });
+
+app.get('/', async (req, res, next) => {
+  const host = requestHost(req);
+  const freeBase = PLATFORM_CONFIG.freeSubdomainDomain;
+  if (!freeBase || !host.endsWith(`.${freeBase}`) || host === `www.${freeBase}`) {
+    return next();
+  }
+  try {
+    const { rows } = await queryPg(
+      `SELECT d.id, d.subdomain, d.domain, d.status, d.created_at,
+              u.name, u.store_name, u.avatar,
+              p.headline, p.bio, p.profile_visibility,
+              w.title AS site_title, w.template_id
+       FROM system_free_subdomains d
+       JOIN system_users u ON u.id = d.user_id
+       LEFT JOIN system_oneprofile_profiles p ON p.user_id = d.user_id
+       LEFT JOIN system_oneprofile_websites w ON w.user_id = d.user_id AND w.domain = d.domain
+       WHERE d.domain = $1 AND d.status = 'active'
+       LIMIT 1`,
+      [host]
+    );
+    const sub = rows[0];
+    if (!sub) {
+      return res.status(404).type('html').send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${host} — Available on ${freeBase}</title><style>body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#fafafa;color:#111;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px}.card{max-width:460px;width:100%;background:#fff;border:1px solid #e5e7eb;border-radius:24px;padding:36px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.04)}.badge{display:inline-block;padding:6px 12px;border-radius:999px;background:#ecfdf5;color:#047857;font-size:12px;font-weight:700;margin-bottom:16px}h1{margin:0 0 8px;font-size:24px;font-weight:800;word-break:break-all}p{margin:0 0 24px;color:#6b7280;font-size:14px;line-height:1.6}a.btn{display:inline-flex;align-items:center;justify-content:center;padding:12px 24px;border-radius:999px;background:#111;color:#fff;text-decoration:none;font-size:14px;font-weight:700}</style></head><body><div class="card"><span class="badge">Unclaimed Subdomain</span><h1>${host}</h1><p>This subdomain has not been claimed yet. You can register it for free with full DNS management on ${freeBase}.</p><a class="btn" href="https://${freeBase}">Claim on ${freeBase}</a></div></body></html>`);
+    }
+    await queryPg(
+      `UPDATE system_oneprofile_websites SET view_count = view_count + 1, updated_at = CURRENT_TIMESTAMP WHERE domain = $1`,
+      [host]
+    ).catch(() => {});
+    const escapeHtml = (str) => String(str || '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+    const displayName = escapeHtml(sub.site_title || sub.name || sub.store_name || sub.subdomain);
+    const headline = escapeHtml(sub.headline || `Official ${sub.domain} digital identity & edge endpoint`);
+    const bio = escapeHtml(sub.bio || `This subdomain is active, secured with automatic TLS, and served by ${freeBase} authoritative DNS.`);
+    res.vary('Host');
+    return res.status(200).type('html').send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${displayName} — ${escapeHtml(sub.domain)}</title><style>body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f8fafc;color:#0f172a;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px}.card{max-width:540px;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:28px;padding:40px;box-shadow:0 8px 30px rgba(15,23,42,.05)}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:24px;flex-wrap:wrap}.domain{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;font-weight:700;color:#0f172a;background:#f1f5f9;padding:6px 14px;border-radius:999px}.status{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#047857;background:#ecfdf5;padding:6px 12px;border-radius:999px}.dot{width:8px;height:8px;border-radius:50%;background:#10b981}h1{margin:0 0 8px;font-size:28px;font-weight:800;letter-spacing:-0.02em}h2{margin:0 0 16px;font-size:15px;font-weight:600;color:#475569}p{margin:0 0 28px;font-size:14px;line-height:1.7;color:#64748b}.footer{display:flex;align-items:center;justify-content:space-between;padding-top:20px;border-top:1px solid #f1f5f9;font-size:12px;color:#94a3b8;flex-wrap:wrap;gap:12px}a.manage{color:#0f172a;font-weight:700;text-decoration:none;padding:8px 16px;border-radius:999px;border:1px solid #e2e8f0}a.manage:hover{background:#f8fafc}</style></head><body><main class="card"><div class="top"><span class="domain">${escapeHtml(sub.domain)}</span><span class="status"><span class="dot"></span>Active &amp; Verified SSL</span></div><h1>${displayName}</h1><h2>${headline}</h2><p>${bio}</p><div class="footer"><span>Powered by <strong>${escapeHtml(freeBase)}</strong></span><a class="manage" href="https://${escapeHtml(freeBase)}/oneprofile/subdomains">Manage Subdomain &amp; DNS →</a></div></main></body></html>`);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+const PICK_LANDING_DIST = path.join(__dirname, '../pick/landing-page/out');
+const pickStaticMiddleware = fs.existsSync(PICK_LANDING_DIST)
+  ? express.static(PICK_LANDING_DIST, { index: false })
+  : null;
+
+if (pickStaticMiddleware) {
+  app.use((req, res, next) => {
+    const host = requestHost(req);
+    if (host !== PLATFORM_CONFIG.pickDashboardHost) {
+      return next();
+    }
+    if (req.path.startsWith('/api') || req.path.startsWith('/graphql')) {
+      return next();
+    }
+    res.vary('Host');
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; connect-src 'self' https: http: ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self' https:; frame-ancestors 'none'"
+    );
+    return pickStaticMiddleware(req, res, () => {
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        return next();
+      }
+      const cleanRoute = req.path.replace(/^\/+|\/+$/g, '').toLowerCase();
+      const routeMap = {
+        '': 'index.html',
+        'dashboard': 'dashboard.html',
+        'workspace': 'dashboard.html',
+        'login': 'login.html',
+        'signup': 'signup.html',
+        'create-account': 'signup.html'
+      };
+      const targetFile = routeMap[cleanRoute] || (!cleanRoute.includes('.') ? 'index.html' : null);
+      if (targetFile) {
+        const resolvedPath = path.join(PICK_LANDING_DIST, targetFile);
+        if (fs.existsSync(resolvedPath)) {
+          return res.type('html').sendFile(resolvedPath);
+        }
+      }
+      return next();
+    });
+  });
+}
 
 const CLIENT_DIST = path.join(__dirname, '../client/dist');
 if (fs.existsSync(CLIENT_DIST)) {

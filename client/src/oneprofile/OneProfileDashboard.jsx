@@ -54,6 +54,11 @@ export default function OneProfileDashboard({
   // Synchronize route with active view
   useEffect(() => {
     const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('domain_claim')) {
+      setActiveView('subdomains');
+      return;
+    }
     if (path.startsWith('oneprofile/')) {
       const sub = path.replace(/^oneprofile\//, '');
       if (['website', 'subdomains', 'templates', 'nfc', 'hosting', 'analytics', 'billing', 'settings', 'support'].includes(sub)) {
@@ -77,18 +82,26 @@ export default function OneProfileDashboard({
       case 'subdomains':
         return (
           <OneProfileSubdomainsView
+            currentUser={currentUser}
             domains={summary?.domains || []}
+            onNavigateTab={handleSelectView}
             onDomainClaimed={(registration) => {
-              setSummary((previous) => ({
-                ...previous,
-                domains: [
-                  { ...registration, nameservers: [] },
-                  ...(previous?.domains || [])
-                ],
-                metrics: previous?.metrics
-                  ? { ...previous.metrics, domains: (previous.metrics.domains || 0) + 1 }
-                  : previous?.metrics
-              }));
+              setSummary((previous) => {
+                const existing = previous?.domains || [];
+                if (existing.some((d) => d.id === registration.id || d.domain === registration.domain)) {
+                  return previous;
+                }
+                return {
+                  ...previous,
+                  domains: [
+                    { ...registration, nameservers: registration.nameservers || [] },
+                    ...existing
+                  ],
+                  metrics: previous?.metrics
+                    ? { ...previous.metrics, domains: (previous.metrics.domains || 0) + 1 }
+                    : previous?.metrics
+                };
+              });
             }}
           />
         );

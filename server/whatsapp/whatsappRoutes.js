@@ -1,9 +1,16 @@
 import express from 'express';
 import { WhatsAppManager } from './whatsappManager.js';
+import { MasterDB } from '../db/multiTenant.js';
 
 const router = express.Router();
 
 const getUserId = (req) => req.activeUser?.id || req.user?.id || req.session?.userId || null;
+
+const verifyStoreOwnership = async (req, userId, storeId) => {
+  if (!storeId) return true;
+  if (req.activeUser?.role === 'admin') return true;
+  return Boolean(await MasterDB.userHasStoreAccess(userId, storeId));
+};
 
 const requireUser = (req, res) => {
   const userId = getUserId(req);
@@ -46,6 +53,9 @@ router.post('/sessions', async (req, res) => {
   try {
     const userId = requireUser(req, res); if (!userId) return;
     const { storeId = '', sessionName = 'Primary WhatsApp Store' } = req.body;
+    if (storeId && !(await verifyStoreOwnership(req, userId, storeId))) {
+      return res.status(403).json({ error: 'Not authorized to link this store' });
+    }
     const session = await WhatsAppManager.createSession({ userId, storeId, sessionName });
     res.json({ success: true, session });
   } catch (err) {
@@ -96,7 +106,14 @@ router.post('/sessions/:sessionId/sync-store', async (req, res) => {
   try {
     const ownedSession = (await requireOwnedSession(req, res)); if (!ownedSession) return;
     const { sessionId } = req.params;
-    const storeKnowledge = await WhatsAppManager.syncStoreData(sessionId, req.body);
+    const targetStoreId = req.body?.storeId || ownedSession.storeId || '';
+    if (targetStoreId && !(await verifyStoreOwnership(req, ownedSession.userId, targetStoreId))) {
+      return res.status(403).json({ error: 'Not authorized to sync this store' });
+    }
+    const storeKnowledge = await WhatsAppManager.syncStoreData(sessionId, {
+      ...req.body,
+      storeId: targetStoreId
+    });
     res.json({ success: true, storeKnowledge });
   } catch (err) {
     console.error('Error syncing store data for whatsapp session:', err);

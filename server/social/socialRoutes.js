@@ -1,5 +1,5 @@
 import express from 'express';
-import { registrationGuards } from '../plugins/security/index.js';
+import { registrationGuards, securityLimiters } from '../plugins/security/index.js';
 import { isDuplicateAccountError, isDuplicateBrowserError } from '../security/signupIdentity.js';
 import { recordDuplicateSignupSignal } from '../security/signupBrowser.js';
 import multer from 'multer';
@@ -80,7 +80,7 @@ function getJpegPngType(buffer) {
 // ====================================================================
 // 0. REAL-TIME AVAILABILITY CHECK
 // ====================================================================
-router.all('/check-availability', async (req, res) => {
+router.all('/check-availability', securityLimiters.emailAvailability, async (req, res) => {
   try {
     const email = req.query.email || req.body?.email || '';
     const handle = req.query.handle || req.body?.handle || '';
@@ -659,7 +659,7 @@ router.post('/register', ...registrationGuards, async (req, res) => {
   }
 });
 
-router.post('/verify-email', async (req, res) => {
+router.post('/verify-email', securityLimiters.otpVerifyIp, securityLimiters.otpVerifyToken, async (req, res) => {
   try {
     const { tempToken, otpCode } = req.body;
     if (!tempToken || !otpCode) {
@@ -700,7 +700,7 @@ router.post('/verify-email', async (req, res) => {
   }
 });
 
-router.post('/resend-email-verification', async (req, res) => {
+router.post('/resend-email-verification', securityLimiters.otpRequestIp, securityLimiters.otpRequestAccount, async (req, res) => {
   try {
     const { tempToken } = req.body;
     if (!tempToken) {
@@ -740,7 +740,7 @@ router.post('/resend-email-verification', async (req, res) => {
   }
 });
 
-router.post('/setup-2fa', async (req, res) => {
+router.post('/setup-2fa', securityLimiters.otpVerifyIp, securityLimiters.otpVerifyToken, async (req, res) => {
   try {
     const { tempToken, otpCode } = req.body;
     if (!tempToken || !otpCode) {
@@ -784,7 +784,7 @@ router.post('/setup-2fa', async (req, res) => {
   }
 });
 
-router.post('/resend-setup-2fa', async (req, res) => {
+router.post('/resend-setup-2fa', securityLimiters.otpRequestIp, securityLimiters.otpRequestAccount, async (req, res) => {
   try {
     const { tempToken } = req.body;
     if (!tempToken) {
@@ -824,7 +824,7 @@ router.post('/resend-setup-2fa', async (req, res) => {
   }
 });
 
-router.post('/appeal', async (req, res) => {
+router.post('/appeal', securityLimiters.otpRequestIp, securityLimiters.otpRequestAccount, async (req, res) => {
   const { identifier, appealReason } = req.body;
   if (!identifier || !appealReason) {
     return res.status(400).json({ error: 'Identifier and reason are required.' });
@@ -1108,14 +1108,32 @@ router.get('/reels', async (req, res) => {
   res.json(reels);
 });
 
-router.post('/reels', async (req, res) => {
+router.post('/reels', contentSafetyMiddleware('public_feed'), async (req, res) => {
   const user = await getUserContext(req);
   const authorId = user?.id;
   if (!authorId || authorId === 'anonymous') return res.status(401).json({ error: 'Authentication required' });
+
+  const restriction = await isUserRestricted(authorId);
+  if (restriction.restricted && restriction.action === 'PERMANENTLY_DISABLED') {
+    return res.status(403).json({
+      error: 'ACCOUNT_DISABLED',
+      code: restriction.action,
+      message: restriction.reason
+    });
+  }
+
   const { caption, videoUrl, image, audioTitle } = req.body;
   if (![videoUrl, image].some((url) => typeof url === 'string' && url.trim())) {
     return res.status(400).json({ error: 'A Short needs an uploaded photo or video' });
   }
+
+  for (const mediaCandidate of [videoUrl, image].filter(Boolean)) {
+    const scopeCheck = await checkAssetScope(mediaCandidate, 'public_feed');
+    if (!scopeCheck.allowed) {
+      return res.status(403).json({ error: 'SECURITY_SCOPE_VIOLATION', message: scopeCheck.reason });
+    }
+  }
+
   const reel = await SocialDB.createReel({ authorId, caption, videoUrl, image, audioTitle });
   res.status(201).json(reel);
 
@@ -1171,10 +1189,30 @@ router.get('/stories', async (req, res) => {
   res.json(stories);
 });
 
-router.post('/stories', async (req, res) => {
+router.post('/stories', contentSafetyMiddleware('public_feed'), async (req, res) => {
   const userId = getUserId(req); if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+  const restriction = await isUserRestricted(userId);
+  if (restriction.restricted && restriction.action === 'PERMANENTLY_DISABLED') {
+    return res.status(403).json({
+      error: 'ACCOUNT_DISABLED',
+      code: restriction.action,
+      message: restriction.reason
+    });
+  }
+
   const { mediaUrl } = req.body;
-  const story = await SocialDB.createStory({ userId, mediaUrl });
+  if (typeof mediaUrl !== 'string' || !mediaUrl.trim() || mediaUrl.length > 4096 ||
+      !(mediaUrl.startsWith('https://') || mediaUrl.startsWith('/api/upload/') || mediaUrl.startsWith('/upload/'))) {
+    return res.status(400).json({ error: 'A valid uploaded media URL is required for stories' });
+  }
+
+  const scopeCheck = await checkAssetScope(mediaUrl, 'public_feed');
+  if (!scopeCheck.allowed) {
+    return res.status(403).json({ error: 'SECURITY_SCOPE_VIOLATION', message: scopeCheck.reason });
+  }
+
+  const story = await SocialDB.createStory({ userId, mediaUrl: mediaUrl.trim() });
   res.status(201).json(story);
 });
 

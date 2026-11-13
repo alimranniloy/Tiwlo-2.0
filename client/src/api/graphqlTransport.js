@@ -45,8 +45,6 @@ export async function applicationFetch(resource, options = {}) {
   const sensitiveAction = method === 'POST' && /^\/api\/(?:domains\/?|admin\/payment-gateways)$/.test(url.pathname) ||
     (method === 'POST' || method === 'PUT' || method === 'DELETE') && /^\/api\/(?:domains\/[^/]+(?:\/provision)?|staff(?:\/[^/]+)?|store\/payment-providers\/[^/]+|admin\/users\/[^/]+(?:\/ban)?)$/.test(url.pathname) ||
     (method === 'PUT' || method === 'DELETE') && /^\/api\/admin\/users\/[^/]+$/.test(url.pathname) ||
-    method === 'POST' && /^\/api\/subdomains\/(?:claim|[^/]+\/records)$/.test(url.pathname) ||
-    (method === 'PATCH' || method === 'DELETE') && /^\/api\/subdomains\/[^/]+\/records(?:\/[^/]+)?$/.test(url.pathname) ||
     method === 'POST' && /^\/api\/domains\/[^/]+\/verify$/.test(url.pathname) ||
     method === 'PUT' && /^\/api\/(?:system\/settings|admin\/social-login\/[^/]+)$/.test(url.pathname) ||
     method === 'POST' && /^\/api\/admin\/storage\/(?:google-drive(?:\/[^/]+\/activate)?|sync\/[^/]+)$/.test(url.pathname) ||

@@ -42,7 +42,7 @@ async function bindEcosystemState(req, res, next) {
   }
   const userId = req.activeUser.id;
   req.query = { ...req.query, userId };
-  req.body = { ...req.body, userId, senderId: userId };
+  req.body = { ...req.body, userId, senderId: userId, hostId: userId };
   if (req.method !== 'GET') req.body.creatorId = userId;
   // Payment provider confirmation is required before balances can change.
   if (req.method === 'POST' && req.path.startsWith('/wallet/')) return res.status(503).json({ error: 'Wallet payments are not connected to a payment provider.' });
@@ -152,17 +152,37 @@ router.get('/trivia/stats', (req, res) => {
 });
 
 router.post('/trivia/submit', (req, res) => {
-  const { userId, score, streak } = req.body;
+  const { userId, score, streak, answers } = req.body;
   if (!userId) return res.status(400).json({ error: 'userId is required' });
 
   if (!req.ecosystemState.triviaStats[userId]) {
     req.ecosystemState.triviaStats[userId] = { totalGames: 0, bestStreak: 0, totalScore: 0 };
   }
 
+  const answerKey = { q1: 0, q2: 2, q3: 1, q4: 1 };
+  let verifiedScore = 0;
+  let verifiedStreak = 0;
+
+  if (answers && typeof answers === 'object') {
+    let currentStreak = 0;
+    for (const [qId, correctIdx] of Object.entries(answerKey)) {
+      if (Number(answers[qId]) === correctIdx) {
+        verifiedScore += 100;
+        currentStreak += 1;
+        if (currentStreak > verifiedStreak) verifiedStreak = currentStreak;
+      } else {
+        currentStreak = 0;
+      }
+    }
+  } else {
+    verifiedScore = Math.min(400, Math.max(0, parseInt(score, 10) || 0));
+    verifiedStreak = Math.min(4, Math.max(0, parseInt(streak, 10) || 0));
+  }
+
   const stat = req.ecosystemState.triviaStats[userId];
   stat.totalGames += 1;
-  stat.totalScore += parseInt(score, 10) || 0;
-  if (streak > stat.bestStreak) stat.bestStreak = streak;
+  stat.totalScore += verifiedScore;
+  if (verifiedStreak > stat.bestStreak) stat.bestStreak = verifiedStreak;
 
   return res.json({ success: true, stats: stat });
 });
@@ -244,11 +264,13 @@ router.get('/audio-spaces', (req, res) => {
 });
 
 router.post('/audio-spaces', (req, res) => {
-  const { title, topic, hostId, hostUsername, hostAvatar, hostName } = req.body;
+  const { title, topic, hostUsername, hostAvatar, hostName } = req.body;
   if (!title) return res.status(400).json({ error: 'Title required' });
 
-  const effectiveHostId = hostId || 'host';
-  const effectiveHostUsername = hostUsername || 'creator';
+  const effectiveHostId = req.activeUser.id;
+  const effectiveHostUsername = req.activeUser.username || req.activeUser.handle || hostUsername || 'creator';
+  const effectiveHostName = req.activeUser.name || req.activeUser.storeName || hostName || effectiveHostUsername;
+  const effectiveHostAvatar = req.activeUser.avatar || hostAvatar || null;
 
   const newSpace = {
     id: `space_${Date.now()}`,
@@ -258,12 +280,12 @@ router.post('/audio-spaces', (req, res) => {
     hostUsername: effectiveHostUsername,
     host: {
       id: effectiveHostId,
-      name: hostName || effectiveHostUsername,
+      name: effectiveHostName,
       handle: effectiveHostUsername.startsWith('@') ? effectiveHostUsername : `@${effectiveHostUsername}`,
-      avatar: hostAvatar || null,
+      avatar: effectiveHostAvatar,
     },
     listenersCount: 1,
-    speakers: [{ id: effectiveHostId, username: effectiveHostUsername, name: hostName || effectiveHostUsername, avatar: hostAvatar, isHost: true }],
+    speakers: [{ id: effectiveHostId, username: effectiveHostUsername, name: effectiveHostName, avatar: effectiveHostAvatar, isHost: true }],
     participants: [effectiveHostId],
     isLive: true,
     createdAt: new Date().toISOString(),
@@ -591,7 +613,7 @@ router.delete('/drafts/:id', async (req, res) => {
       await queryPg('DELETE FROM social_drafts_scheduler WHERE id = $1 AND user_id = $2', [id, userId]);
     }
   } catch (error) { throw error; }
-  const idx = req.ecosystemState.drafts.findIndex((d) => d.id === id);
+  const idx = req.ecosystemState.drafts.findIndex((d) => d.id === id && d.userId === userId);
   if (idx !== -1) req.ecosystemState.drafts.splice(idx, 1);
   return res.json({ success: true });
 });
@@ -1024,11 +1046,16 @@ router.post('/polls', (req, res) => {
 
 router.post('/polls/:id/vote', (req, res) => {
   const { id } = req.params;
-  const { optionIndex } = req.body;
+  const { optionIndex, userId } = req.body;
   const poll = req.ecosystemState.polls.find((p) => p.id === id);
   if (!poll || !poll.options[optionIndex]) {
     return res.status(404).json({ error: 'Poll or option not found' });
   }
+  if (!Array.isArray(poll.votedUserIds)) poll.votedUserIds = [];
+  if (userId && poll.votedUserIds.includes(userId)) {
+    return res.status(409).json({ error: 'You have already voted in this poll' });
+  }
+  if (userId) poll.votedUserIds.push(userId);
   poll.options[optionIndex].votes += 1;
   poll.totalVotes += 1;
   return res.json({ success: true, poll });
@@ -1086,8 +1113,14 @@ router.post('/events', (req, res) => {
 
 router.post('/events/:id/rsvp', (req, res) => {
   const { id } = req.params;
+  const { userId } = req.body;
   const evt = req.ecosystemState.events.find((e) => e.id === id);
   if (!evt) return res.status(404).json({ error: 'Event not found' });
+  if (!Array.isArray(evt.rsvpUserIds)) evt.rsvpUserIds = [];
+  if (userId && evt.rsvpUserIds.includes(userId)) {
+    return res.status(409).json({ error: 'You have already RSVPed to this event' });
+  }
+  if (userId) evt.rsvpUserIds.push(userId);
   evt.rsvpCount = (evt.rsvpCount || 0) + 1;
   return res.json({ success: true, event: evt });
 });
@@ -1097,7 +1130,7 @@ router.post('/events/:id/rsvp', (req, res) => {
 // ====================================================================
 router.get('/coauthor/invitations', (req, res) => {
   const { userId } = req.query;
-  const invites = req.ecosystemState.coauthors.filter((c) => !userId || c.recipientId === userId || c.senderId === userId);
+  const invites = req.ecosystemState.coauthors.filter((c) => c.recipientId === userId || c.senderId === userId);
   return res.json({ success: true, invitations: invites });
 });
 
@@ -1118,10 +1151,14 @@ router.post('/coauthor/invitations', (req, res) => {
 
 router.post('/coauthor/invitations/:id/respond', (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
+  const { status, userId } = req.body;
   const inv = req.ecosystemState.coauthors.find((c) => c.id === id);
   if (!inv) return res.status(404).json({ error: 'Invitation not found' });
-  inv.status = status || 'accepted';
+  if (inv.recipientId !== userId && req.activeUser?.role !== 'admin') {
+    return res.status(403).json({ error: 'Only the invited co-author can respond to this invitation' });
+  }
+  const normalizedStatus = status === 'rejected' || status === 'declined' ? 'declined' : 'accepted';
+  inv.status = normalizedStatus;
   return res.json({ success: true, invitation: inv });
 });
 
@@ -1129,14 +1166,24 @@ router.post('/coauthor/invitations/:id/respond', (req, res) => {
 // 24. BRAND MARKETPLACE
 // ====================================================================
 router.get('/brand-briefs', (req, res) => {
-  return res.json({ success: true, briefs: req.ecosystemState.brandBriefs });
+  const viewerId = req.activeUser?.id;
+  const isAdmin = req.activeUser?.role === 'admin';
+  const sanitizedBriefs = req.ecosystemState.brandBriefs.map((brief) => ({
+    ...brief,
+    proposalCount: Array.isArray(brief.proposals) ? brief.proposals.length : 0,
+    proposals: Array.isArray(brief.proposals)
+      ? brief.proposals.filter((p) => isAdmin || brief.creatorId === viewerId || p.creatorId === viewerId)
+      : []
+  }));
+  return res.json({ success: true, briefs: sanitizedBriefs });
 });
 
 router.post('/brand-briefs', (req, res) => {
-  const { title, budget, description, category, deadline, brandName } = req.body;
+  const { title, budget, description, category, deadline, brandName, creatorId } = req.body;
   if (!title) return res.status(400).json({ error: 'Title required' });
   const brief = {
     id: `brief_${Date.now()}`,
+    creatorId,
     brand: brandName || 'Partner Brand',
     title,
     budget: budget || '$500',

@@ -2,14 +2,20 @@ import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 
 export const RESERVED_STORE_SUBDOMAIN_LABELS = Object.freeze([
   'api',
+  'pick',
+  'workspace',
+  'dashboard',
+  'admin',
+  'administrator',
   PLATFORM_CONFIG.wwwSubdomain,
   PLATFORM_CONFIG.authSubdomain,
   PLATFORM_CONFIG.tpanelSubdomain,
   PLATFORM_CONFIG.dns1Subdomain,
   PLATFORM_CONFIG.dns2Subdomain,
   PLATFORM_CONFIG.mailSubdomain,
+  PLATFORM_CONFIG.mtaSubdomain,
   PLATFORM_CONFIG.driveSubdomain
-].map(value => String(value).toLowerCase()));
+].filter(Boolean).map(value => String(value).toLowerCase()));
 
 function canonicalizeStoredSubdomain(value, domain) {
   const subdomain = String(value || '').trim().toLowerCase().replace(/\.$/, '');

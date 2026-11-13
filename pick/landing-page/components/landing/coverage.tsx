@@ -1,7 +1,14 @@
 import { ArrowRight, MapPin, ShieldCheck } from 'lucide-react'
 import { SectionHeading } from './section-heading'
+import type { TiwloSessionUser } from '@/lib/tiwlo-auth'
 
-export function Coverage({ onOpenLogin }: { onOpenLogin: () => void }) {
+export function Coverage({
+  onOpenLogin,
+  sessionUser,
+}: {
+  onOpenLogin: () => void
+  sessionUser?: TiwloSessionUser | null
+}) {
   return (
     <section id="coverage" className="bg-black py-24 text-white md:py-32">
       <div className="mx-auto max-w-6xl px-5">
@@ -17,7 +24,7 @@ export function Coverage({ onOpenLogin }: { onOpenLogin: () => void }) {
             className="inline-flex h-12 items-center gap-2 rounded-full bg-white px-6 text-sm font-semibold text-ink transition-all hover:bg-white/90 active:scale-[0.97]"
           >
             <ShieldCheck size={16} />
-            Open PICK Admin
+            {sessionUser ? 'Continue to PICK Dashboard' : 'Open PICK Admin'}
             <ArrowRight size={14} />
           </button>
         </div>

@@ -10,6 +10,7 @@ import { Menu, X, ArrowRight } from 'lucide-react';
  * - Compact height and subtle borders.
  */
 export default function UidsNavbar({
+  currentUser,
   onNavigateAuth,
   onScrollTo,
   activeSection = 'home'
@@ -83,24 +84,40 @@ export default function UidsNavbar({
 
         {/* Right: Actions */}
         <div className="flex items-center justify-end gap-2 min-w-[70px]">
-          {/* Login Button (Always Visible, compact on mobile) */}
-          <button
-            type="button"
-            onClick={() => onNavigateAuth && onNavigateAuth('login')}
-            className="px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-neutral-700 hover:text-neutral-950 rounded-full hover:bg-neutral-100/90 transition-colors"
-          >
-            Login
-          </button>
+          {currentUser ? (
+            <button
+              type="button"
+              onClick={() => {
+                window.location.assign('/oneprofile');
+              }}
+              className="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white bg-neutral-900 hover:bg-neutral-800 active:bg-black rounded-full shadow-2xs hover:shadow-xs transition-all duration-150"
+            >
+              <span className="w-2 h-2 rounded-full bg-[#00C261]" />
+              <span>Workspace</span>
+              <ArrowRight className="w-3.5 h-3.5 text-neutral-300" />
+            </button>
+          ) : (
+            <>
+              {/* Login Button (Always Visible, compact on mobile) */}
+              <button
+                type="button"
+                onClick={() => onNavigateAuth && onNavigateAuth('login', '/oneprofile')}
+                className="px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-neutral-700 hover:text-neutral-950 rounded-full hover:bg-neutral-100/90 transition-colors"
+              >
+                Login
+              </button>
 
-          {/* Sign Up Button (HIDDEN on Mobile as requested, visible from sm up) */}
-          <button
-            type="button"
-            onClick={() => onNavigateAuth && onNavigateAuth('signup')}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white bg-neutral-900 hover:bg-neutral-800 active:bg-black rounded-full shadow-2xs hover:shadow-xs transition-all duration-150 active:scale-95"
-          >
-            <span>Sign Up</span>
-            <ArrowRight className="w-3.5 h-3.5 text-neutral-300" />
-          </button>
+              {/* Sign Up Button (HIDDEN on Mobile as requested, visible from sm up) */}
+              <button
+                type="button"
+                onClick={() => onNavigateAuth && onNavigateAuth('signup', '/oneprofile')}
+                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white bg-neutral-900 hover:bg-neutral-800 active:bg-black rounded-full shadow-2xs hover:shadow-xs transition-all duration-150 active:scale-95"
+              >
+                <span>Sign Up</span>
+                <ArrowRight className="w-3.5 h-3.5 text-neutral-300" />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -125,26 +142,41 @@ export default function UidsNavbar({
               );
             })}
             <div className="pt-2 border-t border-neutral-100 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onNavigateAuth && onNavigateAuth('login');
-                }}
-                className="flex-1 py-1.5 text-center text-xs font-semibold text-neutral-700 bg-neutral-100 rounded-full"
-              >
-                Login
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onNavigateAuth && onNavigateAuth('signup');
-                }}
-                className="flex-1 py-1.5 text-center text-xs font-semibold text-white bg-neutral-900 rounded-full"
-              >
-                Sign Up
-              </button>
+              {currentUser ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    window.location.assign('/oneprofile');
+                  }}
+                  className="flex-1 py-2 text-center text-xs font-semibold text-white bg-neutral-900 rounded-full"
+                >
+                  Open Workspace ({currentUser.name || currentUser.email})
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onNavigateAuth && onNavigateAuth('login', '/oneprofile');
+                    }}
+                    className="flex-1 py-1.5 text-center text-xs font-semibold text-neutral-700 bg-neutral-100 rounded-full"
+                  >
+                    Login
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onNavigateAuth && onNavigateAuth('signup', '/oneprofile');
+                    }}
+                    className="flex-1 py-1.5 text-center text-xs font-semibold text-white bg-neutral-900 rounded-full"
+                  >
+                    Sign Up
+                  </button>
+                </>
+              )}
             </div>
           </nav>
         </div>

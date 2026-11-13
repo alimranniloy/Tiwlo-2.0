@@ -4,6 +4,7 @@ import fs from 'fs';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import rateLimit from 'express-rate-limit';
 import { MasterDB, TenantDB } from '../db/multiTenant.js';
+import { BillingDB } from '../db/billing.js';
 import { createTemporaryFileStorage } from '../db/temporaryFileStorage.js';
 import { getPublicMediaUrl, inferMediaType, storeMedia } from '../db/mediaStorage.js';
 import {
@@ -1861,7 +1862,7 @@ router.delete('/stores/:tiwiId', async (req, res) => {
 
 router.post('/stores', async (req, res) => {
   try {
-    const { storeName, subdomain, planId, category, currency, email, phone, description, billingDetails } = req.body;
+    const { storeName, subdomain, category, currency, email, phone, description, billingDetails } = req.body;
     const userId = getReqUserId(req);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     if (!storeName || !storeName.trim()) {
@@ -1871,7 +1872,7 @@ router.post('/stores', async (req, res) => {
       userId,
       storeName,
       subdomain,
-      planId: planId || 'free',
+      planId: 'free',
       category,
       currency,
       email,
@@ -4715,13 +4716,32 @@ router.get('/subscription', async (req, res) => {
 
 router.post('/subscription/upgrade', async (req, res) => {
   try {
+    const userId = getReqUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
     const { planId, billingCycle = 'monthly' } = req.body;
     const planInfo = PLAN_CATALOG[planId];
     if (!planInfo) {
       return res.status(400).json({ error: 'Invalid subscription plan selected' });
     }
 
+    const normalizedCycle = billingCycle === 'annual' ? 'annual' : 'monthly';
+    const effectivePrice = normalizedCycle === 'annual' ? Math.round(planInfo.price * 0.8) : planInfo.price;
     const currentSub = (await readData(SUBSCRIPTION_FILE, DEFAULT_SUBSCRIPTION));
+
+    // Require verified billing credit deduction when upgrading to a paid plan (unless already on the exact same plan/cycle or admin)
+    const isSamePlan = currentSub?.planId === planInfo.planId && currentSub?.billingCycle === normalizedCycle;
+    if (effectivePrice > 0 && !isSamePlan && req.activeUser?.role !== 'admin') {
+      const chargeResult = await BillingDB.chargeSubscriptionPlan(userId, effectivePrice, planInfo.planName);
+      if (!chargeResult.success) {
+        return res.status(chargeResult.statusCode || 402).json({
+          error: chargeResult.error || 'Payment verification required to upgrade subscription plan.'
+        });
+      }
+    }
+
     const storeSettings = (await readData(STORE_SETTINGS_FILE, {}));
     const cleanStoreName = (storeSettings.storeName || req.activeUser?.storeName || 'store').toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -4729,8 +4749,8 @@ router.post('/subscription/upgrade', async (req, res) => {
       ...currentSub,
       planId: planInfo.planId,
       planName: planInfo.planName,
-      price: billingCycle === 'annual' ? Math.round(planInfo.price * 0.8) : planInfo.price,
-      billingCycle,
+      price: effectivePrice,
+      billingCycle: normalizedCycle,
       productLimit: planInfo.productLimit,
       warehouseLimit: planInfo.warehouseLimit,
       hasCustomDomain: planInfo.hasCustomDomain,
@@ -4739,7 +4759,7 @@ router.post('/subscription/upgrade', async (req, res) => {
     };
 
     (await writeData(SUBSCRIPTION_FILE, updated));
-    (await logActivity('subscription', `Plan upgraded to ${planInfo.planName}`, `Billing: ${billingCycle}`));
+    (await logActivity('subscription', `Plan upgraded to ${planInfo.planName}`, `Billing: ${normalizedCycle}`));
 
     const products = (await readData(PRODUCTS_FILE, []));
     const currentProducts = products.length;

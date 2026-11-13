@@ -15,6 +15,22 @@ import { securityLimiters } from '../../plugins/security/index.js';
 
 const router = express.Router();
 
+function getAuthenticatedSupportUser(req) {
+  const user = req.activeUser || req.user || null;
+  if (!user || !user.id || user.id === 'guest' || user.id === 'guest_session') {
+    return null;
+  }
+  return user;
+}
+
+function userMatchesRecord(user, recordUserId) {
+  if (!user || !recordUserId || recordUserId === 'guest' || recordUserId === 'guest_session') {
+    return false;
+  }
+  if (user.role === 'admin') return true;
+  return recordUserId === user.id || (Boolean(user.tiwiId) && recordUserId === user.tiwiId);
+}
+
 async function readSupportDB() {
   return (await SupportDB.getAllData());
 }
@@ -39,15 +55,15 @@ router.get('/online-agents', (req, res) => {
 // 2. Real Tickets API: GET tickets strictly filtered by verified authenticated userId
 router.get('/tickets', async (req, res) => {
   try {
-    const { userId } = req.query;
-    if (!userId || userId === 'guest' || userId === 'guest_session') {
+    const authUser = getAuthenticatedSupportUser(req);
+    if (!authUser) {
       return res.json({
         success: true,
         tickets: []
       });
     }
     const db = (await readSupportDB());
-    const userTickets = (db.tickets || []).filter(t => t.userId === userId);
+    const userTickets = (db.tickets || []).filter(t => userMatchesRecord(authUser, t.userId));
     res.json({
       success: true,
       tickets: userTickets
@@ -60,19 +76,24 @@ router.get('/tickets', async (req, res) => {
 // 3. Real Tickets API: POST create new ticket with TWTK-XXXX format
 router.post('/tickets', async (req, res) => {
   try {
+    const authUser = getAuthenticatedSupportUser(req);
+    if (!authUser) {
+      return res.status(401).json({ error: 'Authentication required to create a support ticket' });
+    }
     const {
       subject,
       category = 'General Inquiry',
       priority = 'Medium',
       description,
-      attachments = [],
-      userId = null,
-      userName = 'Imran'
+      attachments = []
     } = req.body;
 
     if (!subject || !subject.trim()) {
       return res.status(400).json({ error: 'Subject is required' });
     }
+
+    const verifiedUserId = authUser.id;
+    const verifiedUserName = authUser.name || authUser.storeName || 'Store Owner';
 
     const db = (await readSupportDB());
     const randomNum = Math.floor(1000 + Math.random() * 9000);
@@ -83,8 +104,8 @@ router.post('/tickets', async (req, res) => {
       id: ticketId,
       ticketId,
       serialNumber,
-      userId,
-      userName,
+      userId: verifiedUserId,
+      userName: verifiedUserName,
       subject: subject.trim(),
       snippet: description ? (description.trim().slice(0, 100) + '...') : '',
       description: description ? description.trim() : '',
@@ -94,7 +115,7 @@ router.post('/tickets', async (req, res) => {
       lastUpdated: 'Just now',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      attachments,
+      attachments: Array.isArray(attachments) ? attachments.slice(0, 10) : [],
       assignedAgent: 'Sarah Jenkins (Tier-1 Customer Support Specialist)'
     };
 
@@ -114,15 +135,15 @@ router.post('/tickets', async (req, res) => {
 // 4. Real Conversations API: GET conversations strictly filtered by verified authenticated userId
 router.get('/conversations', async (req, res) => {
   try {
-    const { userId } = req.query;
-    if (!userId || userId === 'guest' || userId === 'guest_session') {
+    const authUser = getAuthenticatedSupportUser(req);
+    if (!authUser) {
       return res.json({
         success: true,
         conversations: []
       });
     }
     const db = (await readSupportDB());
-    const userConvs = (db.conversations || []).filter(c => c.userId === userId);
+    const userConvs = (db.conversations || []).filter(c => userMatchesRecord(authUser, c.userId));
     res.json({
       success: true,
       conversations: userConvs
@@ -135,12 +156,13 @@ router.get('/conversations', async (req, res) => {
 // 5. Real Conversations API: POST message to conversation with AI generation
 router.post('/conversations/:id/messages', async (req, res) => {
   try {
+    const authUser = getAuthenticatedSupportUser(req);
+    if (!authUser) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
     const { id } = req.params;
     const {
       text,
-      sender = 'user',
-      userName = 'Imran',
-      userId = null,
       clientSource = req.headers['x-client-source'] || 'web',
       sessionId = req.headers['x-session-id'] || null,
       deviceFingerprint = null
@@ -150,12 +172,20 @@ router.post('/conversations/:id/messages', async (req, res) => {
       return res.status(400).json({ error: 'Message text is required' });
     }
 
+    const verifiedUserId = authUser.id;
+    const verifiedUserName = authUser.name || authUser.storeName || 'Store Owner';
+
     const db = (await readSupportDB());
     let conv = db.conversations.find(c => c.id === id);
+
+    if (conv && conv.userId && conv.userId !== 'guest' && !userMatchesRecord(authUser, conv.userId)) {
+      return res.status(403).json({ error: 'Not authorized to access this conversation' });
+    }
 
     if (!conv) {
       conv = {
         id,
+        userId: verifiedUserId,
         name: 'Support Team',
         role: 'Support Team',
         time: 'Just now',
@@ -192,7 +222,7 @@ router.post('/conversations/:id/messages', async (req, res) => {
     };
 
     // Generate intelligent AI reply via Gemini Flash
-    let replyText = "Hello Imran, thank you for reaching out to Tiwlo Support. We are reviewing your servers and account status now.";
+    let replyText = `Hello ${verifiedUserName}, thank you for reaching out to Tiwlo Support. We are reviewing your servers and account status now.`;
     try {
       const history = conv.messages.slice(-8).map(m => ({
         role: m.sender === 'user' ? 'user' : 'model',
@@ -202,8 +232,10 @@ router.post('/conversations/:id/messages', async (req, res) => {
       const replyData = await TiwiAI.generateSupportReply({
         agentName: 'Sarah Jenkins',
         agentRole: 'Senior Support Specialist',
-        userId,
-        userName,
+        userId: verifiedUserId,
+        userName: verifiedUserName,
+        userEmail: authUser.email || '',
+        isLoggedIn: true,
         userMessage: text.trim(),
         conversationHistory: history,
         clientContext
@@ -243,12 +275,9 @@ router.post('/conversations/:id/messages', async (req, res) => {
 // 6. Initiate support session with ticket serial & personalized greeting (TWTK-XXXX)
 router.post('/initiate', async (req, res) => {
   try {
+    const authUser = getAuthenticatedSupportUser(req);
     const {
-      isLoggedIn = false,
       userName = '',
-      userId = null,
-      userEmail = '',
-      storeName = '',
       initialSubject
     } = req.body;
 
@@ -256,9 +285,12 @@ router.post('/initiate', async (req, res) => {
     const ticket = generateTicketSerial(); // Generates #TWTK-XXXXX
     const sessionId = `chat_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-    const isUserAuth = Boolean(isLoggedIn && userId && userId !== 'guest' && userId !== 'guest_session');
-    const cleanUserId = isUserAuth ? userId : 'guest';
-    const cleanName = isUserAuth ? (userName && userName !== 'undefined' ? userName : 'Store Owner') : (userName && userName !== 'Guest Visitor' && userName !== 'undefined' ? userName : 'Guest');
+    const isUserAuth = Boolean(authUser);
+    const cleanUserId = isUserAuth ? authUser.id : 'guest';
+    const cleanName = isUserAuth
+      ? (authUser.name || authUser.storeName || 'Store Owner')
+      : (userName && userName !== 'Guest Visitor' && userName !== 'undefined' ? String(userName).slice(0, 60) : 'Guest');
+    const cleanEmail = isUserAuth ? (authUser.email || '') : '';
 
     const welcomeGreeting = isUserAuth
       ? `Hello ${cleanName}! My name is ${agent.firstName} from Tiwlo Customer Support (Ticket ${ticket.serialNumber}). How can I assist you with your servers, stores, or POS system today?`
@@ -275,7 +307,7 @@ router.post('/initiate', async (req, res) => {
       serialNumber: ticket.serialNumber,
       userId: cleanUserId,
       userName: cleanName,
-      userEmail: isUserAuth ? (userEmail || '') : '',
+      userEmail: cleanEmail,
       subject: initialSubject || (isUserAuth ? `Live Support Session (${cleanName})` : `Guest Support Inquiry`),
       snippet: `Live assistance session initiated with ${agent.name}`,
       description: `Support session initiated via Tiwlo Live Support Widget. Assigned specialist: ${agent.name} (${agent.tierTitle}).`,
@@ -365,13 +397,11 @@ router.post('/transfer', (req, res) => {
 // 8. Send message & get response via Tiwi AI Engine
 router.post('/message', async (req, res) => {
   try {
+    const authUser = getAuthenticatedSupportUser(req);
     const {
-      isLoggedIn = false,
       agentName = 'Sarah Jenkins',
       agentRole = 'Senior Support Specialist',
-      userId = 'guest',
       userName = 'Customer',
-      userEmail = '',
       currentTier = 1,
       message,
       activeTicketId = null,
@@ -385,7 +415,12 @@ router.post('/message', async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    const isUserAuth = Boolean(isLoggedIn && userId && userId !== 'guest' && userId !== 'guest_session');
+    const isUserAuth = Boolean(authUser);
+    const verifiedUserId = isUserAuth ? authUser.id : 'guest';
+    const verifiedUserName = isUserAuth
+      ? (authUser.name || authUser.storeName || 'Store Owner')
+      : (userName && userName !== 'Guest Visitor' && userName !== 'Store Owner' ? String(userName).slice(0, 60) : 'Customer');
+    const verifiedUserEmail = isUserAuth ? (authUser.email || '') : '';
 
     const clientContext = {
       clientSource: clientSource || req.headers['x-client-source'] || 'web',
@@ -399,9 +434,9 @@ router.post('/message', async (req, res) => {
     const replyData = await TiwiAI.generateSupportReply({
       agentName,
       agentRole,
-      userId: isUserAuth ? userId : 'guest',
-      userName: isUserAuth ? userName : (userName && userName !== 'Guest Visitor' && userName !== 'Store Owner' ? userName : 'Customer'),
-      userEmail: isUserAuth ? userEmail : '',
+      userId: verifiedUserId,
+      userName: verifiedUserName,
+      userEmail: verifiedUserEmail,
       isLoggedIn: isUserAuth,
       userMessage: message,
       activeTicketId,
@@ -413,7 +448,10 @@ router.post('/message', async (req, res) => {
     try {
       const db = (await readSupportDB());
       const targetSessionId = sessionId || activeTicketId;
-      const conv = (db.conversations || []).find(c => c.id === targetSessionId || c.ticketId === activeTicketId || c.ticketId === targetSessionId);
+      const conv = (db.conversations || []).find(c =>
+        (c.id === targetSessionId || c.ticketId === activeTicketId || c.ticketId === targetSessionId) &&
+        (!c.userId || c.userId === 'guest' || userMatchesRecord(authUser, c.userId))
+      );
       const now = new Date();
       const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -438,7 +476,10 @@ router.post('/message', async (req, res) => {
         conv.time = timeStr;
       }
 
-      const ticket = (db.tickets || []).find(t => t.ticketId === activeTicketId || t.sessionId === targetSessionId || t.id === activeTicketId);
+      const ticket = (db.tickets || []).find(t =>
+        (t.ticketId === activeTicketId || t.sessionId === targetSessionId || t.id === activeTicketId) &&
+        (!t.userId || t.userId === 'guest' || userMatchesRecord(authUser, t.userId))
+      );
       if (ticket) {
         ticket.lastUpdated = 'Just now';
         ticket.updatedAt = now.toISOString();

@@ -58,8 +58,8 @@ export default function CloudSidebar({
     {
       label: 'Overview',
       items: [
-        { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
-        { id: 'workspace', label: 'Workspace hub', icon: Boxes },
+        { id: 'dashboard', label: 'Workspace', icon: LayoutGrid },
+        { id: 'workspace-hub', label: 'Services hub', icon: Boxes },
       ],
     },
     {

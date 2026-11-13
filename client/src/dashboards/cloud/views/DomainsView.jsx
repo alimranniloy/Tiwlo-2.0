@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Check, Copy, Edit3, Globe2, MoreVertical, Plus, RefreshCw, Server, Trash2 } from 'lucide-react';
-import { openMaterialDialog } from '../../../components/MaterialDialogProvider.jsx';
 import { DNS1_SUBDOMAIN, DNS2_SUBDOMAIN, PLATFORM_DOMAIN } from '../../../config/platformConfig.js';
 
 const EMPTY_RECORD = { type: 'A', name: '@', value: '', ttl: 300 };
@@ -12,6 +11,7 @@ export default function DomainsView({ currentUser, showToast }) {
   const [loading, setLoading] = useState(true);
   const [record, setRecord] = useState(EMPTY_RECORD);
   const [editing, setEditing] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [claimNotice, setClaimNotice] = useState(null);
   const [copied, setCopied] = useState('');
 
@@ -108,13 +108,13 @@ export default function DomainsView({ currentUser, showToast }) {
   };
 
   const deleteRecord = async item => {
-    if (!await openMaterialDialog({ title: 'Delete DNS record?', message: `Delete ${item.type} record ${item.name}?`, confirmLabel: 'Delete', tone: 'danger' })) return;
     try {
       const response = await fetch(`/api/subdomains/${encodeURIComponent(selected.id)}/records/${encodeURIComponent(item.id)}`, { method: 'DELETE', credentials: 'include' });
       const payload = response.status === 204 ? null : await response.json();
       if (!response.ok) throw new Error(payload?.error || 'Could not delete DNS record.');
       setRecords(current => current.filter(recordItem => recordItem.id !== item.id));
       if (editing?.id === item.id) { setEditing(null); setRecord(EMPTY_RECORD); }
+      setConfirmDeleteId(null);
       showToast?.('DNS record deleted.');
     } catch (error) {
       showToast?.(error.message, 'error');
@@ -157,7 +157,16 @@ export default function DomainsView({ currentUser, showToast }) {
         <thead className="bg-[#fafafa] text-xs font-bold text-[#636363]"><tr><th className="px-4 py-3">Type</th><th className="px-4 py-3">Name</th><th className="px-4 py-3">Data</th><th className="px-4 py-3">TTL</th><th className="px-4 py-3 text-right">Actions</th></tr></thead>
         <tbody>{items.map(item => <tr key={item.id} className="border-t border-[#eaeaea] hover:bg-[#fafafa]">
           <td className="px-4 py-3 font-bold text-[#696969]">{item.type}</td><td className="px-4 py-3 font-medium">{item.name}</td><td className="max-w-xs break-all px-4 py-3 text-[#3f3f3f]">{item.value}</td><td className="px-4 py-3 text-[#636363]">{item.ttl}</td>
-          <td className="px-4 py-3 text-right"><div className="inline-flex items-center gap-1"><button type="button" onClick={() => startEdit(item)} className="rounded-lg p-2 text-[#636363] hover:bg-[#efefef] hover:text-[#696969]" aria-label={`Edit ${item.type} record`}><Edit3 className="h-4 w-4" /></button><button type="button" onClick={() => deleteRecord(item)} className="rounded-lg p-2 text-[#636363] hover:bg-[#fce8e6] hover:text-[#d93025]" aria-label={`Delete ${item.type} record`}><Trash2 className="h-4 w-4" /></button></div></td>
+          <td className="px-4 py-3 text-right">
+            {confirmDeleteId === item.id ? (
+              <div className="inline-flex items-center gap-1">
+                <button type="button" onClick={() => deleteRecord(item)} className="rounded-lg bg-[#d93025] px-2.5 py-1 text-xs font-bold text-white hover:bg-[#b3261e]">Confirm</button>
+                <button type="button" onClick={() => setConfirmDeleteId(null)} className="rounded-lg border border-[#dcdcdc] bg-white px-2 py-1 text-xs text-[#636363]">Cancel</button>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-1"><button type="button" onClick={() => startEdit(item)} className="rounded-lg p-2 text-[#636363] hover:bg-[#efefef] hover:text-[#696969]" aria-label={`Edit ${item.type} record`}><Edit3 className="h-4 w-4" /></button><button type="button" onClick={() => setConfirmDeleteId(item.id)} className="rounded-lg p-2 text-[#636363] hover:bg-[#fce8e6] hover:text-[#d93025]" aria-label={`Delete ${item.type} record`}><Trash2 className="h-4 w-4" /></button></div>
+            )}
+          </td>
         </tr>)}</tbody>
       </table>
     </div>

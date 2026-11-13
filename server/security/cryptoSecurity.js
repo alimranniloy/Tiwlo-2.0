@@ -9,8 +9,14 @@ import {
 } from './rustAuthSessionClient.js';
 
 // Secret key for HMAC signing.
-// In production, this is loaded from process.env.SECURITY_SECRET or a securely generated 256-bit key
-const SECURITY_SECRET = process.env.SECURITY_SECRET || crypto.randomBytes(32).toString('hex');
+// In production, SECURITY_SECRET must be explicitly configured (>= 32 chars).
+const rawSecuritySecret = process.env.SECURITY_SECRET || '';
+if (process.env.NODE_ENV === 'production' && rawSecuritySecret.length < 32) {
+  throw new Error('FATAL SECURITY ERROR: SECURITY_SECRET must be set to at least 32 characters in production.');
+}
+const SECURITY_SECRET = rawSecuritySecret.length >= 32
+  ? rawSecuritySecret
+  : crypto.randomBytes(32).toString('hex');
 
 // ====================================================================
 // PAYMENT TOKENIZATION & ANTI-TAMPER INTEGRITY (HMAC SHA-256)
