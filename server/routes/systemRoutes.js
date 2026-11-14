@@ -18,7 +18,7 @@ import {
 import { getFfmpegStatus } from '../security/videoProcessor.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { MasterDB } from '../db/multiTenant.js';
-import { findActiveCustomDomain, findActiveFreeSubdomain } from '../domains/domainService.js';
+import { findProvisionableCustomDomain, findActiveFreeSubdomain } from '../domains/domainService.js';
 import { resolveStorefrontHost } from '../db/storeDataAdapter.js';
 import { hashSecuritySubject, listSecurityEvents, recordSecurityEvent } from '../db/securityPersistence.js';
 import { requireRecentReauth } from '../security/recentReauth.js';
@@ -104,13 +104,30 @@ router.get('/ffmpeg-status', async (req, res) => {
   res.json(status);
 });
 
+export function isInternalTlsAskClient(req) {
+  // Caddy's on_demand_tls ask request connects directly over loopback or the
+  // private Docker bridge without forwarding headers; proxied external clients
+  // always include X-Forwarded-For or CF-Connecting-IP.
+  if (req.headers['x-forwarded-for'] || req.headers['cf-connecting-ip']) {
+    return false;
+  }
+  const ip = String(req.socket?.remoteAddress || '').replace(/^::ffff:/i, '').trim().toLowerCase();
+  if (!ip) return false;
+  if (ip === '127.0.0.1' || ip === '::1') return true;
+  if (ip.startsWith('10.') || ip.startsWith('192.168.')) return true;
+  if (ip.startsWith('172.')) {
+    const secondOctet = Number.parseInt(ip.split('.')[1] || '', 10);
+    if (secondOctet >= 16 && secondOctet <= 31) return true;
+  }
+  if (ip.startsWith('fc') || ip.startsWith('fd')) return true;
+  return false;
+}
+
 // Caddy calls this before requesting an on-demand TLS certificate. Only this
 // deployment's primary domain and its verified subdomains are approved. The route
 // deliberately stays before the authenticated system-route middleware.
 router.get('/tls/allow', async (req, res) => {
-  const remoteIp = String(req.socket?.remoteAddress || '');
-  const isLoopback = remoteIp === '127.0.0.1' || remoteIp === '::1' || remoteIp === '::ffff:127.0.0.1';
-  if (!isLoopback) return res.sendStatus(403);
+  if (!isInternalTlsAskClient(req)) return res.sendStatus(403);
 
   const requestedHost = String(req.query.domain || '').trim().toLowerCase().replace(/\.$/, '');
   const primaryDomain = PLATFORM_CONFIG.primaryDomain;
@@ -127,7 +144,7 @@ router.get('/tls/allow', async (req, res) => {
       const verifiedFreeSub = !verifiedStore ? await findActiveFreeSubdomain(requestedHost) : null;
       return res.sendStatus((verifiedStore || verifiedFreeSub) ? 200 : 403);
     }
-    return res.sendStatus(await findActiveCustomDomain(requestedHost) ? 200 : 403);
+    return res.sendStatus(await findProvisionableCustomDomain(requestedHost) ? 200 : 403);
   } catch (error) {
     console.error('[SystemRoutes] Could not validate custom TLS domain:', error);
     return res.sendStatus(503);

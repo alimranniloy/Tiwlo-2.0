@@ -1,32 +1,33 @@
 {
     email {$ACME_EMAIL}
 
-    # Certificates are issued only after the application confirms the host is
-    # a platform host or an active, verified custom domain. This keeps the
-    # on-demand endpoint from being abused to request arbitrary certificates.
+    # Dynamic tenant hostnames (*.uids.app, *.tiwlo.com storefronts) and verified
+    # custom domains are approved on demand via the private Docker network.
     on_demand_tls {
         ask http://app:5001/api/tls/allow
     }
 }
 
-# HTTP is used only for the ACME challenge and then redirected to HTTPS.
-http:// {
-    handle /.well-known/acme-challenge/* {
-        root * /var/www/certbot
-        file_server
-    }
-    handle {
-        redir https://{host}{uri} permanent
+(tiwlo_app) {
+    encode zstd gzip
+    header ?Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; connect-src 'self' https: http: ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self' https:; frame-ancestors 'none'"
+    reverse_proxy app:5001 {
+        flush_interval -1
     }
 }
 
-# Point wildcard tenant hostnames and platform-owned domains here. Caddy obtains
-# a separate certificate for each authorized hostname on first use.
+# Explicit platform domains obtain and auto-renew certificates proactively on
+# startup and handle ACME HTTP-01 + HTTP->HTTPS redirects natively via Caddy,
+# avoiding handshake delays or 525 errors if the app container restarts.
+{$CADDY_PRIMARY_HOST:tiwlo.com} {$CADDY_WWW_HOST:www.tiwlo.com} {$CADDY_AUTH_HOST:auth.tiwlo.com} {$CADDY_PICK_HOST:pick.tiwlo.com} {$CADDY_UIDS_HOST:uids.app} {$CADDY_UIDS_WWW_HOST:www.uids.app} {$CADDY_MAIL_HOST:tmail.tiwlo.com} {$CADDY_TPANEL_HOST:tpanel.tiwlo.com} {$CADDY_API_HOST:api.tiwlo.com} {$CADDY_DRIVE_HOST:drive.tiwlo.com} {
+    import tiwlo_app
+}
+
+# Wildcard tenant subdomains (*.uids.app, *.tiwlo.com) and custom domains use
+# on-demand TLS validated against PostgreSQL via /api/tls/allow.
 https:// {
     tls {
         on_demand
     }
-    encode zstd gzip
-    header ?Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; connect-src 'self' https: http: ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self' https:; frame-ancestors 'none'"
-    reverse_proxy app:5001
+    import tiwlo_app
 }

@@ -676,10 +676,36 @@ app.use((err, req, res, next) => {
 });
 
 // ==========================================
-// 6. SERVER BOOTSTRAP
+// 6. SERVER BOOTSTRAP & RESILIENCE GUARDS
 // ==========================================
+let serverStarted = false;
+
+process.on('unhandledRejection', (reason) => {
+  console.error('⚠️ Unhandled promise rejection:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught exception:', error);
+  if (!serverStarted) {
+    process.exit(1);
+  }
+});
+
+async function waitForPostgres(maxAttempts = 5, delayMs = 2000) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (await testPgConnection()) {
+      return true;
+    }
+    if (attempt < maxAttempts) {
+      console.warn(`⚠️ Waiting for PostgreSQL (${attempt}/${maxAttempts})...`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+  return false;
+}
+
 async function startServer() {
-  const postgresReady = await testPgConnection();
+  const postgresReady = await waitForPostgres();
   if (!postgresReady) {
     throw new Error('PostgreSQL is required; refusing to start without persistent storage.');
   }
@@ -717,22 +743,26 @@ async function startServer() {
   if (httpsOptions) {
     const httpsServer = https.createServer(httpsOptions, app);
     httpsServer.listen(PORT, LISTEN_ADDRESS, () => {
-      console.log(`🔒 Tiwlo StockPro Secure HTTPS Server (loopback only) running on https://127.0.0.1:${PORT}`);
+      console.log(`🔒 Tiwlo StockPro Secure HTTPS Server running on https://${LISTEN_ADDRESS}:${PORT}`);
     });
 
     const httpServer = http.createServer(app);
     httpServer.listen(HTTP_PORT, LISTEN_ADDRESS, () => {
-      console.log(`🌐 Tiwlo local HTTP Server (loopback only) running on http://127.0.0.1:${HTTP_PORT}`);
+      console.log(`🌐 Tiwlo internal HTTP Server running on http://${LISTEN_ADDRESS}:${HTTP_PORT}`);
     });
   } else {
     app.listen(PORT, LISTEN_ADDRESS, () => {
-      console.log(`StockPro Backend Server (loopback only) running on http://127.0.0.1:${PORT}`);
+      console.log(`StockPro Backend Server running on http://${LISTEN_ADDRESS}:${PORT}`);
     });
     const inboundHttpServer = http.createServer(app);
     inboundHttpServer.listen(HTTP_PORT, LISTEN_ADDRESS, () => {
-      console.log(`Tiwlo local mail-delivery endpoint listening on 127.0.0.1:${HTTP_PORT}`);
+      console.log(`Tiwlo local mail-delivery endpoint listening on ${LISTEN_ADDRESS}:${HTTP_PORT}`);
     });
   }
+  serverStarted = true;
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error('❌ Fatal server startup failure:', err);
+  process.exit(1);
+});

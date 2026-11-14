@@ -39,6 +39,7 @@ const managedDomains = Object.freeze([...new Set([
   primaryDomain,
   storeDomain,
   freeSubdomainDomain,
+  `${subdomain('VITE_WWW_SUBDOMAIN', 'www')}.${freeSubdomainDomain}`,
   ...configuredDomainList,
   ...[
     subdomain('VITE_AUTH_SUBDOMAIN', 'auth'),

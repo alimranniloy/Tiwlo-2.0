@@ -233,6 +233,24 @@ export async function findActiveCustomDomain(domain) {
   return Boolean(await resolveActiveCustomDomain(domain));
 }
 
+export async function findProvisionableCustomDomain(domain) {
+  if (!isPgActive()) return false;
+  const normalized = domainToASCII(String(domain || '').trim().toLowerCase().replace(/\.$/, ''));
+  if (!normalized) return false;
+  const candidates = normalized.split('.').map((_label, index, labels) => labels.slice(index).join('.'));
+  const { rows } = await queryPg(
+    `SELECT domain FROM system_custom_domains
+     WHERE domain = ANY($1::text[])
+       AND (
+         (status = 'active' AND ssl_status = 'active')
+         OR (status = 'verified' AND ssl_status IN ('pending', 'provisioning'))
+       )
+     LIMIT 1`,
+    [candidates]
+  );
+  return rows.length > 0;
+}
+
 export async function findActiveFreeSubdomain(domain) {
   if (!isPgActive()) return false;
   const normalized = domainToASCII(String(domain || '').trim().toLowerCase().replace(/\.$/, ''));
