@@ -2275,101 +2275,47 @@ export default function App() {
         />
       ) : activeTab === 'store' ? (
         isStorefrontSubdomainHost() && publicStorefrontLoading ? (
-          <div className="relative min-h-screen w-full overflow-hidden bg-[#030705] text-[#f4f4f5] flex flex-col items-center justify-center px-6 py-8 antialiased">
-            <div className="pointer-events-none absolute h-[340px] w-[340px] rounded-full bg-[#1ED760]/15 blur-[90px] animate-pulse" />
-            <div className="relative flex flex-col items-center text-center">
-              <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-full border border-[#1ED760]/35 bg-[#1ED760]/10 text-[#1ED760] shadow-[0_0_32px_rgba(30,215,96,0.25)]">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#1ED760] animate-ping" />
-              </div>
-              <div className="inline-flex items-center gap-2.5 rounded-full border border-[#1ED760]/20 bg-[#1ED760]/6 px-4 py-1.5 font-mono text-xs font-medium text-[#d1fae5] break-all">
-                <span className="h-2 w-2 rounded-full bg-[#1ED760]" />
-                {typeof window !== 'undefined' ? window.location.hostname : ''}
-              </div>
-            </div>
+          <div className="min-h-screen w-full bg-white text-[#121212] flex flex-col items-center justify-center px-6 py-8 text-center antialiased">
+            <img
+              src="/unavailable-illustration.png"
+              alt=""
+              width="170"
+              height="255"
+              loading="eager"
+              decoding="async"
+              className="mb-6 h-auto w-[170px] object-contain"
+            />
+            <p className="text-[13.5px] font-semibold text-[#0f7a37] break-all">
+              {typeof window !== 'undefined' ? window.location.hostname : ''}
+            </p>
           </div>
         ) : isStorefrontSubdomainHost() && publicStorefrontError ? (
-          <div className="relative min-h-screen w-full overflow-hidden bg-[#030705] text-[#f4f4f5] flex flex-col items-center justify-center px-6 py-8 antialiased" role="status">
-            <style>{`
-              @keyframes tiwloBlob1 {
-                0% { transform: translate(0, 0) scale(1); border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
-                50% { transform: translate(50px, 35px) scale(1.1); border-radius: 35% 65% 65% 35% / 45% 55% 45% 55%; }
-                100% { transform: translate(-30px, 60px) scale(0.94); border-radius: 50% 50% 35% 65% / 55% 35% 65% 45%; }
-              }
-              @keyframes tiwloBlob2 {
-                0% { transform: translate(0, 0) scale(1); border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; }
-                50% { transform: translate(-55px, -40px) scale(1.08); border-radius: 65% 35% 45% 55% / 55% 45% 55% 45%; }
-                100% { transform: translate(35px, -50px) scale(0.92); border-radius: 45% 55% 60% 40% / 35% 65% 35% 65%; }
-              }
-            `}</style>
-            <div
-              className="pointer-events-none absolute inset-0"
-              style={{
-                backgroundImage: 'linear-gradient(rgba(30,215,96,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(30,215,96,0.045) 1px, transparent 1px)',
-                backgroundSize: '56px 56px',
-                maskImage: 'radial-gradient(ellipse 65% 55% at 50% 50%, #000 20%, transparent 100%)',
-                WebkitMaskImage: 'radial-gradient(ellipse 65% 55% at 50% 50%, #000 20%, transparent 100%)'
-              }}
+          <main className="min-h-screen w-full bg-white text-[#121212] flex flex-col items-center justify-center px-6 py-8 text-center antialiased" role="status">
+            <img
+              src="/unavailable-illustration.png"
+              alt=""
+              width="170"
+              height="255"
+              loading="eager"
+              decoding="async"
+              className="mb-6 h-auto w-[170px] object-contain"
             />
-            <div
-              className="pointer-events-none absolute top-[12%] left-[18%] h-[360px] w-[360px] sm:h-[460px] sm:w-[460px] blur-[90px]"
-              style={{
-                background: 'radial-gradient(circle at 35% 35%, rgba(30,215,96,0.28), rgba(16,185,129,0.08) 65%, transparent 80%)',
-                animation: 'tiwloBlob1 16s ease-in-out infinite alternate'
-              }}
-            />
-            <div
-              className="pointer-events-none absolute bottom-[8%] right-[14%] h-[380px] w-[380px] sm:h-[520px] sm:w-[520px] blur-[90px]"
-              style={{
-                background: 'radial-gradient(circle at 60% 60%, rgba(16,185,129,0.22), rgba(5,150,105,0.06) 65%, transparent 80%)',
-                animation: 'tiwloBlob2 20s ease-in-out infinite alternate'
-              }}
-            />
-            <div
-              className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[320px] w-[320px] rounded-full blur-[90px] animate-pulse"
-              style={{
-                background: 'radial-gradient(circle, rgba(30,215,96,0.18), transparent 72%)'
-              }}
-            />
-            <main className="relative z-10 flex flex-col items-center text-center max-w-[620px] w-full">
-              <div className="relative mb-7 flex h-24 w-24 items-center justify-center" aria-hidden="true">
-                <div className="absolute inset-0 rounded-full border border-dashed border-[#1ED760]/30 animate-[spin_22s_linear_infinite]" />
-                <div className="absolute inset-3 rounded-full border border-[#1ED760]/15 border-t-[#1ED760] animate-[spin_12s_linear_infinite_reverse]" />
-                <div className="relative flex h-13 w-13 items-center justify-center rounded-full border border-[#1ED760]/40 bg-[#06120c]/90 text-[#1ED760] shadow-[0_0_36px_rgba(30,215,96,0.28),inset_0_0_14px_rgba(30,215,96,0.18)]">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="9" />
-                    <path d="M8.5 8.5l7 7" />
-                    <path d="M15.5 8.5l-7 7" />
-                  </svg>
-                </div>
-              </div>
-              <div className="mb-5 inline-flex items-center gap-2.5 rounded-full border border-[#1ED760]/20 bg-[#1ED760]/[0.06] px-4 py-1.5 font-mono text-[12.5px] font-medium text-[#d1fae5] backdrop-blur-md break-all">
-                <span className="relative flex h-2 w-2 shrink-0">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#1ED760] opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#1ED760] shadow-[0_0_12px_#1ED760]" />
-                </span>
-                <span>{typeof window !== 'undefined' ? window.location.hostname : ''}</span>
-              </div>
-              <h1 className="text-[clamp(2.1rem,5vw,3.35rem)] font-bold leading-[1.1] tracking-[-0.035em] text-white">
-                It&apos;s not available
-                <span className="block bg-gradient-to-br from-white via-[#a7f3d0] to-[#1ED760] bg-clip-text text-transparent">
-                  for right now
-                </span>
-              </h1>
-              <p className="mt-4 mb-9 max-w-[440px] text-[clamp(0.95rem,1.8vw,1.06rem)] leading-relaxed text-[#9ca3af]">
-                This subdomain is not currently active or assigned to any service.
-              </p>
-              <a
-                href={getMainAppUrl('/')}
-                className="group inline-flex items-center gap-2.5 rounded-full bg-[#1ED760] px-6.5 py-3.25 text-[13.5px] font-semibold text-[#030705] shadow-[0_0_28px_rgba(30,215,96,0.32)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#34e472] hover:shadow-[0_0_42px_rgba(30,215,96,0.52)]"
-              >
-                <span>Return to {PLATFORM_DOMAIN}</span>
-                <svg className="transition-transform duration-200 group-hover:translate-x-1" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 12h14" />
-                  <path d="m12 5 7 7-7 7" />
-                </svg>
-              </a>
-            </main>
-          </div>
+            <p className="mb-2.5 text-[13.5px] font-semibold tracking-[0.01em] text-[#0f7a37] break-all">
+              {typeof window !== 'undefined' ? window.location.hostname : ''}
+            </p>
+            <h1 className="text-[clamp(1.65rem,3.6vw,2.25rem)] font-bold leading-[1.18] tracking-[-0.025em] text-[#121212]">
+              It&apos;s not available for right now
+            </h1>
+            <p className="mt-2.5 mb-7 max-w-[400px] text-[15px] leading-relaxed text-[#6a6a6a]">
+              This subdomain is not currently active or assigned to any service.
+            </p>
+            <a
+              href={getMainAppUrl('/')}
+              className="inline-flex items-center justify-center rounded-full bg-[#121212] px-7 py-2.75 text-sm font-semibold text-white hover:bg-[#262626]"
+            >
+              Tiwlo
+            </a>
+          </main>
         ) : (
           <TiwiMart
             products={products}
