@@ -2276,14 +2276,10 @@ export default function App() {
       ) : activeTab === 'store' ? (
         isStorefrontSubdomainHost() && publicStorefrontLoading ? (
           <div className="min-h-screen w-full bg-white text-[#121212] flex flex-col items-center justify-center px-6 py-8 text-center antialiased">
-            <img
-              src="/unavailable-illustration.png"
-              alt=""
-              width="170"
-              height="255"
-              loading="eager"
-              decoding="async"
-              className="mb-6 h-auto w-[170px] object-contain"
+            <div
+              aria-hidden="true"
+              className="pointer-events-none select-none mb-5 h-[255px] w-[170px] bg-contain bg-center bg-no-repeat"
+              style={{ backgroundImage: "url('/unavailable-illustration.png')", WebkitTouchCallout: 'none' }}
             />
             <p className="text-[13.5px] font-semibold text-[#0f7a37] break-all">
               {typeof window !== 'undefined' ? window.location.hostname : ''}
@@ -2291,15 +2287,29 @@ export default function App() {
           </div>
         ) : isStorefrontSubdomainHost() && publicStorefrontError ? (
           <main className="min-h-screen w-full bg-white text-[#121212] flex flex-col items-center justify-center px-6 py-8 text-center antialiased" role="status">
-            <img
-              src="/unavailable-illustration.png"
-              alt=""
-              width="170"
-              height="255"
-              loading="eager"
-              decoding="async"
-              className="mb-6 h-auto w-[170px] object-contain"
-            />
+            <style>{`
+              @keyframes tiwloUmbrellaSway { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-4px) rotate(-1.4deg); } }
+              @keyframes tiwloRainFall { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: 0.85; } 80% { opacity: 0.65; } 100% { transform: translateY(115px); opacity: 0; } }
+            `}</style>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none select-none relative mx-auto mb-[22px] h-[260px] w-[190px] overflow-hidden"
+              style={{ WebkitTouchCallout: 'none' }}
+            >
+              <span className="absolute -top-3.5 left-[22px] z-[1] h-3 w-0.5 rounded-full bg-[#cbd5e1]" style={{ animation: 'tiwloRainFall 1.35s linear infinite' }} />
+              <span className="absolute -top-3.5 left-[54px] z-[1] h-3 w-0.5 rounded-full bg-[#cbd5e1]" style={{ animation: 'tiwloRainFall 1.35s linear 0.45s infinite' }} />
+              <span className="absolute -top-3.5 left-[92px] z-[1] h-3 w-0.5 rounded-full bg-[#cbd5e1]" style={{ animation: 'tiwloRainFall 1.35s linear 0.2s infinite' }} />
+              <span className="absolute -top-3.5 left-[134px] z-[1] h-3 w-0.5 rounded-full bg-[#cbd5e1]" style={{ animation: 'tiwloRainFall 1.35s linear 0.7s infinite' }} />
+              <span className="absolute -top-3.5 left-[166px] z-[1] h-3 w-0.5 rounded-full bg-[#cbd5e1]" style={{ animation: 'tiwloRainFall 1.35s linear 0.35s infinite' }} />
+              <div
+                className="relative z-[2] mx-auto mt-[5px] h-[255px] w-[170px] bg-contain bg-center bg-no-repeat"
+                style={{
+                  backgroundImage: "url('/unavailable-illustration.png')",
+                  transformOrigin: '50% 88%',
+                  animation: 'tiwloUmbrellaSway 3.4s ease-in-out infinite'
+                }}
+              />
+            </div>
             <p className="mb-2.5 text-[13.5px] font-semibold tracking-[0.01em] text-[#0f7a37] break-all">
               {typeof window !== 'undefined' ? window.location.hostname : ''}
             </p>
