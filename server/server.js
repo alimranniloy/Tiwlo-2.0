@@ -15,11 +15,12 @@ import { PLATFORM_CONFIG, getSubdomain } from './config/platformConfig.js';
 import { getSeoMetadata } from '../shared/seoMetadata.mjs';
 
 import { ensureCertificates } from './scripts/generate-cert.js';
-import { testPgConnection } from './db/postgres.js';
+import { queryPg, testPgConnection } from './db/postgres.js';
 import { BillingDB } from './db/billing.js';
 import { streamStoredMedia } from './db/mediaStorage.js';
 import { MasterDB } from './db/multiTenant.js';
 import { resolveActiveStore, resolveStorefrontHost, tenantContext } from './db/storeDataAdapter.js';
+import { RESERVED_STORE_SUBDOMAIN_LABELS } from './db/storeSubdomain.js';
 import { createGraphQLMiddleware } from './graphql/index.js';
 import { createApplicationGraphQL, protectAsyncRouter } from './graphql/applicationApi.js';
 import { InputSanitizer } from './security/cryptoSecurity.js';
@@ -112,6 +113,7 @@ const apiLimiter = rateLimit({
   ...(apiRateLimitStore ? { store: apiRateLimitStore } : {}),
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.path === '/tls/allow' || req.originalUrl?.startsWith('/api/tls/allow'),
   message: { error: 'Security firewall rate limit reached. Please try again shortly.' }
 });
 app.use(['/api', '/graphql'], apiLimiter);
@@ -216,6 +218,7 @@ app.use((req, res, next) => {
 
 // Active User Resolution & Real-time Account Ban Enforcement
 app.use(async (req, res, next) => {
+  if (req.path === '/api/tls/allow') return next();
   try {
     const authHeader = req.headers.authorization;
     let token = req.cookies?.tiwlo_host_session ||
@@ -520,13 +523,68 @@ app.get('/favicon.ico', (req, res) => {
   res.status(204).end();
 });
 
-app.get('/', async (req, res, next) => {
-  const host = requestHost(req);
-  const freeBase = PLATFORM_CONFIG.freeSubdomainDomain;
-  if (!freeBase || !host.endsWith(`.${freeBase}`) || host === `www.${freeBase}`) {
+const escapeHtml = (str) => String(str || '')
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;');
+
+function renderUnavailableSubdomainHtml(host, baseDomain) {
+  const safeHost = escapeHtml(host);
+  const safeBase = escapeHtml(baseDomain || PLATFORM_CONFIG.primaryDomain);
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${safeHost} — Not Available</title><style>*,*::before,*::after{box-sizing:border-box}body{margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#fafafa;color:#09090b;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px;-webkit-font-smoothing:antialiased}.card{max-width:420px;width:100%;background:#ffffff;border:1px solid #e4e4e7;border-radius:16px;padding:28px;box-shadow:0 1px 2px rgba(0,0,0,.04)}.top{display:flex;align-items:center;justify-content:space-between;gap:8px}.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;border:1px solid #e4e4e7;background:#fafafa;color:#52525b;font-size:11px;font-weight:500}.dot{width:6px;height:6px;border-radius:999px;background:#71717a}.tls{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#71717a}.host{margin-top:20px;display:inline-flex;align-items:center;padding:6px 12px;border-radius:8px;border:1px solid #e4e4e7;background:#f4f4f5;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:500;color:#18181b;word-break:break-all}h1{margin:16px 0 8px;font-size:18px;font-weight:600;letter-spacing:-0.015em;color:#09090b}p{margin:0;color:#71717a;font-size:13.5px;line-height:1.6}.sep{height:1px;background:#e4e4e7;margin:22px 0 18px}a.btn{display:inline-flex;width:100%;align-items:center;justify-content:center;padding:10px 16px;border-radius:8px;background:#09090b;color:#fafafa;text-decoration:none;font-size:12.5px;font-weight:500;transition:background .15s}a.btn:hover{background:#27272a}</style></head><body><main class="card"><div class="top"><span class="badge"><span class="dot"></span>Unavailable</span><span class="tls">TLS &bull; Active</span></div><div class="host">${safeHost}</div><h1>It's not available for right now</h1><p>This subdomain is not currently active or assigned to any service.</p><div class="sep"></div><a class="btn" href="https://${safeBase}">Return to ${safeBase}</a></main></body></html>`;
+}
+
+function getUnreservedTenantBaseDomain(host) {
+  const clean = String(host || '').toLowerCase().replace(/\.$/, '');
+  if (!clean) return null;
+  if (
+    PLATFORM_CONFIG.managedDomains.includes(clean) ||
+    clean === PLATFORM_CONFIG.dashboardHost ||
+    clean === PLATFORM_CONFIG.authDomain ||
+    clean === PLATFORM_CONFIG.pickDashboardHost
+  ) {
+    return null;
+  }
+  const bases = [
+    PLATFORM_CONFIG.freeSubdomainDomain,
+    PLATFORM_CONFIG.primaryDomain,
+    PLATFORM_CONFIG.storeDomain
+  ].filter(Boolean);
+  for (const base of new Set(bases)) {
+    const suffix = `.${base}`;
+    if (clean.endsWith(suffix)) {
+      const label = clean.slice(0, -suffix.length);
+      if (!label || label.includes('.')) return null;
+      if (RESERVED_STORE_SUBDOMAIN_LABELS.includes(label) || label === 'uids') {
+        return null;
+      }
+      return base;
+    }
+  }
+  return null;
+}
+
+app.use(async (req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  if (req.path.startsWith('/api') || req.path.startsWith('/graphql') || req.path.includes('.')) {
     return next();
   }
+  const host = requestHost(req);
+  const baseDomain = getUnreservedTenantBaseDomain(host);
+  if (!baseDomain) return next();
+
   try {
+    // 1. Check if this subdomain is assigned to an active e-commerce store
+    if (baseDomain === PLATFORM_CONFIG.primaryDomain || baseDomain === PLATFORM_CONFIG.storeDomain) {
+      const store = await resolveStorefrontHost(host);
+      if (store) {
+        req.resolvedStorefront = store;
+        return next();
+      }
+    }
+
+    // 2. Check if this subdomain is assigned to an active OneProfile / free subdomain website
     const { rows } = await queryPg(
       `SELECT d.id, d.subdomain, d.domain, d.status, d.created_at,
               u.name, u.store_name, u.avatar,
@@ -541,12 +599,9 @@ app.get('/', async (req, res, next) => {
       [host]
     );
     const sub = rows[0];
-    const escapeHtml = (str) => String(str || '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
     if (!sub) {
-      const safeHost = escapeHtml(host);
-      const safeBase = escapeHtml(freeBase);
       res.vary('Host');
-      return res.status(404).type('html').send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safeHost} — Not Available</title><style>*,*::before,*::after{box-sizing:border-box}body{margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#fafafa;color:#09090b;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px;-webkit-font-smoothing:antialiased}.card{max-width:420px;width:100%;background:#ffffff;border:1px solid #e4e4e7;border-radius:16px;padding:28px;box-shadow:0 1px 2px rgba(0,0,0,.04)}.top{display:flex;align-items:center;justify-content:space-between;gap:8px}.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;border:1px solid #e4e4e7;background:#fafafa;color:#52525b;font-size:11px;font-weight:500}.dot{width:6px;height:6px;border-radius:999px;background:#71717a}.tls{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#71717a}.host{margin-top:20px;display:inline-flex;align-items:center;padding:6px 12px;border-radius:8px;border:1px solid #e4e4e7;background:#f4f4f5;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:500;color:#18181b;word-break:break-all}h1{margin:16px 0 8px;font-size:18px;font-weight:600;letter-spacing:-0.015em;color:#09090b}p{margin:0;color:#71717a;font-size:13.5px;line-height:1.6}.sep{height:1px;background:#e4e4e7;margin:22px 0 18px}a.btn{display:inline-flex;width:100%;align-items:center;justify-content:center;padding:10px 16px;border-radius:8px;background:#09090b;color:#fafafa;text-decoration:none;font-size:12.5px;font-weight:500;transition:background .15s}a.btn:hover{background:#27272a}</style></head><body><main class="card"><div class="top"><span class="badge"><span class="dot"></span>Unavailable</span><span class="tls">TLS &bull; Active</span></div><div class="host">${safeHost}</div><h1>It's not available for right now</h1><p>This subdomain is not currently active or assigned to any service.</p><div class="sep"></div><a class="btn" href="https://${safeBase}">Return to ${safeBase}</a></main></body></html>`);
+      return res.status(404).type('html').send(renderUnavailableSubdomainHtml(host, baseDomain));
     }
     await queryPg(
       `UPDATE system_oneprofile_websites SET view_count = view_count + 1, updated_at = CURRENT_TIMESTAMP WHERE domain = $1`,
@@ -554,9 +609,9 @@ app.get('/', async (req, res, next) => {
     ).catch(() => {});
     const displayName = escapeHtml(sub.site_title || sub.name || sub.store_name || sub.subdomain);
     const headline = escapeHtml(sub.headline || `Official ${sub.domain} digital identity & edge endpoint`);
-    const bio = escapeHtml(sub.bio || `This subdomain is active, secured with automatic TLS, and served by ${freeBase} authoritative DNS.`);
+    const bio = escapeHtml(sub.bio || `This subdomain is active, secured with automatic TLS, and served by ${baseDomain} authoritative DNS.`);
     res.vary('Host');
-    return res.status(200).type('html').send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${displayName} — ${escapeHtml(sub.domain)}</title><style>body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f8fafc;color:#0f172a;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px}.card{max-width:540px;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:28px;padding:40px;box-shadow:0 8px 30px rgba(15,23,42,.05)}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:24px;flex-wrap:wrap}.domain{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;font-weight:700;color:#0f172a;background:#f1f5f9;padding:6px 14px;border-radius:999px}.status{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#047857;background:#ecfdf5;padding:6px 12px;border-radius:999px}.dot{width:8px;height:8px;border-radius:50%;background:#10b981}h1{margin:0 0 8px;font-size:28px;font-weight:800;letter-spacing:-0.02em}h2{margin:0 0 16px;font-size:15px;font-weight:600;color:#475569}p{margin:0 0 28px;font-size:14px;line-height:1.7;color:#64748b}.footer{display:flex;align-items:center;justify-content:space-between;padding-top:20px;border-top:1px solid #f1f5f9;font-size:12px;color:#94a3b8;flex-wrap:wrap;gap:12px}a.manage{color:#0f172a;font-weight:700;text-decoration:none;padding:8px 16px;border-radius:999px;border:1px solid #e2e8f0}a.manage:hover{background:#f8fafc}</style></head><body><main class="card"><div class="top"><span class="domain">${escapeHtml(sub.domain)}</span><span class="status"><span class="dot"></span>Active &amp; Verified SSL</span></div><h1>${displayName}</h1><h2>${headline}</h2><p>${bio}</p><div class="footer"><span>Powered by <strong>${escapeHtml(freeBase)}</strong></span><a class="manage" href="https://${escapeHtml(freeBase)}/oneprofile/subdomains">Manage Subdomain &amp; DNS →</a></div></main></body></html>`);
+    return res.status(200).type('html').send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${displayName} — ${escapeHtml(sub.domain)}</title><style>body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f8fafc;color:#0f172a;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px}.card{max-width:540px;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:28px;padding:40px;box-shadow:0 8px 30px rgba(15,23,42,.05)}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:24px;flex-wrap:wrap}.domain{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;font-weight:700;color:#0f172a;background:#f1f5f9;padding:6px 14px;border-radius:999px}.status{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#047857;background:#ecfdf5;padding:6px 12px;border-radius:999px}.dot{width:8px;height:8px;border-radius:50%;background:#10b981}h1{margin:0 0 8px;font-size:28px;font-weight:800;letter-spacing:-0.02em}h2{margin:0 0 16px;font-size:15px;font-weight:600;color:#475569}p{margin:0 0 28px;font-size:14px;line-height:1.7;color:#64748b}.footer{display:flex;align-items:center;justify-content:space-between;padding-top:20px;border-top:1px solid #f1f5f9;font-size:12px;color:#94a3b8;flex-wrap:wrap;gap:12px}a.manage{color:#0f172a;font-weight:700;text-decoration:none;padding:8px 16px;border-radius:999px;border:1px solid #e2e8f0}a.manage:hover{background:#f8fafc}</style></head><body><main class="card"><div class="top"><span class="domain">${escapeHtml(sub.domain)}</span><span class="status"><span class="dot"></span>Active &amp; Verified SSL</span></div><h1>${displayName}</h1><h2>${headline}</h2><p>${bio}</p><div class="footer"><span>Powered by <strong>${escapeHtml(baseDomain)}</strong></span><a class="manage" href="https://${escapeHtml(baseDomain)}/oneprofile/subdomains">Manage Subdomain &amp; DNS →</a></div></main></body></html>`);
   } catch (err) {
     return next(err);
   }
@@ -616,9 +671,9 @@ if (fs.existsSync(CLIENT_DIST)) {
     if (fs.existsSync(indexPath)) {
       try {
         const requestHostname = requestHost(req);
-        const customStore = !PLATFORM_CONFIG.managedDomains.some(domain =>
+        const customStore = req.resolvedStorefront || (!PLATFORM_CONFIG.managedDomains.some(domain =>
           requestHostname === domain || requestHostname.endsWith(`.${domain}`)
-        ) ? await resolveStorefrontHost(requestHostname) : null;
+        ) ? await resolveStorefrontHost(requestHostname) : null);
         const metadata = getSeoMetadata({
           hostname: requestHostname,
           pathname: req.path,

@@ -37,6 +37,7 @@ export async function applicationFetch(resource, options = {}) {
   const url = new URL(resource, window.location.href);
   const ownOrigin = url.origin === window.location.origin || url.hostname === PLATFORM_DOMAIN || url.hostname.endsWith(`.${PLATFORM_DOMAIN}`);
   if (!ownOrigin || !url.pathname.startsWith('/api/') ||
+      url.pathname.startsWith('/api/public/') ||
       ['/api/address-verification', '/api/login-location'].includes(url.pathname) ||
       /graphql|upload|attachment|download|export|backup|media\/|stream|\/tls\/|webhook/i.test(url.pathname) ||
       (options.body != null && typeof options.body !== 'string')) return nativeFetch(resource, options);

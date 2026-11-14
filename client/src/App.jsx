@@ -923,6 +923,7 @@ export default function App() {
 
   // Cross-subdomain auth shares a cookie scoped to the configured platform domain.
   const [authChecking, setAuthChecking] = useState(() => {
+    if (isStorefrontSubdomainHost()) return false;
     const searchParams = new URLSearchParams(window.location.search);
     const isUidsLandingRoot = window.location.hostname.toLowerCase() === FREE_SUBDOMAIN_DOMAIN &&
       window.location.pathname.replace(/^\/+|\/+$/g, '') === '' &&
@@ -933,6 +934,13 @@ export default function App() {
   // Initial Cross-Subdomain Handshake & Cookie Session Auto-Discovery
   useEffect(() => {
     let isMounted = true;
+
+    if (isStorefrontSubdomainHost()) {
+      setAuthChecking(false);
+      return () => {
+        isMounted = false;
+      };
+    }
 
     const isAuthHost = isAuthSubdomain();
     const searchParams = new URLSearchParams(window.location.search);
