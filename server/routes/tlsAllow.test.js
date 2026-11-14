@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isInternalTlsAskClient } from './systemRoutes.js';
+import { isInternalTlsAskClient, isValidPlatformSubdomainHost } from './systemRoutes.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 
 test('TLS ask allows loopback and private Docker bridge IPs without forwarding headers', () => {
@@ -25,8 +25,13 @@ test('TLS ask rejects public IPs and any proxied request carrying forwarding hea
   );
 });
 
-test('Platform managed domains include root, auth, pick, uids, and www hosts', () => {
+test('Platform managed domains and single-label subdomains are approved for SSL', () => {
   for (const host of ['tiwlo.com', 'www.tiwlo.com', 'auth.tiwlo.com', 'pick.tiwlo.com', 'uids.app', 'www.uids.app']) {
     assert.equal(PLATFORM_CONFIG.managedDomains.includes(host), true, `Missing managed host: ${host}`);
   }
+  assert.equal(isValidPlatformSubdomainHost('qdhqouiwedhq.tiwlo.com'), true);
+  assert.equal(isValidPlatformSubdomainHost('qdhqouiwedhq.uids.app'), true);
+  assert.equal(isValidPlatformSubdomainHost('nested.sub.tiwlo.com'), false);
+  assert.equal(isValidPlatformSubdomainHost('-invalid.tiwlo.com'), false);
+  assert.equal(isValidPlatformSubdomainHost('evil-example.com'), false);
 });

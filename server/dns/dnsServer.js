@@ -318,11 +318,6 @@ async function handleDnsRequest(request, send, rinfo) {
       // TYPE A (IPv4 Address)
       // -------------------------------------------------------------
       case Packet.TYPE.A: {
-        if (queryDomain.endsWith(`.${PLATFORM_CONFIG.freeSubdomainDomain}`) &&
-            !claimedSubdomain && !isPlatformHost(queryDomain)) {
-          response.header.rcode = Packet.RCODE.NXDOMAIN;
-          return send(response);
-        }
         const address = queryDomain === DNS_CONFIG.NS1 || queryDomain === DNS_CONFIG.NS2
           ? DNS_CONFIG.PUBLIC_DNS_IP
           : queryDomain === DNS_CONFIG.MAIL_HOST
@@ -333,11 +328,6 @@ async function handleDnsRequest(request, send, rinfo) {
       }
 
       case Packet.TYPE.AAAA: {
-        if (queryDomain.endsWith(`.${PLATFORM_CONFIG.freeSubdomainDomain}`) &&
-            !claimedSubdomain && !isPlatformHost(queryDomain)) {
-          response.header.rcode = Packet.RCODE.NXDOMAIN;
-          return send(response);
-        }
         const address = queryDomain === DNS_CONFIG.NS1 || queryDomain === DNS_CONFIG.NS2
           ? DNS_CONFIG.PUBLIC_DNS_IPV6
           : queryDomain === DNS_CONFIG.MAIL_HOST

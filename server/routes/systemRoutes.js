@@ -123,9 +123,30 @@ export function isInternalTlsAskClient(req) {
   return false;
 }
 
-// Caddy calls this before requesting an on-demand TLS certificate. Only this
-// deployment's primary domain and its verified subdomains are approved. The route
-// deliberately stays before the authenticated system-route middleware.
+export function isValidPlatformSubdomainHost(host) {
+  const clean = String(host || '').trim().toLowerCase().replace(/\.$/, '');
+  if (!clean) return false;
+  const platformBases = [
+    PLATFORM_CONFIG.primaryDomain,
+    PLATFORM_CONFIG.storeDomain,
+    PLATFORM_CONFIG.freeSubdomainDomain
+  ].filter(Boolean);
+  for (const base of new Set(platformBases)) {
+    if (clean === base) return true;
+    const suffix = `.${base}`;
+    if (clean.endsWith(suffix)) {
+      const label = clean.slice(0, -suffix.length);
+      if (/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Caddy calls this before requesting an on-demand TLS certificate. Platform
+// domains, single-label platform subdomains (*.tiwlo.com, *.uids.app), and
+// verified custom domains are approved.
 router.get('/tls/allow', async (req, res) => {
   if (!isInternalTlsAskClient(req)) return res.sendStatus(403);
 
@@ -133,17 +154,10 @@ router.get('/tls/allow', async (req, res) => {
   const primaryDomain = PLATFORM_CONFIG.primaryDomain;
   if (!requestedHost || !primaryDomain) return res.sendStatus(403);
 
-  if (PLATFORM_CONFIG.managedDomains.includes(requestedHost)) return res.sendStatus(200);
+  if (PLATFORM_CONFIG.managedDomains.includes(requestedHost) || isValidPlatformSubdomainHost(requestedHost)) {
+    return res.sendStatus(200);
+  }
   try {
-    if (requestedHost.endsWith(`.${PLATFORM_CONFIG.freeSubdomainDomain}`)) {
-      return res.sendStatus(await findActiveFreeSubdomain(requestedHost) ? 200 : 403);
-    }
-    if (requestedHost.endsWith(`.${PLATFORM_CONFIG.primaryDomain}`) ||
-        requestedHost.endsWith(`.${PLATFORM_CONFIG.storeDomain}`)) {
-      const verifiedStore = await resolveStorefrontHost(requestedHost);
-      const verifiedFreeSub = !verifiedStore ? await findActiveFreeSubdomain(requestedHost) : null;
-      return res.sendStatus((verifiedStore || verifiedFreeSub) ? 200 : 403);
-    }
     return res.sendStatus(await findProvisionableCustomDomain(requestedHost) ? 200 : 403);
   } catch (error) {
     console.error('[SystemRoutes] Could not validate custom TLS domain:', error);

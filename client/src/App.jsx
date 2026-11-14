@@ -319,6 +319,7 @@ export default function App() {
         return 'email';
       }
       if (isMailSubdomain()) return 'email';
+      if (isStorefrontSubdomainHost(hostname)) return 'store';
 
       // Store Route Detection on the main platform.
       const isStoreRoute = pathname === 'store' || pathname.startsWith('store/');
@@ -1109,6 +1110,10 @@ export default function App() {
                 setActiveTab('email');
                 return;
               }
+              if (isStorefrontSubdomainHost()) {
+                setActiveTab('store');
+                return;
+              }
               const isSuper = data.user.role === 'super_admin' || data.user.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
               if (!isUidsLandingRoot && (path === '' || path === 'login' || path === 'landing')) {
                 setActiveTab(isSuper ? 'administrator' : 'workspace');
@@ -1166,7 +1171,8 @@ export default function App() {
           currentParams.get('panel') === 'tpanel' ||
           currentParams.get('tab') === 'tpanel' ||
           currentParams.get('view') === 'tpanel';
-        const isPublicPath = (!isMailSubdomain() && path === '') || path === 'landing' || path === 'home' ||
+        const isPublicPath = isStorefrontSubdomainHost() ||
+          (!isMailSubdomain() && path === '') || path === 'landing' || path === 'home' ||
           path === 'verification' || path.startsWith('verification/') ||
           path === 'store' || path.startsWith('store/') ||
           path === 'create-account' || path === 'register' || path === 'signup' ||
@@ -2261,10 +2267,48 @@ export default function App() {
         />
       ) : activeTab === 'store' ? (
         isStorefrontSubdomainHost() && publicStorefrontLoading ? (
-          <div className="min-h-screen flex items-center justify-center text-neutral-600">Loading storefront...</div>
+          <div className="min-h-screen bg-[#fafafa] text-[#09090b] flex items-center justify-center p-6 antialiased">
+            <div className="w-full max-w-[420px] rounded-2xl border border-[#e4e4e7] bg-white p-7 shadow-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#e4e4e7] bg-[#fafafa] px-2.5 py-1 text-[11px] font-medium text-[#52525b]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#71717a] animate-pulse" />
+                  Checking
+                </span>
+                <span className="font-mono text-[11px] text-[#71717a]">TLS &bull; Active</span>
+              </div>
+              <div className="mt-5 inline-flex items-center rounded-lg border border-[#e4e4e7] bg-[#f4f4f5] px-3 py-1.5 font-mono text-xs font-medium text-[#18181b] break-all">
+                {typeof window !== 'undefined' ? window.location.hostname : ''}
+              </div>
+              <p className="mt-4 text-[13.5px] text-[#71717a]">Verifying subdomain status...</p>
+            </div>
+          </div>
         ) : isStorefrontSubdomainHost() && publicStorefrontError ? (
-          <div className="min-h-screen flex items-center justify-center p-6 text-center text-rose-700" role="alert">
-            {publicStorefrontError}
+          <div className="min-h-screen bg-[#fafafa] text-[#09090b] flex items-center justify-center p-6 antialiased" role="status">
+            <main className="w-full max-w-[420px] rounded-2xl border border-[#e4e4e7] bg-white p-7 shadow-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-[#e4e4e7] bg-[#fafafa] px-2.5 py-1 text-[11px] font-medium text-[#52525b]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#71717a]" />
+                  Unavailable
+                </span>
+                <span className="font-mono text-[11px] text-[#71717a]">TLS &bull; Active</span>
+              </div>
+              <div className="mt-5 inline-flex items-center rounded-lg border border-[#e4e4e7] bg-[#f4f4f5] px-3 py-1.5 font-mono text-xs font-medium text-[#18181b] break-all">
+                {typeof window !== 'undefined' ? window.location.hostname : ''}
+              </div>
+              <h1 className="mt-4 text-lg font-semibold tracking-tight text-[#09090b]">
+                It&apos;s not available for right now
+              </h1>
+              <p className="mt-2 text-[13.5px] leading-relaxed text-[#71717a]">
+                This subdomain is not currently active or assigned to any service.
+              </p>
+              <div className="my-5 h-px bg-[#e4e4e7]" />
+              <a
+                href={getMainAppUrl('/')}
+                className="inline-flex w-full items-center justify-center rounded-lg bg-[#09090b] px-4 py-2.5 text-[12.5px] font-medium text-[#fafafa] transition-colors hover:bg-[#27272a]"
+              >
+                Return to {PLATFORM_DOMAIN}
+              </a>
+            </main>
           </div>
         ) : (
           <TiwiMart
