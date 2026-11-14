@@ -14,6 +14,7 @@
     "country-codes-list": "^3.2.0",
     "jsbarcode": "^3.12.3",
     "jspdf": "^4.2.1",
+    "lottie-web": "^5.13.0",
     "lucide-react": "^1.48.0",
     "qrcode": "^1.5.4",
     "react": "^19.2.8",
