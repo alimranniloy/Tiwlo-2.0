@@ -1,3 +1,4 @@
+import { applicationFetch as fetch } from '../../../api/graphqlTransport.js';
 import React, { useEffect, useState } from 'react';
 import { 
   CreditCard, 
@@ -27,7 +28,8 @@ import {
   Pencil,
   Save,
   X,
-  Phone
+  Phone,
+  Gift
 } from 'lucide-react';
 import { getCloudBillingData, redeemCloudVoucher, startCloudCreditCheckout } from '../graphql/cloudQueries';
 import { COUNTRY_OPTIONS } from '../../../utils/accountFormOptions';
@@ -81,6 +83,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
     account: null,
     error: ''
   });
+  const [promoStatus, setPromoStatus] = useState(null);
 
   const loadBilling = async () => {
     if (!userId) {
@@ -89,7 +92,15 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
     }
     setBillingState(prev => ({ ...prev, loading: true }));
     try {
-      const result = await getCloudBillingData(userId);
+      const [result, promoRes] = await Promise.all([
+        getCloudBillingData(userId),
+        fetch('/api/cloud/billing/promotions/status', { credentials: 'include' })
+          .then(r => r.ok ? r.json() : null)
+          .catch(() => null)
+      ]);
+      if (promoRes?.success) {
+        setPromoStatus(promoRes);
+      }
       const account = result?.account || null;
       if (account?.billingAddress) {
         const storedPhone = account.billingAddress.phone || '';
@@ -281,10 +292,23 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
     try {
       const result = await redeemCloudVoucher(code);
       setVoucherCode('');
-      showToast?.(`Voucher applied: ${formatMoney(Number(result.addedCredits))} added to your balance.`, 'success');
+      const durationNote = result.rewardType === 'standard_credit' || !result.validityDays
+        ? ''
+        : ` (valid ${result.validityDays} days)`;
+      showToast?.(`Promotional code applied: ${formatMoney(Number(result.addedCredits))} added${durationNote}.`, 'success');
       await loadBilling();
     } catch (error) {
-      showToast?.(error.message || 'Could not redeem voucher.', 'error');
+      const msg = String(error?.message || '');
+      if (/suspended:|blocked due to/i.test(msg)) {
+        try {
+          const banInfo = { email: currentUser?.email || '', banReason: msg };
+          sessionStorage.setItem('tiwlo_banned_info', JSON.stringify(banInfo));
+          localStorage.setItem('tiwlo_banned_info', JSON.stringify(banInfo));
+        } catch {}
+        window.location.href = '/account-disabled';
+        return;
+      }
+      showToast?.(msg || 'Could not redeem promotional code.', 'error');
     } finally {
       setIsRedeemingVoucher(false);
     }
@@ -509,7 +533,54 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
       </header>
 
       {/* Main Content Area */}
-      <main className="max-w-[1500px] mx-auto px-4 sm:px-8 mt-6">
+      <main className="max-w-[1500px] mx-auto px-4 sm:px-8 mt-6 space-y-6">
+        {promoStatus?.config?.enabled && promoStatus?.eligible && (() => {
+          const cfg = promoStatus.config;
+          const minUsd = Number(cfg.minDepositUsd ?? 1);
+          const bonusUsd = Number(cfg.bonusAmountUsd ?? 50);
+          const days = Number(cfg.validityDays ?? 30);
+          const formatTokenized = (raw) => String(raw || '')
+            .replaceAll('{min}', `$${minUsd.toFixed(2)}`)
+            .replaceAll('{deposit}', `$${minUsd.toFixed(2)}`)
+            .replaceAll('{bonus}', `$${bonusUsd.toFixed(2)}`)
+            .replaceAll('{days}', String(days));
+
+          return (
+            <div className="flex flex-col justify-between gap-4 rounded-lg border border-neutral-200 bg-white p-5 sm:flex-row sm:items-center dark:border-neutral-800 dark:bg-neutral-900">
+              <div className="flex items-start gap-3.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950">
+                  <Gift className="h-4 w-4 text-neutral-900 dark:text-[#1ed760]" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[11px] font-medium text-neutral-800 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200">
+                      {cfg.badgeText || 'New Account Offer'}
+                    </span>
+                    <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
+                      ${minUsd.toFixed(0)} Credit → ${bonusUsd.toFixed(0)} Gift · {days} Days
+                    </span>
+                  </div>
+                  <h2 className="text-sm font-semibold text-neutral-950 dark:text-white">
+                    {formatTokenized(cfg.headline) || `Load $${minUsd.toFixed(2)} credit to get $${bonusUsd.toFixed(2)} gift for ${days} days`}
+                  </h2>
+                  <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                    {formatTokenized(cfg.description) || `New accounts that load at least $${minUsd.toFixed(2)} USD receive $${bonusUsd.toFixed(2)} USD in gift credits valid for ${days} days.`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setCreditTopupAmount(String(minUsd));
+                  setActiveTab('credits');
+                }}
+                className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#1ed760] px-4 text-xs font-semibold text-black transition hover:bg-[#16c653] cursor-pointer"
+              >
+                Add ${minUsd % 1 === 0 ? minUsd.toFixed(0) : minUsd.toFixed(2)} &amp; Get ${bonusUsd % 1 === 0 ? bonusUsd.toFixed(0) : bonusUsd.toFixed(2)} Gift
+              </button>
+            </div>
+          );
+        })()}
         
         {/* ========================================================= */}
         {/* TAB 1: OVERVIEW (Pure Crisp White, Clean Google Material) */}
@@ -860,7 +931,14 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
 
                 <div className="p-4 rounded-xl bg-[#fafafa] dark:bg-[#2d2d2d] text-xs space-y-1.5 sm:text-right shrink-0">
                   <div className="text-[#636363] dark:text-[#9f9f9f]">Currency: <span className="font-semibold text-[#1F1F1F] dark:text-white">{account.currency}</span></div>
-                  <div className="text-[#636363] dark:text-[#9f9f9f]">Promotional balance: <span className="font-semibold text-[#1F1F1F] dark:text-white">{promotionalCredits === null ? 'Unavailable' : formatMoney(promotionalCredits)}</span></div>
+                  <div className="text-[#636363] dark:text-[#9f9f9f]">
+                    Promotional balance: <span className="font-semibold text-[#1F1F1F] dark:text-white">{promotionalCredits === null ? 'Unavailable' : formatMoney(promotionalCredits)}</span>
+                  </div>
+                  {promoStatus?.promotionalExpiresAt && Number(promotionalCredits) > 0 && (
+                    <div className="text-[11px] text-[#636363] dark:text-[#9f9f9f]">
+                      Expires {new Date(promoStatus.promotionalExpiresAt).toLocaleDateString()}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -885,10 +963,10 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
               {creditCheckoutGateways.length > 0 ? (
                 <div className="space-y-4 max-w-xl">
                   <label className="block text-xs font-medium text-[#636363] dark:text-[#9f9f9f]">
-                    Top-up amount (USD, minimum $5)
+                    Top-up amount (USD, minimum $1)
                     <input
                       type="number"
-                      min="5"
+                      min="1"
                       max="10000"
                       step="0.01"
                       required
@@ -933,10 +1011,10 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
             <div className="p-6 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
               <h3 className="text-sm font-semibold text-[#1F1F1F] dark:text-white mb-1 flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-[#000000]" />
-                <span>Redeem Cloud Voucher</span>
+                <span>Redeem Promotional or Voucher Code</span>
               </h3>
               <p className="text-xs text-[#636363] dark:text-[#9f9f9f] mb-3">
-                Enter a valid unused voucher to add its recorded amount to this account.
+                Enter an assigned promotional code or voucher to add credits to this account.
               </p>
               <form onSubmit={handleRedeemVoucher} className="flex gap-2 max-w-md">
                 <input

@@ -323,6 +323,44 @@ export async function initPgSchema() {
         updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
 
+      CREATE TABLE IF NOT EXISTS system_free_store_claims (
+        id BIGSERIAL PRIMARY KEY,
+        user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
+        store_id VARCHAR(64) NOT NULL,
+        plan_id VARCHAR(64) NOT NULL DEFAULT 'free',
+        device_fingerprint_hash CHAR(64),
+        device_token_hash CHAR(64),
+        browser_cookie_hash CHAR(64),
+        ip_hash CHAR(64) NOT NULL,
+        subnet_hash CHAR(64),
+        user_agent_hash CHAR(64),
+        platform_class VARCHAR(32) NOT NULL DEFAULT 'unknown',
+        status VARCHAR(32) NOT NULL DEFAULT 'active',
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_free_claims_user ON system_free_store_claims(user_id);
+      CREATE INDEX IF NOT EXISTS idx_free_claims_fp ON system_free_store_claims(device_fingerprint_hash);
+      CREATE INDEX IF NOT EXISTS idx_free_claims_device ON system_free_store_claims(device_token_hash);
+      CREATE INDEX IF NOT EXISTS idx_free_claims_cookie ON system_free_store_claims(browser_cookie_hash);
+      CREATE INDEX IF NOT EXISTS idx_free_claims_ip ON system_free_store_claims(ip_hash);
+      CREATE INDEX IF NOT EXISTS idx_free_claims_subnet ON system_free_store_claims(subnet_hash);
+
+      CREATE TABLE IF NOT EXISTS system_blocked_identities (
+        id BIGSERIAL PRIMARY KEY,
+        signal_type VARCHAR(32) NOT NULL,
+        signal_hash CHAR(64) NOT NULL,
+        reason TEXT NOT NULL,
+        source_user_id VARCHAR(64),
+        strikes INTEGER NOT NULL DEFAULT 1,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        expires_at TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (signal_type, signal_hash)
+      );
+      CREATE INDEX IF NOT EXISTS idx_blocked_identities_active
+        ON system_blocked_identities(signal_type, signal_hash) WHERE is_active = TRUE;
+
       CREATE TABLE IF NOT EXISTS system_media (
         id VARCHAR(64) PRIMARY KEY,
         content_type VARCHAR(128) NOT NULL,
@@ -749,13 +787,17 @@ export async function initPgSchema() {
 
       ALTER TABLE cloud_billing_accounts ADD COLUMN IF NOT EXISTS account_type VARCHAR(32);
       ALTER TABLE cloud_billing_accounts ADD COLUMN IF NOT EXISTS business_name VARCHAR(255);
+      ALTER TABLE cloud_billing_accounts ADD COLUMN IF NOT EXISTS promotional_credits NUMERIC(12, 2) NOT NULL DEFAULT 0;
+      ALTER TABLE cloud_billing_accounts ADD COLUMN IF NOT EXISTS promotional_expires_at TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE cloud_billing_accounts ADD COLUMN IF NOT EXISTS welcome_promo_claimed_at TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE cloud_billing_accounts ADD COLUMN IF NOT EXISTS first_paid_topup_at TIMESTAMP WITH TIME ZONE;
 
       CREATE TABLE IF NOT EXISTS cloud_credit_topups (
         id VARCHAR(64) PRIMARY KEY,
         user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
         provider VARCHAR(32) NOT NULL,
         mode VARCHAR(16) NOT NULL,
-        amount NUMERIC(12, 2) NOT NULL CHECK (amount >= 5 AND amount <= 10000),
+        amount NUMERIC(12, 2) NOT NULL CHECK (amount >= 1 AND amount <= 10000),
         currency VARCHAR(3) NOT NULL DEFAULT 'USD',
         provider_payment_id VARCHAR(255),
         transaction_id VARCHAR(255),
@@ -772,11 +814,19 @@ export async function initPgSchema() {
         paid_at TIMESTAMP WITH TIME ZONE,
         UNIQUE (provider, provider_payment_id)
       );
+      ALTER TABLE cloud_credit_topups DROP CONSTRAINT IF EXISTS cloud_credit_topups_amount_check;
+      ALTER TABLE cloud_credit_topups ADD CONSTRAINT cloud_credit_topups_amount_check CHECK (amount >= 1 AND amount <= 10000);
       ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE;
       ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP WITH TIME ZONE;
       ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS cancel_reason VARCHAR(32);
       ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS reminder_claimed_at TIMESTAMP WITH TIME ZONE;
       ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS device_fingerprint_hash CHAR(64);
+      ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS device_token_hash CHAR(64);
+      ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS browser_cookie_hash CHAR(64);
+      ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS ip_hash CHAR(64);
+      ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS subnet_hash CHAR(64);
+      ALTER TABLE cloud_credit_topups ADD COLUMN IF NOT EXISTS user_agent_hash CHAR(64);
       UPDATE cloud_credit_topups
       SET expires_at = created_at + INTERVAL '24 hours'
       WHERE expires_at IS NULL;
@@ -805,6 +855,54 @@ export async function initPgSchema() {
         redeemed_by VARCHAR(64) REFERENCES system_users(id) ON DELETE SET NULL,
         redeemed_at TIMESTAMP WITH TIME ZONE
       );
+
+      CREATE TABLE IF NOT EXISTS cloud_promo_codes (
+        id VARCHAR(64) PRIMARY KEY,
+        code VARCHAR(64) NOT NULL UNIQUE,
+        description TEXT NOT NULL DEFAULT '',
+        reward_type VARCHAR(32) NOT NULL DEFAULT 'promo_credit',
+        amount_usd NUMERIC(12, 2) NOT NULL CHECK (amount_usd > 0),
+        validity_days INTEGER NOT NULL DEFAULT 30 CHECK (validity_days > 0),
+        min_topup_usd NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (min_topup_usd >= 0),
+        target_type VARCHAR(32) NOT NULL DEFAULT 'all',
+        target_emails JSONB NOT NULL DEFAULT '[]'::jsonb,
+        target_user_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+        max_total_uses INTEGER,
+        uses_count INTEGER NOT NULL DEFAULT 0,
+        max_per_user INTEGER NOT NULL DEFAULT 1,
+        one_per_device BOOLEAN NOT NULL DEFAULT TRUE,
+        new_accounts_only BOOLEAN NOT NULL DEFAULT FALSE,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        expires_at TIMESTAMP WITH TIME ZONE,
+        created_by VARCHAR(64),
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_cloud_promo_codes_code ON cloud_promo_codes(UPPER(BTRIM(code)));
+
+      CREATE TABLE IF NOT EXISTS system_promo_claims (
+        id BIGSERIAL PRIMARY KEY,
+        claim_type VARCHAR(32) NOT NULL,
+        promo_code_id VARCHAR(64),
+        promo_code VARCHAR(64),
+        user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
+        amount_usd NUMERIC(12, 2) NOT NULL DEFAULT 0,
+        validity_days INTEGER NOT NULL DEFAULT 30,
+        expires_at TIMESTAMP WITH TIME ZONE,
+        device_fingerprint_hash CHAR(64),
+        device_token_hash CHAR(64),
+        browser_cookie_hash CHAR(64),
+        ip_hash CHAR(64),
+        subnet_hash CHAR(64),
+        user_agent_hash CHAR(64),
+        status VARCHAR(32) NOT NULL DEFAULT 'granted',
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_promo_claims_user ON system_promo_claims(user_id, claim_type);
+      CREATE INDEX IF NOT EXISTS idx_promo_claims_code ON system_promo_claims(promo_code_id, user_id);
+      CREATE INDEX IF NOT EXISTS idx_promo_claims_fp ON system_promo_claims(device_fingerprint_hash);
+      CREATE INDEX IF NOT EXISTS idx_promo_claims_device ON system_promo_claims(device_token_hash);
+      CREATE INDEX IF NOT EXISTS idx_promo_claims_ip ON system_promo_claims(ip_hash);
 
       -- 4. LIVE SUPPORT & TICKETING TABLES
       CREATE TABLE IF NOT EXISTS support_tickets (

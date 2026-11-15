@@ -9,6 +9,7 @@ import {
   Gem,
   LayoutGrid,
   LifeBuoy,
+  Lock,
   Mail,
   MonitorSmartphone,
   Package,
@@ -93,6 +94,7 @@ export default function Sidebar({
   onVisitSite,
   onBackToCloud,
   currentStore,
+  subscription = null,
   mobileOpen = false,
   setMobileOpen
 }) {
@@ -174,6 +176,8 @@ export default function Sidebar({
                     (id === 'subscription' && ['pricing', 'upgrade'].includes(activeTab)) ||
                     (id === 'products' && activeTab === 'add-product') ||
                     (id === 'store-settings' && ['store-identity', 'store-banners'].includes(activeTab));
+                  const isPosLocked = id === 'pos' && Boolean(subscription && subscription.hasPos === false);
+                  const displayBadge = isPosLocked ? 'Add-on' : badge;
                   return (
                     <li key={id}>
                       <button
@@ -186,15 +190,20 @@ export default function Sidebar({
                       >
                         <Icon className="size-[18px] shrink-0" aria-hidden="true" />
                         <span className="min-w-0 flex-1 truncate">{label}</span>
-                        {badge && (
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                            badge === 'PRO'
+                        {displayBadge && (
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            displayBadge === 'PRO'
                               ? 'bg-[#1ed760] text-black'
-                              : active
-                                ? 'bg-black text-white'
-                                : 'bg-white/10 text-white/70'
+                              : isPosLocked
+                                ? active
+                                  ? 'bg-black text-white'
+                                  : 'bg-amber-400/15 text-amber-300 ring-1 ring-amber-400/30'
+                                : active
+                                  ? 'bg-black text-white'
+                                  : 'bg-white/10 text-white/70'
                           }`}>
-                            {badge}
+                            {isPosLocked && <Lock className="size-2.5 shrink-0" aria-hidden="true" />}
+                            {displayBadge}
                           </span>
                         )}
                       </button>

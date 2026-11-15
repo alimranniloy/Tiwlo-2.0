@@ -660,7 +660,7 @@ export const rootValue = {
     return await CloudDB.deleteDroplet(id);
   },
 
-  async createUserStore({ userId, input }) {
+  async createUserStore({ userId, input }, context) {
     return await MasterDB.createStoreForUser({
       userId,
       storeName: input.storeName,
@@ -671,7 +671,8 @@ export const rootValue = {
       email: input.email,
       phone: input.phone,
       description: input.description,
-      billingDetails: input.billingDetails
+      billingDetails: input.billingDetails,
+      request: context?.req || null
     });
   },
 
@@ -757,7 +758,7 @@ const authenticatedRoot = Object.fromEntries(Object.entries(rootValue).map(([nam
     const droplet = await CloudDB.getDropletById(args.id);
     if (!droplet || droplet.userId !== user.id) throw new Error('Resource access denied');
   }
-  return resolver({ ...args, userId: user.id, ...(name === 'createUserStore' ? { input: { ...args.input, planId: 'free' } } : {}) });
+  return resolver({ ...args, userId: user.id }, context);
 }]));
 
 // Express GraphQL Middleware
@@ -851,7 +852,7 @@ export function createGraphQLMiddleware() {
         schema,
         document,
         rootValue: authenticatedRoot,
-        contextValue: { activeUser: req.activeUser },
+        contextValue: { activeUser: req.activeUser, req },
         variableValues: variables,
         operationName
       });

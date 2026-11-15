@@ -1,18 +1,25 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useState, useEffect } from 'react';
 import {
-  Sparkles,
-  Check,
-  Globe,
   ArrowLeft,
-  ChevronRight,
+  ArrowRight,
+  Check,
   Copy,
+  Database,
   ExternalLink,
+  Globe,
+  Monitor,
   RefreshCw,
-  ArrowRight
+  ShoppingBag,
+  Users
 } from 'lucide-react';
 
 const API_BASE = '/api';
+
+function formatQuotaMax(value) {
+  const num = Number(value ?? 0);
+  return num >= 999999 ? 'Unlimited' : num.toLocaleString();
+}
 
 export default function SubscriptionOverviewView({
   onBackToDashboard,
@@ -25,23 +32,23 @@ export default function SubscriptionOverviewView({
   const [refreshing, setRefreshing] = useState(false);
   const [copiedSubdomain, setCopiedSubdomain] = useState(false);
 
-  // Real-time scan of both subscription config and actual products database
+  const fetchOverviewData = async () => {
+    const [subRes, prodRes] = await Promise.all([
+      fetch(`${API_BASE}/subscription`),
+      fetch(`${API_BASE}/products`)
+    ]);
+    return {
+      subData: subRes.ok ? await subRes.json() : null,
+      prodData: prodRes.ok ? await prodRes.json() : null
+    };
+  };
+
   const loadData = async () => {
     try {
       setRefreshing(true);
-      const [subRes, prodRes] = await Promise.all([
-        fetch(`${API_BASE}/subscription`),
-        fetch(`${API_BASE}/products`)
-      ]);
-
-      if (subRes.ok) {
-        const subData = await subRes.json();
-        setSubscription(subData);
-      }
-      if (prodRes.ok) {
-        const prodData = await prodRes.json();
-        setProducts(prodData);
-      }
+      const data = await fetchOverviewData();
+      if (data.subData) setSubscription(data.subData);
+      if (data.prodData) setProducts(Array.isArray(data.prodData) ? data.prodData : []);
     } catch (err) {
       console.error('Error fetching subscription overview:', err);
       showToast?.('Error scanning database', 'error');
@@ -52,8 +59,27 @@ export default function SubscriptionOverviewView({
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    let cancelled = false;
+    fetchOverviewData()
+      .then((data) => {
+        if (cancelled) return;
+        if (data.subData) setSubscription(data.subData);
+        if (data.prodData) setProducts(Array.isArray(data.prodData) ? data.prodData : []);
+      })
+      .catch((err) => {
+        console.error('Error fetching subscription overview:', err);
+        if (!cancelled) showToast?.('Error scanning database', 'error');
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showToast]);
 
   const copySubdomain = () => {
     if (!subscription?.subdomain) return;
@@ -64,211 +90,308 @@ export default function SubscriptionOverviewView({
     setTimeout(() => setCopiedSubdomain(false), 2000);
   };
 
-  // Metrics from real-time database scan
-  const totalCount = products.length;
-  const productLimit = subscription?.productLimit || 50;
-  const usagePercent = Math.min(100, Math.round((totalCount / productLimit) * 100));
-  const remainingSlots = Math.max(0, productLimit - totalCount);
+  const totalProducts = Number(subscription?.currentProducts ?? products.length ?? 0);
+  const productLimit = Number(
+    subscription?.effectiveProductLimit ?? subscription?.productLimit ?? 50
+  );
+  const extraProductSlots = Number(subscription?.extraProductSlots ?? 0);
+  const isUnlimitedProducts = productLimit >= 999999;
+  const usagePercent = isUnlimitedProducts
+    ? 0
+    : Math.min(100, Math.round((totalProducts / Math.max(1, productLimit)) * 100));
+  const remainingSlots = isUnlimitedProducts ? null : Math.max(0, productLimit - totalProducts);
+
+  const staffLimit = Number(
+    subscription?.effectiveStaffLimit ?? subscription?.staffLimit ?? 1
+  );
+  const extraStaffSeats = Number(subscription?.extraStaffSeats ?? 0);
+  const currentStaff =
+    subscription?.currentStaff != null ? Number(subscription.currentStaff) : null;
+
+  const monthlyOrderLimit = Number(subscription?.monthlyOrderLimit ?? 100);
+  const currentMonthlyOrders =
+    subscription?.currentMonthlyOrders != null
+      ? Number(subscription.currentMonthlyOrders)
+      : subscription?.monthlyOrders != null
+        ? Number(subscription.monthlyOrders)
+        : null;
+
+  const hasPos = Boolean(subscription?.hasPos ?? subscription?.posAccess);
+  const warehouseLimit = Number(subscription?.warehouseLimit ?? 1);
+  const hasCustomDomain = Boolean(subscription?.hasCustomDomain);
+  const planName = subscription?.planName || 'Free Starter';
+  const planPrice = Number(subscription?.price ?? 0);
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-16 animate-in fade-in duration-150">
-      {/* ========================================================= */}
-      {/* 1. TOP HEADER                                             */}
-      {/* ========================================================= */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-neutral-200/80 dark:border-gray-800 gap-3">
-        <div className="flex items-center space-x-3">
+    <div className="mx-auto max-w-5xl space-y-6 pb-16">
+      {/* Header */}
+      <div className="flex flex-col justify-between gap-3 border-b border-neutral-200 pb-4 sm:flex-row sm:items-center dark:border-neutral-800">
+        <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={onBackToDashboard}
-            className="w-9 h-9 rounded-xl border border-neutral-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-neutral-50 dark:hover:bg-gray-700 text-neutral-600 dark:text-neutral-300 flex items-center justify-center transition shadow-2xs cursor-pointer group shrink-0"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
             title="Back to Dashboard"
           >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+            <ArrowLeft className="h-4 w-4" />
           </button>
-          <h1 className="text-lg sm:text-2xl font-bold text-neutral-900 dark:text-white tracking-tight">
-            Subscription & Storage
-          </h1>
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight text-neutral-950 dark:text-white">
+              Subscription & Quotas
+            </h1>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              Monitor your active monthly limits, add-on capacity, and storefront domain.
+            </p>
+          </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center space-x-2.5 w-full sm:w-auto">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
           <button
+            type="button"
             onClick={loadData}
             disabled={refreshing}
-            className="flex-1 sm:flex-none justify-center flex items-center space-x-1.5 px-3 py-2 rounded-xl border border-neutral-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-neutral-50 dark:hover:bg-gray-700 text-xs font-medium text-neutral-700 dark:text-neutral-300 shadow-2xs transition cursor-pointer"
+            className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50 sm:flex-none dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-neutral-600' : ''}`} />
-            <span>Scan Database</span>
+            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
           </button>
 
           <button
+            type="button"
             onClick={onNavigateToPricing}
-            className="flex-1 sm:flex-none justify-center flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-neutral-600 hover:bg-neutral-500 text-white text-xs font-semibold shadow-xs active:scale-95 transition cursor-pointer"
+            className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#1ed760] px-4 text-xs font-semibold text-black transition hover:bg-[#16c653] sm:flex-none"
           >
-            <Sparkles className="w-3.5 h-3.5 fill-white/20" />
-            <span>Upgrade Plan</span>
+            <span>Upgrade & Add-ons</span>
+            <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
 
-      {/* ========================================================= */}
-      {/* 2. CURRENT PLAN & PRODUCT STORAGE PANEL                   */}
-      {/* ========================================================= */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-neutral-200/90 dark:border-gray-700/80 p-6 sm:p-7 shadow-xs space-y-6">
-        {/* Plan Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-neutral-100 dark:border-gray-700/80">
+      {/* Current Plan & Effective Limits Panel */}
+      <div className="space-y-6 rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="flex flex-col justify-between gap-3 border-b border-neutral-100 pb-5 sm:flex-row sm:items-center dark:border-neutral-800">
           <div>
-            <div className="flex items-center space-x-2">
-              <span className="text-xs font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
                 Current Plan
               </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-50 text-neutral-700 dark:bg-neutral-900/40 dark:text-neutral-300 border border-neutral-200/80 dark:border-neutral-800">
+              <span className="rounded-md border border-neutral-200 bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
                 Active
               </span>
             </div>
-            <div className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white mt-1">
-              {subscription?.planName || 'Free Starter'}
-              <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400 ml-2">
-                (${subscription?.price || 0} / month)
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-2xl font-semibold tracking-tight text-neutral-950 dark:text-white">
+                {loading && !subscription ? 'Loading...' : planName}
+              </span>
+              <span className="text-sm text-neutral-500 dark:text-neutral-400">
+                {planPrice === 0 ? 'Free' : `$${planPrice}/mo`}
               </span>
             </div>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-              1 Central Warehouse Location • POS Register & Online Storefront Included
+            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+              {warehouseLimit >= 99 ? 'Unlimited warehouses' : `${warehouseLimit} warehouse${warehouseLimit > 1 ? 's' : ''}`}
+              {' · '}
+              {hasCustomDomain ? 'Custom domain enabled' : 'Tiwlo subdomain included'}
             </p>
           </div>
 
-          <div>
+          <button
+            type="button"
+            onClick={onNavigateToPricing}
+            className="inline-flex h-9 items-center justify-center rounded-lg border border-neutral-200 bg-white px-3.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 dark:hover:bg-neutral-800"
+          >
+            Manage Plan & Add-ons
+          </button>
+        </div>
+
+        {/* Product Catalog Usage */}
+        <div className="space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <span className="font-medium text-neutral-700 dark:text-neutral-300">
+              Product Catalog Capacity
+              {extraProductSlots > 0 && (
+                <span className="ml-1.5 text-neutral-500 dark:text-neutral-400">
+                  (includes +{extraProductSlots.toLocaleString()} add-on slots)
+                </span>
+              )}
+            </span>
+            <span className="font-semibold text-neutral-950 dark:text-white">
+              {totalProducts.toLocaleString()} of {isUnlimitedProducts ? 'Unlimited' : `${productLimit.toLocaleString()} products`}
+              {!isUnlimitedProducts && ` (${usagePercent}%)`}
+            </span>
+          </div>
+
+          <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
+            <div
+              className="h-full rounded-full bg-[#1ed760] transition-all duration-300"
+              style={{ width: isUnlimitedProducts ? '10%' : `${Math.max(2, Math.min(100, usagePercent))}%` }}
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+            <span>
+              {isUnlimitedProducts
+                ? 'Unlimited product slots available'
+                : `${remainingSlots.toLocaleString()} product slots remaining`}
+            </span>
             <button
+              type="button"
               onClick={onNavigateToPricing}
-              className="px-3.5 py-1.5 rounded-xl border border-neutral-200 dark:border-gray-700 hover:bg-neutral-50 dark:hover:bg-gray-700 text-xs font-semibold text-neutral-700 dark:text-neutral-200 transition cursor-pointer"
+              className="font-medium text-neutral-900 hover:underline dark:text-neutral-200"
             >
-              Change Plan
+              Add extra product slots →
             </button>
           </div>
         </div>
 
-        {/* Product Catalog Storage Bar (Clean Google One Style) */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-neutral-700 dark:text-neutral-300">
-              Product Catalog Storage
-            </span>
-            <span className="font-bold text-neutral-900 dark:text-white">
-              {totalCount} of {productLimit > 100000 ? 'Unlimited' : `${productLimit} products`} ({usagePercent}%)
-            </span>
+        {/* Effective Limits Summary Grid */}
+        <div className="grid grid-cols-1 gap-3 border-t border-neutral-100 pt-5 sm:grid-cols-2 lg:grid-cols-4 dark:border-neutral-800">
+          <div className="rounded-lg border border-neutral-200 bg-neutral-50/50 p-3.5 dark:border-neutral-800 dark:bg-neutral-950">
+            <div className="flex items-center gap-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+              <Database className="h-3.5 w-3.5" />
+              <span>Products</span>
+            </div>
+            <p className="mt-1.5 text-base font-semibold text-neutral-950 dark:text-white">
+              {totalProducts.toLocaleString()} / {formatQuotaMax(productLimit)}
+            </p>
+            <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+              {extraProductSlots > 0 ? `+${extraProductSlots} from add-ons` : 'Base plan quota'}
+            </p>
           </div>
 
-          {/* Simple, sleek 8px progress bar */}
-          <div className="w-full h-2.5 rounded-full bg-neutral-100 dark:bg-gray-700 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-neutral-600 transition-all duration-500"
-              style={{ width: `${Math.max(3, Math.min(100, usagePercent))}%` }}
-            ></div>
+          <div className="rounded-lg border border-neutral-200 bg-neutral-50/50 p-3.5 dark:border-neutral-800 dark:bg-neutral-950">
+            <div className="flex items-center gap-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+              <Users className="h-3.5 w-3.5" />
+              <span>Staff Seats</span>
+            </div>
+            <p className="mt-1.5 text-base font-semibold text-neutral-950 dark:text-white">
+              {currentStaff !== null
+                ? `${currentStaff.toLocaleString()} / ${formatQuotaMax(staffLimit)}`
+                : `${formatQuotaMax(staffLimit)} ${staffLimit === 1 ? 'seat' : 'seats'}`}
+            </p>
+            <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+              {extraStaffSeats > 0 ? `Includes +${extraStaffSeats} extra seats` : 'Team access limit'}
+            </p>
           </div>
 
-          <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
-            <span>
-              {productLimit > 100000 ? 'Unlimited product capacity' : `${remainingSlots} product slots remaining on Free Starter`}
-            </span>
-            <button
-              onClick={onNavigateToPricing}
-              className="text-neutral-600 dark:text-neutral-400 font-semibold hover:underline cursor-pointer"
-            >
-              Get more slots →
-            </button>
+          <div className="rounded-lg border border-neutral-200 bg-neutral-50/50 p-3.5 dark:border-neutral-800 dark:bg-neutral-950">
+            <div className="flex items-center gap-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+              <ShoppingBag className="h-3.5 w-3.5" />
+              <span>Monthly Orders</span>
+            </div>
+            <p className="mt-1.5 text-base font-semibold text-neutral-950 dark:text-white">
+              {currentMonthlyOrders !== null
+                ? `${currentMonthlyOrders.toLocaleString()} / ${formatQuotaMax(monthlyOrderLimit)}`
+                : `${formatQuotaMax(monthlyOrderLimit)} / mo`}
+            </p>
+            <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+              Monthly order allowance
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-neutral-200 bg-neutral-50/50 p-3.5 dark:border-neutral-800 dark:bg-neutral-950">
+            <div className="flex items-center gap-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+              <Monitor className="h-3.5 w-3.5" />
+              <span>POS Access</span>
+            </div>
+            <p className="mt-1.5 text-base font-semibold text-neutral-950 dark:text-white">
+              {hasPos ? 'Enabled' : 'Not Included'}
+            </p>
+            <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+              {hasPos ? 'In-store register active' : 'Unlock via upgrade or add-on'}
+            </p>
           </div>
         </div>
       </div>
 
-      {/* ========================================================= */}
-      {/* 3. STOREFRONT DOMAIN & NETWORK PANEL                      */}
-      {/* ========================================================= */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-neutral-200/90 dark:border-gray-700/80 p-6 sm:p-7 shadow-xs space-y-4">
+      {/* Storefront Domain Panel */}
+      <div className="space-y-4 rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
         <div>
-          <h2 className="text-base font-bold text-neutral-900 dark:text-white">
+          <h2 className="text-base font-semibold text-neutral-950 dark:text-white">
             Storefront Domain
           </h2>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-            The web address customers use to browse your catalog and place orders
+          <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+            The web address customers use to browse your catalog and place orders.
           </p>
         </div>
 
-        {/* Primary Subdomain Row */}
-        <div className="p-4 rounded-xl border border-neutral-200/80 dark:border-gray-700 bg-neutral-50/60 dark:bg-gray-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-lg bg-neutral-100/70 dark:bg-neutral-900/40 text-neutral-600 dark:text-neutral-400 flex items-center justify-center shrink-0">
-              <Globe className="w-4 h-4" />
+        <div className="flex flex-col justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 p-4 sm:flex-row sm:items-center dark:border-neutral-800 dark:bg-neutral-950">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+              <Globe className="h-4 w-4" />
             </div>
             <div>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-semibold text-neutral-900 dark:text-white">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-neutral-950 dark:text-white">
                   {subscription?.subdomain || 'No subdomain assigned'}
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300">
+                <span className="rounded-md border border-neutral-200 bg-white px-2 py-0.5 text-[10px] font-medium text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
                   SSL Active
                 </span>
               </div>
-              <p className="text-[11px] text-neutral-400 mt-0.5">
-                Free pre-configured subdomain provided by Tiwlo
+              <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+                Pre-configured storefront subdomain
               </p>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2 shrink-0">
+          <div className="flex shrink-0 items-center gap-2">
             <button
+              type="button"
               onClick={copySubdomain}
-              className="px-3 py-1.5 rounded-lg bg-white dark:bg-gray-800 hover:bg-neutral-100 dark:hover:bg-gray-700 border border-neutral-200 dark:border-gray-700 text-xs font-medium text-neutral-700 dark:text-neutral-200 transition flex items-center space-x-1 cursor-pointer"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
             >
-              {copiedSubdomain ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+              {copiedSubdomain ? <Check className="h-3.5 w-3.5 text-[#1ed760]" /> : <Copy className="h-3.5 w-3.5" />}
               <span>{copiedSubdomain ? 'Copied' : 'Copy'}</span>
             </button>
             <a
               href="/?view=store"
               target="_blank"
               rel="noreferrer"
-              className="px-3.5 py-1.5 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 text-xs font-semibold transition flex items-center space-x-1 cursor-pointer"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-950 px-3 text-xs font-medium text-white transition hover:bg-neutral-800 dark:border-neutral-700 dark:bg-white dark:text-black dark:hover:bg-neutral-200"
             >
               <span>Visit Store</span>
-              <ExternalLink className="w-3 h-3" />
+              <ExternalLink className="h-3 w-3" />
             </a>
           </div>
         </div>
 
-        {/* Custom Domain Note Row */}
-        <div className="pt-2 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400 border-t border-neutral-100 dark:border-gray-700/70">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-3 text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
           <span>
-            Want to use your own domain (e.g. <strong className="text-neutral-700 dark:text-neutral-200">store.yourbrand.com</strong>)?
+            {hasCustomDomain
+              ? 'Custom domain support is enabled on your current plan.'
+              : 'Need to connect your own custom domain?'}
           </span>
-          <button
-            onClick={onNavigateToPricing}
-            className="text-neutral-600 dark:text-neutral-400 font-semibold hover:underline cursor-pointer"
-          >
-            Available on Growth & Pro →
-          </button>
+          {!hasCustomDomain && (
+            <button
+              type="button"
+              onClick={onNavigateToPricing}
+              className="font-medium text-neutral-900 hover:underline dark:text-neutral-200"
+            >
+              View Upgrade & Add-ons →
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ========================================================= */}
-      {/* 4. CLEAN PRODUCTION UPGRADE BANNER                        */}
-      {/* ========================================================= */}
-      <div className="bg-gradient-to-r from-neutral-50/80 via-neutral-50/50 to-neutral-50/80 dark:from-gray-800/90 dark:via-neutral-950/20 dark:to-gray-800/90 border border-neutral-200/70 dark:border-gray-700 rounded-2xl p-6 sm:p-7 flex flex-col md:flex-row md:items-center justify-between gap-5">
+      {/* Upgrade & Add-ons Footer Card */}
+      <div className="flex flex-col justify-between gap-4 rounded-xl border border-neutral-200 bg-white p-6 md:flex-row md:items-center dark:border-neutral-800 dark:bg-neutral-900">
         <div className="space-y-1">
-          <h3 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white">
-            Need more product slots or your own custom domain?
+          <h3 className="text-base font-semibold text-neutral-950 dark:text-white">
+            Need more capacity or POS access?
           </h3>
-          <p className="text-xs text-neutral-600 dark:text-neutral-300 max-w-xl">
-            Upgrade to Growth Retailer ($19/mo) for 500 products or Pro Business ($49/mo) for 5,000 products, multi-warehouse routing, and multi-vendor boothing.
+          <p className="max-w-xl text-xs text-neutral-500 dark:text-neutral-400">
+            Upgrade your monthly package or purchase add-ons for extra product slots, staff seats, and POS terminal access using Cloud Credits.
           </p>
         </div>
 
-        <div className="shrink-0">
-          <button
-            onClick={onNavigateToPricing}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-neutral-600 hover:bg-neutral-500 text-white font-semibold text-xs shadow-xs transition flex items-center justify-center space-x-1.5 cursor-pointer active:scale-95 group"
-          >
-            <span>View Plans & Pricing</span>
-            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onNavigateToPricing}
+          className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#1ed760] px-4 text-xs font-semibold text-black transition hover:bg-[#16c653]"
+        >
+          <span>Upgrade & Add-ons</span>
+          <ArrowRight className="h-3.5 w-3.5" />
+        </button>
       </div>
     </div>
   );

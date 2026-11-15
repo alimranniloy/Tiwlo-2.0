@@ -25,6 +25,7 @@ import {
   FileText,
   Bell,
   ChevronRight,
+  Gift,
   X
 } from 'lucide-react';
 
@@ -46,6 +47,7 @@ export default function AdminSidebar({
         { id: 'shipping', label: 'Shipping', icon: Truck },
         { id: 'transactions', label: 'Transactions', icon: CreditCard },
         { id: 'packages', label: 'Package', icon: Package },
+        { id: 'promotions', label: 'Promotions', icon: Gift },
         { id: 'reviews', label: 'Reviews', icon: Star },
         { id: 'ecommerce-settings', label: 'Settings', icon: Settings }
       ]

@@ -3,6 +3,8 @@ import { readState } from './stateDocuments.js';
 import { queryPg } from './postgres.js';
 import { CloudDB } from './cloud.js';
 import { getPlatformPaymentGatewaysRaw } from '../administrator/adminRoutes.js';
+import { extractClientSignals } from '../security/freeTierAbuseGuard.js';
+import { redeemPromoCodeForUser, tryGrantWelcomeDepositBonus } from './promotions.js';
 import { createHostedPayment, verifyHostedPaymentReturn, verifyStripeWebhook } from '../routes/storePaymentGatewayService.js';
 import { convertCurrencyAmount } from '../routes/currencyHelpers.js';
 import { getMarketUsdRates } from '../routes/marketCurrencyRates.js';
@@ -23,8 +25,8 @@ const invoiceUrlForTopup = topup => {
 
 function parseCreditAmount(amount) {
   const parsedAmount = Number(amount);
-  if (!Number.isFinite(parsedAmount) || parsedAmount < 5 || parsedAmount > 10000 || Math.round(parsedAmount * 100) !== parsedAmount * 100) {
-    throw new TypeError('Choose a top-up amount from USD 5.00 to USD 10,000.00.');
+  if (!Number.isFinite(parsedAmount) || parsedAmount < 1 || parsedAmount > 10000 || Math.round(parsedAmount * 100) !== parsedAmount * 100) {
+    throw new TypeError('Choose a top-up amount from USD 1.00 to USD 10,000.00.');
   }
   return parsedAmount;
 }
@@ -300,13 +302,25 @@ export const BillingDB = {
     const legacyCredits = Number(legacyAccount?.verifiedCredits);
     const initialCredits = Number.isFinite(legacyCredits) && legacyCredits >= 0 ? legacyCredits : 0;
 
+    await queryPg(
+      `UPDATE cloud_billing_accounts
+       SET promotional_credits = 0, updated_at = CURRENT_TIMESTAMP
+       WHERE user_id = $1
+         AND promotional_credits > 0
+         AND promotional_expires_at IS NOT NULL
+         AND promotional_expires_at <= CURRENT_TIMESTAMP`,
+      [user.id]
+    ).catch(() => {});
+
     const billingRows = await queryPg(`
         INSERT INTO cloud_billing_accounts (id, user_id, credits, monthly_spend, currency, account_type, business_name)
         VALUES ($1, $2, $3, 0, 'USD', $4, $5)
         ON CONFLICT (user_id) DO UPDATE SET
           account_type = COALESCE(cloud_billing_accounts.account_type, EXCLUDED.account_type),
           business_name = COALESCE(cloud_billing_accounts.business_name, EXCLUDED.business_name)
-        RETURNING id, user_id, credits, monthly_spend, currency, account_type, business_name, updated_at
+        RETURNING id, user_id, credits, promotional_credits, promotional_expires_at,
+                  welcome_promo_claimed_at, first_paid_topup_at, monthly_spend, currency,
+                  account_type, business_name, updated_at
       `, [randomUUID(), user.id, initialCredits, user.account_type || 'personal', user.business_name || '']);
     const billingRow = billingRows.rows[0];
     if (!billingRow) throw new Error('Billing account could not be loaded from PostgreSQL.');
@@ -358,9 +372,12 @@ export const BillingDB = {
         ? `${gatewayInfo.activeGateways.length} platform gateway(s) have credentials configured`
         : 'No platform payment gateway configured',
       credits,
-      promotionalCredits: Number.isFinite(Number(legacyAccount?.verifiedPromotionalCredits))
-        ? Number(legacyAccount.verifiedPromotionalCredits)
-        : null,
+      promotionalCredits: Number(billingRow.promotional_credits || 0) > 0
+        ? Number(billingRow.promotional_credits)
+        : (Number.isFinite(Number(legacyAccount?.verifiedPromotionalCredits))
+          ? Number(legacyAccount.verifiedPromotionalCredits)
+          : 0),
+      promotionalExpiresAt: billingRow.promotional_expires_at ? new Date(billingRow.promotional_expires_at).toISOString() : null,
       paymentMethods: gatewayInfo.activeGateways,
       configuredGateways: gatewayInfo.activeGateways,
       invoices,
@@ -374,7 +391,7 @@ export const BillingDB = {
     };
   },
 
-  async createCreditCheckout({ userId, provider, amount, origin, returnOrigin, expectedPaymentAmount, expectedRateDate }) {
+  async createCreditCheckout({ userId, provider, amount, origin, returnOrigin, expectedPaymentAmount, expectedRateDate, request = null }) {
     const parsedAmount = parseCreditAmount(amount);
     const gateway = await getCheckoutGateway(provider);
     const checkoutCurrency = CHECKOUT_CURRENCIES[provider];
@@ -407,15 +424,19 @@ export const BillingDB = {
     const returnToken = randomBytes(32).toString('base64url');
     const returnTokenHash = createHash('sha256').update(returnToken).digest('hex');
     const mode = gateway.mode || (provider === 'stripe' ? 'test' : 'sandbox');
+    const signals = extractClientSignals(request);
     const insertedTopups = await queryPg(`
       INSERT INTO cloud_credit_topups
         (id, user_id, provider, mode, amount, currency, provider_amount, provider_currency,
-         exchange_rate, rate_date, rate_source, return_origin, return_token_hash, status, expires_at)
+         exchange_rate, rate_date, rate_source, return_origin, return_token_hash, status, expires_at,
+         device_fingerprint_hash, device_token_hash, browser_cookie_hash, ip_hash, subnet_hash, user_agent_hash)
       VALUES ($1, $2, $3, $4, $5, 'USD', $6, $7, $8, $9, $10, $11, $12, 'pending',
-              CURRENT_TIMESTAMP + INTERVAL '24 hours')
+              CURRENT_TIMESTAMP + INTERVAL '24 hours', $13, $14, $15, $16, $17, $18)
       RETURNING expires_at
     `, [id, userId, provider, mode, parsedAmount, providerAmount, checkoutCurrency,
-      exchangeRate, rateDate, rateSnapshot?.source || null, returnOrigin, returnTokenHash]);
+      exchangeRate, rateDate, rateSnapshot?.source || null, returnOrigin, returnTokenHash,
+      signals.fingerprintHash, signals.deviceTokenHash, signals.browserCookieHash,
+      signals.ipHash, signals.subnetHash, signals.userAgentHash]);
     const expiresAt = insertedTopups.rows[0]?.expires_at;
     if (!expiresAt) throw new Error('Checkout expiration could not be recorded.');
 
@@ -537,6 +558,12 @@ export const BillingDB = {
       throw new Error('Verified payment amount, currency, or provider reference did not match the pending top-up.');
     }
 
+    const { rows: priorPaidRows } = await queryPg(
+      `SELECT EXISTS(SELECT 1 FROM cloud_credit_topups WHERE user_id = $1 AND status = 'paid') AS had_paid`,
+      [topup.user_id]
+    );
+    const hadPaidTopupsBefore = Boolean(priorPaidRows[0]?.had_paid);
+
     const { rows } = await queryPg(`
       WITH settled AS (
         UPDATE cloud_credit_topups topup
@@ -546,7 +573,9 @@ export const BillingDB = {
           AND topup.provider_payment_id = $2 AND topup.amount = $3 AND topup.currency = $4
           AND EXISTS (SELECT 1 FROM cloud_billing_accounts account WHERE account.user_id = topup.user_id)
         RETURNING topup.id, topup.user_id, topup.amount, topup.currency,
-                  topup.provider, topup.status, topup.created_at, topup.paid_at
+                  topup.provider, topup.status, topup.created_at, topup.paid_at,
+                  topup.device_fingerprint_hash, topup.device_token_hash, topup.browser_cookie_hash,
+                  topup.ip_hash, topup.subnet_hash, topup.user_agent_hash
       ), credited AS (
         UPDATE cloud_billing_accounts account
         SET credits = COALESCE(account.credits, 0) + settled.amount,
@@ -558,7 +587,22 @@ export const BillingDB = {
       FROM settled JOIN credited ON credited.user_id = settled.user_id
     `, [topup.id, topup.provider_payment_id, Number(topup.amount), String(topup.currency), String(verification.transactionId || '').slice(0, 255)]);
     if (rows[0]) {
-      return { success: true, status: 'paid', balance: Number(rows[0].balance), invoice: toInvoice(rows[0]) };
+      const promoResult = await tryGrantWelcomeDepositBonus({
+        userId: rows[0].user_id,
+        topup: rows[0],
+        hadPaidTopupsBefore
+      }).catch((err) => {
+        console.warn('[Cloud Billing] Welcome promo bonus check failed:', err.message);
+        return { granted: false };
+      });
+      return {
+        success: true,
+        status: 'paid',
+        balance: Number(rows[0].balance),
+        invoice: toInvoice(rows[0]),
+        promoGranted: Boolean(promoResult?.granted),
+        promoBonusAmount: promoResult?.granted ? Number(promoResult.bonusAmountUsd || 0) : 0
+      };
     }
     const { rows: currentRows } = await queryPg(
       'SELECT status FROM cloud_credit_topups WHERE id = $1 LIMIT 1',
@@ -609,12 +653,17 @@ export const BillingDB = {
     throw new Error('Credit checkout is not connected. No payment or credits were processed.');
   },
 
-  async redeemVoucher(userId, rawCode) {
+  async redeemVoucher(userId, rawCode, req = null) {
     const code = typeof rawCode === 'string' ? rawCode.trim().toUpperCase() : '';
     if (!userId) return { success: false, error: 'Authentication required.' };
-    if (!code || code.length > 64) return { success: false, error: 'Enter a valid voucher code.' };
+    if (!code || code.length > 64) return { success: false, error: 'Enter a valid promotional or voucher code.' };
     if (!await this.getBillingAccount(userId)) {
       return { success: false, error: 'Billing account is unavailable for this user.' };
+    }
+
+    const promoResult = await redeemPromoCodeForUser({ userId, rawCode: code, req });
+    if (promoResult?.found) {
+      return promoResult;
     }
 
     const { rows } = await queryPg(`
@@ -663,11 +712,28 @@ export const BillingDB = {
     }
     const { rows } = await queryPg(
       `UPDATE cloud_billing_accounts
-       SET credits = COALESCE(credits, 0) - $2,
+       SET promotional_credits = CASE
+             WHEN promotional_expires_at IS NOT NULL AND promotional_expires_at <= CURRENT_TIMESTAMP THEN 0
+             ELSE GREATEST(0, COALESCE(promotional_credits, 0) - $2)
+           END,
+           credits = COALESCE(credits, 0) - GREATEST(
+             0,
+             $2 - CASE
+               WHEN promotional_expires_at IS NOT NULL AND promotional_expires_at <= CURRENT_TIMESTAMP THEN 0
+               ELSE COALESCE(promotional_credits, 0)
+             END
+           ),
            monthly_spend = COALESCE(monthly_spend, 0) + $2,
            updated_at = CURRENT_TIMESTAMP
-       WHERE user_id = $1 AND COALESCE(credits, 0) >= $2
-       RETURNING credits`,
+       WHERE user_id = $1
+         AND (
+           COALESCE(credits, 0) +
+           CASE
+             WHEN promotional_expires_at IS NOT NULL AND promotional_expires_at <= CURRENT_TIMESTAMP THEN 0
+             ELSE COALESCE(promotional_credits, 0)
+           END
+         ) >= $2
+       RETURNING credits, promotional_credits`,
       [userId, chargeAmount]
     );
     if (!rows[0]) {
@@ -680,7 +746,7 @@ export const BillingDB = {
     return {
       success: true,
       chargedAmount: chargeAmount,
-      remainingCredits: Number(rows[0].credits)
+      remainingCredits: Number(rows[0].credits) + Number(rows[0].promotional_credits || 0)
     };
   },
 

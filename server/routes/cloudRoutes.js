@@ -2,6 +2,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { CloudDB } from '../db/cloud.js';
 import { BillingDB } from '../db/billing.js';
+import { getUserWelcomePromoStatus } from '../db/promotions.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { getPlatformPaymentGatewaysRaw } from '../administrator/adminRoutes.js';
 
@@ -230,7 +231,8 @@ router.post('/billing/credits/add', creditCheckoutLimiter, async (req, res) => {
       origin: dashboardOrigin(req),
       returnOrigin: userReturnOrigin(req),
       expectedPaymentAmount: req.body?.expectedPaymentAmount,
-      expectedRateDate: req.body?.expectedRateDate
+      expectedRateDate: req.body?.expectedRateDate,
+      request: req
     });
     return res.status(201).json({ success: true, ...checkout });
   } catch (error) {
@@ -352,12 +354,24 @@ router.post('/billing/credits/stripe/webhook', async (req, res) => {
   }
 });
 
+router.get('/billing/promotions/status', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const status = await getUserWelcomePromoStatus(userId, req);
+    return res.json({ success: true, ...status });
+  } catch (err) {
+    console.error('Error fetching welcome promo status:', err);
+    return res.status(500).json({ success: false, error: 'Failed to load promotion eligibility.' });
+  }
+});
+
 router.post('/billing/vouchers/redeem', async (req, res) => {
   try {
     const userId = getReqUserId(req);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-    const result = await BillingDB.redeemVoucher(userId, req.body?.code);
-    if (!result.success) return res.status(400).json(result);
+    const result = await BillingDB.redeemVoucher(userId, req.body?.code, req);
+    if (!result.success) return res.status(result.statusCode || 400).json(result);
     return res.json(result);
   } catch (err) {
     console.error('Error redeeming cloud voucher:', err);

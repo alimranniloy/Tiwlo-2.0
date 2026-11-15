@@ -830,6 +830,7 @@ export default function App() {
   const [customers, setCustomers] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [stats, setStats] = useState(null);
+  const [subscription, setSubscription] = useState(null);
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(false);
   const [dataLoadError, setDataLoadError] = useState('');
@@ -1549,6 +1550,7 @@ export default function App() {
     localStorage.removeItem('stockpro_user');
     sessionStorage.clear();
     setSelectedStore(null);
+    setSubscription(null);
     setStoreSelectionReady(true);
     setCurrentUser(null);
     showToast('Signed out successfully');
@@ -1591,7 +1593,8 @@ export default function App() {
         resCat,
         resSub,
         resCust,
-        resSup
+        resSup,
+        resSubscription
       ] = await Promise.allSettled([
         fetchJson('/products'),
         fetchJson('/stats'),
@@ -1600,6 +1603,7 @@ export default function App() {
         fetchJson('/subcategories'),
         fetchJson('/customers'),
         fetchJson('/suppliers'),
+        fetchJson('/subscription'),
       ]);
 
       const failures = [];
@@ -1622,6 +1626,9 @@ export default function App() {
       acceptArray(resSub, 'Subcategories', setSubcategories);
       acceptArray(resCust, 'Customers', setCustomers);
       acceptArray(resSup, 'Suppliers', setSuppliers);
+      if (resSubscription.status === 'fulfilled' && resSubscription.value && typeof resSubscription.value === 'object' && !Array.isArray(resSubscription.value)) {
+        setSubscription(resSubscription.value);
+      }
 
       if (failures.length > 0) {
         setDataLoadError(failures.join('; '));
@@ -1657,6 +1664,7 @@ export default function App() {
       if (!response.ok || !result.success || !result.store) {
         throw new Error(result.error || 'Could not switch to the selected store.');
       }
+      setSubscription(null);
       setSelectedStore(result.store);
       sessionStorage.setItem('tiwlo.selectedStore', JSON.stringify(result.store));
       setDashboardLoading(true);
@@ -1696,7 +1704,8 @@ export default function App() {
           throw new Error(result.error || 'Saved store is unavailable.');
         }
         if (!cancelled) {
-          setSelectedStore(result.store);
+          setSubscription(null);
+      setSelectedStore(result.store);
           sessionStorage.setItem('tiwlo.selectedStore', JSON.stringify(result.store));
         }
       } catch {
@@ -2386,6 +2395,9 @@ export default function App() {
       ) : activeTab === 'pos' ? (
         <POSView
           onBack={() => handleTabChange('workspace')}
+          onUpgrade={() => handleTabChange('pricing')}
+          subscription={subscription}
+          onSubscriptionChange={setSubscription}
           products={products}
           categories={categories}
           customers={customers}
@@ -2419,6 +2431,7 @@ export default function App() {
             onVisitSite={handleVisitSite}
             onBackToCloud={() => handleTabChange('dashboard')}
             currentStore={selectedStore || currentUser}
+            subscription={subscription}
             mobileOpen={mobileMenuOpen}
             setMobileOpen={setMobileMenuOpen}
           />

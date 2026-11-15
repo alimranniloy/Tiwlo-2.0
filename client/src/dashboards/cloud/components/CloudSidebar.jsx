@@ -118,16 +118,14 @@ export default function CloudSidebar({
             }
           }}
           aria-current={active ? 'page' : undefined}
-          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition ${
-            active ? 'bg-white text-black' : 'text-white/65 hover:bg-white/5 hover:text-white'
-          }`}
+          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition ${active ? 'bg-white text-black' : 'text-white/65 hover:bg-white/5 hover:text-white'
+            }`}
         >
           <Icon className="size-[18px] shrink-0" aria-hidden="true" />
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
           {item.badge && (
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-              active ? 'bg-black text-white' : item.badge === 'New' ? 'bg-[#1ed760] text-black' : 'bg-white/10 text-white/70'
-            }`}>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${active ? 'bg-black text-white' : item.badge === 'New' ? 'bg-[#1ed760] text-black' : 'bg-white/10 text-white/70'
+              }`}>
               {item.badge}
             </span>
           )}
@@ -149,9 +147,8 @@ export default function CloudSidebar({
         />
       )}
 
-      <aside className={`tiwi-v3-sidebar fixed inset-y-0 left-0 z-50 flex h-dvh w-64 shrink-0 flex-col gap-6 overflow-hidden bg-black p-4 font-sans text-white transition-transform duration-200 lg:sticky lg:top-0 lg:translate-x-0 ${
-        mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
-      }`}>
+      <aside className={`tiwi-v3-sidebar fixed inset-y-0 left-0 z-50 flex h-dvh w-64 shrink-0 flex-col gap-6 overflow-hidden bg-black p-4 font-sans text-white transition-transform duration-200 lg:sticky lg:top-0 lg:translate-x-0 ${mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
+        }`}>
         <div className="flex items-center justify-between px-2 pt-2">
           <button
             type="button"

@@ -1,5 +1,6 @@
 import { PLATFORM_DOMAIN } from '../config/platformConfig';
 import { requestSensitiveActionGrant } from '../security/reauth';
+import { getDeviceTrackingHeaders } from '../utils/deviceFingerprint';
 
 const manifests = new Map();
 const nativeFetch = (resource, options) => globalThis.fetch(resource, options);
@@ -33,16 +34,24 @@ function matchPath(pattern, pathname) {
 // Existing views keep Response semantics while business requests use named
 // File uploads, downloads, media, and external services keep native fetch.
 export async function applicationFetch(resource, options = {}) {
-  if (typeof resource !== 'string' && !(resource instanceof URL)) return nativeFetch(resource, options);
+  const deviceHeaders = await getDeviceTrackingHeaders().catch(() => ({}));
+  const mergedOptions = {
+    ...options,
+    headers: {
+      ...deviceHeaders,
+      ...(options.headers instanceof Headers ? Object.fromEntries(options.headers.entries()) : (options.headers || {}))
+    }
+  };
+  if (typeof resource !== 'string' && !(resource instanceof URL)) return nativeFetch(resource, mergedOptions);
   const url = new URL(resource, window.location.href);
   const ownOrigin = url.origin === window.location.origin || url.hostname === PLATFORM_DOMAIN || url.hostname.endsWith(`.${PLATFORM_DOMAIN}`);
   if (!ownOrigin || !url.pathname.startsWith('/api/') ||
       url.pathname.startsWith('/api/public/') ||
       ['/api/address-verification', '/api/login-location'].includes(url.pathname) ||
       /graphql|upload|attachment|download|export|backup|media\/|stream|\/tls\/|webhook/i.test(url.pathname) ||
-      (options.body != null && typeof options.body !== 'string')) return nativeFetch(resource, options);
-  const method = (options.method || 'GET').toUpperCase();
-  if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return nativeFetch(resource, options);
+      (mergedOptions.body != null && typeof mergedOptions.body !== 'string')) return nativeFetch(resource, mergedOptions);
+  const method = (mergedOptions.method || 'GET').toUpperCase();
+  if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return nativeFetch(resource, mergedOptions);
   const sensitiveAction = method === 'POST' && /^\/api\/(?:domains\/?|admin\/payment-gateways)$/.test(url.pathname) ||
     (method === 'POST' || method === 'PUT' || method === 'DELETE') && /^\/api\/(?:domains\/[^/]+(?:\/provision)?|staff(?:\/[^/]+)?|store\/payment-providers\/[^/]+|admin\/users\/[^/]+(?:\/ban)?)$/.test(url.pathname) ||
     (method === 'PUT' || method === 'DELETE') && /^\/api\/admin\/users\/[^/]+$/.test(url.pathname) ||
@@ -50,7 +59,7 @@ export async function applicationFetch(resource, options = {}) {
     method === 'PUT' && /^\/api\/(?:system\/settings|admin\/social-login\/[^/]+)$/.test(url.pathname) ||
     method === 'POST' && /^\/api\/admin\/storage\/(?:google-drive(?:\/[^/]+\/activate)?|sync\/[^/]+)$/.test(url.pathname) ||
     method === 'GET' && /^\/api\/system\/backup$/.test(url.pathname);
-  const actionHeaders = new Headers(options.headers);
+  const actionHeaders = new Headers(mergedOptions.headers);
   if (sensitiveAction && !actionHeaders.has('x-tiwlo-reauth-grant')) {
     const grant = await requestSensitiveActionGrant(actionHeaders, url.origin);
     actionHeaders.set('x-tiwlo-reauth-grant', grant);
@@ -64,11 +73,11 @@ export async function applicationFetch(resource, options = {}) {
     if (found) { selected = operation; params = found; break; }
   }
   if (!selected) throw new Error(`No GraphQL operation is registered for ${method} ${url.pathname}`);
-  const input = { params, query: Object.fromEntries(url.searchParams), body: typeof options.body === 'string' ? JSON.parse(options.body) : {} };
+  const input = { params, query: Object.fromEntries(url.searchParams), body: typeof mergedOptions.body === 'string' ? JSON.parse(mergedOptions.body) : {} };
   const headers = actionHeaders;
   headers.set('Content-Type', 'application/json');
   const response = await nativeFetch(`${url.origin}/api/graphql`, {
-    ...options, method: 'POST', headers, credentials: options.credentials || 'include',
+    ...mergedOptions, method: 'POST', headers, credentials: mergedOptions.credentials || 'include',
     body: JSON.stringify({ query: `${method === 'GET' ? 'query' : 'mutation'} ApplicationRequest($input: ApplicationInput) { result: ${selected.field}(input: $input) { status body headers } }`, variables: { input } })
   });
   const result = await response.json();

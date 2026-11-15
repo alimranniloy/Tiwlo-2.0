@@ -13,6 +13,10 @@ import { getEcommercePackageById } from './packages.js';
 import { BillingDB } from './billing.js';
 import { recordSecurityEvent } from './securityPersistence.js';
 import {
+  enforceFreeStoreCreationPolicy,
+  recordFreeStoreClaim
+} from '../security/freeTierAbuseGuard.js';
+import {
   createAuthSessionWithRust,
   hashPasswordWithRust,
   resolveAuthSessionWithRust,
@@ -478,9 +482,15 @@ export const MasterDB = {
       planName: 'Free Starter',
       price: '$0',
       billingCycle: 'forever',
-      productLimit: 50,
+      productLimit: 10,
       warehouseLimit: 1,
+      staffLimit: 1,
+      monthlyOrderLimit: 50,
+      hasPos: false,
       hasCustomDomain: false,
+      extraProductSlots: 0,
+      extraStaffSlots: 0,
+      addons: [],
       tiwiId
     };
   },
@@ -600,7 +610,8 @@ export const MasterDB = {
     email = '',
     phone = '',
     description = '',
-    billingDetails = {}
+    billingDetails = {},
+    request = null
   }) {
     if (!storeName || !storeName.trim()) {
       throw new Error('Store name is required');
@@ -638,6 +649,18 @@ export const MasterDB = {
       error.statusCode = 400;
       throw error;
     }
+
+    const existingUserStores = master.stores.filter(
+      (s) => s.ownerId === ownerId || (user?.tiwiId && s.tiwiId === user.tiwiId)
+    );
+    await enforceFreeStoreCreationPolicy({
+      req: request,
+      ownerId,
+      user,
+      existingStores: existingUserStores,
+      selectedPackage
+    });
+
     const resolvedPlanId = selectedPackage.planId;
     const monthlyPrice = Number(selectedPackage.price || 0);
     if (monthlyPrice > 0 && user?.role !== 'admin') {
@@ -682,6 +705,15 @@ export const MasterDB = {
 
     // Provision isolated tenant database for this store
     await TenantDB.provisionStore(newTiwiId, newStore.storeName, resolvedPlanId, cleanSubdomain, newStore.currency);
+
+    if (resolvedPlanId === 'free' || monthlyPrice <= 0) {
+      await recordFreeStoreClaim({
+        ownerId,
+        storeId: newStore.id,
+        planId: resolvedPlanId,
+        req: request
+      }).catch((err) => console.warn('[StoreCreate] Failed to record free claim signal:', err.message));
+    }
 
     return newStore;
   }
@@ -740,9 +772,15 @@ export const TenantDB = {
       planName: pkg?.planName || 'Free Starter',
       price: Number(pkg?.price || 0),
       billingCycle: 'monthly',
-      productLimit: Number(pkg?.productLimit || 50),
-      warehouseLimit: Number(pkg?.warehouseLimit || 1),
+      productLimit: Number(pkg?.productLimit ?? 10),
+      warehouseLimit: Number(pkg?.warehouseLimit ?? 1),
+      staffLimit: Number(pkg?.staffLimit ?? 1),
+      monthlyOrderLimit: Number(pkg?.monthlyOrderLimit ?? 50),
+      hasPos: Boolean(pkg?.hasPos),
       hasCustomDomain: Boolean(pkg?.hasCustomDomain),
+      extraProductSlots: Number(store.subscription?.extraProductSlots || 0),
+      extraStaffSlots: Number(store.subscription?.extraStaffSlots || 0),
+      addons: Array.isArray(store.subscription?.addons) ? store.subscription.addons : [],
       subdomain: resolvedSubdomain,
       updatedAt: store.createdAt
     };

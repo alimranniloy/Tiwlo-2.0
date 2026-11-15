@@ -49,8 +49,13 @@ function getDraftKey(userId) {
   return `tiwlo.createStoreDraft.${userId || 'anon'}`;
 }
 
-export default function CreateStoreView({ userId, onBack, onCreateStore, onOpenBilling }) {
+export default function CreateStoreView({ userId, userStores = [], onBack, onCreateStore, onOpenBilling }) {
   const draftKey = getDraftKey(userId);
+  const hasFreeStore = Array.isArray(userStores) && userStores.some(
+    (store) =>
+      String(store?.status || 'active').toLowerCase() !== 'deleted' &&
+      String(store?.planId || 'free').toLowerCase() === 'free'
+  );
 
   const [step, setStep] = useState(() => {
     try {
@@ -105,13 +110,20 @@ export default function CreateStoreView({ userId, onBack, onCreateStore, onOpenB
               price: 0,
               productLimit: 50,
               warehouseLimit: 1,
+              staffLimit: 1,
+              monthlyOrderLimit: 100,
               hasCustomDomain: false,
-              description: 'Free *.tiwlo.com subdomain with core POS & inventory.'
+              hasPos: false,
+              description: 'Free *.tiwlo.com subdomain with core inventory.'
             }
           ]);
         }
         const rawCredits = Number(billingData?.account?.credits);
-        setCreditBalance(Number.isFinite(rawCredits) && rawCredits >= 0 ? rawCredits : 0);
+        const rawPromoCredits = Number(billingData?.account?.promotionalCredits);
+        const totalSpendable =
+          (Number.isFinite(rawCredits) && rawCredits >= 0 ? rawCredits : 0) +
+          (Number.isFinite(rawPromoCredits) && rawPromoCredits > 0 ? rawPromoCredits : 0);
+        setCreditBalance(totalSpendable);
       } finally {
         if (!cancelled) setPackagesLoading(false);
       }
@@ -130,11 +142,19 @@ export default function CreateStoreView({ userId, onBack, onCreateStore, onOpenB
     setForm((prev) => ({ ...prev, storeName: val, subdomain: slug }));
   };
 
-  const selectedPackage = packages.find((p) => p.planId === form.planId) || packages[0] || {
+  const paidFallbackPackage = hasFreeStore
+    ? packages.find((p) => Number(p.price || 0) > 0 && String(p.planId).toLowerCase() !== 'free')
+    : null;
+  const rawSelectedPackage = packages.find((p) => p.planId === form.planId) || packages[0] || {
     planId: 'free',
     planName: 'Free Starter',
     price: 0
   };
+  const selectedPackage =
+    hasFreeStore && (Number(rawSelectedPackage?.price || 0) <= 0 || String(rawSelectedPackage?.planId || '').toLowerCase() === 'free') && paidFallbackPackage
+      ? paidFallbackPackage
+      : rawSelectedPackage;
+  const effectivePlanId = selectedPackage?.planId || form.planId;
   const monthlyCost = Number(selectedPackage?.price || 0);
   const hasEnoughCredits = monthlyCost <= 0 || (creditBalance !== null && creditBalance >= monthlyCost);
 
@@ -164,6 +184,11 @@ export default function CreateStoreView({ userId, onBack, onCreateStore, onOpenB
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+
+    if (hasFreeStore && monthlyCost <= 0) {
+      setErrorMsg('Each account can only have 1 free store. Select a paid plan to continue.');
+      return;
+    }
 
     if (monthlyCost > 0 && !hasEnoughCredits) {
       setErrorMsg('Insufficient credit balance. Add your credit to continue.');
@@ -467,6 +492,15 @@ export default function CreateStoreView({ userId, onBack, onCreateStore, onOpenB
 
           {step === 3 && (
             <div className="space-y-4">
+              {hasFreeStore && (
+                <div className="flex items-start gap-2.5 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-xs text-neutral-700 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-300">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-neutral-500" />
+                  <span>
+                    This account already has 1 free store. Choose a paid plan below to create another store.
+                  </span>
+                </div>
+              )}
+
               <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-950">
                 <div className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300">
                   <CreditCard className="h-4 w-4 text-neutral-500" />
@@ -486,20 +520,25 @@ export default function CreateStoreView({ userId, onBack, onCreateStore, onOpenB
               ) : (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {packages.map((pkg) => {
-                    const selected = form.planId === pkg.planId;
+                    const selected = effectivePlanId === pkg.planId;
                     const price = Number(pkg.price || 0);
+                    const isFreeBlocked = hasFreeStore && (price <= 0 || String(pkg.planId).toLowerCase() === 'free');
                     return (
                       <button
                         key={pkg.planId}
                         type="button"
+                        disabled={isFreeBlocked}
                         onClick={() => {
+                          if (isFreeBlocked) return;
                           setErrorMsg('');
                           updateField('planId', pkg.planId);
                         }}
                         className={`flex flex-col justify-between rounded-lg border p-4 text-left transition ${
-                          selected
-                            ? 'border-neutral-950 bg-neutral-50 dark:border-[#1ed760] dark:bg-neutral-950'
-                            : 'border-neutral-200 bg-white hover:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700'
+                          isFreeBlocked
+                            ? 'cursor-not-allowed border-neutral-200 bg-neutral-50 opacity-55 dark:border-neutral-800 dark:bg-neutral-950'
+                            : selected
+                              ? 'border-neutral-950 bg-neutral-50 dark:border-[#1ed760] dark:bg-neutral-950'
+                              : 'border-neutral-200 bg-white hover:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700'
                         }`}
                       >
                         <div>
@@ -508,7 +547,7 @@ export default function CreateStoreView({ userId, onBack, onCreateStore, onOpenB
                               {pkg.planName}
                             </span>
                             <span className="text-sm font-bold text-neutral-950 dark:text-white">
-                              {price === 0 ? 'Free' : `$${price}/mo`}
+                              {isFreeBlocked ? '1 Free Used' : price === 0 ? 'Free' : `$${price}/mo`}
                             </span>
                           </div>
                           {pkg.description && (
@@ -517,10 +556,28 @@ export default function CreateStoreView({ userId, onBack, onCreateStore, onOpenB
                             </p>
                           )}
                         </div>
-                        <div className="mt-3 flex flex-wrap gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
-                          <span>{pkg.productLimit >= 999999 ? 'Unlimited products' : `${pkg.productLimit} products`}</span>
+                        <div className="mt-3 flex flex-wrap gap-x-2 gap-y-1 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
+                          <span>{pkg.productLimit >= 999999 ? 'Unlimited products' : `${Number(pkg.productLimit).toLocaleString()} products`}</span>
                           <span>·</span>
-                          <span>{pkg.warehouseLimit} warehouse{pkg.warehouseLimit > 1 ? 's' : ''}</span>
+                          <span>{pkg.warehouseLimit >= 99 ? 'Unlimited warehouses' : `${pkg.warehouseLimit} warehouse${pkg.warehouseLimit > 1 ? 's' : ''}`}</span>
+                          {pkg.staffLimit != null && (
+                            <>
+                              <span>·</span>
+                              <span>{pkg.staffLimit >= 999999 ? 'Unlimited staff' : `${pkg.staffLimit} staff`}</span>
+                            </>
+                          )}
+                          {pkg.monthlyOrderLimit != null && (
+                            <>
+                              <span>·</span>
+                              <span>{pkg.monthlyOrderLimit >= 999999 ? 'Unlimited orders/mo' : `${Number(pkg.monthlyOrderLimit).toLocaleString()} orders/mo`}</span>
+                            </>
+                          )}
+                          {pkg.hasPos && (
+                            <>
+                              <span>·</span>
+                              <span>POS included</span>
+                            </>
+                          )}
                           {pkg.hasCustomDomain && (
                             <>
                               <span>·</span>
@@ -588,7 +645,7 @@ export default function CreateStoreView({ userId, onBack, onCreateStore, onOpenB
             ) : (
               <button
                 type="submit"
-                disabled={submitting || (monthlyCost > 0 && !hasEnoughCredits)}
+                disabled={submitting || (hasFreeStore && monthlyCost <= 0) || (monthlyCost > 0 && !hasEnoughCredits)}
                 className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#1ed760] px-5 text-xs font-semibold text-black transition hover:bg-[#16c653] disabled:opacity-50"
               >
                 {submitting ? 'Creating store...' : monthlyCost > 0 ? `Pay $${monthlyCost}/mo & Create Store` : 'Create Free Store'}

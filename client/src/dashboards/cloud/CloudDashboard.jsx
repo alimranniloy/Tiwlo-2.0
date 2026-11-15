@@ -167,6 +167,18 @@ export default function CloudDashboard({
       await loadCloudData();
       return newStore;
     } catch (err) {
+      const msg = String(err?.message || '');
+      if (err?.banned || /suspended:|blocked due to multiple free-account/i.test(msg)) {
+        const banInfo = {
+          email: currentUser?.email || '',
+          banReason: msg
+        };
+        try {
+          sessionStorage.setItem('tiwlo_banned_info', JSON.stringify(banInfo));
+          localStorage.setItem('tiwlo_banned_info', JSON.stringify(banInfo));
+        } catch {}
+        onNavigateTab?.('account-disabled');
+      }
       throw err;
     }
   };
@@ -294,6 +306,7 @@ export default function CloudDashboard({
             <div className="max-w-[1500px] mx-auto">
               <CreateStoreView
                 userId={userId}
+                userStores={userStores}
                 onBack={() => setActiveNav('my-online-store')}
                 onCreateStore={handleCreateStore}
                 onOpenBilling={(tab = 'credits') => {

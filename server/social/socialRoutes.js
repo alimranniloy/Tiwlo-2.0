@@ -2,6 +2,7 @@ import express from 'express';
 import { registrationGuards, securityLimiters } from '../plugins/security/index.js';
 import { isDuplicateAccountError, isDuplicateBrowserError } from '../security/signupIdentity.js';
 import { recordDuplicateSignupSignal } from '../security/signupBrowser.js';
+import { blockBannedDeviceMiddleware, recordDeviceIdentityLink } from '../security/freeTierAbuseGuard.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -616,7 +617,7 @@ router.post('/graphql', (_req, res) => res.status(410).json({ error: 'Use the au
 // 3. AUTH & USER REST ENDPOINTS
 // Authentication is handled by the shared /api/auth routes.
 // ====================================================================
-router.post('/register', ...registrationGuards, async (req, res) => {
+router.post('/register', ...registrationGuards, blockBannedDeviceMiddleware, async (req, res) => {
   const { name, email, handle, password, accountType = 'personal', birthday, gender, phone, billingAddress } = req.body;
   if (!name || !email) {
     return res.status(400).json({ error: 'Name and email are required' });
@@ -627,6 +628,7 @@ router.post('/register', ...registrationGuards, async (req, res) => {
   try {
     const result = await SocialDB.registerUser({ name, email, handle, password, accountType, birthday, gender, phone, billingAddress, signupBrowserKey: req.signupBrowserKey });
     const user = result.user;
+    await recordDeviceIdentityLink({ userId: user.id, req }).catch(() => {});
     const verifyOtp = await generateSecureOtp(user.email, 'email_verify', 15);
     const masked = maskEmail(user.email);
 

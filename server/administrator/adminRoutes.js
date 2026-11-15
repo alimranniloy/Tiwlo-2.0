@@ -2,7 +2,16 @@ import express from 'express';
 import { randomUUID } from 'node:crypto';
 import { isIPv4, isIPv6 } from 'node:net';
 import { MasterDB, TenantDB } from '../db/multiTenant.js';
-import { getEcommercePackages, saveEcommercePackages } from '../db/packages.js';
+import { getEcommerceCatalog, saveEcommerceCatalog } from '../db/packages.js';
+import {
+  getWelcomePromoSettings,
+  saveWelcomePromoSettings,
+  listPromoCodes,
+  createPromoCode,
+  updatePromoCode,
+  deletePromoCode,
+  listPromoClaims
+} from '../db/promotions.js';
 import { SupportDB } from '../db/supportDb.js';
 import {
   sendAccountDisabledEmail,
@@ -14,6 +23,7 @@ import { queryPg } from '../db/postgres.js';
 import { identityVerificationEvidence } from '../db/identityVerificationEvidence.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
 import { requireRecentReauth } from '../security/recentReauth.js';
+import { unblockUserAndSignals } from '../security/freeTierAbuseGuard.js';
 import {
   formatPeriodLabel,
   formatTrend,
@@ -1091,6 +1101,9 @@ router.post('/users/:id/ban', requireAdmin, requireRecentReauth, async (req, res
         restoreUrl: restoreSession.url
       }).catch(err => console.error('[Ban Email Dispatch Error]', err.message));
     } else {
+      await unblockUserAndSignals(targetUser.id).catch((err) =>
+        console.warn('[Admin Unban] Failed to clear blocked device/IP records:', err.message)
+      );
       const checkupSession = RestoreSessions.createSecurityCheckupSession({
         email: targetUser.email,
         userId: targetUser.id
@@ -1456,8 +1469,8 @@ router.post('/payment-gateways', requireAdmin, requireRecentReauth, async (req, 
 // GET /api/admin/packages
 router.get('/packages', requireAdmin, async (_req, res) => {
   try {
-    const packages = await getEcommercePackages();
-    res.json({ success: true, packages });
+    const { packages, addons } = await getEcommerceCatalog();
+    res.json({ success: true, packages, addons });
   } catch (error) {
     console.error('[Admin Packages Get Error]', error.message);
     res.status(500).json({ error: 'Failed to load e-commerce packages.' });
@@ -1467,11 +1480,73 @@ router.get('/packages', requireAdmin, async (_req, res) => {
 // PUT /api/admin/packages
 router.put('/packages', requireAdmin, async (req, res) => {
   try {
-    const packages = await saveEcommercePackages(req.body?.packages);
-    res.json({ success: true, packages, message: 'E-commerce packages updated successfully.' });
+    const { packages, addons } = await saveEcommerceCatalog({
+      packages: req.body?.packages,
+      addons: req.body?.addons
+    });
+    res.json({ success: true, packages, addons, message: 'E-commerce packages updated successfully.' });
   } catch (error) {
     console.error('[Admin Packages Save Error]', error.message);
     res.status(400).json({ error: error.message || 'Failed to save e-commerce packages.' });
+  }
+});
+
+// GET /api/admin/promotions
+router.get('/promotions', requireAdmin, async (_req, res) => {
+  try {
+    const [welcomePromo, promoCodes, recentClaims] = await Promise.all([
+      getWelcomePromoSettings(),
+      listPromoCodes(),
+      listPromoClaims({ limit: 100 })
+    ]);
+    res.json({ success: true, welcomePromo, promoCodes, recentClaims });
+  } catch (error) {
+    console.error('[Admin Promotions Get Error]', error.message);
+    res.status(500).json({ error: 'Failed to load promotions configuration.' });
+  }
+});
+
+// PUT /api/admin/promotions/welcome
+router.put('/promotions/welcome', requireAdmin, async (req, res) => {
+  try {
+    const welcomePromo = await saveWelcomePromoSettings(req.body || {});
+    res.json({ success: true, welcomePromo, message: 'Welcome credit-load offer updated.' });
+  } catch (error) {
+    console.error('[Admin Welcome Promo Save Error]', error.message);
+    res.status(400).json({ error: error.message || 'Failed to update welcome promotion.' });
+  }
+});
+
+// POST /api/admin/promotions/codes
+router.post('/promotions/codes', requireAdmin, async (req, res) => {
+  try {
+    const promo = await createPromoCode(req.body || {}, req.adminUser?.id || null);
+    res.status(201).json({ success: true, promo, message: `Promo code "${promo.code}" created.` });
+  } catch (error) {
+    const status = /unique|duplicate/i.test(error.message || '') ? 409 : 400;
+    res.status(status).json({ error: status === 409 ? 'A promotional code with that code already exists.' : (error.message || 'Failed to create promo code.') });
+  }
+});
+
+// PUT /api/admin/promotions/codes/:id
+router.put('/promotions/codes/:id', requireAdmin, async (req, res) => {
+  try {
+    const promo = await updatePromoCode(req.params.id, req.body || {});
+    if (!promo) return res.status(404).json({ error: 'Promotional code not found.' });
+    res.json({ success: true, promo, message: `Promo code "${promo.code}" updated.` });
+  } catch (error) {
+    res.status(400).json({ error: error.message || 'Failed to update promo code.' });
+  }
+});
+
+// DELETE /api/admin/promotions/codes/:id
+router.delete('/promotions/codes/:id', requireAdmin, async (req, res) => {
+  try {
+    const ok = await deletePromoCode(req.params.id);
+    if (!ok) return res.status(404).json({ error: 'Promotional code not found.' });
+    res.json({ success: true, message: 'Promotional code deleted.' });
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Failed to delete promo code.' });
   }
 });
 

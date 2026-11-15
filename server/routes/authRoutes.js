@@ -60,6 +60,7 @@ import {
   isDuplicateBrowserError
 } from '../security/signupIdentity.js';
 import { recordDuplicateSignupSignal } from '../security/signupBrowser.js';
+import { blockBannedDeviceMiddleware, recordDeviceIdentityLink } from '../security/freeTierAbuseGuard.js';
 import { recordSuccessfulLoginDevice } from '../security/loginRisk.js';
 import { requireRecentReauth } from '../security/recentReauth.js';
 import { getPgPool, queryPg } from '../db/postgres.js';
@@ -1275,7 +1276,7 @@ function selectRegistrationGuards(req, res, next) {
 }
 
 // Register
-router.post('/auth/register', selectRegistrationGuards, async (req, res) => {
+router.post('/auth/register', selectRegistrationGuards, blockBannedDeviceMiddleware, async (req, res) => {
   try {
     if (hasUnverifiedSsoIdentity(req.body)) {
       return res.status(400).json({
@@ -1499,6 +1500,7 @@ router.post('/auth/register', selectRegistrationGuards, async (req, res) => {
     }
 
     (await logActivity('auth', `Store "${newUser.storeName}" Created`, `Tiwi ID: ${tiwiId} • Email: ${normalizedEmail}`, tiwiId));
+    await recordDeviceIdentityLink({ userId: newUser.id, req }).catch(() => {});
 
     const verifyOtp = await generateSecureOtp(newUser.email, 'email_verify', 15);
     const masked = maskEmail(newUser.email);

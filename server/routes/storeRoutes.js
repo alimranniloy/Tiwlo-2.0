@@ -5,7 +5,7 @@ import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypt
 import rateLimit from 'express-rate-limit';
 import { MasterDB, TenantDB } from '../db/multiTenant.js';
 import { BillingDB } from '../db/billing.js';
-import { getEcommercePackages, getEcommercePackageById } from '../db/packages.js';
+import { getEcommerceCatalog, getEcommerceAddons, getEcommercePackageById } from '../db/packages.js';
 import { createTemporaryFileStorage } from '../db/temporaryFileStorage.js';
 import { getPublicMediaUrl, inferMediaType, storeMedia } from '../db/mediaStorage.js';
 import {
@@ -31,6 +31,7 @@ import {
   STORE_REVIEWS_FILE
 } from '../db/storeDataAdapter.js';
 import { generateOtpWithRust, verifyOtpWithRust } from '../security/rustAuthSessionClient.js';
+import { blockBannedDeviceMiddleware } from '../security/freeTierAbuseGuard.js';
 import { sendInvoiceEmail, sendSignupVerificationOtpEmail } from '../db/emailService.js';
 import {
   contentSafetyMiddleware,
@@ -247,6 +248,92 @@ const subscriptionUpgradeLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many subscription update requests. Please wait and try again.' }
 });
+
+const DEFAULT_SUBSCRIPTION = {
+  planId: 'free',
+  planName: 'Free Starter',
+  price: 0,
+  billingCycle: 'monthly',
+  productLimit: 10,
+  warehouseLimit: 1,
+  staffLimit: 1,
+  monthlyOrderLimit: 50,
+  hasPos: false,
+  hasCustomDomain: false,
+  extraProductSlots: 0,
+  extraStaffSlots: 0,
+  addons: [],
+  subdomain: null,
+  customDomain: null,
+  activatedAt: null,
+  status: 'active'
+};
+
+function computeEffectiveLimits(sub = {}) {
+  const addons = Array.isArray(sub?.addons) ? sub.addons : [];
+  const baseProductLimit = Number(sub?.productLimit) > 0 ? Number(sub.productLimit) : 10;
+  const baseStaffLimit = Number(sub?.staffLimit) > 0 ? Number(sub.staffLimit) : 1;
+  const extraProductSlots = Math.max(0, Number(sub?.extraProductSlots) || 0);
+  const extraStaffSlots = Math.max(0, Number(sub?.extraStaffSlots) || 0);
+  const effectiveProductLimit = baseProductLimit + extraProductSlots;
+  const effectiveStaffLimit = baseStaffLimit + extraStaffSlots;
+  const effectiveMonthlyOrderLimit = Number(sub?.monthlyOrderLimit) > 0 ? Number(sub.monthlyOrderLimit) : 50;
+  const hasPos = Boolean(sub?.hasPos || addons.some((a) => a?.type === 'feature_pos'));
+  return {
+    baseProductLimit,
+    baseStaffLimit,
+    extraProductSlots,
+    extraStaffSlots,
+    effectiveProductLimit,
+    effectiveStaffLimit,
+    effectiveMonthlyOrderLimit,
+    hasPos
+  };
+}
+
+function countCurrentMonthSales(sales = []) {
+  const now = new Date();
+  const currentYear = now.getUTCFullYear();
+  const currentMonth = now.getUTCMonth();
+  return sales.filter((sale) => {
+    const rawDate = sale?.date || sale?.createdAt;
+    if (!rawDate) return false;
+    const parsed = new Date(rawDate);
+    if (Number.isNaN(parsed.getTime())) return false;
+    return parsed.getUTCFullYear() === currentYear && parsed.getUTCMonth() === currentMonth;
+  }).length;
+}
+
+function buildSubscriptionWithUsage(sub = {}, { products = [], staff = [], sales = [] } = {}) {
+  const limits = computeEffectiveLimits(sub);
+  const currentProducts = products.length;
+  const currentStaff = staff.length;
+  const currentMonthlyOrders = countCurrentMonthSales(sales);
+  const usagePercent = Math.min(100, Math.round((currentProducts / limits.effectiveProductLimit) * 100));
+  const remainingQuota = Math.max(0, limits.effectiveProductLimit - currentProducts);
+  return {
+    ...DEFAULT_SUBSCRIPTION,
+    ...sub,
+    baseProductLimit: limits.baseProductLimit,
+    baseStaffLimit: limits.baseStaffLimit,
+    extraProductSlots: limits.extraProductSlots,
+    extraStaffSlots: limits.extraStaffSlots,
+    addons: Array.isArray(sub?.addons) ? sub.addons : [],
+    productLimit: limits.effectiveProductLimit,
+    effectiveProductLimit: limits.effectiveProductLimit,
+    staffLimit: limits.effectiveStaffLimit,
+    effectiveStaffLimit: limits.effectiveStaffLimit,
+    monthlyOrderLimit: limits.effectiveMonthlyOrderLimit,
+    effectiveMonthlyOrderLimit: limits.effectiveMonthlyOrderLimit,
+    hasPos: limits.hasPos,
+    currentProducts,
+    currentStaff,
+    currentMonthlyOrders,
+    usagePercent,
+    remainingQuota,
+    isLimitReached: currentProducts >= limits.effectiveProductLimit
+  };
+}
 
 function customerSessionCookieOptions(req, maxAge = 30 * 24 * 60 * 60 * 1000) {
   return {
@@ -1873,7 +1960,7 @@ router.delete('/stores/:tiwiId', async (req, res) => {
   }
 });
 
-router.post('/stores', storeCreateLimiter, async (req, res) => {
+router.post('/stores', storeCreateLimiter, blockBannedDeviceMiddleware, async (req, res) => {
   try {
     const { storeName, subdomain, planId, category, currency, email, phone, description, billingDetails } = req.body;
     const userId = getReqUserId(req);
@@ -1891,12 +1978,17 @@ router.post('/stores', storeCreateLimiter, async (req, res) => {
       email,
       phone,
       description,
-      billingDetails
+      billingDetails,
+      request: req
     });
     res.json(store);
   } catch (err) {
     console.error('Error creating store:', err);
-    res.status(err.statusCode || 500).json({ error: err.message || 'Failed to create store' });
+    res.status(err.statusCode || 500).json({
+      error: err.message || 'Failed to create store',
+      ...(err.code ? { code: err.code } : {}),
+      ...(err.banned ? { banned: true, redirectUrl: '/account-disabled' } : {})
+    });
   }
 });
 
@@ -1951,6 +2043,14 @@ router.get('/products/:id', async (req, res) => {
 
 router.post('/products', contentSafetyMiddleware('public_product'), async (req, res) => {
   const products = (await readData(PRODUCTS_FILE, []));
+  const sub = await readData(SUBSCRIPTION_FILE, DEFAULT_SUBSCRIPTION);
+  const { effectiveProductLimit } = computeEffectiveLimits(sub);
+  if (products.length >= effectiveProductLimit) {
+    return res.status(403).json({
+      error: 'PRODUCT_LIMIT_REACHED',
+      message: `Product limit reached (${products.length}/${effectiveProductLimit}). Upgrade your plan or purchase a product slot add-on to add more products.`
+    });
+  }
   const suppliers = (await readData(SUPPLIERS_FILE, []));
   const purchases = (await readData(PURCHASES_FILE, []));
   const tiwiId = getActiveTiwiId(req);
@@ -3159,11 +3259,27 @@ router.post('/sales/:id/invoice-email', async (req, res) => {
 
 router.post('/sales', storefrontOrderLimiter, async (req, res) => {
   const sales = (await readData(SALES_FILE, []));
+  const tiwiId = getActiveTiwiId(req);
+  const isPublicStorefrontOrder = !!req.storefrontStore;
+  const sub = await readData(SUBSCRIPTION_FILE, DEFAULT_SUBSCRIPTION, tiwiId);
+  const { hasPos: effectiveHasPos, effectiveMonthlyOrderLimit } = computeEffectiveLimits(sub);
+  if (!isPublicStorefrontOrder && !effectiveHasPos) {
+    return res.status(403).json({
+      error: 'POS_ADDON_REQUIRED',
+      message: 'POS System requires an upgraded plan or POS add-on.'
+    });
+  }
+  const monthlySalesCount = countCurrentMonthSales(sales);
+  if (monthlySalesCount >= effectiveMonthlyOrderLimit) {
+    return res.status(403).json({
+      error: 'ORDER_LIMIT_REACHED',
+      message: `Monthly order limit reached (${monthlySalesCount}/${effectiveMonthlyOrderLimit}). Upgrade your plan to process more orders this month.`
+    });
+  }
+
   const financeLedger = await readData(FINANCE_LEDGER_FILE, []);
   const products = (await readData(PRODUCTS_FILE, []));
   const customers = (await readData(CUSTOMERS_FILE, []));
-  const tiwiId = getActiveTiwiId(req);
-  const isPublicStorefrontOrder = !!req.storefrontStore;
 
   const {
     customerId,
@@ -3766,6 +3882,14 @@ router.get('/staff', async (req, res) => {
 
 router.post('/staff', requireRecentReauth, async (req, res) => {
   const staff = await readData(STAFF_FILE, []);
+  const sub = await readData(SUBSCRIPTION_FILE, DEFAULT_SUBSCRIPTION);
+  const { effectiveStaffLimit } = computeEffectiveLimits(sub);
+  if (staff.length >= effectiveStaffLimit) {
+    return res.status(403).json({
+      error: 'STAFF_LIMIT_REACHED',
+      message: `Staff seat limit reached (${staff.length}/${effectiveStaffLimit}). Upgrade your plan or purchase a staff seat add-on to add more staff.`
+    });
+  }
   const { name, phone, email, address, jobTitle, department, startDate, salaryFrequency } = req.body || {};
   const normalizedName = typeof name === 'string' ? name.trim() : '';
   if (!normalizedName || normalizedName.length > 120) {
@@ -4681,31 +4805,21 @@ router.post('/store/upload-banner', upload.single('banner'), async (req, res) =>
 // ==========================================
 // SUBSCRIPTION & PLANS
 // ==========================================
-const DEFAULT_SUBSCRIPTION = {
-  planId: 'free',
-  planName: 'Free Starter',
-  price: 0,
-  billingCycle: 'monthly',
-  productLimit: 50,
-  warehouseLimit: 1,
-  hasCustomDomain: false,
-  subdomain: null,
-  customDomain: null,
-  activatedAt: null,
-  status: 'active'
-};
-
 const PLAN_CATALOG = {
-  free: { planId: 'free', planName: 'Free Starter', price: 0, productLimit: 50, warehouseLimit: 1, hasCustomDomain: false },
-  growth: { planId: 'growth', planName: 'Growth Retailer', price: 19, productLimit: 500, warehouseLimit: 2, hasCustomDomain: true },
-  pro: { planId: 'pro', planName: 'Pro Business', price: 49, productLimit: 5000, warehouseLimit: 5, hasCustomDomain: true },
-  enterprise: { planId: 'enterprise', planName: 'Enterprise VIP', price: 129, productLimit: 999999, warehouseLimit: 99, hasCustomDomain: true }
+  free: { planId: 'free', planName: 'Free Starter', price: 0, productLimit: 10, warehouseLimit: 1, staffLimit: 1, monthlyOrderLimit: 50, hasPos: false, hasCustomDomain: false },
+  growth: { planId: 'growth', planName: 'Growth Retailer', price: 19, productLimit: 150, warehouseLimit: 2, staffLimit: 3, monthlyOrderLimit: 1000, hasPos: true, hasCustomDomain: true },
+  pro: { planId: 'pro', planName: 'Pro Business', price: 49, productLimit: 1000, warehouseLimit: 5, staffLimit: 10, monthlyOrderLimit: 5000, hasPos: true, hasCustomDomain: true },
+  enterprise: { planId: 'enterprise', planName: 'Enterprise VIP', price: 129, productLimit: 10000, warehouseLimit: 25, staffLimit: 50, monthlyOrderLimit: 50000, hasPos: true, hasCustomDomain: true }
 };
 
 router.get('/packages', async (_req, res) => {
   try {
-    const packages = await getEcommercePackages();
-    res.json({ success: true, packages: packages.filter((pkg) => pkg.enabled !== false) });
+    const { packages, addons } = await getEcommerceCatalog();
+    res.json({
+      success: true,
+      packages: packages.filter((pkg) => pkg.enabled !== false),
+      addons: addons.filter((addon) => addon.enabled !== false)
+    });
   } catch (err) {
     console.error('Packages fetch error:', err);
     res.status(500).json({ error: 'Failed to load packages' });
@@ -4713,28 +4827,21 @@ router.get('/packages', async (_req, res) => {
 });
 
 router.get('/subscription', async (req, res) => {
-  const sub = (await readData(SUBSCRIPTION_FILE, DEFAULT_SUBSCRIPTION));
-  const products = (await readData(PRODUCTS_FILE, []));
-  const storeSettings = (await readData(STORE_SETTINGS_FILE, {}));
-
-  const currentProducts = products.length;
-  const productLimit = sub.productLimit || 50;
-  const usagePercent = Math.min(100, Math.round((currentProducts / productLimit) * 100));
-  const remainingQuota = Math.max(0, productLimit - currentProducts);
-  const isLimitReached = currentProducts >= productLimit;
+  const [sub, products, staff, sales, storeSettings] = await Promise.all([
+    readData(SUBSCRIPTION_FILE, DEFAULT_SUBSCRIPTION),
+    readData(PRODUCTS_FILE, []),
+    readData(STAFF_FILE, []),
+    readData(SALES_FILE, []),
+    readData(STORE_SETTINGS_FILE, {})
+  ]);
 
   const cleanStoreName = (storeSettings.storeName || req.activeUser?.storeName || 'store').toLowerCase().replace(/[^a-z0-9]/g, '');
   const dynamicSubdomain = `${cleanStoreName || 'store'}.${PLATFORM_CONFIG.storeDomain}`;
 
-  res.json({
-    ...sub,
-    subdomain: sub.subdomain || dynamicSubdomain,
-    currentProducts,
-    productLimit,
-    usagePercent,
-    remainingQuota,
-    isLimitReached
-  });
+  res.json(buildSubscriptionWithUsage(
+    { ...sub, subdomain: sub.subdomain || dynamicSubdomain },
+    { products, staff, sales }
+  ));
 });
 
 router.post('/subscription/upgrade', subscriptionUpgradeLimiter, async (req, res) => {
@@ -4769,14 +4876,21 @@ router.post('/subscription/upgrade', subscriptionUpgradeLimiter, async (req, res
     const cleanStoreName = (storeSettings.storeName || req.activeUser?.storeName || 'store').toLowerCase().replace(/[^a-z0-9]/g, '');
 
     const updated = {
+      ...DEFAULT_SUBSCRIPTION,
       ...currentSub,
       planId: planInfo.planId,
       planName: planInfo.planName,
       price: effectivePrice,
       billingCycle: normalizedCycle,
-      productLimit: planInfo.productLimit,
-      warehouseLimit: planInfo.warehouseLimit,
-      hasCustomDomain: planInfo.hasCustomDomain,
+      productLimit: Number(planInfo.productLimit ?? 10),
+      warehouseLimit: Number(planInfo.warehouseLimit ?? 1),
+      staffLimit: Number(planInfo.staffLimit ?? 1),
+      monthlyOrderLimit: Number(planInfo.monthlyOrderLimit ?? 50),
+      hasPos: Boolean(planInfo.hasPos),
+      hasCustomDomain: Boolean(planInfo.hasCustomDomain),
+      extraProductSlots: Math.max(0, Number(currentSub?.extraProductSlots) || 0),
+      extraStaffSlots: Math.max(0, Number(currentSub?.extraStaffSlots) || 0),
+      addons: Array.isArray(currentSub?.addons) ? currentSub.addons : [],
       subdomain: currentSub.subdomain || `${cleanStoreName || 'store'}.${PLATFORM_CONFIG.storeDomain}`,
       updatedAt: new Date().toISOString()
     };
@@ -4784,25 +4898,100 @@ router.post('/subscription/upgrade', subscriptionUpgradeLimiter, async (req, res
     (await writeData(SUBSCRIPTION_FILE, updated));
     (await logActivity('subscription', `Plan upgraded to ${planInfo.planName}`, `Billing: ${normalizedCycle}`));
 
-    const products = (await readData(PRODUCTS_FILE, []));
-    const currentProducts = products.length;
-    const usagePercent = Math.min(100, Math.round((currentProducts / updated.productLimit) * 100));
-    const remainingQuota = Math.max(0, updated.productLimit - currentProducts);
+    const [products, staff, sales] = await Promise.all([
+      readData(PRODUCTS_FILE, []),
+      readData(STAFF_FILE, []),
+      readData(SALES_FILE, [])
+    ]);
 
     res.json({
       success: true,
-      subscription: {
-        ...updated,
-        currentProducts,
-        usagePercent,
-        remainingQuota,
-        isLimitReached: currentProducts >= updated.productLimit
-      },
+      subscription: buildSubscriptionWithUsage(updated, { products, staff, sales }),
       message: `Successfully switched to ${planInfo.planName}`
     });
   } catch (err) {
     console.error('Subscription upgrade error:', err);
     res.status(500).json({ error: 'Failed to process subscription upgrade' });
+  }
+});
+
+router.post('/subscription/addons/purchase', subscriptionUpgradeLimiter, async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const addonId = String(req.body?.addonId || '').trim().toLowerCase();
+    if (!addonId) {
+      return res.status(400).json({ error: 'addonId is required' });
+    }
+
+    const addons = await getEcommerceAddons();
+    const addon = addons.find((item) => item.addonId === addonId && item.enabled !== false);
+    if (!addon) {
+      return res.status(400).json({ error: 'Invalid or unavailable add-on selected' });
+    }
+
+    const currentSub = await readData(SUBSCRIPTION_FILE, DEFAULT_SUBSCRIPTION);
+    const currentLimits = computeEffectiveLimits(currentSub);
+
+    if (addon.type === 'feature_pos' && currentLimits.hasPos) {
+      return res.status(409).json({
+        error: 'POS_ALREADY_ACTIVE',
+        message: 'POS System Access is already active on this store.'
+      });
+    }
+
+    const addonPrice = Number(addon.price || 0);
+    if (addonPrice > 0 && req.activeUser?.role !== 'admin') {
+      const chargeResult = await BillingDB.chargeSubscriptionPlan(userId, addonPrice, addon.name);
+      if (!chargeResult.success) {
+        return res.status(chargeResult.statusCode || 402).json({
+          error: chargeResult.error || 'Payment verification required to purchase add-on.'
+        });
+      }
+    }
+
+    const existingAddons = Array.isArray(currentSub?.addons) ? currentSub.addons : [];
+    const purchasedAt = new Date().toISOString();
+    const purchasedAddon = {
+      addonId: addon.addonId,
+      name: addon.name,
+      type: addon.type,
+      quantity: Number(addon.quantity || 1),
+      price: addonPrice,
+      purchasedAt
+    };
+
+    const updated = {
+      ...DEFAULT_SUBSCRIPTION,
+      ...currentSub,
+      extraProductSlots: currentLimits.extraProductSlots + (addon.type === 'product_slots' ? Number(addon.quantity || 0) : 0),
+      extraStaffSlots: currentLimits.extraStaffSlots + (addon.type === 'staff_slots' ? Number(addon.quantity || 0) : 0),
+      hasPos: addon.type === 'feature_pos' ? true : Boolean(currentSub?.hasPos),
+      addons: [...existingAddons, purchasedAddon],
+      updatedAt: purchasedAt
+    };
+
+    await writeData(SUBSCRIPTION_FILE, updated);
+    await logActivity('subscription', `Add-on purchased: ${addon.name}`, `Price: $${addonPrice}`);
+
+    const [products, staff, sales] = await Promise.all([
+      readData(PRODUCTS_FILE, []),
+      readData(STAFF_FILE, []),
+      readData(SALES_FILE, [])
+    ]);
+
+    res.json({
+      success: true,
+      addon: purchasedAddon,
+      subscription: buildSubscriptionWithUsage(updated, { products, staff, sales }),
+      message: `Successfully activated ${addon.name}`
+    });
+  } catch (err) {
+    console.error('Add-on purchase error:', err);
+    res.status(500).json({ error: 'Failed to process add-on purchase' });
   }
 });
 

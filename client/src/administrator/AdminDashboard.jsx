@@ -20,6 +20,7 @@ import AdminSocialLoginSettings from './AdminSocialLoginSettings';
 import AdminGoogleMapsSettings from './AdminGoogleMapsSettings';
 import AdminPlatformPaymentsView from './AdminPlatformPaymentsView';
 import AdminPackagesView from './AdminPackagesView';
+import AdminPromotionsView from './AdminPromotionsView';
 import AdminPickAccountAppealsView from './AdminPickAccountAppealsView';
 import AdminDnsView from './AdminDnsView';
 import { Calendar, Sparkles } from 'lucide-react';
@@ -199,6 +200,11 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
             />
           ) : activeView === 'packages' ? (
             <AdminPackagesView
+              onBackToDashboard={() => handleNavigate('dashboard')}
+              showToast={showToast}
+            />
+          ) : activeView === 'promotions' ? (
+            <AdminPromotionsView
               onBackToDashboard={() => handleNavigate('dashboard')}
               showToast={showToast}
             />
