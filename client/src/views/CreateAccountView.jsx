@@ -2328,7 +2328,25 @@ export default function CreateAccountView({
                   </div>
 
                   <p className="text-[12px] text-[#636363] leading-relaxed pt-2">
-                    By submitting, you agree to the Tiwlo Payments Terms of Service. The Tiwlo Privacy Notice describes how payments data is handled.
+                    By submitting, you agree to the{' '}
+                    <a
+                      href={getPlatformUrl('/terms')}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-neutral-900 underline hover:text-black"
+                    >
+                      Tiwlo Terms of Service
+                    </a>
+                    . The{' '}
+                    <a
+                      href={getPlatformUrl('/privacy-policy')}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-neutral-900 underline hover:text-black"
+                    >
+                      Tiwlo Privacy Policy
+                    </a>{' '}
+                    describes how account, security, and payments data are handled.
                   </p>
 
                   {/* Action Buttons Row */}
@@ -2553,9 +2571,9 @@ export default function CreateAccountView({
                 <span>English (United States)</span>
               </div>
               <div className="flex items-center gap-4">
-                <a href={getPlatformUrl()} className="transition-colors hover:text-[#1f1f1f]">Help</a>
-                <a href={getPlatformUrl()} className="transition-colors hover:text-[#1f1f1f]">Privacy</a>
-                <a href={getPlatformUrl()} className="transition-colors hover:text-[#1f1f1f]">Terms</a>
+                <a href={getPlatformUrl('/help-support')} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-[#1f1f1f]">Help</a>
+                <a href={getPlatformUrl('/privacy-policy')} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-[#1f1f1f]">Privacy</a>
+                <a href={getPlatformUrl('/terms')} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-[#1f1f1f]">Terms</a>
               </div>
             </footer>
           </div>

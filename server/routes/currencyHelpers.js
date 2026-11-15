@@ -47,18 +47,26 @@ export function validateMarketRateRows(rows, now = Date.now()) {
     if (!row || String(row.base || '').toUpperCase() !== 'USD') {
       throw new TypeError('The exchange-rate source returned a rate with an unexpected base currency.');
     }
-    const quote = normalizeCurrencyCode(row.quote);
+    const rawQuote = String(row.quote || '').trim().toUpperCase();
+    const quote = normalizeCurrencyCode(rawQuote);
     if (typeof row.rate !== 'number' && typeof row.rate !== 'string') {
       throw new TypeError('The exchange-rate source returned malformed data.');
     }
     const rate = Number(row.rate);
     const date = String(row.date || '');
     const observationTime = Date.parse(`${date}T00:00:00Z`);
-    if (!quote || !Number.isFinite(rate) || rate <= 0 || rate > MAX_RATE ||
-        (quote === 'USD' && rate !== 1) ||
+    if (!Number.isFinite(rate) || rate <= 0 || rate > MAX_RATE ||
         !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(observationTime) ||
         new Date(observationTime).toISOString().slice(0, 10) !== date) {
       throw new TypeError('The exchange-rate source returned malformed data.');
+    }
+    // Frankfurter v2 returns 4+ char crypto asset quotes (e.g., AAVE, USDC) alongside 3-letter ISO fiat codes; skip non-ISO tickers cleanly.
+    if (!quote) {
+      if (/^[A-Z0-9]{4,12}$/.test(rawQuote)) continue;
+      throw new TypeError('The exchange-rate source returned malformed data.');
+    }
+    if (quote === 'USD' && rate !== 1) {
+      throw new TypeError('USD must have an exchange rate of exactly 1.');
     }
     if (observationTime > now + 24 * 60 * 60 * 1000) {
       throw new TypeError(`The exchange-rate source returned a future rate for ${quote}.`);

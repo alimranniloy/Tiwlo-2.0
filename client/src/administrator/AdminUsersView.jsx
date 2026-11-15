@@ -1244,7 +1244,7 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
             <div className="p-4 sm:p-5 border-b border-neutral-200/80 dark:border-neutral-800 flex items-start justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
                 <img
-                  src={dossierUser?.avatar || '/tiwlo-icon.png'}
+                  src={dossierUser?.avatar || '/default-avatar.svg'}
                   alt={dossierUser?.name || 'User'}
                   className="w-11 h-11 rounded-full object-cover ring-2 ring-neutral-200 dark:ring-neutral-800 shrink-0"
                 />

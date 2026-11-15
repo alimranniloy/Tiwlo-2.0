@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Activity,
   Archive,
   Bot,
   Boxes,
@@ -7,22 +8,27 @@ import {
   ChevronsUpDown,
   Container,
   CreditCard,
+  DatabaseBackup,
+  Download,
   Fingerprint,
   Globe,
   HardDrive,
   HelpCircle,
   Image,
+  KeyRound,
   LayoutGrid,
   Mail,
   MessageCircle,
   PanelsTopLeft,
   Plus,
   Server,
-  Settings2,
+  ShieldAlert,
   ShoppingBag,
   Sparkles,
   Store,
   UserRound,
+  Users,
+  Webhook,
   X,
 } from 'lucide-react';
 
@@ -89,12 +95,25 @@ export default function CloudSidebar({
       ],
     },
     {
+      label: 'Workspace Controls',
+      items: [
+        { id: 'workspace/performance', label: 'System Performance', icon: Activity },
+        { id: 'workspace/security-alerts', label: 'Security Alerts', icon: ShieldAlert },
+        { id: 'workspace/billing', label: 'Billing History', icon: CreditCard },
+        { id: 'workspace/webhooks', label: 'Webhooks', icon: Webhook },
+        { id: 'workspace/backup-policy', label: 'Backup Policy', icon: DatabaseBackup },
+        { id: 'workspace/data-export', label: 'Data Export', icon: Download },
+      ],
+    },
+    {
       label: 'Account',
       items: [
         { id: 'identity', label: 'Identity', icon: Fingerprint },
+        { id: 'profile-settings', label: 'Profile Settings', icon: UserRound },
+        { id: 'two-factor-auth', label: 'Two-Factor Auth (2FA)', icon: KeyRound },
+        { id: 'team-management', label: 'Team Management', icon: Users },
         { id: 'help-support', label: 'Help & support', icon: HelpCircle },
-        { id: 'billing', label: 'Billing', icon: CreditCard },
-        { id: 'settings', label: 'Settings', icon: Settings2, navigateTab: true },
+        { id: 'billing', label: 'Cloud Wallet & Plans', icon: CreditCard },
       ],
     },
   ];

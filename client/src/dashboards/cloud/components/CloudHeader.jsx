@@ -1,3 +1,4 @@
+import { applicationFetch as fetch } from '../../../api/graphqlTransport.js';
 import React, { useState, useEffect } from 'react';
 import {
   Search,
@@ -7,7 +8,8 @@ import {
   Store,
   ShieldCheck,
   User,
-  Settings,
+  KeyRound,
+  Users,
   Server,
   Copy,
   Check,
@@ -18,7 +20,6 @@ import {
 import { useTheme } from '../../../config/themeConfig';
 import { getCloudBillingData } from '../graphql/cloudQueries';
 import { resolveAvatarUrl } from '../../../utils/mediaUtils';
-import UserAccountSettingsModal from '../../../components/UserAccountSettingsModal';
 
 export default function CloudHeader({
   searchQuery,
@@ -30,7 +31,6 @@ export default function CloudHeader({
   onOpenBilling,
   onSwitchStore,
   onLogout,
-  onUserUpdated,
   showToast,
   onToggleMobileMenu
 }) {
@@ -39,8 +39,48 @@ export default function CloudHeader({
   const [showNotifications, setShowNotifications] = useState(false);
   const [copiedTiwiId, setCopiedTiwiId] = useState(false);
   const [avatarLoadError, setAvatarLoadError] = useState(false);
-  const [accountModalTab, setAccountModalTab] = useState(null);
   const [effectiveUser, setEffectiveUser] = useState(currentUser);
+  const [notifications, setNotifications] = useState([]);
+  const [notifFilter, setNotifFilter] = useState('all');
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [notifSeenAt, setNotifSeenAt] = useState(() => {
+    try {
+      return Number(localStorage.getItem(`tiwlo.notifSeen.${currentUser?.id || 'anon'}`) || 0);
+    } catch {
+      return 0;
+    }
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!currentUser?.id) return;
+    setNotifLoading(true);
+    fetch('/api/user/account/activity-log', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : { logs: [] }))
+      .then((d) => {
+        if (!cancelled && Array.isArray(d.logs)) {
+          setNotifications(d.logs.slice(0, 15));
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setNotifLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [currentUser?.id]);
+
+  const unreadCount = notifications.filter((n) => {
+    const ts = Date.parse(n.createdAt || n.timestamp || 0);
+    return Number.isFinite(ts) && ts > notifSeenAt;
+  }).length;
+
+  const markNotificationsRead = () => {
+    const now = Date.now();
+    setNotifSeenAt(now);
+    try {
+      localStorage.setItem(`tiwlo.notifSeen.${currentUser?.id || 'anon'}`, String(now));
+    } catch {}
+  };
 
   useEffect(() => {
     setEffectiveUser(currentUser);
@@ -153,15 +193,94 @@ export default function CloudHeader({
             }}
             type="button"
             aria-label="Notifications"
-            className="relative flex size-10 items-center justify-center rounded-full text-neutral-700 transition hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            className="relative flex size-10 items-center justify-center rounded-full text-neutral-700 transition hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800 cursor-pointer"
           >
             <Bell className="size-5" />
+            {unreadCount > 0 && (
+              <span className="absolute right-1.5 top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#1ED760] px-1 text-[10px] font-bold text-black">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 z-50 mt-2 w-72 rounded-2xl border border-neutral-200 bg-white p-4 text-sm shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
-              <p className="font-semibold text-neutral-900 dark:text-white">Notifications</p>
-              <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The notification center is not available yet.</p>
+            <div className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-xl border border-neutral-200/80 bg-white text-sm shadow-xl dark:border-neutral-800 dark:bg-neutral-950">
+              <div className="flex items-center justify-between border-b border-neutral-200/80 dark:border-neutral-800 px-4 py-3">
+                <span className="font-semibold text-neutral-950 dark:text-white text-xs">Notifications</span>
+                <div className="flex items-center gap-2">
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={markNotificationsRead}
+                      className="text-[11px] font-medium text-emerald-600 dark:text-[#1ED760] hover:underline cursor-pointer"
+                    >
+                      Mark read
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNotifications(false);
+                      onOpenSettings?.('workspace/security-alerts');
+                    }}
+                    className="text-[11px] font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-white cursor-pointer"
+                  >
+                    Alert Center
+                  </button>
+                </div>
+              </div>
+              <div className="flex gap-1 border-b border-neutral-100 dark:border-neutral-800/80 px-3 py-2 text-[11px]">
+                {['all', 'security', 'team', 'workspace'].map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setNotifFilter(cat)}
+                    className={`rounded-md px-2 py-0.5 capitalize font-medium cursor-pointer ${
+                      notifFilter === cat
+                        ? 'bg-[#1ED760] text-black font-semibold'
+                        : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-900'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+              <div className="max-h-72 overflow-y-auto divide-y divide-neutral-100 dark:divide-neutral-800/70">
+                {notifLoading ? (
+                  <p className="p-4 text-center text-xs text-neutral-400">Syncing live events...</p>
+                ) : (() => {
+                  const items = notifications.filter((n) => notifFilter === 'all' || String(n.category || '').toLowerCase() === notifFilter);
+                  if (!items.length) {
+                    return <p className="p-5 text-center text-xs text-neutral-500 dark:text-neutral-400">No recent alerts in this category.</p>;
+                  }
+                  return items.slice(0, 8).map((item, idx) => (
+                    <button
+                      key={item.id || idx}
+                      type="button"
+                      onClick={() => {
+                        setShowNotifications(false);
+                        const cat = String(item.category || '').toLowerCase();
+                        onOpenSettings?.(cat === 'team' ? 'team-management' : 'profile-settings/activity');
+                      }}
+                      className="w-full px-4 py-2.5 text-left hover:bg-neutral-50 dark:hover:bg-neutral-900/60 transition cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-neutral-900 dark:text-white truncate">
+                          {item.title || item.action || item.type || 'Account event'}
+                        </span>
+                        <span className="shrink-0 text-[10px] text-neutral-400 tabular-nums">
+                          {item.createdAt || item.timestamp ? new Date(item.createdAt || item.timestamp).toLocaleDateString() : ''}
+                        </span>
+                      </div>
+                      {(item.description || item.ip) && (
+                        <p className="mt-0.5 truncate text-[11px] text-neutral-500 dark:text-neutral-400">
+                          {item.description || item.ip}
+                        </p>
+                      )}
+                    </button>
+                  ));
+                })()}
+              </div>
             </div>
           )}
         </div>
@@ -260,7 +379,7 @@ export default function CloudHeader({
                 <button
                   onClick={() => {
                     setShowProfileMenu(false);
-                    setAccountModalTab('profile');
+                    onOpenSettings?.('profile');
                   }}
                   className="w-full flex items-center px-4 py-2 text-xs text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-gray-800 transition cursor-pointer"
                 >
@@ -271,24 +390,34 @@ export default function CloudHeader({
                 <button
                   onClick={() => {
                     setShowProfileMenu(false);
-                    setAccountModalTab('security');
+                    onOpenSettings?.('security');
                   }}
                   className="w-full flex items-center px-4 py-2 text-xs text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-gray-800 transition cursor-pointer"
                 >
                   <ShieldCheck className="w-4 h-4 mr-2.5 text-neutral-400" />
-                  <span>Security & Roles</span>
+                  <span>Security &amp; Preferences</span>
                 </button>
 
                 <button
                   onClick={() => {
                     setShowProfileMenu(false);
-                    if (onOpenSettings) onOpenSettings('settings');
-                    else showToast?.('Opening System & Store Settings');
+                    onOpenSettings?.('two-factor-auth');
                   }}
                   className="w-full flex items-center px-4 py-2 text-xs text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-gray-800 transition cursor-pointer"
                 >
-                  <Settings className="w-4 h-4 mr-2.5 text-neutral-400" />
-                  <span>System Settings</span>
+                  <KeyRound className="w-4 h-4 mr-2.5 text-neutral-400" />
+                  <span>Two-Factor Auth (2FA)</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowProfileMenu(false);
+                    onOpenSettings?.('team-management');
+                  }}
+                  className="w-full flex items-center px-4 py-2 text-xs text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-gray-800 transition cursor-pointer"
+                >
+                  <Users className="w-4 h-4 mr-2.5 text-neutral-400" />
+                  <span>Team Management</span>
                 </button>
               </div>
 
@@ -319,18 +448,6 @@ export default function CloudHeader({
           )}
         </div>
       </div>
-      <UserAccountSettingsModal
-        isOpen={Boolean(accountModalTab)}
-        initialTab={accountModalTab || 'profile'}
-        currentUser={effectiveUser}
-        onClose={() => setAccountModalTab(null)}
-        onUserUpdated={(updatedUser) => {
-          setEffectiveUser((prev) => ({ ...(prev || {}), ...updatedUser }));
-          setAvatarLoadError(false);
-          onUserUpdated?.(updatedUser);
-        }}
-        showToast={showToast}
-      />
     </header>
   );
 }

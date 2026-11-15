@@ -171,7 +171,7 @@ export default function OutlookHeader() {
           className="flex items-center gap-2 cursor-pointer group pr-2 bg-transparent border-0 text-left"
         >
           <div className="w-7 h-7 rounded-md bg-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform overflow-hidden">
-            <img src="/tiwlo-icon.png" alt="" className="w-6 h-6 object-contain" />
+            <img src="/favicon.png" alt="" className="w-6 h-6 object-contain" />
           </div>
           <div className="flex flex-col leading-none">
             <div className="flex items-center gap-1.5">

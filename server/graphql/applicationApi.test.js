@@ -193,3 +193,95 @@ test('GraphQL explorer is disabled by default when NODE_ENV is unset', async t =
   assert.equal(response.headers.get('cache-control'), 'no-store');
   assert.doesNotMatch(await response.text(), /GraphQL Explorer/);
 });
+
+test('application GraphQL recursively discovers and dispatches nested sub-routers without double slashes', async t => {
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    req.activeUser = { id: 'admin_1', role: 'super_admin', addressVerified: true };
+    next();
+  });
+
+  const rootRouter = express.Router();
+  rootRouter.use((req, _res, next) => {
+    req.outerRan = true;
+    next();
+  });
+
+  const staffSubRouter = express.Router();
+  staffSubRouter.get('/staff-support/me', (req, res) => {
+    res.json({ ok: true, outerRan: Boolean(req.outerRan), userId: req.activeUser.id });
+  });
+
+  const fleetSubRouter = express.Router();
+  fleetSubRouter.get('/live-status', async (req, res) => {
+    res.json({ status: 'healthy', outerRan: Boolean(req.outerRan) });
+  });
+  fleetSubRouter.get('/nodes/:nodeId/logs', async (req, res) => {
+    if (req.params.nodeId === 'boom') {
+      throw Object.assign(new Error('Node unavailable'), { status: 503 });
+    }
+    res.json({ nodeId: req.params.nodeId, tail: req.query.tail || null });
+  });
+
+  const deepNestedRouter = express.Router();
+  deepNestedRouter.get('/', (_req, res) => res.json({ root: true }));
+  fleetSubRouter.use('/deep', deepNestedRouter);
+
+  rootRouter.use(staffSubRouter);
+  rootRouter.use('/fleet', fleetSubRouter);
+
+  app.post('/api/graphql', createApplicationGraphQL([['/api/admin', rootRouter]]));
+  const call = await serve(t, app);
+
+  const manifest = await call('{applicationOperations{field method path}}');
+  const ops = manifest.body.data.applicationOperations;
+  const paths = ops.map(op => op.path);
+
+  assert.ok(paths.includes('/api/admin/staff-support/me'));
+  assert.ok(paths.includes('/api/admin/fleet/live-status'));
+  assert.ok(paths.includes('/api/admin/fleet/nodes/:nodeId/logs'));
+  assert.ok(paths.includes('/api/admin/fleet/deep'));
+  for (const p of paths) {
+    assert.ok(!p.includes('//'), `Path must not contain double slashes: ${p}`);
+  }
+
+  const staffRes = await call('query($input:ApplicationInput){result:getApiAdminStaff_supportMe(input:$input){status body}}', { input: {} });
+  assert.deepEqual(staffRes.body.data.result, { status: 200, body: { ok: true, outerRan: true, userId: 'admin_1' } });
+
+  const fleetRes = await call('query($input:ApplicationInput){result:getApiAdminFleetLive_status(input:$input){status body}}', { input: {} });
+  assert.deepEqual(fleetRes.body.data.result, { status: 200, body: { status: 'healthy', outerRan: true } });
+
+  const nodeLogsRes = await call('query($input:ApplicationInput){result:getApiAdminFleetNodesBynodeIdLogs(input:$input){status body}}', {
+    input: { params: { nodeId: 'n1' }, query: { tail: '50' } }
+  });
+  assert.deepEqual(nodeLogsRes.body.data.result, { status: 200, body: { nodeId: 'n1', tail: '50' } });
+
+  const asyncErrRes = await call('query($input:ApplicationInput){result:getApiAdminFleetNodesBynodeIdLogs(input:$input){status body}}', {
+    input: { params: { nodeId: 'boom' } }
+  });
+  assert.equal(asyncErrRes.body.data.result.status, 503);
+});
+
+test('adminRoutes exposes staff-support, fleet, and risk-intel operations in GraphQL manifest', async t => {
+  const { default: adminRoutes, adminStaffRouter, adminRiskRouter, adminFleetRouter } = await import('../administrator/adminRoutes.js');
+  const app = express();
+  app.use(express.json());
+  app.post('/api/graphql', createApplicationGraphQL([
+    ['/api/admin', adminRoutes],
+    ['/api/admin', adminStaffRouter],
+    ['/api/admin', adminRiskRouter],
+    ['/api/admin/fleet', adminFleetRouter]
+  ]));
+  const call = await serve(t, app);
+  const manifest = await call('{applicationOperations{field method path}}');
+  const ops = manifest.body.data.applicationOperations;
+  const signatures = new Set(ops.map(op => `${op.method} ${op.path}`));
+
+  assert.ok(signatures.has('GET /api/admin/staff-support/me'));
+  assert.ok(signatures.has('GET /api/admin/staff-support'));
+  assert.ok(signatures.has('GET /api/admin/fleet/live-status'));
+  assert.ok(signatures.has('GET /api/admin/users/risk-intel'));
+  assert.ok(signatures.has('GET /api/admin/user-locations'));
+  assert.ok(signatures.has('GET /api/admin/user-locations/:userId'));
+});

@@ -51,6 +51,10 @@ const MobileHelpSupportView = lazy(() => import('./views/MobileHelpSupportView')
 const AccountDisabledView = lazy(() => import('./views/AccountDisabledView'));
 const SecurityCheckupView = lazy(() => import('./views/SecurityCheckupView'));
 const AddressVerificationView = lazy(() => import('./views/AddressVerificationView'));
+const UserProfileSettingsView = lazy(() => import('./views/UserProfileSettingsView'));
+const UserTwoFactorView = lazy(() => import('./views/UserTwoFactorView'));
+const UserTeamManagementView = lazy(() => import('./views/UserTeamManagementView'));
+const LegalPolicyView = lazy(() => import('./views/LegalPolicyView'));
 const NotFoundView = lazy(() => import('./views/NotFoundView'));
 const UnavailablePage = lazy(() => import('./components/UnavailablePage'));
 const StoreSuspendedPage = lazy(() => import('./components/StoreSuspendedPage'));
@@ -519,6 +523,17 @@ export default function App() {
         if (pathname === 'oneprofile' || pathname.startsWith('oneprofile/') || pathname === 'one-profile' || pathname.startsWith('one-profile/') || pathname === 'uids/dashboard') {
           return 'oneprofile';
         }
+
+        if (pathname === 'privacy-policy' || pathname === 'privacy') return 'privacy-policy';
+        if (pathname === 'terms' || pathname === 'terms-of-service') return 'terms';
+        if (pathname === 'cookie-policy' || pathname === 'cookies') return 'cookie-policy';
+        if (pathname === 'security-policy' || pathname === 'security') return 'security-policy';
+
+        if (pathname === 'profile-settings' || pathname.startsWith('profile-settings/')) {
+          return pathname;
+        }
+        if (pathname === 'two-factor-auth') return 'two-factor-auth';
+        if (pathname === 'team-management') return 'team-management';
 
         // Unrecognized route -> 404
         return 'not-found';
@@ -2316,6 +2331,12 @@ export default function App() {
           }}
           onCancel={() => window.location.assign(getUidsDashboardUrl('/'))}
         />
+      ) : (activeTab === 'privacy-policy' || activeTab === 'terms' || activeTab === 'cookie-policy' || activeTab === 'security-policy') ? (
+        <LegalPolicyView
+          initialSection={activeTab}
+          onBack={() => handleTabChange(currentUser ? 'workspace' : 'landing')}
+          onNavigate={handleTabChange}
+        />
       ) : (!currentUser && activeTab !== 'store' && activeTab !== 'verification' && activeTab !== 'create-account' && !activeTab.startsWith('create-store') && activeTab !== 'mobile-help-support' && activeTab !== 'help-support/mobile' && activeTab !== 'help-support' && !(typeof activeTab === 'string' && activeTab.startsWith('help-support/')) && activeTab !== 'tpanel' && activeTab !== 'landing' && activeTab !== 'subdomain' && !(typeof activeTab === 'string' && (activeTab.startsWith('subdomain') || activeTab.startsWith('uidis')))) ? (
         <LoginView
           onLoginSuccess={handleLoginSuccess}
@@ -2522,10 +2543,45 @@ export default function App() {
             />
           </main>
         </div>
-      ) : (activeTab === 'dashboard' || activeTab === 'identity' || activeTab === 'billing' || activeTab.startsWith('billing') || activeTab === 'domains' || activeTab === 'workspace' || activeTab.startsWith('workspace') || activeTab === 'marketplace' || activeTab.startsWith('marketplace') || activeTab === 'whatsapp-automation' || activeTab.startsWith('whatsapp-automation')) ? (
+      ) : (
+        activeTab === 'dashboard' ||
+        activeTab === 'identity' ||
+        activeTab === 'billing' ||
+        activeTab.startsWith('billing') ||
+        activeTab === 'domains' ||
+        activeTab === 'workspace' ||
+        activeTab.startsWith('workspace') ||
+        activeTab === 'marketplace' ||
+        activeTab.startsWith('marketplace') ||
+        activeTab === 'whatsapp-automation' ||
+        activeTab.startsWith('whatsapp-automation') ||
+        (!selectedStore && (
+          activeTab === 'profile-settings' ||
+          activeTab.startsWith('profile-settings/') ||
+          activeTab === 'two-factor-auth' ||
+          activeTab === 'team-management'
+        ))
+      ) ? (
         <CloudDashboard
           currentUser={currentUser}
-          initialNav={activeTab === 'identity' ? 'identity' : activeTab === 'billing' || activeTab.startsWith('billing') ? 'billing' : activeTab === 'domains' ? 'domains' : activeTab.startsWith('workspace/') ? activeTab : activeTab === 'workspace-hub' ? 'workspace-hub' : activeTab.startsWith('marketplace') ? activeTab : activeTab.startsWith('whatsapp-automation') ? 'whatsapp-automation' : 'dashboard'}
+          initialNav={
+            activeTab === 'identity'
+              ? 'identity'
+              : activeTab === 'billing' || activeTab.startsWith('billing')
+                ? 'billing'
+                : activeTab === 'domains'
+                  ? 'domains'
+                  : (activeTab.startsWith('workspace/') ||
+                    activeTab === 'workspace-hub' ||
+                    activeTab.startsWith('marketplace') ||
+                    activeTab.startsWith('whatsapp-automation') ||
+                    activeTab === 'profile-settings' ||
+                    activeTab.startsWith('profile-settings/') ||
+                    activeTab === 'two-factor-auth' ||
+                    activeTab === 'team-management')
+                    ? activeTab
+                    : 'dashboard'
+          }
           onLogout={handleLogout}
           onOpenStoreDashboard={handleStoreConsoleLaunch}
           onNavigateTab={handleTabChange}
@@ -2556,6 +2612,7 @@ export default function App() {
               onLogout={handleLogout}
               onToggleMobileMenu={() => setMobileMenuOpen(true)}
               onNewProduct={() => handleTabChange('add-product')}
+              onNavigateTab={handleTabChange}
             />
 
             {/* Scrollable Body */}
@@ -2824,6 +2881,39 @@ export default function App() {
               initialSubRoute={activeTab.startsWith('help-support/') ? activeTab.replace('help-support/', '') : 'home'}
               showToast={showToast}
               onBackToDashboard={() => handleTabChange('dashboard')}
+            />
+          )}
+
+          {/* TAB: USER PROFILE & ACCOUNT SETTINGS */}
+          {(activeTab === 'profile-settings' || activeTab.startsWith('profile-settings/')) && (
+            <UserProfileSettingsView
+              currentUser={currentUser}
+              initialSection={activeTab.startsWith('profile-settings/') ? activeTab.replace('profile-settings/', '') : 'profile'}
+              onUserUpdated={(updated) => setCurrentUser((prev) => (prev ? { ...prev, ...updated } : updated))}
+              onBack={() => handleTabChange('ecommerce-dashboard')}
+              onOpenTwoFactor={() => handleTabChange('two-factor-auth')}
+              onOpenTeamManagement={() => handleTabChange('team-management')}
+              showToast={showToast}
+            />
+          )}
+
+          {/* TAB: TWO-FACTOR AUTHENTICATION */}
+          {activeTab === 'two-factor-auth' && (
+            <UserTwoFactorView
+              currentUser={currentUser}
+              onUserUpdated={(updated) => setCurrentUser((prev) => (prev ? { ...prev, ...updated } : updated))}
+              onBack={() => handleTabChange('profile-settings/security')}
+              showToast={showToast}
+            />
+          )}
+
+          {/* TAB: TEAM MANAGEMENT */}
+          {activeTab === 'team-management' && (
+            <UserTeamManagementView
+              currentUser={currentUser}
+              onBack={() => handleTabChange('ecommerce-dashboard')}
+              onOpenTwoFactor={() => handleTabChange('two-factor-auth')}
+              showToast={showToast}
             />
           )}
         </main>

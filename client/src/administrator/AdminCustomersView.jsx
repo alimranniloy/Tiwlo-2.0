@@ -779,7 +779,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                       <td className="px-4 py-3.5">
                         <div className="flex items-start gap-2.5">
                           <img
-                            src={c.avatar || '/tiwlo-icon.png'}
+                            src={c.avatar || '/default-avatar.svg'}
                             alt={c.name}
                             className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-neutral-200 dark:ring-neutral-700"
                           />
@@ -1037,7 +1037,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
             <div className="flex items-center justify-between border-b border-neutral-200/80 pb-3 dark:border-neutral-800">
               <div className="flex items-center gap-2.5">
                 <img
-                  src={activeCustomerStores.avatar || '/tiwlo-icon.png'}
+                  src={activeCustomerStores.avatar || '/default-avatar.svg'}
                   alt={activeCustomerStores.name}
                   className="h-8 w-8 rounded-full object-cover"
                 />

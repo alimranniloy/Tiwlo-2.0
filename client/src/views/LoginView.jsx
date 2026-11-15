@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import TiwloPageLoader from '../components/TiwloUniqueLoader';
 import AuthBrandPanel from '../components/auth/AuthBrandPanel';
+import { getMainAppUrl } from '../utils/navigation';
 
 const API_BASE = '/api';
 
@@ -1998,9 +1999,9 @@ export default function LoginView({
         <footer className="mx-auto flex w-full max-w-sm items-center justify-between gap-4 text-[12px] text-[#747775]">
           <span>English (United States)</span>
           <div className="space-x-4">
-            <span className="hover:text-[#1F1F1F] dark:hover:text-[#E3E3E3] cursor-pointer">Help</span>
-            <span className="hover:text-[#1F1F1F] dark:hover:text-[#E3E3E3] cursor-pointer">Privacy</span>
-            <span className="hover:text-[#1F1F1F] dark:hover:text-[#E3E3E3] cursor-pointer">Terms</span>
+            <a href={getMainAppUrl('/help-support')} target="_blank" rel="noopener noreferrer" className="hover:text-[#1F1F1F] dark:hover:text-[#E3E3E3] hover:underline">Help</a>
+            <a href={getMainAppUrl('/privacy-policy')} target="_blank" rel="noopener noreferrer" className="hover:text-[#1F1F1F] dark:hover:text-[#E3E3E3] hover:underline">Privacy</a>
+            <a href={getMainAppUrl('/terms')} target="_blank" rel="noopener noreferrer" className="hover:text-[#1F1F1F] dark:hover:text-[#E3E3E3] hover:underline">Terms</a>
           </div>
         </footer>
         </section>

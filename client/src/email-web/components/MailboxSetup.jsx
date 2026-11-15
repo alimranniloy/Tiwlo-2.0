@@ -57,7 +57,7 @@ export default function MailboxSetup() {
               <div className="mb-5 sm:mb-6">
                 <a href={getPlatformUrl()} className="inline-block transition-opacity hover:opacity-90">
                   <img
-                    src="/tiwlologo.png"
+                    src="/tiwlo-light-logo.png"
                     alt="Tiwlo"
                     className="h-7 sm:h-8 w-auto object-contain"
                     onError={(event) => {

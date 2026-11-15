@@ -199,12 +199,12 @@ export default function AdminHeader({
           className="flex items-center gap-2.5 text-left focus:outline-none min-w-0"
         >
           <img
-            src={isDarkMode ? '/tiwlologo-dark.png' : '/tiwlo-light-logo.png'}
+            src={isDarkMode ? '/tiwlo-dark-bg-logo.png' : '/tiwlo-light-logo.png'}
             alt="Tiwlo"
             className="h-7 w-auto object-contain shrink-0"
             onError={(e) => {
               e.currentTarget.onerror = null;
-              e.currentTarget.src = '/tiwlo-icon.png';
+              e.currentTarget.src = '/favicon.png';
             }}
           />
           <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-neutral-100 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 border border-neutral-200/80 dark:border-neutral-800 shrink-0">

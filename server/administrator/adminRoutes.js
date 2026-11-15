@@ -38,6 +38,8 @@ import {
   computeStoreTierBreakdown
 } from './platformAccounting.js';
 import { createAdminRiskRouter } from './adminRiskRoutes.js';
+import { createAdminStaffRouter } from './adminStaffRoutes.js';
+import { createAdminServerFleetRouter } from './adminServerFleetRoutes.js';
 import { createAdminPlatformOpsRouter } from './adminPlatformOpsRoutes.js';
 import { createAdminSupportRouter } from './adminSupportRoutes.js';
 import { createAdminChatSystemRouter } from './adminChatSystemRoutes.js';
@@ -79,30 +81,9 @@ async function loadStaffSecurityService() {
   }
 }
 
-let cachedFleetRouter = null;
-let cachedStaffRouter = null;
-let lastStaffRouterAttempt = 0;
-async function loadOptionalStaffRouter() {
-  if (cachedStaffRouter) return cachedStaffRouter;
-  if (Date.now() - lastStaffRouterAttempt < 5000) return null;
-  lastStaffRouterAttempt = Date.now();
-  try {
-    const mod = await import('./adminStaffRoutes.js');
-    if (typeof mod?.createAdminStaffRouter === 'function') {
-      cachedStaffRouter = mod.createAdminStaffRouter({
-        requireAdmin,
-        requireRecentReauth,
-        MasterDB
-      });
-    } else if (mod?.default) {
-      cachedStaffRouter = mod.default;
-    }
-    return cachedStaffRouter;
-  } catch {
-    return null;
-  }
-}
-
+export const adminStaffRouter = createAdminStaffRouter({ requireAdmin, requireRecentReauth, getMasterDb: () => MasterDB });
+export const adminRiskRouter = createAdminRiskRouter({ requireAdmin, requireRecentReauth });
+export const adminFleetRouter = createAdminServerFleetRouter({ requireAdmin, requireRecentReauth });
 export const adminPlatformOpsRouter = createAdminPlatformOpsRouter({ requireAdmin, requireRecentReauth });
 export const adminSupportRouter = createAdminSupportRouter({ requireAdmin, requireRecentReauth });
 export const adminChatSystemRouter = createAdminChatSystemRouter({ requireAdmin, requireRecentReauth });
@@ -110,22 +91,9 @@ export const adminTelemetryRouter = createAdminTelemetryRouter({ requireAdmin, r
 
 // ---- Sub-router mounting (Staff/PIN, Identity Risk, Server Fleet, Platform Ops, Support Desk, Chat AI, Telemetry) ----
 // Mounted before legacy routes so the platform (non-retail) handlers take precedence.
-router.use(async (req, res, next) => {
-  const staffRouter = await loadOptionalStaffRouter();
-  if (!staffRouter) return next();
-  return staffRouter(req, res, next);
-});
-router.use(createAdminRiskRouter({ requireAdmin, requireRecentReauth }));
-router.use('/fleet', async (req, res, next) => {
-  try {
-    const mod = await import('./adminServerFleetRoutes.js');
-    cachedFleetRouter ||= mod.createAdminServerFleetRouter({ requireAdmin, requireRecentReauth });
-    return cachedFleetRouter(req, res, next);
-  } catch (error) {
-    console.error('[Admin Fleet] Router unavailable:', error.message);
-    return res.status(503).json({ error: 'Server fleet service is unavailable.' });
-  }
-});
+router.use(adminStaffRouter);
+router.use(adminRiskRouter);
+router.use('/fleet', adminFleetRouter);
 router.use(adminPlatformOpsRouter);
 router.use(adminSupportRouter);
 router.use(adminChatSystemRouter);
@@ -139,7 +107,7 @@ function requirePermission(permission) {
     if (isSuperAdminUser(req.adminUser)) return next();
     const staffSvc = await loadStaffSecurityService();
     if (staffSvc && typeof staffSvc.hasAdminPermission === 'function') {
-      const allowed = staffSvc.hasAdminPermission(req.adminProfile, permission, req.adminUser);
+      const allowed = staffSvc.hasAdminPermission(req.adminUser, req.adminProfile, permission);
       if (!allowed) {
         return res.status(403).json({
           error: 'You do not have permission to perform this action.',
@@ -771,9 +739,102 @@ router.get('/customers', requireAdmin, async (req, res) => {
   }
 });
 
-router.get('/user-locations', requireAdmin, async (req, res) => {
+function roundCoord2(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? Math.round(num * 100) / 100 : null;
+}
+
+function haversineDistanceKm(lat1, lon1, lat2, lon2) {
+  const aLat = Number(lat1);
+  const aLon = Number(lon1);
+  const bLat = Number(lat2);
+  const bLon = Number(lon2);
+  if (![aLat, aLon, bLat, bLon].every(Number.isFinite)) return null;
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+  const dLat = toRad(bLat - aLat);
+  const dLon = toRad(bLon - aLon);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLon / 2) ** 2;
+  return Math.round(2 * earthRadiusKm * Math.asin(Math.min(1, Math.sqrt(h))) * 10) / 10;
+}
+
+function computeLocationTelemetry(captures = []) {
+  const areaKeys = new Set();
+  let gpsVerifiedCount = 0;
+  let maxJumpKm = 0;
+  let impossibleTravelFlag = false;
+
+  const enrichedCaptures = captures.map((entry, idx) => {
+    if (String(entry.location_source || '').toLowerCase() === 'gps') {
+      gpsVerifiedCount += 1;
+    }
+    const areaKey =
+      String(entry.area || entry.postal_code || '').trim().toLowerCase() ||
+      (Number.isFinite(Number(entry.latitude)) && Number.isFinite(Number(entry.longitude))
+        ? `${Number(entry.latitude).toFixed(1)},${Number(entry.longitude).toFixed(1)}`
+        : '');
+    if (areaKey) areaKeys.add(areaKey);
+
+    let jumpKm = null;
+    let deltaHours = null;
+    let impossibleTravel = false;
+    const prev = captures[idx + 1];
+    if (prev) {
+      jumpKm = haversineDistanceKm(entry.latitude, entry.longitude, prev.latitude, prev.longitude);
+      const currMs = Date.parse(entry.captured_at);
+      const prevMs = Date.parse(prev.captured_at);
+      if (Number.isFinite(currMs) && Number.isFinite(prevMs)) {
+        deltaHours = Math.round(Math.max(0, (currMs - prevMs) / 3600000) * 100) / 100;
+      }
+      if (jumpKm !== null && jumpKm > maxJumpKm) {
+        maxJumpKm = jumpKm;
+      }
+      if (jumpKm !== null && jumpKm > 500 && deltaHours !== null && deltaHours <= 2) {
+        impossibleTravel = true;
+        impossibleTravelFlag = true;
+      }
+    }
+
+    return {
+      ...entry,
+      jumpKm,
+      deltaHours,
+      impossibleTravel
+    };
+  });
+
+  const totalCaptures = captures.length;
+  const distinctAreasCount = areaKeys.size;
+  const roundedMaxJumpKm = Math.round(maxJumpKm * 10) / 10;
+  const multiCityFlag = distinctAreasCount > 1 || roundedMaxJumpKm >= 50;
+
+  return {
+    telemetry: {
+      totalCaptures,
+      distinctAreasCount,
+      gpsVerifiedCount,
+      approxIpCount: Math.max(0, totalCaptures - gpsVerifiedCount),
+      multiCityFlag,
+      maxJumpKm: roundedMaxJumpKm,
+      impossibleTravelFlag
+    },
+    enrichedCaptures
+  };
+}
+
+router.get('/user-locations', requireAdmin, requirePermission('manage_users_security'), async (req, res) => {
   try {
     const requesterIsSuperAdmin = isSuperAdminUser(req.adminUser);
+    const searchQuery = String(req.query.q || '').trim().toLowerCase();
+    const filterMode = ['all', 'gps', 'approx', 'multi', 'flagged'].includes(String(req.query.filter || '').toLowerCase())
+      ? String(req.query.filter).toLowerCase()
+      : 'all';
+    const hasPagination = req.query.page !== undefined || req.query.limit !== undefined;
+    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 25));
+
     const result = await queryPg(
       `WITH all_locations AS (
          SELECT user_id, location_source, latitude, longitude, accuracy_meters,
@@ -790,32 +851,142 @@ router.get('/user-locations', requireAdmin, async (req, res) => {
                 address_verified_location->>'plusCode' AS plus_code,
                 address_verified_at AS captured_at, 0::bigint AS id
          FROM system_users
-         WHERE address_verified_at IS NOT NULL AND address_verified_location IS NOT NULL
+         WHERE address_verified_at IS NOT NULL
+           AND address_verified_location IS NOT NULL
+           AND (address_verified_location->>'latitude') IS NOT NULL
+           AND (address_verified_location->>'longitude') IS NOT NULL
+       ),
+       ranked AS (
+         SELECT u.id AS user_id, u.tiwi_id, u.name, u.email, u.role, u.avatar,
+                l.location_source, l.latitude, l.longitude, l.accuracy_meters,
+                l.formatted_address, l.area, l.postal_code, l.plus_code, l.captured_at,
+                ROW_NUMBER() OVER (PARTITION BY l.user_id ORDER BY l.captured_at DESC, l.id DESC) AS rn
+         FROM all_locations l
+         JOIN system_users u ON u.id = l.user_id
        )
-       SELECT DISTINCT ON (l.user_id)
-              u.id AS user_id, u.name, u.email, u.role, u.avatar,
-              l.location_source, l.latitude, l.longitude, l.accuracy_meters,
-              l.formatted_address, l.area, l.postal_code, l.plus_code, l.captured_at
-       FROM all_locations l
-       JOIN system_users u ON u.id = l.user_id
-       ORDER BY l.user_id, l.captured_at DESC, l.id DESC`
+       SELECT user_id, tiwi_id, name, email, role, avatar,
+              location_source, latitude, longitude, accuracy_meters,
+              formatted_address, area, postal_code, captured_at
+       FROM ranked
+       WHERE rn <= 25
+       ORDER BY captured_at DESC`
     );
-    const visibleRows = (result.rows || [])
-      .filter(row => requesterIsSuperAdmin || !isSuperAdminUser(row))
-      .map(({ role: _hiddenRole, ...rest }) => rest);
+
+    const byUser = new Map();
+    for (const row of result.rows || []) {
+      if (!requesterIsSuperAdmin && isSuperAdminUser(row)) continue;
+      if (!byUser.has(row.user_id)) byUser.set(row.user_id, []);
+      byUser.get(row.user_id).push(row);
+    }
+
+    const allUsers = [];
+    for (const captures of byUser.values()) {
+      const latest = captures[0];
+      const { telemetry } = computeLocationTelemetry(captures);
+      const maskedLat = roundCoord2(latest.latitude);
+      const maskedLon = roundCoord2(latest.longitude);
+      allUsers.push({
+        user_id: latest.user_id,
+        tiwi_id: latest.tiwi_id || '',
+        name: latest.name,
+        email: latest.email,
+        avatar: latest.avatar,
+        location_source: latest.location_source,
+        latitude: maskedLat,
+        longitude: maskedLon,
+        approxCoords: { latitude: maskedLat, longitude: maskedLon },
+        coordsMasked: true,
+        accuracy_meters: latest.accuracy_meters,
+        formatted_address: latest.formatted_address,
+        area: latest.area,
+        postal_code: latest.postal_code,
+        plus_code: null,
+        captured_at: latest.captured_at,
+        distinctAreasCount: telemetry.distinctAreasCount,
+        gpsVerifiedCount: telemetry.gpsVerifiedCount,
+        approxIpCount: telemetry.approxIpCount,
+        totalCaptures: telemetry.totalCaptures,
+        multiCityFlag: telemetry.multiCityFlag,
+        maxJumpKm: telemetry.maxJumpKm,
+        impossibleTravelFlag: telemetry.impossibleTravelFlag
+      });
+    }
+
+    allUsers.sort((a, b) => Date.parse(b.captured_at || 0) - Date.parse(a.captured_at || 0));
+
+    const summary = {
+      totalTracked: allUsers.length,
+      gpsVerified: allUsers.filter(u => String(u.location_source || '').toLowerCase() === 'gps').length,
+      approxIpOnly: allUsers.filter(u => String(u.location_source || '').toLowerCase() !== 'gps').length,
+      multiCityOrAnomalies: allUsers.filter(u => u.multiCityFlag || u.impossibleTravelFlag).length,
+      impossibleTravelCount: allUsers.filter(u => u.impossibleTravelFlag).length
+    };
+
+    let filtered = allUsers;
+    if (searchQuery) {
+      filtered = filtered.filter(u =>
+        String(u.name || '').toLowerCase().includes(searchQuery) ||
+        String(u.email || '').toLowerCase().includes(searchQuery) ||
+        String(u.tiwi_id || '').toLowerCase().includes(searchQuery) ||
+        String(u.user_id || '').toLowerCase().includes(searchQuery) ||
+        String(u.area || '').toLowerCase().includes(searchQuery) ||
+        String(u.formatted_address || '').toLowerCase().includes(searchQuery) ||
+        String(u.postal_code || '').toLowerCase().includes(searchQuery)
+      );
+    }
+
+    if (filterMode === 'gps') {
+      filtered = filtered.filter(u => String(u.location_source || '').toLowerCase() === 'gps');
+    } else if (filterMode === 'approx') {
+      filtered = filtered.filter(u => String(u.location_source || '').toLowerCase() !== 'gps');
+    } else if (filterMode === 'multi') {
+      filtered = filtered.filter(u => u.multiCityFlag);
+    } else if (filterMode === 'flagged') {
+      filtered = filtered.filter(u => u.impossibleTravelFlag);
+    }
+
+    const totalFiltered = filtered.length;
+    const pagedUsers = hasPagination
+      ? filtered.slice((page - 1) * limit, page * limit)
+      : filtered;
+
+    recordSecurityEvent({
+      eventType: 'admin.login_locations.listed',
+      severity: 'info',
+      userId: req.adminUser.id,
+      subject: req.adminUser.email,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+      details: {
+        resultCount: pagedUsers.length,
+        totalFiltered,
+        filter: filterMode,
+        hasSearch: Boolean(searchQuery)
+      }
+    }).catch(auditError => {
+      console.error('[Admin User Locations] Could not record list audit event:', auditError.message);
+    });
+
     res.setHeader('Cache-Control', 'no-store');
-    return res.json({ success: true, users: visibleRows });
+    return res.json({
+      success: true,
+      users: pagedUsers,
+      total: totalFiltered,
+      summary,
+      ...(hasPagination ? { pagination: { page, limit, total: totalFiltered } } : {})
+    });
   } catch (error) {
     console.error('[Admin User Locations] Could not list location records:', error.message);
     return res.status(503).json({ error: 'Could not load user location records.' });
   }
 });
 
-router.get('/user-locations/:id', requireAdmin, async (req, res) => {
+router.get('/user-locations/:userId', requireAdmin, requirePermission('manage_users_security'), async (req, res) => {
   try {
+    const targetUserId = req.params.userId;
     const userResult = await queryPg(
-      'SELECT id, name, email, role FROM system_users WHERE id = $1',
-      [req.params.id]
+      'SELECT id, tiwi_id, name, email, role, avatar FROM system_users WHERE id = $1',
+      [targetUserId]
     );
     if (!userResult.rows[0]) return res.status(404).json({ error: 'User not found.' });
     if (isSuperAdminUser(userResult.rows[0]) && !isSuperAdminUser(req.adminUser)) {
@@ -840,23 +1011,34 @@ router.get('/user-locations/:id', requireAdmin, async (req, res) => {
                 address_verified_location->>'plusCode' AS plus_code,
                 address_verified_at AS captured_at, 0::bigint AS id
          FROM system_users
-         WHERE id = $1 AND address_verified_at IS NOT NULL
+         WHERE id = $1
+           AND address_verified_at IS NOT NULL
            AND address_verified_location IS NOT NULL
+           AND (address_verified_location->>'latitude') IS NOT NULL
+           AND (address_verified_location->>'longitude') IS NOT NULL
        )
        SELECT location_source, latitude, longitude, accuracy_meters,
               formatted_address, area, postal_code, plus_code, captured_at
        FROM all_locations
        ORDER BY captured_at DESC, id DESC
-       LIMIT 10`,
-      [req.params.id]
+       LIMIT 25`,
+      [targetUserId]
     );
+
+    const { telemetry, enrichedCaptures } = computeLocationTelemetry(locationsResult.rows || []);
+
     recordSecurityEvent({
       eventType: 'admin.login_locations.viewed',
-      severity: 'info',
+      severity: telemetry.impossibleTravelFlag ? 'warning' : 'info',
       userId: req.adminUser.id,
+      subject: req.adminUser.email,
       ip: req.ip,
       userAgent: req.get('user-agent'),
-      details: { viewedUserId: req.params.id, resultCount: locationsResult.rows.length }
+      details: {
+        viewedUserId: targetUserId,
+        resultCount: enrichedCaptures.length,
+        impossibleTravelFlag: telemetry.impossibleTravelFlag
+      }
     }).catch(auditError => {
       console.error('[Admin User Locations] Could not record access audit event:', auditError.message);
     });
@@ -864,7 +1046,8 @@ router.get('/user-locations/:id', requireAdmin, async (req, res) => {
     return res.json({
       success: true,
       user: safeUser,
-      locations: locationsResult.rows
+      locations: enrichedCaptures,
+      telemetry
     });
   } catch (error) {
     console.error('[Admin User Locations] Could not load location history:', error.message);

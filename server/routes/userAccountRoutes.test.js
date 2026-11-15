@@ -9,10 +9,20 @@ import {
   hasSensitiveAccountChange,
   toSafeUserProfile,
   maskEmail,
+  encodeBase32,
+  decodeBase32,
+  generateTotpCode,
+  verifyTotpCode,
+  encryptTotpSecret,
+  decryptTotpSecret,
+  verifyUserTotpOrRecoveryCode,
+  TEAM_PERMISSION_CATALOG,
+  TEAM_ROLE_PRESETS,
   USER_ACCOUNT_OTP_PURPOSE
 } from './userAccountRoutes.js';
 
-function createMockHarness(initialUser = {}, initialPrefs = {}) {
+function createMockHarness(initialUser = {}, initialPrefs = {}, options = {}) {
+  const users = new Map();
   let currentUser = {
     id: 'usr_100',
     tiwiId: 'tiwi_100',
@@ -36,6 +46,27 @@ function createMockHarness(initialUser = {}, initialPrefs = {}) {
     subdomain: 'dhakamart',
     ...initialUser
   };
+  users.set(currentUser.id, currentUser);
+
+  const secondUser = {
+    id: 'usr_200',
+    tiwiId: 'tiwi_200',
+    storeId: 'tiwi_200',
+    name: 'Nadia Karim',
+    storeName: 'Chittagong Craft',
+    email: 'nadia@example.com',
+    phone: '+8801811000000',
+    password: 'scrypt$salt$other_hash',
+    twoFactorEnabled: false,
+    emailVerified: true,
+    identityVerified: true,
+    authMethod: 'credentials',
+    role: 'owner',
+    planId: 'pro',
+    planName: 'Pro Business',
+    subdomain: 'ctgcraft'
+  };
+  users.set(secondUser.id, secondUser);
 
   const stateDocs = new Map();
   if (Object.keys(initialPrefs).length > 0) {
@@ -45,30 +76,47 @@ function createMockHarness(initialUser = {}, initialPrefs = {}) {
   let otpCounter = 0;
   const otpChallenges = new Map();
   const sentEmails = [];
+  const sentTiwloEmails = [];
   const storedMediaCalls = [];
   const socialUpdates = [];
   const pgQueries = [];
   let passwordUpdates = [];
+  const totpEncryptionSecret = 'unit-test-totp-cipher-secret-32chars!';
 
   const deps = {
     isPgActive: () => false,
+    totpEncryptionSecret,
     masterDb: {
       async getSession(token) {
-        if (token !== 'valid-session-token') return null;
-        return {
-          session: { sessionToken: token, userId: currentUser.id },
-          user: { ...currentUser }
-        };
+        if (token === 'valid-session-token') {
+          const u = users.get(currentUser.id);
+          return {
+            session: { sessionToken: token, userId: u.id },
+            user: { ...u }
+          };
+        }
+        if (token === 'second-user-token') {
+          const u = users.get(secondUser.id);
+          return {
+            session: { sessionToken: token, userId: u.id },
+            user: { ...u }
+          };
+        }
+        return null;
       },
       async updateUser(userId, updates) {
-        assert.equal(userId, currentUser.id);
-        currentUser = { ...currentUser, ...updates };
-        return { ...currentUser };
+        const existing = users.get(userId);
+        assert.ok(existing, `Unknown user ${userId}`);
+        const next = { ...existing, ...updates };
+        users.set(userId, next);
+        if (userId === currentUser.id) currentUser = next;
+        return { ...next };
       },
       async updatePasswordAndRevokeSessions(userId, passwordHash, exceptToken) {
         assert.equal(userId, currentUser.id);
         passwordUpdates.push({ userId, passwordHash, exceptToken });
         currentUser = { ...currentUser, password: passwordHash };
+        users.set(userId, currentUser);
       },
       async revokeUserSessions() {}
     },
@@ -79,6 +127,10 @@ function createMockHarness(initialUser = {}, initialPrefs = {}) {
     },
     queryPg: async (sql, params) => {
       pgQueries.push({ sql, params });
+      if (typeof options.queryPg === 'function') {
+        const custom = await options.queryPg(sql, params);
+        if (custom) return custom;
+      }
       if (/FROM system_sessions/i.test(sql)) {
         return {
           rows: [
@@ -134,6 +186,13 @@ function createMockHarness(initialUser = {}, initialPrefs = {}) {
       sentEmails.push(payload);
       return { success: true, delivered: true };
     },
+    sendTiwloEmail: async (payload) => {
+      if (typeof options.sendTiwloEmail === 'function') {
+        return options.sendTiwloEmail(payload);
+      }
+      sentTiwloEmails.push(payload);
+      return { success: true, delivered: true, status: 'delivered', messageId: 'msg_test_1' };
+    },
     verifyPasswordWithRust: async (_userId, password) => {
       const valid = password === 'CurrentPass123!';
       return { valid, rehashPerformed: false };
@@ -149,12 +208,15 @@ function createMockHarness(initialUser = {}, initialPrefs = {}) {
 
   return {
     deps,
+    stateDocs,
     getUser: () => currentUser,
     sentEmails,
+    sentTiwloEmails,
     storedMediaCalls,
     socialUpdates,
     pgQueries,
-    passwordUpdates
+    passwordUpdates,
+    totpEncryptionSecret
   };
 }
 
@@ -387,4 +449,688 @@ test('POST /api/user/account/avatar validates magic bytes and saves image via me
   assert.equal(harness.storedMediaCalls[0].purpose, 'user_avatar');
   assert.equal(harness.getUser().avatar, goodBody.avatar);
   assert.equal(harness.socialUpdates.length, 1);
+});
+
+test('RFC 6238 TOTP helpers match standard vector, clock skew, Base32, and AES-GCM wrapping', () => {
+  const rfcSecret = '12345678901234567890';
+  const encoded = encodeBase32(Buffer.from(rfcSecret, 'ascii'));
+  assert.equal(encoded, 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ');
+  assert.equal(decodeBase32(encoded).toString('ascii'), rfcSecret);
+
+  // RFC 6238 SHA1 test vector at T = 59s -> 94287082 -> 6-digit 287082
+  const codeAt59 = generateTotpCode(encoded, 59_000, 30, 6);
+  assert.equal(codeAt59, '287082');
+
+  // Within ±1 step (30s) succeeds; 2 steps away fails
+  assert.equal(verifyTotpCode(encoded, codeAt59, { timestampMs: 89_000, window: 1 }).valid, true);
+  assert.equal(verifyTotpCode(encoded, codeAt59, { timestampMs: 120_000, window: 1 }).valid, false);
+  assert.equal(verifyTotpCode(encoded, '000000', { timestampMs: 59_000, window: 1 }).valid, false);
+
+  const wrapped = encryptTotpSecret(encoded, 'my-test-secret-key-at-least-32-chars');
+  assert.ok(wrapped.startsWith('enc:v1:'));
+  assert.equal(wrapped.includes(encoded), false);
+  assert.equal(decryptTotpSecret(wrapped, 'my-test-secret-key-at-least-32-chars'), encoded);
+});
+
+test('TOTP QR setup, verification, invalid code rejection, recovery codes, login verification, and disable', async (t) => {
+  const harness = createMockHarness();
+  const call = await withApp(t, harness.deps);
+  const authHeaders = {
+    Authorization: 'Bearer valid-session-token',
+    'Content-Type': 'application/json'
+  };
+
+  // Initial status
+  const status0Res = await call('/api/user/account/two-factor/status', {
+    headers: { Authorization: 'Bearer valid-session-token' }
+  });
+  assert.equal(status0Res.status, 200);
+  const status0 = await status0Res.json();
+  assert.equal(status0.twoFactorEnabled, false);
+  assert.equal(status0.totpEnabled, false);
+  assert.equal(status0.activeMethod, 'off');
+
+  // Setup QR
+  const setupRes = await call('/api/user/account/two-factor/totp/setup', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer valid-session-token' }
+  });
+  assert.equal(setupRes.status, 200);
+  const setup = await setupRes.json();
+  assert.equal(setup.success, true);
+  assert.match(setup.qrCodeDataUrl, /^data:image\/png;base64,/);
+  assert.ok(setup.manualKey && setup.manualKey.length >= 16);
+  assert.equal(setup.issuer, 'Tiwlo');
+  assert.equal(setup.accountName, 'tariq@example.com');
+  assert.ok(setup.otpauthUrl.startsWith('otpauth://totp/Tiwlo:tariq@example.com?'));
+  assert.ok(setup.otpauthUrl.includes(`secret=${setup.manualKey}`));
+
+  // Invalid code rejected
+  const badVerifyRes = await call('/api/user/account/two-factor/totp/verify', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ code: '000001' })
+  });
+  // Only check rejection when not coincidentally 000001
+  const currentValidCode = generateTotpCode(setup.manualKey);
+  if (currentValidCode !== '000001') {
+    assert.equal(badVerifyRes.status, 400);
+    assert.equal(harness.getUser().twoFactorEnabled, false);
+  }
+
+  // Valid TOTP code activates TOTP + MasterDB + recovery codes
+  const verifyRes = await call('/api/user/account/two-factor/totp/verify', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ code: currentValidCode })
+  });
+  assert.equal(verifyRes.status, 200);
+  const verifyBody = await verifyRes.json();
+  assert.equal(verifyBody.success, true);
+  assert.equal(verifyBody.totpEnabled, true);
+  assert.equal(verifyBody.twoFactorEnabled, true);
+  assert.equal(verifyBody.activeMethod, 'totp');
+  assert.equal(verifyBody.recoveryCodes.length, 8);
+  assert.ok(verifyBody.recoveryCodes.every((c) => /^[A-Z0-9]{8}$/.test(c)));
+  assert.equal(harness.getUser().twoFactorEnabled, true);
+
+  // Status never leaks secrets
+  const status1Res = await call('/api/user/account/two-factor/status', {
+    headers: { Authorization: 'Bearer valid-session-token' }
+  });
+  const status1 = await status1Res.json();
+  assert.equal(status1.totpEnabled, true);
+  assert.equal(status1.activeMethod, 'totp');
+  assert.equal(status1.backupCodesRemaining, 8);
+  assert.equal(status1.activeSecretEnc, undefined);
+  assert.equal(status1.pendingSecretEnc, undefined);
+  assert.equal(status1.recoveryCodeHashes, undefined);
+
+  // Login helper verifies TOTP and single-use recovery code
+  const loginTotpCheck = await verifyUserTotpOrRecoveryCode('usr_100', generateTotpCode(setup.manualKey), {
+    readState: harness.deps.readState,
+    saveState: harness.deps.saveState,
+    totpEncryptionSecret: harness.totpEncryptionSecret
+  });
+  assert.equal(loginTotpCheck.valid, true);
+  assert.equal(loginTotpCheck.method, 'totp');
+
+  const firstRecovery = verifyBody.recoveryCodes[0];
+  const loginRcCheck = await verifyUserTotpOrRecoveryCode('usr_100', firstRecovery, {
+    readState: harness.deps.readState,
+    saveState: harness.deps.saveState,
+    totpEncryptionSecret: harness.totpEncryptionSecret
+  });
+  assert.equal(loginRcCheck.valid, true);
+  assert.equal(loginRcCheck.method, 'recovery_code');
+  assert.equal(loginRcCheck.recoveryCodesRemaining, 7);
+
+  // Reusing consumed recovery code must fail
+  const replayRcCheck = await verifyUserTotpOrRecoveryCode('usr_100', firstRecovery, {
+    readState: harness.deps.readState,
+    saveState: harness.deps.saveState,
+    totpEncryptionSecret: harness.totpEncryptionSecret
+  });
+  assert.equal(replayRcCheck.valid, false);
+
+  // Regenerate recovery codes requires valid credential
+  const badRegen = await call('/api/user/account/two-factor/recovery-codes/regenerate', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ currentPassword: 'WrongPassword!' })
+  });
+  assert.equal(badRegen.status, 401);
+
+  const regenRes = await call('/api/user/account/two-factor/recovery-codes/regenerate', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ currentPassword: 'CurrentPass123!' })
+  });
+  assert.equal(regenRes.status, 200);
+  const regenBody = await regenRes.json();
+  assert.equal(regenBody.recoveryCodes.length, 8);
+  assert.equal(regenBody.backupCodesRemaining, 8);
+
+  // Disable without credential rejected
+  const noCredDisable = await call('/api/user/account/two-factor/totp/disable', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({})
+  });
+  assert.equal(noCredDisable.status, 400);
+
+  // Disable with keepEmail2fa: true keeps twoFactorEnabled = true (email fallback)
+  const keepEmailDisable = await call('/api/user/account/two-factor/totp/disable', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ currentPassword: 'CurrentPass123!', keepEmail2fa: true })
+  });
+  assert.equal(keepEmailDisable.status, 200);
+  const keepEmailBody = await keepEmailDisable.json();
+  assert.equal(keepEmailBody.totpEnabled, false);
+  assert.equal(keepEmailBody.emailTwoFactorEnabled, true);
+  assert.equal(keepEmailBody.twoFactorEnabled, true);
+  assert.equal(keepEmailBody.activeMethod, 'email');
+  assert.equal(harness.getUser().twoFactorEnabled, true);
+});
+
+test('Security PIN set, update, verify, and remove without leaking scrypt hash', async (t) => {
+  const harness = createMockHarness();
+  const call = await withApp(t, harness.deps);
+  const authHeaders = {
+    Authorization: 'Bearer valid-session-token',
+    'Content-Type': 'application/json'
+  };
+
+  // Invalid PIN format -> 422
+  const badPin = await call('/api/user/account/security-pin', {
+    method: 'PUT',
+    headers: authHeaders,
+    body: JSON.stringify({ pin: 'abc' })
+  });
+  assert.equal(badPin.status, 422);
+
+  // Initial PIN set -> 200
+  const setPin = await call('/api/user/account/security-pin', {
+    method: 'PUT',
+    headers: authHeaders,
+    body: JSON.stringify({ pin: '123456' })
+  });
+  assert.equal(setPin.status, 200);
+  const setBody = await setPin.json();
+  assert.equal(setBody.success, true);
+  assert.equal(setBody.hasSecurityPin, true);
+  assert.ok(setBody.pinUpdatedAt);
+  assert.equal(setBody.securityPinHash, undefined);
+
+  const storedDoc = harness.stateDocs.get('user_account_prefs:usr_100');
+  assert.match(storedDoc.securityPinHash, /^scrypt:[a-f0-9]+:[a-f0-9]+$/);
+
+  // Changing PIN without currentPin/currentPassword -> 400
+  const blockedChange = await call('/api/user/account/security-pin', {
+    method: 'PUT',
+    headers: authHeaders,
+    body: JSON.stringify({ pin: '654321' })
+  });
+  assert.equal(blockedChange.status, 400);
+
+  // Changing PIN with wrong currentPin -> 401
+  const wrongChange = await call('/api/user/account/security-pin', {
+    method: 'PUT',
+    headers: authHeaders,
+    body: JSON.stringify({ pin: '654321', currentPin: '000000' })
+  });
+  assert.equal(wrongChange.status, 401);
+
+  // Changing PIN with valid currentPin -> 200
+  const goodChange = await call('/api/user/account/security-pin', {
+    method: 'PUT',
+    headers: authHeaders,
+    body: JSON.stringify({ pin: '654321', currentPin: '123456' })
+  });
+  assert.equal(goodChange.status, 200);
+
+  // Remove PIN without credential -> 400
+  const blockedDelete = await call('/api/user/account/security-pin', {
+    method: 'DELETE',
+    headers: authHeaders,
+    body: JSON.stringify({})
+  });
+  assert.equal(blockedDelete.status, 400);
+
+  // Remove PIN with valid currentPin -> 200
+  const goodDelete = await call('/api/user/account/security-pin', {
+    method: 'DELETE',
+    headers: authHeaders,
+    body: JSON.stringify({ currentPin: '654321' })
+  });
+  assert.equal(goodDelete.status, 200);
+  const delBody = await goodDelete.json();
+  assert.equal(delBody.hasSecurityPin, false);
+  assert.equal(delBody.pinUpdatedAt, null);
+  assert.equal(delBody.securityPinHash, undefined);
+});
+
+test('Preferences, notification settings, and widget config persist cleanly with NO API key fields', async (t) => {
+  const harness = createMockHarness();
+  const call = await withApp(t, harness.deps);
+  const authHeaders = {
+    Authorization: 'Bearer valid-session-token',
+    'Content-Type': 'application/json'
+  };
+
+  const getInitial = await call('/api/user/account/preferences', {
+    headers: { Authorization: 'Bearer valid-session-token' }
+  });
+  assert.equal(getInitial.status, 200);
+  const initialBody = await getInitial.json();
+  assert.equal(initialBody.preferences.language, 'en');
+  assert.equal(initialBody.notificationPrefs.digestFrequency, 'realtime');
+  assert.equal(initialBody.widgetConfig.showQuickStats, true);
+  assert.equal(initialBody.apiKeys, undefined);
+
+  // Invalid digestFrequency rejected
+  const badFreq = await call('/api/user/account/preferences', {
+    method: 'PUT',
+    headers: authHeaders,
+    body: JSON.stringify({ notificationPrefs: { digestFrequency: 'hourly' } })
+  });
+  assert.equal(badFreq.status, 422);
+
+  // Save full preferences + notificationPrefs + widgetConfig (attempting to smuggle apiKeys must be ignored)
+  const putRes = await call('/api/user/account/preferences', {
+    method: 'PUT',
+    headers: authHeaders,
+    body: JSON.stringify({
+      language: 'bn',
+      timezone: 'UTC',
+      marketingEmails: true,
+      securityAlerts: true,
+      apiKeys: [{ key: 'should-be-ignored' }],
+      notificationPrefs: {
+        emailSecurityAlerts: true,
+        loginAlerts: false,
+        orderAlerts: true,
+        billingAlerts: true,
+        teamInviteAlerts: false,
+        productUpdates: true,
+        digestFrequency: 'daily'
+      },
+      widgetConfig: {
+        showQuickStats: true,
+        showRecentActivity: false,
+        showRevenueChart: true,
+        showStoreHealth: false,
+        showTeamActivity: true,
+        compactDensity: true
+      }
+    })
+  });
+  assert.equal(putRes.status, 200);
+  const putBody = await putRes.json();
+  assert.equal(putBody.preferences.language, 'bn');
+  assert.equal(putBody.preferences.timezone, 'UTC');
+  assert.equal(putBody.preferences.marketingEmails, true);
+  assert.equal(putBody.notificationPrefs.loginAlerts, false);
+  assert.equal(putBody.notificationPrefs.digestFrequency, 'daily');
+  assert.equal(putBody.widgetConfig.showRecentActivity, false);
+  assert.equal(putBody.widgetConfig.compactDensity, true);
+  assert.equal(putBody.apiKeys, undefined);
+  assert.equal(putBody.preferences.apiKeys, undefined);
+  assert.equal(harness.stateDocs.get('user_account_prefs:usr_100').apiKeys, undefined);
+});
+
+test('GET /api/user/account/activity-log merges sources newest first and enforces strict user isolation', async (t) => {
+  const harness = createMockHarness({}, {}, {
+    queryPg: async (sql, params) => {
+      if (/FROM system_user_login_locations/i.test(sql)) {
+        assert.equal(params[0], 'usr_100');
+        return {
+          rows: [
+            {
+              id: 11,
+              user_id: 'usr_100',
+              location_source: 'ip',
+              formatted_address: 'Banani, Dhaka, Bangladesh',
+              area: 'Banani',
+              captured_at: '2026-11-15T12:00:00.000Z'
+            },
+            {
+              id: 12,
+              user_id: 'usr_999', // must be filtered out defensively
+              location_source: 'ip',
+              formatted_address: 'SECRET OTHER USER LOCATION',
+              captured_at: '2026-11-15T13:00:00.000Z'
+            }
+          ]
+        };
+      }
+      if (/FROM system_security_events/i.test(sql)) {
+        assert.equal(params[0], 'usr_100');
+        return {
+          rows: [
+            {
+              id: 21,
+              user_id: 'usr_100',
+              event_type: 'login_success',
+              severity: 'info',
+              remote_ip: '203.0.113.10',
+              user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/125.0.0.0',
+              details: { message: 'Signed in cleanly' },
+              created_at: '2026-11-15T11:30:00.000Z'
+            },
+            {
+              id: 22,
+              user_id: 'usr_999',
+              event_type: 'other_user_event',
+              severity: 'warning',
+              details: { message: 'LEAK' },
+              created_at: '2026-11-15T14:00:00.000Z'
+            }
+          ]
+        };
+      }
+      return null;
+    }
+  });
+
+  const call = await withApp(t, harness.deps);
+
+  // Trigger an account activity entry
+  await call('/api/user/account/preferences', {
+    method: 'PUT',
+    headers: {
+      Authorization: 'Bearer valid-session-token',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ language: 'en' })
+  });
+
+  const res = await call('/api/user/account/activity-log', {
+    headers: { Authorization: 'Bearer valid-session-token' }
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.success, true);
+  assert.ok(body.activities.length >= 3);
+  assert.ok(body.activities.every((item) => !JSON.stringify(item).includes('SECRET OTHER USER')));
+  assert.ok(body.activities.every((item) => !JSON.stringify(item).includes('LEAK')));
+
+  // Verify newest-first ordering
+  for (let i = 1; i < body.activities.length; i += 1) {
+    assert.ok(
+      new Date(body.activities[i - 1].createdAt).getTime() >=
+      new Date(body.activities[i].createdAt).getTime()
+    );
+  }
+});
+
+test('Per-owner team & staff CRUD, email confirmation fallback, and cross-owner isolation', async (t) => {
+  let failEmailNext = false;
+  const harness = createMockHarness({}, {}, {
+    sendTiwloEmail: async (payload) => {
+      if (failEmailNext) {
+        throw new Error('SMTP not configured');
+      }
+      harness.sentTiwloEmails.push(payload);
+      return { success: true, delivered: true, status: 'delivered', messageId: 'msg_invite_1' };
+    }
+  });
+  const call = await withApp(t, harness.deps);
+  const ownerAHeaders = {
+    Authorization: 'Bearer valid-session-token',
+    'Content-Type': 'application/json'
+  };
+  const ownerBHeaders = {
+    Authorization: 'Bearer second-user-token',
+    'Content-Type': 'application/json'
+  };
+
+  assert.equal(TEAM_PERMISSION_CATALOG.length, 11);
+  assert.ok(TEAM_ROLE_PRESETS.manager && TEAM_ROLE_PRESETS.custom);
+
+  // Owner cannot add self
+  const selfAdd = await call('/api/user/account/team-staff', {
+    method: 'POST',
+    headers: ownerAHeaders,
+    body: JSON.stringify({
+      name: 'Self',
+      email: 'tariq@example.com',
+      role: 'manager'
+    })
+  });
+  assert.equal(selfAdd.status, 422);
+
+  // Unknown permission rejected
+  const badPerm = await call('/api/user/account/team-staff', {
+    method: 'POST',
+    headers: ownerAHeaders,
+    body: JSON.stringify({
+      name: 'Staff',
+      email: 'staff1@example.com',
+      role: 'custom',
+      permissions: ['super_admin_hack']
+    })
+  });
+  assert.equal(badPerm.status, 422);
+
+  // Add active member without invite email
+  const activeRes = await call('/api/user/account/team-staff', {
+    method: 'POST',
+    headers: ownerAHeaders,
+    body: JSON.stringify({
+      name: 'Rafi Ahmed',
+      email: 'rafi@example.com',
+      role: 'catalog_editor',
+      require2fa: true,
+      sendInviteEmail: false,
+      storeScope: 'dhakamart'
+    })
+  });
+  assert.equal(activeRes.status, 201);
+  const activeBody = await activeRes.json();
+  assert.equal(activeBody.member.status, 'active');
+  assert.equal(activeBody.inviteEmailSent, false);
+  assert.equal(activeBody.inviteStatus, 'not_required');
+  assert.equal(harness.sentTiwloEmails.length, 0);
+
+  // Duplicate email rejected
+  const dupRes = await call('/api/user/account/team-staff', {
+    method: 'POST',
+    headers: ownerAHeaders,
+    body: JSON.stringify({
+      name: 'Rafi Duplicate',
+      email: 'RAFI@EXAMPLE.COM',
+      role: 'analyst'
+    })
+  });
+  assert.equal(dupRes.status, 409);
+
+  // Add pending member with sendInviteEmail: true (delivered)
+  const inviteRes = await call('/api/user/account/team-staff', {
+    method: 'POST',
+    headers: ownerAHeaders,
+    body: JSON.stringify({
+      name: 'Sadia Islam',
+      email: 'sadia@example.com',
+      role: 'support_agent',
+      sendInviteEmail: true
+    })
+  });
+  assert.equal(inviteRes.status, 201);
+  const inviteBody = await inviteRes.json();
+  assert.equal(inviteBody.member.status, 'pending');
+  assert.equal(inviteBody.inviteEmailSent, true);
+  assert.equal(inviteBody.inviteStatus, 'sent');
+  assert.ok(inviteBody.inviteLink && inviteBody.inviteLink.includes('team-invite?token='));
+  assert.equal(inviteBody.member.inviteTokenHash, undefined);
+  assert.equal(harness.sentTiwloEmails.length, 1);
+
+  // Add member when mail transport fails -> graceful pending_manual fallback + inviteLink
+  failEmailNext = true;
+  const fallbackInviteRes = await call('/api/user/account/team-staff', {
+    method: 'POST',
+    headers: ownerAHeaders,
+    body: JSON.stringify({
+      name: 'Kamal Hasan',
+      email: 'kamal@example.com',
+      role: 'order_operator',
+      sendInviteEmail: true
+    })
+  });
+  failEmailNext = false;
+  assert.equal(fallbackInviteRes.status, 201);
+  const fallbackBody = await fallbackInviteRes.json();
+  assert.equal(fallbackBody.member.status, 'pending');
+  assert.equal(fallbackBody.inviteEmailSent, false);
+  assert.equal(fallbackBody.inviteStatus, 'pending_manual');
+  assert.match(fallbackBody.inviteWarning, /SMTP not configured/i);
+  assert.ok(fallbackBody.inviteLink);
+
+  // Update member
+  const updateRes = await call(`/api/user/account/team-staff/${activeBody.member.id}`, {
+    method: 'PUT',
+    headers: ownerAHeaders,
+    body: JSON.stringify({
+      role: 'manager',
+      status: 'suspended',
+      require2fa: false
+    })
+  });
+  assert.equal(updateRes.status, 200);
+  const updateBody = await updateRes.json();
+  assert.equal(updateBody.member.role, 'manager');
+  assert.equal(updateBody.member.status, 'suspended');
+  assert.equal(updateBody.member.require2fa, false);
+
+  // Cross-owner isolation: Owner B sees 0 members and cannot edit/delete Owner A's members
+  const ownerBGet = await call('/api/user/account/team-staff', {
+    headers: { Authorization: 'Bearer second-user-token' }
+  });
+  assert.equal(ownerBGet.status, 200);
+  const ownerBData = await ownerBGet.json();
+  assert.equal(ownerBData.ownerId, 'usr_200');
+  assert.equal(ownerBData.members.length, 0);
+
+  const crossPut = await call(`/api/user/account/team-staff/${activeBody.member.id}`, {
+    method: 'PUT',
+    headers: ownerBHeaders,
+    body: JSON.stringify({ status: 'active' })
+  });
+  assert.equal(crossPut.status, 404);
+
+  const crossDelete = await call(`/api/user/account/team-staff/${activeBody.member.id}`, {
+    method: 'DELETE',
+    headers: ownerBHeaders
+  });
+  assert.equal(crossDelete.status, 404);
+
+  // Owner A deletes member cleanly
+  const deleteRes = await call(`/api/user/account/team-staff/${fallbackBody.member.id}`, {
+    method: 'DELETE',
+    headers: ownerAHeaders
+  });
+  assert.equal(deleteRes.status, 200);
+  const delData = await deleteRes.json();
+  assert.equal(delData.removedMemberId, fallbackBody.member.id);
+
+  const ownerAGet = await call('/api/user/account/team-staff', {
+    headers: { Authorization: 'Bearer valid-session-token' }
+  });
+  const ownerAData = await ownerAGet.json();
+  assert.equal(ownerAData.members.length, 2);
+  assert.ok(ownerAData.auditLogs.length >= 5);
+});
+
+test('Webhooks CRUD enforces HTTPS SSRF block and Backup Policy persists checkpoints', async (t) => {
+  const harness = createMockHarness();
+  const call = await withApp(t, harness.deps);
+  const authHeaders = {
+    Authorization: 'Bearer valid-session-token',
+    'Content-Type': 'application/json'
+  };
+
+  // Reject unsafe HTTP / localhost / private webhook URLs
+  for (const unsafeUrl of ['http://example.com/hook', 'https://localhost:3000/hook', 'https://192.168.1.50/hook']) {
+    const badRes = await call('/api/user/account/webhooks', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ name: 'Bad Hook', url: unsafeUrl, events: ['order.created'] })
+    });
+    assert.equal(badRes.status, 400);
+  }
+
+  // Create valid public HTTPS webhook
+  const createHook = await call('/api/user/account/webhooks', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      name: 'ERP Sync Hook',
+      url: 'https://hooks.example.com/tiwlo',
+      events: ['order.created', 'billing.paid']
+    })
+  });
+  assert.equal(createHook.status, 201);
+  const hookBody = await createHook.json();
+  assert.equal(hookBody.webhook.name, 'ERP Sync Hook');
+  assert.match(hookBody.webhook.signingSecret, /^whsec_/);
+
+  const listHooks = await call('/api/user/account/webhooks', {
+    headers: { Authorization: 'Bearer valid-session-token' }
+  });
+  assert.equal(listHooks.status, 200);
+  const listBody = await listHooks.json();
+  assert.equal(listBody.webhooks.length, 1);
+
+  const delHook = await call(`/api/user/account/webhooks/${hookBody.webhook.id}`, {
+    method: 'DELETE',
+    headers: { Authorization: 'Bearer valid-session-token' }
+  });
+  assert.equal(delHook.status, 200);
+
+  // Backup policy defaults, update, and manual checkpoint run
+  const getBackup = await call('/api/user/account/backup-policy', {
+    headers: { Authorization: 'Bearer valid-session-token' }
+  });
+  assert.equal(getBackup.status, 200);
+  const defaultBackup = await getBackup.json();
+  assert.equal(defaultBackup.policy.frequency, 'daily');
+
+  const putBackup = await call('/api/user/account/backup-policy', {
+    method: 'PUT',
+    headers: authHeaders,
+    body: JSON.stringify({
+      enabled: true,
+      frequency: 'hourly',
+      retentionDays: 90,
+      preferredWindowUtc: '04:00',
+      includeStoreCatalog: true,
+      includeOrdersBilling: true,
+      includeTeamAudit: false
+    })
+  });
+  assert.equal(putBackup.status, 200);
+  const updatedBackup = await putBackup.json();
+  assert.equal(updatedBackup.policy.frequency, 'hourly');
+  assert.equal(updatedBackup.policy.retentionDays, 90);
+
+  const runBackup = await call('/api/user/account/backup-policy/run', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({})
+  });
+  assert.equal(runBackup.status, 201);
+  const runBody = await runBackup.json();
+  assert.equal(runBody.snapshots.length, 1);
+  assert.match(runBody.snapshot.id, /^chk_/);
+});
+
+test('Preferences persists widgetOrder without reintroducing API key fields', async (t) => {
+  const harness = createMockHarness();
+  const call = await withApp(t, harness.deps);
+  const authHeaders = {
+    Authorization: 'Bearer valid-session-token',
+    'Content-Type': 'application/json'
+  };
+
+  const putPrefs = await call('/api/user/account/preferences', {
+    method: 'PUT',
+    headers: authHeaders,
+    body: JSON.stringify({
+      widgetConfig: {
+        widgetOrder: ['quick-actions', 'usage-summary', 'stores', 'droplets', 'active-services'],
+        defaultLandingTab: 'overview'
+      }
+    })
+  });
+  assert.equal(putPrefs.status, 200);
+  const prefsBody = await putPrefs.json();
+  assert.deepEqual(prefsBody.preferences.widgetConfig.widgetOrder, [
+    'quick-actions',
+    'usage-summary',
+    'stores',
+    'droplets',
+    'active-services'
+  ]);
+  assert.equal(prefsBody.preferences.apiKeys, undefined);
 });

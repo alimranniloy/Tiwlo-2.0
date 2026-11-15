@@ -63,6 +63,7 @@ import {
 import { recordDuplicateSignupSignal } from '../security/signupBrowser.js';
 import { blockBannedDeviceMiddleware, recordDeviceIdentityLink } from '../security/freeTierAbuseGuard.js';
 import { recordSuccessfulLoginDevice } from '../security/loginRisk.js';
+import { getUserTwoFactorStatus, verifyUserTotpOrRecoveryCode } from './userAccountRoutes.js';
 import { requireRecentReauth } from '../security/recentReauth.js';
 import { getPgPool, queryPg } from '../db/postgres.js';
 import {
@@ -1727,6 +1728,11 @@ router.post('/auth/login', securityLimiters.login, securityLimiters.otpRequestIp
       });
     }
 
+    const twoFaStatus = await getUserTwoFactorStatus(user.id, user).catch(() => ({
+      totpEnabled: false,
+      activeMethod: user.twoFactorEnabled ? 'email' : 'off'
+    }));
+
     const otpResult = await generateSecureOtp(user.email, 'login_2fa', 10);
     const masked = maskEmail(user.email);
 
@@ -1735,23 +1741,27 @@ router.post('/auth/login', securityLimiters.login, securityLimiters.otpRequestIp
       name: user.name || user.storeName,
       code: otpResult.code
     }).catch(error => ({ success: false, delivered: false, error: error.message }));
-    if (!emailResult?.success) {
+    if (!emailResult?.success && !twoFaStatus.totpEnabled) {
       await deleteOtpSession(otpResult.token);
       return res.status(503).json({ error: 'We could not send your 2-Step Verification code. Please try signing in again shortly.' });
     }
 
-    (await logActivity('auth', `2FA Challenge Initiated`, `Target: ${cleanId} • Status: ${emailResult?.status}`));
+    (await logActivity('auth', `2FA Challenge Initiated`, `Target: ${cleanId} • Method: ${twoFaStatus.totpEnabled ? 'totp' : 'email'} • Status: ${emailResult?.status}`));
 
     return res.json({
       success: true,
       requires2FA: true,
+      twoFactorMethod: twoFaStatus.totpEnabled ? 'totp' : 'email',
+      totpEnabled: Boolean(twoFaStatus.totpEnabled),
       requiresAddressVerification: requiresPickAddressVerification(req, user),
       tempToken: otpResult.token,
       email: user.email,
       emailMasked: masked,
       delivered: emailResult?.delivered || false,
       deliveryStatus: emailResult?.status,
-      message: `Two-Step verification code sent to ${masked}`
+      message: twoFaStatus.totpEnabled
+        ? 'Enter the 6-digit code from your authenticator app or a recovery code.'
+        : `Two-Step verification code sent to ${masked}`
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -1811,12 +1821,36 @@ router.post('/auth/reauth/verify', securityLimiters.otpVerifyIp, securityLimiter
 router.post('/auth/verify-2fa', securityLimiters.otpVerifyIp, securityLimiters.otpVerifyToken, async (req, res) => {
   try {
     const tempToken = req.body?.tempToken || req.cookies?.tiwlo_oauth_mfa;
-    const { otpCode } = req.body || {};
-    if (!tempToken || !otpCode) {
+    const { otpCode, recoveryCode } = req.body || {};
+    const submittedCode = String(recoveryCode || otpCode || '').trim();
+    if (!tempToken || !submittedCode) {
       return res.status(400).json({ error: 'Verification token and 6-digit code are required.' });
     }
 
-    const verification = await completeMfaLoginWithRust(tempToken, otpCode, req);
+    let verification = null;
+    const pendingChallenge = await getOtpSession(tempToken).catch(() => null);
+    if (pendingChallenge && pendingChallenge.type === 'login_2fa') {
+      const candidateUser = await MasterDB.findUserByIdentifier(pendingChallenge.email);
+      if (candidateUser && !candidateUser.isBanned) {
+        const totpResult = await verifyUserTotpOrRecoveryCode(candidateUser.id, submittedCode);
+        if (totpResult.valid) {
+          const tiwiId = candidateUser.tiwiId || candidateUser.storeId;
+          const { sessionToken } = await MasterDB.createSession(candidateUser.id, tiwiId, candidateUser.email, req);
+          await deleteOtpSession(tempToken).catch(() => {});
+          verification = {
+            valid: true,
+            userId: candidateUser.id,
+            email: candidateUser.email,
+            sessionToken
+          };
+        }
+      }
+    }
+
+    if (!verification) {
+      verification = await completeMfaLoginWithRust(tempToken, submittedCode, req);
+    }
+
     if (!verification.valid) {
       return res.status(verification.notFound ? 404 : 400).json({ error: verification.error });
     }

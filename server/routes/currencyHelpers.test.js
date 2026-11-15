@@ -22,10 +22,17 @@ test('validates market rates and refuses stale or future rate observations', () 
   const now = Date.parse('2026-10-24T12:00:00Z');
   const parsed = validateMarketRateRows([
     { date: '2026-10-24', base: 'USD', quote: 'BDT', rate: 120 },
-    { date: '2026-10-24', base: 'USD', quote: 'INR', rate: 83 }
+    { date: '2026-10-24', base: 'USD', quote: 'INR', rate: 83 },
+    { date: '2026-10-24', base: 'USD', quote: 'AAVE', rate: 0.008 },
+    { date: '2026-10-24', base: 'USD', quote: 'USDC', rate: 1.0 }
   ], now);
   assert.equal(parsed.observedAt, '2026-10-24');
   assert.equal(parsed.rates.BDT, 120);
+  assert.equal(parsed.rates.AAVE, undefined);
+  assert.equal(parsed.rates.USDC, undefined);
+  assert.throws(() => validateMarketRateRows([
+    { date: '2026-10-24', base: 'USD', quote: 'US', rate: 1 }
+  ], now), /malformed data/);
   const mixedFreshness = validateMarketRateRows([
     { date: '2026-10-24', base: 'USD', quote: 'INR', rate: 83 },
     { date: '2026-10-10', base: 'USD', quote: 'BDT', rate: 120 }

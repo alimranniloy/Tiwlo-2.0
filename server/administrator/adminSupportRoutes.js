@@ -1,5 +1,6 @@
 import express from 'express';
 import { isPgActive as defaultIsPgActive, queryPg as defaultQueryPg } from '../db/postgres.js';
+import { MasterDB as defaultMasterDB } from '../db/multiTenant.js';
 import {
   defaultTicketingService,
   isSuperAdminUserRecord,
@@ -53,6 +54,7 @@ export function createAdminSupportRouter({
   });
   const queryPgFn = (...args) => (deps.queryPg || defaultQueryPg)(...args);
   const isPgActiveFn = () => (deps.isPgActive || defaultIsPgActive)();
+  const getMasterDb = () => deps.MasterDB || defaultMasterDB;
 
   async function loadRawSupportPermissions(req) {
     if (req._rawSupportPerms !== undefined) return req._rawSupportPerms;
@@ -803,6 +805,9 @@ export function createAdminSupportRouter({
       const days = timeframe === '7d' ? 7 : timeframe === '12m' ? 365 : 30;
       const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
       const limit = Math.min(100, Math.max(5, Number.parseInt(req.query.limit, 10) || 25));
+      const statusFilter = ['all', 'active', 'completed', 'cancelled', 'expired'].includes(String(req.query.status || '').toLowerCase())
+        ? String(req.query.status).toLowerCase()
+        : 'all';
 
       const [integrity, staffAudits, toggles, csat] = await Promise.all([
         liveChatQueue.getAdminIntegritySummary(),
@@ -814,60 +819,158 @@ export function createAdminSupportRouter({
       let paymentBreakdown = [];
       let orderStats = { total: 0, active: 0, cancelled: 0, expired: 0, completed: 0 };
       let ordersList = [];
+      let totalOrdersCount = 0;
       let storesBreakdown = [];
-      let quotaMetrics = { totalUsers: 0, totalStores: 0, pgActive: isPgActiveFn(), memoryHeapMb: Math.round(process.memoryUsage().heapUsed / (1024 * 1024)) };
+      const pgConnected = isPgActiveFn();
+      let quotaMetrics = {
+        totalUsers: 0,
+        totalStores: 0,
+        pgActive: pgConnected ? 1 : 0,
+        memoryHeapMb: Math.round(process.memoryUsage().heapUsed / (1024 * 1024))
+      };
 
-      if (isPgActiveFn()) {
+      const unifiedOrdersCte = `
+        WITH unified_orders AS (
+          SELECT o.id::text AS id,
+                 o.order_number::text AS order_number,
+                 o.user_id::text AS user_id,
+                 COALESCE(NULLIF(o.tiwi_id, ''), u.tiwi_id)::text AS billing_id,
+                 COALESCE(o.gross_amount_usd, o.net_cash_revenue_usd, 0)::numeric AS total,
+                 COALESCE(NULLIF(o.currency, ''), 'USD')::text AS currency,
+                 COALESCE(NULLIF(o.provider, ''), 'wallet')::text AS payment_method,
+                 o.status::text AS status,
+                 CASE
+                   WHEN LOWER(COALESCE(o.status, '')) IN ('cancelled', 'canceled', 'refunded', 'failed') THEN 'cancelled'
+                   WHEN LOWER(COALESCE(o.status, '')) = 'expired' THEN 'expired'
+                   WHEN LOWER(COALESCE(o.status, '')) IN ('active', 'processing', 'pending') THEN 'active'
+                   ELSE 'completed'
+                 END AS normalized_status,
+                 CASE
+                   WHEN COALESCE(o.metadata->>'expiresAt', '') ~ '^\\d{4}-'
+                   THEN (o.metadata->>'expiresAt')::timestamptz
+                   ELSE NULL::timestamptz
+                 END AS expires_at,
+                 o.created_at::timestamptz AS created_at,
+                 COALESCE(NULLIF(u.name, ''), u.store_name)::text AS customer_name,
+                 u.email::text AS customer_email,
+                 o.item_name::text AS item_name,
+                 o.order_type::text AS order_type
+          FROM platform_billing_orders o
+          LEFT JOIN system_users u ON u.id = o.user_id
+          UNION ALL
+          SELECT t.id::text AS id,
+                 ('TOPUP-' || t.id)::text AS order_number,
+                 t.user_id::text AS user_id,
+                 u.tiwi_id::text AS billing_id,
+                 COALESCE(t.amount, 0)::numeric AS total,
+                 COALESCE(NULLIF(t.currency, ''), 'USD')::text AS currency,
+                 COALESCE(NULLIF(t.provider, ''), 'unknown')::text AS payment_method,
+                 CASE
+                   WHEN LOWER(COALESCE(t.status, '')) = 'cancelled' AND LOWER(COALESCE(t.cancel_reason, '')) = 'expired' THEN 'expired'
+                   WHEN LOWER(COALESCE(t.status, '')) IN ('pending', 'processing') AND t.expires_at IS NOT NULL AND t.expires_at < NOW() THEN 'expired'
+                   ELSE t.status::text
+                 END AS status,
+                 CASE
+                   WHEN (LOWER(COALESCE(t.status, '')) = 'cancelled' AND LOWER(COALESCE(t.cancel_reason, '')) = 'expired')
+                     OR LOWER(COALESCE(t.status, '')) = 'expired'
+                     OR (LOWER(COALESCE(t.status, '')) IN ('pending', 'processing') AND t.expires_at IS NOT NULL AND t.expires_at < NOW())
+                   THEN 'expired'
+                   WHEN LOWER(COALESCE(t.status, '')) IN ('cancelled', 'canceled', 'refunded', 'failed') THEN 'cancelled'
+                   WHEN LOWER(COALESCE(t.status, '')) IN ('pending', 'processing', 'active') THEN 'active'
+                   ELSE 'completed'
+                 END AS normalized_status,
+                 t.expires_at::timestamptz AS expires_at,
+                 t.created_at::timestamptz AS created_at,
+                 COALESCE(NULLIF(u.name, ''), u.store_name)::text AS customer_name,
+                 u.email::text AS customer_email,
+                 ('Cloud Credit Top-up (' || UPPER(COALESCE(t.provider, 'gateway')) || ')')::text AS item_name,
+                 'credit_topup'::text AS order_type
+          FROM cloud_credit_topups t
+          LEFT JOIN system_users u ON u.id = t.user_id
+        )
+      `;
+
+      if (pgConnected) {
         const safeQ = async (sql, params = []) => {
           try {
             const r = await queryPgFn(sql, params);
             return r?.rows || [];
-          } catch {
+          } catch (err) {
+            console.warn('[PlatformOpsSummary Query Warning]', err?.message || err);
             return [];
           }
         };
 
-        const [payRows, orderCountRows, orderRows, storeRows, userCntRows] = await Promise.all([
+        const [payRows, orderCountRows, orderRows, storeRows, storeCntRows, userCntRows, pgConnRows] = await Promise.all([
           safeQ(
-            `SELECT COALESCE(LOWER(payment_method), LOWER(provider), 'unknown') AS method,
+            `SELECT method,
                     COUNT(*)::int AS tx_count,
                     COUNT(DISTINCT user_id)::int AS unique_users,
                     COALESCE(SUM(amount), 0)::numeric AS total_amount
-             FROM billing_transactions
-             WHERE created_at >= NOW() - ($1 || ' days')::interval
+             FROM (
+               SELECT LOWER(COALESCE(NULLIF(BTRIM(provider), ''), 'unknown')) AS method,
+                      user_id,
+                      COALESCE(amount, 0)::numeric AS amount
+               FROM cloud_credit_topups
+               WHERE created_at >= NOW() - ($1 || ' days')::interval
+                 AND LOWER(COALESCE(status, '')) IN ('paid', 'completed', 'active')
+               UNION ALL
+               SELECT LOWER(COALESCE(NULLIF(BTRIM(provider), ''), 'wallet')) AS method,
+                      user_id,
+                      COALESCE(gross_amount_usd, net_cash_revenue_usd, 0)::numeric AS amount
+               FROM platform_billing_orders
+               WHERE created_at >= NOW() - ($1 || ' days')::interval
+                 AND LOWER(COALESCE(status, 'paid')) IN ('paid', 'completed', 'active', 'fulfilled', 'delivered')
+             ) tx
              GROUP BY 1
              ORDER BY tx_count DESC`,
             [String(days)]
           ),
           safeQ(
-            `SELECT
+            `${unifiedOrdersCte}
+             SELECT
                COUNT(*)::int AS total,
-               COUNT(*) FILTER (WHERE LOWER(status) IN ('active', 'paid', 'processing'))::int AS active,
-               COUNT(*) FILTER (WHERE LOWER(status) IN ('cancelled', 'canceled', 'refunded'))::int AS cancelled,
-               COUNT(*) FILTER (WHERE LOWER(status) = 'expired' OR (expires_at IS NOT NULL AND expires_at < NOW() AND LOWER(status) NOT IN ('cancelled','canceled')))::int AS expired,
-               COUNT(*) FILTER (WHERE LOWER(status) IN ('completed', 'fulfilled', 'delivered'))::int AS completed
-             FROM orders
+               COUNT(*) FILTER (WHERE normalized_status = 'active')::int AS active,
+               COUNT(*) FILTER (WHERE normalized_status = 'cancelled')::int AS cancelled,
+               COUNT(*) FILTER (WHERE normalized_status = 'expired')::int AS expired,
+               COUNT(*) FILTER (WHERE normalized_status = 'completed')::int AS completed
+             FROM unified_orders
              WHERE created_at >= NOW() - ($1 || ' days')::interval`,
             [String(days)]
           ),
           safeQ(
-            `SELECT o.id, o.order_number, o.user_id, o.total, o.currency, o.status, o.payment_method, o.expires_at, o.created_at,
-                    u.name AS customer_name, u.email AS customer_email, u.tiwi_id AS billing_id
-             FROM orders o
-             LEFT JOIN system_users u ON u.id = o.user_id
-             ORDER BY o.created_at DESC
-             LIMIT $1 OFFSET $2`,
-            [limit, (page - 1) * limit]
+            `${unifiedOrdersCte}
+             SELECT id, order_number, user_id, billing_id, total, currency,
+                    payment_method, status, normalized_status, expires_at, created_at,
+                    customer_name, customer_email, item_name, order_type,
+                    COUNT(*) OVER()::int AS full_count
+             FROM unified_orders
+             WHERE created_at >= NOW() - ($1 || ' days')::interval
+               AND ($2 = 'all' OR normalized_status = $2)
+             ORDER BY created_at DESC
+             LIMIT $3 OFFSET $4`,
+            [String(days), statusFilter, limit, (page - 1) * limit]
           ),
           safeQ(
-            `SELECT s.id, s.name, s.slug, s.status, s.plan, s.custom_domain, s.created_at,
-                    u.id AS owner_id, u.name AS creator_name, u.email AS creator_email, u.tiwi_id AS billing_id
-             FROM stores s
-             LEFT JOIN system_users u ON u.id = COALESCE(s.owner_id, s.user_id)
+            `SELECT s.id, s.tiwi_id, s.store_name AS name, s.subdomain AS slug,
+                    s.plan_id AS plan, s.category, s.currency, s.created_at,
+                    d.domain AS custom_domain,
+                    u.id AS owner_id, COALESCE(NULLIF(u.name, ''), u.store_name) AS creator_name,
+                    u.email AS creator_email, u.tiwi_id AS billing_id
+             FROM system_stores s
+             LEFT JOIN system_users u ON u.id = s.owner_id
+             LEFT JOIN LATERAL (
+               SELECT domain FROM system_custom_domains
+               WHERE tiwi_id = s.tiwi_id AND status = 'active'
+               ORDER BY created_at DESC
+               LIMIT 1
+             ) d ON TRUE
              ORDER BY s.created_at DESC
              LIMIT 100`
           ),
-          safeQ(`SELECT COUNT(*)::int AS total_users FROM system_users`)
+          safeQ(`SELECT COUNT(*)::int AS total_stores FROM system_stores`),
+          safeQ(`SELECT COUNT(*)::int AS total_users FROM system_users`),
+          safeQ(`SELECT COUNT(*)::int AS active_connections FROM pg_stat_activity WHERE datname = current_database()`)
         ]);
 
         paymentBreakdown = payRows.map((p) => ({
@@ -885,19 +988,64 @@ export function createAdminSupportRouter({
             completed: Number(orderCountRows[0].completed || 0)
           };
         }
-        ordersList = orderRows;
-        storesBreakdown = storeRows;
+        ordersList = orderRows.map(({ full_count: _fc, ...rest }) => rest);
+        totalOrdersCount = Number(orderRows[0]?.full_count ?? (statusFilter === 'all' ? orderStats.total : orderStats[statusFilter] ?? 0));
+        storesBreakdown = storeRows.map((s) => ({
+          ...s,
+          status: s.status || 'active'
+        }));
         quotaMetrics.totalUsers = Number(userCntRows[0]?.total_users || 0);
-        quotaMetrics.totalStores = storeRows.length;
+        quotaMetrics.totalStores = Number(storeCntRows[0]?.total_stores ?? storeRows.length);
+        if (pgConnRows[0]?.active_connections != null) {
+          quotaMetrics.pgActive = Number(pgConnRows[0].active_connections);
+        }
+      }
+
+      // Fallback to MasterDB state counts when PG is inactive or returns 0 users/stores.
+      if (!pgConnected || quotaMetrics.totalUsers === 0 || quotaMetrics.totalStores === 0 || storesBreakdown.length === 0) {
+        try {
+          const master = await getMasterDb().getMasterData();
+          const masterUsers = Array.isArray(master?.users) ? master.users : [];
+          const masterStores = Array.isArray(master?.stores) ? master.stores : [];
+          if (quotaMetrics.totalUsers === 0 && masterUsers.length > 0) {
+            quotaMetrics.totalUsers = masterUsers.length;
+          }
+          if (quotaMetrics.totalStores === 0 && masterStores.length > 0) {
+            quotaMetrics.totalStores = masterStores.length;
+          }
+          if (storesBreakdown.length === 0 && masterStores.length > 0) {
+            const usersById = new Map(masterUsers.map((u) => [u.id, u]));
+            storesBreakdown = masterStores.slice(0, 100).map((s) => {
+              const owner = usersById.get(s.ownerId) || null;
+              return {
+                id: s.id || s.tiwiId,
+                tiwi_id: s.tiwiId || null,
+                name: s.storeName || s.name || s.subdomain || 'Store',
+                slug: s.subdomain || s.slug || null,
+                status: s.status || s.lifecycleStatus || 'active',
+                plan: s.planId || 'free',
+                custom_domain: s.customDomain || null,
+                created_at: s.createdAt || null,
+                owner_id: s.ownerId || null,
+                creator_name: owner?.name || owner?.storeName || null,
+                creator_email: owner?.email || null,
+                billing_id: owner?.tiwiId || s.tiwiId || null
+              };
+            });
+          }
+        } catch (fallbackErr) {
+          console.warn('[PlatformOpsSummary MasterDB Fallback Warning]', fallbackErr?.message || fallbackErr);
+        }
       }
 
       res.json({
         success: true,
         timeframe,
-        pagination: { page, limit },
+        pagination: { page, limit, total: totalOrdersCount },
         integrity,
         csat,
         staffAudits,
+        staffAuditCount: Array.isArray(staffAudits) ? staffAudits.length : 0,
         toggles,
         paymentBreakdown,
         orderStats,

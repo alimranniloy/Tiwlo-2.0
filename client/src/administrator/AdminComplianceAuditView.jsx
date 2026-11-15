@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
+  AlertCircle,
   ArrowLeft,
   Cpu,
   CreditCard,
@@ -9,6 +10,7 @@ import {
   LogOut,
   PackageCheck,
   RefreshCw,
+  Search,
   ShieldCheck,
   Store,
   Users,
@@ -58,13 +60,48 @@ function normalizeMethodLabel(method) {
   return 'Other';
 }
 
+function normalizeOrderStatus(status) {
+  const raw = String(status || '').trim().toLowerCase();
+  if (raw === 'cancelled' || raw === 'canceled' || raw === 'refunded' || raw === 'failed') return 'cancelled';
+  if (raw === 'expired') return 'expired';
+  if (raw === 'active' || raw === 'processing' || raw === 'pending') return 'active';
+  if (raw === 'paid' || raw === 'completed' || raw === 'fulfilled' || raw === 'delivered') return 'completed';
+  return raw || 'active';
+}
+
+function inferAuditSeverity(ev) {
+  const explicit = String(ev?.severity || '').trim().toLowerCase();
+  if (explicit === 'critical' || explicit === 'error') return 'critical';
+  if (explicit === 'warning' || explicit === 'warn') return 'warning';
+  if (explicit === 'info') return 'info';
+  const action = String(ev?.action || ev?.eventType || '').toLowerCase();
+  if (/(terminate|revoke|ban|delete|remove|reject|breach|fail)/.test(action)) return 'warning';
+  return 'info';
+}
+
+function formatAuditDetails(ev) {
+  if (ev?.reason) return String(ev.reason);
+  if (ev?.summary) return String(ev.summary);
+  const details = ev?.details;
+  if (!details) return '—';
+  if (typeof details === 'string') return details;
+  if (typeof details === 'object') {
+    const entries = Object.entries(details).filter(([, v]) => v !== null && v !== undefined && v !== '');
+    if (entries.length === 0) return '—';
+    return entries.map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : String(v)}`).join(' · ');
+  }
+  return String(details);
+}
+
 export default function AdminComplianceAuditView({ onBackToDashboard, onNavigate, showToast }) {
   const [timeframe, setTimeframe] = useState('30d');
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState('');
 
-  // Orders pagination + status filter
+  // Orders pagination + status/gateway filters
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
+  const [orderGatewayFilter, setOrderGatewayFilter] = useState('all');
   const [orderPage, setOrderPage] = useState(1);
   const [orderPageSize, setOrderPageSize] = useState(10);
 
@@ -72,9 +109,12 @@ export default function AdminComplianceAuditView({ onBackToDashboard, onNavigate
   const [ledgerPage, setLedgerPage] = useState(1);
   const [ledgerPageSize, setLedgerPageSize] = useState(10);
 
-  // Staff permission audit trail
+  // Staff permission audit trail + search/severity filter
   const [auditLogs, setAuditLogs] = useState([]);
   const [loadingAudits, setLoadingAudits] = useState(false);
+  const [auditError, setAuditError] = useState('');
+  const [auditSearch, setAuditSearch] = useState('');
+  const [auditSeverityFilter, setAuditSeverityFilter] = useState('all');
   const [auditPage, setAuditPage] = useState(1);
   const [auditPageSize, setAuditPageSize] = useState(10);
 
@@ -85,9 +125,11 @@ export default function AdminComplianceAuditView({ onBackToDashboard, onNavigate
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
+    setSummaryError('');
     try {
       const params = new URLSearchParams({
         timeframe,
+        status: orderStatusFilter,
         page: String(orderPage),
         limit: String(orderPageSize),
       });
@@ -96,29 +138,32 @@ export default function AdminComplianceAuditView({ onBackToDashboard, onNavigate
         headers: getAuthHeaders(),
       });
       const json = await res.json().catch(() => ({}));
-      if (res.ok && json.success !== false) {
-        setSummary(json);
+      if (!res.ok || json.success === false) {
+        throw new Error(json.error || `Failed to load platform compliance summary (HTTP ${res.status})`);
       }
-    } catch {
-      // Non-fatal
+      setSummary(json);
+    } catch (err) {
+      setSummaryError(err?.message || 'Unable to load platform compliance telemetry.');
     } finally {
       setLoading(false);
     }
-  }, [timeframe, orderPage, orderPageSize]);
+  }, [timeframe, orderStatusFilter, orderPage, orderPageSize]);
 
   const loadAuditLogs = useCallback(async () => {
     setLoadingAudits(true);
+    setAuditError('');
     try {
       const res = await fetch(`${API_BASE}/admin/support/staff-audit-logs?limit=250`, {
         credentials: 'include',
         headers: getAuthHeaders(),
       });
       const json = await res.json().catch(() => ({}));
-      if (res.ok && json.success !== false) {
-        setAuditLogs(Array.isArray(json.logs) ? json.logs : []);
+      if (!res.ok || json.success === false) {
+        throw new Error(json.error || `Failed to load staff audit logs (HTTP ${res.status})`);
       }
-    } catch {
-      // Ignore
+      setAuditLogs(Array.isArray(json.logs) ? json.logs : []);
+    } catch (err) {
+      setAuditError(err?.message || 'Unable to load immutable staff audit logs.');
     } finally {
       setLoadingAudits(false);
     }
@@ -206,12 +251,25 @@ export default function AdminComplianceAuditView({ onBackToDashboard, onNavigate
   }, [summary]);
 
   const csatSlaSegments = useMemo(() => {
-    const csat = summary?.csatStats || summary?.slaStats || {};
-    const satisfied = Number(csat.positiveCount ?? csat.slaMet ?? summary?.integrity?.slaMet ?? 0);
-    const neutral = Number(csat.neutralCount ?? csat.pending ?? 0);
-    const breached = Number(csat.negativeCount ?? csat.slaBreached ?? summary?.integrity?.slaBreached ?? 0);
+    const csat = summary?.csatStats || summary?.csat || summary?.slaStats || {};
+    const dist = csat.distribution || {};
+    const satisfied = Number(
+      csat.positiveCount ??
+      ((dist[4] || 0) + (dist[5] || 0) || undefined) ??
+      csat.slaMet ??
+      summary?.integrity?.slaMet ??
+      0
+    );
+    const neutral = Number(csat.neutralCount ?? dist[3] ?? csat.pending ?? 0);
+    const breached = Number(
+      csat.negativeCount ??
+      ((dist[1] || 0) + (dist[2] || 0) || undefined) ??
+      csat.slaBreached ??
+      summary?.integrity?.slaBreached ??
+      0
+    );
     if (satisfied === 0 && neutral === 0 && breached === 0) {
-      const totalAudits = Number(summary?.staffAudits?.length || 0);
+      const totalAudits = Number(summary?.staffAuditCount ?? summary?.staffAudits?.length ?? 0);
       return totalAudits > 0
         ? [{ key: 'compliant', label: 'Compliant Audits', value: totalAudits, color: '#1ED760' }]
         : [];
@@ -225,22 +283,32 @@ export default function AdminComplianceAuditView({ onBackToDashboard, onNavigate
 
   const allOrders = useMemo(() => {
     const list = Array.isArray(summary?.orders) ? summary.orders : [];
-    if (orderStatusFilter === 'all') return list;
-    return list.filter((o) => String(o.status || '').toLowerCase() === orderStatusFilter);
-  }, [summary, orderStatusFilter]);
+    return list.filter((o) => {
+      if (orderStatusFilter !== 'all') {
+        const norm = o.normalized_status || normalizeOrderStatus(o.status);
+        if (norm !== orderStatusFilter) return false;
+      }
+      if (orderGatewayFilter !== 'all') {
+        if (normalizeMethodLabel(o.payment_method) !== orderGatewayFilter) return false;
+      }
+      return true;
+    });
+  }, [summary, orderStatusFilter, orderGatewayFilter]);
 
-  const totalOrdersCount =
-    orderStatusFilter === 'all' && summary?.pagination?.total != null
-      ? Number(summary.pagination.total)
-      : allOrders.length;
+  const isServerPaginatedOrders =
+    orderGatewayFilter === 'all' && summary?.pagination?.total != null;
+
+  const totalOrdersCount = isServerPaginatedOrders
+    ? Number(summary.pagination.total)
+    : allOrders.length;
 
   const displayedOrders = useMemo(() => {
-    if (orderStatusFilter === 'all' && summary?.pagination?.total != null) {
+    if (isServerPaginatedOrders) {
       return allOrders;
     }
     const start = (orderPage - 1) * orderPageSize;
     return allOrders.slice(start, start + orderPageSize);
-  }, [allOrders, orderStatusFilter, orderPage, orderPageSize, summary?.pagination?.total]);
+  }, [allOrders, isServerPaginatedOrders, orderPage, orderPageSize]);
 
   const pagedLedger = useMemo(() => {
     const start = (ledgerPage - 1) * ledgerPageSize;
@@ -250,8 +318,26 @@ export default function AdminComplianceAuditView({ onBackToDashboard, onNavigate
   const summaryStaffAudits = summary?.staffAudits;
   const combinedAudits = useMemo(() => {
     const fromSummary = Array.isArray(summaryStaffAudits) ? summaryStaffAudits : [];
-    return auditLogs.length > 0 ? auditLogs : fromSummary;
-  }, [auditLogs, summaryStaffAudits]);
+    const base = auditLogs.length > 0 ? auditLogs : fromSummary;
+    const query = auditSearch.trim().toLowerCase();
+    return base.filter((ev) => {
+      const sev = inferAuditSeverity(ev);
+      if (auditSeverityFilter !== 'all' && sev !== auditSeverityFilter) return false;
+      if (!query) return true;
+      const actor = String(ev.actorName || ev.staffName || ev.staffEmail || ev.actorId || ev.staffId || '').toLowerCase();
+      const target = String(ev.targetUserId || ev.targetId || ev.staffId || '').toLowerCase();
+      const action = String(ev.action || ev.eventType || ev.permissionKey || '').toLowerCase();
+      const ip = String(ev.ip || ev.remoteIp || '').toLowerCase();
+      const detailsText = formatAuditDetails(ev).toLowerCase();
+      return (
+        actor.includes(query) ||
+        target.includes(query) ||
+        action.includes(query) ||
+        ip.includes(query) ||
+        detailsText.includes(query)
+      );
+    });
+  }, [auditLogs, summaryStaffAudits, auditSearch, auditSeverityFilter]);
 
   const pagedAudits = useMemo(() => {
     const start = (auditPage - 1) * auditPageSize;
@@ -340,6 +426,37 @@ export default function AdminComplianceAuditView({ onBackToDashboard, onNavigate
           </div>
         </div>
       </div>
+
+      {(summaryError || auditError) && (
+        <div
+          role="alert"
+          className="rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 p-4 text-xs text-red-700 dark:text-red-300 shadow-xs"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-600 dark:text-red-400" />
+              <div className="space-y-1">
+                <p className="font-semibold text-red-800 dark:text-red-200">
+                  Compliance &amp; Audit Telemetry Error
+                </p>
+                {summaryError && <p>{summaryError}</p>}
+                {auditError && <p>{auditError}</p>}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (summaryError) loadSummary();
+                if (auditError) loadAuditLogs();
+              }}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-red-300 dark:border-red-800 bg-white dark:bg-neutral-900 px-3 text-xs font-medium text-red-700 dark:text-red-200 hover:bg-red-50 dark:hover:bg-red-950/50 cursor-pointer"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Quota Telemetry Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
@@ -535,24 +652,41 @@ export default function AdminComplianceAuditView({ onBackToDashboard, onNavigate
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
-            {['all', 'active', 'completed', 'cancelled', 'expired'].map((st) => (
-              <button
-                key={st}
-                type="button"
-                onClick={() => {
-                  setOrderStatusFilter(st);
-                  setOrderPage(1);
-                }}
-                className={`rounded-lg px-2.5 py-1 text-xs font-medium capitalize transition cursor-pointer ${
-                  orderStatusFilter === st
-                    ? 'bg-[#1ED760] text-neutral-950 font-semibold'
-                    : 'bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-300'
-                }`}
-              >
-                {st}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {['all', 'active', 'completed', 'cancelled', 'expired'].map((st) => (
+                <button
+                  key={st}
+                  type="button"
+                  onClick={() => {
+                    setOrderStatusFilter(st);
+                    setOrderPage(1);
+                  }}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-medium capitalize transition cursor-pointer ${
+                    orderStatusFilter === st
+                      ? 'bg-[#1ED760] text-neutral-950 font-semibold'
+                      : 'bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-300'
+                  }`}
+                >
+                  {st}
+                </button>
+              ))}
+            </div>
+            <select
+              value={orderGatewayFilter}
+              onChange={(e) => {
+                setOrderGatewayFilter(e.target.value);
+                setOrderPage(1);
+              }}
+              aria-label="Filter orders by payment gateway"
+              className="h-8 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900 px-2.5 text-xs font-medium text-neutral-700 dark:text-neutral-200 focus:border-[#1ED760] focus:outline-none"
+            >
+              <option value="all">All Gateways</option>
+              <option value="bKash">bKash</option>
+              <option value="Nagad">Nagad</option>
+              <option value="Card">Card</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
         </div>
 
@@ -601,8 +735,7 @@ export default function AdminComplianceAuditView({ onBackToDashboard, onNavigate
                     <td className="px-3 py-3">
                       <span
                         className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
-                          String(ord.status).toLowerCase() === 'cancelled' ||
-                          String(ord.status).toLowerCase() === 'expired'
+                          ['cancelled', 'expired'].includes(ord.normalized_status || normalizeOrderStatus(ord.status))
                             ? 'bg-red-500/10 text-red-700 dark:text-red-400'
                             : 'bg-[#1ED760]/15 text-emerald-700 dark:text-[#1ED760]'
                         }`}
@@ -638,7 +771,7 @@ export default function AdminComplianceAuditView({ onBackToDashboard, onNavigate
 
       {/* Immutable Staff Permission Audit Trail */}
       <div className="rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 overflow-hidden shadow-xs">
-        <div className="flex items-center justify-between border-b border-neutral-200/80 dark:border-neutral-800 p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between border-b border-neutral-200/80 dark:border-neutral-800 p-4">
           <div className="flex items-center gap-2">
             <FileCheck2 className="h-4 w-4 text-[#1ED760]" />
             <div>
@@ -650,6 +783,38 @@ export default function AdminComplianceAuditView({ onBackToDashboard, onNavigate
               </p>
             </div>
           </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
+              <input
+                type="search"
+                value={auditSearch}
+                onChange={(e) => {
+                  setAuditSearch(e.target.value);
+                  setAuditPage(1);
+                }}
+                placeholder="Search actor, target, action, IP..."
+                aria-label="Search audit logs"
+                className="h-8 w-60 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900 pl-8 pr-3 text-xs text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:border-[#1ED760] focus:outline-none"
+              />
+            </div>
+
+            <select
+              value={auditSeverityFilter}
+              onChange={(e) => {
+                setAuditSeverityFilter(e.target.value);
+                setAuditPage(1);
+              }}
+              aria-label="Filter audit logs by severity"
+              className="h-8 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900 px-2.5 text-xs font-medium text-neutral-700 dark:text-neutral-200 focus:border-[#1ED760] focus:outline-none"
+            >
+              <option value="all">All Severities</option>
+              <option value="info">Info</option>
+              <option value="warning">Warning</option>
+              <option value="critical">Critical</option>
+            </select>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -658,44 +823,67 @@ export default function AdminComplianceAuditView({ onBackToDashboard, onNavigate
               <tr>
                 <th className="px-4 py-2.5">Timestamp</th>
                 <th className="px-3 py-2.5">Actor / Staff</th>
+                <th className="px-3 py-2.5">Severity</th>
                 <th className="px-3 py-2.5">Action</th>
                 <th className="px-3 py-2.5">Target</th>
+                <th className="px-3 py-2.5">IP</th>
                 <th className="px-4 py-2.5">Reason / Details</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200/70 dark:divide-neutral-800">
               {loadingAudits && pagedAudits.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-neutral-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-neutral-500">
                     Loading audit logs...
                   </td>
                 </tr>
               ) : pagedAudits.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-neutral-500">
-                    No staff permission audit events logged yet.
+                  <td colSpan={7} className="px-4 py-8 text-center text-neutral-500">
+                    {auditSearch || auditSeverityFilter !== 'all'
+                      ? 'No audit events match the active search or severity filter.'
+                      : 'No staff permission audit events logged yet.'}
                   </td>
                 </tr>
               ) : (
-                pagedAudits.map((ev, idx) => (
-                  <tr key={ev.id || idx} className="hover:bg-neutral-50/70 dark:hover:bg-neutral-900/50">
-                    <td className="px-4 py-2.5 whitespace-nowrap text-neutral-500 tabular-nums">
-                      {fmtDateTime(ev.createdAt || ev.created_at || ev.timestamp)}
-                    </td>
-                    <td className="px-3 py-2.5 font-medium text-neutral-900 dark:text-neutral-100">
-                      {ev.actorName || ev.staffEmail || ev.actorId || 'System'}
-                    </td>
-                    <td className="px-3 py-2.5 font-mono text-[11px] text-neutral-700 dark:text-neutral-300">
-                      {ev.action || ev.eventType || 'AUDIT'}
-                    </td>
-                    <td className="px-3 py-2.5 font-mono text-[11px] text-neutral-500">
-                      {ev.targetUserId || ev.targetId || ev.staffId || '—'}
-                    </td>
-                    <td className="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">
-                      {ev.reason || ev.summary || ev.details || '—'}
-                    </td>
-                  </tr>
-                ))
+                pagedAudits.map((ev, idx) => {
+                  const severity = inferAuditSeverity(ev);
+                  return (
+                    <tr key={ev.id || idx} className="hover:bg-neutral-50/70 dark:hover:bg-neutral-900/50">
+                      <td className="px-4 py-2.5 whitespace-nowrap text-neutral-500 tabular-nums">
+                        {fmtDateTime(ev.createdAt || ev.created_at || ev.timestamp)}
+                      </td>
+                      <td className="px-3 py-2.5 font-medium text-neutral-900 dark:text-neutral-100">
+                        {ev.actorName || ev.staffName || ev.staffEmail || ev.actorId || 'System'}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                            severity === 'critical'
+                              ? 'bg-red-500/12 text-red-700 dark:text-red-400'
+                              : severity === 'warning'
+                              ? 'bg-amber-500/12 text-amber-700 dark:text-amber-300'
+                              : 'bg-[#1ED760]/12 text-emerald-700 dark:text-[#1ED760]'
+                          }`}
+                        >
+                          {severity}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 font-mono text-[11px] text-neutral-700 dark:text-neutral-300">
+                        {ev.action || ev.eventType || 'AUDIT'}
+                      </td>
+                      <td className="px-3 py-2.5 font-mono text-[11px] text-neutral-500">
+                        {ev.targetUserId || ev.targetId || ev.staffId || '—'}
+                      </td>
+                      <td className="px-3 py-2.5 font-mono text-[11px] text-neutral-500 whitespace-nowrap">
+                        {ev.ip || ev.remoteIp || '—'}
+                      </td>
+                      <td className="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">
+                        {formatAuditDetails(ev)}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

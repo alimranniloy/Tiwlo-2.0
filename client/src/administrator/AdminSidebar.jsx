@@ -171,12 +171,12 @@ export default function AdminSidebar({
       <div className="lg:hidden flex items-center justify-between px-4 h-16 border-b border-neutral-200/80 dark:border-neutral-800">
         <div className="flex items-center gap-2 min-w-0">
           <img
-            src={dark ? '/tiwlologo-dark.png' : '/tiwlo-light-logo.png'}
+            src={dark ? '/tiwlo-dark-bg-logo.png' : '/tiwlo-light-logo.png'}
             alt="Tiwlo"
             className="h-6 w-auto object-contain"
             onError={(e) => {
               e.currentTarget.onerror = null;
-              e.currentTarget.src = '/tiwlo-icon.png';
+              e.currentTarget.src = '/favicon.png';
             }}
           />
           <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-neutral-100 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 border border-neutral-200/80 dark:border-neutral-800">
@@ -248,13 +248,9 @@ export default function AdminSidebar({
       <div className="p-3 border-t border-neutral-200/80 dark:border-neutral-800">
         <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-[#fafafa] dark:bg-neutral-900/70 border border-neutral-200/80 dark:border-neutral-800">
           <img
-            src={dark ? '/tiwlo-icon-dark.png' : '/tiwlo-icon.png'}
+            src="/favicon.png"
             alt="Tiwlo"
-            className="w-8 h-8 rounded-lg object-contain shrink-0"
-            onError={(e) => {
-              e.currentTarget.onerror = null;
-              e.currentTarget.src = '/tiwlo-icon.png';
-            }}
+            className="w-8 h-8 object-contain shrink-0 bg-transparent"
           />
           <div className="min-w-0">
             <h4 className="text-xs font-semibold text-neutral-900 dark:text-white truncate">Tiwlo Control</h4>

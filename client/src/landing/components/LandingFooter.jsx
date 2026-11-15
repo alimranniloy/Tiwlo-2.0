@@ -41,9 +41,9 @@ export default function LandingFooter({ onNavigate }) {
       links: [
         { label: '24/7 Help Desk', action: () => onNavigate('help-support') },
         { label: 'Live Engineer Chat', action: () => onNavigate('help-support') },
-        { label: 'Security & Privacy Policy', action: () => onNavigate('help-support') },
-        { label: 'Terms of Service', action: () => onNavigate('help-support') },
-        { label: 'SLA Guarantee (99.99%)', action: () => onNavigate('help-support') }
+        { label: 'Security & Privacy Policy', action: () => onNavigate('privacy-policy') },
+        { label: 'Terms of Service', action: () => onNavigate('terms') },
+        { label: 'Data Security & SLA', action: () => onNavigate('security-policy') }
       ]
     }
   ];
@@ -63,7 +63,7 @@ export default function LandingFooter({ onNavigate }) {
           >
             {!logoError ? (
               <img
-                src="/tiwlologo.png"
+                src="/tiwlo-light-logo.png"
                 alt="Tiwlo"
                 onError={() => setLogoError(true)}
                 className="h-6 w-auto object-contain transition-transform group-hover:scale-105"
@@ -118,28 +118,28 @@ export default function LandingFooter({ onNavigate }) {
 
           <div className="flex flex-wrap items-center gap-6">
             <button
-              onClick={() => onNavigate('help-support')}
+              onClick={() => onNavigate('privacy-policy')}
               className="hover:text-[#1f1f1f] hover:underline cursor-pointer"
             >
               Privacy Policy
             </button>
             <button
-              onClick={() => onNavigate('help-support')}
+              onClick={() => onNavigate('terms')}
               className="hover:text-[#1f1f1f] hover:underline cursor-pointer"
             >
               Terms of Service
             </button>
             <button
-              onClick={() => onNavigate('help-support')}
+              onClick={() => onNavigate('security-policy')}
               className="hover:text-[#1f1f1f] hover:underline cursor-pointer"
             >
-              System Status
+              Security &amp; SLA
             </button>
             <button
-              onClick={() => onNavigate('help-support')}
+              onClick={() => onNavigate('cookie-policy')}
               className="hover:text-[#1f1f1f] hover:underline cursor-pointer"
             >
-              Cookie Preferences
+              Cookie Policy
             </button>
           </div>
         </div>

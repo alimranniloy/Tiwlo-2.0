@@ -8,15 +8,70 @@ const Input = new GraphQLInputObjectType({ name: 'ApplicationInput', fields: { p
 const Result = new GraphQLObjectType({ name: 'ApplicationResult', fields: { status: { type: GraphQLInt }, body: { type: JSONValue }, headers: { type: JSONValue } } });
 const Operation = new GraphQLObjectType({ name: 'ApplicationOperation', fields: { field: { type: GraphQLString }, method: { type: GraphQLString }, path: { type: GraphQLString } } });
 
-export function protectAsyncRouter(router) {
+function joinPaths(...parts) {
+  const cleaned = parts
+    .filter((part) => typeof part === 'string' && part.length > 0 && part !== '/')
+    .map((part) => part.replace(/^\/+|\/+$/g, ''))
+    .filter(Boolean);
+  return cleaned.length ? `/${cleaned.join('/')}` : '/';
+}
+
+function extractRouterMountPrefix(layer) {
+  if (!layer || layer.regexp?.fast_slash) return '';
+  if (typeof layer.path === 'string') return layer.path;
+  const source = layer.regexp?.source;
+  if (!source) return '';
+  let pattern = source
+    .replace(/^\^/, '')
+    .replace(/\\\/\?\(\?=\\\/\|\$\)\$?$/, '')
+    .replace(/\(\?=\\\/\|\$\)\$?$/, '');
+  if (Array.isArray(layer.keys) && layer.keys.length > 0) {
+    let keyIndex = 0;
+    pattern = pattern.replace(/\(\?:\\\/\(\[\^\\?\/\]\+\?\)\)|\(\[\^\\?\/\]\+\?\)/g, (match) => {
+      const key = layer.keys[keyIndex++];
+      if (!key) return '';
+      return match.startsWith('(?:\\/') ? `/:${key.name}` : `:${key.name}`;
+    });
+  }
+  return pattern.replace(/\\([\\/.+*?^${}()|[\]-])/g, '$1');
+}
+
+function collectRouterRoutes(router, subPrefix = '', visited = new Set()) {
+  const collected = [];
+  if (!router || visited.has(router)) return collected;
+  visited.add(router);
   for (const layer of router.stack || []) {
-      for (const handler of layer.route ? layer.route.stack : [layer]) {
-        const original = handler.handle;
-        if (original.length === 4 || original.graphqlSafe || original.stack) continue;
-        const wrapped = (req, res, next) => { try { Promise.resolve(original(req, res, next)).catch(next); } catch (error) { next(error); } };
-        wrapped.graphqlSafe = true;
-        handler.handle = wrapped;
-      }
+    if (layer.route) {
+      const route = layer.route;
+      if (typeof route.path !== 'string' || route.path.includes('*')) continue;
+      collected.push({
+        route,
+        relativePath: joinPaths(subPrefix, route.path)
+      });
+    } else if (layer.name === 'router' && Array.isArray(layer.handle?.stack)) {
+      const mountPrefix = extractRouterMountPrefix(layer);
+      const nextPrefix = joinPaths(subPrefix, mountPrefix);
+      collected.push(...collectRouterRoutes(layer.handle, nextPrefix, visited));
+    }
+  }
+  return collected;
+}
+
+export function protectAsyncRouter(router, visited = new Set()) {
+  if (!router || visited.has(router)) return router;
+  visited.add(router);
+  for (const layer of router.stack || []) {
+    if (layer.name === 'router' && Array.isArray(layer.handle?.stack)) {
+      protectAsyncRouter(layer.handle, visited);
+      continue;
+    }
+    for (const handler of layer.route ? layer.route.stack : [layer]) {
+      const original = handler.handle;
+      if (typeof original !== 'function' || original.length === 4 || original.graphqlSafe || original.stack) continue;
+      const wrapped = (req, res, next) => { try { Promise.resolve(original(req, res, next)).catch(next); } catch (error) { next(error); } };
+      wrapped.graphqlSafe = true;
+      handler.handle = wrapped;
+    }
   }
   return router;
 }
@@ -110,10 +165,8 @@ export function createApplicationGraphQL(groups) {
   const mutations = {};
   for (const [prefix, router] of groups) {
     protectAsyncRouter(router);
-    for (const layer of router.stack || []) {
-      const route = layer.route;
-      if (!route || typeof route.path !== 'string' || route.path.includes('*')) continue;
-      const routePath = `${prefix}${route.path}`;
+    for (const { route, relativePath } of collectRouterRoutes(router)) {
+      const routePath = joinPaths(prefix, relativePath);
       // Multipart/binary delivery and infrastructure callbacks keep their native HTTP transport.
       if (/graphql|upload|attachment|download|export|backup|media\/|stream|\/tls\/|webhook|hero-video|hero-bg\.mp4/i.test(routePath)) continue;
       for (const method of (route.methods._all ? ['get', 'post'] : Object.keys(route.methods)).filter(value => ['get', 'post', 'put', 'patch', 'delete'].includes(value))) {
@@ -121,7 +174,7 @@ export function createApplicationGraphQL(groups) {
         const target = method === 'get' ? queries : mutations;
         if (target[field]) continue;
         operations.push({ field, method: method.toUpperCase(), path: routePath });
-        target[field] = { type: Result, args: { input: { type: Input } }, resolve: (_root, { input }, context) => dispatch(router, route.path, method.toUpperCase(), input, context, routePath) };
+        target[field] = { type: Result, args: { input: { type: Input } }, resolve: (_root, { input }, context) => dispatch(router, relativePath, method.toUpperCase(), input, context, routePath) };
       }
     }
   }

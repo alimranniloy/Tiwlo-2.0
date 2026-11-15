@@ -49,6 +49,9 @@ import { SocialDB } from './social/socialDb.js';
 import ecosystemRoutes from './social/ecosystemRoutes.js';
 import chatRoutes from './social/chatRoutes.js';
 import adminRoutes, {
+  adminStaffRouter,
+  adminRiskRouter,
+  adminFleetRouter,
   adminPlatformOpsRouter,
   adminSupportRouter,
   adminChatSystemRouter,
@@ -417,6 +420,9 @@ const applicationRoutes = [
   ['/api/social', ecosystemRoutes], ['/api/tiwi', ecosystemRoutes],
   ['/api/social/chat', chatRoutes], ['/api/tiwi/chat', chatRoutes],
   ['/api/admin', adminRoutes],
+  ['/api/admin', adminStaffRouter],
+  ['/api/admin', adminRiskRouter],
+  ['/api/admin/fleet', adminFleetRouter],
   ['/api/admin', adminPlatformOpsRouter],
   ['/api/admin', adminSupportRouter],
   ['/api/admin', adminChatSystemRouter],

@@ -34,16 +34,17 @@ function maskEmail(email) {
   return `${visible}${'*'.repeat(Math.max(2, local.length - 2))}@${domain}`;
 }
 
-export function createAdminStaffRouter({ requireAdmin, requireRecentReauth, MasterDB }) {
+export function createAdminStaffRouter({ requireAdmin, requireRecentReauth, MasterDB, getMasterDb }) {
   if (typeof requireAdmin !== 'function') {
     throw new TypeError('createAdminStaffRouter requires a requireAdmin middleware.');
   }
   if (typeof requireRecentReauth !== 'function') {
     throw new TypeError('createAdminStaffRouter requires a requireRecentReauth middleware.');
   }
-  if (!MasterDB) {
-    throw new TypeError('createAdminStaffRouter requires MasterDB.');
+  if (typeof getMasterDb !== 'function' && !MasterDB) {
+    throw new TypeError('createAdminStaffRouter requires MasterDB or getMasterDb.');
   }
+  const resolveMasterDb = () => (typeof getMasterDb === 'function' ? getMasterDb() : MasterDB);
 
   const router = express.Router();
 
@@ -273,7 +274,7 @@ export function createAdminStaffRouter({ requireAdmin, requireRecentReauth, Mast
   // Inspect single staff member (returns 403 if non-super_admin targets a super_admin)
   router.get('/staff-support/:userId', requireAdmin, requireStaffIpAndContext, async (req, res) => {
     try {
-      const targetUser = await MasterDB.findUserByIdentifier(req.params.userId);
+      const targetUser = await resolveMasterDb().findUserByIdentifier(req.params.userId);
       if (!targetUser) {
         return res.status(404).json({ error: 'Staff member not found.' });
       }
@@ -318,7 +319,7 @@ export function createAdminStaffRouter({ requireAdmin, requireRecentReauth, Mast
           permissions: req.body?.permissions,
           allowedIps: req.body?.allowedIps,
           isActive: req.body?.isActive !== false,
-          MasterDB
+          MasterDB: resolveMasterDb()
         });
 
         await recordSecurityEvent({
@@ -360,7 +361,7 @@ export function createAdminStaffRouter({ requireAdmin, requireRecentReauth, Mast
           permissions: req.body?.permissions,
           allowedIps: req.body?.allowedIps,
           isActive: req.body?.isActive !== false,
-          MasterDB
+          MasterDB: resolveMasterDb()
         });
 
         await recordSecurityEvent({
@@ -397,7 +398,7 @@ export function createAdminStaffRouter({ requireAdmin, requireRecentReauth, Mast
         const result = await removeStaffMember({
           actorUser: req.adminUser,
           targetUserId: req.params.userId,
-          MasterDB
+          MasterDB: resolveMasterDb()
         });
 
         await recordSecurityEvent({
