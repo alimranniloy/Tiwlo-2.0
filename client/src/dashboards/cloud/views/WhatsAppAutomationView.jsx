@@ -486,9 +486,7 @@ export default function WhatsAppAutomationView({
   const maxVal = chartMetric === 'volume' ? 80 : 2.5;
 
   // Active stores available for selection
-  const availableStores = userStores.length > 0 ? userStores : [
-    { tiwiId: currentStore?.tiwiId || '', storeName: currentStore?.storeName || 'Primary Store' }
-  ];
+  const availableStores = userStores.length > 0 ? userStores : (currentStore?.tiwiId ? [currentStore] : []);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">

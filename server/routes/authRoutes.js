@@ -1381,7 +1381,7 @@ router.post('/auth/register', selectRegistrationGuards, async (req, res) => {
     }
 
     const cleanSlug = candidateHandle.toLowerCase().replace(/[^a-z0-9]/g, '') || 'store';
-    const subdomain = `${cleanSlug}.${PLATFORM_CONFIG.storeDomain}`;
+    const subdomain = '';
     // Public signup must never grant a paid plan; upgrades require a verified payment flow.
     const selectedPlan = PLAN_CATALOG.free;
     const finalBillingDetails = {

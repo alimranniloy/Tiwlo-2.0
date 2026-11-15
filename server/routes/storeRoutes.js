@@ -5,6 +5,7 @@ import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypt
 import rateLimit from 'express-rate-limit';
 import { MasterDB, TenantDB } from '../db/multiTenant.js';
 import { BillingDB } from '../db/billing.js';
+import { getEcommercePackages, getEcommercePackageById } from '../db/packages.js';
 import { createTemporaryFileStorage } from '../db/temporaryFileStorage.js';
 import { getPublicMediaUrl, inferMediaType, storeMedia } from '../db/mediaStorage.js';
 import {
@@ -223,6 +224,28 @@ const customerOtpVerifyLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many verification attempts. Please wait and try again.' }
+});
+const storefrontOrderLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => !req.storefrontStore,
+  message: { error: 'Too many storefront orders from this address. Please wait and try again.' }
+});
+const storeCreateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many store creation requests. Please wait and try again.' }
+});
+const subscriptionUpgradeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many subscription update requests. Please wait and try again.' }
 });
 
 function customerSessionCookieOptions(req, maxAge = 30 * 24 * 60 * 60 * 1000) {
@@ -1850,9 +1873,9 @@ router.delete('/stores/:tiwiId', async (req, res) => {
   }
 });
 
-router.post('/stores', async (req, res) => {
+router.post('/stores', storeCreateLimiter, async (req, res) => {
   try {
-    const { storeName, subdomain, category, currency, email, phone, description, billingDetails } = req.body;
+    const { storeName, subdomain, planId, category, currency, email, phone, description, billingDetails } = req.body;
     const userId = getReqUserId(req);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     if (!storeName || !storeName.trim()) {
@@ -1862,7 +1885,7 @@ router.post('/stores', async (req, res) => {
       userId,
       storeName,
       subdomain,
-      planId: 'free',
+      planId: planId || 'free',
       category,
       currency,
       email,
@@ -3134,7 +3157,7 @@ router.post('/sales/:id/invoice-email', async (req, res) => {
   }
 });
 
-router.post('/sales', async (req, res) => {
+router.post('/sales', storefrontOrderLimiter, async (req, res) => {
   const sales = (await readData(SALES_FILE, []));
   const financeLedger = await readData(FINANCE_LEDGER_FILE, []);
   const products = (await readData(PRODUCTS_FILE, []));
@@ -4679,6 +4702,16 @@ const PLAN_CATALOG = {
   enterprise: { planId: 'enterprise', planName: 'Enterprise VIP', price: 129, productLimit: 999999, warehouseLimit: 99, hasCustomDomain: true }
 };
 
+router.get('/packages', async (_req, res) => {
+  try {
+    const packages = await getEcommercePackages();
+    res.json({ success: true, packages: packages.filter((pkg) => pkg.enabled !== false) });
+  } catch (err) {
+    console.error('Packages fetch error:', err);
+    res.status(500).json({ error: 'Failed to load packages' });
+  }
+});
+
 router.get('/subscription', async (req, res) => {
   const sub = (await readData(SUBSCRIPTION_FILE, DEFAULT_SUBSCRIPTION));
   const products = (await readData(PRODUCTS_FILE, []));
@@ -4704,7 +4737,7 @@ router.get('/subscription', async (req, res) => {
   });
 });
 
-router.post('/subscription/upgrade', async (req, res) => {
+router.post('/subscription/upgrade', subscriptionUpgradeLimiter, async (req, res) => {
   try {
     const userId = getReqUserId(req);
     if (!userId) {
@@ -4712,13 +4745,13 @@ router.post('/subscription/upgrade', async (req, res) => {
     }
 
     const { planId, billingCycle = 'monthly' } = req.body;
-    const planInfo = PLAN_CATALOG[planId];
-    if (!planInfo) {
+    const planInfo = (await getEcommercePackageById(planId)) || PLAN_CATALOG[planId];
+    if (!planInfo || planInfo.enabled === false) {
       return res.status(400).json({ error: 'Invalid subscription plan selected' });
     }
 
-    const normalizedCycle = billingCycle === 'annual' ? 'annual' : 'monthly';
-    const effectivePrice = normalizedCycle === 'annual' ? Math.round(planInfo.price * 0.8) : planInfo.price;
+    const normalizedCycle = billingCycle === 'monthly' ? 'monthly' : 'monthly';
+    const effectivePrice = Number(planInfo.price || 0);
     const currentSub = (await readData(SUBSCRIPTION_FILE, DEFAULT_SUBSCRIPTION));
 
     // Require verified billing credit deduction when upgrading to a paid plan (unless already on the exact same plan/cycle or admin)

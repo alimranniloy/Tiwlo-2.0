@@ -9,6 +9,8 @@ import {
 import { getPgPool, isPgActive, queryPg } from './postgres.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { getStoreSubdomainAvailability, isStoreSubdomainAvailable, normalizeStoreSubdomain } from './storeSubdomain.js';
+import { getEcommercePackageById } from './packages.js';
+import { BillingDB } from './billing.js';
 import { recordSecurityEvent } from './securityPersistence.js';
 import {
   createAuthSessionWithRust,
@@ -385,7 +387,7 @@ export const MasterDB = {
       authMethod: userData.authMethod || 'credentials',
       emailVerified: userData.emailVerified || false,
       twoFactorEnabled: userData.twoFactorEnabled || false,
-      subdomain: userData.subdomain || makeStoreSubdomain(userData.storeName),
+      subdomain: userData.subdomain || '',
       createdAt: new Date().toISOString()
     };
 
@@ -424,29 +426,6 @@ export const MasterDB = {
 
     master.users = master.users || [];
     master.users.push(newUser);
-
-    // Only register store in master stores directory if accountType is 'business'
-    if (newUser.accountType === 'business') {
-      master.stores = master.stores || [];
-      master.stores.push({
-        id: `store_${Date.now()}`,
-        tiwiId,
-        storeName: newUser.storeName || newUser.businessName || 'Business Store',
-        subdomain: newUser.subdomain,
-        ownerId: newUser.id,
-        planId: newUser.planId,
-        dbSchema: `store_${tiwiId.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
-        status: 'active',
-        createdAt: newUser.createdAt
-      });
-    }
-
-    if (newUser.accountType === 'business') await this.saveMasterData(master);
-
-    // Provision dedicated isolated database / schema only for business accounts
-    if (newUser.accountType === 'business') {
-      await TenantDB.provisionStore(tiwiId, newUser.storeName || newUser.businessName || 'Business Store', newUser.planId);
-    }
     return newUser;
   },
 
@@ -651,13 +630,36 @@ export const MasterDB = {
       error.statusCode = 409;
       throw error;
     }
+
+    const requestedPlanId = String(planId || 'free').trim().toLowerCase();
+    const selectedPackage = await getEcommercePackageById(requestedPlanId);
+    if (!selectedPackage || selectedPackage.enabled === false) {
+      const error = new Error('Selected e-commerce package is invalid or unavailable.');
+      error.statusCode = 400;
+      throw error;
+    }
+    const resolvedPlanId = selectedPackage.planId;
+    const monthlyPrice = Number(selectedPackage.price || 0);
+    if (monthlyPrice > 0 && user?.role !== 'admin') {
+      const chargeResult = await BillingDB.chargeSubscriptionPlan(
+        ownerId,
+        monthlyPrice,
+        `${selectedPackage.planName} (Monthly)`
+      );
+      if (!chargeResult.success) {
+        const error = new Error(chargeResult.error || 'Insufficient cloud credits. Add your credit to continue.');
+        error.statusCode = chargeResult.statusCode || 402;
+        throw error;
+      }
+    }
+
     const newStore = {
       id: `store_${Date.now()}`,
       tiwiId: newTiwiId,
       storeName: storeName.trim(),
       subdomain: cleanSubdomain,
       ownerId,
-      planId,
+      planId: resolvedPlanId,
       category: category || 'General Retail',
       currency: currency || 'USD ($)',
       email: String(email || '').trim(),
@@ -679,7 +681,7 @@ export const MasterDB = {
     (await this.saveMasterData(master));
 
     // Provision isolated tenant database for this store
-    await TenantDB.provisionStore(newTiwiId, newStore.storeName, planId, cleanSubdomain, newStore.currency);
+    await TenantDB.provisionStore(newTiwiId, newStore.storeName, resolvedPlanId, cleanSubdomain, newStore.currency);
 
     return newStore;
   }
@@ -718,17 +720,31 @@ export const TenantDB = {
   async provisionStore(tiwiId, storeName, planId = 'free', subdomain = null, currency = null) {
     const store = await this.getStoreDb(tiwiId);
     if (store.createdAt) return store;
+    const pkg = await getEcommercePackageById(planId || 'free');
+    const resolvedSubdomain = subdomain || makeStoreSubdomain(storeName);
     store.storeName = storeName;
-    store.planId = planId;
+    store.planId = pkg?.planId || planId || 'free';
     store.createdAt = new Date().toISOString();
     const configuredCurrency = String(currency || store.store_settings.currency || 'USD ($)');
     const currencySymbol = configuredCurrency.match(/\(([^)]+)\)/)?.[1] || store.store_settings.currencySymbol || '$';
     store.store_settings = {
       ...store.store_settings,
       storeName,
-      subdomain: subdomain || makeStoreSubdomain(storeName),
+      subdomain: resolvedSubdomain,
       currency: configuredCurrency,
       currencySymbol
+    };
+    store.subscription = {
+      ...(store.subscription || {}),
+      planId: pkg?.planId || planId || 'free',
+      planName: pkg?.planName || 'Free Starter',
+      price: Number(pkg?.price || 0),
+      billingCycle: 'monthly',
+      productLimit: Number(pkg?.productLimit || 50),
+      warehouseLimit: Number(pkg?.warehouseLimit || 1),
+      hasCustomDomain: Boolean(pkg?.hasCustomDomain),
+      subdomain: resolvedSubdomain,
+      updatedAt: store.createdAt
     };
     await this.saveStoreDb(tiwiId, store);
     return store;

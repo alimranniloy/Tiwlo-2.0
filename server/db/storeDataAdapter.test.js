@@ -23,7 +23,7 @@ test('active store selection is limited to the authenticated account', async () 
   assert.equal(getActiveTiwiId(req), 'TIW-OWNED');
 
   assert.equal(await resolveActiveStore(req, 'TIW-OTHER', masterDb), null);
-  assert.equal((await resolveActiveStore(req, 'TIW-BASE', masterDb)).storeName, 'Base Store');
+  assert.equal(await resolveActiveStore(req, 'TIW-BASE', masterDb), null);
   assert.equal(await resolveActiveStore({}, 'TIW-OWNED', masterDb), null);
 });
 

@@ -1,6 +1,7 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useState, useEffect } from 'react';
 import { STORE_DOMAIN } from '../config/platformConfig';
+import { getCloudBillingData } from '../dashboards/cloud/graphql/cloudQueries';
 import {
   Sparkles,
   Check,
@@ -23,34 +24,49 @@ import {
   Layers,
   ShoppingBag,
   Sliders,
-  DollarSign
+  DollarSign,
+  CreditCard
 } from 'lucide-react';
 
 const API_BASE = '/api';
 
 export default function PricingPlansView({
+  currentUser,
   onBackToOverview,
+  onOpenBilling,
   showToast,
   onRefreshData
 }) {
-  const [billingCycle, setBillingCycle] = useState('monthly'); // 'monthly' | 'annual'
+  const [billingCycle, setBillingCycle] = useState('monthly');
   const [subscription, setSubscription] = useState(null);
+  const [livePackages, setLivePackages] = useState([]);
+  const [creditBalance, setCreditBalance] = useState(null);
+  const [creditShortfallPlan, setCreditShortfallPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [upgradingPlanId, setUpgradingPlanId] = useState(null);
   const [openFaq, setOpenFaq] = useState(null);
 
-  // Fetch real subscription & quota from database
+  // Fetch real subscription, live packages & cloud credits from database
   const fetchSubscription = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/subscription`);
-      if (res.ok) {
-        const data = await res.json();
+      const [subRes, pkgRes, billingData] = await Promise.all([
+        fetch(`${API_BASE}/subscription`),
+        fetch(`${API_BASE}/packages`).catch(() => null),
+        getCloudBillingData(currentUser?.id).catch(() => null)
+      ]);
+      if (subRes.ok) {
+        const data = await subRes.json();
         setSubscription(data);
-        if (data.billingCycle) {
-          setBillingCycle(data.billingCycle);
+      }
+      if (pkgRes && pkgRes.ok) {
+        const pkgJson = await pkgRes.json().catch(() => null);
+        if (Array.isArray(pkgJson?.packages)) {
+          setLivePackages(pkgJson.packages);
         }
       }
+      const rawCredits = Number(billingData?.account?.credits);
+      setCreditBalance(Number.isFinite(rawCredits) && rawCredits >= 0 ? rawCredits : 0);
     } catch (err) {
       console.error('Error fetching subscription:', err);
       showToast?.('Failed to load subscription status', 'error');
@@ -61,28 +77,43 @@ export default function PricingPlansView({
 
   useEffect(() => {
     fetchSubscription();
-  }, []);
+  }, [currentUser?.id]);
 
-  // Handle plan upgrade or change
+  // Handle plan upgrade or change (Monthly Cloud Credits only)
   const handleSelectPlan = async (planId) => {
-    if (subscription?.planId === planId && subscription?.billingCycle === billingCycle) {
+    if (subscription?.planId === planId) {
       return; // Already active
+    }
+
+    const targetPlan = plans.find((p) => p.id === planId);
+    const planPrice = Number(targetPlan?.monthlyPrice || 0);
+    if (planPrice > 0 && creditBalance !== null && creditBalance < planPrice) {
+      setCreditShortfallPlan(targetPlan);
+      showToast?.('Add your credit to upgrade to this plan.', 'error');
+      return;
     }
 
     try {
       setUpgradingPlanId(planId);
+      setCreditShortfallPlan(null);
       const res = await fetch(`${API_BASE}/subscription/upgrade`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId, billingCycle })
+        body: JSON.stringify({ planId, billingCycle: 'monthly' })
       });
 
       const result = await res.json();
       if (res.ok && result.success) {
         setSubscription(result.subscription);
+        if (planPrice > 0 && creditBalance !== null) {
+          setCreditBalance(Math.max(0, Number((creditBalance - planPrice).toFixed(2))));
+        }
         showToast?.(`Success! Your account is now on ${result.subscription.planName}.`);
         onRefreshData?.();
       } else {
+        if (res.status === 402) {
+          setCreditShortfallPlan(targetPlan || { name: planId, monthlyPrice: planPrice });
+        }
         showToast?.(result.error || 'Failed to update subscription', 'error');
       }
     } catch (err) {
@@ -93,8 +124,7 @@ export default function PricingPlansView({
     }
   };
 
-  // Define the 4 Subscription Plans (Free + 3 Paid Tiers)
-  const plans = [
+  const basePlans = [
     {
       id: 'free',
       name: 'Free Starter',
@@ -206,6 +236,30 @@ export default function PricingPlansView({
     }
   ];
 
+  const plans = basePlans
+    .map((base) => {
+      const live = livePackages.find((p) => p.planId === base.id);
+      if (!live) return base;
+      if (live.enabled === false) return null;
+      const productLimit = Number(live.productLimit ?? base.productLimit);
+      const warehouseLimit = Number(live.warehouseLimit ?? base.warehouseLimit);
+      const hasCustomDomain = live.hasCustomDomain !== undefined ? Boolean(live.hasCustomDomain) : base.hasCustomDomain;
+      return {
+        ...base,
+        name: live.planName || base.name,
+        description: live.description || base.description,
+        monthlyPrice: Number(live.price ?? base.monthlyPrice),
+        annualPrice: Number(live.price ?? base.monthlyPrice),
+        productLimit,
+        productLimitLabel: productLimit >= 999999 ? 'Unlimited Products Quota' : `${productLimit} Products Quota`,
+        warehouseLimit,
+        warehouseLabel: `${warehouseLimit} Warehouse Location${warehouseLimit > 1 ? 's' : ''}`,
+        hasCustomDomain,
+        domainLabel: hasCustomDomain ? 'Connect Custom Domain + Free SSL' : `Free Tiwlo Subdomain (*.${STORE_DOMAIN})`
+      };
+    })
+    .filter(Boolean);
+
   const currentPlanId = subscription?.planId || 'free';
 
   const faqs = [
@@ -267,34 +321,49 @@ export default function PricingPlansView({
       {/* BILLING CYCLE SWITCHER (MONTHLY / ANNUAL 20% DISCOUNT)    */}
       {/* ========================================================= */}
       <div className="flex flex-col items-center justify-center space-y-3 pt-2">
-        <div className="flex items-center space-x-3 bg-neutral-100 dark:bg-gray-800/80 p-1.5 rounded-2xl border border-neutral-200/90 dark:border-gray-700/80 shadow-2xs">
-          <button
-            onClick={() => setBillingCycle('monthly')}
-            className={`px-5 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
-              billingCycle === 'monthly'
-                ? 'bg-white dark:bg-gray-900 text-neutral-900 dark:text-white shadow-sm'
-                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
-            }`}
-          >
-            Monthly Billing
-          </button>
-          <button
-            onClick={() => setBillingCycle('annual')}
-            className={`px-5 py-2 rounded-xl text-xs font-bold transition-all duration-200 flex items-center space-x-2 cursor-pointer ${
-              billingCycle === 'annual'
-                ? 'bg-neutral-600 text-white shadow-sm'
-                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
-            }`}
-          >
-            <span>Annual Billing</span>
-            <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-emerald-500 text-white">
-              SAVE 20%
+        <div className="flex flex-wrap items-center justify-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300">
+            <CreditCard className="h-4 w-4 text-neutral-500" />
+            <span>Monthly billing via Cloud Credits · Balance:</span>
+            <span className="font-semibold text-neutral-950 dark:text-white">
+              {creditBalance === null ? '—' : `$${creditBalance.toFixed(2)}`}
             </span>
-          </button>
+          </div>
+          {onOpenBilling && (
+            <button
+              type="button"
+              onClick={onOpenBilling}
+              className="inline-flex h-8 items-center rounded-lg bg-[#1ed760] px-3 text-xs font-semibold text-black transition hover:bg-[#16c653]"
+            >
+              Add your credit
+            </button>
+          )}
         </div>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">
-          Annual plans include 2 months free + instant product quota expansion
-        </p>
+
+        {creditShortfallPlan && (
+          <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-amber-900/50 dark:bg-amber-950/30">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <div className="text-left">
+                <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+                  Add your credit
+                </p>
+                <p className="text-xs text-amber-800 dark:text-amber-300">
+                  {creditShortfallPlan.name} requires ${Number(creditShortfallPlan.monthlyPrice || 0).toFixed(2)}/mo in Cloud Credits.
+                </p>
+              </div>
+            </div>
+            {onOpenBilling && (
+              <button
+                type="button"
+                onClick={onOpenBilling}
+                className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-[#1ed760] px-4 text-xs font-semibold text-black transition hover:bg-[#16c653]"
+              >
+                Add your credit
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ========================================================= */}

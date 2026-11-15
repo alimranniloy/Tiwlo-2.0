@@ -36,14 +36,6 @@ export function getActiveTiwiId(req) {
 export async function resolveActiveStore(req, selectedTiwiId, masterDb = MasterDB) {
   if (!req?.activeUser || !selectedTiwiId) return null;
   const accountTiwiId = req.activeUser.tiwiId || req.activeUser.storeId;
-  if (accountTiwiId && String(accountTiwiId) === String(selectedTiwiId)) {
-    return {
-      tiwiId: accountTiwiId,
-      storeName: req.activeUser.storeName || req.activeUser.name || 'Your Store',
-      subdomain: req.activeUser.subdomain || '',
-      currency: req.activeUser.currency || ''
-    };
-  }
   const stores = await masterDb.getUserStores(req.activeUser.id || accountTiwiId);
   return stores.find(store =>
     String(store.tiwiId) === String(selectedTiwiId) &&

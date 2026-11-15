@@ -46,7 +46,7 @@ export default function MyOnlineStoreView({
   onOpenCreateStore
 }) {
   const [search, setSearch] = useState('');
-  const stores = userStores.length > 0 ? userStores : (currentStore ? [currentStore] : []);
+  const stores = userStores;
   const query = search.trim().toLowerCase();
   const filteredStores = query
     ? stores.filter((store) => [

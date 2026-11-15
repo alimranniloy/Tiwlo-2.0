@@ -2,6 +2,7 @@ import express from 'express';
 import { randomUUID } from 'node:crypto';
 import { isIPv4, isIPv6 } from 'node:net';
 import { MasterDB, TenantDB } from '../db/multiTenant.js';
+import { getEcommercePackages, saveEcommercePackages } from '../db/packages.js';
 import { SupportDB } from '../db/supportDb.js';
 import {
   sendAccountDisabledEmail,
@@ -1449,6 +1450,28 @@ router.post('/payment-gateways', requireAdmin, requireRecentReauth, async (req, 
   } catch (error) {
     console.error('[Admin Gateways Save Error]', error.message);
     res.status(500).json({ error: 'Failed to save payment gateway settings.' });
+  }
+});
+
+// GET /api/admin/packages
+router.get('/packages', requireAdmin, async (_req, res) => {
+  try {
+    const packages = await getEcommercePackages();
+    res.json({ success: true, packages });
+  } catch (error) {
+    console.error('[Admin Packages Get Error]', error.message);
+    res.status(500).json({ error: 'Failed to load e-commerce packages.' });
+  }
+});
+
+// PUT /api/admin/packages
+router.put('/packages', requireAdmin, async (req, res) => {
+  try {
+    const packages = await saveEcommercePackages(req.body?.packages);
+    res.json({ success: true, packages, message: 'E-commerce packages updated successfully.' });
+  } catch (error) {
+    console.error('[Admin Packages Save Error]', error.message);
+    res.status(400).json({ error: error.message || 'Failed to save e-commerce packages.' });
   }
 });
 

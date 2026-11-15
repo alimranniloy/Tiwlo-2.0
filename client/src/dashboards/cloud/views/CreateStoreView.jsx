@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import { applicationFetch as fetch } from '../../../api/graphqlTransport.js';
+import React, { useEffect, useState } from 'react';
 import { STORE_DOMAIN } from '../../../config/platformConfig';
-import useStoreSubdomainAvailability, { normalizeStoreSubdomainInput } from '../hooks/useStoreSubdomainAvailability';
+import useStoreSubdomainAvailability from '../hooks/useStoreSubdomainAvailability';
+import { getCloudBillingData } from '../graphql/cloudQueries';
 import {
-  Store,
+  AlertCircle,
   ArrowLeft,
-  Sparkles,
-  Globe,
-  ChevronRight,
-  Info
+  ArrowRight,
+  Check,
+  CreditCard,
+  Info,
+  Store
 } from 'lucide-react';
 
 const STORE_CATEGORIES = [
@@ -20,49 +23,176 @@ const STORE_CATEGORIES = [
   'Digital Products & Services'
 ];
 
-export default function CreateStoreView({ onBack, onCreateStore }) {
-  const [storeName, setStoreName] = useState('');
-  const [category, setCategory] = useState(STORE_CATEGORIES[0]);
-  const [subdomain, setSubdomain] = useState('');
-  const [currency, setCurrency] = useState('BDT (৳)');
-  const [businessEmail, setBusinessEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [description, setDescription] = useState('');
+const CURRENCIES = [
+  'BDT (৳)',
+  'USD ($)',
+  'EUR (€)',
+  'GBP (£)'
+];
+
+const INITIAL_FORM = {
+  storeName: '',
+  subdomain: '',
+  category: STORE_CATEGORIES[0],
+  currency: CURRENCIES[0],
+  email: '',
+  phone: '',
+  address: '',
+  city: 'Dhaka',
+  country: 'Bangladesh',
+  postalCode: '',
+  description: '',
+  planId: 'free'
+};
+
+function getDraftKey(userId) {
+  return `tiwlo.createStoreDraft.${userId || 'anon'}`;
+}
+
+export default function CreateStoreView({ userId, onBack, onCreateStore, onOpenBilling }) {
+  const draftKey = getDraftKey(userId);
+
+  const [step, setStep] = useState(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(draftKey) || 'null');
+      const parsedStep = Number(saved?.step);
+      return [1, 2, 3].includes(parsedStep) ? parsedStep : 1;
+    } catch {
+      return 1;
+    }
+  });
+
+  const [form, setForm] = useState(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(draftKey) || 'null');
+      return saved?.form ? { ...INITIAL_FORM, ...saved.form } : INITIAL_FORM;
+    } catch {
+      return INITIAL_FORM;
+    }
+  });
+
+  const [packages, setPackages] = useState([]);
+  const [packagesLoading, setPackagesLoading] = useState(true);
+  const [creditBalance, setCreditBalance] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const subdomainAvailability = useStoreSubdomainAvailability(subdomain);
+
+  const subdomainAvailability = useStoreSubdomainAvailability(form.subdomain);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(draftKey, JSON.stringify({ step, form }));
+    } catch {}
+  }, [draftKey, step, form]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setPackagesLoading(true);
+        const [pkgRes, billingData] = await Promise.all([
+          fetch('/api/packages', { credentials: 'include' }).then((r) => r.json()).catch(() => null),
+          getCloudBillingData(userId).catch(() => null)
+        ]);
+        if (cancelled) return;
+        if (Array.isArray(pkgRes?.packages) && pkgRes.packages.length > 0) {
+          setPackages(pkgRes.packages);
+        } else {
+          setPackages([
+            {
+              planId: 'free',
+              planName: 'Free Starter',
+              price: 0,
+              productLimit: 50,
+              warehouseLimit: 1,
+              hasCustomDomain: false,
+              description: 'Free *.tiwlo.com subdomain with core POS & inventory.'
+            }
+          ]);
+        }
+        const rawCredits = Number(billingData?.account?.credits);
+        setCreditBalance(Number.isFinite(rawCredits) && rawCredits >= 0 ? rawCredits : 0);
+      } finally {
+        if (!cancelled) setPackagesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const updateField = (field, value) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleStoreNameChange = (val) => {
-    setStoreName(val);
     const slug = val.toLowerCase().replace(/[^a-z0-9]/g, '');
-    setSubdomain(slug);
+    setForm((prev) => ({ ...prev, storeName: val, subdomain: slug }));
+  };
+
+  const selectedPackage = packages.find((p) => p.planId === form.planId) || packages[0] || {
+    planId: 'free',
+    planName: 'Free Starter',
+    price: 0
+  };
+  const monthlyCost = Number(selectedPackage?.price || 0);
+  const hasEnoughCredits = monthlyCost <= 0 || (creditBalance !== null && creditBalance >= monthlyCost);
+
+  const handleNext = () => {
+    setErrorMsg('');
+    if (step === 1) {
+      if (!form.storeName.trim()) {
+        setErrorMsg('Store name is required.');
+        return;
+      }
+      if (subdomainAvailability.status !== 'available') {
+        setErrorMsg(subdomainAvailability.message || 'Choose a valid, available subdomain.');
+        return;
+      }
+      setStep(2);
+      return;
+    }
+    if (step === 2) {
+      if (!form.address.trim() || !form.city.trim() || !form.country.trim()) {
+        setErrorMsg('Street address, city, and country are required.');
+        return;
+      }
+      setStep(3);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
 
-    if (!storeName.trim()) {
-      setErrorMsg('Store name is required.');
-      return;
-    }
-    if (subdomainAvailability.status !== 'available') {
-      setErrorMsg(subdomainAvailability.message || 'Choose a valid, available subdomain.');
+    if (monthlyCost > 0 && !hasEnoughCredits) {
+      setErrorMsg('Insufficient credit balance. Add your credit to continue.');
       return;
     }
 
     try {
       setSubmitting(true);
       const created = await onCreateStore({
-        storeName: storeName.trim(),
-        category,
-        subdomain: `${subdomain.trim()}.${STORE_DOMAIN}`,
-        currency,
-        email: businessEmail.trim(),
-        phone: phone.trim(),
-        description: description.trim()
+        storeName: form.storeName.trim(),
+        category: form.category,
+        subdomain: `${form.subdomain.trim()}.${STORE_DOMAIN}`,
+        currency: form.currency,
+        planId: selectedPackage.planId,
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        description: form.description.trim(),
+        billingDetails: {
+          address: form.address.trim(),
+          city: form.city.trim(),
+          country: form.country.trim(),
+          phone: form.phone.trim(),
+          postalCode: form.postalCode.trim()
+        }
       });
       if (!created) throw new Error('The store could not be created.');
+      try {
+        sessionStorage.removeItem(draftKey);
+      } catch {}
       onBack?.();
     } catch (err) {
       setErrorMsg(err.message || 'Failed to create store. Please try again.');
@@ -71,207 +201,402 @@ export default function CreateStoreView({ onBack, onCreateStore }) {
     }
   };
 
+  const steps = [
+    { id: 1, label: 'Store' },
+    { id: 2, label: 'Address' },
+    { id: 3, label: 'Package' }
+  ];
+
   return (
-    <div className="max-w-[1000px] mx-auto space-y-8 animate-in fade-in duration-200 pb-16">
-      {/* Top Navigation */}
+    <div className="mx-auto max-w-3xl space-y-6 pb-16">
       <div className="flex items-center justify-between">
         <button
           type="button"
-          onClick={onBack}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-neutral-700 dark:text-neutral-300 bg-white dark:bg-[#181818] border border-neutral-200/80 dark:border-gray-800 hover:bg-neutral-50 dark:hover:bg-gray-800 transition shadow-xs cursor-pointer"
+          onClick={() => {
+            try {
+              sessionStorage.removeItem(draftKey);
+            } catch {}
+            onBack?.();
+          }}
+          className="inline-flex h-9 items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to Online Stores</span>
+          <ArrowLeft className="h-4 w-4" />
+          Back to Online Store
         </button>
 
-        <div className="flex items-center gap-2 text-xs text-neutral-500">
-          <span>Commerce</span>
-          <ChevronRight className="w-3.5 h-3.5" />
-          <span className="font-semibold text-neutral-600 dark:text-neutral-400">Create New Store</span>
-        </div>
+        <nav aria-label="Setup steps" className="flex items-center gap-2">
+          {steps.map((item, idx) => {
+            const active = step === item.id;
+            const done = step > item.id;
+            return (
+              <React.Fragment key={item.id}>
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold ${
+                      done
+                        ? 'border-[#1ed760] bg-[#1ed760] text-black'
+                        : active
+                          ? 'border-neutral-950 bg-neutral-950 text-white dark:border-white dark:bg-white dark:text-black'
+                          : 'border-neutral-200 bg-white text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400'
+                    }`}
+                  >
+                    {done ? <Check className="h-3.5 w-3.5" /> : item.id}
+                  </span>
+                  <span
+                    className={`text-xs font-medium ${
+                      active || done
+                        ? 'text-neutral-950 dark:text-white'
+                        : 'text-neutral-500 dark:text-neutral-400'
+                    }`}
+                  >
+                    {item.label}
+                  </span>
+                </div>
+                {idx < steps.length - 1 && (
+                  <span className="h-px w-5 bg-neutral-200 dark:bg-neutral-800" />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </nav>
       </div>
 
-      {/* Main Header Card */}
-      <div className="bg-white dark:bg-[#181818] rounded-2xl border border-neutral-200/80 dark:border-gray-800 p-6 sm:p-8 shadow-[0_1px_3px_rgba(60,64,67,0.08)]">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-neutral-50 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 flex items-center justify-center font-bold">
-            <Store className="w-5 h-5" />
-          </div>
+      <div className="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="mb-6 flex items-center gap-3 border-b border-neutral-100 pb-5 dark:border-neutral-800">
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-800 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200">
+            <Store className="h-5 w-5" />
+          </span>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white tracking-tight">
-              Create New Online Store
+            <h1 className="text-lg font-semibold tracking-tight text-neutral-950 dark:text-white">
+              Create your store
             </h1>
-            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
-              Launch a full multi-channel eCommerce store with POS terminal, automated WhatsApp alerts, and inventory sync.
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              {step === 1 && 'Step 1 of 3 — Enter your store name, subdomain, and currency.'}
+              {step === 2 && 'Step 2 of 3 — Add your business contact and store address.'}
+              {step === 3 && 'Step 3 of 3 — Choose a monthly package for your store.'}
             </p>
           </div>
         </div>
-      </div>
 
-      {errorMsg && (
-        <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-400 text-xs sm:text-sm flex items-center gap-2.5">
-          <Info className="w-4 h-4 shrink-0" />
-          <span>{errorMsg}</span>
-        </div>
-      )}
-
-      {/* Form Card */}
-      <form onSubmit={handleSubmit} className="bg-white dark:bg-[#181818] rounded-2xl border border-neutral-200/80 dark:border-gray-800 p-6 sm:p-8 shadow-[0_1px_3px_rgba(60,64,67,0.08)] space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
-              Store / Business Name *
-            </label>
-            <input
-              type="text"
-              required
-              value={storeName}
-              onChange={(e) => handleStoreNameChange(e.target.value)}
-              placeholder="e.g. Dhaka Gadget Hub"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-800 bg-neutral-50/50 dark:bg-gray-900 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition"
-            />
+        {errorMsg && (
+          <div className="mb-5 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+            <Info className="h-4 w-4 shrink-0" />
+            <span>{errorMsg}</span>
           </div>
+        )}
 
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
-              Store Category / Industry
-            </label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-800 bg-neutral-50/50 dark:bg-gray-900 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition"
-            >
-              {STORE_CATEGORIES.map((c, i) => (
-                <option key={i} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-        </div>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {step === 1 && (
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                  Store Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={form.storeName}
+                  onChange={(e) => handleStoreNameChange(e.target.value)}
+                  placeholder="e.g. Urban Threads"
+                  className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-900 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white dark:focus:border-neutral-400"
+                />
+              </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
-              Store Web Subdomain
-            </label>
-            <div className="relative">
-              <Globe className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={subdomain}
-                onChange={(e) => setSubdomain(normalizeStoreSubdomainInput(e.target.value))}
-                placeholder="storename"
-                aria-invalid={['invalid', 'unavailable', 'error'].includes(subdomainAvailability.status)}
-                className="w-full pl-9 pr-28 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-800 bg-neutral-50/50 dark:bg-gray-900 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-neutral-500 font-mono transition"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-neutral-400 pointer-events-none">
-                .{STORE_DOMAIN}
-              </span>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                  Store Subdomain *
+                </label>
+                <div className="flex h-10 overflow-hidden rounded-lg border border-neutral-200 bg-white focus-within:border-neutral-900 dark:border-neutral-800 dark:bg-neutral-950 dark:focus-within:border-neutral-400">
+                  <input
+                    type="text"
+                    required
+                    value={form.subdomain}
+                    onChange={(e) => updateField('subdomain', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                    placeholder="urban-threads"
+                    className="h-full min-w-0 flex-1 bg-transparent px-3 text-sm text-neutral-950 outline-none dark:text-white"
+                  />
+                  <span className="flex items-center border-l border-neutral-200 bg-neutral-50 px-3 text-xs font-medium text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+                    .{STORE_DOMAIN}
+                  </span>
+                </div>
+                {subdomainAvailability.message && (
+                  <p
+                    className={`mt-1.5 text-xs ${
+                      subdomainAvailability.status === 'available'
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : subdomainAvailability.status === 'checking'
+                          ? 'text-neutral-500'
+                          : 'text-red-600 dark:text-red-400'
+                    }`}
+                  >
+                    {subdomainAvailability.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                    Category
+                  </label>
+                  <select
+                    value={form.category}
+                    onChange={(e) => updateField('category', e.target.value)}
+                    className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-900 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                  >
+                    {STORE_CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                    Currency
+                  </label>
+                  <select
+                    value={form.currency}
+                    onChange={(e) => updateField('currency', e.target.value)}
+                    className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-900 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                  >
+                    {CURRENCIES.map((cur) => (
+                      <option key={cur} value={cur}>{cur}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
-            <p className="text-[11px] text-neutral-400 mt-1">
-              Choose a subdomain label. The .{STORE_DOMAIN} domain is fixed and cannot be changed.
-            </p>
-            {subdomainAvailability.message && (
-              <p
-                role="status"
-                className={`text-[11px] mt-1 ${
-                  subdomainAvailability.status === 'available'
-                    ? 'text-emerald-600 dark:text-emerald-400'
-                    : subdomainAvailability.status === 'checking'
-                      ? 'text-neutral-400'
-                      : 'text-rose-600 dark:text-rose-400'
-                }`}
+          )}
+
+          {step === 2 && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                    Business Email
+                  </label>
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => updateField('email', e.target.value)}
+                    placeholder="orders@yourstore.com"
+                    className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-900 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={form.phone}
+                    onChange={(e) => updateField('phone', e.target.value)}
+                    placeholder="+880 1700-000000"
+                    className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-900 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                  Street Address *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={form.address}
+                  onChange={(e) => updateField('address', e.target.value)}
+                  placeholder="House, Road, Area"
+                  className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-900 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                    City *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={form.city}
+                    onChange={(e) => updateField('city', e.target.value)}
+                    className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-900 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                    Country *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={form.country}
+                    onChange={(e) => updateField('country', e.target.value)}
+                    className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-900 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                    Postal Code
+                  </label>
+                  <input
+                    type="text"
+                    value={form.postalCode}
+                    onChange={(e) => updateField('postalCode', e.target.value)}
+                    placeholder="1205"
+                    className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-900 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                  Store Description
+                </label>
+                <textarea
+                  rows={2}
+                  value={form.description}
+                  onChange={(e) => updateField('description', e.target.value)}
+                  placeholder="Short description of what your store sells"
+                  className="w-full rounded-lg border border-neutral-200 bg-white p-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-900 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                />
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-950">
+                <div className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300">
+                  <CreditCard className="h-4 w-4 text-neutral-500" />
+                  <span>Available Cloud Credits</span>
+                </div>
+                <span className="text-sm font-semibold text-neutral-950 dark:text-white">
+                  {creditBalance === null ? '—' : `$${creditBalance.toFixed(2)}`}
+                </span>
+              </div>
+
+              {packagesLoading ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {[1, 2].map((n) => (
+                    <div key={n} className="h-32 animate-pulse rounded-lg border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950" />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {packages.map((pkg) => {
+                    const selected = form.planId === pkg.planId;
+                    const price = Number(pkg.price || 0);
+                    return (
+                      <button
+                        key={pkg.planId}
+                        type="button"
+                        onClick={() => {
+                          setErrorMsg('');
+                          updateField('planId', pkg.planId);
+                        }}
+                        className={`flex flex-col justify-between rounded-lg border p-4 text-left transition ${
+                          selected
+                            ? 'border-neutral-950 bg-neutral-50 dark:border-[#1ed760] dark:bg-neutral-950'
+                            : 'border-neutral-200 bg-white hover:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-semibold text-neutral-950 dark:text-white">
+                              {pkg.planName}
+                            </span>
+                            <span className="text-sm font-bold text-neutral-950 dark:text-white">
+                              {price === 0 ? 'Free' : `$${price}/mo`}
+                            </span>
+                          </div>
+                          {pkg.description && (
+                            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                              {pkg.description}
+                            </p>
+                          )}
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
+                          <span>{pkg.productLimit >= 999999 ? 'Unlimited products' : `${pkg.productLimit} products`}</span>
+                          <span>·</span>
+                          <span>{pkg.warehouseLimit} warehouse{pkg.warehouseLimit > 1 ? 's' : ''}</span>
+                          {pkg.hasCustomDomain && (
+                            <>
+                              <span>·</span>
+                              <span>Custom domain</span>
+                            </>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {monthlyCost > 0 && !hasEnoughCredits && (
+                <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-amber-900/50 dark:bg-amber-950/30">
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <div>
+                      <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+                        Add your credit
+                      </p>
+                      <p className="text-xs text-amber-800 dark:text-amber-300">
+                        {selectedPackage.planName} requires ${monthlyCost.toFixed(2)}/mo in Cloud Credits. Your current balance is ${(creditBalance || 0).toFixed(2)}.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onOpenBilling?.('credits')}
+                    className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-[#1ed760] px-4 text-xs font-semibold text-black transition hover:bg-[#16c653]"
+                  >
+                    Add your credit
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between border-t border-neutral-100 pt-5 dark:border-neutral-800">
+            {step > 1 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setErrorMsg('');
+                  setStep((s) => Math.max(1, s - 1));
+                }}
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
               >
-                {subdomainAvailability.message}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
-              Primary Currency
-            </label>
-            <select
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-800 bg-neutral-50/50 dark:bg-gray-900 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition"
-            >
-              <option value="BDT (৳)">BDT - Bangladeshi Taka (৳)</option>
-              <option value="USD ($)">USD - US Dollar ($)</option>
-              <option value="EUR (€)">EUR - Euro (€)</option>
-              <option value="GBP (£)">GBP - British Pound (£)</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
-              Business Email
-            </label>
-            <input
-              type="email"
-              value={businessEmail}
-              onChange={(e) => setBusinessEmail(e.target.value)}
-              placeholder="orders@yourstore.com"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-800 bg-neutral-50/50 dark:bg-gray-900 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
-              Customer Support Phone
-            </label>
-            <input
-              type="text"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+880 1700-000000"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-800 bg-neutral-50/50 dark:bg-gray-900 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
-            Store Description / Slogan
-          </label>
-          <textarea
-            rows={3}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Tell customers about your business..."
-            className="w-full p-3 rounded-xl border border-neutral-200 dark:border-gray-800 bg-neutral-50/50 dark:bg-gray-900 text-neutral-900 dark:text-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition"
-          />
-        </div>
-
-        <div className="pt-4 border-t border-neutral-100 dark:border-gray-800 flex items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="px-4 py-2.5 rounded-xl text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-gray-800 transition cursor-pointer"
-          >
-            Cancel
-          </button>
-
-          <button
-            type="submit"
-            disabled={submitting || subdomainAvailability.status !== 'available'}
-            className="py-2.5 px-6 rounded-xl bg-neutral-600 hover:bg-neutral-700 active:bg-neutral-800 text-white text-xs sm:text-sm font-semibold transition shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
-          >
-            {submitting ? (
-              <>
-                <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Launching Store...</span>
-              </>
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </button>
             ) : (
-              <>
-                <Sparkles className="w-4 h-4" />
-                <span>Create & Launch Store</span>
-              </>
+              <span />
             )}
-          </button>
-        </div>
-      </form>
+
+            {step < 3 ? (
+              <button
+                type="button"
+                onClick={handleNext}
+                className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#1ed760] px-5 text-xs font-semibold text-black transition hover:bg-[#16c653]"
+              >
+                Next
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={submitting || (monthlyCost > 0 && !hasEnoughCredits)}
+                className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#1ed760] px-5 text-xs font-semibold text-black transition hover:bg-[#16c653] disabled:opacity-50"
+              >
+                {submitting ? 'Creating store...' : monthlyCost > 0 ? `Pay $${monthlyCost}/mo & Create Store` : 'Create Free Store'}
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

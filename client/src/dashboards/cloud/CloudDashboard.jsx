@@ -49,11 +49,33 @@ export default function CloudDashboard({
   onNavigateTab,
   showToast
 }) {
-  const [activeNav, setActiveNav] = useState(initialNav || 'dashboard');
+  const userId = currentUser?.id || currentUser?.tiwiId || null;
+  const navStorageKey = `tiwlo.cloudActiveNav.${userId || 'anon'}`;
+
+  const [activeNav, setActiveNav] = useState(() => {
+    if (initialNav && initialNav !== 'dashboard') return initialNav;
+    try {
+      const saved = sessionStorage.getItem(navStorageKey);
+      if (saved === 'create-store' || saved === 'my-online-store') return saved;
+    } catch {}
+    return initialNav || 'dashboard';
+  });
 
   useEffect(() => {
-    if (initialNav) setActiveNav(initialNav);
+    if (initialNav && initialNav !== 'dashboard') {
+      setActiveNav(initialNav);
+    }
   }, [initialNav]);
+
+  useEffect(() => {
+    try {
+      if (activeNav === 'create-store' || activeNav === 'my-online-store') {
+        sessionStorage.setItem(navStorageKey, activeNav);
+      } else {
+        sessionStorage.removeItem(navStorageKey);
+      }
+    } catch {}
+  }, [activeNav, navStorageKey]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [cloudError, setCloudError] = useState('');
@@ -69,37 +91,26 @@ export default function CloudDashboard({
   // Multi-Store States ("Your Store" Section)
   const [userStores, setUserStores] = useState([]);
   const [profileUser, setProfileUser] = useState(currentUser);
-  const [currentStore, setCurrentStore] = useState(() => {
-    return {
-      storeName: currentUser?.storeName || currentUser?.name || 'Tiwlo Store',
-      tiwiId: currentUser?.tiwiId || currentUser?.storeId || ''
-    };
-  });
+  const [currentStore, setCurrentStore] = useState(null);
 
   useEffect(() => {
-    if (currentUser) {
-      setProfileUser(currentUser);
-      setCurrentStore(prev => ({
-        ...prev,
-        storeName: currentUser.storeName || currentUser.name || prev.storeName,
-        tiwiId: currentUser.tiwiId || currentUser.storeId || prev.tiwiId,
-      }));
-    }
+    if (currentUser) setProfileUser(currentUser);
   }, [currentUser]);
 
   const launchStoreConsole = (store = currentStore) => {
-    if (store) {
-      setCurrentStore(store);
-      try {
-        window.sessionStorage.setItem('tiwlo.selectedStore', JSON.stringify(store));
-      } catch {}
+    if (!store?.tiwiId) {
+      setActiveNav('create-store');
+      showToast?.('Create a store first to open the store dashboard.', 'info');
+      return;
     }
+    setCurrentStore(store);
+    try {
+      window.sessionStorage.setItem('tiwlo.selectedStore', JSON.stringify(store));
+    } catch {}
     onOpenStoreDashboard?.(store);
   };
 
   const [initialDropletImage, setInitialDropletImage] = useState('Ubuntu 24.04 LTS');
-
-  const userId = currentUser?.id || currentUser?.tiwiId || null;
 
   // Load Cloud Data from real GraphQL
   const loadCloudData = async () => {
@@ -130,6 +141,9 @@ export default function CloudDashboard({
           storesData.find(store => store.tiwiId === prev?.tiwiId) ||
           storesData[0]
         ));
+      } else {
+        setUserStores([]);
+        setCurrentStore(null);
       }
     } catch (err) {
       setCloudError(err.message || 'Could not load cloud dashboard data.');
@@ -204,7 +218,7 @@ export default function CloudDashboard({
           setSearchQuery={setSearchQuery}
           currentUser={{ ...currentUser, storeName: currentStore?.storeName || currentUser?.storeName }}
           onLogout={onLogout}
-          onOpenStore={launchStoreConsole}
+          onOpenStore={currentStore?.tiwiId ? () => launchStoreConsole(currentStore) : null}
           onSwitchStore={() => setActiveNav('my-online-store')}
           onOpenCreateDroplet={() => {
             setInitialDropletImage('Ubuntu 24.04 LTS');
@@ -279,8 +293,13 @@ export default function CloudDashboard({
           ) : activeNav === 'create-store' ? (
             <div className="max-w-[1500px] mx-auto">
               <CreateStoreView
+                userId={userId}
                 onBack={() => setActiveNav('my-online-store')}
                 onCreateStore={handleCreateStore}
+                onOpenBilling={(tab = 'credits') => {
+                  setBillingInitialTab(tab);
+                  setActiveNav('billing');
+                }}
               />
             </div>
           ) : activeNav === 'images' ? (

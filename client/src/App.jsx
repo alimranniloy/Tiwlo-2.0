@@ -2674,7 +2674,9 @@ export default function App() {
           {/* TAB: SUBSCRIPTION PRICING PLANS */}
           {(activeTab === 'pricing' || activeTab === 'upgrade') && (
             <PricingPlansView
+              currentUser={currentUser}
               onBackToOverview={() => handleTabChange('subscription')}
+              onOpenBilling={() => handleTabChange('billing')}
               showToast={showToast}
               onRefreshData={loadData}
             />
