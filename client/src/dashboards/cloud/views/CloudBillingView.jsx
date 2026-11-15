@@ -1,5 +1,5 @@
 import { applicationFetch as fetch } from '../../../api/graphqlTransport.js';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   CreditCard, 
   Coins, 
@@ -49,6 +49,15 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
   const [copiedId, setCopiedId] = useState(false);
   const [voucherCode, setVoucherCode] = useState('');
   const [isRedeemingVoucher, setIsRedeemingVoucher] = useState(false);
+  const voucherInputRef = useRef(null);
+
+  const handleOpenAddCoupon = () => {
+    setActiveTab('credits');
+    setTimeout(() => {
+      voucherInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      voucherInputRef.current?.focus();
+    }, 60);
+  };
   const [creditTopupAmount, setCreditTopupAmount] = useState('25');
   const [startingCheckoutProvider, setStartingCheckoutProvider] = useState('');
   const [cancellingInvoiceId, setCancellingInvoiceId] = useState('');
@@ -213,6 +222,9 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
 
   const credits = Number.isFinite(account?.credits) && account.credits >= 0 ? account.credits : null;
   const promotionalCredits = Number.isFinite(account?.promotionalCredits) ? account.promotionalCredits : null;
+  const totalCreditBalance = credits === null && promotionalCredits === null
+    ? null
+    : (credits ?? 0) + (promotionalCredits ?? 0);
   const hasConfiguredGateway = account?.hasConfiguredGateway === true;
   const configuredGateways = Array.isArray(account?.configuredGateways) ? account.configuredGateways : [];
   const creditCheckoutGateways = Array.isArray(account?.creditCheckoutGateways) ? account.creditCheckoutGateways : [];
@@ -231,7 +243,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-[#131313] flex items-center justify-center text-sm text-[#636363] dark:text-[#9f9f9f]">
+      <div className="mx-auto flex min-h-[360px] w-full max-w-7xl items-center justify-center text-sm text-neutral-500 dark:text-neutral-400">
         Loading billing account…
       </div>
     );
@@ -239,18 +251,18 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
 
   if (!account) {
     return (
-      <div className="min-h-screen bg-white dark:bg-[#131313] flex items-center justify-center px-4">
-        <div className="max-w-md w-full rounded-2xl border border-[#f0f0f0] dark:border-[#2d2d2d] p-6 text-center">
-          <AlertCircle className="w-8 h-8 mx-auto mb-3 text-[#B06000]" />
-          <h1 className="text-base font-semibold text-[#1F1F1F] dark:text-white">Billing unavailable</h1>
-          <p className="mt-2 text-sm text-[#636363] dark:text-[#9f9f9f]">
+      <div className="mx-auto flex min-h-[360px] w-full max-w-7xl items-center justify-center px-4">
+        <div className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 text-center dark:border-neutral-800 dark:bg-neutral-900">
+          <AlertCircle className="mx-auto mb-3 h-8 w-8 text-amber-600" />
+          <h1 className="text-base font-semibold text-neutral-950 dark:text-white">Billing unavailable</h1>
+          <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
             {billingState.error || 'Sign in to view your cloud billing account.'}
           </p>
           {userId && (
             <button
               type="button"
               onClick={loadBilling}
-              className="mt-4 px-4 py-2 rounded-full bg-[#000000] text-white text-sm font-medium"
+              className="mt-4 inline-flex h-9 items-center justify-center rounded-lg bg-neutral-950 px-4 text-xs font-medium text-white transition hover:bg-neutral-800 dark:bg-white dark:text-black"
             >
               Retry
             </button>
@@ -432,108 +444,100 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
   ];
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#131313] text-[#1F1F1F] dark:text-[#E3E3E3] font-sans antialiased pb-20 select-none transition-colors duration-200">
-      
-      {/* Top Clean Console Bar (Google Cloud & Apple macOS Flat Clean Header) */}
-      <header className="sticky top-0 z-40 bg-white dark:bg-[#1f1f1f] border-b border-[#f0f0f0] dark:border-[#2d2d2d] px-4 sm:px-8 py-3.5 transition-colors">
-        <div className="max-w-[1500px] mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          
-          {/* Breadcrumb & Platform Identifier */}
-          <div className="flex items-center gap-3">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 pb-16 text-neutral-950 antialiased dark:text-neutral-100">
+      {/* Clean Shadcn Page Header */}
+      <header className="flex flex-col gap-4 border-b border-neutral-200 pb-5 dark:border-neutral-800">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div className="flex items-start gap-3 sm:items-center">
             {onBack && (
               <button
                 type="button"
                 onClick={onBack}
-                className="w-8 h-8 rounded-full flex items-center justify-center bg-[#f4f4f4] hover:bg-[#eeeeee] dark:bg-[#2d2d2d] dark:hover:bg-[#3a3a3a] text-[#444746] dark:text-[#C4C7C5] transition cursor-pointer"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-700 transition hover:bg-neutral-50 cursor-pointer dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
                 title="Back to Cloud Dashboard"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <ArrowLeft className="h-4 w-4" />
               </button>
             )}
 
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2 text-[11px] font-medium tracking-wide text-[#636363] dark:text-[#9f9f9f]">
+            <div>
+              <div className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 dark:text-neutral-400">
                 <span>Tiwlo Cloud</span>
-                <span className="text-[#C4C7C5] dark:text-[#444746]">/</span>
-                <span className="text-[#000000] dark:text-[#b0b0b0]">Billing</span>
+                <span>/</span>
+                <span className="text-neutral-950 dark:text-neutral-200">Billing</span>
               </div>
-              <div className="flex items-center gap-2.5 mt-0.5">
-                <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-[#1F1F1F] dark:text-white">
+              <div className="mt-1 flex flex-wrap items-center gap-2.5">
+                <h1 className="text-xl font-semibold tracking-tight text-neutral-950 sm:text-2xl dark:text-white">
                   {billingAccountName}
                 </h1>
-                
-                {/* Clean Status Chip */}
-                <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium ${
-                  hasConfiguredGateway
-                    ? 'bg-[#E6F4EA] text-[#137333] dark:bg-[#137333]/20 dark:text-[#81C995]'
-                    : 'bg-[#FEF7E0] text-[#B06000] dark:bg-[#B06000]/20 dark:text-[#FDD663]'
-                }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${hasConfiguredGateway ? 'bg-[#188038]' : 'bg-[#F29900]'}`} />
-                  <span>{hasConfiguredGateway ? 'Gateway configured' : 'Unconfigured'}</span>
-                </div>
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-medium ${
+                    hasConfiguredGateway
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300'
+                      : 'border-neutral-200 bg-neutral-100 text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300'
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${hasConfiguredGateway ? 'bg-emerald-600' : 'bg-neutral-400'}`} />
+                  {hasConfiguredGateway ? 'Gateway configured' : 'Unconfigured'}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Right Account ID & Action Controls */}
-          <div className="flex items-center gap-2.5 sm:gap-3 self-end sm:self-center">
-            {/* Account ID Pill with 1-Click Copy */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#f4f4f4] dark:bg-[#2d2d2d] border border-[#e2e2e2] dark:border-[#3f3f3f] text-xs font-mono text-[#444746] dark:text-[#C4C7C5]">
-              <span className="text-[10px] font-sans font-medium text-[#636363] dark:text-[#9f9f9f]">ID:</span>
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+            <div className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-3 font-mono text-xs text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+              <span className="font-sans text-[11px] font-medium text-neutral-500 dark:text-neutral-400">ID:</span>
               <span>{billingAccountId}</span>
               <button
                 type="button"
                 onClick={copyAccountId}
-                className="ml-1 p-0.5 hover:text-[#000000] dark:hover:text-[#b0b0b0] transition cursor-pointer"
+                className="ml-1 text-neutral-500 transition hover:text-neutral-950 cursor-pointer dark:hover:text-white"
                 title="Copy Billing ID"
               >
-                {copiedId ? <Check className="w-3.5 h-3.5 text-[#188038]" /> : <Copy className="w-3.5 h-3.5" />}
+                {copiedId ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
               </button>
             </div>
 
-            {/* Refresh Button */}
             <button
               type="button"
               onClick={loadBilling}
               disabled={loading}
-              className="w-8 h-8 rounded-full flex items-center justify-center bg-[#f4f4f4] hover:bg-[#eeeeee] dark:bg-[#2d2d2d] dark:hover:bg-[#3a3a3a] border border-[#e2e2e2] dark:border-[#3f3f3f] text-[#444746] dark:text-[#C4C7C5] transition cursor-pointer disabled:opacity-50"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50 cursor-pointer dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
               title="Refresh Billing Ledger"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             </button>
           </div>
         </div>
 
-        {/* Clean Google Material 3 / macOS Segmented Pill Switcher */}
-        <div className="max-w-[1500px] mx-auto mt-3.5 pt-2 border-t border-[#f0f0f0] dark:border-[#2d2d2d]">
-          <div className="flex items-center overflow-x-auto scrollbar-none py-1">
-            <div className="inline-flex p-1 bg-[#f4f4f4] dark:bg-[#2d2d2d] rounded-full border border-[#e2e2e2] dark:border-[#3f3f3f] gap-1 shrink-0">
-              {navTabs.map((tab) => {
-                const Icon = tab.icon;
-                const isSelected = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-150 select-none cursor-pointer whitespace-nowrap ${
-                      isSelected
-                        ? 'bg-white dark:bg-[#1f1f1f] text-[#000000] dark:text-[#b0b0b0] font-semibold'
-                        : 'text-[#444746] dark:text-[#C4C7C5] hover:text-[#1F1F1F] dark:hover:text-white'
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+        {/* Clean Shadcn Segmented Tabs */}
+        <div className="flex items-center overflow-x-auto pb-0.5">
+          <div className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-100/80 p-1 dark:border-neutral-800 dark:bg-neutral-900">
+            {navTabs.map((tab) => {
+              const Icon = tab.icon;
+              const isSelected = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`inline-flex items-center gap-2 whitespace-nowrap rounded-md px-3.5 py-1.5 text-xs font-medium transition cursor-pointer ${
+                    isSelected
+                      ? 'border border-neutral-200 bg-white text-neutral-950 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white'
+                      : 'border border-transparent text-neutral-600 hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-white'
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </header>
 
       {/* Main Content Area */}
-      <main className="max-w-[1500px] mx-auto px-4 sm:px-8 mt-6 space-y-6">
+      <main className="space-y-6">
         {promoStatus?.config?.enabled && promoStatus?.eligible && (() => {
           const cfg = promoStatus.config;
           const minUsd = Number(cfg.minDepositUsd ?? 1);
@@ -591,115 +595,141 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
             {/* Top Stat Cards — PURE WHITE SURFACES (No dark/blackish tints!) */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
               
-              {/* Card 1: Available Credit Balance */}
-              <div className="p-6 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
-                <div className="flex items-center justify-between text-xs text-[#636363] dark:text-[#9f9f9f]">
+              {/* Card 1: Available Balance + Credit Balance below */}
+              <div className="p-5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+                <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
                   <span className="font-medium">Available Balance</span>
-                  <div className="w-7 h-7 rounded-full bg-[#efefef] text-[#000000] flex items-center justify-center">
-                    <Coins className="w-4 h-4" />
+                  <div className="w-7 h-7 rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-800 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 flex items-center justify-center">
+                    <Coins className="w-3.5 h-3.5" />
                   </div>
                 </div>
-                {/* Clean Currency Display */}
-                <div className="flex items-baseline gap-1 mt-2">
-                  <span className="text-3xl sm:text-4xl font-semibold text-[#1F1F1F] dark:text-white tracking-tight">
-                    {credits === null ? 'Unavailable' : formatMoney(credits)}
-                  </span>
-                  <span className="text-[11px] font-medium text-[#000000] dark:text-[#b0b0b0] ml-1 bg-[#efefef] dark:bg-[#000000]/20 px-2 py-0.5 rounded-full">
-                    {account.currency}
-                  </span>
-                </div>
-                <div className="mt-3 pt-3 border-t border-[#f2f2f2] dark:border-[#2d2d2d] flex items-center justify-between text-xs">
-                  <span className="text-[#636363] dark:text-[#9f9f9f]">
-                    Promo: <span className="font-medium text-[#1F1F1F] dark:text-white">{promotionalCredits === null ? 'Unavailable' : formatMoney(promotionalCredits)}</span>
-                  </span>
+                <div className="flex items-baseline justify-between gap-2 mt-2">
+                  <div className="flex items-baseline gap-1.5 min-w-0">
+                    <span className="text-2xl sm:text-3xl font-semibold text-neutral-950 dark:text-white tracking-tight">
+                      {credits === null ? 'Unavailable' : formatMoney(credits)}
+                    </span>
+                    <span className="text-[11px] font-medium text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 px-2 py-0.5 rounded-md">
+                      {account.currency}
+                    </span>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setActiveTab('credits')}
-                    className="text-xs font-semibold text-[#000000] dark:text-[#b0b0b0] hover:underline flex items-center gap-0.5 cursor-pointer"
+                    className="shrink-0 text-xs font-semibold text-neutral-950 dark:text-[#1ed760] hover:underline inline-flex items-center gap-0.5 cursor-pointer"
                   >
                     <span>Add Funds</span>
                     <ChevronRight className="w-3 h-3" />
                   </button>
                 </div>
+                <div className="mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-800 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-neutral-500 dark:text-neutral-400">Credit Balance</span>
+                      <span className="font-semibold text-neutral-950 dark:text-white">
+                        {totalCreditBalance === null ? 'Unavailable' : formatMoney(totalCreditBalance)}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleOpenAddCoupon}
+                      className="shrink-0 text-xs font-semibold text-neutral-950 dark:text-[#1ed760] hover:underline inline-flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <span>Add Coupon</span>
+                      <ChevronRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-neutral-500 dark:text-neutral-400">Promotional Gift</span>
+                    <span className="font-medium text-emerald-700 dark:text-emerald-400">
+                      {promotionalCredits === null ? 'Unavailable' : formatMoney(promotionalCredits)}
+                    </span>
+                  </div>
+                  {promoStatus?.promotionalExpiresAt && Number(promotionalCredits) > 0 && (
+                    <div className="flex items-center justify-between text-[11px] text-neutral-500 dark:text-neutral-400">
+                      <span>Gift expires</span>
+                      <span>{new Date(promoStatus.promotionalExpiresAt).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Card 2: Current Month Incurred Spend */}
-              <div className="p-6 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
-                <div className="flex items-center justify-between text-xs text-[#636363] dark:text-[#9f9f9f]">
+              <div className="p-5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+                <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
                   <span className="font-medium">Current Month Spend</span>
-                  <div className="w-7 h-7 rounded-full bg-[#ececec] text-[#555555] flex items-center justify-center">
-                    <Receipt className="w-4 h-4" />
+                  <div className="w-7 h-7 rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-700 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-300 flex items-center justify-center">
+                    <Receipt className="w-3.5 h-3.5" />
                   </div>
                 </div>
                 <div className="flex items-baseline gap-1 mt-2">
-                  <span className="text-3xl sm:text-4xl font-semibold text-[#1F1F1F] dark:text-white tracking-tight">
+                  <span className="text-2xl sm:text-3xl font-semibold text-neutral-950 dark:text-white tracking-tight">
                     {formatMoney(account?.monthToDateSpent)}
                   </span>
-                  <span className="text-[11px] font-medium text-[#636363] dark:text-[#9f9f9f] ml-1">
+                  <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400 ml-1">
                     {account.currency}
                   </span>
                 </div>
-                <div className="mt-3 pt-3 border-t border-[#f2f2f2] dark:border-[#2d2d2d] flex items-center justify-between text-xs text-[#636363] dark:text-[#9f9f9f]">
+                <div className="mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
                   <span>Billing Period</span>
-                  <span className="inline-flex items-center gap-1 text-[#137333] dark:text-[#81C995] font-medium">
+                  <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-medium">
                     <span>{account?.usageMeteringEnabled ? 'Metering active' : 'Metering unavailable'}</span>
                   </span>
                 </div>
               </div>
 
               {/* Card 3: Projected Spend */}
-              <div className="p-6 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
-                <div className="flex items-center justify-between text-xs text-[#636363] dark:text-[#9f9f9f]">
+              <div className="p-5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+                <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
                   <span className="font-medium">Forecasted Month End</span>
-                  <div className="w-7 h-7 rounded-full bg-[#D1FAE5] text-[#059669] flex items-center justify-center">
-                    <TrendingUp className="w-4 h-4" />
+                  <div className="w-7 h-7 rounded-lg border border-neutral-200 bg-neutral-50 text-emerald-700 dark:border-neutral-800 dark:bg-neutral-950 dark:text-emerald-400 flex items-center justify-center">
+                    <TrendingUp className="w-3.5 h-3.5" />
                   </div>
                 </div>
                 <div className="flex items-baseline gap-1 mt-2">
-                  <span className="text-3xl sm:text-4xl font-semibold text-[#1F1F1F] dark:text-white tracking-tight">
+                  <span className="text-2xl sm:text-3xl font-semibold text-neutral-950 dark:text-white tracking-tight">
                     {formatMoney(account?.projectedCost)}
                   </span>
                 </div>
-                <div className="mt-3 pt-3 border-t border-[#f2f2f2] dark:border-[#2d2d2d] text-xs text-[#636363] dark:text-[#9f9f9f]">
+                <div className="mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-800 text-xs text-neutral-500 dark:text-neutral-400">
                   {Number.isFinite(account?.projectedCost) ? 'Estimated usage forecast' : 'Usage forecasting is not connected'}
                 </div>
               </div>
 
               {/* Card 4: Active Workloads */}
-              <div className="p-6 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
-                <div className="flex items-center justify-between text-xs text-[#636363] dark:text-[#9f9f9f]">
+              <div className="p-5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+                <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
                   <span className="font-medium">Cloud Droplets</span>
-                  <div className="w-7 h-7 rounded-full bg-[#efefef] text-[#6d6d6d] flex items-center justify-center">
-                    <Server className="w-4 h-4" />
+                  <div className="w-7 h-7 rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-700 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-300 flex items-center justify-center">
+                    <Server className="w-3.5 h-3.5" />
                   </div>
                 </div>
                 <div className="flex items-baseline gap-1 mt-2">
-                  <span className="text-3xl sm:text-4xl font-semibold text-[#1F1F1F] dark:text-white tracking-tight">
+                  <span className="text-2xl sm:text-3xl font-semibold text-neutral-950 dark:text-white tracking-tight">
                     {account?.droplets?.length || 0}
                   </span>
-                  <span className="text-xs font-normal text-[#636363] dark:text-[#9f9f9f] ml-1">
+                  <span className="text-xs font-normal text-neutral-500 dark:text-neutral-400 ml-1">
                     droplets in this account
                   </span>
                 </div>
-                <div className="mt-3 pt-3 border-t border-[#f2f2f2] dark:border-[#2d2d2d] text-xs text-[#636363] dark:text-[#9f9f9f]">
+                <div className="mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-800 text-xs text-neutral-500 dark:text-neutral-400">
                   Registered cloud droplets
                 </div>
               </div>
 
             </div>
 
-            {/* Quick Actions Bar (Pure White Google Material Style) */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d] flex flex-wrap items-center justify-between gap-3">
+            {/* Quick Actions Bar (Clean Shadcn UI) */}
+            <div className="p-4 sm:p-5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-[#636363] dark:text-[#9f9f9f] uppercase tracking-wider">
-                  Quick Actions:
+                <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                  Quick Actions
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setActiveTab('credits')}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white text-xs font-medium transition cursor-pointer"
+                  className="inline-flex h-8 items-center gap-1.5 px-3.5 rounded-lg bg-[#1ed760] hover:bg-[#16c653] text-black text-xs font-semibold transition cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Top-up Credits</span>
@@ -707,7 +737,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 <button
                   type="button"
                   onClick={() => setActiveTab('payment-methods')}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#f4f4f4] hover:bg-[#eeeeee] dark:bg-[#2d2d2d] text-[#000000] dark:text-[#b0b0b0] text-xs font-medium transition cursor-pointer"
+                  className="inline-flex h-8 items-center gap-1.5 px-3.5 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-medium transition cursor-pointer"
                 >
                   <CreditCard className="w-3.5 h-3.5" />
                   <span>Payment Methods</span>
@@ -715,7 +745,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 <button
                   type="button"
                   onClick={() => setActiveTab('cost-breakdown')}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#f4f4f4] hover:bg-[#eeeeee] dark:bg-[#2d2d2d] text-[#444746] dark:text-[#C4C7C5] text-xs font-medium transition cursor-pointer"
+                  className="inline-flex h-8 items-center gap-1.5 px-3.5 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition cursor-pointer"
                 >
                   <Sliders className="w-3.5 h-3.5" />
                   <span>Budget & Spending Alerts</span>
@@ -723,7 +753,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 <button
                   type="button"
                   onClick={() => setActiveTab('invoices')}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#f4f4f4] hover:bg-[#eeeeee] dark:bg-[#2d2d2d] text-[#444746] dark:text-[#C4C7C5] text-xs font-medium transition cursor-pointer"
+                  className="inline-flex h-8 items-center gap-1.5 px-3.5 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 text-xs font-medium transition cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Invoices</span>
@@ -731,19 +761,18 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
               </div>
             </div>
 
-            {/* User-Perspective Status Card (NO "Configure in Admin" wording!) */}
             {!hasConfiguredGateway && (
-              <div className="p-5 sm:p-6 rounded-2xl bg-[#FEF7E0] dark:bg-[#B06000]/15 border border-[#FEEFC3] dark:border-[#B06000]/30">
+              <div className="p-5 rounded-xl bg-neutral-50/70 dark:bg-neutral-900/50 border border-neutral-200 dark:border-neutral-800">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full bg-[#FEEFC3] dark:bg-[#B06000]/30 text-[#B06000] dark:text-[#FDD663] flex items-center justify-center shrink-0 mt-0.5">
+                    <div className="w-8 h-8 rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950 text-neutral-600 dark:text-neutral-400 flex items-center justify-center shrink-0">
                       <AlertCircle className="w-4 h-4" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-[#B06000] dark:text-[#FDD663]">
+                      <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                         No platform payment gateway configured
                       </h3>
-                      <p className="text-xs text-[#636363] dark:text-[#9f9f9f] mt-0.5 max-w-2xl leading-relaxed">
+                      <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-0.5 max-w-2xl leading-relaxed">
                         No platform payment gateway is configured. Cloud credit checkout is also not connected.
                       </p>
                     </div>
@@ -751,7 +780,7 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                   <button
                     type="button"
                     onClick={() => setActiveTab('payment-methods')}
-                    className="shrink-0 px-4 py-2 rounded-full bg-white dark:bg-[#1f1f1f] border border-[#e2e2e2] dark:border-[#3f3f3f] text-[#000000] dark:text-[#b0b0b0] hover:bg-[#fafafa] text-xs font-semibold transition cursor-pointer"
+                    className="inline-flex h-8 shrink-0 items-center px-3.5 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-200 hover:bg-neutral-50 text-xs font-medium transition cursor-pointer"
                   >
                     View Payment Options &gt;
                   </button>
@@ -762,62 +791,62 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
             {/* Middle Section: Usage by Service + Payment Gateways Callout */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               
-              {/* Left 8 Cols: Usage by Services (Pure White Surface) */}
-              <div className="lg:col-span-8 p-6 sm:p-7 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
+              {/* Left 8 Cols: Usage by Services */}
+              <div className="lg:col-span-8 p-5 sm:p-6 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
                 <div className="flex items-center justify-between mb-5">
                   <div>
-                    <h2 className="text-base font-semibold text-[#1F1F1F] dark:text-white">
+                    <h2 className="text-sm font-semibold text-neutral-950 dark:text-white">
                       Usage by Cloud Services
                     </h2>
-                    <p className="text-xs text-[#636363] dark:text-[#9f9f9f] mt-0.5">
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                       Current billing period resource consumption.
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setActiveTab('cost-breakdown')}
-                    className="text-xs font-medium text-[#000000] dark:text-[#b0b0b0] hover:underline flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-medium text-neutral-950 dark:text-[#1ed760] hover:underline flex items-center gap-1 cursor-pointer"
                   >
                     <span>Detailed Breakdown</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
-                <div className="divide-y divide-[#f2f2f2] dark:divide-[#2d2d2d]">
+                <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
                   {costServices.length ? costServices.map((service) => (
                     <div key={service.service} className="py-3.5 flex items-center justify-between gap-4 text-xs">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-[#efefef] text-[#000000] flex items-center justify-center shrink-0">
+                        <div className="w-8 h-8 rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-800 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 flex items-center justify-center shrink-0">
                           <Activity className="w-4 h-4" />
                         </div>
-                        <p className="font-semibold text-[#1F1F1F] dark:text-white truncate">{service.service}</p>
+                        <p className="font-semibold text-neutral-950 dark:text-white truncate">{service.service}</p>
                       </div>
-                      <span className="font-semibold text-[#1F1F1F] dark:text-white text-sm">
+                      <span className="font-semibold text-neutral-950 dark:text-white text-sm">
                         {formatMoney(Number(service.amount))}
                       </span>
                     </div>
                   )) : (
-                    <p className="py-6 text-center text-xs text-[#636363] dark:text-[#9f9f9f]">
+                    <p className="py-6 text-center text-xs text-neutral-500 dark:text-neutral-400">
                       Usage metering is not connected. No service charges are reported.
                     </p>
                   )}
                 </div>
               </div>
 
-              {/* Right 4 Cols: Payment Channels & Account Summary (Pure White) */}
+              {/* Right 4 Cols: Payment Channels & Account Summary */}
               <div className="lg:col-span-4 space-y-5">
                 
                 {/* Payment Gateway Status Card */}
-                <div className="p-6 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
+                <div className="p-5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-[#1F1F1F] dark:text-white flex items-center gap-2">
-                      <CreditCard className="w-4 h-4 text-[#000000]" />
+                    <h3 className="text-sm font-semibold text-neutral-950 dark:text-white flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-neutral-700 dark:text-neutral-300" />
                       <span>Payment Channels</span>
                     </h3>
                     <button
                       type="button"
                       onClick={() => setActiveTab('payment-methods')}
-                      className="text-xs font-medium text-[#000000] dark:text-[#b0b0b0] hover:underline cursor-pointer"
+                      className="text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:underline cursor-pointer"
                     >
                       Manage
                     </button>
@@ -825,21 +854,21 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
 
                   {creditCheckoutGateways.length > 0 ? (
                     <div className="space-y-3">
-                      <div className="p-3.5 rounded-xl bg-[#E6F4EA] text-xs">
-                        <div className="flex items-center gap-2 text-[#137333] font-semibold mb-1">
+                      <div className="p-3.5 rounded-lg border border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/50 dark:bg-emerald-950/30 text-xs">
+                        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 font-semibold mb-1">
                           <CheckCircle2 className="w-4 h-4" />
-                    <span>Credit checkout ready</span>
+                          <span>Credit checkout ready</span>
                         </div>
-                        <p className="text-[11px] text-[#137333]/90">
+                        <p className="text-[11px] text-emerald-700/90 dark:text-emerald-400">
                           {creditCheckoutGateways.map(gateway => gateway.name).join(' and ')} can securely process Cloud credit top-ups.
                         </p>
                       </div>
 
                       <div className="space-y-2">
                         {creditCheckoutGateways.map(gw => (
-                          <div key={gw.id} className="flex items-center justify-between p-2.5 rounded-xl bg-[#fafafa] dark:bg-[#2d2d2d] text-xs">
-                            <span className="font-semibold text-[#1F1F1F] dark:text-white">{gw.name}</span>
-                            <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-white dark:bg-[#1f1f1f] text-[#636363] dark:text-[#9f9f9f] border border-[#e2e2e2] dark:border-[#3f3f3f]">
+                          <div key={gw.id} className="flex items-center justify-between p-2.5 rounded-lg border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950 text-xs">
+                            <span className="font-semibold text-neutral-950 dark:text-white">{gw.name}</span>
+                            <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-md bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800">
                               {gw.mode}
                             </span>
                           </div>
@@ -849,24 +878,24 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                       <button
                         type="button"
                         onClick={() => setActiveTab('credits')}
-                        className="w-full mt-2 py-2 px-4 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white text-xs font-medium transition cursor-pointer"
+                        className="w-full mt-2 h-9 px-4 rounded-lg bg-[#1ed760] hover:bg-[#16c653] text-black text-xs font-semibold transition cursor-pointer"
                       >
                         Top-up Cloud Credits
                       </button>
                     </div>
                   ) : (
-                    <div className="p-4 rounded-xl bg-[#FEF7E0] dark:bg-[#B06000]/15 space-y-2.5">
-                      <div className="flex items-center gap-2 text-[#B06000] dark:text-[#FDD663] text-xs font-semibold">
-                        <ShieldAlert className="w-4 h-4 shrink-0" />
+                    <div className="p-4 rounded-lg border border-neutral-200 bg-neutral-50/70 dark:border-neutral-800 dark:bg-neutral-900/50 space-y-2.5">
+                      <div className="flex items-center gap-2 text-neutral-800 dark:text-neutral-200 text-xs font-semibold">
+                        <ShieldAlert className="w-4 h-4 shrink-0 text-neutral-500 dark:text-neutral-400" />
                         <span>Payment Gateway Required</span>
                       </div>
-                      <p className="text-[11px] text-[#636363] dark:text-[#9f9f9f] leading-relaxed">
-                      No live USD checkout method is currently enabled. Contact billing support to enable live Stripe or PayPal.
+                      <p className="text-[11px] text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                        No live USD checkout method is currently enabled. Contact billing support to enable live Stripe or PayPal.
                       </p>
                       <button
                         type="button"
                         onClick={() => setActiveTab('payment-methods')}
-                        className="text-xs font-semibold text-[#000000] dark:text-[#b0b0b0] hover:underline block pt-1"
+                        className="text-xs font-semibold text-neutral-950 dark:text-neutral-200 hover:underline block pt-1"
                       >
                         Configure Payment Methods &gt;
                       </button>
@@ -875,8 +904,8 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                 </div>
 
                 {/* Account Details Quick Card */}
-                <div className="p-6 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d] text-xs space-y-3">
-                  <h4 className="font-semibold text-[#1F1F1F] dark:text-white">Account Details</h4>
+                <div className="p-5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs space-y-3">
+                  <h4 className="font-semibold text-neutral-950 dark:text-white">Account Details</h4>
                   <div className="flex justify-between py-1.5 border-b border-[#f2f2f2] dark:border-[#2d2d2d]">
                     <span className="text-[#636363] dark:text-[#9f9f9f]">Account Type</span>
                     <span className="font-medium text-[#1F1F1F] dark:text-white">Cloud</span>
@@ -908,37 +937,63 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
         {activeTab === 'credits' && (
           <div className="space-y-6">
             
-            {/* Balance Card — PURE WHITE */}
-            <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
+            {/* Balance Card — Clean Shadcn UI */}
+            <div className="p-5 sm:p-6 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-5">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
                 <div>
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#efefef] text-[#000000] text-xs font-semibold mb-2">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-neutral-200 bg-neutral-50 text-neutral-800 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 text-xs font-medium mb-2">
                     <Coins className="w-3.5 h-3.5" />
-                    <span>Account Credit Balance</span>
+                    <span>Available Balance</span>
                   </div>
-                  <div className="flex items-baseline gap-1 mt-1">
-                    <span className="text-3xl sm:text-4xl font-semibold text-[#1F1F1F] dark:text-white tracking-tight">
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <span className="text-3xl sm:text-4xl font-semibold text-neutral-950 dark:text-white tracking-tight">
                       {credits === null ? 'Unavailable' : formatMoney(credits)}
                     </span>
-                    <span className="text-xs font-normal text-[#636363] dark:text-[#9f9f9f] ml-2">
-                      Available Cloud Credits
+                    <span className="text-xs font-normal text-neutral-500 dark:text-neutral-400">
+                      Available Wallet ({account.currency})
                     </span>
                   </div>
-                  <p className="text-xs text-[#636363] dark:text-[#9f9f9f] mt-1.5 max-w-xl">
-                    Cloud usage metering is not connected, so this balance will not be deducted automatically.
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1.5 max-w-xl">
+                    Promotional gift credits are applied automatically first toward Cloud Stores, packages, and add-ons until expiry.
                   </p>
                 </div>
 
-                <div className="p-4 rounded-xl bg-[#fafafa] dark:bg-[#2d2d2d] text-xs space-y-1.5 sm:text-right shrink-0">
-                  <div className="text-[#636363] dark:text-[#9f9f9f]">Currency: <span className="font-semibold text-[#1F1F1F] dark:text-white">{account.currency}</span></div>
-                  <div className="text-[#636363] dark:text-[#9f9f9f]">
-                    Promotional balance: <span className="font-semibold text-[#1F1F1F] dark:text-white">{promotionalCredits === null ? 'Unavailable' : formatMoney(promotionalCredits)}</span>
+                <div className="w-full sm:w-auto min-w-[240px] p-4 rounded-lg border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950 text-xs space-y-2 shrink-0">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-neutral-500 dark:text-neutral-400">Total Credit Balance</span>
+                    <span className="font-semibold text-neutral-950 dark:text-white">
+                      {totalCreditBalance === null ? 'Unavailable' : formatMoney(totalCreditBalance)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-neutral-500 dark:text-neutral-400">Promotional Credit</span>
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                      {promotionalCredits === null ? 'Unavailable' : formatMoney(promotionalCredits)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 border-t border-neutral-200 pt-2 dark:border-neutral-800">
+                    <span className="text-neutral-500 dark:text-neutral-400">Currency</span>
+                    <span className="font-semibold text-neutral-950 dark:text-white">{account.currency}</span>
                   </div>
                   {promoStatus?.promotionalExpiresAt && Number(promotionalCredits) > 0 && (
-                    <div className="text-[11px] text-[#636363] dark:text-[#9f9f9f]">
-                      Expires {new Date(promoStatus.promotionalExpiresAt).toLocaleDateString()}
+                    <div className="flex items-center justify-between gap-4 text-[11px] text-neutral-500 dark:text-neutral-400">
+                      <span>Gift expires</span>
+                      <span>{new Date(promoStatus.promotionalExpiresAt).toLocaleDateString()}</span>
                     </div>
                   )}
+                  <div className="pt-1 border-t border-neutral-200 dark:border-neutral-800 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        voucherInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        voucherInputRef.current?.focus();
+                      }}
+                      className="text-xs font-semibold text-neutral-950 dark:text-[#1ed760] hover:underline inline-flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <span>Add Coupon</span>
+                      <ChevronRight className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1007,33 +1062,65 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
               )}
             </div>
 
-            {/* Promo Voucher Box — PURE WHITE */}
-            <div className="p-6 rounded-2xl bg-white dark:bg-[#1f1f1f] border border-[#f0f0f0] dark:border-[#2d2d2d]">
-              <h3 className="text-sm font-semibold text-[#1F1F1F] dark:text-white mb-1 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#000000]" />
+            {/* Promo Voucher Box — Clean Shadcn UI */}
+            <div className="p-6 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+              <h3 className="text-sm font-semibold text-neutral-950 dark:text-white mb-1 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-neutral-900 dark:text-white" />
                 <span>Redeem Promotional or Voucher Code</span>
               </h3>
-              <p className="text-xs text-[#636363] dark:text-[#9f9f9f] mb-3">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-3">
                 Enter an assigned promotional code or voucher to add credits to this account.
               </p>
-              <form onSubmit={handleRedeemVoucher} className="flex gap-2 max-w-md">
+              <form onSubmit={handleRedeemVoucher} className="flex flex-wrap sm:flex-nowrap gap-2 max-w-md">
                 <input
+                  ref={voucherInputRef}
                   type="text"
                   value={voucherCode}
                   onChange={(event) => setVoucherCode(event.target.value)}
                   maxLength={64}
                   autoComplete="off"
-                  placeholder="Voucher code"
-                  className="flex-1 px-4 py-2 rounded-xl border border-[#e2e2e2] dark:border-[#3f3f3f] bg-[#fafafa] dark:bg-[#2d2d2d] text-xs font-mono outline-none focus:border-[#000000] uppercase"
+                  placeholder="Enter coupon or voucher code"
+                  className="flex-1 min-w-0 px-3.5 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-xs font-mono text-neutral-950 dark:text-white outline-none focus:border-neutral-950 dark:focus:border-white uppercase"
                 />
                 <button
                   type="submit"
                   disabled={isRedeemingVoucher || !voucherCode.trim()}
-                  className="px-5 py-2 rounded-full bg-[#000000] hover:bg-[#3c3c3c] text-white text-xs font-medium disabled:opacity-40 transition cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-neutral-950 hover:bg-neutral-800 dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200 text-white text-xs font-medium disabled:opacity-40 transition cursor-pointer shrink-0"
                 >
                   {isRedeemingVoucher ? 'Redeeming…' : 'Redeem'}
                 </button>
               </form>
+              {Array.isArray(promoStatus?.claimedCoupons) && promoStatus.claimedCoupons.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800 space-y-2">
+                  <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
+                    Redeemed Coupons &amp; Promotional Credits
+                  </p>
+                  <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                    {promoStatus.claimedCoupons.map((coupon) => (
+                      <div key={coupon.id} className="py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-mono font-semibold text-neutral-950 dark:text-white">
+                            {coupon.promoCode}
+                          </span>
+                          <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                            {coupon.rewardType === 'standard_credit' ? 'Standard Credit' : 'Promotional Credit'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-[11px] text-neutral-500 dark:text-neutral-400">
+                          <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                            +{formatMoney(coupon.amountUsd)}
+                          </span>
+                          <span>
+                            {coupon.expiresAt
+                              ? `Expires ${new Date(coupon.expiresAt).toLocaleDateString()} (${coupon.validityDays}d)`
+                              : 'No expiry'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Credit Transaction Ledger — PURE WHITE */}

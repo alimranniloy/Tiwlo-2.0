@@ -32,6 +32,7 @@ import { listEmailDeliveries } from '../db/securityPersistence.js';
 import { renderBaseEmail } from '../email/index.js';
 import { logActivity } from '../db/storeDataAdapter.js';
 import { requireAdmin } from '../administrator/adminRoutes.js';
+import { enforceStaffIpForLogin } from '../administrator/staffSecurityService.js';
 import { SocialDB } from '../social/socialDb.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import {
@@ -731,6 +732,10 @@ async function completeSocialLogin(provider, req, res) {
       ...identity,
       signupSource: isPickMobileSsoReturnUrl(savedState.returnTo) ? 'pick_app' : 'tiwlo'
     });
+    const staffIpCheck = await enforceStaffIpForLogin(user, req);
+    if (!staffIpCheck.allowed) {
+      return res.status(403).json({ error: staffIpCheck.error, code: staffIpCheck.code });
+    }
     const socialReturnTo = savedState.returnToExplicit === true
       ? savedState.returnTo
       : getSocialDefaultReturnTo(user);
@@ -1646,6 +1651,14 @@ router.post('/auth/login', securityLimiters.login, securityLimiters.otpRequestIp
       return res.status(403).json(disabledResponse);
     }
 
+    const staffIpCheck = await enforceStaffIpForLogin(user, req);
+    if (!staffIpCheck.allowed) {
+      return res.status(403).json({
+        error: staffIpCheck.error,
+        code: staffIpCheck.code
+      });
+    }
+
     await BruteForceShield.recordSuccess(clientIp);
     await BruteForceShield.recordSuccess(cleanId);
     await recordSecurityEvent({
@@ -1812,6 +1825,14 @@ router.post('/auth/verify-2fa', securityLimiters.otpVerifyIp, securityLimiters.o
     if (!user || user.email.toLowerCase() !== verification.email.toLowerCase()) {
       await MasterDB.deleteSession(verification.sessionToken);
       return res.status(404).json({ error: 'User account not found.' });
+    }
+    const staffIpCheck = await enforceStaffIpForLogin(user, req);
+    if (!staffIpCheck.allowed) {
+      await MasterDB.deleteSession(verification.sessionToken);
+      return res.status(403).json({
+        error: staffIpCheck.error,
+        code: staffIpCheck.code
+      });
     }
     try {
       await completePendingPickAddressVerification(tempToken, user, req);
@@ -1997,6 +2018,13 @@ router.post('/auth/setup-2fa', securityLimiters.otpVerifyIp, securityLimiters.ot
     if (!user) {
       return res.status(404).json({ error: 'User account not found.' });
     }
+    const staffIpCheck = await enforceStaffIpForLogin(user, req);
+    if (!staffIpCheck.allowed) {
+      return res.status(403).json({
+        error: staffIpCheck.error,
+        code: staffIpCheck.code
+      });
+    }
     await completePendingPickAddressVerification(tempToken, user, req);
 
     const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
@@ -2072,6 +2100,13 @@ router.post('/auth/verify-email', securityLimiters.otpVerifyIp, securityLimiters
     const user = await MasterDB.findUserByIdentifier(verification.email);
     if (!user) {
       return res.status(404).json({ error: 'User account not found.' });
+    }
+    const staffIpCheck = await enforceStaffIpForLogin(user, req);
+    if (!staffIpCheck.allowed) {
+      return res.status(403).json({
+        error: staffIpCheck.error,
+        code: staffIpCheck.code
+      });
     }
 
     (await logActivity('auth', 'Email Address Verified', `User: ${user.email} (${user.tiwiId})`, user.tiwiId));
@@ -2852,6 +2887,14 @@ router.post('/auth/sso/consume-handshake', async (req, res) => {
       return res.status(404).json({ error: 'SSO user not found in database' });
     }
     if (user.isBanned) return res.status(403).json({ error: 'Account disabled' });
+
+    const staffIpCheck = await enforceStaffIpForLogin(user, req);
+    if (!staffIpCheck.allowed) {
+      return res.status(403).json({
+        error: staffIpCheck.error,
+        code: staffIpCheck.code
+      });
+    }
 
     const tiwiId = user.tiwiId || user.storeId || null;
     const { sessionToken } = await MasterDB.createSession(user.id, tiwiId, user.email, req);

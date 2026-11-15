@@ -239,3 +239,71 @@ test('delivery duty can start without push notification registration', async () 
   assert.equal(statements.some((sql) => sql.includes('expo_push_token')), false);
   assert.equal(statements.some((sql) => sql.includes('SET is_on_duty = $2')), true);
 });
+
+test('active parcel route is calculated only for the assigned delivery partner', async () => {
+  let routeInput;
+  const router = createPickDeliveryRouter({
+    requireUser: (_req, _res, next) => next(),
+    query: async (sql) => {
+      assert.match(sql, /a\.rider_user_id = \$2/);
+      assert.match(sql, /a\.status IN \('accepted', 'picked_up'\)/);
+      return {
+        rows: [{
+          status: 'accepted',
+          orderType: 'parcel',
+          riderLatitude: 23.8,
+          riderLongitude: 90.4,
+          locationUpdatedAt: new Date().toISOString(),
+          senderLatitude: '23.81',
+          senderLongitude: '90.41',
+          deliveryLatitude: 23.82,
+          deliveryLongitude: 90.42
+        }]
+      };
+    },
+    estimateDrivingRoute: async (input) => {
+      routeInput = input;
+      return {
+        durationSeconds: 600,
+        distanceMeters: 2400,
+        etaMinutes: 10,
+        encodedPolyline: 'route'
+      };
+    }
+  });
+  const route = router.stack
+    .find((layer) => layer.route?.path === '/jobs/:assignmentId/tracking-route')?.route;
+  assert.ok(route, 'the active delivery route endpoint is registered');
+
+  const handler = route.stack[route.stack.length - 1].handle;
+  let responseBody;
+  let routeError;
+  await handler(
+    {
+      params: { assignmentId: 'assignment-1' },
+      tiwloSession: { user: { id: 'rider-1' } }
+    },
+    {
+      json(body) {
+        responseBody = body;
+        return body;
+      },
+      status() {
+        return this;
+      }
+    },
+    (error) => { routeError = error; }
+  );
+
+  assert.equal(routeError, undefined);
+  assert.deepEqual(routeInput, {
+    origin: { latitude: 23.8, longitude: 90.4 },
+    destination: { latitude: 23.81, longitude: 90.41 }
+  });
+  assert.deepEqual(responseBody, {
+    durationSeconds: 600,
+    distanceMeters: 2400,
+    etaMinutes: 10,
+    encodedPolyline: 'route'
+  });
+});

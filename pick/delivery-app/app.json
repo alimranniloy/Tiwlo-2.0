@@ -22,6 +22,7 @@
     },
     "plugins": [
       "expo-asset",
+      "@maplibre/maplibre-react-native",
       "expo-secure-store",
       [
         "expo-location",
@@ -36,7 +37,7 @@
       [
         "expo-notifications",
         {
-          "defaultChannel": "pick-delivery-orders",
+          "defaultChannel": "pick-delivery-orders-v2",
           "color": "#17A56B"
         }
       ],

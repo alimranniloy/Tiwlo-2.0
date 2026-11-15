@@ -1,326 +1,527 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Server, Save, Trash2, Bot, Plus, X, Users, Hash, RotateCw, CheckCircle2, AlertTriangle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import {
+  AlertCircle,
+  ArrowLeft,
+  Bot,
+  CheckCircle2,
+  Loader2,
+  Save,
+  Shield,
+  Sparkles,
+  Terminal,
+  Trash2,
+  UserCheck,
+  Zap,
+} from 'lucide-react';
 import { DiscordAPI } from '../api/discordApi';
+import DiscordPlanSelector from '../components/DiscordPlanModal';
 
-export default function ServerDetailView({ serverId, onBack, onServerUpdated, onServerDeleted }) {
+const DEFAULT_CONFIG = {
+  enabled: true,
+  persona: 'community',
+  systemPrompt: 'You are the Official Tiwlo AI Discord Assistant. Help community members politely, enforce server guidelines, and answer questions accurately.',
+  commandPrefix: '/',
+  autoMod: {
+    antiSpam: true,
+    blockUnauthorizedLinks: true,
+    raidProtection: false,
+    profanityFilter: true,
+  },
+  welcome: {
+    enabled: true,
+    channelName: '#welcome',
+    message: 'Welcome to {server}, {user}! Please check the rules and verify your account.',
+    autoRoleName: 'Member',
+    verificationEnabled: false,
+  },
+  slashCommands: {
+    askAi: true,
+    help: true,
+    ticket: true,
+    verify: false,
+    catalog: false,
+  },
+  allowedChannels: [],
+};
+
+export default function ServerDetailView({
+  serverId,
+  overviewData,
+  currentUser,
+  onBack,
+  onServerUpdated,
+  onServerDeleted,
+}) {
   const [server, setServer] = useState(null);
-  const [allBots, setAllBots] = useState([]);
+  const [aiConfig, setAiConfig] = useState(DEFAULT_CONFIG);
+  const [channelsText, setChannelsText] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [name, setName] = useState('');
-  const [memberCount, setMemberCount] = useState('');
-  const [guildId, setGuildId] = useState('');
-  const [selectedBotToAssign, setSelectedBotToAssign] = useState('');
-  const [msg, setMsg] = useState(null);
+  const [simulating, setSimulating] = useState(false);
+  const [statusBanner, setStatusBanner] = useState(null);
+  const [showPlanModal, setShowPlanModal] = useState(false);
+
+  const subscription = overviewData?.subscription || null;
+  const commandsLimit = Number(subscription?.limits?.monthlyCommandsLimit || 2500);
+  const commandsUsed = Number(subscription?.usage?.monthlyCommands || 0);
+  const autoModIncluded = Boolean(subscription?.limits?.autoModEnabled);
 
   useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      try {
-        const [srv, bots] = await Promise.all([
-          DiscordAPI.getServerById(serverId),
-          DiscordAPI.getBots()
-        ]);
-        if (srv) {
-          setServer(srv);
-          setName(srv.name || '');
-          setMemberCount(srv.memberCount || 0);
-          setGuildId(srv.guildId || '');
-        }
-        setAllBots(bots || []);
-      } catch (err) {
-        setMsg({ text: err.message, type: 'error' });
-      } finally {
-        setLoading(false);
-      }
-    }
-    if (serverId) loadData();
+    let cancelled = false;
+    setLoading(true);
+    DiscordAPI.getServerById(serverId)
+      .then((data) => {
+        if (cancelled) return;
+        setServer(data);
+        const cfg = {
+          ...DEFAULT_CONFIG,
+          ...(data.aiConfig || {}),
+          autoMod: { ...DEFAULT_CONFIG.autoMod, ...(data.aiConfig?.autoMod || {}) },
+          welcome: { ...DEFAULT_CONFIG.welcome, ...(data.aiConfig?.welcome || {}) },
+          slashCommands: { ...DEFAULT_CONFIG.slashCommands, ...(data.aiConfig?.slashCommands || {}) },
+        };
+        setAiConfig(cfg);
+        setChannelsText(Array.isArray(cfg.allowedChannels) ? cfg.allowedChannels.join(', ') : '');
+      })
+      .catch((err) => {
+        if (!cancelled) setStatusBanner({ type: 'error', text: err.message || 'Could not load server.' });
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [serverId]);
 
-  const handleSave = async (e) => {
-    e.preventDefault();
+  const handleSave = async () => {
     setSaving(true);
-    setMsg(null);
+    setStatusBanner(null);
     try {
-      const res = await DiscordAPI.updateServer(serverId, {
-        name,
-        memberCount: parseInt(memberCount || '0', 10) || 0,
-        guildId
-      });
+      const payload = {
+        ...aiConfig,
+        allowedChannels: channelsText
+          .split(',')
+          .map((c) => c.trim())
+          .filter(Boolean),
+      };
+      const res = await DiscordAPI.saveServerAiConfig(serverId, payload);
       setServer(res.server);
-      setMsg({ text: 'Server configuration updated successfully!', type: 'success' });
-      if (onServerUpdated) onServerUpdated(res.server);
+      setStatusBanner({ type: 'success', text: res.message || 'Official AI Bot server settings saved.' });
+      await onServerUpdated?.();
     } catch (err) {
-      setMsg({ text: err.message || 'Failed to update server', type: 'error' });
+      setStatusBanner({ type: 'error', text: err.message || 'Could not save server configuration.' });
+      if (err.code === 'SUBSCRIPTION_REQUIRED' || err.code === 'FEATURE_NOT_IN_PLAN') {
+        setShowPlanModal(true);
+      }
     } finally {
       setSaving(false);
     }
   };
 
-  const handleAssignBot = async () => {
-    if (!selectedBotToAssign) return;
+  const handleSimulate = async () => {
+    setSimulating(true);
+    setStatusBanner(null);
     try {
-      const res = await DiscordAPI.assignBotToServer(serverId, selectedBotToAssign);
-      setServer(res.server);
-      setSelectedBotToAssign('');
-      setMsg({ text: 'Bot assigned to server!', type: 'success' });
-      if (onServerUpdated) onServerUpdated(res.server);
+      const res = await DiscordAPI.simulateServerCommand(serverId, 1);
+      if (res.server) setServer(res.server);
+      setStatusBanner({ type: 'success', text: res.reply || 'Official AI command simulated.' });
+      await onServerUpdated?.();
     } catch (err) {
-      setMsg({ text: err.message || 'Failed to assign bot', type: 'error' });
-    }
-  };
-
-  const handleRemoveBot = async (botId) => {
-    try {
-      const res = await DiscordAPI.removeBotFromServer(serverId, botId);
-      setServer(res.server);
-      setMsg({ text: 'Bot unassigned from server.', type: 'success' });
-      if (onServerUpdated) onServerUpdated(res.server);
-    } catch (err) {
-      setMsg({ text: err.message || 'Failed to remove bot', type: 'error' });
+      setStatusBanner({ type: 'error', text: err.message || 'Command simulation blocked.' });
+      if (err.code === 'SUBSCRIPTION_REQUIRED' || err.code === 'LIMIT_EXCEEDED') {
+        setShowPlanModal(true);
+      }
+    } finally {
+      setSimulating(false);
     }
   };
 
   const handleDelete = async () => {
-    setDeleting(true);
+    if (!window.confirm(`Disconnect "${server?.name || 'this server'}" from Tiwlo Official AI Bot?`)) return;
     try {
       await DiscordAPI.deleteServer(serverId);
-      if (onServerDeleted) onServerDeleted(serverId);
+      await onServerDeleted?.();
       onBack();
     } catch (err) {
-      setMsg({ text: err.message || 'Failed to delete server', type: 'error' });
-      setDeleting(false);
+      setStatusBanner({ type: 'error', text: err.message || 'Could not disconnect server.' });
     }
   };
 
   if (loading) {
     return (
-      <div className="bg-white border border-[#e2e2e2] rounded-2xl p-16 text-center max-w-4xl mx-auto shadow-none">
-        <RotateCw className="w-6 h-6 text-[#000000] animate-spin mx-auto mb-3" />
-        <p className="text-[13px] text-[#747775]">Loading server details...</p>
+      <div className="mx-auto max-w-5xl space-y-4">
+        <div className="h-32 animate-pulse rounded-xl border border-neutral-200/80 bg-white" />
+        <div className="h-80 animate-pulse rounded-xl border border-neutral-200/80 bg-white" />
       </div>
     );
   }
 
   if (!server) {
     return (
-      <div className="bg-white border border-[#e2e2e2] rounded-2xl p-12 text-center max-w-xl mx-auto space-y-4 shadow-none">
-        <AlertTriangle className="w-10 h-10 text-[#B3261E] mx-auto" />
-        <h2 className="text-lg font-medium text-[#1F1F1F]">Server Not Found</h2>
+      <div className="mx-auto max-w-2xl rounded-xl border border-neutral-200/80 bg-white p-6 text-center space-y-3">
+        <p className="text-sm font-semibold text-neutral-900">Discord Server not found</p>
         <button
+          type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#000000] hover:bg-[#3c3c3c] text-white text-[13px] font-medium rounded-full transition-colors cursor-pointer"
+          className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-neutral-900 px-4 text-xs font-semibold text-white"
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to Servers</span>
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Servers
         </button>
       </div>
     );
   }
 
+  const usagePct = Math.min(100, Math.round((commandsUsed / Math.max(1, commandsLimit)) * 100));
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-16 font-sans bg-white">
-      {/* 1. Modern Google Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#e2e2e2] pb-5">
+    <div className="mx-auto max-w-5xl space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 rounded-xl border border-neutral-200/80 bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <button
+            type="button"
             onClick={onBack}
-            className="inline-flex items-center gap-2 text-[13px] font-medium text-[#000000] hover:text-[#3c3c3c] cursor-pointer mb-2.5"
+            className="mb-1.5 inline-flex items-center gap-1.5 text-xs font-medium text-neutral-500 hover:text-neutral-900"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Connected Servers</span>
-            <span className="text-[#C4C7C5]">/</span>
-            <span className="text-[#444746]">{server.name}</span>
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to Connected Servers
           </button>
-
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-normal text-[#1F1F1F] tracking-tight">{server.name}</h1>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium bg-[#C4EED0] text-[#072711]">
-              <span className="w-2 h-2 rounded-full bg-[#137333]" />
-              Connected
-            </span>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-xl font-semibold tracking-tight text-neutral-950">{server.name}</h1>
+            <span className="font-mono text-xs text-neutral-400">#{server.guildId || server.id}</span>
+            {server.isSuspended ? (
+              <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700">
+                Suspended by Admin
+              </span>
+            ) : (
+              <span className="rounded-full bg-[#1ED760]/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800">
+                Official Bot Linked
+              </span>
+            )}
           </div>
-          <p className="text-xs text-[#747775] font-mono mt-1">Guild ID: {server.guildId || 'N/A'}</p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={simulating || server.isSuspended}
+            onClick={handleSimulate}
+            className="inline-flex h-9 items-center gap-2 rounded-xl border border-neutral-200/80 bg-white px-3.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
+          >
+            <Zap className="h-3.5 w-3.5 text-[#1ED760]" />
+            {simulating ? 'Running...' : 'Simulate AI Command'}
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={handleSave}
+            className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#1ED760] px-4 text-xs font-semibold text-black hover:bg-[#19c354] disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            {saving ? 'Saving...' : 'Save AI Config'}
+          </button>
         </div>
       </div>
 
-      {msg && (
-        <div
-          className={`p-4 rounded-2xl border text-[13px] flex items-center gap-2.5 ${
-            msg.type === 'error'
-              ? 'bg-[#FCE8E6] text-[#B3261E] border-[#F9DEDC]'
-              : 'bg-[#C4EED0]/30 text-[#072711] border-[#C4EED0]'
-          }`}
-        >
-          {msg.type === 'error' ? (
-            <AlertTriangle className="w-4 h-4 shrink-0 text-[#B3261E]" />
-          ) : (
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-[#137333]" />
-          )}
-          <span>{msg.text}</span>
+      {statusBanner && (
+        <div className={`flex items-center justify-between gap-2 rounded-xl border px-4 py-3 text-xs font-medium ${
+          statusBanner.type === 'error'
+            ? 'border-rose-200 bg-rose-50 text-rose-700'
+            : 'border-emerald-200 bg-[#1ED760]/15 text-emerald-900'
+        }`}>
+          <div className="flex items-center gap-2">
+            {statusBanner.type === 'error' ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+            <span>{statusBanner.text}</span>
+          </div>
+          <button type="button" onClick={() => setStatusBanner(null)} className="underline">
+            Dismiss
+          </button>
         </div>
       )}
 
-      {/* 2. Server Configuration Card */}
-      <form onSubmit={handleSave} className="bg-white border border-[#e2e2e2] rounded-2xl p-6 sm:p-8 space-y-5 shadow-none">
-        <h2 className="text-[16px] font-medium text-[#1F1F1F] border-b border-[#f4f4f4] pb-3">
-          Server Details
-        </h2>
-
-        <div className="space-y-2">
-          <label className="block text-[13px] font-medium text-[#1F1F1F]">
-            Server Name
-          </label>
-          <input
-            type="text"
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
-          />
+      {/* AI Quota Progress */}
+      <div className="rounded-xl border border-neutral-200/80 bg-white p-5 space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2 font-semibold text-neutral-900">
+            <Bot className="h-4 w-4 text-[#1ED760]" />
+            <span>Monthly Official AI Commands &amp; Quota ({subscription?.planName || 'No Plan'})</span>
+          </div>
+          <span className="font-semibold tabular-nums text-neutral-800">
+            {commandsUsed.toLocaleString()} / {commandsLimit.toLocaleString()} commands ({Number(server.commandsUsedMonth || 0).toLocaleString()} on this server)
+          </span>
         </div>
+        <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-100">
+          <div className="h-full rounded-full bg-[#1ED760] transition-all" style={{ width: `${usagePct}%` }} />
+        </div>
+      </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="block text-[13px] font-medium text-[#1F1F1F]">
-              Discord Guild ID
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* AI Persona & System Prompt */}
+        <div className="space-y-4 rounded-xl border border-neutral-200/80 bg-white p-5">
+          <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-[#1ED760]" />
+              <h2 className="text-sm font-semibold text-neutral-950">AI Persona &amp; System Prompt</h2>
+            </div>
+            <label className="inline-flex items-center gap-2 text-xs font-medium text-neutral-700">
+              <input
+                type="checkbox"
+                checked={aiConfig.enabled}
+                onChange={(e) => setAiConfig((p) => ({ ...p, enabled: e.target.checked }))}
+                className="h-4 w-4 accent-[#1ED760]"
+              />
+              AI Enabled
+            </label>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-600">Persona Mode</label>
+              <select
+                value={aiConfig.persona}
+                onChange={(e) => setAiConfig((p) => ({ ...p, persona: e.target.value }))}
+                className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 text-xs font-medium outline-none focus:border-[#1ED760]"
+              >
+                <option value="community">Community Assistant</option>
+                <option value="support">Support Helpdesk</option>
+                <option value="sales">Sales &amp; Product Guide</option>
+                <option value="moderation">Strict Enforcer</option>
+                <option value="custom">Custom Persona</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-600">Legacy Prefix</label>
+              <input
+                type="text"
+                maxLength={8}
+                value={aiConfig.commandPrefix}
+                onChange={(e) => setAiConfig((p) => ({ ...p, commandPrefix: e.target.value }))}
+                className="h-9 w-full rounded-xl border border-neutral-200/80 px-3 font-mono text-sm outline-none focus:border-[#1ED760]"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-600">System Instructions</label>
+            <textarea
+              rows={4}
+              value={aiConfig.systemPrompt}
+              onChange={(e) => setAiConfig((p) => ({ ...p, systemPrompt: e.target.value }))}
+              className="w-full rounded-xl border border-neutral-200/80 px-3 py-2 text-xs outline-none focus:border-[#1ED760]"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-600">
+              Channel Restrictions (comma-separated channel IDs or #names, leave blank for all)
             </label>
             <input
               type="text"
-              value={guildId}
-              onChange={(e) => setGuildId(e.target.value)}
-              className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] font-mono focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-[13px] font-medium text-[#1F1F1F]">
-              Member Count
-            </label>
-            <input
-              type="number"
-              value={memberCount}
-              onChange={(e) => setMemberCount(e.target.value)}
-              className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
+              value={channelsText}
+              onChange={(e) => setChannelsText(e.target.value)}
+              placeholder="#general, #ai-help, #support"
+              className="h-9 w-full rounded-xl border border-neutral-200/80 px-3 text-xs outline-none focus:border-[#1ED760]"
             />
           </div>
         </div>
 
-        <div className="pt-4 border-t border-[#f4f4f4] flex items-center justify-end gap-3">
-          <button
-            type="submit"
-            disabled={saving}
-            className="inline-flex items-center gap-1.5 px-6 py-2.5 text-[13px] font-medium text-white bg-[#000000] hover:bg-[#3c3c3c] rounded-full transition-colors disabled:opacity-50 cursor-pointer"
-          >
-            {saving ? <RotateCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            <span>Save Server</span>
-          </button>
-        </div>
-      </form>
+        {/* Auto-Moderation */}
+        <div className="space-y-4 rounded-xl border border-neutral-200/80 bg-white p-5">
+          <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+            <div className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-[#1ED760]" />
+              <h2 className="text-sm font-semibold text-neutral-950">Auto-Moderation Guards</h2>
+            </div>
+            {!autoModIncluded && (
+              <button
+                type="button"
+                onClick={() => setShowPlanModal(true)}
+                className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-semibold text-amber-800 hover:bg-amber-200"
+              >
+                Upgrade Plan for Auto-Mod
+              </button>
+            )}
+          </div>
 
-      {/* 3. Assigned Bots Card */}
-      <div className="bg-white border border-[#e2e2e2] rounded-2xl p-6 sm:p-8 space-y-5 shadow-none">
-        <h2 className="text-[16px] font-medium text-[#1F1F1F] border-b border-[#f4f4f4] pb-3">
-          Assigned Bot Workers
-        </h2>
-
-        {/* List of assigned bots */}
-        {(server.bots || []).length > 0 ? (
-          <div className="divide-y divide-[#f4f4f4]">
-            {server.bots.map((b) => (
-              <div key={b.id || b.name} className="py-3.5 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-[#e1e1e1] text-[#191919] flex items-center justify-center font-bold text-xs">
-                    <Bot className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <span className="font-medium text-[#1F1F1F] text-[13px]">{b.name}</span>
-                    <span className="text-[11px] text-[#747775] block">Prefix: {b.prefix || '!'}</span>
-                  </div>
+          <div className="space-y-3">
+            {[
+              { key: 'antiSpam', label: 'AI Anti-Spam Flood Shield', desc: 'Automatically throttles and deletes rapid spam bursts.' },
+              { key: 'blockUnauthorizedLinks', label: 'Block Unauthorized Links & Phishing', desc: 'Filters suspicious invites and unverified external URLs.' },
+              { key: 'profanityFilter', label: 'Toxicity & Profanity Filter', desc: 'Scans messages in real time for abusive language.' },
+              { key: 'raidProtection', label: 'Anti-Raid Lockdown Mode', desc: 'Detects coordinated join spikes and slows new member invites.' },
+            ].map((item) => (
+              <label
+                key={item.key}
+                className="flex items-start justify-between gap-3 rounded-xl border border-neutral-100 p-3 hover:bg-neutral-50"
+              >
+                <div>
+                  <p className="text-xs font-semibold text-neutral-900">{item.label}</p>
+                  <p className="text-[11px] text-neutral-500">{item.desc}</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveBot(b.id)}
-                  className="text-[12px] font-medium text-[#B3261E] hover:underline cursor-pointer"
-                >
-                  Unassign
-                </button>
-              </div>
+                <input
+                  type="checkbox"
+                  checked={Boolean(aiConfig.autoMod?.[item.key])}
+                  onChange={(e) =>
+                    setAiConfig((p) => ({
+                      ...p,
+                      autoMod: { ...p.autoMod, [item.key]: e.target.checked },
+                    }))
+                  }
+                  className="mt-0.5 h-4 w-4 accent-[#1ED760]"
+                />
+              </label>
             ))}
           </div>
-        ) : (
-          <p className="text-[13px] text-[#747775] py-2">No bots currently assigned to this server.</p>
-        )}
-
-        {/* Assign new bot */}
-        <div className="pt-4 border-t border-[#f4f4f4] flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <select
-            value={selectedBotToAssign}
-            onChange={(e) => setSelectedBotToAssign(e.target.value)}
-            className="flex-1 bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
-          >
-            <option value="">Select a bot to assign...</option>
-            {allBots.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name} ({b.prefix || '!'})
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={handleAssignBot}
-            disabled={!selectedBotToAssign}
-            className="px-5 py-2 text-[13px] font-medium text-[#000000] bg-white border border-[#747775]/30 hover:bg-[#f4f4f4] rounded-full transition-colors disabled:opacity-50 cursor-pointer"
-          >
-            Assign Bot
-          </button>
         </div>
-      </div>
 
-      {/* 4. Disconnect Server Card (No popup) */}
-      <div className="bg-white border border-[#FAD2CF] rounded-2xl p-6 sm:p-7 space-y-4 shadow-none">
-        <h2 className="text-[16px] font-medium text-[#B3261E]">
-          Disconnect Community Server
-        </h2>
-        <p className="text-[13px] text-[#444746]">
-          Disconnecting this guild removes all bot webhooks and role sync configurations.
-        </p>
+        {/* Welcome & Verification Workflows */}
+        <div className="space-y-4 rounded-xl border border-neutral-200/80 bg-white p-5">
+          <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+            <div className="flex items-center gap-2">
+              <UserCheck className="h-4 w-4 text-[#1ED760]" />
+              <h2 className="text-sm font-semibold text-neutral-950">Welcome &amp; Verification</h2>
+            </div>
+            <label className="inline-flex items-center gap-2 text-xs font-medium text-neutral-700">
+              <input
+                type="checkbox"
+                checked={Boolean(aiConfig.welcome?.enabled)}
+                onChange={(e) =>
+                  setAiConfig((p) => ({
+                    ...p,
+                    welcome: { ...p.welcome, enabled: e.target.checked },
+                  }))
+                }
+                className="h-4 w-4 accent-[#1ED760]"
+              />
+              Enabled
+            </label>
+          </div>
 
-        {!confirmDelete ? (
-          <button
-            type="button"
-            onClick={() => setConfirmDelete(true)}
-            className="px-5 py-2 text-[13px] font-medium text-[#B3261E] bg-white border border-[#B3261E]/40 hover:bg-[#FCE8E6] rounded-full transition-colors cursor-pointer"
-          >
-            Disconnect server...
-          </button>
-        ) : (
-          <div className="p-5 bg-[#FCE8E6]/50 border border-[#FAD2CF] rounded-2xl space-y-4">
-            <p className="text-[13px] text-[#B3261E] font-medium">
-              Are you sure you want to disconnect "{server.name}"?
-            </p>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="px-5 py-2 text-[13px] font-medium text-white bg-[#B3261E] hover:bg-[#8C1D18] rounded-full cursor-pointer"
-              >
-                {deleting ? 'Disconnecting...' : 'Confirm Disconnect'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(false)}
-                className="px-4 py-2 text-[13px] font-medium text-[#444746] bg-white border border-[#747775]/30 rounded-full"
-              >
-                Cancel
-              </button>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-600">Welcome Channel</label>
+              <input
+                type="text"
+                value={aiConfig.welcome?.channelName || ''}
+                onChange={(e) =>
+                  setAiConfig((p) => ({
+                    ...p,
+                    welcome: { ...p.welcome, channelName: e.target.value },
+                  }))
+                }
+                className="h-9 w-full rounded-xl border border-neutral-200/80 px-3 text-xs outline-none focus:border-[#1ED760]"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-600">Auto-Assign Role</label>
+              <input
+                type="text"
+                value={aiConfig.welcome?.autoRoleName || ''}
+                onChange={(e) =>
+                  setAiConfig((p) => ({
+                    ...p,
+                    welcome: { ...p.welcome, autoRoleName: e.target.value },
+                  }))
+                }
+                className="h-9 w-full rounded-xl border border-neutral-200/80 px-3 text-xs outline-none focus:border-[#1ED760]"
+              />
             </div>
           </div>
-        )}
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-600">Welcome Greeting Template</label>
+            <textarea
+              rows={2}
+              value={aiConfig.welcome?.message || ''}
+              onChange={(e) =>
+                setAiConfig((p) => ({
+                  ...p,
+                  welcome: { ...p.welcome, message: e.target.value },
+                }))
+              }
+              className="w-full rounded-xl border border-neutral-200/80 px-3 py-2 text-xs outline-none focus:border-[#1ED760]"
+            />
+          </div>
+
+          <label className="inline-flex items-center gap-2 text-xs font-medium text-neutral-700">
+            <input
+              type="checkbox"
+              checked={Boolean(aiConfig.welcome?.verificationEnabled)}
+              onChange={(e) =>
+                setAiConfig((p) => ({
+                  ...p,
+                  welcome: { ...p.welcome, verificationEnabled: e.target.checked },
+                }))
+              }
+              className="h-4 w-4 accent-[#1ED760]"
+            />
+            Require button verification before assigning Auto-Role
+          </label>
+        </div>
+
+        {/* Slash Commands Toggles */}
+        <div className="space-y-4 rounded-xl border border-neutral-200/80 bg-white p-5">
+          <div className="flex items-center gap-2 border-b border-neutral-100 pb-3">
+            <Terminal className="h-4 w-4 text-[#1ED760]" />
+            <h2 className="text-sm font-semibold text-neutral-950">Slash Commands Toggles</h2>
+          </div>
+
+          <div className="space-y-2.5">
+            {[
+              { key: 'askAi', cmd: '/ask-ai', desc: 'Answers community questions using your custom AI persona.' },
+              { key: 'help', cmd: '/help', desc: 'Displays server commands and guidelines card.' },
+              { key: 'ticket', cmd: '/ticket', desc: 'Opens a private support ticket thread with staff.' },
+              { key: 'verify', cmd: '/verify', desc: 'Interactive member verification flow.' },
+              { key: 'catalog', cmd: '/catalog', desc: 'Shares linked Tiwlo store products directly inside Discord.' },
+            ].map((item) => (
+              <label
+                key={item.key}
+                className="flex items-center justify-between gap-3 rounded-xl border border-neutral-100 p-3 hover:bg-neutral-50"
+              >
+                <div>
+                  <span className="font-mono text-xs font-semibold text-neutral-950">{item.cmd}</span>
+                  <p className="text-[11px] text-neutral-500">{item.desc}</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={Boolean(aiConfig.slashCommands?.[item.key])}
+                  onChange={(e) =>
+                    setAiConfig((p) => ({
+                      ...p,
+                      slashCommands: { ...p.slashCommands, [item.key]: e.target.checked },
+                    }))
+                  }
+                  className="h-4 w-4 accent-[#1ED760]"
+                />
+              </label>
+            ))}
+          </div>
+
+          <div className="flex justify-end border-t border-neutral-100 pt-3">
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-rose-200 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Disconnect Server
+            </button>
+          </div>
+        </div>
       </div>
+
+      {showPlanModal && (
+        <DiscordPlanSelector
+          isModal
+          currentUser={currentUser}
+          subscription={subscription}
+          onClose={() => setShowPlanModal(false)}
+          onActivated={async () => {
+            await onServerUpdated?.();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { TenantDB } from '../db/multiTenant.js';
 import { getPlatformUrl } from '../config/platformConfig.js';
 import { queryPg } from '../db/postgres.js';
 import { readState, saveState } from '../db/stateDocuments.js';
+import { checkServiceLimit, incrementServiceUsage } from '../db/serviceSubscriptions.js';
 // In-memory active sockets Map: sessionId -> { sock, qr, qrDataUrl, status, ... }
 const activeSockets = new Map();
 
@@ -376,8 +377,14 @@ export const WhatsAppManager = {
         if (session.messageLogs.length > 50) session.messageLogs.shift();
         (await writeMeta(meta));
 
-        // 2. Check if AI auto-reply is enabled
+        // 2. Check if AI auto-reply is enabled & subscription message quota allows sending
         if (!session.automationConfig?.enabled) continue;
+
+        const quotaCheck = await checkServiceLimit(session.userId, 'whatsapp', { checkMessages: true });
+        if (!quotaCheck.allowed) {
+          console.warn(`[WhatsAppManager] Auto-reply skipped for ${sessionId} (${session.userId}): ${quotaCheck.code} — ${quotaCheck.error}`);
+          continue;
+        }
 
         try {
           // Build system prompt based on persona and synced store knowledge
@@ -401,6 +408,7 @@ export const WhatsAppManager = {
 
             // Send reply via Baileys socket
             await sock.sendMessage(remoteJid, { text: aiReply });
+            await incrementServiceUsage(session.userId, 'whatsapp', 'monthlyMessages', 1);
 
             // Record outbound AI reply in logs
             const updatedMeta = (await readMeta());
@@ -600,6 +608,36 @@ ${storeKnowledge?.customKnowledge ? `STORE KNOWLEDGE BASE & FAQS:\n${storeKnowle
       presetUsed: session.automationConfig?.preset || 'sales',
       productsInContext: session.storeKnowledge?.productCount || 0
     };
+  },
+
+  // Send outbound message via connected Baileys socket (or throw if disconnected)
+  async sendOutboundMessage(sessionId, { to, text }) {
+    const meta = await readMeta();
+    const session = meta.sessions.find(s => s.sessionId === sessionId);
+    if (!session) throw new Error('Session not found');
+    const cleanTo = String(to || '').replace(/[^0-9]/g, '');
+    if (!cleanTo) throw new Error('Recipient phone number is required');
+    const jid = `${cleanTo}@s.whatsapp.net`;
+    const active = activeSockets.get(sessionId);
+    if (!active?.sock || session.status !== 'CONNECTED') {
+      throw new Error('WhatsApp session is not connected. Please scan the QR code first.');
+    }
+    await active.sock.sendMessage(jid, { text: String(text || '').trim() });
+    session.stats = session.stats || {};
+    session.stats.messagesSent = (session.stats.messagesSent || 0) + 1;
+    session.lastActive = new Date().toISOString();
+    session.messageLogs = session.messageLogs || [];
+    session.messageLogs.push({
+      id: `out_${Date.now()}`,
+      direction: 'outbound',
+      to: cleanTo,
+      text: String(text || '').trim(),
+      isAiReply: false,
+      timestamp: new Date().toISOString()
+    });
+    if (session.messageLogs.length > 50) session.messageLogs.shift();
+    await writeMeta(meta);
+    return session;
   },
 
   // Disconnect / Logout session

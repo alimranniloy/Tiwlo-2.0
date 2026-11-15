@@ -1,5 +1,6 @@
 import { getPickAccessToken } from '../../../mobile/src/services/auth';
 import { PICK_API_URL } from '../../../mobile/src/config/api';
+import type { DeliveryRouteEstimate } from '../../../mobile/src/services/orders';
 
 export interface DeliveryPolicy {
   vehicleType: string;
@@ -32,6 +33,7 @@ export interface DeliveryProfile {
 
 export interface DeliveryOffer {
   id: string;
+  orderType: 'grocery' | 'parcel';
   status: string;
   createdAt: string;
   total: number;
@@ -43,25 +45,48 @@ export interface DeliveryOffer {
   recipientLatitude: number;
   recipientLongitude: number;
   recipientName: string;
-  weightKg: number;
+  weightKg: number | null;
   category: string;
   vehicleName: string;
+  items: { name: string; quantity: number; unit: string }[];
 }
 
 export interface DeliveryJob {
   assignmentId: string;
   orderId: string;
+  orderType: 'grocery' | 'parcel';
   status: 'accepted' | 'picked_up';
   acceptedAt: string;
   pickedUpAt: string | null;
   updatedAt: string;
   total: number;
   deliveryAddress: string;
+  deliveryLatitude: number | null;
+  deliveryLongitude: number | null;
+  pickupAddress: string;
+  pickupLatitude: number | null;
+  pickupLongitude: number | null;
+  items: { name: string; quantity: number; unit: string }[];
   parcelDetails: {
     sender?: { address?: string; latitude?: number; longitude?: number; name?: string; phone?: string };
     recipient?: { address?: string; latitude?: number; longitude?: number; name?: string; phone?: string };
     package?: { weight?: number; categoryNameEn?: string };
   };
+}
+
+export async function getDeliveryJobRouteEstimate(
+  assignmentId: string
+): Promise<DeliveryRouteEstimate> {
+  const result = await request<DeliveryRouteEstimate>(
+    `/jobs/${encodeURIComponent(assignmentId)}/tracking-route`
+  );
+  if (!Number.isFinite(result.durationSeconds) || result.durationSeconds < 0 ||
+      !Number.isFinite(result.distanceMeters) || result.distanceMeters < 0 ||
+      !Number.isInteger(result.etaMinutes) || result.etaMinutes < 0 ||
+      typeof result.encodedPolyline !== 'string') {
+    throw new Error('PICK Delivery returned an invalid route estimate.');
+  }
+  return result;
 }
 
 export interface DeliveryOptions {

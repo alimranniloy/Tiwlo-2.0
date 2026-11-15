@@ -51,6 +51,17 @@ test('1 free store per account: allows first free store and blocks second free s
   assert.equal(secondFree.code, 'FREE_STORE_LIMIT_REACHED');
   assert.equal(secondFree.shouldBanAccount, false);
 
+  const adminSecondFree = evaluateFreeStoreEligibility({
+    ownerId: 'admin-1',
+    existingStores: [{ id: 's1', planId: 'free', status: 'active' }],
+    selectedPackage: { planId: 'free', price: 0 },
+    isAdmin: true,
+    signals,
+    priorClaims: []
+  });
+  assert.equal(adminSecondFree.allowed, false);
+  assert.equal(adminSecondFree.code, 'FREE_STORE_LIMIT_REACHED');
+
   const paidStore = evaluateFreeStoreEligibility({
     ownerId: 'user-1',
     existingStores: [{ id: 's1', planId: 'free', status: 'active' }],

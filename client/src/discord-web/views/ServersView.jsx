@@ -1,133 +1,191 @@
 import React, { useState } from 'react';
-import { Plus, Search, Server, ArrowRight, ArrowLeft, Bot, Filter } from 'lucide-react';
+import {
+  Bot,
+  ExternalLink,
+  Plus,
+  Server,
+  Settings2,
+  Shield,
+  Sparkles,
+  Trash2,
+} from 'lucide-react';
+import { DiscordAPI } from '../api/discordApi';
+import DiscordPlanSelector from '../components/DiscordPlanModal';
 
-export default function ServersView({ servers = [], onNavigate, onReload }) {
-  const [search, setSearch] = useState('');
+export default function ServersView({ servers = [], overviewData, currentUser, onNavigate, onReload }) {
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [removingId, setRemovingId] = useState(null);
 
-  const filteredServers = servers.filter((s) => {
-    if (!search.trim()) return true;
-    return s.name.toLowerCase().includes(search.toLowerCase().trim());
-  });
+  const subscription = overviewData?.subscription || null;
+  const officialBots = Array.isArray(overviewData?.officialBots) ? overviewData.officialBots : [];
+  const primaryBot = officialBots.find((b) => b.isDefault) || officialBots[0] || null;
+  const isSubscribed = Boolean(subscription?.isActive);
+  const maxServers = Number(subscription?.limits?.maxServersPerBot || 0);
+  const atLimit = isSubscribed && maxServers > 0 && servers.length >= maxServers;
+
+  const handleDisconnect = async (server) => {
+    if (!window.confirm(`Disconnect "${server.name}" from Tiwlo Official AI Bot?`)) return;
+    setRemovingId(server.id);
+    try {
+      await DiscordAPI.deleteServer(server.id);
+      await onReload?.();
+    } catch (err) {
+      alert(err.message || 'Could not disconnect server.');
+    } finally {
+      setRemovingId(null);
+    }
+  };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16 font-sans bg-white">
-      {/* 1. Modern Google Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#e2e2e2] pb-5">
+    <div className="mx-auto max-w-6xl space-y-6">
+      <div className="flex flex-col gap-4 rounded-xl border border-neutral-200/80 bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <button
-            onClick={() => onNavigate('/discord')}
-            className="inline-flex items-center gap-2 text-[13px] font-medium text-[#000000] hover:text-[#3c3c3c] cursor-pointer mb-2.5"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Console Overview</span>
-            <span className="text-[#C4C7C5]">/</span>
-            <span className="text-[#444746]">Servers</span>
-          </button>
-
-          <h1 className="text-xl sm:text-2xl font-normal text-[#1F1F1F] tracking-tight">
-            Connected Servers
+          <h1 className="text-xl font-semibold tracking-tight text-neutral-950">
+            Connected Discord Servers
           </h1>
-          <p className="text-xs sm:text-sm text-[#444746] mt-1">
-            Linked Discord guild environments, assigned bot workers, and server-specific configurations.
+          <p className="mt-1 text-xs text-neutral-500">
+            {isSubscribed
+              ? `Using ${servers.length} of ${maxServers} server slot(s) on ${subscription.planName}.`
+              : 'Activate a paid Discord Bot subscription to connect your Discord server(s).'}
           </p>
         </div>
 
-        <button
-          onClick={() => onNavigate('/discord/servers/new')}
-          className="inline-flex items-center gap-1.5 px-5 py-2.5 text-[13px] font-medium text-white bg-[#000000] hover:bg-[#3c3c3c] rounded-full transition-colors cursor-pointer"
-        >
-          <Plus className="w-4 h-4 stroke-[2.5]" />
-          <span>Connect server</span>
-        </button>
-      </div>
-
-      {/* 2. Filter Toolbar */}
-      <div className="bg-white border border-[#e2e2e2] rounded-2xl p-4 flex items-center justify-between shadow-none">
-        <div className="flex items-center gap-2.5 flex-1 max-w-md bg-[#f4f4f4] rounded-full px-4 py-2 border border-transparent focus-within:bg-white focus-within:border-[#000000] transition-all">
-          <Search className="w-4 h-4 text-[#747775] shrink-0" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter connected servers..."
-            className="w-full text-[13px] text-[#1F1F1F] placeholder-[#747775] bg-transparent focus:outline-none"
-          />
-        </div>
-        {search && (
-          <button
-            onClick={() => setSearch('')}
-            className="text-[12px] text-[#000000] hover:underline cursor-pointer ml-3 font-medium"
-          >
-            Clear
-          </button>
-        )}
-      </div>
-
-      {/* 3. Servers Grid (Google Material 3 Card Style) */}
-      {filteredServers.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredServers.map((server) => (
-            <div
-              key={server.id}
-              onClick={() => onNavigate(`/discord/servers/${server.id}`)}
-              className="bg-white border border-[#e2e2e2] hover:border-[#000000] rounded-2xl p-6 flex flex-col justify-between transition-all hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] cursor-pointer group"
+        <div className="flex flex-wrap items-center gap-2">
+          {primaryBot?.inviteUrl && isSubscribed && (
+            <a
+              href={primaryBot.inviteUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-9 items-center gap-2 rounded-xl border border-neutral-200/80 bg-white px-3.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-50"
             >
-              <div>
-                <div className="flex items-center gap-3.5">
-                  <div className="w-11 h-11 rounded-2xl bg-[#e1e1e1] text-[#191919] font-semibold text-base flex items-center justify-center shrink-0">
-                    {server.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-[15px] font-medium text-[#1F1F1F] truncate group-hover:text-[#000000] transition-colors">
-                      {server.name}
-                    </h3>
-                    <p className="text-[12px] text-[#747775]">
-                      {(Number(server.memberCount) || 0).toLocaleString()} members • {server.region || 'Global'}
-                    </p>
-                  </div>
-                </div>
+              <ExternalLink className="h-3.5 w-3.5 text-[#1ED760]" />
+              Install Bot on Discord
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={() => (!isSubscribed || atLimit ? setShowPlanModal(true) : onNavigate('/discord/servers/new'))}
+            className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#1ED760] px-4 text-xs font-semibold text-black hover:bg-[#19c354]"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {atLimit ? 'Upgrade to Add Server' : (isSubscribed ? 'Bind New Server' : 'Subscribe to Connect')}
+          </button>
+        </div>
+      </div>
 
-                <div className="mt-5 pt-3.5 border-t border-[#f4f4f4]">
-                  <div className="text-[11px] font-medium text-[#747775] uppercase tracking-wider mb-2.5">
-                    Active bots
-                  </div>
-                  {(server.bots || []).length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {server.bots.map((b) => (
-                        <span
-                          key={b.id || b.name}
-                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium bg-[#f4f4f4] text-[#1F1F1F]"
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#137333]" />
-                          {b.name}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-[12px] text-[#747775] italic">No bot assigned</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-5 pt-3.5 border-t border-[#f4f4f4] flex items-center justify-between text-[12px] font-medium text-[#000000]">
-                <span>Server settings & automations</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </div>
-            </div>
-          ))}
+      {servers.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-neutral-200 bg-white p-10 text-center space-y-3">
+          <Server className="mx-auto h-10 w-10 text-neutral-300" />
+          <h2 className="text-sm font-semibold text-neutral-900">No Discord servers connected yet</h2>
+          <p className="mx-auto max-w-md text-xs text-neutral-500">
+            {isSubscribed
+              ? 'First invite the Official Tiwlo AI Bot to your Discord Server, then bind your Guild ID here to customize AI & Auto-Mod.'
+              : 'Choose a paid Discord AI Bot plan to start connecting Discord communities.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => (isSubscribed ? onNavigate('/discord/servers/new') : setShowPlanModal(true))}
+            className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#1ED760] px-4 text-xs font-semibold text-black hover:bg-[#19c354]"
+          >
+            {isSubscribed ? 'Connect First Server' : 'Select Subscription Plan'}
+          </button>
         </div>
       ) : (
-        <div className="bg-white border border-[#e2e2e2] rounded-2xl p-16 text-center shadow-none">
-          <Server className="w-8 h-8 text-[#C4C7C5] mx-auto mb-2" />
-          <h3 className="text-base font-medium text-[#1F1F1F]">No servers match your search</h3>
-          <p className="text-[13px] text-[#747775] mt-1">Connect your Discord community server to begin automation.</p>
-          <button
-            onClick={() => onNavigate('/discord/servers/new')}
-            className="mt-4 px-5 py-2.5 text-[13px] font-medium text-white bg-[#000000] hover:bg-[#3c3c3c] rounded-full transition-colors cursor-pointer"
-          >
-            Connect server
-          </button>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {servers.map((server) => {
+            const ai = server.aiConfig || {};
+            return (
+              <div
+                key={server.id}
+                className="flex flex-col justify-between gap-4 rounded-xl border border-neutral-200/80 bg-white p-5"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-semibold text-neutral-950">{server.name}</h3>
+                        {server.isSuspended ? (
+                          <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-700">
+                            Suspended
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-[#1ED760]/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                            Connected
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 font-mono text-[11px] text-neutral-500">
+                        Guild ID: {server.guildId || server.id}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs text-neutral-600">
+                    <div className="flex items-center justify-between">
+                      <span className="text-neutral-500">Official Bot</span>
+                      <span className="inline-flex items-center gap-1 font-medium text-neutral-900">
+                        <Bot className="h-3.5 w-3.5 text-[#1ED760]" />
+                        {primaryBot?.name || 'Tiwlo Official AI'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-neutral-500">AI Persona</span>
+                      <span className="inline-flex items-center gap-1 font-medium capitalize text-neutral-900">
+                        <Sparkles className="h-3.5 w-3.5 text-[#1ED760]" />
+                        {ai.persona || 'community'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-neutral-500">Auto-Moderation</span>
+                      <span className="inline-flex items-center gap-1 font-medium text-neutral-900">
+                        <Shield className="h-3.5 w-3.5 text-[#1ED760]" />
+                        {ai.autoMod?.antiSpam ? 'Active' : 'Disabled'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-neutral-500">Monthly AI Commands</span>
+                      <span className="font-semibold tabular-nums text-neutral-900">
+                        {Number(server.commandsUsedMonth || 0).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 border-t border-neutral-100 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => onNavigate(`/discord/servers/${encodeURIComponent(server.id)}`)}
+                    className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-neutral-900 px-3 text-xs font-semibold text-white hover:bg-neutral-800"
+                  >
+                    <Settings2 className="h-3.5 w-3.5" />
+                    Configure AI &amp; Rules
+                  </button>
+                  <button
+                    type="button"
+                    disabled={removingId === server.id}
+                    onClick={() => handleDisconnect(server)}
+                    title="Disconnect Server"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-200/80 text-neutral-400 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
+      )}
+
+      {showPlanModal && (
+        <DiscordPlanSelector
+          isModal
+          currentUser={currentUser}
+          subscription={subscription}
+          onClose={() => setShowPlanModal(false)}
+          onActivated={async () => {
+            await onReload?.();
+          }}
+        />
       )}
     </div>
   );

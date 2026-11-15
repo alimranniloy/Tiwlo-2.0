@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
@@ -10,10 +10,16 @@ import {
   View
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import Constants from 'expo-constants';
 import { AddressVerificationScreen } from '../../../mobile/src/screens/AddressVerificationScreen';
 import { PickLogo } from '../../../mobile/src/components/common/PickLogo';
 import { PickIcon } from '../../../mobile/src/components/common/PickIcon';
+import { PickNativeMap } from '../../../mobile/src/components/maps/PickNativeMap';
+import type { CameraRef } from '@maplibre/maplibre-react-native';
+import {
+  decodeDeliveryRoute,
+  type DeliveryRouteEstimate,
+  type DeliveryRoutePoint
+} from '../../../mobile/src/services/orders';
 import { Colors } from '../../../mobile/src/theme/colors';
 import { SYSTEM_INSETS } from '../../../mobile/src/components/common/ScreenContainer';
 import type { PickUser } from '../../../mobile/src/services/auth';
@@ -33,6 +39,7 @@ import {
   getDeliveryOffers,
   getDeliveryOptions,
   getDeliveryProfile,
+  getDeliveryJobRouteEstimate,
   removeDeliveryPushToken,
   submitDeliveryApplication,
   updateDeliveryJob
@@ -206,8 +213,8 @@ function DeliveryHome({
     <ScrollView contentContainerStyle={styles.dashboardContent} showsVerticalScrollIndicator={false}>
       <View style={styles.welcomeRow}>
         <View>
-          <Text style={styles.eyebrow}>{activeTab === 'home' ? 'PICK DELIVERY' : 'YOUR PARCELS'}</Text>
-          <Text style={styles.heading}>{activeTab === 'home' ? `Hi, ${userName || 'Partner'}` : 'Parcel requests'}</Text>
+          <Text style={styles.eyebrow}>{activeTab === 'home' ? 'PICK DELIVERY' : 'DELIVERY REQUESTS'}</Text>
+          <Text style={styles.heading}>{activeTab === 'home' ? `Hi, ${userName || 'Partner'}` : 'Delivery requests'}</Text>
           <Text style={styles.bodyText}>{activeTab === 'home' ? 'Your delivery partner home' : 'Available after your delivery profile is approved'}</Text>
         </View>
         <Pressable accessibilityLabel="Refresh delivery information" onPress={onRefresh} style={styles.refreshButton}>
@@ -232,7 +239,7 @@ function DeliveryHome({
           />
         </View>
         <Text style={styles.cardEyebrow}>
-          {activeTab === 'parcels' ? 'PARCEL REQUESTS' : pending ? 'APPLICATION STATUS' : rejected ? 'ACTION REQUIRED' : 'GET STARTED'}
+          {activeTab === 'parcels' ? 'DELIVERY REQUESTS' : pending ? 'APPLICATION STATUS' : rejected ? 'ACTION REQUIRED' : 'GET STARTED'}
         </Text>
         <Text style={styles.heading}>
           {activeTab === 'parcels'
@@ -248,7 +255,7 @@ function DeliveryHome({
         <Text style={styles.bodyText}>
           {activeTab === 'parcels'
             ? pending
-              ? `We’re reviewing your ${profile?.vehicleName || 'vehicle'} details. Parcel requests will be available after approval.`
+              ? `We’re reviewing your ${profile?.vehicleName || 'vehicle'} details. Delivery requests will be available after approval.`
               : 'Add your vehicle and capacity, then wait for PICK to approve your application before viewing delivery requests.'
             : pending
               ? `We’re reviewing your ${profile?.vehicleName || 'vehicle'} details. We’ll enable delivery tools as soon as your application is approved.`
@@ -404,6 +411,120 @@ function DeliveryBottomNav({
   );
 }
 
+function getDeliveryPoint(latitude: number | null | undefined, longitude: number | null | undefined): DeliveryRoutePoint | null {
+  if (typeof latitude !== 'number' || !Number.isFinite(latitude) ||
+      typeof longitude !== 'number' || !Number.isFinite(longitude)) return null;
+  return { latitude, longitude };
+}
+
+function ActiveJobMap({
+  job,
+  profile
+}: {
+  job: DeliveryJob;
+  profile: DeliveryProfile;
+}) {
+  const [routeState, setRouteState] = useState<{
+    assignmentId: string;
+    estimate: DeliveryRouteEstimate;
+  } | null>(null);
+  const [routeError, setRouteError] = useState('');
+  const [mapReady, setMapReady] = useState(false);
+  const cameraRef = useRef<CameraRef>(null);
+  const lastRiderPosition = useRef<string | null>(null);
+  const sender = job.parcelDetails.sender;
+  const recipient = job.parcelDetails.recipient;
+  const pickup = job.orderType === 'grocery'
+    ? getDeliveryPoint(job.pickupLatitude, job.pickupLongitude)
+    : getDeliveryPoint(sender?.latitude ?? job.pickupLatitude, sender?.longitude ?? job.pickupLongitude);
+  const destination = getDeliveryPoint(
+    recipient?.latitude ?? job.deliveryLatitude,
+    recipient?.longitude ?? job.deliveryLongitude
+  );
+  const rider = getDeliveryPoint(profile.currentLatitude, profile.currentLongitude);
+  const target = job.status === 'accepted' ? pickup : destination;
+  const center = rider || target || pickup || destination || { latitude: 23.8103, longitude: 90.4125 };
+  const estimate = routeState?.assignmentId === job.assignmentId ? routeState.estimate : null;
+  const route = useMemo(
+    () => estimate ? decodeDeliveryRoute(estimate.encodedPolyline) : [],
+    [estimate]
+  );
+
+  useEffect(() => {
+    if (!mapReady || !rider) return;
+    const positionKey = `${job.assignmentId}:${rider.latitude}:${rider.longitude}`;
+    if (lastRiderPosition.current === positionKey) return;
+    lastRiderPosition.current = positionKey;
+    cameraRef.current?.easeTo({
+      center: [rider.longitude, rider.latitude],
+      duration: 700,
+    });
+  }, [job.assignmentId, mapReady, rider]);
+
+  useEffect(() => {
+    let active = true;
+    let loading = false;
+    const refresh = async () => {
+      if (loading) return;
+      loading = true;
+      try {
+        const nextEstimate = await getDeliveryJobRouteEstimate(job.assignmentId);
+        if (active) {
+          setRouteState({ assignmentId: job.assignmentId, estimate: nextEstimate });
+          setRouteError('');
+        }
+      } catch (error) {
+        if (active) {
+          setRouteError(error instanceof Error ? error.message : 'Route estimate is unavailable.');
+        }
+      } finally {
+        loading = false;
+      }
+    };
+    void refresh();
+    const interval = setInterval(() => void refresh(), 60_000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [job.assignmentId, job.status]);
+
+  if (!pickup && !destination && !rider) return null;
+
+  return (
+    <View style={styles.jobMap}>
+      <PickNativeMap
+        style={StyleSheet.absoluteFill}
+        center={center}
+        cameraRef={cameraRef}
+        initialZoom={13}
+        onMapReady={() => setMapReady(true)}
+        rider={rider}
+        pickup={pickup}
+        destination={destination}
+        route={route}
+      />
+      <View style={styles.jobMapBadge}>
+        <Text style={styles.jobMapBadgeTitle}>
+          {job.status === 'accepted' ? 'Route to pickup' : 'Route to customer'}
+        </Text>
+        <Text style={styles.jobMapBadgeDetail}>
+          {estimate
+            ? `About ${estimate.etaMinutes} min · ${formatDistance(estimate.distanceMeters)} · no live traffic`
+            : routeError
+              ? 'Route estimate unavailable'
+              : 'Calculating road route…'}
+        </Text>
+        {estimate ? (
+          <Text style={styles.jobMapBadgeAttribution}>
+            Routes © OSRM · © OpenStreetMap contributors (ODbL)
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
 function DeliveryDashboard({
   userName,
   profile,
@@ -412,7 +533,6 @@ function DeliveryDashboard({
   activeTab,
   refreshing,
   error,
-  pushWarning,
   onRefresh,
   onDutyChange,
   onJobUpdate,
@@ -426,7 +546,6 @@ function DeliveryDashboard({
   activeTab: DeliveryTab;
   refreshing: boolean;
   error: string;
-  pushWarning: string;
   onRefresh: () => void;
   onDutyChange: (enabled: boolean) => void;
   onJobUpdate: (job: DeliveryJob, status: 'picked_up' | 'delivered' | 'cancelled') => void;
@@ -458,10 +577,9 @@ function DeliveryDashboard({
             </View>
             <Text style={styles.dutyDescription}>
               {profile.isOnDuty
-                ? 'Your location is being shared securely. New nearby parcel offers will appear in Parcels.'
+                ? 'Your location is being shared securely. Nearby grocery and parcel requests will appear in Delivery requests.'
                 : 'Go on duty when you’re ready to accept delivery requests.'}
             </Text>
-            {pushWarning ? <Text style={styles.warningText}>{pushWarning}</Text> : null}
             {error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}
             <PrimaryButton
               title={profile.isOnDuty ? 'End duty' : 'Go on duty'}
@@ -469,7 +587,7 @@ function DeliveryDashboard({
               disabled={Boolean(activeJob) || refreshing}
               secondary={profile.isOnDuty}
             />
-            {activeJob ? <Text style={styles.policyHint}>Finish your active parcel before ending duty.</Text> : null}
+            {activeJob ? <Text style={styles.policyHint}>Finish your active delivery before ending duty.</Text> : null}
           </View>
 
           <View style={styles.summaryCard}>
@@ -477,10 +595,10 @@ function DeliveryDashboard({
               <PickIcon name="scooter" size={21} color={Colors.primary} />
             </View>
             <View style={styles.summaryText}>
-              <Text style={styles.sectionTitle}>{activeJob ? 'Delivery in progress' : 'Parcel requests'}</Text>
+              <Text style={styles.sectionTitle}>{activeJob ? 'Delivery in progress' : 'Delivery requests'}</Text>
               <Text style={styles.bodyText}>
                 {activeJob
-                  ? `${activeJob.parcelDetails.package?.categoryNameEn || 'Parcel'} · ${activeJob.status === 'accepted' ? 'Ready for pickup' : 'On the way'}`
+                  ? `${activeJob.orderType === 'grocery' ? 'Grocery order' : activeJob.parcelDetails.package?.categoryNameEn || 'Parcel'} · ${activeJob.status === 'accepted' ? 'Ready for pickup' : 'On the way'}`
                   : profile.isOnDuty
                     ? `${offers.length} matching ${offers.length === 1 ? 'request' : 'requests'} available`
                     : 'Turn on duty to receive nearby requests'}
@@ -495,7 +613,7 @@ function DeliveryDashboard({
         <>
           <View style={styles.parcelIntro}>
             <View>
-              <Text style={styles.sectionTitle}>Delivery requests</Text>
+              <Text style={styles.sectionTitle}>Nearby delivery requests</Text>
               <Text style={styles.policyHint}>{profile.vehicleName} · up to {profile.vehicleCapacityKg} kg</Text>
             </View>
             <Text style={styles.offerCount}>{offers.length}</Text>
@@ -504,16 +622,26 @@ function DeliveryDashboard({
 
           {activeJob ? (
             <View style={styles.card}>
-              <Text style={styles.cardEyebrow}>ACTIVE DELIVERY</Text>
-              <Text style={styles.offerTitle}>{activeJob.parcelDetails.package?.categoryNameEn || 'Parcel'} · {activeJob.parcelDetails.package?.weight || '?'} kg</Text>
+              <Text style={styles.cardEyebrow}>{activeJob.orderType === 'grocery' ? 'ACTIVE GROCERY ORDER' : 'ACTIVE PARCEL DELIVERY'}</Text>
+              <Text style={styles.offerTitle}>
+                {activeJob.orderType === 'grocery'
+                  ? 'Grocery order'
+                  : `${activeJob.parcelDetails.package?.categoryNameEn || 'Parcel'} · ${activeJob.parcelDetails.package?.weight || '?'} kg`}
+              </Text>
               <Text style={styles.detailLabel}>PICKUP</Text>
-              <Text style={styles.detailText}>{activeJob.parcelDetails.sender?.address || 'Pickup address unavailable'}</Text>
+              <Text style={styles.detailText}>{activeJob.pickupAddress || activeJob.parcelDetails.sender?.address || 'Pickup address unavailable'}</Text>
               <Text style={styles.detailLabel}>DELIVER TO</Text>
               <Text style={styles.detailText}>{activeJob.parcelDetails.recipient?.address || activeJob.deliveryAddress}</Text>
+              <ActiveJobMap job={activeJob} profile={profile} />
+              {activeJob.orderType === 'grocery' && activeJob.items.length > 0 ? (
+                <Text style={styles.policyHint}>
+                  {activeJob.items.map((item) => `${item.name} × ${item.quantity} ${item.unit}`).join(' · ')}
+                </Text>
+              ) : null}
               {activeJob.status === 'accepted' ? (
                 <>
-                  <PrimaryButton title="Confirm parcel picked up" onPress={() => onJobUpdate(activeJob, 'picked_up')} disabled={refreshing} />
-                  <PrimaryButton title="Release parcel before pickup" onPress={() => onJobUpdate(activeJob, 'cancelled')} disabled={refreshing} secondary />
+                  <PrimaryButton title="Confirm order picked up" onPress={() => onJobUpdate(activeJob, 'picked_up')} disabled={refreshing} />
+                  <PrimaryButton title="Release before pickup" onPress={() => onJobUpdate(activeJob, 'cancelled')} disabled={refreshing} secondary />
                 </>
               ) : (
                 <PrimaryButton title="Complete delivery" onPress={() => onJobUpdate(activeJob, 'delivered')} disabled={refreshing} />
@@ -525,7 +653,11 @@ function DeliveryDashboard({
             <View style={styles.card} key={offer.id}>
               <View style={styles.offerHeader}>
                 <View>
-                  <Text style={styles.offerTitle}>{offer.category || 'Parcel'} · {offer.weightKg} kg</Text>
+                  <Text style={styles.offerTitle}>
+                    {offer.orderType === 'grocery'
+                      ? 'Grocery delivery'
+                      : `${offer.category || 'Parcel'} · ${offer.weightKg ?? '?'} kg`}
+                  </Text>
                   <Text style={styles.offerSub}>{offer.vehicleName} · #{offer.id.slice(0, 8).toUpperCase()}</Text>
                 </View>
                 <Text style={styles.fare}>৳{Math.round(offer.total)}</Text>
@@ -534,7 +666,16 @@ function DeliveryDashboard({
               <Text style={styles.detailText}>{offer.pickupAddress}</Text>
               <Text style={styles.detailLabel}>DELIVER TO</Text>
               <Text style={styles.detailText}>{offer.recipientAddress}</Text>
-              <PrimaryButton title="Accept parcel" onPress={() => onAccept(offer)} disabled={refreshing || Boolean(activeJob)} />
+              {offer.orderType === 'grocery' && offer.items.length > 0 ? (
+                <Text style={styles.policyHint}>
+                  {offer.items.map((item) => `${item.name} × ${item.quantity} ${item.unit}`).join(' · ')}
+                </Text>
+              ) : null}
+              <PrimaryButton
+                title={offer.orderType === 'grocery' ? 'Accept grocery delivery' : 'Accept parcel'}
+                onPress={() => onAccept(offer)}
+                disabled={refreshing || Boolean(activeJob)}
+              />
             </View>
           )) : !activeJob ? (
             <View style={styles.emptyCard}>
@@ -544,7 +685,7 @@ function DeliveryDashboard({
               <Text style={styles.emptyTitle}>{profile.isOnDuty ? 'Looking for nearby parcels' : 'You’re currently off duty'}</Text>
               <Text style={styles.bodyText}>
                 {profile.isOnDuty
-                  ? 'Matching requests will appear here based on your vehicle, capacity, distance, and PICK coverage.'
+                  ? 'Matching grocery and parcel requests appear here based on your location, vehicle, and PICK coverage.'
                   : 'Go on duty from Home to see requests that match your vehicle and location.'}
               </Text>
             </View>
@@ -588,7 +729,6 @@ export function DeliveryApp({ user, onSignOut, onAccountDisabled }: DeliveryAppP
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
-  const [pushWarningOverride, setPushWarningOverride] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
   const [signOutError, setSignOutError] = useState('');
 
@@ -641,12 +781,14 @@ export function DeliveryApp({ user, onSignOut, onAccountDisabled }: DeliveryAppP
     if (!profile?.isOnDuty) return undefined;
     let active = true;
     restoreDeliveryTracking().catch((restoreError: unknown) => {
-      if (active) setError(restoreError instanceof Error
+      if (!active) return;
+      const message = restoreError instanceof Error
         ? restoreError.message
-        : 'Could not restore background location tracking.');
+        : 'Could not restore background location tracking.';
+      void refresh(false).then(() => setError(message));
     });
     return () => { active = false; };
-  }, [profile?.isOnDuty]);
+  }, [profile?.isOnDuty, refresh]);
 
   useEffect(() => {
     const appStateSubscription = AppState.addEventListener('change', (state) => {
@@ -699,22 +841,14 @@ export function DeliveryApp({ user, onSignOut, onAccountDisabled }: DeliveryAppP
     };
   }, [onAccountDisabled, onSignOut]);
 
-  const pushWarning = profile?.isOnDuty && !Constants.expoConfig?.extra?.eas?.projectId
-    ? 'Background push alerts are not configured for this build. Keep PICK Delivery open to see offers.'
-    : pushWarningOverride;
-
   const changeDuty = async (enabled: boolean) => {
     setActionBusy(true);
     setError('');
     try {
       if (enabled) {
-        const result = await goOnDeliveryDuty();
-        setPushWarningOverride(result.pushConfigured
-          ? ''
-          : 'Background push alerts are not configured for this build. Keep PICK Delivery open to see offers.');
+        await goOnDeliveryDuty();
       } else {
         await goOffDeliveryDuty();
-        setPushWarningOverride('');
       }
       await refresh(false);
     } catch (dutyError) {
@@ -808,7 +942,6 @@ export function DeliveryApp({ user, onSignOut, onAccountDisabled }: DeliveryAppP
             activeTab="home"
             refreshing={refreshing || actionBusy}
             error={error}
-            pushWarning={pushWarning}
             onRefresh={() => void refresh()}
             onDutyChange={(enabled) => void changeDuty(enabled)}
             onAccept={(offer) => void acceptOffer(offer)}
@@ -824,7 +957,6 @@ export function DeliveryApp({ user, onSignOut, onAccountDisabled }: DeliveryAppP
             activeTab="parcels"
             refreshing={refreshing || actionBusy}
             error={error}
-            pushWarning={pushWarning}
             onRefresh={() => void refresh()}
             onDutyChange={(enabled) => void changeDuty(enabled)}
             onAccept={(offer) => void acceptOffer(offer)}
@@ -872,6 +1004,11 @@ const styles = StyleSheet.create({
   heading: { color: Colors.foreground, fontSize: 25, fontWeight: '800', letterSpacing: -0.5 },
   bodyText: { color: Colors.mutedForeground, fontSize: 14, lineHeight: 21, marginTop: 7 },
   card: { backgroundColor: Colors.card, borderRadius: 18, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: Colors.border },
+  jobMap: { height: 224, overflow: 'hidden', borderRadius: 16, marginTop: 14, marginBottom: 8, backgroundColor: '#202124' },
+  jobMapBadge: { position: 'absolute', left: 10, right: 10, bottom: 10, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, backgroundColor: '#09090B' },
+  jobMapBadgeTitle: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  jobMapBadgeDetail: { color: '#D4D4D8', fontSize: 11, marginTop: 3 },
+  jobMapBadgeAttribution: { color: '#A1A1AA', fontSize: 9, marginTop: 2 },
   fieldLabel: { color: Colors.foreground, fontSize: 13, fontWeight: '700', marginBottom: 9 },
   vehicleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
   vehicleOption: { width: '48%', borderRadius: 13, padding: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card },

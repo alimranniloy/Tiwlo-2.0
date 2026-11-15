@@ -388,14 +388,14 @@ export default function PricingPlansView({
       </div>
 
       {creditShortfall && (
-        <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-amber-900/50 dark:bg-amber-950/30">
+        <div className="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50/70 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800 dark:bg-neutral-900/50">
           <div className="flex items-start gap-2.5">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-neutral-600 dark:text-neutral-400" />
             <div>
-              <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+              <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">
                 Add your credit
               </p>
-              <p className="text-xs text-amber-800 dark:text-amber-300">
+              <p className="text-xs text-neutral-600 dark:text-neutral-400">
                 {creditShortfall.name} requires ${Number(creditShortfall.price || 0).toFixed(2)}/mo in Cloud Credits. Your current balance is ${(creditBalance || 0).toFixed(2)}.
               </p>
             </div>

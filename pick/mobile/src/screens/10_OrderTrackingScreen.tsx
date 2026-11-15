@@ -5,47 +5,119 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
-import Constants from 'expo-constants';
-import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import { type CameraRef } from '@maplibre/maplibre-react-native';
 import { Header } from '../components/common/Header';
 import { PickIcon } from '../components/common/PickIcon';
+import { PickNativeMap } from '../components/maps/PickNativeMap';
 import { ScreenContainer, SYSTEM_INSETS } from '../components/common/ScreenContainer';
 import { useLanguage } from '../context/LanguageContext';
-import { getOrders, type PickOrder } from '../services/orders';
+import {
+  decodeDeliveryRoute,
+  getDeliveryRouteEstimate,
+  getOrders,
+  type DeliveryRouteEstimate,
+  type PickOrder
+} from '../services/orders';
 
 interface OrderTrackingScreenProps {
   onBack: () => void;
   order: PickOrder | null;
 }
 
+function getMapPoint(latitude: number | null | undefined, longitude: number | null | undefined) {
+  if (typeof latitude !== 'number' || !Number.isFinite(latitude) ||
+      typeof longitude !== 'number' || !Number.isFinite(longitude)) return null;
+  return { latitude, longitude };
+}
+
 export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({
   onBack,
   order,
 }) => {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [liveOrder, setLiveOrder] = useState<PickOrder | null>(null);
   const [liveError, setLiveError] = useState('');
+  const [mapReady, setMapReady] = useState(false);
+  const [mapError, setMapError] = useState(false);
+  const [followingRiderState, setFollowingRiderState] = useState<{
+    orderId: string | undefined;
+    following: boolean;
+  }>({ orderId: undefined, following: true });
   const [syncing, setSyncing] = useState(false);
-  const mapRef = useRef<MapView>(null);
-  const mapsConfigured = Constants.expoConfig?.extra?.googleMapsConfigured === true;
+  const cameraRef = useRef<CameraRef>(null);
+  const initialCameraSet = useRef(false);
+  const lastRiderPointKey = useRef<string | null>(null);
+  const [routeEstimateState, setRouteEstimateState] = useState<{
+    orderId: string;
+    estimate: DeliveryRouteEstimate;
+  } | null>(null);
+  const [routeErrorState, setRouteErrorState] = useState<{ orderId: string; error: string } | null>(null);
   const trackingOrder = liveOrder?.id === order?.id && order
     ? { ...order, ...liveOrder }
     : order;
-  const recipientPin = trackingOrder?.parcelDetails?.recipient;
+  const parcelRecipient = trackingOrder?.parcelDetails?.recipient;
+  const recipientPin = parcelRecipient?.latitude !== undefined &&
+      parcelRecipient.longitude !== undefined
+    ? parcelRecipient
+    : trackingOrder?.deliveryLatitude !== null &&
+        trackingOrder?.deliveryLatitude !== undefined &&
+        trackingOrder.deliveryLongitude !== null &&
+        trackingOrder.deliveryLongitude !== undefined
+      ? {
+          latitude: trackingOrder.deliveryLatitude,
+          longitude: trackingOrder.deliveryLongitude
+        }
+      : undefined;
   const riderPin = trackingOrder?.deliveryTracking;
-  const initialRegion = useMemo<Region>(() => ({
-    latitude: riderPin?.latitude ?? recipientPin?.latitude ?? 23.8103,
-    longitude: riderPin?.longitude ?? recipientPin?.longitude ?? 90.4125,
-    latitudeDelta: 0.035,
-    longitudeDelta: 0.035,
-  }), [riderPin?.latitude, riderPin?.longitude, recipientPin?.latitude, recipientPin?.longitude]);
+  const riderPoint = useMemo(
+    () => getMapPoint(riderPin?.latitude, riderPin?.longitude),
+    [riderPin?.latitude, riderPin?.longitude]
+  );
+  const recipientPoint = useMemo(
+    () => getMapPoint(recipientPin?.latitude, recipientPin?.longitude),
+    [recipientPin?.latitude, recipientPin?.longitude]
+  );
+  const hasRecipientPin = recipientPoint !== null;
+  const hasRiderPin = riderPoint !== null;
+  const initialCenter = useMemo(() => ({
+    latitude: riderPoint?.latitude ?? recipientPoint?.latitude ?? 23.8103,
+    longitude: riderPoint?.longitude ?? recipientPoint?.longitude ?? 90.4125,
+  }), [riderPoint?.latitude, riderPoint?.longitude, recipientPoint?.latitude, recipientPoint?.longitude]);
   const orderId = order?.id;
-  const orderType = order?.orderType;
+  const followingRider = followingRiderState.orderId === orderId
+    ? followingRiderState.following
+    : true;
+  const setFollowingRider = (following: boolean) => {
+    setFollowingRiderState({ orderId, following });
+  };
+  useEffect(() => {
+    initialCameraSet.current = false;
+    lastRiderPointKey.current = null;
+  }, [orderId]);
   const orderStatus = order?.status;
   const liveStatus = liveOrder && liveOrder.id === orderId ? liveOrder.status : orderStatus;
+  const routeIsActive = Boolean(
+    orderId && hasRecipientPin && hasRiderPin &&
+    ['accepted', 'picked_up'].includes(riderPin?.status || '')
+  );
+  const routeEstimate = routeIsActive && orderId && routeEstimateState &&
+      routeEstimateState.orderId === orderId
+    ? routeEstimateState.estimate
+    : null;
+  const routeCoordinates = useMemo(
+    () => routeEstimate ? decodeDeliveryRoute(routeEstimate.encodedPolyline) : [],
+    [routeEstimate]
+  );
+  const routeError = routeIsActive && orderId && routeErrorState &&
+      routeErrorState.orderId === orderId
+    ? routeErrorState.error
+    : '';
   useEffect(() => {
-    if (!orderId || orderType !== 'parcel' || liveStatus === 'delivered') return undefined;
+    if (!orderId || ['delivered', 'cancelled', 'canceled', 'failed'].includes(liveStatus?.toLowerCase() || '')) {
+      return undefined;
+    }
     let active = true;
     let loading = false;
     const refreshTracking = async () => {
@@ -76,13 +148,85 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({
       active = false;
       clearInterval(interval);
     };
-  }, [orderId, orderType, liveStatus]);
+  }, [orderId, liveStatus]);
 
   useEffect(() => {
-    if (riderPin?.latitude === null || riderPin?.latitude === undefined ||
-        riderPin.longitude === null || riderPin.longitude === undefined) return;
-    mapRef.current?.animateToRegion(initialRegion, 350);
-  }, [initialRegion, riderPin?.latitude, riderPin?.longitude]);
+    if (!routeIsActive || !orderId) return undefined;
+    let active = true;
+    let loading = false;
+    const refreshEstimate = async () => {
+      if (loading) return;
+      loading = true;
+      try {
+        const estimate = await getDeliveryRouteEstimate(orderId);
+        if (active) {
+          setRouteEstimateState({ orderId, estimate });
+          setRouteErrorState(null);
+        }
+      } catch (error) {
+        if (active) {
+          setRouteErrorState({
+            orderId,
+            error: error instanceof Error
+              ? error.message
+              : 'Live arrival time is temporarily unavailable.'
+          });
+        }
+      } finally {
+        loading = false;
+      }
+    };
+    void refreshEstimate();
+    const interval = setInterval(() => void refreshEstimate(), 30_000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [
+    orderId, routeIsActive
+  ]);
+
+  useEffect(() => {
+    if (!mapReady || initialCameraSet.current || !riderPoint || !recipientPoint) return;
+    const coordinates = routeCoordinates.length > 1
+      ? routeCoordinates
+      : [riderPoint, recipientPoint];
+    const longitudes = coordinates.map((point) => point.longitude);
+    const latitudes = coordinates.map((point) => point.latitude);
+    const west = Math.min(...longitudes);
+    const east = Math.max(...longitudes);
+    const south = Math.min(...latitudes);
+    const north = Math.max(...latitudes);
+    const minimumSpan = 0.003;
+    const longitudeSpan = Math.max(east - west, minimumSpan);
+    const latitudeSpan = Math.max(north - south, minimumSpan);
+    cameraRef.current?.fitBounds([
+      west - longitudeSpan * 0.08,
+      south - latitudeSpan * 0.08,
+      east + longitudeSpan * 0.08,
+      north + latitudeSpan * 0.08,
+    ], {
+      padding: { top: 56, right: 42, bottom: 56, left: 42 },
+      duration: 0,
+    });
+    initialCameraSet.current = true;
+  }, [mapReady, riderPoint, recipientPoint, routeCoordinates]);
+
+  useEffect(() => {
+    if (!mapReady || !followingRider || !riderPoint || !initialCameraSet.current) return;
+    const pointKey = `${riderPoint.latitude},${riderPoint.longitude}`;
+    if (lastRiderPointKey.current === null) {
+      lastRiderPointKey.current = pointKey;
+      return;
+    }
+    if (lastRiderPointKey.current === pointKey) return;
+    lastRiderPointKey.current = pointKey;
+    cameraRef.current?.easeTo({
+      center: [riderPoint.longitude, riderPoint.latitude],
+      zoom: 15,
+      duration: 850,
+    });
+  }, [mapReady, followingRider, riderPoint]);
 
   const stages = [
     { id: 'placed', title: t('Order placed', 'অর্ডার করা হয়েছে') },
@@ -130,36 +274,42 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.mapContainer}>
-          {mapsConfigured && trackingOrder?.orderType === 'parcel' ? (
-            <MapView
-              ref={mapRef}
-              provider={PROVIDER_GOOGLE}
+          {(hasRecipientPin || hasRiderPin) ? (
+            <PickNativeMap
               style={StyleSheet.absoluteFill}
-              initialRegion={initialRegion}
-              showsCompass
-            >
-              {recipientPin?.latitude !== undefined && recipientPin.longitude !== undefined ? (
-                <Marker
-                  coordinate={{ latitude: recipientPin.latitude, longitude: recipientPin.longitude }}
-                  title={t('Delivery destination', 'ডেলিভারির গন্তব্য')}
-                  pinColor="#17A56B"
-                />
-              ) : null}
-              {riderPin?.latitude !== null && riderPin?.latitude !== undefined &&
-                riderPin.longitude !== null && riderPin.longitude !== undefined ? (
-                  <Marker
-                    coordinate={{ latitude: riderPin.latitude, longitude: riderPin.longitude }}
-                    title={riderPin.riderName || t('PICK Delivery partner', 'PICK ডেলিভারি পার্টনার')}
-                    description={t('Live rider location', 'পার্টনারের বর্তমান অবস্থান')}
-                    pinColor="#111827"
-                  />
-                ) : null}
-            </MapView>
+              center={initialCenter}
+              cameraRef={cameraRef}
+              initialZoom={14}
+              route={routeCoordinates}
+              destination={recipientPoint}
+              rider={riderPoint}
+              onMapReady={() => {
+                setMapReady(true);
+                setMapError(false);
+              }}
+              onMapError={() => {
+                setMapReady(false);
+                setMapError(true);
+              }}
+              onUserInteraction={() => setFollowingRider(false)}
+            />
           ) : (
-            <Text style={styles.mapOrderId}>
-              {trackingOrder ? `#${trackingOrder.id.slice(0, 8).toUpperCase()}` : t('Order unavailable', 'অর্ডার পাওয়া যায়নি')}
-            </Text>
+            <View style={styles.mapFallback}>
+              <Text style={styles.mapOrderId}>
+                {trackingOrder ? `#${trackingOrder.id.slice(0, 8).toUpperCase()}` : t('Order unavailable', 'অর্ডার পাওয়া যায়নি')}
+              </Text>
+              <Text style={styles.mapFallbackText}>
+                {t('Map coordinates are not available for this order yet.', 'এই অর্ডারের ম্যাপ লোকেশন এখনো পাওয়া যায়নি।')}
+              </Text>
+            </View>
           )}
+          {mapError ? (
+            <View style={styles.mapErrorOverlay}>
+              <Text style={styles.mapFallbackText}>
+                {t('Map tiles could not be loaded. Check your internet connection.', 'ম্যাপ লোড হয়নি। ইন্টারনেট সংযোগ পরীক্ষা করুন।')}
+              </Text>
+            </View>
+          ) : null}
           {trackingOrder?.deliveryTracking ? (
             <View style={styles.liveBadge}>
               <View style={styles.liveDot} />
@@ -169,6 +319,37 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({
                   : t('Rider assigned', 'রাইডার বরাদ্দ হয়েছে')}
               </Text>
             </View>
+          ) : null}
+          {routeEstimate && hasRiderPin ? (
+            <View style={styles.etaBadge}>
+              <Text style={styles.etaValue}>
+                {t(`About ${routeEstimate.etaMinutes} min`, `প্রায় ${routeEstimate.etaMinutes} মিনিট`)}
+              </Text>
+              <Text style={styles.etaCaption}>
+                {t('estimated · no live traffic', 'আনুমানিক · লাইভ ট্রাফিক ছাড়া')}
+              </Text>
+            </View>
+          ) : null}
+          {hasRiderPin && !followingRider ? (
+            <TouchableOpacity
+              style={styles.recenterButton}
+              accessibilityRole="button"
+              accessibilityLabel={t('Follow delivery partner', 'ডেলিভারি পার্টনারকে অনুসরণ করুন')}
+              onPress={() => {
+                setFollowingRider(true);
+                if (riderPoint) {
+                  lastRiderPointKey.current = `${riderPoint.latitude},${riderPoint.longitude}`;
+                  cameraRef.current?.easeTo({
+                    center: [riderPoint.longitude, riderPoint.latitude],
+                    zoom: 15,
+                    duration: 650,
+                  });
+                }
+              }}
+              activeOpacity={0.85}
+            >
+              <PickIcon name="navigate" size={17} color="#FFFFFF" />
+            </TouchableOpacity>
           ) : null}
         </View>
 
@@ -196,6 +377,33 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({
                   {t('Waiting for the next rider location update.', 'রাইডারের পরবর্তী লোকেশন আপডেটের অপেক্ষায়।')}
                 </Text>
               ) : null}
+              {trackingOrder.deliveryTracking.locationUpdatedAt ? (
+                <Text style={styles.riderDetail}>
+                  {t('Location updated', 'লোকেশন আপডেট')} · {new Date(
+                    trackingOrder.deliveryTracking.locationUpdatedAt,
+                  ).toLocaleTimeString(language === 'en' ? 'en-BD' : 'bn-BD', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
+                </Text>
+              ) : null}
+              {routeError ? (
+                <Text style={styles.riderDetail}>
+                  {t('Arrival estimate is updating.', 'পৌঁছানোর সময় আপডেট হচ্ছে।')}
+                </Text>
+              ) : null}
+              {routeEstimate ? (
+                <Text style={styles.riderDetail}>
+                  {t('Route distance', 'রুটের দূরত্ব')} · {routeEstimate.distanceMeters >= 1000
+                    ? `${(routeEstimate.distanceMeters / 1000).toFixed(1)} km`
+                    : `${Math.round(routeEstimate.distanceMeters)} m`}
+                </Text>
+              ) : null}
+              {routeEstimate ? (
+                <Text style={styles.riderDetail}>
+                  Routes © OSRM · © OpenStreetMap contributors (ODbL)
+                </Text>
+              ) : null}
             </View>
           ) : null}
           {trackingOrder && trackingOrder.paymentMethod.toLowerCase() !== 'cod' && paymentStatusLabel ? (
@@ -214,6 +422,43 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({
             </Text>
           ) : null}
         </View>
+
+        {trackingOrder ? (
+          <>
+            <View style={styles.hairlineDivider} />
+            <View style={styles.invoiceSection}>
+              <Text style={styles.sectionHeading}>{t('Order summary', 'অর্ডারের সারাংশ')}</Text>
+              {trackingOrder.items.map((item) => (
+                <View key={item.id} style={styles.invoiceRow}>
+                  <Text style={styles.invoiceItem} numberOfLines={2}>
+                    {language === 'en' ? item.nameEn : item.nameBn}
+                    {'  ×  '}
+                    {item.quantity}
+                  </Text>
+                  <Text style={styles.invoiceAmount}>৳{item.lineTotal.toFixed(2)}</Text>
+                </View>
+              ))}
+              <View style={styles.invoiceRow}>
+                <Text style={styles.invoiceLabel}>{t('Subtotal', 'সাবটোটাল')}</Text>
+                <Text style={styles.invoiceAmount}>৳{trackingOrder.subtotal.toFixed(2)}</Text>
+              </View>
+              <View style={styles.invoiceRow}>
+                <Text style={styles.invoiceLabel}>{t('Delivery fee', 'ডেলিভারি ফি')}</Text>
+                <Text style={styles.invoiceAmount}>৳{trackingOrder.deliveryFee.toFixed(2)}</Text>
+              </View>
+              <View style={[styles.invoiceRow, styles.invoiceTotalRow]}>
+                <Text style={styles.invoiceTotalLabel}>{t('Total', 'সর্বমোট')}</Text>
+                <Text style={styles.invoiceTotalAmount}>৳{trackingOrder.total.toFixed(2)}</Text>
+              </View>
+              <Text style={styles.paymentStatus}>
+                {t('Payment method', 'পেমেন্ট পদ্ধতি')}: {formatStatus(trackingOrder.paymentMethod)}
+                {trackingOrder.paymentMethod.toLowerCase() !== 'cod' && paymentStatusLabel
+                  ? ` · ${paymentStatusLabel}`
+                  : ''}
+              </Text>
+            </View>
+          </>
+        ) : null}
 
         <View style={styles.hairlineDivider} />
 
@@ -279,9 +524,9 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   mapContainer: {
-    height: 150,
-    backgroundColor: '#F4F4F5',
-    borderRadius: 8,
+    height: 260,
+    backgroundColor: '#202124',
+    borderRadius: 18,
     overflow: 'hidden',
     position: 'relative',
     justifyContent: 'center',
@@ -291,7 +536,28 @@ const styles = StyleSheet.create({
   mapOrderId: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#71717A',
+    color: '#FFFFFF',
+  },
+  mapFallback: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    backgroundColor: '#202124',
+  },
+  mapFallbackText: {
+    color: '#D1D5DB',
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  mapErrorOverlay: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    backgroundColor: 'rgba(32, 33, 36, 0.88)',
   },
   liveBadge: {
     position: 'absolute',
@@ -301,7 +567,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#09090B',
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
@@ -309,15 +575,89 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: '#17A56B',
+    backgroundColor: '#FFFFFF',
   },
   liveBadgeText: {
-    color: '#17251F',
+    color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
   },
+  etaBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    alignItems: 'flex-end',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+  },
+  etaValue: {
+    color: '#09090B',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  etaCaption: {
+    color: '#52525B',
+    fontSize: 10,
+    marginTop: 1,
+  },
+  recenterButton: {
+    position: 'absolute',
+    right: 12,
+    bottom: 12,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#09090B',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    elevation: 4,
+  },
   statusSection: {
     marginBottom: 16,
+  },
+  invoiceSection: {
+    paddingVertical: 16,
+    gap: 10,
+  },
+  invoiceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  invoiceItem: {
+    flex: 1,
+    color: '#52525B',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  invoiceLabel: {
+    color: '#71717A',
+    fontSize: 13,
+  },
+  invoiceAmount: {
+    color: '#52525B',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  invoiceTotalRow: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E4E4E7',
+    paddingTop: 10,
+  },
+  invoiceTotalLabel: {
+    color: '#09090B',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  invoiceTotalAmount: {
+    color: '#09090B',
+    fontSize: 15,
+    fontWeight: '700',
   },
   statusHeadline: {
     fontSize: 20,
@@ -333,16 +673,16 @@ const styles = StyleSheet.create({
   riderCard: {
     marginTop: 12,
     borderRadius: 12,
-    backgroundColor: '#F3F8F5',
+    backgroundColor: '#F4F4F5',
     padding: 12,
   },
   riderName: {
-    color: '#17251F',
+    color: '#09090B',
     fontSize: 14,
     fontWeight: '700',
   },
   riderDetail: {
-    color: '#637269',
+    color: '#52525B',
     fontSize: 12,
     lineHeight: 18,
     marginTop: 4,

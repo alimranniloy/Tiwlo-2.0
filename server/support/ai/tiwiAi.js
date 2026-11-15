@@ -1,18 +1,12 @@
 import { SystemBrain } from './brain.js';
 import { AiActionsEngine } from './aiActions.js';
+import { executeGeminiWithFailover, getChatSystemSettings } from './aiKeyPoolService.js';
 import { getPlatformUrl } from '../../config/platformConfig.js';
 
 // ====================================================================
-// TIWI AI API ENGINE (POWERED INTERNALLY BY GEMINI FLASH)
+// TIWI AI API ENGINE (POWERED INTERNALLY BY GEMINI KEY POOL FAILOVER)
 // With Autonomous Action Execution & Dual-Brain Intelligence
 // ====================================================================
-
-const TIWI_GEMINI_KEY = process.env.GEMINI_API_KEY || '';
-const CANDIDATE_MODELS = [
-  'gemini-3.5-flash',
-  'gemini-3.1-flash-lite',
-  'gemini-flash-lite-latest'
-];
 
 export const TiwiAI = {
   /**
@@ -29,6 +23,8 @@ export const TiwiAI = {
     userMessage,
     conversationHistory = [],
     activeTicketId = null,
+    ticketStatus = null,
+    mode = 'auto_reply',
     clientContext = {}
   }) {
     if (!userMessage || !userMessage.trim()) {
@@ -39,6 +35,73 @@ export const TiwiAI = {
     }
 
     try {
+      const chatSettings = await getChatSystemSettings();
+      const nowIso = new Date().toISOString();
+
+      if (chatSettings.liveChatWidgetEnabled === false) {
+        return {
+          reply: 'Live chat support is currently offline. Please submit a support ticket and our team will respond shortly.',
+          agent: agentName,
+          aiDisabled: true,
+          reason: 'LIVE_CHAT_WIDGET_DISABLED',
+          timestamp: nowIso
+        };
+      }
+
+      if (
+        chatSettings.blockChatOnClosedTicket !== false &&
+        ticketStatus &&
+        ['closed', 'resolved'].includes(String(ticketStatus).trim().toLowerCase())
+      ) {
+        return {
+          reply: 'This support ticket is already closed. Please open a new support ticket if you need further assistance.',
+          agent: agentName,
+          aiDisabled: true,
+          reason: 'TICKET_CLOSED',
+          timestamp: nowIso
+        };
+      }
+
+      if (!isLoggedIn && chatSettings.guestChatEnabled === false) {
+        return {
+          reply: 'Guest live chat is currently disabled. Please sign in to your Tiwlo account to chat with support.',
+          agent: agentName,
+          aiDisabled: true,
+          reason: 'GUEST_CHAT_DISABLED',
+          timestamp: nowIso
+        };
+      }
+
+      if (mode === 'agent_assist' && chatSettings.aiAgentAssistEnabled === false) {
+        return {
+          reply: '',
+          agent: agentName,
+          aiDisabled: true,
+          reason: 'AI_AGENT_ASSIST_DISABLED',
+          timestamp: nowIso
+        };
+      }
+
+      if (mode === 'triage' && chatSettings.aiTriageEnabled === false) {
+        return {
+          reply: '',
+          agent: agentName,
+          aiDisabled: true,
+          reason: 'AI_TRIAGE_DISABLED',
+          timestamp: nowIso
+        };
+      }
+
+      if (chatSettings.enabled === false || (mode === 'auto_reply' && chatSettings.aiAutoReplyEnabled === false)) {
+        return {
+          reply: 'Thank you for your message! A human support specialist will review your request and reply shortly.',
+          agent: agentName,
+          aiDisabled: true,
+          reason: 'AI_AUTO_REPLY_DISABLED',
+          timestamp: nowIso
+        };
+      }
+
       // 1. Build live system context and prompt from Dual-Brain System
       const systemInstruction = await SystemBrain.buildAgentSystemPrompt(
         agentName,
@@ -56,17 +119,19 @@ export const TiwiAI = {
       // Add previous conversation messages if any (limit to last 6 for prompt efficiency)
       const recentHistory = conversationHistory.slice(-6);
       for (const msg of recentHistory) {
-        if (msg.sender === 'user') {
-          contents.push({ role: 'user', parts: [{ text: msg.text }] });
-        } else if (msg.sender === 'agent') {
-          contents.push({ role: 'model', parts: [{ text: msg.text }] });
+        const msgText = msg?.text ?? msg?.parts?.[0]?.text ?? '';
+        if (!msgText) continue;
+        if (msg.sender === 'user' || msg.role === 'user') {
+          contents.push({ role: 'user', parts: [{ text: msgText }] });
+        } else if (msg.sender === 'agent' || msg.role === 'model') {
+          contents.push({ role: 'model', parts: [{ text: msgText }] });
         }
       }
 
       // Add the current user query
       contents.push({ role: 'user', parts: [{ text: userMessage.trim() }] });
 
-      // 3. Make API request to Gemini Engine
+      // 3. Make API request via Gemini Key Pool with automatic quota failover
       const payload = {
         contents,
         systemInstruction: {
@@ -80,26 +145,21 @@ export const TiwiAI = {
       };
 
       let responseText = null;
+      let aiMeta = null;
 
-      // Iterate through active models with resilient fallback
-      for (const model of CANDIDATE_MODELS) {
-        try {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${TIWI_GEMINI_KEY}`;
-          const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            signal: AbortSignal.timeout(6500)
-          });
-
-          const data = await res.json();
-          if (data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-            responseText = data.candidates[0].content.parts[0].text;
-            break;
-          }
-        } catch (err) {
-          console.warn(`Model ${model} request failed:`, err.message);
+      try {
+        const aiResult = await executeGeminiWithFailover({ payload });
+        if (aiResult?.text) {
+          responseText = aiResult.text;
+          aiMeta = {
+            usedKeyId: aiResult.usedKeyId,
+            usedKeyLabel: aiResult.usedKeyLabel,
+            usedModel: aiResult.usedModel,
+            failoverCount: aiResult.failoverCount
+          };
         }
+      } catch (err) {
+        console.warn('TiwiAI key pool failover execution failed:', err.message);
       }
 
       if (!responseText) {
@@ -221,6 +281,7 @@ export const TiwiAI = {
         reply: responseText.trim(),
         agent: agentName,
         actionExecuted: executedAction,
+        ...(aiMeta ? { aiMeta } : {}),
         timestamp: new Date().toISOString()
       };
     } catch (err) {

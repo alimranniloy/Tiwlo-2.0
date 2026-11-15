@@ -128,6 +128,7 @@ export async function createParcelOrder(input: {
   return {
     ...(result.order as OrderSubmission),
     ...(typeof result.checkoutUrl === 'string' ? { checkoutUrl: result.checkoutUrl } : {}),
-    ...(typeof result.expiresAt === 'string' ? { expiresAt: result.expiresAt } : {})
+    ...(typeof result.expiresAt === 'string' ? { expiresAt: result.expiresAt } : {}),
+    ...(typeof result.checkoutError === 'string' ? { checkoutError: result.checkoutError } : {})
   };
 }

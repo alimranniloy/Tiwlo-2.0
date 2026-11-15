@@ -437,7 +437,20 @@ export const MasterDB = {
     if (!isPgActive()) throw new Error('PostgreSQL is unavailable; sessions cannot be created.');
     const user = await this.findUserByIdentifier(userId);
     if (!user) throw new Error('Cannot create a session for an unknown user.');
-    return createAuthSessionWithRust({ user, tiwiId, email, request: req });
+    const session = await createAuthSessionWithRust({ user, tiwiId, email, request: req });
+    if (req?.cookies?.tiwlo_guest_support) {
+      import('../support/ticketingService.js')
+        .then(({ defaultTicketingService }) =>
+          defaultTicketingService.claimGuestSessionsForUser({
+            userId: user.id,
+            userEmail: user.email || email || '',
+            userName: user.name || user.storeName || '',
+            req
+          })
+        )
+        .catch(() => {});
+    }
+    return session;
   },
 
   async getSession(token, req = null) {
@@ -676,6 +689,22 @@ export const MasterDB = {
       }
     }
 
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const isPaidStore = monthlyPrice > 0 && resolvedPlanId !== 'free';
+    const initialLifecycleFields = {
+      lifecycleStatus: 'active',
+      subscriptionStatus: 'active',
+      currentPeriodStart: nowIso,
+      expiresAt: isPaidStore ? new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString() : null,
+      graceStartedAt: null,
+      graceEndsAt: null,
+      suspendedAt: null,
+      scheduledDeletionAt: null,
+      graceEmailSentAt: null,
+      suspendedEmailSentAt: null
+    };
+
     const newStore = {
       id: `store_${Date.now()}`,
       tiwiId: newTiwiId,
@@ -697,14 +726,43 @@ export const MasterDB = {
       },
       dbSchema: `store_${newTiwiId.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
       status: 'active',
-      createdAt: new Date().toISOString()
+      ...initialLifecycleFields,
+      createdAt: nowIso
     };
 
     master.stores.push(newStore);
+    master.subscriptions = master.subscriptions || [];
+    master.subscriptions.push({
+      tiwiId: newTiwiId,
+      planId: resolvedPlanId,
+      planName: selectedPackage.planName,
+      price: monthlyPrice,
+      billingCycle: isPaidStore ? 'monthly' : 'forever',
+      productLimit: Number(selectedPackage.productLimit ?? 10),
+      warehouseLimit: Number(selectedPackage.warehouseLimit ?? 1),
+      staffLimit: Number(selectedPackage.staffLimit ?? 1),
+      monthlyOrderLimit: Number(selectedPackage.monthlyOrderLimit ?? 50),
+      hasPos: Boolean(selectedPackage.hasPos),
+      hasCustomDomain: Boolean(selectedPackage.hasCustomDomain),
+      extraProductSlots: 0,
+      extraStaffSlots: 0,
+      addons: [],
+      subdomain: cleanSubdomain,
+      status: 'active',
+      ...initialLifecycleFields,
+      updatedAt: nowIso
+    });
     (await this.saveMasterData(master));
 
     // Provision isolated tenant database for this store
-    await TenantDB.provisionStore(newTiwiId, newStore.storeName, resolvedPlanId, cleanSubdomain, newStore.currency);
+    await TenantDB.provisionStore(
+      newTiwiId,
+      newStore.storeName,
+      resolvedPlanId,
+      cleanSubdomain,
+      newStore.currency,
+      initialLifecycleFields
+    );
 
     if (resolvedPlanId === 'free' || monthlyPrice <= 0) {
       await recordFreeStoreClaim({
@@ -749,14 +807,33 @@ export const TenantDB = {
     await saveState('tenant', storeId, data);
   },
 
-  async provisionStore(tiwiId, storeName, planId = 'free', subdomain = null, currency = null) {
+  async provisionStore(tiwiId, storeName, planId = 'free', subdomain = null, currency = null, lifecycleOverrides = null) {
     const store = await this.getStoreDb(tiwiId);
     if (store.createdAt) return store;
     const pkg = await getEcommercePackageById(planId || 'free');
     const resolvedSubdomain = subdomain || makeStoreSubdomain(storeName);
+    const resolvedPlan = pkg?.planId || planId || 'free';
+    const pkgPrice = Number(pkg?.price || 0);
+    const isPaid = pkgPrice > 0 && resolvedPlan !== 'free';
     store.storeName = storeName;
-    store.planId = pkg?.planId || planId || 'free';
+    store.planId = resolvedPlan;
     store.createdAt = new Date().toISOString();
+    const lifecycle = lifecycleOverrides || {
+      lifecycleStatus: 'active',
+      subscriptionStatus: 'active',
+      currentPeriodStart: store.createdAt,
+      expiresAt: isPaid ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : null,
+      graceStartedAt: null,
+      graceEndsAt: null,
+      suspendedAt: null,
+      scheduledDeletionAt: null,
+      graceEmailSentAt: null,
+      suspendedEmailSentAt: null
+    };
+    store.status = 'active';
+    store.lifecycleStatus = lifecycle.lifecycleStatus;
+    store.subscriptionStatus = lifecycle.subscriptionStatus;
+    store.expiresAt = lifecycle.expiresAt;
     const configuredCurrency = String(currency || store.store_settings.currency || 'USD ($)');
     const currencySymbol = configuredCurrency.match(/\(([^)]+)\)/)?.[1] || store.store_settings.currencySymbol || '$';
     store.store_settings = {
@@ -768,10 +845,10 @@ export const TenantDB = {
     };
     store.subscription = {
       ...(store.subscription || {}),
-      planId: pkg?.planId || planId || 'free',
+      planId: resolvedPlan,
       planName: pkg?.planName || 'Free Starter',
-      price: Number(pkg?.price || 0),
-      billingCycle: 'monthly',
+      price: pkgPrice,
+      billingCycle: isPaid ? 'monthly' : 'forever',
       productLimit: Number(pkg?.productLimit ?? 10),
       warehouseLimit: Number(pkg?.warehouseLimit ?? 1),
       staffLimit: Number(pkg?.staffLimit ?? 1),
@@ -782,6 +859,8 @@ export const TenantDB = {
       extraStaffSlots: Number(store.subscription?.extraStaffSlots || 0),
       addons: Array.isArray(store.subscription?.addons) ? store.subscription.addons : [],
       subdomain: resolvedSubdomain,
+      status: 'active',
+      ...lifecycle,
       updatedAt: store.createdAt
     };
     await this.saveStoreDb(tiwiId, store);

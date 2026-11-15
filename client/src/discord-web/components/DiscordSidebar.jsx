@@ -23,13 +23,13 @@ export default function DiscordSidebar({
   mobileOpen,
   onCloseMobile
 }) {
-  // Pure Discord bot management items
+  // Pure Official Discord AI Bot control items
   const mainNavItems = [
     { id: 'overview', label: 'Overview', icon: Home, path: '/discord' },
-    { id: 'bots', label: 'My bots', icon: Bot, path: '/discord/bots' },
-    { id: 'servers', label: 'Your servers', icon: Server, path: '/discord/servers' },
-    { id: 'automations', label: 'Automations', icon: Zap, path: '/discord/automations' },
-    { id: 'moderation', label: 'Moderation', icon: Shield, path: '/discord/moderation' },
+    { id: 'bots', label: 'Official AI Bot', icon: Bot, path: '/discord/bots' },
+    { id: 'servers', label: 'Connected Servers', icon: Server, path: '/discord/servers' },
+    { id: 'automations', label: 'AI Automations', icon: Zap, path: '/discord/automations' },
+    { id: 'moderation', label: 'Auto-Moderation', icon: Shield, path: '/discord/moderation' },
     { id: 'tickets', label: 'Tickets', icon: Ticket, path: '/discord/tickets' },
     { id: 'activity', label: 'Activity logs', icon: BarChart2, path: '/discord/activity' },
   ];

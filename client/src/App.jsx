@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import ToastNotification from './components/ToastNotification';
 import LoginLocationCapture from './components/LoginLocationCapture';
+import FreeStoreAttribution from './components/FreeStoreAttribution';
 import LandingPage from './landing/LandingPage';
 import LoginView from './views/LoginView';
 import CreateAccountView from './views/CreateAccountView';
@@ -19,6 +20,7 @@ import {
 } from './config/platformConfig';
 import { updateSeoMetadata } from './utils/seo';
 import { isVerificationRouteAllowed } from './verification/access';
+import { initVisitorTracker, trackPageView, stopVisitorTracker } from './utils/visitorTracker';
 
 // Dedicated Dashboards (Code-Split via React.lazy)
 const CloudDashboard = lazy(() => import('./dashboards/cloud/CloudDashboard'));
@@ -41,6 +43,7 @@ const SystemView = lazy(() => import('./views/SystemView'));
 const AddProductView = lazy(() => import('./views/AddProductView'));
 const POSView = lazy(() => import('./views/POSView'));
 const StoreSettingsView = lazy(() => import('./views/StoreSettingsView'));
+const StoreDomainSettingsView = lazy(() => import('./views/StoreDomainSettingsView'));
 const SubscriptionOverviewView = lazy(() => import('./views/SubscriptionOverviewView'));
 const PricingPlansView = lazy(() => import('./views/PricingPlansView'));
 const HelpSupportView = lazy(() => import('./views/HelpSupportView'));
@@ -50,6 +53,7 @@ const SecurityCheckupView = lazy(() => import('./views/SecurityCheckupView'));
 const AddressVerificationView = lazy(() => import('./views/AddressVerificationView'));
 const NotFoundView = lazy(() => import('./views/NotFoundView'));
 const UnavailablePage = lazy(() => import('./components/UnavailablePage'));
+const StoreSuspendedPage = lazy(() => import('./components/StoreSuspendedPage'));
 const TPanelDashboard = lazy(() => import('./services/tpanel/TPanelDashboard'));
 const AdminDashboard = lazy(() => import('./administrator').then(m => ({ default: m.AdminDashboard })));
 
@@ -380,8 +384,8 @@ export default function App() {
           if (!hasSession) return 'administrator';
           try {
             const u = JSON.parse(localStorage.getItem('stockpro_user'));
-            const isSuper = u?.role === 'super_admin' || u?.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
-            if (isSuper) {
+            const isAdminActor = u?.role === 'admin' || u?.role === 'super_admin' || u?.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
+            if (isAdminActor) {
               return 'administrator';
             }
           } catch (e) {}
@@ -466,6 +470,7 @@ export default function App() {
         if (pathname === 'reports') return 'reports';
         if (pathname === 'analytics') return 'analytics';
         if (pathname === 'settings') return 'settings';
+        if (pathname === 'domain-settings' || pathname === 'store-domains') return 'domain-settings';
         if (pathname === 'store-settings') return 'store-settings';
         if (pathname === 'store-identity') return 'store-identity';
         if (pathname === 'store-banners') return 'store-banners';
@@ -475,7 +480,9 @@ export default function App() {
         if (pathname === 'shipping' || pathname === 'shipping-settings') return 'shipping';
         if (pathname === 'promotions' || pathname === 'promo-codes' || pathname === 'marketing/promotions') return 'promotions';
         if (pathname === 'help-support/mobile' || pathname === 'mobile-help-support' || pathname === 'support/mobile') return 'mobile-help-support';
-        if (pathname === 'help' || pathname === 'support' || pathname === 'help-support' || pathname.startsWith('help-support/')) return pathname;
+        if (pathname === 'help' || pathname === 'support' || pathname === 'help-support') return 'help-support';
+        if (pathname.startsWith('help-support/')) return pathname;
+        if (pathname.startsWith('support/')) return `help-support/${pathname.replace(/^support\//, '')}`;
         if (pathname === 'tickets' || pathname === 'support-tickets') return 'help-support/tickets';
         if (pathname === 'create-ticket') return 'help-support/create-ticket';
         if (pathname === 'inbox' || pathname === 'support-inbox') return 'help-support/inbox';
@@ -562,7 +569,7 @@ export default function App() {
     if (hasSession) {
       try {
         const u = JSON.parse(localStorage.getItem('stockpro_user'));
-        if (u?.role === 'super_admin' || u?.email === 'tiwloltd@gmail.com') {
+        if (u?.role === 'admin' || u?.role === 'super_admin' || u?.email?.toLowerCase().trim() === 'tiwloltd@gmail.com') {
           window.history.replaceState(null, '', '/administrator');
           return 'administrator';
         }
@@ -575,6 +582,37 @@ export default function App() {
   const [activeTab, setActiveTab] = useState(getTabFromUrl);
   useEffect(() => {
     updateSeoMetadata();
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const pathLower = String(window.location.pathname || '/').toLowerCase();
+    const isStorefront =
+      isStorefrontSubdomainHost() ||
+      activeTab === 'store' ||
+      pathLower === '/store' ||
+      pathLower.startsWith('/store/') ||
+      pathLower === '/s' ||
+      pathLower.startsWith('/s/');
+    const isAdminRoute =
+      activeTab === 'administrator' ||
+      activeTab === 'admin' ||
+      pathLower === '/admin' ||
+      pathLower.startsWith('/admin/') ||
+      pathLower === '/administrator' ||
+      pathLower.startsWith('/administrator/');
+
+    if (isStorefront || isAdminRoute) {
+      stopVisitorTracker();
+      return undefined;
+    }
+
+    initVisitorTracker();
+    trackPageView({
+      path: `${window.location.pathname}${window.location.search}`,
+      title: document.title || activeTab,
+    });
+    return undefined;
   }, [activeTab]);
   const [ssoInitData, setSsoInitData] = useState(null);
   const [bannedAccountInfo, setBannedAccountInfo] = useState(() => {
@@ -826,6 +864,8 @@ export default function App() {
     () => activeTab === 'store' && isStorefrontSubdomainHost()
   );
   const [publicStorefrontError, setPublicStorefrontError] = useState('');
+  const [publicStorefrontSuspended, setPublicStorefrontSuspended] = useState(null);
+  const [publicStorePlanId, setPublicStorePlanId] = useState(null);
   const [subcategories, setSubcategories] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -843,6 +883,9 @@ export default function App() {
     fetch(`${API_BASE}/public/storefront`)
       .then(async response => {
         const data = await response.json().catch(() => ({}));
+        if (response.status === 402 || data?.storeSuspended) {
+          return { suspendedPayload: data };
+        }
         if (!response.ok) throw new Error(data.error || `Storefront request failed with HTTP ${response.status}`);
         if (!Array.isArray(data.products) || !Array.isArray(data.categories) ||
             !data.settings || typeof data.settings !== 'object') {
@@ -852,9 +895,16 @@ export default function App() {
       })
       .then(data => {
         if (cancelled) return;
+        if (data?.suspendedPayload) {
+          setPublicStorefrontSuspended(data.suspendedPayload);
+          setPublicStorefrontError('');
+          return;
+        }
+        setPublicStorefrontSuspended(null);
         setProducts(data.products);
         setCategories(data.categories);
         setPublicStoreSettings(data.settings);
+        setPublicStorePlanId(data?.store?.planId || data?.settings?.planId || null);
       })
       .catch(error => {
         if (!cancelled) setPublicStorefrontError(error.message || 'Could not load this storefront.');
@@ -1086,10 +1136,10 @@ export default function App() {
                   return;
                 }
                 const safeRedirect = getSafeRedirectPath(searchParams.get('redirect'));
-                const isSuper = data.user.role === 'super_admin' || data.user.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
+                const isAdminActor = data.user.role === 'admin' || data.user.role === 'super_admin' || data.user.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
                 const target = safeRedirect && !searchParams.has('dashboard')
                   ? safeRedirect
-                  : (isSuper ? '/administrator' : null);
+                  : (isAdminActor ? '/administrator' : null);
                 redirectAfterAuthentication(
                   safeReturnTo || (target ? getMainAppUrl(target) : getMainAppUrl('/workspace'))
                 );
@@ -1124,16 +1174,16 @@ export default function App() {
                 setActiveTab('store');
                 return;
               }
-              const isSuper = data.user.role === 'super_admin' || data.user.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
+              const isAdminActor = data.user.role === 'admin' || data.user.role === 'super_admin' || data.user.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
               if (!isUidsLandingRoot && (path === '' || path === 'login' || path === 'landing')) {
-                setActiveTab(isSuper ? 'administrator' : 'workspace');
-                window.history.replaceState(null, '', isSuper ? '/administrator' : '/workspace');
+                setActiveTab(isAdminActor ? 'administrator' : 'workspace');
+                window.history.replaceState(null, '', isAdminActor ? '/administrator' : '/workspace');
               } else if (path === 'dashboard' || path === 'workspace') {
                 setActiveTab('workspace');
                 if (path === 'dashboard') {
                   window.history.replaceState(null, '', `/workspace${window.location.search}${window.location.hash}`);
                 }
-              } else if (path === 'administrator' && !isSuper) {
+              } else if ((path === 'administrator' || path === 'admin' || path.startsWith('administrator/') || path.startsWith('admin/')) && !isAdminActor) {
                 setActiveTab('workspace');
                 window.history.replaceState(null, '', '/workspace');
               }
@@ -1413,9 +1463,9 @@ export default function App() {
     }
 
     if (!returnTarget || new URL(returnTarget, getPlatformUrl()).pathname === '/address-verification') {
-      const isSuperAdmin = user?.role === 'super_admin' ||
+      const isAdminActor = user?.role === 'admin' || user?.role === 'super_admin' ||
         user?.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
-      returnTarget = getMainAppUrl(isSuperAdmin ? '/administrator' : '/workspace');
+      returnTarget = getMainAppUrl(isAdminActor ? '/administrator' : '/workspace');
     }
 
     const url = new URL(getMainAppUrl('/address-verification'));
@@ -1423,8 +1473,21 @@ export default function App() {
     return url.toString();
   }
 
+  const claimGuestSupportSession = () => {
+    try {
+      fetch(`${API_BASE}/support/guest/claim`, {
+        method: 'POST',
+        credentials: 'include',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      }).catch(() => {});
+    } catch (e) {}
+  };
+
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
+    claimGuestSupportSession();
     if (user?.authMethod === 'pick_credentials' && user?.addressVerified !== true) {
       const addressUrl = new URL(getAddressVerificationUrl(user));
       if (isAuthSubdomain() || addressUrl.origin !== window.location.origin) {
@@ -1467,7 +1530,7 @@ export default function App() {
       let targetPath = '/workspace';
       if (redirectUrl) {
         targetPath = redirectUrl;
-      } else if (user?.role === 'super_admin' || user?.email === 'tiwloltd@gmail.com') {
+      } else if (user?.role === 'admin' || user?.role === 'super_admin' || user?.email?.toLowerCase().trim() === 'tiwloltd@gmail.com') {
         targetPath = '/administrator';
       }
 
@@ -1478,7 +1541,7 @@ export default function App() {
       redirectAfterAuthentication(destination);
       return;
     }
-    if (user?.role === 'super_admin' || user?.email === 'tiwloltd@gmail.com') {
+    if (user?.role === 'admin' || user?.role === 'super_admin' || user?.email?.toLowerCase().trim() === 'tiwloltd@gmail.com') {
       handleTabChange('administrator');
     } else {
       handleTabChange('workspace');
@@ -1488,6 +1551,7 @@ export default function App() {
 
   const handleRegisterSuccess = (user) => {
     setCurrentUser(user);
+    claimGuestSupportSession();
     if (user?.authMethod === 'pick_credentials' && user?.addressVerified !== true) {
       const addressUrl = new URL(getAddressVerificationUrl(user));
       if (isAuthSubdomain() || addressUrl.origin !== window.location.origin) {
@@ -1504,13 +1568,13 @@ export default function App() {
         window.location.replace(getMailUrl());
         return;
       }
-      const isSuper = user?.role === 'super_admin' || user?.email === 'tiwloltd@gmail.com';
+      const isAdminActor = user?.role === 'admin' || user?.role === 'super_admin' || user?.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
       const registerParams = new URLSearchParams(window.location.search);
       const safeReturnTo = getSafeReturnToTarget(registerParams.get('return_to'));
       const requestedRedirect = registerParams.has('dashboard')
         ? null
         : getSafeRedirectTarget(registerParams.get('redirect'));
-      const target = safeReturnTo || requestedRedirect || (isSuper ? '/administrator' : '/workspace');
+      const target = safeReturnTo || requestedRedirect || (isAdminActor ? '/administrator' : '/workspace');
       const destination = target.startsWith('http') ? target : getMainAppUrl(target);
       redirectAfterAuthentication(destination);
       return;
@@ -1571,7 +1635,7 @@ export default function App() {
   const DATA_TABS = new Set([
     'dashboard', 'ecommerce-dashboard', 'products', 'categories',
     'inventory', 'purchases', 'sales', 'customers', 'suppliers',
-    'reports', 'analytics', 'pos', 'store'
+    'reports', 'analytics', 'pos', 'store', 'domain-settings'
   ]);
 
   // Fetch all initial data with smooth 1.5s natural transition (Zero freeze or lagging)
@@ -2076,6 +2140,11 @@ export default function App() {
     return matchesSearch && matchesCategory;
   });
 
+  const activeStorefrontPlanId = isStorefrontSubdomainHost()
+    ? publicStorePlanId
+    : (subscription?.planId || selectedStore?.planId || publicStorePlanId);
+  const isFreeStorefront = !activeStorefrontPlanId || String(activeStorefrontPlanId).toLowerCase() === 'free';
+
   return (
     <div className="tiwi-v3-app min-h-screen bg-[#f8f8f8] dark:bg-[#0f0f0f] font-sans antialiased text-neutral-800 dark:text-neutral-100">
       {/* Top Laser Progress Beam for Unique Reload Indication */}
@@ -2116,10 +2185,10 @@ export default function App() {
                 redirectAfterAuthentication(returnTo);
                 return;
               }
-              const isSuperAdmin = verifiedUser?.role === 'super_admin' ||
+              const isAdminActor = verifiedUser?.role === 'admin' || verifiedUser?.role === 'super_admin' ||
                 verifiedUser?.email?.toLowerCase().trim() === 'tiwloltd@gmail.com';
               redirectAfterAuthentication(
-                getMainAppUrl(isSuperAdmin ? '/administrator' : '/workspace')
+                getMainAppUrl(isAdminActor ? '/administrator' : '/workspace')
               );
             }}
           />
@@ -2247,7 +2316,7 @@ export default function App() {
           }}
           onCancel={() => window.location.assign(getUidsDashboardUrl('/'))}
         />
-      ) : (!currentUser && activeTab !== 'store' && activeTab !== 'verification' && activeTab !== 'create-account' && !activeTab.startsWith('create-store') && activeTab !== 'mobile-help-support' && activeTab !== 'help-support/mobile' && activeTab !== 'tpanel' && activeTab !== 'landing' && activeTab !== 'subdomain' && !(typeof activeTab === 'string' && (activeTab.startsWith('subdomain') || activeTab.startsWith('uidis')))) ? (
+      ) : (!currentUser && activeTab !== 'store' && activeTab !== 'verification' && activeTab !== 'create-account' && !activeTab.startsWith('create-store') && activeTab !== 'mobile-help-support' && activeTab !== 'help-support/mobile' && activeTab !== 'help-support' && !(typeof activeTab === 'string' && activeTab.startsWith('help-support/')) && activeTab !== 'tpanel' && activeTab !== 'landing' && activeTab !== 'subdomain' && !(typeof activeTab === 'string' && (activeTab.startsWith('subdomain') || activeTab.startsWith('uidis')))) ? (
         <LoginView
           onLoginSuccess={handleLoginSuccess}
           onAccountDisabled={(info) => {
@@ -2290,6 +2359,11 @@ export default function App() {
             label={typeof window !== 'undefined' ? window.location.hostname : ''}
             actionHref={getMainAppUrl('/')}
           />
+        ) : isStorefrontSubdomainHost() && publicStorefrontSuspended ? (
+          <StoreSuspendedPage
+            suspendedInfo={publicStorefrontSuspended}
+            billingHref={getMainAppUrl('/billing')}
+          />
         ) : isStorefrontSubdomainHost() && publicStorefrontError ? (
           <UnavailablePage
             label={typeof window !== 'undefined' ? window.location.hostname : ''}
@@ -2298,19 +2372,22 @@ export default function App() {
             actionHref={getMainAppUrl('/')}
           />
         ) : (
-          <TiwiMart
-            products={products}
-            categories={categories}
-            suppliers={suppliers}
-            storeSettings={publicStoreSettings}
-            onOpenAdmin={() => {
-              setActiveTab('dashboard');
-              try {
-                window.history.pushState({}, '', window.location.pathname);
-              } catch (e) {}
-            }}
-            showToast={showToast}
-          />
+          <>
+            <TiwiMart
+              products={products}
+              categories={categories}
+              suppliers={suppliers}
+              storeSettings={publicStoreSettings}
+              onOpenAdmin={() => {
+                setActiveTab('dashboard');
+                try {
+                  window.history.pushState({}, '', window.location.pathname);
+                } catch (e) {}
+              }}
+              showToast={showToast}
+            />
+            <FreeStoreAttribution isFreeStore={isFreeStorefront} />
+          </>
         )
       ) : (activeTab === 'tiwi' || (typeof activeTab === 'string' && activeTab.startsWith('tiwi'))) ? (
         <TiwiSocialWeb
@@ -2413,6 +2490,38 @@ export default function App() {
           showToast={showToast}
           onBackToApp={() => handleTabChange('workspace')}
         />
+      ) : (!currentUser && (activeTab === 'help-support' || (typeof activeTab === 'string' && activeTab.startsWith('help-support/')))) ? (
+        <div className="min-h-screen bg-[#fafafa] dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100">
+          <header className="sticky top-0 z-30 border-b border-neutral-200/80 dark:border-neutral-800 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-md">
+            <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+              <button
+                type="button"
+                onClick={() => handleTabChange('landing')}
+                className="flex items-center gap-2 text-sm font-bold tracking-tight text-neutral-950 dark:text-white cursor-pointer"
+              >
+                <span className="h-2.5 w-2.5 rounded-full bg-[#1ED760]" />
+                <span>Tiwlo Support</span>
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleTabChange('login')}
+                  className="rounded-lg border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-3 py-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-200 hover:bg-[#fafafa] dark:hover:bg-neutral-900 cursor-pointer"
+                >
+                  Sign in
+                </button>
+              </div>
+            </div>
+          </header>
+          <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+            <HelpSupportView
+              currentUser={currentUser}
+              initialSubRoute={activeTab.startsWith('help-support/') ? activeTab.replace('help-support/', '') : 'home'}
+              showToast={showToast}
+              onBackToDashboard={() => handleTabChange('landing')}
+            />
+          </main>
+        </div>
       ) : (activeTab === 'dashboard' || activeTab === 'identity' || activeTab === 'billing' || activeTab.startsWith('billing') || activeTab === 'domains' || activeTab === 'workspace' || activeTab.startsWith('workspace') || activeTab === 'marketplace' || activeTab.startsWith('marketplace') || activeTab === 'whatsapp-automation' || activeTab.startsWith('whatsapp-automation')) ? (
         <CloudDashboard
           currentUser={currentUser}
@@ -2458,6 +2567,9 @@ export default function App() {
                   dataLoadError={dataLoadError}
                   onReloadData={handleReloadData}
                   currentUser={currentUser}
+                  tiwiId={selectedStore?.tiwiId}
+                  subscription={subscription}
+                  showToast={showToast}
                   filteredProducts={filteredProducts}
                   tableSearch={tableSearch}
                   setTableSearch={setTableSearch}
@@ -2652,6 +2764,16 @@ export default function App() {
             />
           )}
 
+          {/* TAB: DOMAIN SETTINGS */}
+          {activeTab === 'domain-settings' && (
+            <StoreDomainSettingsView
+              currentStore={selectedStore || currentUser}
+              subscription={subscription}
+              onNavigateToPricing={() => handleTabChange('pricing')}
+              showToast={showToast}
+            />
+          )}
+
           {/* TAB: STORE & THEME SETTINGS */}
           {(['store-settings', 'store-identity', 'store-banners', 'store-pages', 'payments', 'shipping', 'promotions'].includes(activeTab)) && (
             <StoreSettingsView
@@ -2710,12 +2832,37 @@ export default function App() {
   )}
       </Suspense>
 
-      {/* Live Support Agent Chat Widget (Tiwi AI Core - 512 Online, 3-Tier Escalation) */}
-      {activeTab !== 'mobile-help-support' && activeTab !== 'help-support/mobile' && (
-        <Suspense fallback={null}>
-          <LiveSupportWidget currentUser={currentUser} />
-        </Suspense>
-      )}
+      {/* Live Support Widget — strictly rendered ONLY on Tiwlo platform routes (never on merchant storefronts or /admin) */}
+      {(() => {
+        const pathLower = typeof window !== 'undefined'
+          ? String(window.location.pathname || '/').toLowerCase()
+          : '/';
+        const isStorefront =
+          isStorefrontSubdomainHost() ||
+          activeTab === 'store' ||
+          pathLower === '/store' ||
+          pathLower.startsWith('/store/') ||
+          pathLower === '/s' ||
+          pathLower.startsWith('/s/');
+        const isAdminRoute =
+          activeTab === 'administrator' ||
+          activeTab === 'admin' ||
+          pathLower === '/admin' ||
+          pathLower.startsWith('/admin/') ||
+          pathLower === '/administrator' ||
+          pathLower.startsWith('/administrator/');
+        const isMobileSupport =
+          activeTab === 'mobile-help-support' || activeTab === 'help-support/mobile';
+        if (isStorefront || isAdminRoute || isMobileSupport) return null;
+        return (
+          <Suspense fallback={null}>
+            <LiveSupportWidget
+              currentUser={currentUser}
+              onNavigateSupport={(subRoute) => handleTabChange(subRoute ? `help-support/${subRoute}` : 'help-support')}
+            />
+          </Suspense>
+        );
+      })()}
 
       {/* Global Modals (Rendered conditionally on demand) */}
       <Suspense fallback={null}>

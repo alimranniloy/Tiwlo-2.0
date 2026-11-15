@@ -2,57 +2,74 @@ import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft,
-  MessageSquare,
-  Ticket,
-  PlusCircle,
-  HelpCircle,
-  ShieldCheck,
-  Send,
-  Sparkles,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
-  RefreshCw,
-  Search,
   ExternalLink,
-  ChevronRight,
-  User,
-  Smartphone,
+  Headphones,
+  HelpCircle,
+  Loader2,
   Lock,
-  Wifi
+  MessageSquare,
+  PlusCircle,
+  Send,
+  ShieldCheck,
+  Sparkles,
+  Ticket,
 } from 'lucide-react';
 import { getOptimalMediaUrl } from '../utils/mediaUtils';
 import CreateTicketView from './help-support/CreateTicketView';
 import TicketsView from './help-support/TicketsView';
+import TicketDetailView from './help-support/TicketDetailView';
 import HelpCenterView from './help-support/HelpCenterView';
+
+let mobileMsgSeq = 0;
+function nextMobileMsgId(prefix) {
+  mobileMsgSeq += 1;
+  return `${prefix}_${Date.now()}_${mobileMsgSeq}`;
+}
+
+function normalizeStatus(status) {
+  const s = String(status || 'open').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  if (s === 'closed') return 'closed';
+  if (s === 'resolved') return 'resolved';
+  if (s === 'escalated') return 'escalated';
+  if (s === 'in_progress' || s === 'inprogress') return 'in_progress';
+  if (s === 'waiting_customer' || s === 'waiting_for_customer') return 'waiting_customer';
+  return 'open';
+}
 
 export default function MobileHelpSupportView({
   currentUser,
   setCurrentUser,
   showToast,
-  onBackToApp
+  onBackToApp,
 }) {
-  const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'tickets' | 'new-ticket' | 'faq'
-  const [isVerifyingSso, setIsVerifyingSso] = useState(false);
-  const [ssoVerified, setSsoVerified] = useState(false);
+  const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'tickets' | 'new-ticket' | 'faq' | 'ticket-detail'
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [recoveryCodes, setRecoveryCodes] = useState({});
   const [deviceInfo, setDeviceInfo] = useState(null);
 
+  // System config & Guest session
+  const [supportConfig, setSupportConfig] = useState({
+    liveChatWidgetEnabled: true,
+    allowNewTicketCreation: true,
+    allowAttachments: true,
+  });
+  const [guestSession, setGuestSession] = useState(null);
+  const [checkingGuest, setCheckingGuest] = useState(!currentUser);
+  const [guestName, setGuestName] = useState('');
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestPhone, setGuestPhone] = useState('');
+  const [guestError, setGuestError] = useState('');
+  const [verifyingGuest, setVerifyingGuest] = useState(false);
+
   // Live Chat State
-  const [messages, setMessages] = useState([
-    {
-      id: 'welcome_1',
-      sender: 'agent',
-      name: 'Sarah Jenkins',
-      role: 'Senior Support Specialist',
-      text: `Hello ${currentUser?.name || 'there'}! Welcome to Tiwi Mobile Support. I can see you are connected directly from the official Tiwi Mobile App with verified cryptographic attestation. How can I assist you today?`,
-      time: 'Just now'
-    }
-  ]);
+  const [activeConvId, setActiveConvId] = useState(null);
+  const [linkedTicket, setLinkedTicket] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [convertingTicket, setConvertingTicket] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // Auto-scroll chat
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -63,404 +80,618 @@ export default function MobileHelpSupportView({
     }
   }, [messages, isTyping, activeTab]);
 
-  // ====================================================================
-  // 1. AUTOMATIC CRYPTOGRAPHIC SSO HANDSHAKE CONSUMPTION
-  // ====================================================================
+  // Fetch system config
+  useEffect(() => {
+    fetch('/api/support/config', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) setSupportConfig(data.config || data);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Check guest session if not logged in
+  useEffect(() => {
+    if (currentUser) {
+      setGuestSession(null);
+      setCheckingGuest(false);
+      return;
+    }
+    setCheckingGuest(true);
+    fetch('/api/support/guest/session', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        const sess = data?.guestSession || data?.session || (data?.verified ? data : null);
+        if (sess && (sess.email || sess.verified)) {
+          setGuestSession(sess);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setCheckingGuest(false));
+  }, [currentUser]);
+
+  // Automatic Cryptographic SSO Handshake Consumption
   useEffect(() => {
     const consumeSsoHandshake = async () => {
       try {
         const params = new URLSearchParams(window.location.search);
         const ssoToken = params.get('sso_token') || params.get('token');
         const ssoNonce = params.get('sso_nonce') || params.get('nonce');
-
-        if (!ssoToken || !ssoNonce) {
-          // If no token in URL, check if already authenticated
-          if (currentUser) {
-            setSsoVerified(true);
-          }
-          return;
-        }
-
-        setIsVerifyingSso(true);
+        if (!ssoToken || !ssoNonce) return;
 
         const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-        const timeoutId = controller ? setTimeout(() => controller.abort(), 2000) : null;
+        const timeoutId = controller ? setTimeout(() => controller.abort(), 2500) : null;
 
         const res = await fetch('/api/auth/sso/consume-handshake', {
           method: 'POST',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ssoToken, nonce: ssoNonce }),
-          signal: controller ? controller.signal : undefined
+          signal: controller ? controller.signal : undefined,
         });
 
         if (timeoutId) clearTimeout(timeoutId);
         const data = await res.json();
-
         if (res.ok && data.success && data.user) {
-          // Update Session & Local Storage
-          if (data.sessionToken) {
-            localStorage.setItem('stockpro_session', data.sessionToken);
-          }
+          if (data.sessionToken) localStorage.setItem('stockpro_session', data.sessionToken);
           localStorage.setItem('stockpro_user', JSON.stringify(data.user));
-
-          if (setCurrentUser) {
-            setCurrentUser(data.user);
-          }
-
-          setSsoVerified(true);
+          setCurrentUser?.(data.user);
           setDeviceInfo(data.deviceFingerprint || null);
           showToast?.(`Authenticated as ${data.user.name || data.user.storeName}!`, 'success');
-
-          // Clean up URL parameters so nonce cannot be reused
-          const cleanUrl = window.location.pathname;
-          window.history.replaceState({}, document.title, cleanUrl);
-        } else {
-          setSsoVerified(true);
+          window.history.replaceState({}, document.title, window.location.pathname);
         }
       } catch (err) {
         console.warn('SSO consume non-blocking error:', err);
-      } finally {
-        setIsVerifyingSso(false);
       }
     };
-
     consumeSsoHandshake();
-  }, []);
+  }, [setCurrentUser, showToast]);
 
-  // ====================================================================
-  // 2. LIVE TIWI AI CHAT SUBMISSION WITH CLIENT CONTEXT
-  // ====================================================================
+  const isAuthorizedForChat = Boolean(currentUser || guestSession);
+
+  // Initialize welcome message once authorized
+  useEffect(() => {
+    if (!isAuthorizedForChat || messages.length > 0) return;
+    const displayName =
+      currentUser?.name || currentUser?.storeName || guestSession?.name || guestSession?.fullName || 'Customer';
+    setMessages([
+      {
+        id: 'welcome_1',
+        sender: 'agent',
+        name: 'Tiwlo Support',
+        role: 'Support Specialist',
+        text: `Hello ${displayName}! Welcome to Tiwlo Mobile Support. Ask a question below or convert this session into an official support ticket anytime.`,
+        time: 'Just now',
+      },
+    ]);
+  }, [isAuthorizedForChat, currentUser, guestSession, messages.length]);
+
+  const handleVerifyGuest = async (e) => {
+    e.preventDefault();
+    setGuestError('');
+    const name = guestName.trim();
+    const email = guestEmail.trim();
+    const phone = guestPhone.trim();
+
+    if (name.length < 2) {
+      setGuestError('Please enter your full name.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setGuestError('Please enter a valid email address.');
+      return;
+    }
+    if (phone.replace(/\D/g, '').length < 7) {
+      setGuestError('Please enter a valid phone number.');
+      return;
+    }
+
+    setVerifyingGuest(true);
+    try {
+      const res = await fetch('/api/support/guest/session', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, fullName: name, email, phone }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Could not verify contact details.');
+      const sess = data?.guestSession || data?.session || { name, fullName: name, email, phone, verified: true };
+      setGuestSession(sess);
+      showToast?.('Guest contact verified');
+    } catch (err) {
+      setGuestError(err.message || 'Verification failed.');
+    } finally {
+      setVerifyingGuest(false);
+    }
+  };
+
+  const ensureConversationSession = async (firstMessageText) => {
+    if (activeConvId) return { sessionId: activeConvId, ticket: linkedTicket };
+    const displayName =
+      currentUser?.name || currentUser?.storeName || guestSession?.name || guestSession?.fullName || 'Customer';
+    const res = await fetch('/api/support/initiate', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userName: displayName,
+        channel: 'Mobile',
+        initialSubject: firstMessageText.slice(0, 80),
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data?.sessionId) {
+      setActiveConvId(data.sessionId);
+      if (data.ticket) setLinkedTicket(data.ticket);
+      return { sessionId: data.sessionId, ticket: data.ticket || null };
+    }
+    return { sessionId: null, ticket: null };
+  };
+
   const handleSendMessage = async (customText = null) => {
+    if (!isAuthorizedForChat) return;
+    if (normalizeStatus(linkedTicket?.status) === 'closed') return;
     const textToSend = typeof customText === 'string' ? customText : inputText;
     if (!textToSend || !textToSend.trim()) return;
 
     const userText = textToSend.trim();
     setInputText('');
 
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const newUserMsg = {
-      id: `msg_u_${Date.now()}`,
+      id: nextMobileMsgId('msg_u'),
       sender: 'user',
       text: userText,
-      time: timeStr
+      time: timeStr,
     };
 
-    setMessages(prev => [...prev, newUserMsg]);
+    setMessages((prev) => [...prev, newUserMsg]);
     setIsTyping(true);
 
     try {
-      const history = messages.slice(-6).map(m => ({
+      const { sessionId, ticket } = await ensureConversationSession(userText);
+      const history = messages.slice(-6).map((m) => ({
         role: m.sender === 'user' ? 'user' : 'model',
-        parts: [{ text: m.text }]
+        parts: [{ text: m.text }],
       }));
+      const displayName =
+        currentUser?.name || currentUser?.storeName || guestSession?.name || guestSession?.fullName || 'Customer';
 
       const res = await fetch('/api/support/message', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'x-client-source': 'tiwi_mobile_app',
-          'x-client-platform': 'mobile'
+          'x-client-platform': 'mobile',
+          'x-session-id': sessionId || '',
         },
         body: JSON.stringify({
-          agentName: 'Sarah Jenkins',
-          agentRole: 'Senior Support Specialist',
+          agentName: 'Support Specialist',
+          agentRole: 'Support Specialist',
           userId: currentUser?.id || '',
-          userName: currentUser?.name || currentUser?.storeName || 'Imran',
+          userName: displayName,
           message: userText,
+          activeTicketId: ticket?.ticketId || ticket?.id || undefined,
+          sessionId: sessionId || undefined,
           conversationHistory: history,
           clientSource: 'tiwi_mobile_app',
           deviceFingerprint: deviceInfo || {
             platform: 'mobile',
             appVersion: '1.0.0',
-            networkType: 'WiFi/Cellular'
-          }
-        })
+          },
+        }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        const replyText = data.reply || "I've logged your request into our system and our operations team is reviewing it.";
-
-        setMessages(prev => [
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.reply) {
+        setMessages((prev) => [
           ...prev,
           {
             id: `msg_a_${Date.now()}`,
             sender: 'agent',
-            name: 'Sarah Jenkins',
-            role: 'Senior Support Specialist',
-            text: replyText,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }
+            name: 'Support Specialist',
+            role: 'Support Team',
+            text: data.reply,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
         ]);
       } else {
-        throw new Error('Support service response error');
+        throw new Error('Support response unavailable');
       }
-    } catch (err) {
-      console.warn('AI chat error:', err);
-      setMessages(prev => [
+    } catch {
+      setMessages((prev) => [
         ...prev,
         {
           id: `msg_err_${Date.now()}`,
           sender: 'agent',
-          name: 'Sarah Jenkins',
-          role: 'Senior Support Specialist',
-          text: `Thank you for reaching out. We have received your query: "${userText}". Our cloud engineering team has been notified.`,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }
+          name: 'Support Specialist',
+          role: 'Support Team',
+          text: `We received your query: "${userText}". Our specialist team has logged it.`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
       ]);
     } finally {
       setIsTyping(false);
     }
   };
 
+  const handleConvertToTicket = async () => {
+    if (!isAuthorizedForChat || convertingTicket || supportConfig?.allowNewTicketCreation === false) return;
+    setConvertingTicket(true);
+    try {
+      const { sessionId } = await ensureConversationSession('Mobile Support Inquiry');
+      if (!sessionId) throw new Error('Could not initialize conversation');
+      const res = await fetch(`/api/support/conversations/${encodeURIComponent(sessionId)}/convert-to-ticket`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: 'Mobile Support Inquiry',
+          category: 'General Inquiry',
+          priority: 'MEDIUM',
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ticket) {
+        throw new Error(data?.error || 'Could not convert to official ticket');
+      }
+      const created = data.ticket;
+      const cId = created.ticketId || created.id;
+      const rec = data.guestRecoveryCode || data.recoveryCode || created.guestRecoveryCode || '';
+      if (rec && cId) {
+        setRecoveryCodes((prev) => ({ ...prev, [cId]: rec }));
+        try {
+          sessionStorage.setItem(`tiwlo.support.recovery.${cId}`, rec);
+        } catch {}
+      }
+      setLinkedTicket(created);
+      showToast?.(`Ticket ${created.serialNumber || `#${cId}`} created!`);
+    } catch (err) {
+      showToast?.(err.message || 'Conversion failed', 'error');
+    } finally {
+      setConvertingTicket(false);
+    }
+  };
+
+  const handleOpenTicketDetail = (ticket) => {
+    setSelectedTicket(ticket);
+    setActiveTab('ticket-detail');
+  };
+
   const handleBack = () => {
+    if (activeTab === 'ticket-detail') {
+      setActiveTab('tickets');
+      return;
+    }
     if (onBackToApp) {
       onBackToApp();
     } else {
       try {
-        if (window.history.length > 1) {
-          window.history.back();
-        } else {
-          window.close();
-        }
-      } catch (e) {}
+        if (window.history.length > 1) window.history.back();
+        else window.close();
+      } catch {}
     }
   };
 
   const avatarUrl = getOptimalMediaUrl(currentUser?.avatar) || '/default-avatar.svg';
+  const allowNewTicket = supportConfig?.allowNewTicketCreation !== false;
+  const isChatTicketClosed = normalizeStatus(linkedTicket?.status) === 'closed';
+  const displayUserLabel =
+    currentUser?.name || currentUser?.storeName || guestSession?.name || guestSession?.fullName || 'Guest';
 
   return (
-    <div className="min-h-screen bg-neutral-900 text-neutral-100 flex flex-col justify-between max-w-lg mx-auto shadow-2xl relative">
-      {/* 1. TOP MOBILE APP HEADER */}
-      <header className="sticky top-0 z-40 bg-neutral-900/90 backdrop-blur-xl border-b border-neutral-800/80 px-4 py-3">
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-[#fafafa] dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col justify-between max-w-lg mx-auto border-x border-neutral-200/80 dark:border-neutral-800 relative">
+      {/* Top Mobile Header */}
+      <header className="sticky top-0 z-40 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-xl border-b border-neutral-200/80 dark:border-neutral-800 px-4 py-3 space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
             <button
+              type="button"
               onClick={handleBack}
-              className="w-9 h-9 rounded-full bg-neutral-800 hover:bg-neutral-700 flex items-center justify-center text-neutral-200 transition-colors"
+              className="w-9 h-9 rounded-lg border border-neutral-200/80 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900 flex items-center justify-center text-neutral-700 dark:text-neutral-200 cursor-pointer"
               title="Back"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4" />
             </button>
             <div>
-              <div className="flex items-center gap-1.5">
-                <h1 className="text-base font-bold tracking-tight text-white">Help & Support</h1>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                  <ShieldCheck className="w-3 h-3 mr-0.5" /> Mobile App
-                </span>
-              </div>
+              <h1 className="text-sm font-bold tracking-tight text-neutral-950 dark:text-white">
+                Tiwlo Support
+              </h1>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                Mobile Help Desk
+              </p>
             </div>
           </div>
 
-          {/* User Profile Badge */}
-          <div className="flex items-center gap-2 bg-neutral-800/80 px-2.5 py-1 rounded-full border border-neutral-700/60">
+          <div className="flex items-center gap-2 rounded-full border border-neutral-200/80 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900 px-2.5 py-1">
             <img
               src={avatarUrl}
               alt="Avatar"
-              className="w-6 h-6 rounded-full object-cover border border-neutral-600"
+              className="w-5 h-5 rounded-full object-cover"
             />
-            <span className="text-xs font-semibold text-neutral-200 max-w-[80px] truncate">
-              {currentUser?.name || currentUser?.storeName || 'User'}
+            <span className="text-xs font-medium text-neutral-800 dark:text-neutral-200 max-w-[90px] truncate">
+              {displayUserLabel}
             </span>
           </div>
         </div>
 
-        {/* Cryptographic Trust Indicator Banner */}
-        <div className="mt-2.5 flex items-center justify-between bg-emerald-950/40 border border-emerald-800/40 rounded-xl px-2.5 py-1.5 text-[11px] text-emerald-300">
-          <div className="flex items-center gap-1.5 truncate">
-            <Lock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span className="truncate">Cryptographic Single Sign-On • Anti-Clone Trust Active</span>
+        {/* Guest Status Indicator */}
+        {!currentUser && guestSession && (
+          <div className="flex items-center gap-1.5 rounded-lg border border-neutral-200/80 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900 px-2.5 py-1.5 text-[11px] text-neutral-700 dark:text-neutral-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#1ED760] shrink-0" />
+            <span className="truncate">
+              Guest Session Active ({guestSession.email}
+              {guestSession.phone ? ` · ${guestSession.phone}` : ''})
+            </span>
           </div>
-          <div className="flex items-center gap-1 text-[10px] text-emerald-400/80 font-mono shrink-0">
-            <Wifi className="w-3 h-3" />
-            <span>Verified</span>
-          </div>
-        </div>
+        )}
 
-        {/* 2. SEGMENTED TABS */}
-        <div className="grid grid-cols-4 gap-1 mt-2.5 bg-neutral-800/80 p-1 rounded-xl border border-neutral-700/60">
-          <button
-            onClick={() => setActiveTab('chat')}
-            className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              activeTab === 'chat'
-                ? 'bg-neutral-600 text-white shadow-md shadow-neutral-500/20'
-                : 'text-neutral-400 hover:text-neutral-200'
-            }`}
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-            <span>Live Chat</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('tickets')}
-            className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              activeTab === 'tickets'
-                ? 'bg-neutral-600 text-white shadow-md shadow-neutral-500/20'
-                : 'text-neutral-400 hover:text-neutral-200'
-            }`}
-          >
-            <Ticket className="w-3.5 h-3.5" />
-            <span>Tickets</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('new-ticket')}
-            className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              activeTab === 'new-ticket'
-                ? 'bg-neutral-600 text-white shadow-md shadow-neutral-500/20'
-                : 'text-neutral-400 hover:text-neutral-200'
-            }`}
-          >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span>New</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('faq')}
-            className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              activeTab === 'faq'
-                ? 'bg-neutral-600 text-white shadow-md shadow-neutral-500/20'
-                : 'text-neutral-400 hover:text-neutral-200'
-            }`}
-          >
-            <HelpCircle className="w-3.5 h-3.5" />
-            <span>FAQ</span>
-          </button>
+        {/* Segmented Tabs */}
+        <div className="grid grid-cols-4 gap-1 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900 p-1">
+          {[
+            { id: 'chat', label: 'Live Chat', icon: MessageSquare },
+            { id: 'tickets', label: 'Tickets', icon: Ticket },
+            { id: 'new-ticket', label: 'New', icon: PlusCircle, disabled: !allowNewTicket },
+            { id: 'faq', label: 'FAQ', icon: HelpCircle },
+          ].map(({ id, label, icon: Icon, disabled }) => {
+            const active = activeTab === id || (id === 'tickets' && activeTab === 'ticket-detail');
+            return (
+              <button
+                key={id}
+                type="button"
+                disabled={disabled}
+                onClick={() => setActiveTab(id)}
+                className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer disabled:opacity-45 ${
+                  active
+                    ? 'bg-[#1ED760] text-neutral-950 font-semibold shadow-2xs'
+                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{label}</span>
+              </button>
+            );
+          })}
         </div>
       </header>
 
-      {/* 4. MAIN TAB CONTENT */}
-      <main className="flex-1 flex flex-col overflow-y-auto p-4">
-        {/* TAB 1: LIVE AI CHAT */}
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col p-4 overflow-y-auto">
         {activeTab === 'chat' && (
-          <div className="flex-1 flex flex-col justify-between space-y-4">
-            {/* Quick Action Suggestion Chips */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-              {[
-                'Check cloud server status',
-                'Where am I connected from?',
-                'Explain my subscription plan',
-                'Help me add a product'
-              ].map((suggestion, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleSendMessage(suggestion)}
-                  className="shrink-0 text-xs px-2.5 py-1 rounded-full bg-neutral-800/90 hover:bg-neutral-700 text-neutral-300 border border-neutral-700/60 transition-colors flex items-center gap-1"
-                >
-                  <Sparkles className="w-3 h-3 text-neutral-400" />
-                  <span>{suggestion}</span>
-                </button>
-              ))}
+          !currentUser && checkingGuest ? (
+            <div className="flex-1 flex items-center justify-center text-xs text-neutral-500 gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Checking support session...
             </div>
-
-            {/* Chat Messages List */}
-            <div className="flex-1 space-y-3 pt-2">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex flex-col ${
-                    msg.sender === 'user' ? 'items-end' : 'items-start'
-                  }`}
-                >
-                  {msg.sender === 'agent' && (
-                    <div className="flex items-center gap-1.5 mb-1 px-1">
-                      <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-neutral-600 to-neutral-500 flex items-center justify-center text-[9px] font-bold text-white">
-                        T
-                      </div>
-                      <span className="text-[11px] font-semibold text-neutral-300">{msg.name}</span>
-                      <span className="text-[10px] text-neutral-500">• {msg.role}</span>
-                    </div>
-                  )}
-
-                  <div
-                    className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed shadow-sm ${
-                      msg.sender === 'user'
-                        ? 'bg-gradient-to-r from-neutral-600 to-neutral-500 text-white rounded-br-none'
-                        : 'bg-neutral-800 text-neutral-200 border border-neutral-700/80 rounded-bl-none'
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap">{msg.text}</p>
-                    <span
-                      className={`block text-[10px] mt-1 text-right ${
-                        msg.sender === 'user' ? 'text-neutral-200' : 'text-neutral-400'
-                      }`}
-                    >
-                      {msg.time}
-                    </span>
-                  </div>
+          ) : !isAuthorizedForChat ? (
+            <section className="rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-5 shadow-xs space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1ED760]/15 text-emerald-700 dark:text-[#1ED760]">
+                  <ShieldCheck className="h-5 w-5" />
                 </div>
-              ))}
-
-              {isTyping && (
-                <div className="flex items-center gap-2 text-neutral-400 text-xs px-2 py-1">
-                  <div className="w-2 h-2 rounded-full bg-neutral-500 animate-ping" />
-                  <span>Sarah is analyzing your system metrics...</span>
+                <div>
+                  <h2 className="text-sm font-semibold text-neutral-950 dark:text-white">
+                    Verify Contact Details
+                  </h2>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                    Please provide your name, email, and phone number before starting live chat.
+                  </p>
                 </div>
-              )}
+              </div>
 
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Chat Input Bar */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSendMessage();
-              }}
-              className="sticky bottom-0 bg-neutral-900/95 backdrop-blur-md pt-2"
-            >
-              <div className="flex items-center gap-2 bg-neutral-800/90 border border-neutral-700/80 rounded-2xl px-3 py-1.5 focus-within:border-neutral-500 transition-colors">
+              <form onSubmit={handleVerifyGuest} className="space-y-3">
                 <input
                   type="text"
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  placeholder="Ask Tiwi AI or request agent handover..."
-                  className="flex-1 bg-transparent text-xs text-white placeholder-neutral-400 focus:outline-none py-1.5"
+                  required
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  placeholder="Full Name"
+                  className="h-10 w-full rounded-lg border border-neutral-200 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900 px-3 text-sm focus:border-[#1ED760] focus:outline-none"
                 />
+                <input
+                  type="email"
+                  required
+                  value={guestEmail}
+                  onChange={(e) => setGuestEmail(e.target.value)}
+                  placeholder="Email Address"
+                  className="h-10 w-full rounded-lg border border-neutral-200 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900 px-3 text-sm focus:border-[#1ED760] focus:outline-none"
+                />
+                <input
+                  type="tel"
+                  required
+                  value={guestPhone}
+                  onChange={(e) => setGuestPhone(e.target.value)}
+                  placeholder="Phone Number"
+                  className="h-10 w-full rounded-lg border border-neutral-200 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900 px-3 text-sm focus:border-[#1ED760] focus:outline-none"
+                />
+                {guestError && <p className="text-xs text-red-600 dark:text-red-400">{guestError}</p>}
                 <button
                   type="submit"
-                  disabled={!inputText.trim() || isTyping}
-                  className="w-8 h-8 rounded-xl bg-neutral-600 hover:bg-neutral-500 disabled:opacity-40 flex items-center justify-center text-white transition-colors"
+                  disabled={verifyingGuest}
+                  className="w-full h-10 rounded-lg bg-[#1ED760] hover:bg-[#19c355] text-xs font-semibold text-neutral-950 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
-                  <Send className="w-4 h-4" />
+                  {verifyingGuest ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                  {verifyingGuest ? 'Verifying...' : 'Verify & Start Chat'}
                 </button>
+              </form>
+            </section>
+          ) : (
+            <div className="flex-1 flex flex-col justify-between space-y-3">
+              {/* Ticket Linkage Bar */}
+              <div className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-3 py-2 text-xs">
+                {linkedTicket ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 font-mono font-semibold text-neutral-900 dark:text-neutral-100">
+                      <Ticket className="h-3.5 w-3.5 text-[#1ED760]" />
+                      {linkedTicket.serialNumber || `#${linkedTicket.ticketId || linkedTicket.id}`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenTicketDetail(linkedTicket)}
+                      className="inline-flex items-center gap-1 font-semibold text-[#16a34a] dark:text-[#1ED760] cursor-pointer"
+                    >
+                      View Ticket
+                      <ExternalLink className="h-3 w-3" />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-neutral-500 dark:text-neutral-400">Live specialist chat</span>
+                    {allowNewTicket && (
+                      <button
+                        type="button"
+                        disabled={convertingTicket}
+                        onClick={handleConvertToTicket}
+                        className="inline-flex items-center gap-1 font-semibold text-neutral-900 dark:text-neutral-100 hover:text-[#1ED760] cursor-pointer disabled:opacity-50"
+                      >
+                        {convertingTicket ? <Loader2 className="h-3 w-3 animate-spin" /> : <Ticket className="h-3 w-3 text-[#1ED760]" />}
+                        Convert to Ticket
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
-            </form>
-          </div>
+
+              {/* Suggestion Chips */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {[
+                  'Check cloud server status',
+                  'Explain my subscription plan',
+                  'Help me add a product',
+                ].map((suggestion, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    disabled={isChatTicketClosed}
+                    onClick={() => handleSendMessage(suggestion)}
+                    className="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-white dark:bg-neutral-950 border border-neutral-200/80 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-[#1ED760] transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
+                  >
+                    <Sparkles className="w-3 h-3 text-[#1ED760]" />
+                    <span>{suggestion}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Messages */}
+              <div className="flex-1 space-y-3 py-2">
+                {messages.map((msg) => (
+                  <div key={msg.id} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
+                    {msg.sender === 'agent' && (
+                      <div className="flex items-center gap-1.5 mb-1 px-1 text-[11px] text-neutral-500">
+                        <Headphones className="w-3 h-3 text-[#1ED760]" />
+                        <span className="font-medium text-neutral-800 dark:text-neutral-200">{msg.name}</span>
+                      </div>
+                    )}
+                    <div
+                      className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-xs leading-relaxed ${
+                        msg.sender === 'user'
+                          ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 rounded-br-xs'
+                          : 'bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 border border-neutral-200/80 dark:border-neutral-800 rounded-bl-xs'
+                      }`}
+                    >
+                      <p className="whitespace-pre-wrap">{msg.text}</p>
+                      <span className="block text-[10px] mt-1 text-right opacity-60">{msg.time}</span>
+                    </div>
+                  </div>
+                ))}
+
+                {isTyping && (
+                  <div className="flex items-center gap-2 text-xs text-neutral-500">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-[#1ED760]" />
+                    <span>Specialist is replying...</span>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Closed Lock OR Input */}
+              {isChatTicketClosed ? (
+                <div className="sticky bottom-0 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-3 flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
+                  <Lock className="h-4 w-4 shrink-0 text-neutral-500" />
+                  <span>This ticket is closed and locked. New replies cannot be sent.</span>
+                </div>
+              ) : (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }}
+                  className="sticky bottom-0 bg-[#fafafa] dark:bg-neutral-950 pt-2"
+                >
+                  <div className="flex items-center gap-2 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-1.5 focus-within:border-[#1ED760]">
+                    <input
+                      type="text"
+                      value={inputText}
+                      onChange={(e) => setInputText(e.target.value)}
+                      placeholder="Ask Tiwlo support..."
+                      className="flex-1 bg-transparent text-xs text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none py-1.5"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!inputText.trim() || isTyping}
+                      className="w-8 h-8 rounded-lg bg-[#1ED760] hover:bg-[#19c355] disabled:opacity-40 flex items-center justify-center text-neutral-950 cursor-pointer"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )
         )}
 
-        {/* TAB 2: MY TICKETS */}
         {activeTab === 'tickets' && (
-          <div className="flex-1">
-            <TicketsView
-              onBack={() => setActiveTab('chat')}
-              onCreateTicket={() => setActiveTab('new-ticket')}
-              onSelectTicket={() => setActiveTab('chat')}
-            />
-          </div>
+          <TicketsView
+            currentUser={currentUser}
+            guestSession={guestSession}
+            supportConfig={supportConfig}
+            onBack={() => setActiveTab('chat')}
+            onCreateTicket={() => setActiveTab('new-ticket')}
+            onSelectTicket={handleOpenTicketDetail}
+          />
         )}
 
-        {/* TAB 3: CREATE NEW TICKET */}
+        {activeTab === 'ticket-detail' && selectedTicket && (
+          <TicketDetailView
+            ticketId={selectedTicket.ticketId || selectedTicket.id}
+            initialTicket={selectedTicket}
+            initialRecoveryCode={recoveryCodes[selectedTicket.ticketId || selectedTicket.id] || ''}
+            currentUser={currentUser}
+            guestSession={guestSession}
+            supportConfig={supportConfig}
+            onBack={() => setActiveTab('tickets')}
+            showToast={showToast}
+          />
+        )}
+
         {activeTab === 'new-ticket' && (
-          <div className="flex-1">
-            <CreateTicketView
-              currentUser={currentUser}
-              onBack={() => setActiveTab('tickets')}
-              onTicketCreated={(ticket) => {
-                showToast?.(`Ticket #${ticket.ticketId || ticket.id} submitted!`, 'success');
-                setActiveTab('tickets');
-              }}
-            />
-          </div>
+          <CreateTicketView
+            currentUser={currentUser}
+            guestSession={guestSession}
+            supportConfig={supportConfig}
+            channel="Mobile"
+            onBack={() => setActiveTab('tickets')}
+            onSelectTicket={handleOpenTicketDetail}
+            onGuestSessionVerified={setGuestSession}
+            onTicketCreated={(ticket, recoveryCode) => {
+              const id = ticket.ticketId || ticket.id;
+              if (recoveryCode && id) {
+                setRecoveryCodes((prev) => ({ ...prev, [id]: recoveryCode }));
+              }
+              showToast?.(`Ticket #${id} submitted!`, 'success');
+              handleOpenTicketDetail(ticket);
+            }}
+            showToast={showToast}
+          />
         )}
 
-        {/* TAB 4: KNOWLEDGE BASE / FAQ */}
         {activeTab === 'faq' && (
-          <div className="flex-1">
-            <HelpCenterView
-              onBack={() => setActiveTab('chat')}
-              onOpenInbox={() => setActiveTab('chat')}
-            />
-          </div>
+          <HelpCenterView
+            onBack={() => setActiveTab('chat')}
+            onOpenInbox={() => setActiveTab('chat')}
+          />
         )}
       </main>
     </div>

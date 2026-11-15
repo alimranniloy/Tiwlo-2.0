@@ -44,6 +44,24 @@ export async function resolveActiveStore(req, selectedTiwiId, masterDb = MasterD
   ) || null;
 }
 
+function buildBannedOwnerSet(users = []) {
+  return new Set((users || [])
+    .filter(user => user.isBanned)
+    .flatMap(user => [user.id, user.tiwiId, user.storeId])
+    .filter(Boolean)
+    .map(String));
+}
+
+function canonicalizeStoreSubdomain(subdomain, domain) {
+  const clean = String(subdomain || '').trim().toLowerCase().replace(/\.$/, '');
+  return clean ? (clean.includes('.') ? clean : `${clean}.${domain}`) : '';
+}
+
+function isValidStorefrontLabel(label) {
+  return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label) &&
+    !RESERVED_STORE_SUBDOMAIN_LABELS.includes(label);
+}
+
 export async function resolveStorefrontHost(
   hostname,
   masterDb = MasterDB,
@@ -53,11 +71,7 @@ export async function resolveStorefrontHost(
   const domain = PLATFORM_CONFIG.storeDomain;
   const suffix = `.${domain}`;
   const directory = await masterDb.getMasterData();
-  const bannedOwners = new Set((directory.users || [])
-    .filter(user => user.isBanned)
-    .flatMap(user => [user.id, user.tiwiId, user.storeId])
-    .filter(Boolean)
-    .map(String));
+  const bannedOwners = buildBannedOwnerSet(directory.users);
   if (!host.endsWith(suffix)) {
     const customDomain = await customDomainResolver(host);
     if (!customDomain?.tiwiId) return null;
@@ -82,8 +96,7 @@ export async function resolveStorefrontHost(
   }
 
   const label = host.slice(0, -suffix.length);
-  if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)) return null;
-  if (RESERVED_STORE_SUBDOMAIN_LABELS.includes(label)) return null;
+  if (!isValidStorefrontLabel(label)) return null;
 
   const candidates = [
     ...(directory.stores || []).filter(store =>
@@ -92,11 +105,10 @@ export async function resolveStorefrontHost(
     ),
     ...(directory.users || []).filter(user => !user.isBanned)
   ];
-  const matches = candidates.filter(store => {
-    const subdomain = String(store.subdomain || '').trim().toLowerCase().replace(/\.$/, '');
-    const canonicalSubdomain = subdomain.includes('.') ? subdomain : `${subdomain}.${domain}`;
-    return canonicalSubdomain === host && (store.tiwiId || store.storeId);
-  });
+  const matches = candidates.filter(store =>
+    canonicalizeStoreSubdomain(store.subdomain, domain) === host &&
+    (store.tiwiId || store.storeId)
+  );
   const tenantIds = new Set(matches.map(store => String(store.tiwiId || store.storeId)));
   if (tenantIds.size !== 1) return null;
 
@@ -106,6 +118,65 @@ export async function resolveStorefrontHost(
     storeName: match.storeName || match.name || 'Your Store',
     subdomain: host,
     currency: match.currency || ''
+  };
+}
+
+export async function resolveSuspendedStorefrontHost(
+  hostname,
+  masterDb = MasterDB,
+  customDomainResolver = resolveActiveCustomDomain
+) {
+  const host = String(hostname || '').trim().toLowerCase().replace(/\.$/, '');
+  if (!host) return null;
+  const domain = PLATFORM_CONFIG.storeDomain;
+  const suffix = `.${domain}`;
+  const directory = await masterDb.getMasterData();
+  const bannedOwners = buildBannedOwnerSet(directory.users);
+  const stores = directory.stores || [];
+  const users = directory.users || [];
+
+  const isOwnerBanned = (store, tenantId) => {
+    const ownerUser = users.find(entry =>
+      (store?.ownerId && String(entry.id) === String(store.ownerId)) ||
+      String(entry.tiwiId || entry.storeId) === tenantId
+    );
+    return Boolean(
+      ownerUser?.isBanned ||
+      (store?.ownerId && bannedOwners.has(String(store.ownerId))) ||
+      bannedOwners.has(tenantId)
+    );
+  };
+
+  let matchedStore = null;
+  if (!host.endsWith(suffix)) {
+    const customDomain = await customDomainResolver(host);
+    if (!customDomain?.tiwiId) return null;
+    const tenantId = String(customDomain.tiwiId);
+    matchedStore = stores.find(entry => String(entry.tiwiId || entry.storeId) === tenantId) || null;
+  } else {
+    const label = host.slice(0, -suffix.length);
+    if (!isValidStorefrontLabel(label)) return null;
+    const matches = stores.filter(store =>
+      canonicalizeStoreSubdomain(store.subdomain, domain) === host &&
+      (store.tiwiId || store.storeId)
+    );
+    const tenantIds = new Set(matches.map(store => String(store.tiwiId || store.storeId)));
+    if (tenantIds.size !== 1) return null;
+    matchedStore = matches[0];
+  }
+
+  if (!matchedStore) return null;
+  const tenantId = String(matchedStore.tiwiId || matchedStore.storeId);
+  if (String(matchedStore.status || '').toLowerCase() !== 'suspended') return null;
+  if (isOwnerBanned(matchedStore, tenantId)) return null;
+
+  return {
+    storeSuspended: true,
+    tiwiId: tenantId,
+    storeName: matchedStore.storeName || matchedStore.name || 'Your Store',
+    subdomain: host,
+    suspendedAt: matchedStore.suspendedAt || null,
+    scheduledDeletionAt: matchedStore.scheduledDeletionAt || null
   };
 }
 

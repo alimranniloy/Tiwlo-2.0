@@ -1,5 +1,5 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ArrowLeft,
   Check,
@@ -10,8 +10,9 @@ import {
   ShieldCheck,
   Tag,
   Trash2,
-  Users
+  Users,
 } from 'lucide-react';
+import { useAdminCurrency } from './AdminCurrencyContext';
 
 const API_BASE = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
   ? 'http://localhost:5000/api'
@@ -24,7 +25,7 @@ const buildWelcomeCopy = ({ minDepositUsd = 1, bonusAmountUsd = 50, validityDays
   return {
     title: `New Account ${bonusText} Gift Offer`,
     headline: `Load ${minText} credit to get ${bonusText} gift for ${days} days`,
-    description: `New accounts that load at least ${minText} USD receive ${bonusText} USD in gift credits valid for ${days} days.`
+    description: `New accounts that load at least ${minText} USD receive ${bonusText} USD in gift credits valid for ${days} days.`,
   };
 };
 
@@ -36,7 +37,7 @@ const EMPTY_WELCOME = {
   bonusAmountUsd: 50,
   validityDays: 30,
   newAccountsOnly: true,
-  onePerDevice: true
+  onePerDevice: true,
 };
 
 const EMPTY_CODE_FORM = {
@@ -50,10 +51,11 @@ const EMPTY_CODE_FORM = {
   targetType: 'all',
   targetEmails: '',
   onePerDevice: true,
-  newAccountsOnly: false
+  newAccountsOnly: false,
 };
 
 export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
+  const currencyCtx = useAdminCurrency();
   const [welcomePromo, setWelcomePromo] = useState(EMPTY_WELCOME);
   const [promoCodes, setPromoCodes] = useState([]);
   const [recentClaims, setRecentClaims] = useState([]);
@@ -65,18 +67,31 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
   const [creatingCode, setCreatingCode] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  const formatMoney = useCallback((amountUsd, options) => {
+    if (typeof currencyCtx?.formatMoney === 'function') {
+      return currencyCtx.formatMoney(amountUsd, options);
+    }
+    const n = Number(amountUsd || 0);
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number.isFinite(n) ? n : 0);
+  }, [currencyCtx]);
+
   const getAuthHeaders = () => {
     const token = localStorage.getItem('stockpro_session');
     return {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
   };
 
   const fetchPromotionsBundle = async () => {
     const [promoRes, usersRes] = await Promise.all([
       fetch(`${API_BASE}/admin/promotions`, { credentials: 'include', headers: getAuthHeaders() }),
-      fetch(`${API_BASE}/admin/users?limit=100`, { credentials: 'include', headers: getAuthHeaders() }).catch(() => null)
+      fetch(`${API_BASE}/admin/users?limit=100`, { credentials: 'include', headers: getAuthHeaders() }).catch(() => null),
     ]);
     const promoJson = await promoRes.json();
     if (!promoRes.ok || !promoJson.success) {
@@ -87,7 +102,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
       welcomePromo: { ...EMPTY_WELCOME, ...(promoJson.welcomePromo || {}) },
       promoCodes: Array.isArray(promoJson.promoCodes) ? promoJson.promoCodes : [],
       recentClaims: Array.isArray(promoJson.recentClaims) ? promoJson.recentClaims : [],
-      directoryUsers: Array.isArray(usersJson?.users) ? usersJson.users : null
+      directoryUsers: Array.isArray(usersJson?.users) ? usersJson.users : null,
     };
   };
 
@@ -145,7 +160,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
         method: 'PUT',
         credentials: 'include',
         headers: getAuthHeaders(),
-        body: JSON.stringify(welcomePromo)
+        body: JSON.stringify(welcomePromo),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
@@ -174,8 +189,8 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
           amountUsd: Number(codeForm.amountUsd),
           validityDays: Number(codeForm.validityDays),
           minTopupUsd: Number(codeForm.minTopupUsd || 0),
-          maxTotalUses: codeForm.maxTotalUses ? Number(codeForm.maxTotalUses) : null
-        })
+          maxTotalUses: codeForm.maxTotalUses ? Number(codeForm.maxTotalUses) : null,
+        }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
@@ -197,7 +212,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
         method: 'PUT',
         credentials: 'include',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ isActive: !promo.isActive })
+        body: JSON.stringify({ isActive: !promo.isActive }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || 'Update failed.');
@@ -213,7 +228,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
       const res = await fetch(`${API_BASE}/admin/promotions/codes/${encodeURIComponent(promo.id)}`, {
         method: 'DELETE',
         credentials: 'include',
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || 'Delete failed.');
@@ -233,19 +248,21 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
     if (current.includes(email.toLowerCase())) return;
     setCodeForm((prev) => ({
       ...prev,
-      targetEmails: [...current, email.toLowerCase()].join(', ')
+      targetEmails: [...current, email.toLowerCase()].join(', '),
     }));
   };
 
-  const filteredDirectory = directoryUsers.filter((u) => {
-    if (!userSearch.trim()) return true;
-    const q = userSearch.trim().toLowerCase();
-    return (
-      String(u.email || '').toLowerCase().includes(q) ||
-      String(u.name || '').toLowerCase().includes(q) ||
-      String(u.tiwiId || '').toLowerCase().includes(q)
-    );
-  }).slice(0, 6);
+  const filteredDirectory = directoryUsers
+    .filter((u) => {
+      if (!userSearch.trim()) return true;
+      const q = userSearch.trim().toLowerCase();
+      return (
+        String(u.email || '').toLowerCase().includes(q) ||
+        String(u.name || '').toLowerCase().includes(q) ||
+        String(u.tiwiId || '').toLowerCase().includes(q)
+      );
+    })
+    .slice(0, 6);
 
   const updateWelcomeNumericField = (field, rawValue) => {
     const numValue = Number(rawValue);
@@ -260,30 +277,33 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
       const descWasAuto =
         !prev.description ||
         prev.description === prevAuto.description ||
-        /^Load at least \$\d+(?:\.\d+)? USD on your new account to unlock \$\d+(?:\.\d+)? in gift credits valid for \d+ days\.$/i.test(prev.description);
+        /^Load at least \$\d+(?:\.\d+)? USD on your new account to unlock \$\d+(?:\.\d+)? in gift credits valid for \d+ days\.$/i.test(
+          prev.description
+        );
 
       return {
         ...next,
         title: !prev.title || prev.title === prevAuto.title ? nextAuto.title : prev.title,
         headline: headlineWasAuto ? nextAuto.headline : prev.headline,
-        description: descWasAuto ? nextAuto.description : prev.description
+        description: descWasAuto ? nextAuto.description : prev.description,
       };
     });
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-16">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+    <div className="space-y-6 pb-12">
+      {/* Header */}
+      <div className="flex flex-col justify-between gap-4 rounded-xl border border-neutral-200/80 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950 sm:flex-row sm:items-center">
         <div>
           <button
             type="button"
             onClick={onBackToDashboard}
-            className="mb-3 inline-flex h-8 items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            className="mb-1.5 inline-flex items-center gap-1.5 text-xs font-medium text-neutral-500 transition hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            Dashboard
+            Back to Dashboard
           </button>
-          <h1 className="text-xl font-bold tracking-tight text-neutral-950 dark:text-white">
+          <h1 className="text-xl font-semibold tracking-tight text-neutral-950 dark:text-white">
             Promotions &amp; Trial Credits
           </h1>
           <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
@@ -294,7 +314,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
           type="button"
           onClick={loadData}
           disabled={loading}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+          className="inline-flex h-9 items-center gap-1.5 self-start rounded-xl border border-neutral-200/80 bg-white px-3.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800 sm:self-auto"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
           Refresh
@@ -302,7 +322,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
       </div>
 
       {errorMsg && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
           {errorMsg}
         </div>
       )}
@@ -310,11 +330,11 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
       {/* Section 1: Credit-Load Gift / Trial Offer */}
       <form
         onSubmit={handleSaveWelcome}
-        className="rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900"
+        className="rounded-xl border border-neutral-200/80 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950 sm:p-6"
       >
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 pb-4 dark:border-neutral-800">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200/80 pb-4 dark:border-neutral-800">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-200/80 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900">
               <Gift className="h-4 w-4 text-neutral-700 dark:text-neutral-300" />
             </div>
             <div>
@@ -322,7 +342,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                 New Account Credit-Load Offer
               </h2>
               <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                Displayed at the top of the Billing page for eligible new accounts (e.g., load $1 for $50 gift valid 30 days).
+                Displayed at the top of the Billing page for eligible new accounts.
               </p>
             </div>
           </div>
@@ -332,7 +352,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
               type="checkbox"
               checked={welcomePromo.enabled}
               onChange={(e) => setWelcomePromo((prev) => ({ ...prev, enabled: e.target.checked }))}
-              className="h-4 w-4 rounded border-neutral-300 accent-[#1ed760]"
+              className="h-4 w-4 rounded border-neutral-300 accent-[#1ED760]"
             />
             Offer Enabled
           </label>
@@ -350,8 +370,11 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
               required
               value={welcomePromo.minDepositUsd}
               onChange={(e) => updateWelcomeNumericField('minDepositUsd', e.target.value)}
-              className="h-9 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-950 outline-none focus:border-neutral-950 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white dark:focus:border-[#1ed760]"
+              className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 text-sm tabular-nums text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
             />
+            <p className="mt-1 text-[11px] tabular-nums text-neutral-500">
+              Display: {formatMoney(welcomePromo.minDepositUsd)}
+            </p>
           </div>
 
           <div>
@@ -365,8 +388,11 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
               required
               value={welcomePromo.bonusAmountUsd}
               onChange={(e) => updateWelcomeNumericField('bonusAmountUsd', e.target.value)}
-              className="h-9 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-950 outline-none focus:border-neutral-950 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white dark:focus:border-[#1ed760]"
+              className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 text-sm tabular-nums text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
             />
+            <p className="mt-1 text-[11px] tabular-nums text-emerald-700 dark:text-[#1ED760]">
+              Display: {formatMoney(welcomePromo.bonusAmountUsd)}
+            </p>
           </div>
 
           <div>
@@ -380,7 +406,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
               required
               value={welcomePromo.validityDays}
               onChange={(e) => updateWelcomeNumericField('validityDays', e.target.value)}
-              className="h-9 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-950 outline-none focus:border-neutral-950 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white dark:focus:border-[#1ed760]"
+              className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 text-sm tabular-nums text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
             />
           </div>
 
@@ -393,7 +419,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
               required
               value={welcomePromo.headline}
               onChange={(e) => setWelcomePromo((prev) => ({ ...prev, headline: e.target.value }))}
-              className="h-9 w-full rounded-lg border border-neutral-200 bg-white px-3 text-xs text-neutral-950 outline-none focus:border-neutral-950 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white dark:focus:border-[#1ed760]"
+              className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 text-xs text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
             />
           </div>
 
@@ -405,7 +431,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
               type="text"
               value={welcomePromo.badgeText}
               onChange={(e) => setWelcomePromo((prev) => ({ ...prev, badgeText: e.target.value }))}
-              className="h-9 w-full rounded-lg border border-neutral-200 bg-white px-3 text-xs text-neutral-950 outline-none focus:border-neutral-950 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white dark:focus:border-[#1ed760]"
+              className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 text-xs text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
             />
           </div>
 
@@ -417,19 +443,19 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
               type="text"
               value={welcomePromo.description}
               onChange={(e) => setWelcomePromo((prev) => ({ ...prev, description: e.target.value }))}
-              className="h-9 w-full rounded-lg border border-neutral-200 bg-white px-3 text-xs text-neutral-950 outline-none focus:border-neutral-950 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white dark:focus:border-[#1ed760]"
+              className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 text-xs text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
             />
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-neutral-100 pt-4 dark:border-neutral-800">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-neutral-200/80 pt-4 dark:border-neutral-800">
           <div className="flex flex-wrap items-center gap-5 text-xs text-neutral-700 dark:text-neutral-300">
             <label className="inline-flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
                 checked={welcomePromo.newAccountsOnly}
                 onChange={(e) => setWelcomePromo((prev) => ({ ...prev, newAccountsOnly: e.target.checked }))}
-                className="h-4 w-4 rounded border-neutral-300 accent-[#1ed760]"
+                className="h-4 w-4 rounded border-neutral-300 accent-[#1ED760]"
               />
               New accounts only (never funded)
             </label>
@@ -438,7 +464,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                 type="checkbox"
                 checked={welcomePromo.onePerDevice}
                 onChange={(e) => setWelcomePromo((prev) => ({ ...prev, onePerDevice: e.target.checked }))}
-                className="h-4 w-4 rounded border-neutral-300 accent-[#1ed760]"
+                className="h-4 w-4 rounded border-neutral-300 accent-[#1ED760]"
               />
               Strict 1 claim per device fingerprint / IP (auto-ban abuse)
             </label>
@@ -447,7 +473,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
           <button
             type="submit"
             disabled={savingWelcome}
-            className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1ed760] px-4 text-xs font-semibold text-black transition hover:bg-[#16c653] disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#1ED760] px-4 text-xs font-semibold text-black transition hover:bg-[#19c354] disabled:opacity-50"
           >
             <Save className="h-3.5 w-3.5" />
             {savingWelcome ? 'Saving...' : 'Save Offer'}
@@ -459,9 +485,9 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         <form
           onSubmit={handleCreatePromoCode}
-          className="rounded-lg border border-neutral-200 bg-white p-6 lg:col-span-5 dark:border-neutral-800 dark:bg-neutral-900"
+          className="rounded-xl border border-neutral-200/80 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950 sm:p-6 lg:col-span-5"
         >
-          <div className="flex items-center gap-2 border-b border-neutral-100 pb-3 dark:border-neutral-800">
+          <div className="flex items-center gap-2 border-b border-neutral-200/80 pb-3 dark:border-neutral-800">
             <Tag className="h-4 w-4 text-neutral-700 dark:text-neutral-300" />
             <h2 className="text-sm font-semibold text-neutral-950 dark:text-white">
               Create Promo Code &amp; Assign Targets
@@ -469,7 +495,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
           </div>
 
           <div className="mt-4 space-y-3.5">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
                   Promo Code
@@ -480,7 +506,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                   placeholder="WELCOME50"
                   value={codeForm.code}
                   onChange={(e) => setCodeForm((prev) => ({ ...prev, code: e.target.value.toUpperCase() }))}
-                  className="h-9 w-full rounded-lg border border-neutral-200 bg-white px-3 font-mono text-xs uppercase text-neutral-950 outline-none focus:border-neutral-950 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                  className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 font-mono text-xs uppercase text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
                 />
               </div>
               <div>
@@ -494,12 +520,15 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                   required
                   value={codeForm.amountUsd}
                   onChange={(e) => setCodeForm((prev) => ({ ...prev, amountUsd: e.target.value }))}
-                  className="h-9 w-full rounded-lg border border-neutral-200 bg-white px-3 text-xs text-neutral-950 outline-none focus:border-neutral-950 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                  className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 text-xs tabular-nums text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
                 />
+                <p className="mt-1 text-[11px] tabular-nums text-neutral-500">
+                  Display: {formatMoney(codeForm.amountUsd)}
+                </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div>
                 <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
                   Validity (Days)
@@ -510,7 +539,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                   required
                   value={codeForm.validityDays}
                   onChange={(e) => setCodeForm((prev) => ({ ...prev, validityDays: e.target.value }))}
-                  className="h-9 w-full rounded-lg border border-neutral-200 bg-white px-3 text-xs text-neutral-950 outline-none focus:border-neutral-950 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                  className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 text-xs tabular-nums text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
                 />
               </div>
               <div>
@@ -523,7 +552,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                   step="0.01"
                   value={codeForm.minTopupUsd}
                   onChange={(e) => setCodeForm((prev) => ({ ...prev, minTopupUsd: e.target.value }))}
-                  className="h-9 w-full rounded-lg border border-neutral-200 bg-white px-3 text-xs text-neutral-950 outline-none focus:border-neutral-950 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                  className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 text-xs tabular-nums text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
                 />
               </div>
               <div>
@@ -536,12 +565,12 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                   placeholder="Unlimited"
                   value={codeForm.maxTotalUses}
                   onChange={(e) => setCodeForm((prev) => ({ ...prev, maxTotalUses: e.target.value }))}
-                  className="h-9 w-full rounded-lg border border-neutral-200 bg-white px-3 text-xs text-neutral-950 outline-none focus:border-neutral-950 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                  className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 text-xs tabular-nums text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
                   Credit Type
@@ -549,7 +578,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                 <select
                   value={codeForm.rewardType}
                   onChange={(e) => setCodeForm((prev) => ({ ...prev, rewardType: e.target.value }))}
-                  className="h-9 w-full rounded-lg border border-neutral-200 bg-white px-2.5 text-xs text-neutral-950 outline-none focus:border-neutral-950 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                  className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-2.5 text-xs text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
                 >
                   <option value="promo_credit">Expiring Trial Gift Credit</option>
                   <option value="standard_credit">Permanent Cloud Credit</option>
@@ -562,7 +591,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                 <select
                   value={codeForm.targetType}
                   onChange={(e) => setCodeForm((prev) => ({ ...prev, targetType: e.target.value }))}
-                  className="h-9 w-full rounded-lg border border-neutral-200 bg-white px-2.5 text-xs text-neutral-950 outline-none focus:border-neutral-950 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                  className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-2.5 text-xs text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
                 >
                   <option value="all">All Accounts</option>
                   <option value="new_accounts">New Accounts Only</option>
@@ -572,7 +601,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
             </div>
 
             {codeForm.targetType === 'specific_users' && (
-              <div className="space-y-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950">
+              <div className="space-y-2 rounded-xl border border-neutral-200/80 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900">
                 <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
                   Assigned Account Emails (comma-separated)
                 </label>
@@ -581,7 +610,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                   placeholder="merchant1@example.com, merchant2@example.com"
                   value={codeForm.targetEmails}
                   onChange={(e) => setCodeForm((prev) => ({ ...prev, targetEmails: e.target.value }))}
-                  className="w-full rounded-lg border border-neutral-200 bg-white px-2.5 py-2 text-xs text-neutral-950 outline-none focus:border-neutral-950 dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+                  className="w-full rounded-xl border border-neutral-200/80 bg-white px-2.5 py-2 text-xs text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
                 />
                 {directoryUsers.length > 0 && (
                   <div className="space-y-1.5">
@@ -590,7 +619,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                       placeholder="Quick search user by email or TIW ID..."
                       value={userSearch}
                       onChange={(e) => setUserSearch(e.target.value)}
-                      className="h-8 w-full rounded-md border border-neutral-200 bg-white px-2.5 text-[11px] text-neutral-950 outline-none dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+                      className="h-8 w-full rounded-lg border border-neutral-200/80 bg-white px-2.5 text-[11px] text-neutral-950 outline-none dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
                     />
                     <div className="flex flex-wrap gap-1">
                       {filteredDirectory.map((u) => (
@@ -598,7 +627,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                           key={u.id}
                           type="button"
                           onClick={() => appendTargetEmail(u.email)}
-                          className="inline-flex items-center gap-1 rounded border border-neutral-200 bg-white px-2 py-0.5 text-[11px] text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                          className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-0.5 text-[11px] text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-300 dark:hover:bg-neutral-800"
                         >
                           <Plus className="h-3 w-3" />
                           {u.email}
@@ -619,7 +648,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                 placeholder="VIP onboarding bonus or partner coupon"
                 value={codeForm.description}
                 onChange={(e) => setCodeForm((prev) => ({ ...prev, description: e.target.value }))}
-                className="h-9 w-full rounded-lg border border-neutral-200 bg-white px-3 text-xs text-neutral-950 outline-none focus:border-neutral-950 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 text-xs text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
               />
             </div>
 
@@ -628,7 +657,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                 type="checkbox"
                 checked={codeForm.onePerDevice}
                 onChange={(e) => setCodeForm((prev) => ({ ...prev, onePerDevice: e.target.checked }))}
-                className="h-4 w-4 rounded border-neutral-300 accent-[#1ed760]"
+                className="h-4 w-4 rounded border-neutral-300 accent-[#1ED760]"
               />
               Lock to 1 redemption per device fingerprint &amp; IP
             </label>
@@ -636,7 +665,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
             <button
               type="submit"
               disabled={creatingCode}
-              className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#1ed760] px-4 text-xs font-semibold text-black transition hover:bg-[#16c653] disabled:opacity-50"
+              className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-[#1ED760] px-4 text-xs font-semibold text-black transition hover:bg-[#19c354] disabled:opacity-50"
             >
               <Plus className="h-3.5 w-3.5" />
               {creatingCode ? 'Creating...' : 'Create Promo Code'}
@@ -645,8 +674,8 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
         </form>
 
         {/* Active & Historical Promo Codes Table */}
-        <div className="rounded-lg border border-neutral-200 bg-white p-6 lg:col-span-7 dark:border-neutral-800 dark:bg-neutral-900">
-          <div className="flex items-center justify-between border-b border-neutral-100 pb-3 dark:border-neutral-800">
+        <div className="rounded-xl border border-neutral-200/80 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950 sm:p-6 lg:col-span-7">
+          <div className="flex items-center justify-between border-b border-neutral-200/80 pb-3 dark:border-neutral-800">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-neutral-700 dark:text-neutral-300" />
               <h2 className="text-sm font-semibold text-neutral-950 dark:text-white">
@@ -657,13 +686,13 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
 
           <div className="mt-4 overflow-x-auto">
             {promoCodes.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-neutral-200 py-10 text-center text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+              <div className="rounded-xl border border-dashed border-neutral-200 py-10 text-center text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
                 No custom promo codes created yet. Use the form on the left to issue one.
               </div>
             ) : (
-              <table className="w-full text-left text-xs">
+              <table className="w-full min-w-[540px] text-left text-xs">
                 <thead>
-                  <tr className="border-b border-neutral-100 text-[11px] text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+                  <tr className="border-b border-neutral-200/80 text-[11px] text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
                     <th className="pb-2 font-medium">Code</th>
                     <th className="pb-2 font-medium">Reward</th>
                     <th className="pb-2 font-medium">Target</th>
@@ -671,7 +700,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                     <th className="pb-2 text-right font-medium">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                <tbody className="divide-y divide-neutral-200/70 dark:divide-neutral-800">
                   {promoCodes.map((promo) => (
                     <tr key={promo.id} className="align-top">
                       <td className="py-3 pr-2">
@@ -685,13 +714,16 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                         )}
                       </td>
                       <td className="py-3 pr-2 text-neutral-800 dark:text-neutral-200">
-                        <span className="font-semibold">${Number(promo.amountUsd).toFixed(2)}</span>
+                        <span className="font-semibold tabular-nums">${Number(promo.amountUsd).toFixed(2)}</span>
+                        <span className="ml-1 text-[11px] tabular-nums text-emerald-700 dark:text-[#1ED760]">
+                          ({formatMoney(promo.amountUsd)})
+                        </span>
                         <span className="block text-[11px] text-neutral-500">
                           {promo.validityDays}d · {promo.rewardType === 'standard_credit' ? 'Standard' : 'Trial Gift'}
                         </span>
                       </td>
                       <td className="py-3 pr-2">
-                        <span className="inline-block rounded border border-neutral-200 px-1.5 py-0.5 text-[10px] font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-300">
+                        <span className="inline-block rounded-md border border-neutral-200 px-1.5 py-0.5 text-[10px] font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-300">
                           {promo.targetType === 'specific_users'
                             ? `Assigned (${promo.targetEmails?.length || 0})`
                             : promo.targetType === 'new_accounts'
@@ -699,7 +731,10 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                               : 'All Accounts'}
                         </span>
                         {promo.targetType === 'specific_users' && promo.targetEmails?.length > 0 && (
-                          <p className="mt-1 max-w-[160px] truncate text-[10px] text-neutral-500" title={promo.targetEmails.join(', ')}>
+                          <p
+                            className="mt-1 max-w-[160px] truncate text-[10px] text-neutral-500"
+                            title={promo.targetEmails.join(', ')}
+                          >
                             {promo.targetEmails.join(', ')}
                           </p>
                         )}
@@ -712,10 +747,10 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                           <button
                             type="button"
                             onClick={() => handleToggleCode(promo)}
-                            className={`rounded border px-2 py-1 text-[11px] font-medium transition ${
+                            className={`rounded-lg border px-2 py-1 text-[11px] font-medium transition ${
                               promo.isActive
-                                ? 'border-neutral-200 bg-white text-neutral-800 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-200'
-                                : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300'
+                                ? 'border-[#1ED760]/40 bg-[#1ED760]/10 text-emerald-800 hover:bg-[#1ED760]/20 dark:text-[#1ED760]'
+                                : 'border-neutral-200/80 bg-neutral-100 text-neutral-700 hover:bg-neutral-200/70 dark:border-neutral-800 dark:bg-neutral-800 dark:text-neutral-300'
                             }`}
                           >
                             {promo.isActive ? 'Active' : 'Paused'}
@@ -724,7 +759,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                             type="button"
                             onClick={() => handleDeleteCode(promo)}
                             title="Delete code"
-                            className="rounded border border-neutral-200 p-1 text-neutral-500 hover:border-red-200 hover:text-red-600 dark:border-neutral-800 dark:hover:border-red-900"
+                            className="rounded-lg border border-neutral-200 p-1 text-neutral-500 hover:border-rose-200 hover:text-rose-600 dark:border-neutral-800 dark:hover:border-rose-900"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -740,8 +775,8 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
       </div>
 
       {/* Section 3: Claims & Device Abuse Security Audit */}
-      <div className="rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
-        <div className="flex items-center gap-2 border-b border-neutral-100 pb-3 dark:border-neutral-800">
+      <div className="rounded-xl border border-neutral-200/80 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950 sm:p-6">
+        <div className="flex items-center gap-2 border-b border-neutral-200/80 pb-3 dark:border-neutral-800">
           <ShieldCheck className="h-4 w-4 text-neutral-700 dark:text-neutral-300" />
           <h2 className="text-sm font-semibold text-neutral-950 dark:text-white">
             Promotion Claims &amp; Anti-Abuse Log ({recentClaims.length})
@@ -750,13 +785,13 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
 
         <div className="mt-4 overflow-x-auto">
           {recentClaims.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-neutral-200 py-8 text-center text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+            <div className="rounded-xl border border-dashed border-neutral-200 py-8 text-center text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
               No promotional credits or multi-device claim blocks recorded yet.
             </div>
           ) : (
-            <table className="w-full text-left text-xs">
+            <table className="w-full min-w-[600px] text-left text-xs">
               <thead>
-                <tr className="border-b border-neutral-100 text-[11px] text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+                <tr className="border-b border-neutral-200/80 text-[11px] text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
                   <th className="pb-2 font-medium">Account</th>
                   <th className="pb-2 font-medium">Promotion</th>
                   <th className="pb-2 font-medium">Credit</th>
@@ -764,25 +799,29 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                   <th className="pb-2 text-right font-medium">Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+              <tbody className="divide-y divide-neutral-200/70 dark:divide-neutral-800">
                 {recentClaims.map((claim) => (
                   <tr key={claim.id}>
                     <td className="py-2.5 pr-3">
-                      <span className="font-medium text-neutral-950 dark:text-white">{claim.userEmail || claim.userId}</span>
-                      {claim.tiwiId && <span className="ml-2 font-mono text-[10px] text-neutral-500">{claim.tiwiId}</span>}
+                      <span className="font-medium text-neutral-950 dark:text-white">
+                        {claim.userEmail || claim.userId}
+                      </span>
+                      {claim.tiwiId && (
+                        <span className="ml-2 font-mono text-[10px] text-neutral-500">{claim.tiwiId}</span>
+                      )}
                     </td>
                     <td className="py-2.5 pr-3 font-mono text-[11px] text-neutral-700 dark:text-neutral-300">
                       {claim.promoCode || claim.claimType}
                     </td>
                     <td className="py-2.5 pr-3 tabular-nums text-neutral-800 dark:text-neutral-200">
-                      ${Number(claim.amountUsd).toFixed(2)} ({claim.validityDays}d)
+                      ${Number(claim.amountUsd).toFixed(2)} ({formatMoney(claim.amountUsd)}) · {claim.validityDays}d
                     </td>
                     <td className="py-2.5 pr-3">
                       <span
-                        className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                           claim.status === 'granted'
-                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                            : 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300'
+                            ? 'bg-[#1ED760]/15 text-emerald-700 dark:text-[#1ED760]'
+                            : 'bg-rose-500/10 text-rose-700 dark:text-rose-300'
                         }`}
                       >
                         {claim.status === 'granted' && <Check className="h-3 w-3" />}
@@ -790,7 +829,7 @@ export default function AdminPromotionsView({ onBackToDashboard, showToast }) {
                         {claim.isBanned ? ' · Banned' : ''}
                       </span>
                     </td>
-                    <td className="py-2.5 text-right text-[11px] text-neutral-500">
+                    <td className="py-2.5 text-right tabular-nums text-[11px] text-neutral-500">
                       {new Date(claim.createdAt).toLocaleString()}
                     </td>
                   </tr>

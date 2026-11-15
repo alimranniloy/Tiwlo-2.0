@@ -305,8 +305,14 @@ export default function MarketplaceView({ onNavigate }) {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className={`font-semibold ${product.price === 'Free' ? 'text-[#072711]' : 'text-[#1F1F1F]'}`}>
-                    {product.price || 'Pricing not specified'}
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                      product.price === 'Free'
+                        ? 'bg-neutral-100 text-[#072711]'
+                        : 'bg-[#1ED760]/15 text-emerald-800'
+                    }`}
+                  >
+                    {product.price || 'Paid Plan'}
                   </span>
                   <ArrowRight className="w-4 h-4 text-[#444746] group-hover:text-[#000000] group-hover:translate-x-0.5 transition-all" />
                 </div>

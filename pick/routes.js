@@ -3,7 +3,6 @@ import { createRequire } from 'node:module';
 import { MasterDB } from '../server/db/multiTenant.js';
 import { SupportDB } from '../server/db/supportDb.js';
 import { getPgPool, queryPg } from '../server/db/postgres.js';
-import { getGoogleMapsApiKey } from '../server/db/googleMapsSettings.js';
 import {
   reverseGeocodeAddress,
   isValidLiveLocation,
@@ -33,7 +32,7 @@ import {
   getPickAppUpdateSettings
 } from './appUpdates.js';
 import { readMediaBuffer } from '../server/db/mediaStorage.js';
-import { getGoogleDrivingEstimate } from './liveTracking.js';
+import { getOpenDrivingEstimate } from './liveTracking.js';
 
 const require = createRequire(new URL('../server/package.json', import.meta.url));
 const express = require('express');
@@ -1347,7 +1346,7 @@ router.get('/orders/:orderId/tracking-route', requireUser, async (req, res, next
       return res.status(404).json({ error: 'A live delivery route is not available yet.' });
     }
 
-    const estimate = await getGoogleDrivingEstimate({
+    const estimate = await getOpenDrivingEstimate({
       origin: {
         latitude: tracking.riderLatitude,
         longitude: tracking.riderLongitude
@@ -1355,8 +1354,7 @@ router.get('/orders/:orderId/tracking-route', requireUser, async (req, res, next
       destination: {
         latitude: tracking.destinationLatitude,
         longitude: tracking.destinationLongitude
-      },
-      apiKey: await getGoogleMapsApiKey()
+      }
     });
     return res.json(estimate);
   } catch (error) {

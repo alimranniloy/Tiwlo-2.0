@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../../../config/themeConfig';
 import { getCloudBillingData } from '../graphql/cloudQueries';
+import { resolveAvatarUrl } from '../../../utils/mediaUtils';
+import UserAccountSettingsModal from '../../../components/UserAccountSettingsModal';
 
 export default function CloudHeader({
   searchQuery,
@@ -28,6 +30,7 @@ export default function CloudHeader({
   onOpenBilling,
   onSwitchStore,
   onLogout,
+  onUserUpdated,
   showToast,
   onToggleMobileMenu
 }) {
@@ -35,6 +38,25 @@ export default function CloudHeader({
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [copiedTiwiId, setCopiedTiwiId] = useState(false);
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
+  const [accountModalTab, setAccountModalTab] = useState(null);
+  const [effectiveUser, setEffectiveUser] = useState(currentUser);
+
+  useEffect(() => {
+    setEffectiveUser(currentUser);
+    setAvatarLoadError(false);
+  }, [currentUser]);
+
+  useEffect(() => {
+    const handleUserUpdated = (event) => {
+      if (event?.detail) {
+        setEffectiveUser((prev) => ({ ...(prev || {}), ...event.detail }));
+        setAvatarLoadError(false);
+      }
+    };
+    window.addEventListener('tiwlo:user-updated', handleUserUpdated);
+    return () => window.removeEventListener('tiwlo:user-updated', handleUserUpdated);
+  }, []);
 
   const [headerCredits, setHeaderCredits] = useState(null);
 
@@ -54,10 +76,15 @@ export default function CloudHeader({
     return () => { active = false; };
   }, [currentUser?.id, currentUser?.tiwiId]);
 
-  const tiwiId = currentUser?.tiwiId || currentUser?.storeId || '';
-  const displayName = currentUser?.name || currentUser?.storeName || 'Tiwlo Store';
-  const email = currentUser?.email || '';
-  const planName = currentUser?.planName || 'Plan unavailable';
+  const tiwiId = effectiveUser?.tiwiId || effectiveUser?.storeId || '';
+  const displayName = effectiveUser?.name || effectiveUser?.storeName || 'Tiwlo Store';
+  const email = effectiveUser?.email || '';
+  const planName = effectiveUser?.planName || 'Plan unavailable';
+  const hasCustomAvatar = Boolean(
+    effectiveUser?.avatar &&
+    effectiveUser.avatar !== '/default-avatar.svg' &&
+    !avatarLoadError
+  );
 
   const copyTiwiId = (e) => {
     e.stopPropagation();
@@ -147,9 +174,22 @@ export default function CloudHeader({
               setShowNotifications(false);
             }}
             aria-label="Account settings"
-            className="flex size-10 items-center justify-center rounded-full bg-[#1ed760] text-sm font-bold text-black transition hover:brightness-95"
+            className={`flex size-10 items-center justify-center overflow-hidden rounded-full transition ${
+              hasCustomAvatar
+                ? 'border border-neutral-200 bg-neutral-100 hover:brightness-95 dark:border-neutral-700 dark:bg-neutral-800'
+                : 'bg-[#1ed760] text-sm font-bold text-black hover:brightness-95'
+            }`}
           >
-            {(displayName.match(/\b\w/g) || ['T', 'W']).slice(0, 2).join('').toUpperCase()}
+            {hasCustomAvatar ? (
+              <img
+                src={resolveAvatarUrl(effectiveUser.avatar)}
+                alt={displayName}
+                onError={() => setAvatarLoadError(true)}
+                className="size-full object-cover"
+              />
+            ) : (
+              (displayName.match(/\b\w/g) || ['T', 'W']).slice(0, 2).join('').toUpperCase()
+            )}
           </button>
 
           {/* Profile Menu Dropdown (Exact match to eCommerce Tiwi ID & Settings) */}
@@ -220,8 +260,7 @@ export default function CloudHeader({
                 <button
                   onClick={() => {
                     setShowProfileMenu(false);
-                    if (onOpenSettings) onOpenSettings('profile');
-                    else showToast?.('Opening Profile Settings');
+                    setAccountModalTab('profile');
                   }}
                   className="w-full flex items-center px-4 py-2 text-xs text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-gray-800 transition cursor-pointer"
                 >
@@ -232,8 +271,7 @@ export default function CloudHeader({
                 <button
                   onClick={() => {
                     setShowProfileMenu(false);
-                    if (onOpenSettings) onOpenSettings('security');
-                    else showToast?.('Opening Security & API Credentials');
+                    setAccountModalTab('security');
                   }}
                   className="w-full flex items-center px-4 py-2 text-xs text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-gray-800 transition cursor-pointer"
                 >
@@ -281,6 +319,18 @@ export default function CloudHeader({
           )}
         </div>
       </div>
+      <UserAccountSettingsModal
+        isOpen={Boolean(accountModalTab)}
+        initialTab={accountModalTab || 'profile'}
+        currentUser={effectiveUser}
+        onClose={() => setAccountModalTab(null)}
+        onUserUpdated={(updatedUser) => {
+          setEffectiveUser((prev) => ({ ...(prev || {}), ...updatedUser }));
+          setAvatarLoadError(false);
+          onUserUpdated?.(updatedUser);
+        }}
+        showToast={showToast}
+      />
     </header>
   );
 }

@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { STATE_SCHEMA_SQL } from './stateDocuments.js';
 import { signupIdentitySchema } from './signupIdentitySchema.js';
 import { ensureDiscordSchema } from '../discord/discordSchema.js';
@@ -904,6 +905,29 @@ export async function initPgSchema() {
       CREATE INDEX IF NOT EXISTS idx_promo_claims_device ON system_promo_claims(device_token_hash);
       CREATE INDEX IF NOT EXISTS idx_promo_claims_ip ON system_promo_claims(ip_hash);
 
+      CREATE TABLE IF NOT EXISTS platform_billing_orders (
+        id VARCHAR(64) PRIMARY KEY,
+        order_number VARCHAR(64) UNIQUE NOT NULL,
+        user_id VARCHAR(64) REFERENCES system_users(id) ON DELETE SET NULL,
+        tiwi_id VARCHAR(64),
+        order_type VARCHAR(32) NOT NULL,
+        plan_id VARCHAR(64),
+        item_name TEXT,
+        gross_amount_usd NUMERIC(12,2) NOT NULL DEFAULT 0,
+        cash_credit_used_usd NUMERIC(12,2) NOT NULL DEFAULT 0,
+        promo_credit_used_usd NUMERIC(12,2) NOT NULL DEFAULT 0,
+        net_cash_revenue_usd NUMERIC(12,2) NOT NULL DEFAULT 0,
+        provider VARCHAR(32),
+        currency VARCHAR(8) NOT NULL DEFAULT 'USD',
+        status VARCHAR(32) NOT NULL DEFAULT 'paid',
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_platform_billing_orders_user
+        ON platform_billing_orders(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_platform_billing_orders_created
+        ON platform_billing_orders(created_at DESC);
+
       -- 4. LIVE SUPPORT & TICKETING TABLES
       CREATE TABLE IF NOT EXISTS support_tickets (
         id VARCHAR(64) PRIMARY KEY,
@@ -924,6 +948,114 @@ export async function initPgSchema() {
         message TEXT NOT NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+
+      ALTER TABLE support_tickets
+        ADD COLUMN IF NOT EXISTS ticket_id VARCHAR(64),
+        ADD COLUMN IF NOT EXISTS serial_number VARCHAR(64),
+        ADD COLUMN IF NOT EXISTS user_name VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS user_email VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS requester_type VARCHAR(24) NOT NULL DEFAULT 'user',
+        ADD COLUMN IF NOT EXISTS guest_session_id VARCHAR(64),
+        ADD COLUMN IF NOT EXISTS guest_name VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS guest_email VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS guest_phone VARCHAR(64),
+        ADD COLUMN IF NOT EXISTS guest_access_hash CHAR(64),
+        ADD COLUMN IF NOT EXISTS tiwi_id VARCHAR(64),
+        ADD COLUMN IF NOT EXISTS store_id VARCHAR(64),
+        ADD COLUMN IF NOT EXISTS store_name VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS channel VARCHAR(32) NOT NULL DEFAULT 'web',
+        ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '',
+        ADD COLUMN IF NOT EXISTS department VARCHAR(64) NOT NULL DEFAULT 'general',
+        ADD COLUMN IF NOT EXISTS escalation_tier SMALLINT NOT NULL DEFAULT 1,
+        ADD COLUMN IF NOT EXISTS assigned_agent_id VARCHAR(64),
+        ADD COLUMN IF NOT EXISTS assigned_agent_name VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS assigned_agent_avatar TEXT,
+        ADD COLUMN IF NOT EXISTS assigned_agent_role VARCHAR(128),
+        ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+        ADD COLUMN IF NOT EXISTS watchers JSONB NOT NULL DEFAULT '[]'::jsonb,
+        ADD COLUMN IF NOT EXISTS attachments JSONB NOT NULL DEFAULT '[]'::jsonb,
+        ADD COLUMN IF NOT EXISTS sla_due_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS sla_response_due_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS sla_resolve_due_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS sla_breach_notified_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS auto_close_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS snoozed_until TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS first_response_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS csat_rating SMALLINT,
+        ADD COLUMN IF NOT EXISTS csat_comment TEXT,
+        ADD COLUMN IF NOT EXISTS merged_into_id VARCHAR(64),
+        ADD COLUMN IF NOT EXISTS parent_ticket_id VARCHAR(64),
+        ADD COLUMN IF NOT EXISTS unread_by_user BOOLEAN NOT NULL DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS unread_by_staff BOOLEAN NOT NULL DEFAULT TRUE,
+        ADD COLUMN IF NOT EXISTS resolution TEXT,
+        ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+      ALTER TABLE support_ticket_messages
+        ADD COLUMN IF NOT EXISTS sender_name VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS sender_avatar TEXT,
+        ADD COLUMN IF NOT EXISTS sender_role VARCHAR(128),
+        ADD COLUMN IF NOT EXISTS is_internal BOOLEAN NOT NULL DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS edit_history JSONB NOT NULL DEFAULT '[]'::jsonb,
+        ADD COLUMN IF NOT EXISTS attachments JSONB NOT NULL DEFAULT '[]'::jsonb,
+        ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+      CREATE TABLE IF NOT EXISTS support_guest_sessions (
+        id VARCHAR(64) PRIMARY KEY,
+        token_hash CHAR(64) NOT NULL UNIQUE,
+        visitor_name VARCHAR(255) NOT NULL,
+        visitor_email VARCHAR(255) NOT NULL,
+        visitor_phone VARCHAR(64) NOT NULL,
+        ip_hash CHAR(64),
+        user_agent TEXT,
+        device_hint VARCHAR(255),
+        claimed_user_id VARCHAR(64) REFERENCES system_users(id) ON DELETE SET NULL,
+        claimed_at TIMESTAMPTZ,
+        expires_at TIMESTAMPTZ NOT NULL DEFAULT (CURRENT_TIMESTAMP + INTERVAL '30 days'),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_seen_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      ALTER TABLE support_guest_sessions
+        ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ NOT NULL DEFAULT (CURRENT_TIMESTAMP + INTERVAL '30 days');
+
+      CREATE TABLE IF NOT EXISTS support_ticket_events (
+        id VARCHAR(64) PRIMARY KEY,
+        ticket_id VARCHAR(64) NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,
+        actor_id VARCHAR(64),
+        actor_name VARCHAR(255),
+        actor_type VARCHAR(32) NOT NULL DEFAULT 'system',
+        event_type VARCHAR(64) NOT NULL,
+        summary TEXT NOT NULL,
+        changes JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS support_macros (
+        id VARCHAR(64) PRIMARY KEY,
+        title VARCHAR(160) NOT NULL,
+        category VARCHAR(128) DEFAULT 'General',
+        body TEXT NOT NULL,
+        default_status VARCHAR(64),
+        default_tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+        created_by VARCHAR(64),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_support_tickets_ticket_id ON support_tickets(ticket_id);
+      CREATE INDEX IF NOT EXISTS idx_support_tickets_user_id ON support_tickets(user_id);
+      CREATE INDEX IF NOT EXISTS idx_support_tickets_guest_session ON support_tickets(guest_session_id);
+      CREATE INDEX IF NOT EXISTS idx_support_tickets_guest_email ON support_tickets(guest_email);
+      CREATE INDEX IF NOT EXISTS idx_support_tickets_status_updated ON support_tickets(status, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_support_tickets_assigned_agent ON support_tickets(assigned_agent_id);
+      CREATE INDEX IF NOT EXISTS idx_support_tickets_auto_close ON support_tickets(auto_close_at) WHERE auto_close_at IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_support_tickets_snoozed ON support_tickets(snoozed_until) WHERE snoozed_until IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_support_ticket_messages_ticket ON support_ticket_messages(ticket_id, created_at ASC);
+      CREATE INDEX IF NOT EXISTS idx_support_ticket_events_ticket ON support_ticket_events(ticket_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_support_guest_sessions_email ON support_guest_sessions(visitor_email);
+      CREATE INDEX IF NOT EXISTS idx_support_guest_sessions_expires ON support_guest_sessions(expires_at);
 
       -- 5. TIWI ADVANCED ECOSYSTEM REAL DATABASE TABLES
       CREATE TABLE IF NOT EXISTS social_custom_lists (
@@ -1324,4 +1456,66 @@ export async function queryPg(sql, params = []) {
   const p = getPgPool();
   if (!p) throw new Error('PostgreSQL pool not available');
   return await p.query(sql, params);
+}
+
+export function buildPlatformOrderNumber(now = new Date()) {
+  const datePart = new Date(now).toISOString().slice(0, 10).replace(/-/g, '');
+  const randPart = randomBytes(3).toString('hex').toUpperCase();
+  return `ORD-${datePart}-${randPart}`;
+}
+
+/**
+ * Safely append an immutable row to platform_billing_orders.
+ * Wrapped in try/catch so unit tests without PG or without the table never break.
+ */
+export async function recordPlatformBillingOrder({
+  userId = null,
+  tiwiId = null,
+  orderType,
+  planId = null,
+  itemName = null,
+  grossAmountUsd = 0,
+  cashCreditUsedUsd = 0,
+  promoCreditUsedUsd = 0,
+  netCashRevenueUsd = 0,
+  provider = null,
+  currency = 'USD',
+  status = 'paid',
+  metadata = {},
+  orderNumber = null
+} = {}) {
+  try {
+    const p = getPgPool();
+    if (!p) return null;
+    const id = `ord_${randomUUID()}`;
+    const resolvedOrderNumber = orderNumber || buildPlatformOrderNumber();
+    const { rows } = await queryPg(
+      `INSERT INTO platform_billing_orders
+         (id, order_number, user_id, tiwi_id, order_type, plan_id, item_name,
+          gross_amount_usd, cash_credit_used_usd, promo_credit_used_usd, net_cash_revenue_usd,
+          provider, currency, status, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb)
+       RETURNING id, order_number`,
+      [
+        id,
+        resolvedOrderNumber,
+        userId ? String(userId).slice(0, 64) : null,
+        tiwiId ? String(tiwiId).slice(0, 64) : null,
+        String(orderType || 'subscription_charge').slice(0, 32),
+        planId ? String(planId).slice(0, 64) : null,
+        itemName ? String(itemName).slice(0, 500) : null,
+        Number(Number(grossAmountUsd || 0).toFixed(2)),
+        Number(Number(cashCreditUsedUsd || 0).toFixed(2)),
+        Number(Number(promoCreditUsedUsd || 0).toFixed(2)),
+        Number(Number(netCashRevenueUsd || 0).toFixed(2)),
+        provider ? String(provider).slice(0, 32) : null,
+        String(currency || 'USD').slice(0, 8),
+        String(status || 'paid').slice(0, 32),
+        JSON.stringify(metadata && typeof metadata === 'object' ? metadata : {})
+      ]
+    );
+    return rows[0] ? { id: rows[0].id, orderNumber: rows[0].order_number } : null;
+  } catch {
+    return null;
+  }
 }

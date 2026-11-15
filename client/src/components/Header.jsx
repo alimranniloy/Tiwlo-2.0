@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { resolveAvatarUrl } from '../utils/mediaUtils';
 import { useTheme } from '../config/themeConfig';
+import UserAccountSettingsModal from './UserAccountSettingsModal';
 
 export default function Header({
   searchQuery,
@@ -21,11 +22,29 @@ export default function Header({
   currentUser,
   onLogout,
   onToggleMobileMenu,
-  onNewProduct
+  onNewProduct,
+  onUserUpdated,
+  showToast
 }) {
   const { isDark, toggleTheme } = useTheme();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [accountModalTab, setAccountModalTab] = useState(null);
+  const [effectiveUser, setEffectiveUser] = useState(currentUser);
+
+  useEffect(() => {
+    setEffectiveUser(currentUser);
+  }, [currentUser]);
+
+  useEffect(() => {
+    const handleUserUpdated = (event) => {
+      if (event?.detail) {
+        setEffectiveUser((prev) => ({ ...(prev || {}), ...event.detail }));
+      }
+    };
+    window.addEventListener('tiwlo:user-updated', handleUserUpdated);
+    return () => window.removeEventListener('tiwlo:user-updated', handleUserUpdated);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -38,7 +57,13 @@ export default function Header({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const displayName = currentUser?.storeName || currentUser?.name || 'Tiwlo Store';
+  const displayName = effectiveUser?.storeName || effectiveUser?.name || 'Tiwlo Store';
+
+  const handleAccountUserUpdated = (updatedUser) => {
+    if (!updatedUser) return;
+    setEffectiveUser((prev) => ({ ...(prev || {}), ...updatedUser }));
+    onUserUpdated?.(updatedUser);
+  };
 
   return (
     <header className="tiwi-v3-topbar sticky top-0 z-30 flex h-[68px] items-center justify-between gap-3 border-b border-neutral-200/70 bg-white/90 px-4 backdrop-blur-xl transition-colors sm:px-7">
@@ -128,7 +153,7 @@ export default function Header({
             aria-expanded={showProfileMenu}
           >
             <img
-              src={resolveAvatarUrl(currentUser?.avatar)}
+              src={resolveAvatarUrl(effectiveUser?.avatar)}
               alt=""
               className="size-8 rounded-full object-cover"
             />
@@ -141,14 +166,17 @@ export default function Header({
             <div className="absolute right-0 top-12 z-50 w-60 overflow-hidden rounded-2xl border border-neutral-200 bg-white py-1 shadow-xl">
               <div className="border-b border-neutral-100 px-4 py-3">
                 <p className="truncate text-sm font-semibold text-neutral-900">{displayName}</p>
-                <p className="truncate text-xs text-neutral-500">{currentUser?.email || ''}</p>
-                {currentUser?.tiwiId && (
-                  <p className="mt-1 text-[10px] font-medium text-neutral-400">Tiwlo ID: {currentUser.tiwiId}</p>
+                <p className="truncate text-xs text-neutral-500">{effectiveUser?.email || ''}</p>
+                {effectiveUser?.tiwiId && (
+                  <p className="mt-1 text-[10px] font-medium text-neutral-400">Tiwlo ID: {effectiveUser.tiwiId}</p>
                 )}
               </div>
               <button
                 type="button"
-                onClick={() => setShowProfileMenu(false)}
+                onClick={() => {
+                  setShowProfileMenu(false);
+                  setAccountModalTab('profile');
+                }}
                 className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-xs text-neutral-700 transition hover:bg-neutral-50"
               >
                 <UserRound className="size-4 text-neutral-500" />
@@ -156,7 +184,10 @@ export default function Header({
               </button>
               <button
                 type="button"
-                onClick={() => setShowProfileMenu(false)}
+                onClick={() => {
+                  setShowProfileMenu(false);
+                  setAccountModalTab('security');
+                }}
                 className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-xs text-neutral-700 transition hover:bg-neutral-50"
               >
                 <ShieldCheck className="size-4 text-neutral-500" />
@@ -177,6 +208,14 @@ export default function Header({
           )}
         </div>
       </div>
+      <UserAccountSettingsModal
+        isOpen={Boolean(accountModalTab)}
+        initialTab={accountModalTab || 'profile'}
+        currentUser={effectiveUser}
+        onClose={() => setAccountModalTab(null)}
+        onUserUpdated={handleAccountUserUpdated}
+        showToast={showToast}
+      />
     </header>
   );
 }

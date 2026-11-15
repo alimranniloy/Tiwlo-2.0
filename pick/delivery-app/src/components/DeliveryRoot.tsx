@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LanguageProvider } from '../../../mobile/src/context/LanguageContext';
+import { AppUpdateGate } from '../../../mobile/src/components/common/AppUpdateGate';
 import { DeliveryEntryScreen } from './DeliveryEntryScreen';
 import { ensureDeliveryNotificationChannel } from '../services/deliveryLocation';
 
@@ -26,7 +27,9 @@ export function DeliveryRoot() {
     <LanguageProvider>
       <SafeAreaProvider>
         <StatusBar style="dark" />
-        <DeliveryEntryScreen />
+        <AppUpdateGate appId="delivery">
+          <DeliveryEntryScreen />
+        </AppUpdateGate>
       </SafeAreaProvider>
     </LanguageProvider>
   );

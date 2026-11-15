@@ -17,6 +17,7 @@ import { getSeoMetadata } from '../shared/seoMetadata.mjs';
 import { ensureCertificates } from './scripts/generate-cert.js';
 import { queryPg, testPgConnection } from './db/postgres.js';
 import { BillingDB } from './db/billing.js';
+import { startStoreLifecycleScheduler } from './db/storeLifecycle.js';
 import { streamStoredMedia } from './db/mediaStorage.js';
 import { MasterDB } from './db/multiTenant.js';
 import { resolveActiveStore, resolveStorefrontHost, tenantContext } from './db/storeDataAdapter.js';
@@ -37,6 +38,7 @@ import securityRoutes from './security/securityRoutes.js';
 import systemRoutes from './routes/systemRoutes.js';
 import storeRoutes from './routes/storeRoutes.js';
 import authRoutes from './routes/authRoutes.js';
+import userAccountRoutes from './routes/userAccountRoutes.js';
 import domainRoutes from './routes/domainRoutes.js';
 import subdomainRoutes from './routes/subdomainRoutes.js';
 import { findActiveCustomDomain } from './domains/domainService.js';
@@ -46,7 +48,19 @@ import socialRoutes, { resumePendingVideoProcessing } from './social/socialRoute
 import { SocialDB } from './social/socialDb.js';
 import ecosystemRoutes from './social/ecosystemRoutes.js';
 import chatRoutes from './social/chatRoutes.js';
-import adminRoutes from './administrator/adminRoutes.js';
+import adminRoutes, {
+  adminPlatformOpsRouter,
+  adminSupportRouter,
+  adminChatSystemRouter,
+  adminTelemetryRouter
+} from './administrator/adminRoutes.js';
+import telemetryRoutes from './routes/telemetryRoutes.js';
+import { ensureAiKeyPoolSchema } from './support/ai/aiKeyPoolService.js';
+import { ensureLiveVisitorSchema } from './analytics/liveVisitorService.js';
+import { getDefaultLiveChatQueueService } from './support/liveChatQueueService.js';
+import { startSupportAutomationScheduler } from './support/ticketingService.js';
+import { startAutomatedLogRetentionScheduler } from './db/logRotationService.js';
+import { ensureServiceSubscriptionsSchema } from './db/serviceSubscriptions.js';
 import whatsappRoutes from './whatsapp/whatsappRoutes.js';
 import { WhatsAppManager } from './whatsapp/whatsappManager.js';
 import tpanelRoutes from '../service/TPanel/server/tpanelRoutes.js';
@@ -68,6 +82,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.disable('x-powered-by');
 configureTrustedProxy(app);
 const PORT = process.env.PORT || 5000;
 const HTTP_PORT = Number.parseInt(process.env.HTTP_PORT || String(Number(PORT) + 1), 10);
@@ -401,13 +416,19 @@ const applicationRoutes = [
   ['/api/social', socialRoutes], ['/api/tiwi', socialRoutes],
   ['/api/social', ecosystemRoutes], ['/api/tiwi', ecosystemRoutes],
   ['/api/social/chat', chatRoutes], ['/api/tiwi/chat', chatRoutes],
-  ['/api/admin', adminRoutes], ['/api/whatsapp', whatsappRoutes],
+  ['/api/admin', adminRoutes],
+  ['/api/admin', adminPlatformOpsRouter],
+  ['/api/admin', adminSupportRouter],
+  ['/api/admin', adminChatSystemRouter],
+  ['/api/admin/telemetry', adminTelemetryRouter],
+  ['/api/whatsapp', whatsappRoutes],
   ['/api/subdomains', subdomainRoutes],
   ['/api/plugins/tpanel', tpanelRoutes], ['/api/plugins/whatsapp', whatsappRoutes],
   ['/api/plugins/support-ai', supportRoutes],
   ['/api/tpanel', tpanelRoutes], ['/api/support', supportRoutes],
+  ['/api/telemetry', telemetryRoutes],
   ['/api/email', emailRoutes], ['/api/mail', emailRoutes],
-  ['/api/plugins/discord', discordRoutes], ['/api/discord', discordRoutes], ['/api', authRoutes],
+  ['/api/plugins/discord', discordRoutes], ['/api/discord', discordRoutes], ['/api', authRoutes], ['/api', userAccountRoutes],
   ['/api/pick', pickRoutes],
   ['/api/domains', domainRoutes], ['/api/cloud', cloudRoutes],
   ['/api/verification', verificationRoutes],
@@ -452,12 +473,16 @@ app.use('/api/pick', pickRoutes);
 
 // Authentication, 2FA, Profiles & SSO Handshake (Mounted first to handle public login/register/check endpoints)
 app.use('/api', authRoutes);
+app.use('/api', userAccountRoutes);
 app.use('/api/domains', domainRoutes);
 app.use('/api/subdomains', subdomainRoutes);
 
 // Cloud & Droplets
 app.use('/api/cloud', cloudRoutes);
 app.use('/api/verification', verificationRoutes);
+
+// Live Visitor Telemetry & Audit
+app.use('/api/telemetry', telemetryRoutes);
 
 // Security, Verification & Media Pipelines
 app.use('/api', securityRoutes);
@@ -771,11 +796,21 @@ async function startServer() {
   await runMigration();
   await initializePickSchema();
   BillingDB.startPendingTopupExpiry();
+  startStoreLifecycleScheduler();
   if (postgresReady) {
     const { bootstrapGoogleDriveServiceAccountFromEnv } = await import('./administrator/googleDriveStorage.js');
     await bootstrapGoogleDriveServiceAccountFromEnv();
     const { resumeStorageSyncOnStartup } = await import('./db/mediaMigration.js');
     await resumeStorageSyncOnStartup();
+    const { ensureServerFleetSchema, startFleetConnectivityMonitor } = await import('./administrator/serverFleetService.js');
+    await ensureServerFleetSchema();
+    startFleetConnectivityMonitor();
+    await ensureAiKeyPoolSchema().catch((err) => console.warn('[SupportAI Schema Notice]', err?.message || err));
+    await ensureLiveVisitorSchema().catch((err) => console.warn('[LiveVisitor Schema Notice]', err?.message || err));
+    await getDefaultLiveChatQueueService().ensureLiveChatSchema().catch((err) => console.warn('[LiveChat Schema Notice]', err?.message || err));
+    await ensureServiceSubscriptionsSchema().catch((err) => console.warn('[ServiceSubscriptions Schema Notice]', err?.message || err));
+    startSupportAutomationScheduler();
+    startAutomatedLogRetentionScheduler();
   }
   WhatsAppManager.init().catch(err => console.warn('⚠️ WhatsApp Manager init notice:', err.message));
   await SocialDB.hydrateFromPg();

@@ -1,183 +1,266 @@
 import React from 'react';
 import {
+  Activity,
+  Bot,
   LayoutDashboard,
-  ShoppingBag,
-  Package,
-  Users,
+  Receipt,
   Store,
-  Ticket,
-  LifeBuoy,
-  Truck,
+  Package,
+  Gift,
   CreditCard,
-  Star,
-  Settings,
   Server,
   Globe,
+  Network,
   HardDrive,
-  Receipt,
-  Terminal,
-  ShieldCheck,
-  Activity,
-  Sliders,
-  UserCheck,
-  MapPin,
   ShieldAlert,
+  MapPin,
+  MessageSquare,
+  LifeBuoy,
+  FileCheck2,
   FileText,
-  Bell,
-  ChevronRight,
-  Gift,
+  ShieldCheck,
+  Settings,
   X
 } from 'lucide-react';
+
+const VIEW_REQUIRED_PERMISSIONS = {
+  dashboard: null,
+  orders: ['manage_orders', 'view_financials'],
+  customers: ['view_stores', 'manage_stores'],
+  'identity-verification': ['view_stores', 'manage_stores', 'manage_users_security'],
+  packages: ['manage_packages_promos'],
+  promotions: ['manage_packages_promos'],
+  'platform-payments': ['manage_system_settings'],
+  servers: ['manage_servers'],
+  domains: ['manage_dns_domains'],
+  dns: ['manage_dns_domains'],
+  'google-drive': ['manage_servers'],
+  users: ['manage_users_security', 'ban_users'],
+  'user-locations': ['manage_users_security'],
+  'support-desk': ['manage_orders', 'manage_users_security', 'manage_support', 'support_desk'],
+  'compliance-audit': ['manage_users_security', 'view_financials', 'view_audit_logs', 'manage_orders'],
+  'live-visitors': ['manage_users_security', 'view_stores', 'manage_support'],
+  'discord-bot': ['manage_system_settings', 'manage_support'],
+  'pick-account-appeals': ['manage_orders', 'manage_users_security'],
+  logs: ['manage_users_security'],
+  'staff-support': ['manage_staff_roles'],
+  'system-settings': ['manage_system_settings'],
+  'social-login': ['manage_system_settings'],
+  'google-maps': ['manage_system_settings']
+};
+
+export function isAdminViewPermitted(viewId, staffAccess) {
+  const normalizedView = viewId === 'payment-gateways' ? 'platform-payments' : viewId;
+  const baseView = normalizedView.includes('/') ? normalizedView.split('/')[0] : normalizedView;
+
+  if (!staffAccess) {
+    return baseView === 'dashboard';
+  }
+  if (
+    staffAccess.isSuperAdmin === true ||
+    staffAccess.role === 'super_admin' ||
+    staffAccess.roleKey === 'super_admin' ||
+    staffAccess.unrestricted === true
+  ) {
+    return true;
+  }
+
+  const perms = staffAccess.permissions ?? staffAccess.allowedViews;
+  if (!perms) return baseView === 'dashboard';
+
+  if (Array.isArray(perms)) {
+    if (perms.includes('*')) return true;
+    // Direct view ID match
+    if (perms.includes(normalizedView) || perms.includes(baseView)) return true;
+    // Backend permission key match (staffSecurityService.js)
+    const requiredAny = VIEW_REQUIRED_PERMISSIONS[baseView];
+    if (requiredAny === null) return true;
+    if (Array.isArray(requiredAny)) {
+      return requiredAny.some((key) => perms.includes(key));
+    }
+    return false;
+  }
+
+  if (typeof perms === 'object') {
+    if (Array.isArray(perms.views)) {
+      return perms.views.includes('*') || perms.views.includes(normalizedView) || perms.views.includes(baseView);
+    }
+    if (Array.isArray(perms.allowedViews)) {
+      return (
+        perms.allowedViews.includes('*') ||
+        perms.allowedViews.includes(normalizedView) ||
+        perms.allowedViews.includes(baseView)
+      );
+    }
+    if (Object.prototype.hasOwnProperty.call(perms, normalizedView)) {
+      return Boolean(perms[normalizedView]);
+    }
+    if (Object.prototype.hasOwnProperty.call(perms, baseView)) {
+      return Boolean(perms[baseView]);
+    }
+    const requiredAny = VIEW_REQUIRED_PERMISSIONS[baseView];
+    if (requiredAny === null) return true;
+    if (Array.isArray(requiredAny) && requiredAny.some((key) => perms[key] === true)) {
+      return true;
+    }
+    return false;
+  }
+
+  return false;
+}
+
+const NAV_SECTIONS = [
+  {
+    title: 'PLATFORM & FINANCE',
+    items: [
+      { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
+      { id: 'orders', label: 'System Orders', icon: Receipt },
+      { id: 'customers', label: 'Merchants & Stores', icon: Store },
+      { id: 'packages', label: 'Plans & Add-ons', icon: Package },
+      { id: 'promotions', label: 'Promotions & Credits', icon: Gift },
+      { id: 'platform-payments', label: 'Payment Gateways', icon: CreditCard }
+    ]
+  },
+  {
+    title: 'INFRASTRUCTURE',
+    items: [
+      { id: 'servers', label: 'Server & System Status', icon: Server },
+      { id: 'domains', label: 'Domains & Subdomains', icon: Globe },
+      { id: 'dns', label: 'DNS Records', icon: Network },
+      { id: 'google-drive', label: 'Google Drive', icon: HardDrive }
+    ]
+  },
+  {
+    title: 'TRUST & SETTINGS',
+    items: [
+      { id: 'users', label: 'Users & Risk Monitor', icon: ShieldAlert },
+      { id: 'user-locations', label: 'User Locations', icon: MapPin },
+      { id: 'live-visitors', label: 'Live Visitors', icon: Activity },
+      { id: 'support-desk', label: 'Support Desk', icon: MessageSquare },
+      { id: 'compliance-audit', label: 'Compliance & Audit', icon: FileCheck2 },
+      { id: 'discord-bot', label: 'Discord Bot', icon: Bot },
+      { id: 'pick-account-appeals', label: 'PICK Reviews', icon: LifeBuoy },
+      { id: 'logs', label: 'Security & Email Logs', icon: FileText },
+      { id: 'staff-support', label: 'Staff Support & Roles', icon: ShieldCheck },
+      { id: 'system-settings', label: 'Settings & Currency', icon: Settings }
+    ]
+  }
+];
 
 export default function AdminSidebar({
   activeView,
   onNavigate,
   mobileOpen,
-  onCloseMobile
+  onCloseMobile,
+  staffAccess,
+  isDarkMode
 }) {
-  const navSections = [
-    {
-      title: 'ECOMMERCE',
-      items: [
-        { id: 'orders', label: 'Orders', icon: ShoppingBag },
-        { id: 'products', label: 'Products', icon: Package },
-        { id: 'customers', label: 'Customers', icon: Users },
-        { id: 'vendors', label: 'Vendors', icon: Store },
-        { id: 'coupons', label: 'Coupons & Discounts', icon: Ticket },
-        { id: 'shipping', label: 'Shipping', icon: Truck },
-        { id: 'transactions', label: 'Transactions', icon: CreditCard },
-        { id: 'packages', label: 'Package', icon: Package },
-        { id: 'promotions', label: 'Promotions', icon: Gift },
-        { id: 'reviews', label: 'Reviews', icon: Star },
-        { id: 'ecommerce-settings', label: 'Settings', icon: Settings }
-      ]
-    },
-    {
-      title: 'CLOUD',
-      items: [
-        { id: 'servers', label: 'Servers', icon: Server },
-        { id: 'domains', label: 'Domains', icon: Globe },
-        { id: 'storage', label: 'Storage', icon: HardDrive },
-        { id: 'usage-billing', label: 'Usage & Billing', icon: Receipt },
-        { id: 'ssh-access', label: 'SSH / Access', icon: Terminal },
-        { id: 'backups', label: 'Backups', icon: ShieldCheck },
-        { id: 'monitoring', label: 'Monitoring', icon: Activity },
-        { id: 'cloud-settings', label: 'Settings', icon: Sliders }
-      ]
-    },
-    {
-      title: 'STORAGE',
-      items: [
-        { id: 'google-drive', label: 'Google Drive', icon: HardDrive }
-      ]
-    },
-    {
-      title: 'SYSTEM',
-      items: [
-        { id: 'platform-payments', label: 'Payment Gateways', icon: CreditCard },
-        { id: 'dns', label: 'DNS Records', icon: Globe },
-        { id: 'users', label: 'Users', icon: UserCheck },
-        { id: 'user-locations', label: 'User Locations', icon: MapPin },
-        { id: 'pick-account-appeals', label: 'PICK Account Reviews', icon: LifeBuoy },
-        { id: 'roles', label: 'Roles & Permissions', icon: ShieldAlert },
-        { id: 'logs', label: 'Logs', icon: FileText },
-        { id: 'notifications', label: 'Notifications', icon: Bell },
-        { id: 'system-settings', label: 'Settings', icon: Settings }
-      ]
-    }
-  ];
+  const dark =
+    typeof isDarkMode === 'boolean'
+      ? isDarkMode
+      : typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+
+  const visibleSections = NAV_SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter((item) => isAdminViewPermitted(item.id, staffAccess))
+  })).filter((section) => section.items.length > 0);
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-[#fafafa] dark:bg-neutral-900 border-r border-neutral-200/80 dark:border-neutral-800 select-none">
+    <div className="flex flex-col h-full bg-white dark:bg-neutral-950 border-r border-neutral-200/80 dark:border-neutral-800 select-none">
       {/* Mobile Header in Drawer */}
-      <div className="lg:hidden flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-800">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-neutral-600 flex items-center justify-center text-white font-bold text-sm">
-            T
-          </div>
-          <span className="font-bold text-neutral-900 dark:text-white">Tiwlo Admin</span>
+      <div className="lg:hidden flex items-center justify-between px-4 h-16 border-b border-neutral-200/80 dark:border-neutral-800">
+        <div className="flex items-center gap-2 min-w-0">
+          <img
+            src={dark ? '/tiwlologo-dark.png' : '/tiwlo-light-logo.png'}
+            alt="Tiwlo"
+            className="h-6 w-auto object-contain"
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = '/tiwlo-icon.png';
+            }}
+          />
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-neutral-100 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 border border-neutral-200/80 dark:border-neutral-800">
+            Admin
+          </span>
         </div>
         <button
+          type="button"
           onClick={onCloseMobile}
-          className="p-1 rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-900"
+          aria-label="Close navigation menu"
         >
           <X className="w-5 h-5" />
         </button>
       </div>
 
       {/* Navigation Scroll Area */}
-      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6 scrollbar-thin scrollbar-thumb-neutral-200 dark:scrollbar-thumb-neutral-700">
-        {/* Main Dashboard item */}
-        <div>
-          <button
-            onClick={() => { onNavigate('dashboard'); onCloseMobile?.(); }}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-semibold transition-all ${
-              activeView === 'dashboard'
-                ? 'bg-[#efefef] dark:bg-neutral-900/40 text-[#696969] dark:text-neutral-400 shadow-2xs'
-                : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100/80 dark:hover:bg-neutral-800 hover:text-neutral-900'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <LayoutDashboard className={`w-4 h-4 ${activeView === 'dashboard' ? 'text-[#696969] dark:text-neutral-400' : 'text-neutral-500'}`} />
-              <span>Dashboard</span>
-            </div>
-          </button>
-        </div>
-
-        {/* Categorized Groups */}
-        {navSections.map((sec) => (
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5" aria-label="Platform Admin Navigation">
+        {visibleSections.map((sec) => (
           <div key={sec.title} className="space-y-1">
-            <h3 className="px-3 text-[11px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
+            <h3 className="px-3 text-[10px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
               {sec.title}
             </h3>
             <div className="space-y-0.5 pt-1">
               {sec.items.map((item) => {
                 const IconComponent = item.icon;
-                const isActive = activeView === item.id || activeView.startsWith(`${item.id}/`);
+                const isActive =
+                  activeView === item.id ||
+                  activeView.startsWith(`${item.id}/`) ||
+                  (item.id === 'platform-payments' && activeView === 'payment-gateways') ||
+                  (item.id === 'customers' && activeView.startsWith('identity-verification/')) ||
+                  (item.id === 'system-settings' && (activeView === 'social-login' || activeView === 'google-maps'));
+
                 return (
                   <button
+                    type="button"
                     key={item.id}
-                    onClick={() => { onNavigate(item.id); onCloseMobile?.(); }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group ${
+                    onClick={() => {
+                      onNavigate(item.id);
+                      onCloseMobile?.();
+                    }}
+                    className={`relative w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                       isActive
-                        ? 'bg-[#efefef] dark:bg-neutral-900/40 text-[#696969] dark:text-neutral-400 font-semibold shadow-2xs'
-                        : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100/70 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-200'
+                        ? 'bg-[#1ED760]/12 dark:bg-[#1ED760]/15 text-neutral-950 dark:text-white font-semibold'
+                        : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100/80 dark:hover:bg-neutral-900 hover:text-neutral-900 dark:hover:text-neutral-200'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <IconComponent className={`w-4 h-4 transition-colors ${
-                        isActive ? 'text-[#696969] dark:text-neutral-400' : 'text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-300'
-                      }`} />
-                      <span>{item.label}</span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      {item.badge && (
-                        <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-neutral-100 text-neutral-700 dark:bg-neutral-900/60 dark:text-neutral-300">
-                          {item.badge}
-                        </span>
-                      )}
-                      <ChevronRight className={`w-3.5 h-3.5 text-neutral-300 dark:text-neutral-600 transition-transform ${
-                        isActive ? 'text-[#696969] dark:text-neutral-400 rotate-90' : 'group-hover:translate-x-0.5'
-                      }`} />
-                    </div>
+                    {isActive && (
+                      <span
+                        className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-[#1ED760]"
+                        aria-hidden="true"
+                      />
+                    )}
+                    <IconComponent
+                      className={`w-4 h-4 shrink-0 transition-colors ${
+                        isActive ? 'text-[#159f46] dark:text-[#1ED760]' : 'text-neutral-400 dark:text-neutral-500'
+                      }`}
+                    />
+                    <span className="truncate">{item.label}</span>
                   </button>
                 );
               })}
             </div>
           </div>
         ))}
-      </div>
+      </nav>
 
       {/* Bottom Tiwlo Branding Card */}
       <div className="p-3 border-t border-neutral-200/80 dark:border-neutral-800">
-        <div className="flex items-center gap-3 p-2.5 rounded-xl bg-gradient-to-r from-neutral-50 to-neutral-50/60 dark:from-neutral-800 dark:to-neutral-800/80 border border-neutral-100/80 dark:border-neutral-700/80">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-neutral-600 to-neutral-500 flex items-center justify-center text-white shadow-sm shadow-neutral-500/25">
-            <span className="font-bold text-base">T</span>
-          </div>
-          <div>
-            <h4 className="text-xs font-bold text-neutral-800 dark:text-white">Tiwlo</h4>
-            <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-medium">Build • Sell • Grow</p>
+        <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-[#fafafa] dark:bg-neutral-900/70 border border-neutral-200/80 dark:border-neutral-800">
+          <img
+            src={dark ? '/tiwlo-icon-dark.png' : '/tiwlo-icon.png'}
+            alt="Tiwlo"
+            className="w-8 h-8 rounded-lg object-contain shrink-0"
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = '/tiwlo-icon.png';
+            }}
+          />
+          <div className="min-w-0">
+            <h4 className="text-xs font-semibold text-neutral-900 dark:text-white truncate">Tiwlo Control</h4>
+            <p className="text-[10px] text-neutral-500 dark:text-neutral-400 truncate">
+              Platform Operations & Trust
+            </p>
           </div>
         </div>
       </div>
@@ -195,10 +278,10 @@ export default function AdminSidebar({
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
-            className="fixed inset-0 bg-neutral-900/40 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-neutral-950/50 backdrop-blur-xs transition-opacity"
             onClick={onCloseMobile}
           />
-          <div className="fixed inset-y-0 left-0 w-72 max-w-[85vw] bg-white dark:bg-neutral-900 shadow-2xl z-50 animate-in slide-in-from-left duration-200">
+          <div className="fixed inset-y-0 left-0 w-72 max-w-[85vw] bg-white dark:bg-neutral-950 border-r border-neutral-200 dark:border-neutral-800 z-50">
             {sidebarContent}
           </div>
         </div>

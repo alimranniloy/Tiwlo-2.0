@@ -1,43 +1,83 @@
 import React from 'react';
-import { Activity, ShoppingBag, UserPlus } from 'lucide-react';
+import { Activity, Wallet, ArrowUpCircle, ShieldAlert, UserPlus } from 'lucide-react';
+import { useAdminCurrency } from './AdminCurrencyContext';
+import { isSuperAdminSensitiveItem } from './AdminHeader';
 
-const icons = {
-  'shopping-bag': ShoppingBag,
+const ICONS = {
+  topup: Wallet,
+  wallet: Wallet,
+  upgrade: ArrowUpCircle,
+  security: ShieldAlert,
   'user-plus': UserPlus,
   activity: Activity
 };
 
-export default function RecentActivities({ activities }) {
-  const items = activities || [];
+export default function RecentActivities({ activities, isSuperAdmin = false }) {
+  const { formatMoney } = useAdminCurrency();
+
+  const rawItems = Array.isArray(activities) ? activities : [];
+  const items = isSuperAdmin
+    ? rawItems
+    : rawItems.filter((item) => !isSuperAdminSensitiveItem(item));
 
   return (
-    <div className="bg-white dark:bg-neutral-900 rounded-2xl p-5 border border-neutral-200/70 dark:border-neutral-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
-      <h3 className="text-base font-bold text-neutral-900 dark:text-white mb-4">Recent Activities</h3>
-      {items.length ? (
-        <div className="space-y-3.5">
-          {items.map(item => {
-            const Icon = icons[item.icon] || Activity;
+    <div className="bg-white dark:bg-neutral-950 rounded-xl p-5 border border-neutral-200/80 dark:border-neutral-800 flex flex-col justify-between h-full">
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
+          Recent Platform Activity
+        </h3>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+          Top-ups, plan upgrades &amp; security events
+        </p>
+      </div>
+
+      {items.length > 0 ? (
+        <div className="space-y-2.5 flex-1">
+          {items.map((item, idx) => {
+            const Icon = ICONS[item.icon] || ICONS[item.type] || Activity;
+            const isSecurity = item.icon === 'security' || item.type === 'security';
             return (
-              <div key={item.id} className="flex items-start justify-between gap-3 p-1.5">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-neutral-50 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
-                    <Icon className="w-4 h-4" />
+              <div
+                key={item.id || idx}
+                className="flex items-start justify-between gap-2.5 p-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors"
+              >
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <div
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                      isSecurity
+                        ? 'bg-amber-500/12 text-amber-600 dark:text-amber-400'
+                        : 'bg-[#1ED760]/12 text-[#159f46] dark:text-[#1ED760]'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
                   </div>
-                  <div>
-                    <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">{item.title}</p>
-                    <p className="text-[11px] text-neutral-400 dark:text-neutral-500">{item.target}</p>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+                      {item.title}
+                    </p>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
+                      {item.target}
+                    </p>
                   </div>
                 </div>
-                <span className="text-[10px] font-medium text-neutral-400 dark:text-neutral-500 shrink-0 mt-0.5">
-                  {item.timeAgo}
-                </span>
+
+                <div className="text-right shrink-0">
+                  {item.amountUsd != null && (
+                    <p className="text-xs font-semibold tabular-nums text-neutral-900 dark:text-white">
+                      {formatMoney(item.amountUsd)}
+                    </p>
+                  )}
+                  <span className="text-[10px] font-medium text-neutral-400 dark:text-neutral-500">
+                    {item.timeAgo || ''}
+                  </span>
+                </div>
               </div>
             );
           })}
         </div>
       ) : (
-        <p className="py-8 text-center text-xs text-neutral-400 dark:text-neutral-500">
-          {activities ? 'No recorded store activity.' : 'Activity data is unavailable.'}
+        <p className="py-8 text-center text-xs text-neutral-400 dark:text-neutral-500 my-auto">
+          {activities ? 'No recent platform activity recorded.' : 'Activity data is unavailable.'}
         </p>
       )}
     </div>

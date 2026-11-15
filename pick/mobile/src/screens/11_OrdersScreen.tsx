@@ -6,8 +6,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Image,
 } from 'react-native';
 import { Header } from '../components/common/Header';
+import { PickIcon } from '../components/common/PickIcon';
 import { BottomNav } from '../components/common/BottomNav';
 import { ScreenContainer, SYSTEM_INSETS } from '../components/common/ScreenContainer';
 import { AnimatedEmptyState } from '../components/common/AnimatedEmptyState';
@@ -130,26 +132,47 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({
           const date = Number.isNaN(createdAt.getTime())
             ? order.createdAt
             : createdAt.toLocaleString(isEn ? 'en-BD' : 'bn-BD');
+          const firstImage = order.items.find((item) => item.image)?.image;
+          const failedPayment = ['failed', 'expired', 'cancelled', 'canceled'].includes(
+            order.paymentStatus.toLowerCase()
+          );
           return (
             <View
               key={order.id}
               style={[styles.orderRow, !isLast && styles.hairlineDivider]}
             >
-              <View style={styles.orderHeader}>
-                <Text style={styles.orderTitle}>{title}</Text>
-                <Text style={styles.orderPrice}>৳{order.total}</Text>
+              <View style={styles.orderSummary}>
+                <View style={styles.orderThumb}>
+                  {firstImage ? (
+                    <Image source={{ uri: firstImage }} style={styles.orderImage} resizeMode="cover" />
+                  ) : (
+                    <PickIcon
+                      name={order.orderType === 'parcel' ? 'package' : 'groceries'}
+                      size={25}
+                      color="#71717A"
+                    />
+                  )}
+                </View>
+                <View style={styles.orderMain}>
+                  <View style={styles.orderHeader}>
+                    <Text style={styles.orderTitle}>{title}</Text>
+                    <Text style={styles.orderPrice}>৳{order.total}</Text>
+                  </View>
+                  <Text style={styles.orderItems} numberOfLines={2}>
+                    {formatItems(order) || order.deliveryAddress}
+                  </Text>
+                </View>
               </View>
-              <Text style={styles.orderItems}>
-                {formatItems(order) || order.deliveryAddress}
-              </Text>
-              <Text style={styles.orderDate}>
-                {formatStatus(order.status)} • {date}
-              </Text>
-              {order.paymentMethod.toLowerCase() !== 'cod' ? (
-                <Text style={styles.orderDate}>
-                  {t('Payment', 'পেমেন্ট')}: {formatStatus(order.paymentStatus)}
-                </Text>
-              ) : null}
+              <View style={styles.orderMeta}>
+                <Text style={styles.orderDate}>{formatStatus(order.status)} • {date}</Text>
+                {order.paymentMethod.toLowerCase() !== 'cod' ? (
+                  <View style={[styles.paymentPill, failedPayment && styles.paymentPillFailed]}>
+                    <Text style={[styles.paymentPillText, failedPayment && styles.paymentPillTextFailed]}>
+                      {formatStatus(order.paymentStatus)}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
               {activeTab === 'active' ? (
                 <TouchableOpacity
                   style={styles.actionBtn}
@@ -222,6 +245,22 @@ const styles = StyleSheet.create({
   orderRow: {
     paddingVertical: 18,
   },
+  orderSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+  },
+  orderThumb: {
+    width: 66,
+    height: 66,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderRadius: 16,
+    backgroundColor: '#F4F4F5',
+  },
+  orderImage: { width: '100%', height: '100%' },
+  orderMain: { flex: 1, minWidth: 0 },
   hairlineDivider: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#E4E4E7',
@@ -257,8 +296,24 @@ const styles = StyleSheet.create({
   orderDate: {
     fontSize: 12,
     color: '#71717A',
+    flex: 1,
+  },
+  orderMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
     marginBottom: 12,
   },
+  paymentPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: '#E8F7EF',
+  },
+  paymentPillFailed: { backgroundColor: '#FEF0EF' },
+  paymentPillText: { color: '#138A5B', fontSize: 11, fontWeight: '700' },
+  paymentPillTextFailed: { color: '#B42318' },
   actionBtn: {
     height: 44,
     backgroundColor: '#09090B',

@@ -1,4 +1,24 @@
+import { ensureServiceSubscriptionsSchema } from '../db/serviceSubscriptions.js';
+
 export const DISCORD_SCHEMA_SQL = `
+  CREATE TABLE IF NOT EXISTS discord_official_bots (
+    id VARCHAR(64) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    client_id VARCHAR(128) NOT NULL DEFAULT '',
+    token_ciphertext TEXT,
+    token_last4 VARCHAR(8),
+    has_token BOOLEAN NOT NULL DEFAULT FALSE,
+    permissions_int VARCHAR(32) NOT NULL DEFAULT '274877975552',
+    oauth_url_template TEXT,
+    status VARCHAR(32) NOT NULL DEFAULT 'active',
+    description TEXT NOT NULL DEFAULT '',
+    features JSONB NOT NULL DEFAULT '[]'::jsonb,
+    avatar_url TEXT,
+    is_default BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS discord_bots (
     id VARCHAR(64) PRIMARY KEY,
     user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
@@ -23,9 +43,17 @@ export const DISCORD_SCHEMA_SQL = `
     icon TEXT,
     member_count INTEGER DEFAULT 0,
     guild_id VARCHAR(128),
+    official_bot_id VARCHAR(64),
+    is_suspended BOOLEAN NOT NULL DEFAULT FALSE,
+    ai_config JSONB NOT NULL DEFAULT '{}'::jsonb,
+    commands_used_month INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
   );
+  ALTER TABLE discord_servers ADD COLUMN IF NOT EXISTS official_bot_id VARCHAR(64);
+  ALTER TABLE discord_servers ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN NOT NULL DEFAULT FALSE;
+  ALTER TABLE discord_servers ADD COLUMN IF NOT EXISTS ai_config JSONB NOT NULL DEFAULT '{}'::jsonb;
+  ALTER TABLE discord_servers ADD COLUMN IF NOT EXISTS commands_used_month INTEGER NOT NULL DEFAULT 0;
   CREATE INDEX IF NOT EXISTS idx_discord_servers_user ON discord_servers(user_id);
 
   CREATE TABLE IF NOT EXISTS discord_bot_servers (
@@ -162,4 +190,5 @@ export async function ensureDiscordSchema(queryable) {
   } else {
     await queryable.query(DISCORD_SCHEMA_SQL);
   }
+  await ensureServiceSubscriptionsSchema(queryable);
 }

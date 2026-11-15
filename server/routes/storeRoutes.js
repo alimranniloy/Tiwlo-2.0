@@ -15,6 +15,7 @@ import {
   getActiveTiwiId,
   resolveActiveStore,
   resolveStorefrontHost,
+  resolveSuspendedStorefrontHost,
   tenantContext,
   writeTenantData,
   PRODUCTS_FILE,
@@ -32,7 +33,12 @@ import {
 } from '../db/storeDataAdapter.js';
 import { generateOtpWithRust, verifyOtpWithRust } from '../security/rustAuthSessionClient.js';
 import { blockBannedDeviceMiddleware } from '../security/freeTierAbuseGuard.js';
-import { sendInvoiceEmail, sendSignupVerificationOtpEmail } from '../db/emailService.js';
+import { sendInvoiceEmail, sendSignupVerificationOtpEmail, sendStoreCreatedEmail } from '../db/emailService.js';
+import {
+  buildStoreDashboardNotifications,
+  renewStoreSubscriptionForUser,
+  syncStoreLifecycleOnPlanChange
+} from '../db/storeLifecycle.js';
 import {
   contentSafetyMiddleware,
   checkAssetScope,
@@ -419,6 +425,40 @@ async function recordVerifiedPayment(order, verification, sales, index) {
   return true;
 }
 
+function sendStorefrontOrderInvoiceEmail(order, storeSettings = {}, storeHost = '') {
+  const rawEmail = String(order?.customerEmail || '').trim();
+  if (!rawEmail) return;
+  let recipient;
+  try {
+    recipient = normalizeCustomerEmail(rawEmail);
+  } catch {
+    return;
+  }
+  const cleanHost = String(storeHost || storeSettings?.subdomain || '').trim();
+  const actionUrl = cleanHost ? `https://${cleanHost}/#/store/order-success/${encodeURIComponent(order.id)}` : undefined;
+  return sendInvoiceEmail({
+    to: recipient,
+    name: order.customerName,
+    invoiceNumber: order.invoiceNumber,
+    date: order.date && Number.isFinite(Date.parse(order.date))
+      ? new Date(order.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+      : '',
+    amount: Number(order.totalAmount || 0),
+    currency: order.currency || 'USD',
+    paymentStatus: order.paymentStatus || 'Pending',
+    paymentMethod: order.paymentMethod || 'Not recorded',
+    storeName: storeSettings?.storeName || 'Tiwlo Store',
+    items: (order.items || []).map(item => ({
+      description: item.productName || item.name || 'Store item',
+      qty: Number(item.quantity) || 1,
+      amount: Number(item.total ?? (Number(item.unitPrice || item.price || 0) * (Number(item.quantity) || 1)))
+    })),
+    ...(actionUrl ? { actionUrl } : {})
+  }).catch((error) => {
+    console.warn(`[Storefront invoice email] Failed for ${order.invoiceNumber}:`, error.message);
+  });
+}
+
 async function handleStorePaymentReturn(req, res, provider, { ipn = false, webhook = false } = {}) {
   let customerReturnUrl = '';
   try {
@@ -556,6 +596,7 @@ async function handleStorePaymentReturn(req, res, provider, { ipn = false, webho
             });
             await writeTenantData({ [SALES_FILE]: sales, [FINANCE_LEDGER_FILE]: nextLedger }, store.tiwiId);
             await logActivity('sale', 'Storefront payment verified', `${order.invoiceNumber} • ${provider}`, store.tiwiId);
+            sendStorefrontOrderInvoiceEmail(order, settings, store.subdomain || req.get('host'));
           }
         }
         return res.status(200).json({ received: true });
@@ -611,6 +652,7 @@ async function handleStorePaymentReturn(req, res, provider, { ipn = false, webho
             });
             await writeTenantData({ [SALES_FILE]: sales, [FINANCE_LEDGER_FILE]: nextLedger }, store.tiwiId);
             await logActivity('sale', 'Storefront payment verified', `${order.invoiceNumber} • ${provider}`, store.tiwiId);
+            sendStorefrontOrderInvoiceEmail(order, settings, store.subdomain || req.get('host'));
           }
         } else if (['cancel', 'cancelled', 'failure', 'failed'].includes(
           String(verification.rawStatus || '').toLowerCase()
@@ -727,15 +769,25 @@ router.get('/public/storefront', async (req, res) => {
   try {
     const store = await resolveStorefrontHost(req.hostname);
     if (!store) {
+      const suspendedInfo = await resolveSuspendedStorefrontHost(req.hostname);
+      if (suspendedInfo) {
+        return res.status(402).json({
+          storeSuspended: true,
+          code: 'STORE_SUSPENDED_PAYMENT_REQUIRED',
+          store: suspendedInfo,
+          error: 'This store is temporarily suspended pending subscription payment.'
+        });
+      }
       return res.status(404).json({ error: 'Storefront not found.' });
     }
 
     const storefrontData = await tenantContext.run({ tiwiId: store.tiwiId }, async () => {
-      const [products, categories, storedSettings, reviews] = await Promise.all([
+      const [products, categories, storedSettings, reviews, subscription] = await Promise.all([
         readData(PRODUCTS_FILE, [], store.tiwiId),
         readData(CATEGORIES_FILE, [], store.tiwiId),
         readData(STORE_SETTINGS_FILE, {}, store.tiwiId),
-        readData(STORE_REVIEWS_FILE, [], store.tiwiId)
+        readData(STORE_REVIEWS_FILE, [], store.tiwiId),
+        readData(SUBSCRIPTION_FILE, {}, store.tiwiId)
       ]);
       const settings = Object.fromEntries([
         'storeName', 'storeTagline', 'storeTitle', 'storeDescription',
@@ -794,11 +846,13 @@ router.get('/public/storefront', async (req, res) => {
             name: category.name,
             description: category.description,
             image: category.image
-          })
+          }),
+        planId: subscription?.planId || store.planId || 'free'
       };
     });
 
-    res.json({ store, ...storefrontData });
+    const { planId, ...publicStorefrontData } = storefrontData;
+    res.json({ store: { ...store, planId }, ...publicStorefrontData });
   } catch (error) {
     console.error('Failed to load public storefront:', error);
     res.status(500).json({ error: 'Could not load this storefront.' });
@@ -1960,6 +2014,113 @@ router.delete('/stores/:tiwiId', async (req, res) => {
   }
 });
 
+router.get('/store-notifications', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+    const userStores = await MasterDB.getUserStores(userId);
+    const tenantStoresMap = new Map();
+    const subscriptionByStore = new Map();
+    const storeSummaries = [];
+
+    await Promise.all(
+      (userStores || []).map(async (store) => {
+        const tiwiId = String(store?.tiwiId || '').trim();
+        if (!tiwiId) return;
+        const tenantStore = await TenantDB.getStoreDb(tiwiId).catch(() => null);
+        if (tenantStore) {
+          tenantStoresMap.set(tiwiId, tenantStore);
+          tenantStoresMap[tiwiId] = tenantStore;
+        }
+        const products = Array.isArray(tenantStore?.products) ? tenantStore.products : [];
+        const staff = Array.isArray(tenantStore?.staff) ? tenantStore.staff : [];
+        const sales = Array.isArray(tenantStore?.sales) ? tenantStore.sales : [];
+        const monthlySalesCount = countCurrentMonthSales(sales);
+        const subWithUsage = buildSubscriptionWithUsage(
+          tenantStore?.subscription || DEFAULT_SUBSCRIPTION,
+          { products, staff, sales }
+        );
+        const subSummary = {
+          ...subWithUsage,
+          productsCount: products.length,
+          staffCount: staff.length,
+          monthlySalesCount
+        };
+        subscriptionByStore.set(tiwiId, subSummary);
+        subscriptionByStore[tiwiId] = subSummary;
+        storeSummaries.push({
+          tiwiId,
+          storeName: store.storeName || tenantStore?.storeName || tiwiId,
+          subdomain: store.subdomain || subWithUsage.subdomain || null,
+          status: store.status || subWithUsage.status || 'active',
+          lifecycleStatus: subWithUsage.lifecycleStatus || store.lifecycleStatus || (store.status === 'suspended' ? 'suspended' : 'active'),
+          planId: subWithUsage.planId || store.planId || 'free',
+          planName: subWithUsage.planName || 'Free Starter',
+          expiresAt: subWithUsage.expiresAt || store.expiresAt || null,
+          graceEndsAt: subWithUsage.graceEndsAt || store.graceEndsAt || null,
+          suspendedAt: subWithUsage.suspendedAt || store.suspendedAt || null,
+          scheduledDeletionAt: subWithUsage.scheduledDeletionAt || store.scheduledDeletionAt || null,
+          currentProducts: products.length,
+          productLimit: subWithUsage.effectiveProductLimit,
+          currentStaff: staff.length,
+          staffLimit: subWithUsage.effectiveStaffLimit,
+          currentMonthlyOrders: monthlySalesCount,
+          monthlyOrderLimit: subWithUsage.effectiveMonthlyOrderLimit,
+          usagePercent: subWithUsage.usagePercent
+        });
+      })
+    );
+
+    const rawResult = await buildStoreDashboardNotifications({
+      userStores,
+      tenantStoresMap,
+      subscriptionByStore
+    });
+    const notifications = Array.isArray(rawResult)
+      ? rawResult
+      : (rawResult?.notifications || []);
+    return res.json({
+      notifications,
+      storeSummaries: Array.isArray(rawResult?.storeSummaries) ? rawResult.storeSummaries : storeSummaries
+    });
+  } catch (err) {
+    console.error('Store notifications error:', err);
+    return res.status(500).json({ error: 'Failed to load store notifications.' });
+  }
+});
+
+router.post('/stores/:tiwiId/renew', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+    const result = await renewStoreSubscriptionForUser({
+      userId,
+      tiwiId: req.params.tiwiId
+    });
+    if (result && result.success === false) {
+      return res.status(result.statusCode || 400).json({
+        error: result.error || 'Failed to renew store subscription.',
+        ...(result.code ? { code: result.code } : {})
+      });
+    }
+    return res.json({
+      success: true,
+      store: result?.store || null,
+      subscription: result?.subscription || null,
+      message: result?.message || 'Store subscription renewed successfully.'
+    });
+  } catch (err) {
+    console.error('Store renewal error:', err);
+    const status = [400, 401, 402, 403, 404, 409].includes(err?.statusCode) ? err.statusCode : 500;
+    return res.status(status).json({
+      error: err?.message || 'Failed to renew store subscription.',
+      ...(err?.code ? { code: err.code } : {})
+    });
+  }
+});
+
 router.post('/stores', storeCreateLimiter, blockBannedDeviceMiddleware, async (req, res) => {
   try {
     const { storeName, subdomain, planId, category, currency, email, phone, description, billingDetails } = req.body;
@@ -1980,6 +2141,26 @@ router.post('/stores', storeCreateLimiter, blockBannedDeviceMiddleware, async (r
       description,
       billingDetails,
       request: req
+    });
+    Promise.resolve().then(async () => {
+      const owner = req.activeUser?.email
+        ? req.activeUser
+        : await MasterDB.findUserByIdentifier(userId);
+      const to = String(owner?.email || '').trim();
+      if (!to) return;
+      const pkg = (await getEcommercePackageById(store.planId || 'free')) || PLAN_CATALOG[store.planId || 'free'];
+      const cleanSubdomain = String(store.subdomain || '').trim().replace(/^https?:\/\//i, '');
+      const storeUrl = cleanSubdomain ? `https://${cleanSubdomain}` : undefined;
+      await sendStoreCreatedEmail({
+        to,
+        name: owner?.name || owner?.storeName || store.storeName,
+        storeName: store.storeName,
+        subdomain: store.subdomain,
+        planName: pkg?.planName || 'Free Starter',
+        storeUrl
+      });
+    }).catch((emailErr) => {
+      console.warn('[StoreCreate] Failed to send store created email:', emailErr.message);
     });
     res.json(store);
   } catch (err) {
@@ -3318,6 +3499,7 @@ router.post('/sales', storefrontOrderLimiter, async (req, res) => {
         return res.status(400).json({ error: 'Checkout email must match the signed-in customer account.' });
       }
       if (customerAccount && !orderCustomerEmail) orderCustomerEmail = customerAccount.email;
+      if (orderCustomerEmail) orderCustomerEmail = normalizeCustomerEmail(orderCustomerEmail);
     } catch (error) {
       if (error instanceof TypeError) return res.status(400).json({ error: error.message });
       throw error;
@@ -3730,6 +3912,10 @@ router.post('/sales', storefrontOrderLimiter, async (req, res) => {
         invoiceNumber: newSale.invoiceNumber
       });
     }
+  }
+
+  if (isPublicStorefrontOrder && newSale.customerEmail) {
+    sendStorefrontOrderInvoiceEmail(newSale, storeSettings, req.storefrontStore?.subdomain || req.get('host'));
   }
 
   res.status(201).json(newSale);
@@ -4872,8 +5058,17 @@ router.post('/subscription/upgrade', subscriptionUpgradeLimiter, async (req, res
       }
     }
 
+    const tiwiId = getActiveTiwiId(req);
     const storeSettings = (await readData(STORE_SETTINGS_FILE, {}));
     const cleanStoreName = (storeSettings.storeName || req.activeUser?.storeName || 'store').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const now = new Date().toISOString();
+    const lifecycleFields = await syncStoreLifecycleOnPlanChange({
+      tiwiId,
+      planId: planInfo.planId,
+      price: effectivePrice,
+      billingCycle: normalizedCycle,
+      now
+    });
 
     const updated = {
       ...DEFAULT_SUBSCRIPTION,
@@ -4892,10 +5087,32 @@ router.post('/subscription/upgrade', subscriptionUpgradeLimiter, async (req, res
       extraStaffSlots: Math.max(0, Number(currentSub?.extraStaffSlots) || 0),
       addons: Array.isArray(currentSub?.addons) ? currentSub.addons : [],
       subdomain: currentSub.subdomain || `${cleanStoreName || 'store'}.${PLATFORM_CONFIG.storeDomain}`,
-      updatedAt: new Date().toISOString()
+      status: 'active',
+      ...lifecycleFields,
+      updatedAt: now
     };
 
     (await writeData(SUBSCRIPTION_FILE, updated));
+    if (tiwiId) {
+      const master = await MasterDB.getMasterData();
+      master.subscriptions = Array.isArray(master.subscriptions) ? master.subscriptions : [];
+      const storeEntry = (master.stores || []).find(s => String(s.tiwiId) === String(tiwiId));
+      if (storeEntry) {
+        Object.assign(storeEntry, {
+          planId: updated.planId,
+          status: 'active',
+          ...lifecycleFields,
+          updatedAt: now
+        });
+      }
+      const subIdx = master.subscriptions.findIndex(s => String(s.tiwiId) === String(tiwiId));
+      if (subIdx >= 0) {
+        master.subscriptions[subIdx] = { ...master.subscriptions[subIdx], ...updated };
+      } else {
+        master.subscriptions.push({ tiwiId, ...updated });
+      }
+      await MasterDB.saveMasterData(master);
+    }
     (await logActivity('subscription', `Plan upgraded to ${planInfo.planName}`, `Billing: ${normalizedCycle}`));
 
     const [products, staff, sales] = await Promise.all([

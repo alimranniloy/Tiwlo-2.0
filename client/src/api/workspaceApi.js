@@ -16,7 +16,12 @@ async function request(endpoint, options = {}) {
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.error || `HTTP error! status: ${res.status}`);
+    const err = new Error(data.error || `HTTP error! status: ${res.status}`);
+    err.status = res.status;
+    err.code = data.code || null;
+    err.packages = data.packages || null;
+    err.shortfall = data.shortfall;
+    throw err;
   }
   return data;
 }
@@ -126,6 +131,27 @@ export const WorkspaceAPI = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+  },
+
+  async getServicePackages(serviceType) {
+    const token = localStorage.getItem('stockpro_session') || '';
+    const res = await fetch(`/api/${serviceType}/packages`, {
+      credentials: 'include',
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Failed to load ${serviceType} packages`);
+    return data.packages || [];
+  },
+
+  async getServiceSubscription(serviceType) {
+    const token = localStorage.getItem('stockpro_session') || '';
+    const res = await fetch(`/api/${serviceType}/subscription`, {
+      credentials: 'include',
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    if (!res.ok) return null;
+    return res.json().catch(() => null);
   },
 
   async uploadWorkspaceIcon(file) {

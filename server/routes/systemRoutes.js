@@ -352,12 +352,47 @@ router.post('/login-location', securityLimiters.loginLocation, async (req, res) 
   }
 });
 
+const SUPER_ADMIN_EMAIL = 'tiwloltd@gmail.com';
+
+function isSuperAdminRequester(user) {
+  return user?.role === 'super_admin' || String(user?.email || '').trim().toLowerCase() === SUPER_ADMIN_EMAIL;
+}
+
+async function loadSuperAdminIdentifiers() {
+  const userIds = new Set();
+  try {
+    const { rows } = await queryPg(
+      `SELECT id FROM system_users
+       WHERE role = 'super_admin' OR LOWER(TRIM(email)) = $1`,
+      [SUPER_ADMIN_EMAIL]
+    );
+    rows.forEach(row => userIds.add(String(row.id)));
+  } catch (error) {
+    console.error('[SystemRoutes] Could not resolve super admin identities:', error.message);
+  }
+  let subjectHash = null;
+  try {
+    subjectHash = hashSecuritySubject(SUPER_ADMIN_EMAIL);
+  } catch {
+    subjectHash = null;
+  }
+  return { userIds, subjectHash };
+}
+
 router.get('/admin/security-events', requireAdmin, async (req, res) => {
   try {
-    const events = await listSecurityEvents({
+    let events = await listSecurityEvents({
       limit: req.query.limit,
       beforeId: req.query.beforeId
     });
+    // Super Admin activity is never visible to regular admins / support staff.
+    if (!isSuperAdminRequester(req.adminUser)) {
+      const { userIds, subjectHash } = await loadSuperAdminIdentifiers();
+      events = events.filter(event => (
+        !(event.user_id && userIds.has(String(event.user_id))) &&
+        !(subjectHash && event.subject_hash === subjectHash)
+      ));
+    }
     res.json({ success: true, count: events.length, events });
   } catch (error) {
     console.error('[SystemRoutes] Could not list security events:', error);
@@ -524,7 +559,7 @@ router.get('/system/info', requireAdmin, async (req, res) => {
     purchases.length + sales.length + customers.length + suppliers.length + activities.length;
 
   res.json({
-    appName: 'StockPro Enterprise Inventory System',
+    appName: 'Tiwlo Cloud & E-Commerce SaaS Platform',
     version: 'v3.2.0-PRO',
     nodeVersion: process.version,
     uptimeSeconds: Math.round(process.uptime()),

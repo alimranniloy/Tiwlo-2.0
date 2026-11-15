@@ -9,12 +9,16 @@ import RecentActivity from './components/RecentActivity';
 import RecentProductsTable from './components/RecentProductsTable';
 import BottomBanners from './components/BottomBanners';
 import StoreSetupChecklist from './components/StoreSetupChecklist';
+import StoreNotificationsBanner from '../../components/StoreNotificationsBanner';
 
 export default function EcommerceDashboard({
   stats,
   dataLoadError,
   onReloadData,
   currentUser,
+  tiwiId,
+  subscription,
+  showToast,
   filteredProducts,
   tableSearch,
   setTableSearch,
@@ -40,6 +44,15 @@ export default function EcommerceDashboard({
 }) {
   return (
     <div className="space-y-8 animate-in fade-in duration-150">
+      <StoreNotificationsBanner
+        tiwiId={tiwiId}
+        subscription={subscription}
+        products={products}
+        onNavigateTab={onNavigateTab}
+        onRenewSuccess={onReloadData}
+        showToast={showToast}
+      />
+
       {dataLoadError && (
         <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <span>Some dashboard data could not be loaded: {dataLoadError}</span>

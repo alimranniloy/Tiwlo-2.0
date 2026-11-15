@@ -2,11 +2,15 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { requireRecentReauth } from '../security/recentReauth.js';
 import { provisionCustomDomain } from '../dns/sslManager.js';
+import { MasterDB, TenantDB } from '../db/multiTenant.js';
+import { isPgActive, queryPg } from '../db/postgres.js';
+import { getEcommercePackageById } from '../db/packages.js';
 import {
   beginDomainSslProvisioning,
   createUserDomain,
   deletePendingUserDomain,
   DomainServiceError,
+  getLivePlatformDnsConfig,
   getUserDomain,
   listUserDomains,
   markDomainSslStatus,
@@ -58,6 +62,56 @@ router.post('/', domainActionLimiter, requireRecentReauth, async (req, res) => {
     res.status(201).json({
       domain,
       instructions: 'Add the provided TXT record to prove ownership, then point an A and/or AAAA record at the supplied server address. Alternatively, delegate the domain to the supplied Tiwlo nameservers. Then call the verify endpoint.'
+    });
+  } catch (error) {
+    sendDomainError(res, error);
+  }
+});
+
+router.get('/config/dns', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const tiwiId = getTiwiId(req);
+    const [dnsConfig, tenantStore, userStores, userRow] = await Promise.all([
+      getLivePlatformDnsConfig(),
+      tiwiId ? TenantDB.getStoreDb(tiwiId).catch(() => null) : Promise.resolve(null),
+      userId ? MasterDB.getUserStores(userId).catch(() => []) : Promise.resolve([]),
+      isPgActive() && userId
+        ? queryPg('SELECT plan_id, plan_name, subdomain FROM system_users WHERE id = $1 LIMIT 1', [userId])
+          .then(result => result.rows[0] || null)
+          .catch(() => null)
+        : Promise.resolve(null)
+    ]);
+
+    const matchedStore = (userStores || []).find(s => String(s.tiwiId) === String(tiwiId)) || req.activeStore || null;
+    const tenantSub = tenantStore?.subscription || {};
+    const planId = String(
+      tenantSub.planId ||
+      matchedStore?.planId ||
+      userRow?.plan_id ||
+      req.activeUser?.planId ||
+      'free'
+    ).trim().toLowerCase();
+    const pkg = await getEcommercePackageById(planId).catch(() => null);
+    const hasCustomDomain = tenantSub.hasCustomDomain !== undefined
+      ? Boolean(tenantSub.hasCustomDomain)
+      : Boolean(pkg?.hasCustomDomain ?? ['growth', 'pro', 'enterprise'].includes(planId));
+    const subdomain = tenantSub.subdomain ||
+      matchedStore?.subdomain ||
+      tenantStore?.store_settings?.subdomain ||
+      userRow?.subdomain ||
+      req.activeUser?.subdomain ||
+      null;
+
+    res.json({
+      dnsConfig,
+      plan: {
+        tiwiId: tiwiId || null,
+        planId,
+        planName: tenantSub.planName || pkg?.planName || userRow?.plan_name || 'Free Starter',
+        hasCustomDomain,
+        subdomain
+      }
     });
   } catch (error) {
     sendDomainError(res, error);

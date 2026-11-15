@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { readState } from './stateDocuments.js';
-import { queryPg } from './postgres.js';
+import { queryPg, recordPlatformBillingOrder } from './postgres.js';
 import { CloudDB } from './cloud.js';
 import { getPlatformPaymentGatewaysRaw } from '../administrator/adminRoutes.js';
 import { extractClientSignals } from '../security/freeTierAbuseGuard.js';
@@ -687,10 +687,24 @@ export const BillingDB = {
     if (!rows[0]) {
       return { success: false, error: 'Voucher code is invalid or has already been redeemed.' };
     }
+    const addedCredits = Number(rows[0].amount);
+    await recordPlatformBillingOrder({
+      userId,
+      orderType: 'voucher_redeem',
+      itemName: `Voucher Credit (${code})`,
+      grossAmountUsd: addedCredits,
+      cashCreditUsedUsd: 0,
+      promoCreditUsedUsd: 0,
+      netCashRevenueUsd: 0,
+      provider: 'voucher',
+      currency: 'USD',
+      status: 'paid',
+      metadata: { voucherId: rows[0].id, code }
+    });
     return {
       success: true,
       voucherId: rows[0].id,
-      addedCredits: Number(rows[0].amount),
+      addedCredits,
       balance: Number(rows[0].credits)
     };
   },
@@ -702,38 +716,42 @@ export const BillingDB = {
     };
   },
 
-  async chargeSubscriptionPlan(userId, amountUsd, planName = 'Store Subscription') {
+  async chargeSubscriptionPlan(userId, amountUsd, planName = 'Store Subscription', context = {}) {
     const chargeAmount = Number(amountUsd);
     if (!userId) {
       return { success: false, statusCode: 401, error: 'Authentication required for subscription billing.' };
     }
     if (!Number.isFinite(chargeAmount) || chargeAmount <= 0) {
-      return { success: true, chargedAmount: 0 };
+      return { success: true, chargedAmount: 0, cashCreditUsed: 0, promoCreditUsed: 0 };
     }
     const { rows } = await queryPg(
-      `UPDATE cloud_billing_accounts
-       SET promotional_credits = CASE
-             WHEN promotional_expires_at IS NOT NULL AND promotional_expires_at <= CURRENT_TIMESTAMP THEN 0
-             ELSE GREATEST(0, COALESCE(promotional_credits, 0) - $2)
-           END,
-           credits = COALESCE(credits, 0) - GREATEST(
-             0,
-             $2 - CASE
-               WHEN promotional_expires_at IS NOT NULL AND promotional_expires_at <= CURRENT_TIMESTAMP THEN 0
-               ELSE COALESCE(promotional_credits, 0)
-             END
-           ),
-           monthly_spend = COALESCE(monthly_spend, 0) + $2,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE user_id = $1
-         AND (
-           COALESCE(credits, 0) +
+      `WITH prev AS (
+         SELECT
+           user_id,
+           COALESCE(credits, 0) AS prev_credits,
            CASE
              WHEN promotional_expires_at IS NOT NULL AND promotional_expires_at <= CURRENT_TIMESTAMP THEN 0
              ELSE COALESCE(promotional_credits, 0)
-           END
-         ) >= $2
-       RETURNING credits, promotional_credits`,
+           END AS prev_promo
+         FROM cloud_billing_accounts
+         WHERE user_id = $1
+         FOR UPDATE
+       ), upd AS (
+         UPDATE cloud_billing_accounts a
+         SET promotional_credits = GREATEST(0, prev.prev_promo - $2::numeric),
+             credits = prev.prev_credits - GREATEST(0, $2::numeric - prev.prev_promo),
+             monthly_spend = COALESCE(a.monthly_spend, 0) + $2::numeric,
+             updated_at = CURRENT_TIMESTAMP
+         FROM prev
+         WHERE a.user_id = prev.user_id
+           AND (prev.prev_credits + prev.prev_promo) >= $2::numeric
+         RETURNING
+           a.credits,
+           a.promotional_credits,
+           LEAST(prev.prev_promo, $2::numeric) AS promo_used,
+           GREATEST(0, $2::numeric - LEAST(prev.prev_promo, $2::numeric)) AS cash_used
+       )
+       SELECT * FROM upd`,
       [userId, chargeAmount]
     );
     if (!rows[0]) {
@@ -743,9 +761,29 @@ export const BillingDB = {
         error: `Insufficient verified billing credits ($${chargeAmount.toFixed(2)} USD required for ${planName}). Please top up your billing credits first.`
       };
     }
+    const promoCreditUsed = Number(Number(rows[0].promo_used || 0).toFixed(2));
+    const cashCreditUsed = Number(Number(rows[0].cash_used || 0).toFixed(2));
+    const orderRecord = await recordPlatformBillingOrder({
+      userId,
+      tiwiId: context?.tiwiId || null,
+      orderType: context?.orderType || 'subscription_charge',
+      planId: context?.planId || null,
+      itemName: planName,
+      grossAmountUsd: chargeAmount,
+      cashCreditUsedUsd: cashCreditUsed,
+      promoCreditUsedUsd: promoCreditUsed,
+      netCashRevenueUsd: cashCreditUsed,
+      provider: context?.provider || 'wallet',
+      currency: 'USD',
+      status: 'paid',
+      metadata: context?.metadata || {}
+    });
     return {
       success: true,
       chargedAmount: chargeAmount,
+      cashCreditUsed,
+      promoCreditUsed,
+      orderNumber: orderRecord?.orderNumber || null,
       remainingCredits: Number(rows[0].credits) + Number(rows[0].promotional_credits || 0)
     };
   },

@@ -108,11 +108,12 @@ export default function DiscordBotManager({ currentUser, onNavigateHome }) {
       );
     }
 
-    // Subroute: Bots list
+    // Subroute: Official Bots hub
     if (path === '/discord/bots') {
       return (
         <BotsView
-          bots={overviewData?.bots || []}
+          overviewData={overviewData}
+          currentUser={currentUser}
           onNavigate={navigateTo}
           onReload={loadOverviewData}
         />
@@ -123,9 +124,12 @@ export default function DiscordBotManager({ currentUser, onNavigateHome }) {
     if (path === '/discord/servers/new') {
       return (
         <AddServerView
+          overviewData={overviewData}
+          currentUser={currentUser}
           onBack={() => navigateTo('/discord/servers')}
-          onServerCreated={() => {
-            loadOverviewData();
+          onReload={loadOverviewData}
+          onServerCreated={async () => {
+            await loadOverviewData();
             navigateTo('/discord/servers');
           }}
         />
@@ -138,6 +142,8 @@ export default function DiscordBotManager({ currentUser, onNavigateHome }) {
       return (
         <ServerDetailView
           serverId={serverId}
+          overviewData={overviewData}
+          currentUser={currentUser}
           onBack={() => navigateTo('/discord/servers')}
           onServerUpdated={loadOverviewData}
           onServerDeleted={loadOverviewData}
@@ -150,6 +156,8 @@ export default function DiscordBotManager({ currentUser, onNavigateHome }) {
       return (
         <ServersView
           servers={overviewData?.servers || []}
+          overviewData={overviewData}
+          currentUser={currentUser}
           onNavigate={navigateTo}
           onReload={loadOverviewData}
         />
@@ -202,7 +210,9 @@ export default function DiscordBotManager({ currentUser, onNavigateHome }) {
       <OverviewView
         overviewData={overviewData}
         loading={loading}
+        currentUser={currentUser}
         onNavigate={navigateTo}
+        onReload={loadOverviewData}
       />
     );
   };

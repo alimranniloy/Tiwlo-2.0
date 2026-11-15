@@ -1725,7 +1725,7 @@ function StoreSettingsContent({
                       </section>
                     ))}
                   </div>
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800 p-3 text-[11px] text-amber-900 dark:text-amber-200">
+                  <div className="rounded-xl border border-neutral-200 bg-neutral-50/70 dark:bg-neutral-900/50 dark:border-neutral-800 p-3 text-[11px] text-neutral-700 dark:text-neutral-300">
                     These are your manual international shipping rules and service labels, not live courier quotes or bookings. Actual carrier availability, customs duties, and delivery times must be confirmed with your provider. Book shipments with the carrier, then save its tracking details in Courier.
                   </div>
                 </div>
@@ -1926,7 +1926,7 @@ function StoreSettingsContent({
                         Rates are per 1 USD and saved separately for this store.
                       </p>
                     </div>
-                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${currencyConfiguration?.fresh ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300' : 'bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300'}`}>
+                    <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${currencyConfiguration?.fresh ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-300' : 'border-neutral-200 bg-neutral-100 text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300'}`}>
                       {currencyConfiguration?.fresh
                         ? (currencyMode === 'api' ? `Reference rates · ${currencyConfiguration.observedAt || 'current'}` : 'Manual rates')
                         : 'No usable rates'}
@@ -2090,7 +2090,7 @@ function StoreSettingsContent({
                       </p>
                     )}
                   </div>
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] text-amber-900 dark:border-amber-800 dark:bg-amber-900/10 dark:text-amber-200">
+                  <div className="rounded-xl border border-neutral-200 bg-neutral-50/70 p-3 text-[10px] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900/50 dark:text-neutral-300">
                     <p>
                       <a href="https://frankfurter.dev" target="_blank" rel="noreferrer" className="font-bold underline">Frankfurter</a>
                       {' '}provides daily blended reference rates from central-bank sources, not guaranteed gateway settlement or bank rates. Rates are cached server-side; stale API data is rejected. Online checkout uses each gateway's supported store currencies.

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Store, Sparkles, MapPin, Building, Globe, Phone, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
 import { getStoreHostname, STORE_DOMAIN } from '../../../config/platformConfig';
+import CountrySelect from '../../../components/CountrySelect';
 
 export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
   const [storeName, setStoreName] = useState('');
@@ -232,12 +233,9 @@ export default function CreateStoreModal({ isOpen, onClose, onCreateStore }) {
                 <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                   Country
                 </label>
-                <input
-                  type="text"
-                  placeholder="Bangladesh"
+                <CountrySelect
                   value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-gray-700 bg-neutral-50/60 dark:bg-gray-800/60 text-neutral-900 dark:text-white text-xs focus:outline-hidden focus:ring-2 focus:ring-neutral-500 transition"
+                  onChange={(nextCountry) => setCountry(nextCountry)}
                 />
               </div>
 

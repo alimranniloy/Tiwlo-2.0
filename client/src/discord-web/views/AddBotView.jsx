@@ -1,197 +1,47 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Bot, Save, Key, Hash, Info, Check, RotateCw, AlertTriangle } from 'lucide-react';
-import { DiscordAPI } from '../api/discordApi';
+import React from 'react';
+import { ArrowLeft, Bot, Server, Shield } from 'lucide-react';
 
-export default function AddBotView({ onBack, onBotCreated }) {
-  const [name, setName] = useState('');
-  const [token, setToken] = useState('');
-  const [clientId, setClientId] = useState('');
-  const [prefix, setPrefix] = useState('!');
-  const [status, setStatus] = useState('online');
-  const [description, setDescription] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!name.trim()) {
-      setError('Bot name is required.');
-      return;
-    }
-
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await DiscordAPI.createBot({
-        name: name.trim(),
-        token: token.trim(),
-        clientId: clientId.trim(),
-        prefix: prefix.trim() || '!',
-        status,
-        description: description.trim()
-      });
-      if (onBotCreated) {
-        onBotCreated(res.bot);
-      } else {
-        onBack();
-      }
-    } catch (err) {
-      setError(err.message || 'Failed to register bot.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
+export default function AddBotView({ onBack }) {
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-16 font-sans bg-white">
-      {/* 1. Modern Google Header */}
-      <div className="border-b border-[#e2e2e2] pb-5">
-        <button
-          onClick={onBack}
-          className="inline-flex items-center gap-2 text-[13px] font-medium text-[#000000] hover:text-[#3c3c3c] cursor-pointer mb-2.5"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>My Bots</span>
-          <span className="text-[#C4C7C5]">/</span>
-          <span className="text-[#444746]">Register new bot</span>
-        </button>
+    <div className="mx-auto max-w-2xl rounded-xl border border-neutral-200/80 bg-white p-6 space-y-4">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-500 hover:text-neutral-900"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Back to Official AI Bot
+      </button>
 
-        <h1 className="text-xl sm:text-2xl font-normal text-[#1F1F1F] tracking-tight">
-          Register New Bot Daemon
-        </h1>
-        <p className="text-xs sm:text-sm text-[#444746] mt-1">
-          Configure a Discord bot worker application to handle real-time events, commands, and automations.
-        </p>
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1ED760]/15 text-emerald-700">
+          <Bot className="h-5 w-5" />
+        </div>
+        <div>
+          <h1 className="text-lg font-semibold text-neutral-950">
+            Managed Official Discord AI Bot
+          </h1>
+          <p className="mt-1 text-xs leading-relaxed text-neutral-600">
+            Manual Discord bot creation and raw bot token entry have been replaced by Tiwlo&apos;s centralized Official Discord AI Bot. Simply activate a paid subscription package, click <strong>Install Tiwlo AI Bot to Discord Server</strong>, and configure your server rules.
+          </p>
+        </div>
       </div>
 
-      {error && (
-        <div className="p-4 rounded-2xl bg-[#FCE8E6] border border-[#F9DEDC] text-[#B3261E] text-[13px] flex items-center gap-2.5">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
+      <div className="flex items-center gap-2 rounded-xl border border-neutral-200/80 bg-neutral-50 p-3 text-xs text-neutral-600">
+        <Shield className="h-4 w-4 text-[#1ED760]" />
+        <span>No Discord Developer Portal tokens or external bot hosting required.</span>
+      </div>
 
-      {/* 2. Modern Google Material 3 Form Card */}
-      <form onSubmit={handleSubmit} className="bg-white border border-[#e2e2e2] rounded-2xl p-6 sm:p-8 space-y-5 shadow-none">
-        {/* Bot Name */}
-        <div className="space-y-2">
-          <label className="block text-[13px] font-medium text-[#1F1F1F]">
-            Bot Name <span className="text-[#B3261E]">*</span>
-          </label>
-          <input
-            type="text"
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Sentinel, Community Guardian"
-            className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] placeholder-[#747775] focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
-          />
-          <p className="text-[11px] text-[#747775]">The display name of the bot worker daemon.</p>
-        </div>
-
-        {/* Client ID */}
-        <div className="space-y-2">
-          <label className="block text-[13px] font-medium text-[#1F1F1F]">
-            Discord Application / Client ID
-          </label>
-          <input
-            type="text"
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            placeholder="e.g. 119283849102938491"
-            className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] placeholder-[#747775] font-mono focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
-          />
-        </div>
-
-        {/* Bot Token */}
-        <div className="space-y-2">
-          <label className="block text-[13px] font-medium text-[#1F1F1F]">
-            Bot Token (Encrypted)
-          </label>
-          <input
-            type="password"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            placeholder="Bot secret token from Discord Developer Portal"
-            className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] placeholder-[#747775] font-mono focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
-          />
-          <p className="text-[11px] text-[#747775]">Securely stored in PostgreSQL using AES-256 server-side encryption.</p>
-        </div>
-
-        {/* Prefix & Initial Status */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="block text-[13px] font-medium text-[#1F1F1F]">
-              Command Prefix
-            </label>
-            <input
-              type="text"
-              value={prefix}
-              onChange={(e) => setPrefix(e.target.value)}
-              placeholder="!"
-              className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] font-mono focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-[13px] font-medium text-[#1F1F1F]">
-              Initial Status
-            </label>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
-            >
-              <option value="online">Online</option>
-              <option value="idle">Idle</option>
-              <option value="dnd">Do Not Disturb</option>
-              <option value="invisible">Offline / Invisible</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Description */}
-        <div className="space-y-2">
-          <label className="block text-[13px] font-medium text-[#1F1F1F]">
-            Description & Notes
-          </label>
-          <textarea
-            rows="3"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Brief purpose of this bot..."
-            className="w-full bg-[#f4f4f4] border border-transparent rounded-xl px-4 py-2.5 text-[13px] text-[#1F1F1F] placeholder-[#747775] focus:outline-none focus:bg-white focus:border-[#000000] transition-colors"
-          />
-        </div>
-
-        {/* Actions */}
-        <div className="pt-4 border-t border-[#f4f4f4] flex items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="px-5 py-2.5 text-[13px] font-medium text-[#444746] bg-white border border-[#747775]/30 hover:bg-[#f4f4f4] rounded-full cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="inline-flex items-center gap-1.5 px-6 py-2.5 text-[13px] font-medium text-white bg-[#000000] hover:bg-[#3c3c3c] rounded-full transition-colors cursor-pointer disabled:opacity-50"
-          >
-            {saving ? (
-              <>
-                <RotateCw className="w-4 h-4 animate-spin" />
-                <span>Registering...</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                <span>Register Bot</span>
-              </>
-            )}
-          </button>
-        </div>
-      </form>
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#1ED760] px-4 text-xs font-semibold text-black hover:bg-[#19c354]"
+        >
+          <Server className="h-3.5 w-3.5" />
+          Go to Official AI Bot Hub
+        </button>
+      </div>
     </div>
   );
 }

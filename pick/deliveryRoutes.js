@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 import { getPgPool, queryPg } from '../server/db/postgres.js';
 import { findCoverageZone } from './coverage.js';
+import { getOpenDrivingEstimate } from './liveTracking.js';
 import {
   canTransitionDeliveryJob,
   countAvailableGroceryDrivers,
@@ -319,7 +320,11 @@ function sendInputError(res, error) {
   return true;
 }
 
-export function createPickDeliveryRouter({ requireUser, query = queryPg }) {
+export function createPickDeliveryRouter({
+  requireUser,
+  query = queryPg,
+  estimateDrivingRoute = getOpenDrivingEstimate
+}) {
   const router = express.Router();
 
   router.get('/availability', requireUser, async (req, res, next) => {
@@ -676,6 +681,73 @@ export function createPickDeliveryRouter({ requireUser, query = queryPg }) {
             : job.parcelDetails?.sender?.longitude ?? null
         }))
       });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.get('/jobs/:assignmentId/tracking-route', requireUser, async (req, res, next) => {
+    try {
+      const { rows } = await query(
+        `SELECT a.status, o.order_type AS "orderType",
+                d.current_latitude::float8 AS "riderLatitude",
+                d.current_longitude::float8 AS "riderLongitude",
+                d.current_location_at AS "locationUpdatedAt",
+                o.parcel_details->'sender'->>'latitude' AS "senderLatitude",
+                o.parcel_details->'sender'->>'longitude' AS "senderLongitude",
+                COALESCE(
+                  (o.parcel_details->'recipient'->>'latitude')::float8,
+                  o.delivery_latitude::float8
+                ) AS "deliveryLatitude",
+                COALESCE(
+                  (o.parcel_details->'recipient'->>'longitude')::float8,
+                  o.delivery_longitude::float8
+                ) AS "deliveryLongitude"
+         FROM pick.delivery_assignments a
+         JOIN pick.orders o ON o.id = a.order_id
+         JOIN pick.delivery_profiles d ON d.tiwlo_user_id = a.rider_user_id
+         WHERE a.id = $1 AND a.rider_user_id = $2
+           AND a.status IN ('accepted', 'picked_up')
+           AND d.current_location_at >= CURRENT_TIMESTAMP - INTERVAL '2 minutes'
+           AND d.current_latitude IS NOT NULL AND d.current_longitude IS NOT NULL
+         LIMIT 1`,
+        [req.params.assignmentId, req.tiwloSession.user.id]
+      );
+      const job = rows[0];
+      if (!job) {
+        return res.status(404).json({ error: 'A live route is not available for this delivery job.' });
+      }
+
+      let destinationLatitude = job.deliveryLatitude;
+      let destinationLongitude = job.deliveryLongitude;
+      if (job.status === 'accepted') {
+        if (job.orderType === 'grocery') {
+          const pickupLocation = await getPickGroceryPickupLocation(query);
+          destinationLatitude = pickupLocation?.latitude;
+          destinationLongitude = pickupLocation?.longitude;
+        } else {
+          destinationLatitude = Number(job.senderLatitude);
+          destinationLongitude = Number(job.senderLongitude);
+        }
+      }
+      if (destinationLatitude === null || destinationLatitude === undefined ||
+          destinationLongitude === null || destinationLongitude === undefined ||
+          !Number.isFinite(Number(destinationLatitude)) ||
+          !Number.isFinite(Number(destinationLongitude))) {
+        return res.status(404).json({ error: 'The next delivery stop does not have map coordinates.' });
+      }
+
+      const estimate = await estimateDrivingRoute({
+        origin: {
+          latitude: Number(job.riderLatitude),
+          longitude: Number(job.riderLongitude)
+        },
+        destination: {
+          latitude: Number(destinationLatitude),
+          longitude: Number(destinationLongitude)
+        }
+      });
+      return res.json(estimate);
     } catch (error) {
       return next(error);
     }

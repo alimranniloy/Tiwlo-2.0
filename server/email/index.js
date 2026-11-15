@@ -25,3 +25,10 @@ export { renderAccountRestoredEmail } from './accountRestored.js';
 export { renderIdentityVerificationRequiredEmail } from './identityVerificationRequired.js';
 export { renderIdentityVerificationCompleteEmail } from './identityVerificationComplete.js';
 export { renderContentRemovedEmail } from './contentRemoved.js';
+export {
+  renderStoreCreatedEmail,
+  renderStoreGracePeriodEmail,
+  renderStoreSuspendedEmail,
+  renderStoreDeletedEmail
+} from './storeLifecycle.js';
+export { renderSupportTicketEmail } from './supportTicket.js';

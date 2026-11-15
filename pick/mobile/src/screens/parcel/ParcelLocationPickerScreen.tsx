@@ -8,11 +8,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Constants from 'expo-constants';
 import * as Location from 'expo-location';
-import MapView, { PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import { type CameraRef } from '@maplibre/maplibre-react-native';
 import { Header } from '../../components/common/Header';
 import { PickIcon } from '../../components/common/PickIcon';
+import { PickNativeMap } from '../../components/maps/PickNativeMap';
 import { ScreenContainer, SYSTEM_INSETS } from '../../components/common/ScreenContainer';
 import { useLanguage } from '../../context/LanguageContext';
 import { getParcelAddressForPin } from '../../services/parcels';
@@ -32,11 +32,9 @@ interface ParcelLocationPickerScreenProps {
   onSave: (pin: ParcelPin) => void;
 }
 
-const DEFAULT_REGION: Region = {
+const DEFAULT_REGION = {
   latitude: 23.8103,
   longitude: 90.4125,
-  latitudeDelta: 0.035,
-  longitudeDelta: 0.035,
 };
 
 const validCoordinate = (value: number | null): value is number =>
@@ -49,16 +47,11 @@ export const ParcelLocationPickerScreen: React.FC<ParcelLocationPickerScreenProp
   onSave,
 }) => {
   const { t } = useLanguage();
-  const mapsConfigured = Constants.expoConfig?.extra?.googleMapsConfigured === true;
-  const initialRegion = useMemo<Region>(() => ({
+  const initialCenter = useMemo(() => ({
     latitude: validCoordinate(initialPin.latitude) ? initialPin.latitude : DEFAULT_REGION.latitude,
     longitude: validCoordinate(initialPin.longitude) ? initialPin.longitude : DEFAULT_REGION.longitude,
-    latitudeDelta: DEFAULT_REGION.latitudeDelta,
-    longitudeDelta: DEFAULT_REGION.longitudeDelta,
   }), [initialPin.latitude, initialPin.longitude]);
-  const mapRef = useRef<MapView>(null);
-  const userMovedMap = useRef(false);
-  const [region, setRegion] = useState(initialRegion);
+  const cameraRef = useRef<CameraRef>(null);
   const [address, setAddress] = useState(initialPin.address);
   const [pin, setPin] = useState({
     latitude: initialPin.latitude,
@@ -69,6 +62,7 @@ export const ParcelLocationPickerScreen: React.FC<ParcelLocationPickerScreenProp
   );
   const [locating, setLocating] = useState(false);
   const [resolvingAddress, setResolvingAddress] = useState(false);
+  const [mapError, setMapError] = useState(false);
   const [error, setError] = useState('');
 
   const setMapPin = (latitude: number, longitude: number) => {
@@ -91,14 +85,13 @@ export const ParcelLocationPickerScreen: React.FC<ParcelLocationPickerScreenProp
       const position = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-      const nextRegion = {
-        ...region,
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      };
-      setRegion(nextRegion);
+      const { latitude, longitude } = position.coords;
       setMapPin(position.coords.latitude, position.coords.longitude);
-      mapRef.current?.animateToRegion(nextRegion, 350);
+      cameraRef.current?.easeTo({
+        center: [longitude, latitude],
+        zoom: 16,
+        duration: 450,
+      });
     } catch (locationError) {
       setError(locationError instanceof Error
         ? locationError.message
@@ -110,13 +103,6 @@ export const ParcelLocationPickerScreen: React.FC<ParcelLocationPickerScreenProp
 
   const handleConfirm = async () => {
     Keyboard.dismiss();
-    if (!mapsConfigured) {
-      setError(t(
-        'Google Maps needs app-restricted Android and iOS API keys before you can set a pin.',
-        'পিন সেট করতে Android ও iOS-এর জন্য সীমাবদ্ধ Google Maps API key কনফিগার করতে হবে।',
-      ));
-      return;
-    }
     if (!pinConfirmed || !validCoordinate(pin.latitude) || !validCoordinate(pin.longitude)) {
       setError(t('Move the map to set a location pin.', 'ম্যাপ সরিয়ে লোকেশন পিন সেট করুন।'));
       return;
@@ -153,57 +139,35 @@ export const ParcelLocationPickerScreen: React.FC<ParcelLocationPickerScreenProp
         </Text>
 
         <View style={styles.mapContainer}>
-          {mapsConfigured ? (
-            <MapView
-              ref={mapRef}
-              provider={PROVIDER_GOOGLE}
-              style={StyleSheet.absoluteFill}
-              initialRegion={initialRegion}
-              onPanDrag={() => {
-                userMovedMap.current = true;
-                setPinConfirmed(false);
-              }}
-              onRegionChangeComplete={(nextRegion) => {
-                setRegion(nextRegion);
-                if (userMovedMap.current) {
-                  setMapPin(nextRegion.latitude, nextRegion.longitude);
-                  userMovedMap.current = false;
-                }
-              }}
-              onPress={(event) => {
-                const coordinate = event.nativeEvent.coordinate;
-                setMapPin(coordinate.latitude, coordinate.longitude);
-                mapRef.current?.animateToRegion({
-                  ...region,
-                  latitude: coordinate.latitude,
-                  longitude: coordinate.longitude,
-                }, 250);
-              }}
-              showsCompass
-              toolbarEnabled={false}
-            />
-          ) : (
+          <PickNativeMap
+            center={initialCenter}
+            cameraRef={cameraRef}
+            initialZoom={15}
+            showCenterPin
+            onMapCenterChange={(point) => setMapPin(point.latitude, point.longitude)}
+            onMapError={() => setMapError(true)}
+            onMapReady={() => setMapError(false)}
+          />
+          {mapError ? (
             <View style={styles.mapUnavailable}>
               <PickIcon name="map-pin" size={30} color="#71717A" />
               <Text style={styles.mapUnavailableText}>
-                {t('Google Maps key setup is required to select a pin.', 'পিন নির্বাচন করতে Google Maps key কনফিগার করতে হবে।')}
+                {t(
+                  'Map tiles could not be loaded. Check your internet connection and try again.',
+                  'ম্যাপ লোড হয়নি। ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।'
+                )}
               </Text>
             </View>
-          )}
-          {mapsConfigured && (
-            <View pointerEvents="none" style={styles.centerPin}>
-              <PickIcon name="map-pin" size={38} color="#111827" />
-            </View>
-          )}
+          ) : null}
           <TouchableOpacity
             style={styles.locateButton}
             onPress={handleUseCurrentLocation}
-            disabled={locating || !mapsConfigured}
+            disabled={locating}
             activeOpacity={0.8}
           >
             {locating
-              ? <ActivityIndicator size="small" color="#111827" />
-              : <PickIcon name="navigate" size={18} color="#111827" />}
+              ? <ActivityIndicator size="small" color="#FFFFFF" />
+              : <PickIcon name="navigate" size={18} color="#FFFFFF" />}
           </TouchableOpacity>
         </View>
 
@@ -282,12 +246,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  centerPin: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -19 }, { translateY: -35 }],
-  },
   locateButton: {
     position: 'absolute',
     right: 14,
@@ -295,7 +253,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#09090B',
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 3,

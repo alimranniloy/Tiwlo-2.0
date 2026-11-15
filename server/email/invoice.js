@@ -41,6 +41,9 @@ export function renderInvoiceEmail({
       : `${escapeHtml(currency)} `;
   const rawDisplayAmount = typeof amount === 'number' ? amount.toFixed(2) : amount;
   const displayAmount = escapeHtml(rawDisplayAmount);
+  const safePaymentStatus = ['Paid', 'Partial', 'Unpaid', 'Pending', 'Credited', 'Partially Refunded', 'Refunded', 'Failed'].includes(paymentStatus)
+    ? paymentStatus
+    : 'Pending';
   const invoiceTotal = Number(amount) || 0;
   const paidTotal = Number.isFinite(Number(paidAmount))
     ? Number(paidAmount)
@@ -50,9 +53,6 @@ export function renderInvoiceEmail({
     : Math.max(0, invoiceTotal - paidTotal);
   const displayPaid = escapeHtml(paidTotal.toFixed(2));
   const displayDue = escapeHtml(outstandingTotal.toFixed(2));
-  const safePaymentStatus = ['Paid', 'Partial', 'Unpaid', 'Pending', 'Credited', 'Partially Refunded', 'Refunded', 'Failed'].includes(paymentStatus)
-    ? paymentStatus
-    : 'Pending';
   const safeInvoiceNumber = escapeHtml(invoiceNumber);
   const safeDate = escapeHtml(formattedDate);
   const safeStoreName = escapeHtml(storeName || name);

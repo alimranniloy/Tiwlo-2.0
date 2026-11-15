@@ -180,7 +180,9 @@ test('verification evidence is listed only through the authenticated admin page'
   const result = await response.json();
   assert.equal(result.user.tiwiId, 'TW-1001');
   assert.deepEqual(result.files.map(file => file.category), ['document']);
-  assert.deepEqual(queries[0].params, [
+  const evidenceQuery = queries.find(query => Array.isArray(query.params) && query.params[1] === 'identity_verification');
+  assert.ok(evidenceQuery, 'identity verification evidence query should run');
+  assert.deepEqual(evidenceQuery.params, [
     'customer-one',
     'identity_verification',
     '/uploads/verification/TW-1001/'

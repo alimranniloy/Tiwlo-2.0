@@ -151,12 +151,12 @@ export function evaluateFreeStoreEligibility({
     return status !== 'deleted' && storePlan === 'free';
   });
 
-  if (!isAdmin && activeFreeStores.length >= 1) {
+  if (activeFreeStores.length >= 1) {
     return {
       allowed: false,
       statusCode: 403,
       code: 'FREE_STORE_LIMIT_REACHED',
-      reason: 'Each account can only have 1 free store. Choose a paid plan to create another store.',
+      reason: 'You have already created 1 Free store. Upgrade your plan or choose a paid package to unlock additional store slots.',
       shouldBanAccount: false,
       blockSignalTypes: []
     };

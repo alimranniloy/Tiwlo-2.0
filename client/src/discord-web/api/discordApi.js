@@ -20,49 +20,60 @@ async function request(path, options = {}) {
   const result = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(result.error || 'Discord request failed');
+    const err = new Error(result.error || 'Discord request failed');
+    err.status = response.status;
+    err.code = result.code || null;
+    err.packages = result.packages || null;
+    err.metric = result.metric || null;
+    err.limit = result.limit;
+    err.current = result.current;
+    err.requiredAmount = result.requiredAmount;
+    err.availableCredits = result.availableCredits;
+    err.shortfall = result.shortfall;
+    throw err;
   }
 
   return result;
 }
 
 export const DiscordAPI = {
+  // Packages, Subscription & Official Bots
+  async getPackages() {
+    const res = await request('/packages');
+    return res.packages || [];
+  },
+
+  async getSubscription() {
+    return request('/subscription');
+  },
+
+  async purchaseSubscription(planId) {
+    return request('/subscription/purchase', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ planId })
+    });
+  },
+
+  async getOfficialBots() {
+    const res = await request('/official-bots');
+    return res.officialBots || [];
+  },
+
   // Overview
   async getOverview() {
     return request('/overview');
   },
 
-  // Bots
+  // Official Bots view helper (read-only for users)
   async getBots() {
-    const res = await request('/bots');
-    return res.bots || [];
+    const res = await request('/official-bots');
+    return res.officialBots || [];
   },
 
   async getBotById(id) {
     const res = await request(`/bots/${encodeURIComponent(id)}`);
     return res.bot;
-  },
-
-  async createBot(payload) {
-    return request('/bots', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-  },
-
-  async updateBot(id, payload) {
-    return request(`/bots/${encodeURIComponent(id)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-  },
-
-  async deleteBot(id) {
-    return request(`/bots/${encodeURIComponent(id)}`, {
-      method: 'DELETE'
-    });
   },
 
   // Servers
@@ -95,6 +106,22 @@ export const DiscordAPI = {
   async deleteServer(id) {
     return request(`/servers/${encodeURIComponent(id)}`, {
       method: 'DELETE'
+    });
+  },
+
+  async saveServerAiConfig(serverId, aiConfig) {
+    return request(`/servers/${encodeURIComponent(serverId)}/ai-config`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ aiConfig })
+    });
+  },
+
+  async simulateServerCommand(serverId, count = 1) {
+    return request(`/servers/${encodeURIComponent(serverId)}/simulate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ count })
     });
   },
 

@@ -3,9 +3,9 @@ import { AlertTriangle } from 'lucide-react';
 
 export default function CloudFeatureUnavailable({ title, description }) {
   return (
-    <section className="mx-auto max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100">
+    <section className="mx-auto max-w-3xl rounded-2xl border border-neutral-200 bg-neutral-50/70 p-6 text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900/50 dark:text-neutral-100">
       <div className="flex items-start gap-3">
-        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-neutral-500 dark:text-neutral-400" />
         <div>
           <h1 className="text-lg font-bold">{title}</h1>
           <p className="mt-2 text-sm leading-6">{description}</p>

@@ -97,6 +97,16 @@ export default function CloudDashboard({
     if (currentUser) setProfileUser(currentUser);
   }, [currentUser]);
 
+  useEffect(() => {
+    const handleUserUpdated = (event) => {
+      if (event?.detail) {
+        setProfileUser((prev) => ({ ...(prev || {}), ...event.detail }));
+      }
+    };
+    window.addEventListener('tiwlo:user-updated', handleUserUpdated);
+    return () => window.removeEventListener('tiwlo:user-updated', handleUserUpdated);
+  }, []);
+
   const launchStoreConsole = (store = currentStore) => {
     if (!store?.tiwiId) {
       setActiveNav('create-store');
@@ -195,8 +205,10 @@ export default function CloudDashboard({
     );
   });
 
+  const isBillingRoute = activeNav === 'billing' || activeNav.startsWith('billing');
+
   return (
-    <div className="tiwi-v3-cloud flex min-h-dvh bg-neutral-50 font-sans text-neutral-950 dark:bg-neutral-950 dark:text-neutral-100">
+    <div className={`tiwi-v3-cloud flex min-h-dvh font-sans text-neutral-950 dark:bg-neutral-950 dark:text-neutral-100 ${isBillingRoute ? 'bg-white' : 'bg-neutral-50'}`}>
       {/* Left Sidebar */}
       <CloudSidebar
         activeNav={activeNav}
@@ -228,7 +240,8 @@ export default function CloudDashboard({
         <CloudHeader
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
-          currentUser={{ ...currentUser, storeName: currentStore?.storeName || currentUser?.storeName }}
+          currentUser={{ ...(profileUser || currentUser), storeName: currentStore?.storeName || profileUser?.storeName || currentUser?.storeName }}
+          onUserUpdated={(updatedUser) => setProfileUser((prev) => ({ ...(prev || {}), ...updatedUser }))}
           onLogout={onLogout}
           onOpenStore={currentStore?.tiwiId ? () => launchStoreConsole(currentStore) : null}
           onSwitchStore={() => setActiveNav('my-online-store')}
@@ -313,6 +326,15 @@ export default function CloudDashboard({
                   setBillingInitialTab(tab);
                   setActiveNav('billing');
                 }}
+                onOpenUpgrade={(store) => {
+                  if (store?.tiwiId) {
+                    setCurrentStore(store);
+                    try {
+                      window.sessionStorage.setItem('tiwlo.selectedStore', JSON.stringify(store));
+                    } catch {}
+                  }
+                  onNavigateTab?.('pricing');
+                }}
               />
             </div>
           ) : activeNav === 'images' ? (
@@ -361,6 +383,26 @@ export default function CloudDashboard({
                 onSelectStore={(st) => setCurrentStore(st)}
                 onOpenStoreDashboard={launchStoreConsole}
                 onOpenCreateStore={() => setActiveNav('create-store')}
+                onOpenBilling={(tab = 'overview') => {
+                  setBillingInitialTab(tab);
+                  setActiveNav('billing');
+                  try {
+                    if (window.location.pathname !== '/billing') {
+                      window.history.pushState(null, '', '/billing');
+                    }
+                  } catch {}
+                }}
+                onRenewSuccess={loadCloudData}
+                showToast={showToast}
+                onOpenUpgrade={(store) => {
+                  if (store?.tiwiId) {
+                    setCurrentStore(store);
+                    try {
+                      window.sessionStorage.setItem('tiwlo.selectedStore', JSON.stringify(store));
+                    } catch {}
+                  }
+                  onNavigateTab?.('pricing');
+                }}
               />
             </div>
           ) : (activeNav === 'whatsapp-automation' || activeNav.startsWith('whatsapp-automation')) ? (
@@ -387,7 +429,7 @@ export default function CloudDashboard({
               />
             </div>
           ) : (activeNav === 'billing' || activeNav.startsWith('billing')) ? (
-            <div className="max-w-[1600px] mx-auto">
+            <div className="mx-auto max-w-7xl">
               <CloudBillingView
                 currentUser={currentUser}
                 initialTab={billingInitialTab}
@@ -477,7 +519,7 @@ export default function CloudDashboard({
           ) : (
             <div className="mx-auto max-w-7xl space-y-6">
               <CloudHeroBanner
-                currentUser={{ ...currentUser, storeName: currentStore?.storeName || currentUser?.storeName }}
+                currentUser={{ ...(profileUser || currentUser), storeName: currentStore?.storeName || profileUser?.storeName || currentUser?.storeName }}
                 onCreateDroplet={() => {
                   setInitialDropletImage('Ubuntu 24.04 LTS');
                   setActiveNav('create-droplet');

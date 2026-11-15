@@ -1,12 +1,17 @@
+import { applicationFetch as fetch } from '../../../api/graphqlTransport.js';
 import React, { useState } from 'react';
 import {
   ArrowUpRight,
   Globe,
+  Lock,
   Plus,
+  RefreshCw,
   Search,
+  Sparkles,
   Store,
 } from 'lucide-react';
 import { STORE_DOMAIN, getStoreUrl } from '../../../config/platformConfig';
+import StoreNotificationsBanner from '../../../components/StoreNotificationsBanner';
 
 function getStoreHost(subdomain) {
   const value = String(subdomain || '').trim().replace(/^https?:\/\//i, '').split('/')[0].toLowerCase();
@@ -43,10 +48,21 @@ export default function MyOnlineStoreView({
   currentStore,
   onSelectStore,
   onOpenStoreDashboard,
-  onOpenCreateStore
+  onOpenCreateStore,
+  onOpenUpgrade,
+  onOpenBilling,
+  onRenewSuccess,
+  showToast
 }) {
   const [search, setSearch] = useState('');
+  const [renewingStoreId, setRenewingStoreId] = useState('');
+  const [renewNotice, setRenewNotice] = useState('');
   const stores = userStores;
+  const activeFreeStore = stores.find(
+    (store) =>
+      String(store?.status || 'active').toLowerCase() !== 'deleted' &&
+      String(store?.planId || 'free').toLowerCase() === 'free'
+  ) || null;
   const query = search.trim().toLowerCase();
   const filteredStores = query
     ? stores.filter((store) => [
@@ -63,6 +79,58 @@ export default function MyOnlineStoreView({
   const openStore = (store) => {
     onSelectStore?.(store);
     onOpenStoreDashboard?.(store);
+  };
+
+  const navigateToBilling = () => {
+    if (onOpenBilling) {
+      onOpenBilling('overview');
+      return;
+    }
+    try {
+      window.history.pushState(null, '', '/billing');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    } catch {
+      window.location.assign('/billing');
+    }
+  };
+
+  const handleRenewStore = async (store) => {
+    if (!store?.tiwiId) {
+      navigateToBilling();
+      return;
+    }
+    setRenewingStoreId(store.tiwiId);
+    setRenewNotice('');
+    try {
+      const response = await fetch(`/api/stores/${encodeURIComponent(store.tiwiId)}/renew`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 402 || payload?.insufficientFunds || payload?.code === 'INSUFFICIENT_FUNDS') {
+        const msg = payload?.error || 'Insufficient billing balance. Add funds to reactivate your store.';
+        setRenewNotice(msg);
+        showToast?.(msg, 'error');
+        navigateToBilling();
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Could not renew this store.');
+      }
+      const okMsg = payload?.message || `${store.storeName || store.tiwiId} has been renewed and reactivated.`;
+      setRenewNotice(okMsg);
+      showToast?.(okMsg);
+      await onRenewSuccess?.();
+    } catch (error) {
+      const errMsg = error.message || 'Could not renew store. Redirecting to billing.';
+      setRenewNotice(errMsg);
+      showToast?.(errMsg, 'error');
+      navigateToBilling();
+    } finally {
+      setRenewingStoreId('');
+    }
   };
 
   return (
@@ -86,6 +154,55 @@ export default function MyOnlineStoreView({
           Create store
         </button>
       </header>
+
+      <StoreNotificationsBanner
+        tiwiId={currentStore?.tiwiId}
+        stores={stores}
+        onOpenUpgrade={(target) => onOpenUpgrade?.(target?.tiwiId ? target : activeFreeStore || currentStore)}
+        onOpenBilling={navigateToBilling}
+        onRenewSuccess={onRenewSuccess}
+        showToast={showToast}
+      />
+
+      {renewNotice && (
+        <div
+          role="status"
+          className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-xs text-neutral-700 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200"
+        >
+          {renewNotice}
+        </div>
+      )}
+
+      {activeFreeStore && (
+        <div className="flex flex-col justify-between gap-3 rounded-xl border border-neutral-200 bg-white p-4 sm:flex-row sm:items-center dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-700 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200">
+              <Lock className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-semibold text-neutral-950 dark:text-white">
+                  You have already created 1 Free store
+                </p>
+                <span className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[11px] font-medium text-neutral-700 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-300">
+                  1 / 1 Free Slot Used
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                Free accounts include 1 store slot ({activeFreeStore.storeName || activeFreeStore.tiwiId}). Upgrade your plan to unlock additional store slots.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onOpenUpgrade?.(activeFreeStore)}
+            className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-950 px-4 text-xs font-semibold text-white transition hover:bg-neutral-800 dark:border-neutral-700 dark:bg-[#1ed760] dark:text-black dark:hover:bg-[#16c653]"
+          >
+            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+            Upgrade Plan
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <StatCard label="Stores" value={stores.length} icon={Store} tone="ink" />
@@ -167,13 +284,26 @@ export default function MyOnlineStoreView({
                       </span>
                     </td>
                     <td className="px-5 py-4 text-right sm:px-6">
-                      <button
-                        type="button"
-                        onClick={() => openStore(store)}
-                        className="inline-flex h-8 items-center rounded-full bg-neutral-100 px-3 text-xs font-bold transition hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
-                      >
-                        Open dashboard
-                      </button>
+                      <div className="inline-flex items-center justify-end gap-2">
+                        {String(status).toLowerCase() === 'suspended' && (
+                          <button
+                            type="button"
+                            disabled={renewingStoreId === store.tiwiId}
+                            onClick={() => handleRenewStore(store)}
+                            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[#1ED760] px-3 text-xs font-semibold text-black transition hover:bg-[#18B953] disabled:opacity-60"
+                          >
+                            <RefreshCw className={`size-3.5 ${renewingStoreId === store.tiwiId ? 'animate-spin' : ''}`} aria-hidden="true" />
+                            {renewingStoreId === store.tiwiId ? 'Renewing...' : 'Renew & Reactivate'}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => openStore(store)}
+                          className="inline-flex h-8 items-center rounded-full bg-neutral-100 px-3 text-xs font-bold transition hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
+                        >
+                          Open dashboard
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

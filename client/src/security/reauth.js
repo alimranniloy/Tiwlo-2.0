@@ -1,6 +1,14 @@
 import { openMaterialDialog } from '../components/MaterialDialogProvider.jsx';
+import { requestAdminPinGrant } from '../administrator/AdminPinGateModal.jsx';
 
-export async function requestSensitiveActionGrant(headers = {}, apiOrigin = window.location.origin) {
+export async function requestSensitiveActionGrant(headers = {}, apiOrigin = window.location.origin, options = {}) {
+  const isAdminPanel = typeof window !== 'undefined' && (
+    /^\/(administrator|admin)\b/.test(window.location.pathname) ||
+    options?.mode === 'admin_pin'
+  );
+  if (isAdminPanel) {
+    return requestAdminPinGrant(headers, apiOrigin, options);
+  }
   const authHeaders = new Headers(headers);
   authHeaders.set('Content-Type', 'application/json');
   const challengeResponse = await globalThis.fetch(`${apiOrigin}/api/auth/reauth/request`, {

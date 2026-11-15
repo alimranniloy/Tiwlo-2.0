@@ -1,5 +1,7 @@
 import * as Location from 'expo-location';
 import {
+  AndroidAudioContentType,
+  AndroidAudioUsage,
   AndroidImportance,
   getExpoPushTokenAsync,
   getPermissionsAsync,
@@ -52,55 +54,77 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(
 
 export async function ensureDeliveryNotificationChannel(): Promise<void> {
   if (Platform.OS === 'android') {
-    await setNotificationChannelAsync('pick-delivery-orders', {
+    await setNotificationChannelAsync('pick-delivery-orders-v2', {
       name: 'Parcel offers',
       importance: AndroidImportance.MAX,
       vibrationPattern: [0, 300, 150, 300],
       sound: 'default',
+      audioAttributes: {
+        usage: AndroidAudioUsage.NOTIFICATION_RINGTONE,
+        contentType: AndroidAudioContentType.SONIFICATION
+      },
       enableVibrate: true
     });
   }
 }
 
-async function ensureLocationPermissions(): Promise<void> {
+function getDeliveryPushProjectId(): string | undefined {
+  return Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+}
+
+function permissionMessage(permission: { canAskAgain: boolean }, message: string): string {
+  return permission.canAskAgain
+    ? message
+    : `${message} Open PICK Delivery’s app permissions in Settings, then tap Go on duty again.`;
+}
+
+async function ensureLocationPermissions(request: boolean): Promise<void> {
   let foreground = await Location.getForegroundPermissionsAsync();
-  if (foreground.status !== 'granted') {
+  if (foreground.status !== 'granted' && request && foreground.canAskAgain) {
     foreground = await Location.requestForegroundPermissionsAsync();
   }
   if (foreground.status !== 'granted') {
-    throw new Error('Allow location while using PICK Delivery before going on duty.');
+    throw new Error(permissionMessage(
+      foreground,
+      'Allow location while using PICK Delivery before going on duty.'
+    ));
   }
 
   let background = await Location.getBackgroundPermissionsAsync();
-  if (background.status !== 'granted') {
+  if (background.status !== 'granted' && request && background.canAskAgain) {
     background = await Location.requestBackgroundPermissionsAsync();
   }
   if (background.status !== 'granted') {
-    throw new Error('Allow background location (“Always”) in Settings to stay available while the app is minimized.');
+    throw new Error(permissionMessage(
+      background,
+      'Allow background location (“Always”) to stay available while the app is minimized.'
+    ));
   }
 }
 
-async function ensureNotificationPermission(): Promise<void> {
+async function ensureNotificationPermission(request: boolean): Promise<boolean> {
   let permission = await getPermissionsAsync();
-  if (!permission.granted) permission = await requestPermissionsAsync();
-  if (!permission.granted) {
-    throw new Error('Enable notifications in Settings to receive parcel offers while on duty.');
+  if (!permission.granted && request && permission.canAskAgain) {
+    permission = await requestPermissionsAsync();
   }
+  return permission.granted;
 }
 
-export async function registerDeliveryPushNotifications(): Promise<string | null> {
-  await ensureDeliveryNotificationChannel();
-  await ensureNotificationPermission();
-  const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+export async function registerDeliveryPushNotifications(
+  requestPermission = true
+): Promise<string | null> {
+  const projectId = getDeliveryPushProjectId();
   if (!projectId) return null;
+  await ensureDeliveryNotificationChannel();
+  if (!(await ensureNotificationPermission(requestPermission))) return null;
   const token = await getExpoPushTokenAsync({ projectId });
-  if (!token.data) throw new Error('PICK Delivery could not register for parcel notifications.');
+  if (!token.data) return null;
   await saveDeliveryPushToken(token.data);
   return token.data;
 }
 
 export async function startDeliveryLocationTracking(): Promise<void> {
-  await ensureLocationPermissions();
+  await ensureLocationPermissions(false);
   const alreadyStarted = await Location.hasStartedLocationUpdatesAsync(DELIVERY_LOCATION_TASK);
   if (alreadyStarted) return;
   await Location.startLocationUpdatesAsync(DELIVERY_LOCATION_TASK, {
@@ -125,13 +149,12 @@ export async function stopDeliveryLocationTracking(): Promise<void> {
   }
 }
 
-export async function goOnDeliveryDuty(): Promise<{ pushConfigured: boolean }> {
-  const locationPermission = await Location.getForegroundPermissionsAsync();
-  if (locationPermission.status !== 'granted') {
-    const requestedPermission = await Location.requestForegroundPermissionsAsync();
-    if (requestedPermission.status !== 'granted') {
-      throw new Error('Allow location access to go on duty.');
-    }
+export async function goOnDeliveryDuty(): Promise<void> {
+  await ensureLocationPermissions(true);
+  try {
+    await registerDeliveryPushNotifications(true);
+  } catch (notificationError) {
+    console.warn('PICK Delivery push alerts are unavailable; continuing without them:', notificationError);
   }
   const currentLocation = await Location.getCurrentPositionAsync({
     accuracy: Location.Accuracy.High
@@ -148,7 +171,6 @@ export async function goOnDeliveryDuty(): Promise<{ pushConfigured: boolean }> {
   if (!savedLocation.coverageAvailable) {
     throw new Error('PICK Delivery is not available in your current coverage area.');
   }
-  await registerDeliveryPushNotifications();
   await startDeliveryLocationTracking();
   try {
     await setDeliveryDuty(true);
@@ -156,7 +178,6 @@ export async function goOnDeliveryDuty(): Promise<{ pushConfigured: boolean }> {
     await stopDeliveryLocationTracking();
     throw error;
   }
-  return { pushConfigured: Boolean(Constants.expoConfig?.extra?.eas?.projectId) };
 }
 
 export async function goOffDeliveryDuty(): Promise<void> {
@@ -165,20 +186,31 @@ export async function goOffDeliveryDuty(): Promise<void> {
 }
 
 export async function restoreDeliveryTracking(): Promise<void> {
-  await ensureLocationPermissions();
-  await ensureNotificationPermission();
-  const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-  const accuracy = location.coords.accuracy;
-  if (typeof accuracy !== 'number' || !Number.isFinite(accuracy) || accuracy > 200) {
-    throw new Error('GPS accuracy is too low to resume delivery tracking.');
+  try {
+    await ensureLocationPermissions(false);
+    const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+    const accuracy = location.coords.accuracy;
+    if (typeof accuracy !== 'number' || !Number.isFinite(accuracy) || accuracy > 200) {
+      throw new Error('GPS accuracy is too low to resume delivery tracking.');
+    }
+    const savedLocation = await saveDeliveryLocation({
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude,
+      accuracy
+    });
+    if (!savedLocation.coverageAvailable) {
+      throw new Error('PICK Delivery is no longer available at your current location.');
+    }
+    await startDeliveryLocationTracking();
+  } catch (error) {
+    try {
+      await setDeliveryDuty(false);
+    } catch (dutyError) {
+      console.error('PICK Delivery could not turn off duty after background prerequisites failed:', dutyError);
+      await stopDeliveryLocationTracking();
+      throw new Error('PICK Delivery could not confirm that duty is off. Check your connection and try again.');
+    }
+    await stopDeliveryLocationTracking();
+    throw error;
   }
-  const savedLocation = await saveDeliveryLocation({
-    latitude: location.coords.latitude,
-    longitude: location.coords.longitude,
-    accuracy
-  });
-  if (!savedLocation.coverageAvailable) {
-    throw new Error('PICK Delivery is no longer available at your current location.');
-  }
-  await startDeliveryLocationTracking();
 }

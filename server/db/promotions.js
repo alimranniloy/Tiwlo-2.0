@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { isPgActive, queryPg } from './postgres.js';
+import { isPgActive, queryPg, recordPlatformBillingOrder } from './postgres.js';
 import { recordSecurityEvent } from './securityPersistence.js';
 import {
   activateBanAndBlockSignals,
@@ -570,7 +570,7 @@ export async function getUserWelcomePromoStatus(userId, req = null) {
     return { config, eligible: false, alreadyClaimed: false, hasPriorTopup: false };
   }
 
-  const [{ rows: billingRows }, { rows: topupRows }, { rows: userRows }] = await Promise.all([
+  const [{ rows: billingRows }, { rows: topupRows }, { rows: userRows }, { rows: claimRows }] = await Promise.all([
     queryPg(
       `SELECT welcome_promo_claimed_at, first_paid_topup_at, promotional_credits, promotional_expires_at
        FROM cloud_billing_accounts WHERE user_id = $1 LIMIT 1`,
@@ -582,6 +582,16 @@ export async function getUserWelcomePromoStatus(userId, req = null) {
     ),
     queryPg(
       `SELECT role, is_banned FROM system_users WHERE id = $1 LIMIT 1`,
+      [userId]
+    ),
+    queryPg(
+      `SELECT c.id, c.claim_type, c.promo_code, c.amount_usd, c.validity_days, c.expires_at, c.created_at,
+              p.reward_type
+       FROM system_promo_claims c
+       LEFT JOIN cloud_promo_codes p ON p.id = c.promo_code_id
+       WHERE c.user_id = $1 AND c.status = 'granted'
+       ORDER BY c.created_at DESC
+       LIMIT 25`,
       [userId]
     )
   ]);
@@ -618,7 +628,17 @@ export async function getUserWelcomePromoStatus(userId, req = null) {
     alreadyClaimed,
     hasPriorTopup,
     promotionalCredits: Number(acct.promotional_credits || 0),
-    promotionalExpiresAt: acct.promotional_expires_at ? new Date(acct.promotional_expires_at).toISOString() : null
+    promotionalExpiresAt: acct.promotional_expires_at ? new Date(acct.promotional_expires_at).toISOString() : null,
+    claimedCoupons: (claimRows || []).map((row) => ({
+      id: row.id,
+      claimType: row.claim_type,
+      promoCode: row.promo_code,
+      rewardType: row.reward_type || (row.claim_type === 'welcome_bonus' ? 'promotional_credit' : 'standard_credit'),
+      amountUsd: Number(row.amount_usd || 0),
+      validityDays: Number(row.validity_days || 0),
+      expiresAt: row.expires_at ? new Date(row.expires_at).toISOString() : null,
+      createdAt: row.created_at ? new Date(row.created_at).toISOString() : null
+    }))
   };
 }
 
@@ -761,6 +781,20 @@ export async function tryGrantWelcomeDepositBonus({ userId, topup, hadPaidTopups
       signals.userAgentHash
     ]
   );
+
+  await recordPlatformBillingOrder({
+    userId,
+    orderType: 'promo_grant',
+    itemName: 'Welcome Deposit Gift (WELCOME_DEPOSIT_GIFT)',
+    grossAmountUsd: bonusAmount,
+    cashCreditUsedUsd: 0,
+    promoCreditUsedUsd: 0,
+    netCashRevenueUsd: 0,
+    provider: 'promotion',
+    currency: 'USD',
+    status: 'paid',
+    metadata: { claimType: 'welcome_bonus', promoCode: 'WELCOME_DEPOSIT_GIFT', validityDays }
+  });
 
   return {
     granted: true,
@@ -916,6 +950,26 @@ export async function redeemPromoCodeForUser({ userId, rawCode, req = null }) {
       signals.ipHash, signals.subnetHash, signals.userAgentHash
     ]
   );
+
+  await recordPlatformBillingOrder({
+    userId,
+    orderType: 'promo_grant',
+    itemName: `Promo Code (${promo.code})`,
+    grossAmountUsd: amountUsd,
+    cashCreditUsedUsd: 0,
+    promoCreditUsedUsd: 0,
+    netCashRevenueUsd: 0,
+    provider: 'promotion',
+    currency: 'USD',
+    status: 'paid',
+    metadata: {
+      claimType: 'promo_code',
+      promoCodeId: promo.id,
+      promoCode: promo.code,
+      rewardType: decision.rewardType,
+      validityDays
+    }
+  });
 
   return {
     found: true,

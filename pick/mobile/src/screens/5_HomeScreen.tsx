@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Animated,
+  AppState,
   View,
   Text,
   StyleSheet,
@@ -9,13 +9,14 @@ import {
   TextInput,
   Image,
 } from 'react-native';
-import { Image as ExpoImage } from 'expo-image';
 import { PickIcon } from '../components/common/PickIcon';
 import { BottomNav } from '../components/common/BottomNav';
 import { ScreenContainer, SYSTEM_INSETS } from '../components/common/ScreenContainer';
 import { AnimatedEmptyState } from '../components/common/AnimatedEmptyState';
+import { DeliveryAvailabilityBanner } from '../components/common/DeliveryAvailabilityBanner';
 import type { BazarCategory, BazarProduct } from '../data/mockData';
 import type { CartEntry } from '../services/orders';
+import { getDeliveryAvailability, type DeliveryAvailability } from '../services/deliveryAvailability';
 import { useLanguage } from '../context/LanguageContext';
 
 interface HomeScreenProps {
@@ -53,26 +54,44 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const [activeCategoryIndex, setActiveCategoryIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
-  const [loadingPulse] = useState(() => new Animated.Value(0.35));
+  const [deliveryAvailability, setDeliveryAvailability] = useState<
+    DeliveryAvailability | { status: 'checking'; count: 0 }
+  >({ status: 'checking', count: 0 });
+  const [dismissedAvailabilityKey, setDismissedAvailabilityKey] = useState('');
 
   useEffect(() => {
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(loadingPulse, {
-          toValue: 0.9,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-        Animated.timing(loadingPulse, {
-          toValue: 0.35,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, [loadingPulse]);
+    let active = true;
+    let requestInFlight = false;
+    const refreshAvailability = async () => {
+      if (requestInFlight) return;
+      requestInFlight = true;
+      try {
+        const result = await getDeliveryAvailability();
+        if (active) setDeliveryAvailability(result);
+      } catch (error) {
+        console.error('Could not check nearby PICK delivery partners:', error);
+        if (active) setDeliveryAvailability({ status: 'unknown', count: 0 });
+      } finally {
+        requestInFlight = false;
+      }
+    };
+
+    void refreshAvailability();
+    const interval = setInterval(() => void refreshAvailability(), 60_000);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refreshAvailability();
+    });
+    return () => {
+      active = false;
+      clearInterval(interval);
+      subscription.remove();
+    };
+  }, []);
+
+  const availabilityKey = `${deliveryAvailability.status}-${deliveryAvailability.count}`;
+  const dismissAvailabilityBanner = useCallback(() => {
+    setDismissedAvailabilityKey(availabilityKey);
+  }, [availabilityKey]);
 
   // Selected unit index per product: { [productId]: unitIndex } (e.g. 0 = 500g, 1 = 1kg)
   const [selectedUnitIndexes, setSelectedUnitIndexes] = useState<{
@@ -413,36 +432,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         )}
       </ScrollView>
 
-      <View style={styles.deliveryStatusCard}>
-        <ExpoImage
-          source={require('../../assets/images/parcel-1.gif')}
-          style={styles.deliveryStatusGif}
-          contentFit="contain"
-          autoplay
-          accessibilityLabel="Animated parcel delivery illustration"
+      {deliveryAvailability.status !== 'unknown' &&
+      !(deliveryAvailability.status === 'available' &&
+        dismissedAvailabilityKey === availabilityKey) ? (
+        <DeliveryAvailabilityBanner
+          key={availabilityKey}
+          availability={deliveryAvailability}
+          onDismiss={dismissAvailabilityBanner}
         />
-        <View style={styles.deliveryStatusCopy}>
-          <Text style={styles.deliveryStatusTitle} numberOfLines={2}>
-            No delivery partners in your area yet
-          </Text>
-          <Text style={styles.deliveryStatusMessage} numberOfLines={2}>
-            We&apos;re finding the best way to get your parcel to you.
-          </Text>
-          <View style={styles.deliveryStatusLoading} accessibilityLabel="Searching for delivery options">
-            {[0, 1, 2].map((line) => (
-              <Animated.View
-                key={line}
-                style={[
-                  styles.deliveryStatusLoadingLine,
-                  line === 1 && styles.deliveryStatusLoadingLineShort,
-                  line === 2 && styles.deliveryStatusLoadingLineMedium,
-                  { opacity: loadingPulse },
-                ]}
-              />
-            ))}
-          </View>
-        </View>
-      </View>
+      ) : null}
 
       {/* Clean Bottom Navigation Bar */}
       <BottomNav
@@ -582,56 +580,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     paddingVertical: 40,
     textAlign: 'center',
-  },
-  deliveryStatusCard: {
-    minHeight: 92,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 14,
-    marginBottom: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: '#F7F8FA',
-  },
-  deliveryStatusGif: {
-    width: 68,
-    height: 72,
-    marginRight: 10,
-  },
-  deliveryStatusCopy: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  deliveryStatusTitle: {
-    color: '#111827',
-    fontSize: 12,
-    fontWeight: '700',
-    lineHeight: 16,
-  },
-  deliveryStatusMessage: {
-    color: '#6B7280',
-    fontSize: 11,
-    lineHeight: 15,
-    marginTop: 2,
-  },
-  deliveryStatusLoading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginTop: 5,
-  },
-  deliveryStatusLoadingLine: {
-    width: 26,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: '#9CA3AF',
-  },
-  deliveryStatusLoadingLineShort: {
-    width: 15,
-  },
-  deliveryStatusLoadingLineMedium: {
-    width: 21,
   },
   uberFoodRow: {
     flexDirection: 'row',

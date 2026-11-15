@@ -1,42 +1,47 @@
 import React from 'react';
-import {
-  Package,
-  ShoppingBag,
-  Users,
-  UserCheck
-} from 'lucide-react';
+import { Activity, FileCheck2, Receipt, Store, ShieldAlert, Settings } from 'lucide-react';
+import { isAdminViewPermitted } from './AdminSidebar';
 
-export default function QuickActions({ onAction }) {
+export default function QuickActions({ onAction, staffAccess }) {
   const actions = [
-    { id: 'products', label: 'View Products', icon: Package },
-    { id: 'orders', label: 'View Orders', icon: ShoppingBag },
-    { id: 'customers', label: 'View Customers', icon: Users },
-    { id: 'users', label: 'Manage Users', icon: UserCheck }
-  ];
+    { id: 'orders', label: 'System Orders', icon: Receipt },
+    { id: 'customers', label: 'Merchants & Stores', icon: Store },
+    { id: 'users', label: 'Risk Monitor', icon: ShieldAlert },
+    { id: 'live-visitors', label: 'Live Visitors', icon: Activity },
+    { id: 'compliance-audit', label: 'Compliance & Audit', icon: FileCheck2 },
+    { id: 'system-settings', label: 'Currency & Settings', icon: Settings }
+  ].filter((act) => isAdminViewPermitted(act.id, staffAccess));
 
   return (
-    <div className="bg-white dark:bg-neutral-900 rounded-2xl p-5 border border-neutral-200/70 dark:border-neutral-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between">
-      <h3 className="text-base font-bold text-neutral-900 dark:text-white mb-4">
-        Admin Shortcuts
+    <div className="bg-white dark:bg-neutral-950 rounded-xl p-5 border border-neutral-200/80 dark:border-neutral-800 flex flex-col justify-between">
+      <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-3">
+        Quick Actions
       </h3>
 
-      <div className="grid grid-cols-2 gap-2.5">
-        {actions.map((act) => {
-          const Icon = act.icon;
-          return (
-            <button
-              key={act.id}
-              onClick={() => onAction(act.id)}
-              className="flex items-center gap-2.5 p-3 rounded-xl bg-neutral-50/70 dark:bg-neutral-800/60 hover:bg-neutral-50/80 dark:hover:bg-neutral-900/30 border border-neutral-200/70 dark:border-neutral-700/60 hover:border-neutral-200 dark:hover:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:text-neutral-700 dark:hover:text-neutral-400 font-semibold text-xs transition-all group shadow-2xs"
-            >
-              <div className="w-7 h-7 rounded-lg bg-white dark:bg-neutral-700 flex items-center justify-center text-neutral-500 group-hover:text-neutral-600 dark:group-hover:text-neutral-400 shadow-2xs shrink-0 transition-colors">
-                <Icon className="w-3.5 h-3.5" />
-              </div>
-              <span className="truncate">{act.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      {actions.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {actions.map((act) => {
+            const Icon = act.icon;
+            return (
+              <button
+                type="button"
+                key={act.id}
+                onClick={() => onAction(act.id)}
+                className="flex items-center gap-2.5 p-2.5 rounded-lg bg-[#fafafa] dark:bg-neutral-900/70 hover:bg-[#1ED760]/10 dark:hover:bg-[#1ED760]/15 border border-neutral-200/80 dark:border-neutral-800 hover:border-[#1ED760]/50 text-neutral-800 dark:text-neutral-200 font-medium text-xs transition-colors group text-left"
+              >
+                <div className="w-7 h-7 rounded-md bg-white dark:bg-neutral-950 border border-neutral-200/80 dark:border-neutral-800 flex items-center justify-center text-neutral-500 group-hover:text-[#159f46] dark:group-hover:text-[#1ED760] shrink-0 transition-colors">
+                  <Icon className="w-3.5 h-3.5" />
+                </div>
+                <span className="truncate">{act.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-xs text-neutral-400 dark:text-neutral-500">
+          No shortcuts available for your role.
+        </p>
+      )}
     </div>
   );
 }

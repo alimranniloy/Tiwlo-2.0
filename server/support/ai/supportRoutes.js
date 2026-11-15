@@ -1,21 +1,34 @@
 import express from 'express';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { randomUUID } from 'node:crypto';
+import multer from 'multer';
 import { getAgentByTier, getOnlineSpecialists, generateTicketSerial } from './agentsPool.js';
-import { TiwiAI } from './tiwiAi.js';
-import { SystemBrain } from './brain.js';
-import { processSecurityAppeal } from './verificationAgent.js';
-import { RestoreSessions } from '../../db/restoreSessions.js';
-
-import { SupportDB } from '../../db/supportDb.js';
-import { MasterDB } from '../../db/multiTenant.js';
+import { TiwiAI as defaultTiwiAI } from './tiwiAi.js';
+import { SystemBrain as defaultSystemBrain } from './brain.js';
+import { processSecurityAppeal as defaultProcessSecurityAppeal } from './verificationAgent.js';
+import { RestoreSessions as defaultRestoreSessions } from '../../db/restoreSessions.js';
+import { SupportDB as defaultSupportDB } from '../../db/supportDb.js';
+import { MasterDB as defaultMasterDB } from '../../db/multiTenant.js';
+import { getPublicMediaUrl as defaultGetPublicMediaUrl, inferMediaType, storeMedia as defaultStoreMedia } from '../../db/mediaStorage.js';
 import { PLATFORM_CONFIG } from '../../config/platformConfig.js';
 import { securityLimiters } from '../../plugins/security/index.js';
+import { isSuperAdminAccount } from '../../administrator/identityRiskGraph.js';
+import {
+  defaultTicketingService,
+  setGuestSupportCookie,
+  clearGuestSupportCookie,
+  SupportServiceError
+} from '../ticketingService.js';
+import {
+  getDefaultLiveChatQueueService,
+  LiveChatQueueError
+} from '../liveChatQueueService.js';
 
-const router = express.Router();
+const uploadAttachmentMiddleware = multer({
+  storage: multer.memoryStorage(),
+  limits: { files: 10, fileSize: 10 * 1024 * 1024 }
+});
 
-function getAuthenticatedSupportUser(req) {
+export function getAuthenticatedSupportUser(req) {
   const user = req.activeUser || req.user || null;
   if (!user || !user.id || user.id === 'guest' || user.id === 'guest_session') {
     return null;
@@ -23,594 +36,1233 @@ function getAuthenticatedSupportUser(req) {
   return user;
 }
 
-function userMatchesRecord(user, recordUserId) {
+export function userMatchesRecord(user, recordUserId) {
   if (!user || !recordUserId || recordUserId === 'guest' || recordUserId === 'guest_session') {
     return false;
   }
-  if (user.role === 'admin') return true;
+  if (user.role === 'admin' || user.role === 'super_admin' || isSuperAdminAccount(user)) return true;
   return recordUserId === user.id || (Boolean(user.tiwiId) && recordUserId === user.tiwiId);
 }
 
-async function readSupportDB() {
-  return (await SupportDB.getAllData());
+function handleRouteError(res, err, fallbackMessage = 'Support request failed.') {
+  if (err instanceof SupportServiceError || (err && Number.isInteger(err.statusCode))) {
+    return res.status(err.statusCode || 400).json({
+      success: false,
+      error: err.message,
+      ...(err.code ? { code: err.code } : {})
+    });
+  }
+  console.error('[SupportRoutes Error]', err);
+  return res.status(500).json({ success: false, error: fallbackMessage });
 }
 
-async function writeSupportDB(data) {
-  (await SupportDB.saveAllData(data));
-}
+export function createSupportRouter(deps = {}) {
+  const router = express.Router();
+  const ticketing = deps.ticketingService || defaultTicketingService;
+  const SupportDB = deps.SupportDB || defaultSupportDB;
+  const MasterDB = deps.MasterDB || defaultMasterDB;
+  const TiwiAI = deps.TiwiAI || defaultTiwiAI;
+  const SystemBrain = deps.SystemBrain || defaultSystemBrain;
+  const RestoreSessions = deps.RestoreSessions || defaultRestoreSessions;
+  const processSecurityAppeal = deps.processSecurityAppeal || defaultProcessSecurityAppeal;
+  const storeMediaFn = deps.storeMedia || defaultStoreMedia;
+  const getPublicMediaUrlFn = deps.getPublicMediaUrl || defaultGetPublicMediaUrl;
 
-// 1. Get online specialists count (512 online) and sample avatars
-router.get('/online-agents', (req, res) => {
-  try {
-    const data = getOnlineSpecialists(4);
-    res.json({
-      onlineCount: 512,
-      agents: data.sampleAgents
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch online specialists' });
-  }
-});
-
-// 2. Real Tickets API: GET tickets strictly filtered by verified authenticated userId
-router.get('/tickets', async (req, res) => {
-  try {
+  async function resolveSupportRequester(req, res, { allowInlineGuestContact = false } = {}) {
     const authUser = getAuthenticatedSupportUser(req);
-    if (!authUser) {
-      return res.json({
-        success: true,
-        tickets: []
+    if (authUser) {
+      return { authUser, guestSession: null };
+    }
+    const existingGuest = await ticketing.resolveGuestSessionFromRequest(req);
+    if (existingGuest) {
+      return { authUser: null, guestSession: existingGuest };
+    }
+    if (!allowInlineGuestContact) {
+      throw new SupportServiceError('Authentication or verified guest support session required.', {
+        statusCode: 401,
+        code: 'GUEST_CONTACT_REQUIRED'
       });
     }
-    const db = (await readSupportDB());
-    const userTickets = (db.tickets || []).filter(t => userMatchesRecord(authUser, t.userId));
-    res.json({
-      success: true,
-      tickets: userTickets
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch tickets' });
-  }
-});
-
-// 3. Real Tickets API: POST create new ticket with TWTK-XXXX format
-router.post('/tickets', async (req, res) => {
-  try {
-    const authUser = getAuthenticatedSupportUser(req);
-    if (!authUser) {
-      return res.status(401).json({ error: 'Authentication required to create a support ticket' });
-    }
-    const {
-      subject,
-      category = 'General Inquiry',
-      priority = 'Medium',
-      description,
-      attachments = []
-    } = req.body;
-
-    if (!subject || !subject.trim()) {
-      return res.status(400).json({ error: 'Subject is required' });
-    }
-
-    const verifiedUserId = authUser.id;
-    const verifiedUserName = authUser.name || authUser.storeName || 'Store Owner';
-
-    const db = (await readSupportDB());
-    const randomNum = Math.floor(1000 + Math.random() * 9000);
-    const ticketId = `TWTK-${randomNum}`;
-    const serialNumber = `#TWTK-${randomNum}`;
-
-    const newTicket = {
-      id: ticketId,
-      ticketId,
-      serialNumber,
-      userId: verifiedUserId,
-      userName: verifiedUserName,
-      subject: subject.trim(),
-      snippet: description ? (description.trim().slice(0, 100) + '...') : '',
-      description: description ? description.trim() : '',
-      category,
-      priority,
-      status: 'Open',
-      lastUpdated: 'Just now',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      attachments: Array.isArray(attachments) ? attachments.slice(0, 10) : [],
-      assignedAgent: 'Sarah Jenkins (Tier-1 Customer Support Specialist)'
-    };
-
-    db.tickets.unshift(newTicket);
-    (await writeSupportDB(db));
-
-    res.status(201).json({
-      success: true,
-      ticket: newTicket
-    });
-  } catch (err) {
-    console.error('Error creating ticket:', err);
-    res.status(500).json({ error: 'Failed to create ticket' });
-  }
-});
-
-// 4. Real Conversations API: GET conversations strictly filtered by verified authenticated userId
-router.get('/conversations', async (req, res) => {
-  try {
-    const authUser = getAuthenticatedSupportUser(req);
-    if (!authUser) {
-      return res.json({
-        success: true,
-        conversations: []
+    const body = req.body || {};
+    const toggles = await ticketing.getSupportToggles();
+    if (!toggles.guestTicketingEnabled) {
+      throw new SupportServiceError('Guest ticketing is currently disabled. Please sign in.', {
+        statusCode: 403,
+        code: 'GUEST_TICKETING_DISABLED'
       });
     }
-    const db = (await readSupportDB());
-    const userConvs = (db.conversations || []).filter(c => userMatchesRecord(authUser, c.userId));
-    res.json({
-      success: true,
-      conversations: userConvs
+    const created = await ticketing.createOrUpdateGuestSession({
+      guestName: body.guestName ?? body.name ?? body.visitorName ?? body.userName,
+      guestEmail: body.guestEmail ?? body.email ?? body.visitorEmail,
+      guestPhone: body.guestPhone ?? body.phone ?? body.visitorPhone,
+      req
     });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch conversations' });
+    setGuestSupportCookie(res, created.rawToken, req);
+    return { authUser: null, guestSession: created.session };
   }
-});
 
-// 5. Real Conversations API: POST message to conversation with AI generation
-router.post('/conversations/:id/messages', async (req, res) => {
-  try {
-    const authUser = getAuthenticatedSupportUser(req);
-    if (!authUser) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-    const { id } = req.params;
-    const {
-      text,
-      clientSource = req.headers['x-client-source'] || 'web',
-      sessionId = req.headers['x-session-id'] || null,
-      deviceFingerprint = null
-    } = req.body;
-
-    if (!text || !text.trim()) {
-      return res.status(400).json({ error: 'Message text is required' });
-    }
-
-    const verifiedUserId = authUser.id;
-    const verifiedUserName = authUser.name || authUser.storeName || 'Store Owner';
-
-    const db = (await readSupportDB());
-    let conv = db.conversations.find(c => c.id === id);
-
-    if (conv && conv.userId && conv.userId !== 'guest' && !userMatchesRecord(authUser, conv.userId)) {
-      return res.status(403).json({ error: 'Not authorized to access this conversation' });
-    }
-
-    if (!conv) {
-      conv = {
-        id,
-        userId: verifiedUserId,
-        name: 'Support Team',
-        role: 'Support Team',
-        time: 'Just now',
-        unread: 0,
-        isSupport: true,
-        lastMessage: text,
-        messages: []
-      };
-      db.conversations.unshift(conv);
-    }
-
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    const userMessage = {
-      id: `msg_${Date.now()}`,
-      sender: 'user',
-      text: text.trim(),
-      time: timeStr,
-      timestamp: now.toISOString()
-    };
-
-    conv.messages.push(userMessage);
-    conv.lastMessage = text.trim();
-    conv.time = timeStr;
-
-    const clientContext = {
-      clientSource: clientSource || req.headers['x-client-source'] || 'web',
-      sessionId: sessionId || req.headers['x-session-id'],
-      deviceFingerprint: deviceFingerprint || {
-        platform: req.headers['x-client-platform'] || 'web',
-        ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1'
-      }
-    };
-
-    // Generate intelligent AI reply via Gemini Flash
-    let replyText = `Hello ${verifiedUserName}, thank you for reaching out to Tiwlo Support. We are reviewing your servers and account status now.`;
+  // 0. Public Support Configuration Toggles
+  router.get('/config', async (req, res) => {
     try {
-      const history = conv.messages.slice(-8).map(m => ({
-        role: m.sender === 'user' ? 'user' : 'model',
-        parts: [{ text: m.text }]
-      }));
-
-      const replyData = await TiwiAI.generateSupportReply({
-        agentName: 'Sarah Jenkins',
-        agentRole: 'Senior Support Specialist',
-        userId: verifiedUserId,
-        userName: verifiedUserName,
-        userEmail: authUser.email || '',
-        isLoggedIn: true,
-        userMessage: text.trim(),
-        conversationHistory: history,
-        clientContext
-      });
-
-      if (replyData?.reply) {
-        replyText = replyData.reply;
-      }
-    } catch (e) {
-      console.warn('AI generation fallback in conversation route:', e);
-    }
-
-    const agentMessage = {
-      id: `msg_reply_${Date.now()}`,
-      sender: 'agent',
-      text: replyText,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      timestamp: new Date().toISOString()
-    };
-
-    conv.messages.push(agentMessage);
-    conv.lastMessage = replyText;
-    (await writeSupportDB(db));
-
-    res.json({
-      success: true,
-      userMessage,
-      agentMessage,
-      conversation: conv
-    });
-  } catch (err) {
-    console.error('Error posting message to conversation:', err);
-    res.status(500).json({ error: 'Failed to post message' });
-  }
-});
-
-// 6. Initiate support session with ticket serial & personalized greeting (TWTK-XXXX)
-router.post('/initiate', async (req, res) => {
-  try {
-    const authUser = getAuthenticatedSupportUser(req);
-    const {
-      userName = '',
-      initialSubject
-    } = req.body;
-
-    const agent = getAgentByTier(1); // Starts at Tier-1 Customer Support
-    const ticket = generateTicketSerial(); // Generates #TWTK-XXXXX
-    const sessionId = `chat_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-
-    const isUserAuth = Boolean(authUser);
-    const cleanUserId = isUserAuth ? authUser.id : 'guest';
-    const cleanName = isUserAuth
-      ? (authUser.name || authUser.storeName || 'Store Owner')
-      : (userName && userName !== 'Guest Visitor' && userName !== 'undefined' ? String(userName).slice(0, 60) : 'Guest');
-    const cleanEmail = isUserAuth ? (authUser.email || '') : '';
-
-    const welcomeGreeting = isUserAuth
-      ? `Hello ${cleanName}! My name is ${agent.firstName} from Tiwlo Customer Support (Ticket ${ticket.serialNumber}). How can I assist you with your servers, stores, or POS system today?`
-      : `Hello and welcome to Tiwlo Support! My name is ${agent.firstName} (Session ${ticket.serialNumber}). How can I help you today? If you need help logging in or accessing your store, feel free to ask.`;
-
-    const db = (await readSupportDB());
-    if (!Array.isArray(db.tickets)) db.tickets = [];
-    if (!Array.isArray(db.conversations)) db.conversations = [];
-
-    // 1. Create real ticket in database
-    const newTicket = {
-      id: ticket.ticketId,
-      ticketId: ticket.ticketId,
-      serialNumber: ticket.serialNumber,
-      userId: cleanUserId,
-      userName: cleanName,
-      userEmail: cleanEmail,
-      subject: initialSubject || (isUserAuth ? `Live Support Session (${cleanName})` : `Guest Support Inquiry`),
-      snippet: `Live assistance session initiated with ${agent.name}`,
-      description: `Support session initiated via Tiwlo Live Support Widget. Assigned specialist: ${agent.name} (${agent.tierTitle}).`,
-      category: isUserAuth ? 'Live Support' : 'Guest Inquiry',
-      priority: 'Normal',
-      status: 'Open',
-      lastUpdated: 'Just now',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      assignedAgent: `${agent.name} (${agent.tierTitle})`,
-      sessionId
-    };
-
-    const existingIndex = db.tickets.findIndex(t => t.ticketId === ticket.ticketId);
-    if (existingIndex === -1) {
-      db.tickets.unshift(newTicket);
-    }
-
-    // 2. Persist initial conversation session in database
-    const newConv = {
-      id: sessionId,
-      ticketId: ticket.ticketId,
-      serialNumber: ticket.serialNumber,
-      userId: cleanUserId,
-      name: `${agent.name} (${ticket.serialNumber})`,
-      role: agent.tierTitle,
-      time: 'Just now',
-      unread: 0,
-      isSupport: true,
-      lastMessage: welcomeGreeting,
-      messages: [
-        {
-          id: `msg_welcome_${Date.now()}`,
-          sender: 'agent',
-          agentName: agent.name,
-          avatar: agent.avatar,
-          tierTitle: agent.tierTitle,
-          text: welcomeGreeting,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          timestamp: new Date().toISOString()
-        }
-      ]
-    };
-    db.conversations.unshift(newConv);
-    (await writeSupportDB(db));
-
-    res.json({
-      sessionId,
-      ticket: newTicket,
-      agent,
-      currentTier: 1,
-      welcomeGreeting
-    });
-  } catch (err) {
-    console.error('Failed to initiate support session:', err);
-    res.status(500).json({ error: 'Failed to initiate support session' });
-  }
-});
-
-// 7. Multi-Tier Support Handover Endpoint (Tier 1 -> Tier 2 -> Tier 3)
-router.post('/transfer', (req, res) => {
-  try {
-    const { targetTier = 2, currentAgentId, reason = 'technical_escalation', userName = 'Imran' } = req.body;
-    const newTier = Math.min(3, Math.max(1, parseInt(targetTier, 10)));
-    const newAgent = getAgentByTier(newTier, currentAgentId);
-
-    const handoffNotice = newTier === 2
-      ? `Transferring you to our Tier-2 Technical & Cloud Operations Specialist (${newAgent.name})...`
-      : `Escalating your session to Tier-3 Senior Systems & Infrastructure Lead (${newAgent.name})...`;
-
-    const introGreeting = newTier === 2
-      ? `Hi ${userName}, this is ${newAgent.firstName} from Technical Cloud Operations. I've received your ticket and reviewed your server/system metrics. Let's get this resolved for you!`
-      : `Hello ${userName}, ${newAgent.name} here from Senior Infrastructure & Architecture. I have taken over your case with direct system clearance. How can I resolve this for you?`;
-
-    res.json({
-      success: true,
-      newTier,
-      handoffNotice,
-      agent: newAgent,
-      introGreeting
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to transfer support session' });
-  }
-});
-
-// 8. Send message & get response via Tiwi AI Engine
-router.post('/message', async (req, res) => {
-  try {
-    const authUser = getAuthenticatedSupportUser(req);
-    const {
-      agentName = 'Sarah Jenkins',
-      agentRole = 'Senior Support Specialist',
-      userName = 'Customer',
-      currentTier = 1,
-      message,
-      activeTicketId = null,
-      conversationHistory = [],
-      clientSource = req.headers['x-client-source'] || 'web',
-      sessionId = req.headers['x-session-id'] || null,
-      deviceFingerprint = null
-    } = req.body;
-
-    if (!message || !message.trim()) {
-      return res.status(400).json({ error: 'Message is required' });
-    }
-
-    const isUserAuth = Boolean(authUser);
-    const verifiedUserId = isUserAuth ? authUser.id : 'guest';
-    const verifiedUserName = isUserAuth
-      ? (authUser.name || authUser.storeName || 'Store Owner')
-      : (userName && userName !== 'Guest Visitor' && userName !== 'Store Owner' ? String(userName).slice(0, 60) : 'Customer');
-    const verifiedUserEmail = isUserAuth ? (authUser.email || '') : '';
-
-    const clientContext = {
-      clientSource: clientSource || req.headers['x-client-source'] || 'web',
-      sessionId: sessionId || req.headers['x-session-id'],
-      deviceFingerprint: deviceFingerprint || {
-        platform: req.headers['x-client-platform'] || 'web',
-        ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1'
-      }
-    };
-
-    const replyData = await TiwiAI.generateSupportReply({
-      agentName,
-      agentRole,
-      userId: verifiedUserId,
-      userName: verifiedUserName,
-      userEmail: verifiedUserEmail,
-      isLoggedIn: isUserAuth,
-      userMessage: message,
-      activeTicketId,
-      conversationHistory,
-      clientContext
-    });
-
-    // Persist conversation and ticket updates in real support_database.json
-    try {
-      const db = (await readSupportDB());
-      const targetSessionId = sessionId || activeTicketId;
-      const conv = (db.conversations || []).find(c =>
-        (c.id === targetSessionId || c.ticketId === activeTicketId || c.ticketId === targetSessionId) &&
-        (!c.userId || c.userId === 'guest' || userMatchesRecord(authUser, c.userId))
+      const config = await ticketing.getPublicSupportConfig();
+      const authUser = getAuthenticatedSupportUser(req);
+      const acctStatus = String(authUser?.status || '').trim().toLowerCase();
+      const riskScore = Number(authUser?.riskScore ?? authUser?.fraudScore ?? 0);
+      const liveChatBlocked = Boolean(
+        authUser &&
+        (authUser.isBanned === true ||
+          ['banned', 'disabled', 'suspended'].includes(acctStatus) ||
+          (Number.isFinite(riskScore) && riskScore >= 80))
       );
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      res.json({
+        success: true,
+        config: {
+          ...config,
+          liveChatBlocked,
+          liveChatBlockReason: liveChatBlocked
+            ? 'Live chat is disabled for restricted or high-risk accounts. Please submit a Support Appeal Ticket.'
+            : null,
+          liveChatWidgetEnabled: liveChatBlocked ? false : Boolean(config.liveChatWidgetEnabled)
+        }
+      });
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to fetch support config');
+    }
+  });
+
+  // 0b. Guest Support Session Endpoints
+  router.get('/guest/session', async (req, res) => {
+    try {
+      const guestSession = await ticketing.resolveGuestSessionFromRequest(req);
+      res.json({
+        success: true,
+        authenticated: Boolean(guestSession),
+        guestSession: guestSession || null
+      });
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to inspect guest session');
+    }
+  });
+
+  router.post('/guest/session', async (req, res) => {
+    try {
+      const toggles = await ticketing.getSupportToggles();
+      if (!toggles.guestTicketingEnabled) {
+        return res.status(403).json({
+          success: false,
+          code: 'GUEST_TICKETING_DISABLED',
+          error: 'Guest support sessions are currently disabled.'
+        });
+      }
+      const { session, rawToken } = await ticketing.createOrUpdateGuestSession({
+        ...(req.body || {}),
+        req
+      });
+      setGuestSupportCookie(res, rawToken, req);
+      res.status(201).json({ success: true, guestSession: session });
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to create guest session');
+    }
+  });
+
+  router.post('/guest/lookup', async (req, res) => {
+    try {
+      const { ticketNumber, guestEmail, guestPhone, recoveryCode } = req.body || {};
+      const result = await ticketing.lookupGuestTicket({
+        ticketNumber,
+        guestEmail,
+        guestPhone,
+        recoveryCode,
+        req
+      });
+      setGuestSupportCookie(res, result.rawToken, req);
+      const { rawToken: _omit, ...safeResult } = result;
+      res.json({ success: true, ...safeResult });
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to verify guest ticket lookup');
+    }
+  });
+
+  router.post('/guest/claim', async (req, res) => {
+    try {
+      const authUser = getAuthenticatedSupportUser(req);
+      if (!authUser) {
+        return res.status(401).json({ success: false, error: 'Authentication required to claim guest tickets.' });
+      }
+      const result = await ticketing.claimGuestSessionsForUser({
+        userId: authUser.id,
+        userEmail: authUser.email || '',
+        userName: authUser.name || authUser.storeName || '',
+        req
+      });
+      clearGuestSupportCookie(res, req);
+      res.json({ success: true, ...result });
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to claim guest sessions');
+    }
+  });
+
+  // 1. Get online specialists count (512 online) and sample avatars
+  router.get('/online-agents', (_req, res) => {
+    try {
+      const data = getOnlineSpecialists(4);
+      res.json({
+        onlineCount: 512,
+        agents: data.sampleAgents
+      });
+    } catch {
+      res.status(500).json({ error: 'Failed to fetch online specialists' });
+    }
+  });
+
+  // 2. Tickets API: GET tickets strictly filtered by verified user or guest session (+ ?q= search)
+  router.get('/tickets', async (req, res) => {
+    try {
+      const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: false });
+      const tickets = await ticketing.listTicketsForRequester({
+        authUser,
+        guestSession,
+        q: req.query?.q || '',
+        status: req.query?.status || '',
+        priority: req.query?.priority || ''
+      });
+      res.json({ success: true, tickets });
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to fetch tickets');
+    }
+  });
+
+  // 2b. Duplicate / Similar ticket detector (MUST be registered before /tickets/:id)
+  router.get('/tickets/similar', async (req, res) => {
+    try {
+      const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: false });
+      const similar = await ticketing.findSimilarTickets({
+        query: req.query?.q || '',
+        subject: req.query?.subject || '',
+        description: req.query?.description || '',
+        excludeTicketId: req.query?.excludeId || null,
+        authUser,
+        guestSession
+      });
+      res.json({ success: true, tickets: similar });
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to search similar tickets');
+    }
+  });
+
+  // 3. Tickets API: POST create new ticket (authenticated user OR verified/inline guest contact)
+  router.post('/tickets', async (req, res) => {
+    try {
+      const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: true });
+      const {
+        subject,
+        category = 'General Inquiry',
+        department = 'general',
+        priority = 'medium',
+        description = '',
+        attachments = [],
+        tags = [],
+        watchers = [],
+        tiwiId = null,
+        storeId = null,
+        storeName = null,
+        channel = 'web'
+      } = req.body || {};
+
+      const created = await ticketing.createTicket({
+        authUser,
+        guestSession,
+        req,
+        subject,
+        description,
+        category,
+        department,
+        priority,
+        channel,
+        tiwiId,
+        storeId,
+        storeName,
+        attachments,
+        tags,
+        watchers,
+        assignedAgent: null
+      });
+
+      res.status(201).json({
+        success: true,
+        ticket: created.ticket,
+        ...(created.recoveryCode ? { recoveryCode: created.recoveryCode } : {}),
+        ...(created.guestSession ? { guestSession: created.guestSession } : {})
+      });
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to create ticket');
+    }
+  });
+
+  router.get('/tickets/:id', async (req, res) => {
+    try {
+      const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: false });
+      const detail = await ticketing.getTicketDetail(req.params.id, {
+        viewerType: authUser ? 'customer' : 'guest',
+        authUser,
+        guestSession
+      });
+      res.json({ success: true, ...detail });
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to load ticket');
+    }
+  });
+
+  router.patch('/tickets/:id', async (req, res) => {
+    try {
+      const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: false });
+      const ticket = await ticketing.updateTicket({
+        ticketIdOrKey: req.params.id,
+        updates: req.body || {},
+        actorType: authUser ? 'customer' : 'guest',
+        authUser,
+        guestSession
+      });
+      res.json({ success: true, ticket });
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to update ticket');
+    }
+  });
+
+  router.post('/tickets/:id/replies', async (req, res) => {
+    try {
+      const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: false });
+      const result = await ticketing.addTicketReply({
+        ticketIdOrKey: req.params.id,
+        message: req.body?.message ?? req.body?.text,
+        attachments: req.body?.attachments || [],
+        actorType: authUser ? 'customer' : 'guest',
+        authUser,
+        guestSession
+      });
+      res.status(201).json({ success: true, ...result });
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to post reply');
+    }
+  });
+
+  router.patch('/tickets/:id/replies/:replyId', async (req, res) => {
+    try {
+      const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: false });
+      const result = await ticketing.editTicketReply({
+        ticketIdOrKey: req.params.id,
+        replyId: req.params.replyId,
+        message: req.body?.message ?? req.body?.text,
+        actorType: authUser ? 'customer' : 'guest',
+        authUser,
+        guestSession
+      });
+      res.json({ success: true, ...result });
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to edit reply');
+    }
+  });
+
+  router.post('/tickets/:id/status', async (req, res) => {
+    try {
+      const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: false });
+      const ticket = await ticketing.updateTicket({
+        ticketIdOrKey: req.params.id,
+        updates: { status: req.body?.status },
+        actorType: authUser ? 'customer' : 'guest',
+        authUser,
+        guestSession
+      });
+      res.json({ success: true, ticket });
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to update ticket status');
+    }
+  });
+
+  router.post('/tickets/:id/csat', async (req, res) => {
+    try {
+      const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: false });
+      const ticket = await ticketing.submitTicketCsat({
+        ticketIdOrKey: req.params.id,
+        rating: req.body?.rating,
+        comment: req.body?.comment || '',
+        authUser,
+        guestSession
+      });
+      res.json({ success: true, ticket });
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to submit CSAT feedback');
+    }
+  });
+
+  // Attachment upload endpoint using storeMedia from server/db/mediaStorage.js
+  router.post(
+    '/attachments',
+    (req, res, next) => {
+      const ct = String(req.headers['content-type'] || '').toLowerCase();
+      if (ct.includes('multipart/form-data')) {
+        return uploadAttachmentMiddleware.any()(req, res, (err) => {
+          if (err) {
+            return res.status(400).json({ success: false, error: err.message || 'Invalid upload payload.' });
+          }
+          return next();
+        });
+      }
+      return next();
+    },
+    async (req, res) => {
+      try {
+        const toggles = await ticketing.getSupportToggles();
+        if (!toggles.allowAttachments) {
+          return res.status(403).json({
+            success: false,
+            code: 'ATTACHMENTS_DISABLED',
+            error: 'Support attachments are currently disabled.'
+          });
+        }
+        const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: false });
+
+        const uploaded = [];
+        const files = Array.isArray(req.files) ? req.files : [];
+        if (files.length > 0) {
+          for (const file of files) {
+            const safeName = String(file.originalname || 'attachment.bin').split(/[\\/]/).pop().replace(/[^a-zA-Z0-9._-]/g, '_');
+            const aliasPath = `/uploads/support/${randomUUID()}-${safeName}`;
+            const contentType = file.mimetype || inferMediaType(safeName);
+            const stored = await storeMediaFn({
+              aliases: [aliasPath],
+              buffer: file.buffer,
+              contentType,
+              originalFilename: safeName,
+              ownerId: authUser?.id || null,
+              purpose: 'support_attachment'
+            });
+            const url = await getPublicMediaUrlFn(aliasPath);
+            uploaded.push({
+              id: stored.id,
+              url,
+              filename: safeName,
+              contentType,
+              size: stored.size
+            });
+          }
+        } else if (req.body?.dataBase64 && req.body?.filename) {
+          const safeName = String(req.body.filename).split(/[\\/]/).pop().replace(/[^a-zA-Z0-9._-]/g, '_');
+          const buffer = Buffer.from(String(req.body.dataBase64), 'base64');
+          if (!buffer.length) {
+            return res.status(400).json({ success: false, error: 'Attachment dataBase64 cannot be empty.' });
+          }
+          const aliasPath = `/uploads/support/${randomUUID()}-${safeName}`;
+          const contentType = req.body.contentType || inferMediaType(safeName);
+          const stored = await storeMediaFn({
+            aliases: [aliasPath],
+            buffer,
+            contentType,
+            originalFilename: safeName,
+            ownerId: authUser?.id || null,
+            purpose: 'support_attachment'
+          });
+          const url = await getPublicMediaUrlFn(aliasPath);
+          uploaded.push({
+            id: stored.id,
+            url,
+            filename: safeName,
+            contentType,
+            size: stored.size
+          });
+        } else {
+          return res.status(400).json({ success: false, error: 'No attachment file provided.' });
+        }
+
+        res.status(201).json({
+          success: true,
+          attachments: uploaded,
+          requesterType: authUser ? 'user' : 'guest',
+          guestSessionId: guestSession?.id || null
+        });
+      } catch (err) {
+        handleRouteError(res, err, 'Failed to upload attachment');
+      }
+    }
+  );
+
+  // 4. Conversations API: GET conversations strictly filtered by verified user or guest session
+  router.get('/conversations', async (req, res) => {
+    try {
+      const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: false });
+      const db = await SupportDB.getAllData();
+      const userConvs = (db.conversations || []).filter((c) => {
+        if (authUser) return userMatchesRecord(authUser, c.userId);
+        return Boolean(guestSession && c.guestSessionId === guestSession.id);
+      });
+      res.json({ success: true, conversations: userConvs });
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to fetch conversations');
+    }
+  });
+
+  // 5. Conversations API: POST message to conversation with AI generation & closed ticket lock
+  router.post('/conversations/:id/messages', async (req, res) => {
+    try {
+      const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: true });
+      const { id } = req.params;
+      const {
+        text,
+        clientSource = req.headers['x-client-source'] || 'web',
+        sessionId = req.headers['x-session-id'] || null,
+        deviceFingerprint = null
+      } = req.body || {};
+
+      if (!text || !String(text).trim()) {
+        return res.status(400).json({ success: false, error: 'Message text is required' });
+      }
+
+      const toggles = await ticketing.getSupportToggles();
+      const db = await SupportDB.getAllData();
+      let conv = (db.conversations || []).find((c) => c.id === id);
 
       if (conv) {
-        if (!Array.isArray(conv.messages)) conv.messages = [];
-        conv.messages.push({
-          id: `msg_u_${Date.now()}`,
-          sender: 'user',
-          text: message.trim(),
-          time: timeStr,
-          timestamp: now.toISOString()
+        const ownsConv = authUser
+          ? userMatchesRecord(authUser, conv.userId)
+          : Boolean(guestSession && conv.guestSessionId === guestSession.id);
+        if (!ownsConv) {
+          return res.status(403).json({ success: false, error: 'Not authorized to access this conversation' });
+        }
+      }
+
+      const linkedTicketId = conv?.ticketId || null;
+      if (linkedTicketId) {
+        try {
+          const detail = await ticketing.getTicketDetail(linkedTicketId, {
+            viewerType: authUser ? 'customer' : 'guest',
+            authUser,
+            guestSession
+          });
+          if (detail.ticket?.status === 'closed') {
+            return res.status(403).json({
+              success: false,
+              code: 'TICKET_CLOSED_PERMANENTLY',
+              error: 'This ticket is closed and permanently locked. Replies are disabled.'
+            });
+          }
+        } catch (err) {
+          if (err?.statusCode === 403) {
+            return res.status(403).json({ success: false, error: err.message, code: err.code });
+          }
+        }
+      }
+
+      const verifiedUserId = authUser ? authUser.id : guestSession.id;
+      const verifiedUserName = authUser
+        ? (authUser.name || authUser.storeName || 'Store Owner')
+        : guestSession.visitorName;
+
+      if (!conv) {
+        conv = {
+          id,
+          userId: authUser ? authUser.id : 'guest',
+          guestSessionId: guestSession?.id || null,
+          name: 'Support Team',
+          role: 'Support Team',
+          time: 'Just now',
+          unread: 0,
+          isSupport: true,
+          lastMessage: String(text).trim(),
+          messages: []
+        };
+        db.conversations.unshift(conv);
+      }
+
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const userMessage = {
+        id: `msg_${Date.now()}`,
+        sender: 'user',
+        text: String(text).trim(),
+        time: timeStr,
+        timestamp: now.toISOString()
+      };
+      conv.messages.push(userMessage);
+      conv.lastMessage = String(text).trim();
+      conv.time = timeStr;
+
+      if (linkedTicketId) {
+        await ticketing.addTicketReply({
+          ticketIdOrKey: linkedTicketId,
+          message: String(text).trim(),
+          actorType: authUser ? 'customer' : 'guest',
+          authUser,
+          guestSession
+        }).catch((err) => {
+          if (err?.statusCode === 403) throw err;
         });
-        conv.messages.push({
-          id: `msg_a_${Date.now()}`,
+      }
+
+      let agentMessage = null;
+      if (toggles.aiAutoReplyEnabled !== false) {
+        const clientContext = {
+          clientSource: clientSource || req.headers['x-client-source'] || 'web',
+          sessionId: sessionId || req.headers['x-session-id'],
+          deviceFingerprint: deviceFingerprint || {
+            platform: req.headers['x-client-platform'] || 'web',
+            ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1'
+          }
+        };
+
+        let replyText = `Hello ${verifiedUserName}, thank you for reaching out to Tiwlo Support. We are reviewing your request now.`;
+        try {
+          const history = conv.messages.slice(-8).map((m) => ({
+            role: m.sender === 'user' ? 'user' : 'model',
+            parts: [{ text: m.text }]
+          }));
+          const replyData = await TiwiAI.generateSupportReply({
+            agentName: 'Tiwi Support AI',
+            agentRole: 'Support Specialist',
+            userId: authUser ? authUser.id : 'guest',
+            userName: verifiedUserName,
+            userEmail: authUser?.email || guestSession?.visitorEmail || '',
+            isLoggedIn: Boolean(authUser),
+            userMessage: String(text).trim(),
+            conversationHistory: history,
+            clientContext
+          });
+          if (replyData?.reply) replyText = replyData.reply;
+        } catch {
+          // Fallback reply text already set
+        }
+
+        agentMessage = {
+          id: `msg_reply_${Date.now()}`,
           sender: 'agent',
-          agentName,
-          text: replyData.reply,
-          time: timeStr,
-          timestamp: now.toISOString()
+          text: replyText,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp: new Date().toISOString()
+        };
+        conv.messages.push(agentMessage);
+        conv.lastMessage = replyText;
+
+        if (linkedTicketId) {
+          await ticketing.addTicketReply({
+            ticketIdOrKey: linkedTicketId,
+            message: replyText,
+            actorType: 'bot',
+            authUser,
+            guestSession
+          }).catch(() => {});
+        }
+      }
+
+      await SupportDB.saveAllData(db);
+
+      res.json({
+        success: true,
+        userMessage,
+        agentMessage,
+        conversation: conv,
+        userId: verifiedUserId
+      });
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to post message');
+    }
+  });
+
+  // 5b. Convert conversation to formal ticket
+  router.post('/conversations/:id/convert-to-ticket', async (req, res) => {
+    try {
+      const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: false });
+      const db = await SupportDB.getAllData();
+      const conv = (db.conversations || []).find((c) => c.id === req.params.id);
+      if (!conv) {
+        return res.status(404).json({ success: false, error: 'Conversation not found.' });
+      }
+      const ownsConv = authUser
+        ? userMatchesRecord(authUser, conv.userId)
+        : Boolean(guestSession && conv.guestSessionId === guestSession.id);
+      if (!ownsConv) {
+        return res.status(403).json({ success: false, error: 'Not authorized to convert this conversation.' });
+      }
+
+      const initialMessages = (conv.messages || [])
+        .filter((m) => m && m.text)
+        .map((m) => ({
+          senderType: m.sender === 'user' ? (authUser ? 'user' : 'guest') : 'bot',
+          senderName: m.sender === 'user'
+            ? (authUser?.name || guestSession?.visitorName || 'Customer')
+            : (m.agentName || 'Tiwi AI Assistant'),
+          message: m.text
+        }));
+
+      const created = await ticketing.createTicket({
+        authUser,
+        guestSession,
+        req,
+        subject: req.body?.subject || conv.name || 'Converted Support Conversation',
+        description: req.body?.description || conv.lastMessage || 'Converted from support inbox.',
+        category: req.body?.category || 'Live Support',
+        priority: req.body?.priority || 'medium',
+        channel: 'chat',
+        initialMessages
+      });
+
+      conv.ticketId = created.ticket.ticketId;
+      conv.serialNumber = created.ticket.serialNumber;
+      await SupportDB.saveAllData(db).catch(() => {});
+
+      res.status(201).json({
+        success: true,
+        ticket: created.ticket,
+        ...(created.recoveryCode ? { recoveryCode: created.recoveryCode } : {})
+      });
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to convert conversation to ticket');
+    }
+  });
+
+  // 6. Initiate support session with ticket serial & personalized greeting (enforces auth or guest contact!)
+  router.post('/initiate', async (req, res) => {
+    try {
+      const toggles = await ticketing.getSupportToggles();
+      if (!toggles.liveChatWidgetEnabled) {
+        return res.status(403).json({
+          success: false,
+          code: 'LIVE_CHAT_DISABLED',
+          error: 'Live support chat is currently disabled.'
         });
-        conv.lastMessage = replyData.reply;
-        conv.time = timeStr;
       }
 
-      const ticket = (db.tickets || []).find(t =>
-        (t.ticketId === activeTicketId || t.sessionId === targetSessionId || t.id === activeTicketId) &&
-        (!t.userId || t.userId === 'guest' || userMatchesRecord(authUser, t.userId))
-      );
-      if (ticket) {
-        ticket.lastUpdated = 'Just now';
-        ticket.updatedAt = now.toISOString();
-        ticket.snippet = message.trim().slice(0, 80) + '...';
+      const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: true });
+      const { initialSubject } = req.body || {};
+
+      const agent = getAgentByTier(1);
+      const sessionId = `chat_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const cleanName = authUser
+        ? (authUser.name || authUser.storeName || 'Store Owner')
+        : guestSession.visitorName;
+
+      const created = await ticketing.createTicket({
+        authUser,
+        guestSession,
+        req,
+        subject: initialSubject || (authUser ? `Live Support Session (${cleanName})` : `Guest Support Inquiry (${cleanName})`),
+        description: 'Support session initiated via Tiwlo Live Support Widget.',
+        category: authUser ? 'Live Support' : 'Guest Inquiry',
+        priority: 'medium',
+        channel: 'chat',
+        assignedAgent: null,
+        metadata: { sessionId }
+      });
+
+      const serialNumber = created.ticket.serialNumber || generateTicketSerial().serialNumber;
+      const welcomeGreeting = authUser
+        ? `Hello ${cleanName}! My name is ${agent.firstName} from Tiwlo Customer Support (Ticket ${serialNumber}). How can I assist you with your servers, stores, or POS system today?`
+        : `Hello ${cleanName} and welcome to Tiwlo Support! My name is ${agent.firstName} (Ticket ${serialNumber}). How can I help you today?`;
+
+      try {
+        const db = await SupportDB.getAllData();
+        const newConv = {
+          id: sessionId,
+          ticketId: created.ticket.ticketId,
+          serialNumber,
+          userId: authUser ? authUser.id : 'guest',
+          guestSessionId: guestSession?.id || null,
+          name: `${agent.name} (${serialNumber})`,
+          role: agent.tierTitle,
+          time: 'Just now',
+          unread: 0,
+          isSupport: true,
+          lastMessage: welcomeGreeting,
+          messages: [
+            {
+              id: `msg_welcome_${Date.now()}`,
+              sender: 'agent',
+              agentName: agent.name,
+              avatar: agent.avatar,
+              tierTitle: agent.tierTitle,
+              text: welcomeGreeting,
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              timestamp: new Date().toISOString()
+            }
+          ]
+        };
+        db.conversations.unshift(newConv);
+        await SupportDB.saveAllData(db);
+      } catch {
+        // Non-fatal if SupportDB PG state doc isn't active in isolated unit test
       }
 
-      (await writeSupportDB(db));
-    } catch (e) {
-      console.warn('Could not update conversation DB:', e.message);
+      res.json({
+        success: true,
+        sessionId,
+        ticket: created.ticket,
+        ...(created.recoveryCode ? { recoveryCode: created.recoveryCode } : {}),
+        ...(guestSession ? { guestSession } : {}),
+        agent,
+        currentTier: 1,
+        welcomeGreeting
+      });
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to initiate support session');
     }
+  });
 
-    let shouldOfferTransfer = false;
-    let transferToTier = null;
-    const lower = message.toLowerCase();
+  // 7. Multi-Tier Support Handover Endpoint (Tier 1 -> Tier 2 -> Tier 3)
+  router.post('/transfer', async (req, res) => {
+    try {
+      const { targetTier = 2, currentAgentId, userName = 'Customer', activeTicketId = null } = req.body || {};
+      const newTier = Math.min(3, Math.max(1, parseInt(targetTier, 10) || 2));
+      const newAgent = getAgentByTier(newTier, currentAgentId);
 
-    if (currentTier === 1) {
-      if (
-        lower.includes('error') || lower.includes('bug') || lower.includes('crash') ||
-        lower.includes('kernel') || lower.includes('firewall') || lower.includes('dns') ||
-        lower.includes('ssh') || lower.includes('root') || lower.includes('ip address') ||
-        lower.includes('database schema') || lower.includes('server down') || lower.includes('hang')
-      ) {
-        shouldOfferTransfer = true;
-        transferToTier = 2;
+      if (activeTicketId) {
+        const authUser = getAuthenticatedSupportUser(req);
+        const guestSession = authUser ? null : await ticketing.resolveGuestSessionFromRequest(req);
+        if (authUser || guestSession) {
+          await ticketing.updateTicket({
+            ticketIdOrKey: activeTicketId,
+            updates: { status: newTier >= 2 ? 'escalated' : 'open' },
+            actorType: authUser ? 'customer' : 'guest',
+            authUser,
+            guestSession
+          }).catch(() => {});
+        }
       }
-    } else if (currentTier === 2) {
-      if (
-        lower.includes('enterprise') || lower.includes('escalate') || lower.includes('manager') ||
-        lower.includes('sla') || lower.includes('contract') || lower.includes('architecture') ||
-        lower.includes('disaster recovery')
-      ) {
-        shouldOfferTransfer = true;
-        transferToTier = 3;
+
+      const handoffNotice = newTier === 2
+        ? `Transferring you to our Tier-2 Technical & Cloud Operations Specialist (${newAgent.name})...`
+        : `Escalating your session to Tier-3 Senior Systems & Infrastructure Lead (${newAgent.name})...`;
+
+      const introGreeting = newTier === 2
+        ? `Hi ${userName}, this is ${newAgent.firstName} from Technical Cloud Operations. I've received your ticket and reviewed your server/system metrics. Let's get this resolved for you!`
+        : `Hello ${userName}, ${newAgent.name} here from Senior Infrastructure & Architecture. I have taken over your case with direct system clearance. How can I resolve this for you?`;
+
+      res.json({
+        success: true,
+        newTier,
+        handoffNotice,
+        agent: newAgent,
+        introGreeting
+      });
+    } catch {
+      res.status(500).json({ error: 'Failed to transfer support session' });
+    }
+  });
+
+  // 8. Send message & get response via Tiwi AI Engine (enforces auth or verified guest + closed lock)
+  router.post('/message', async (req, res) => {
+    try {
+      const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: true });
+      const {
+        agentName = 'Tiwi Support AI',
+        agentRole = 'Support Specialist',
+        currentTier = 1,
+        message,
+        activeTicketId = null,
+        conversationHistory = [],
+        clientSource = req.headers['x-client-source'] || 'web',
+        sessionId = req.headers['x-session-id'] || null,
+        deviceFingerprint = null
+      } = req.body || {};
+
+      if (!message || !String(message).trim()) {
+        return res.status(400).json({ success: false, error: 'Message is required' });
       }
-    }
 
-    res.json({
-      ...replyData,
-      shouldOfferTransfer,
-      transferToTier
-    });
-  } catch (err) {
-    console.error('Error in /api/support/message:', err);
-    res.status(500).json({ error: 'Internal support error' });
-  }
-});
-
-// 9. Brain diagnostic status endpoint
-router.get('/brain-status', async (req, res) => {
-  try {
-    const userId = req.activeUser?.id || req.user?.id || req.session?.userId || null;
-    const state = await SystemBrain.scanUserSystemState(userId);
-    res.json({
-      status: 'active',
-      engine: 'Tiwi AI Live Support Core',
-      systemScan: state
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to scan brain status' });
-  }
-});
-
-// 10. Account Security Verification & Resolution Pipeline
-router.post('/appeal-chat', securityLimiters.otpRequestIp, securityLimiters.otpRequestAccount, async (req, res) => {
-  try {
-    let { email, message } = req.body;
-    if (!message?.trim()) {
-      return res.status(400).json({ error: 'Message is required' });
-    }
-
-    // Extract email from message if not provided
-    if (!email || email === `user@${PLATFORM_CONFIG.primaryDomain}` || !email.trim()) {
-      const emailMatch = message.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-      if (emailMatch) {
-        email = emailMatch[0];
+      const toggles = await ticketing.getSupportToggles();
+      if (activeTicketId) {
+        try {
+          const detail = await ticketing.getTicketDetail(activeTicketId, {
+            viewerType: authUser ? 'customer' : 'guest',
+            authUser,
+            guestSession
+          });
+          if (detail.ticket?.status === 'closed') {
+            return res.status(403).json({
+              success: false,
+              code: 'TICKET_CLOSED_PERMANENTLY',
+              error: 'This ticket is closed and permanently locked. Replies are disabled.'
+            });
+          }
+        } catch (err) {
+          if (err?.statusCode === 403 || err?.statusCode === 404) {
+            return res.status(err.statusCode).json({ success: false, error: err.message, code: err.code });
+          }
+        }
       }
-    }
 
-    if (!email) {
-      return res.json({
-        reply: "Please provide your registered Tiwlo email address so the Account Security Team can locate your record and evaluate your appeal.",
-        restored: false,
-        requiresEmail: true
+      const verifiedUserId = authUser ? authUser.id : 'guest';
+      const verifiedUserName = authUser
+        ? (authUser.name || authUser.storeName || 'Store Owner')
+        : guestSession.visitorName;
+      const verifiedUserEmail = authUser ? (authUser.email || '') : guestSession.visitorEmail;
+
+      const clientContext = {
+        clientSource: clientSource || req.headers['x-client-source'] || 'web',
+        sessionId: sessionId || req.headers['x-session-id'],
+        deviceFingerprint: deviceFingerprint || {
+          platform: req.headers['x-client-platform'] || 'web',
+          ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1'
+        }
+      };
+
+      const replyData = toggles.aiAutoReplyEnabled !== false
+        ? await TiwiAI.generateSupportReply({
+            agentName,
+            agentRole,
+            userId: verifiedUserId,
+            userName: verifiedUserName,
+            userEmail: verifiedUserEmail,
+            isLoggedIn: Boolean(authUser),
+            userMessage: String(message).trim(),
+            activeTicketId,
+            conversationHistory,
+            clientContext
+          })
+        : {
+            reply: 'Thank you for your message. A support specialist will review your ticket shortly.',
+            actionsExecuted: []
+          };
+
+      if (activeTicketId) {
+        await ticketing.addTicketReply({
+          ticketIdOrKey: activeTicketId,
+          message: String(message).trim(),
+          actorType: authUser ? 'customer' : 'guest',
+          authUser,
+          guestSession
+        });
+        if (replyData?.reply) {
+          await ticketing.addTicketReply({
+            ticketIdOrKey: activeTicketId,
+            message: replyData.reply,
+            actorType: 'bot',
+            authUser,
+            guestSession
+          }).catch(() => {});
+        }
+      }
+
+      try {
+        const db = await SupportDB.getAllData();
+        const targetSessionId = sessionId || activeTicketId;
+        const conv = (db.conversations || []).find((c) => {
+          const idMatch = c.id === targetSessionId || c.ticketId === activeTicketId || c.ticketId === targetSessionId;
+          if (!idMatch) return false;
+          if (authUser) return userMatchesRecord(authUser, c.userId);
+          return Boolean(guestSession && c.guestSessionId === guestSession.id);
+        });
+        if (conv) {
+          const now = new Date();
+          const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          if (!Array.isArray(conv.messages)) conv.messages = [];
+          conv.messages.push({
+            id: `msg_u_${Date.now()}`,
+            sender: 'user',
+            text: String(message).trim(),
+            time: timeStr,
+            timestamp: now.toISOString()
+          });
+          conv.messages.push({
+            id: `msg_a_${Date.now()}`,
+            sender: 'agent',
+            agentName,
+            text: replyData.reply,
+            time: timeStr,
+            timestamp: now.toISOString()
+          });
+          conv.lastMessage = replyData.reply;
+          conv.time = timeStr;
+          await SupportDB.saveAllData(db);
+        }
+      } catch {
+        // Non-fatal
+      }
+
+      let shouldOfferTransfer = false;
+      let transferToTier = null;
+      const lower = String(message).toLowerCase();
+
+      if (currentTier === 1) {
+        if (
+          lower.includes('error') || lower.includes('bug') || lower.includes('crash') ||
+          lower.includes('kernel') || lower.includes('firewall') || lower.includes('dns') ||
+          lower.includes('ssh') || lower.includes('root') || lower.includes('ip address') ||
+          lower.includes('database schema') || lower.includes('server down') || lower.includes('hang')
+        ) {
+          shouldOfferTransfer = true;
+          transferToTier = 2;
+        }
+      } else if (currentTier === 2) {
+        if (
+          lower.includes('enterprise') || lower.includes('escalate') || lower.includes('manager') ||
+          lower.includes('sla') || lower.includes('contract') || lower.includes('architecture') ||
+          lower.includes('disaster recovery')
+        ) {
+          shouldOfferTransfer = true;
+          transferToTier = 3;
+        }
+      }
+
+      res.json({
+        ...replyData,
+        shouldOfferTransfer,
+        transferToTier
+      });
+    } catch (err) {
+      handleRouteError(res, err, 'Internal support error');
+    }
+  });
+
+  // 9. Brain diagnostic status endpoint
+  router.get('/brain-status', async (req, res) => {
+    try {
+      const userId = req.activeUser?.id || req.user?.id || req.session?.userId || null;
+      const state = await SystemBrain.scanUserSystemState(userId);
+      res.json({
+        status: 'active',
+        engine: 'Tiwi AI Live Support Core',
+        systemScan: state
+      });
+    } catch {
+      res.status(500).json({ error: 'Failed to scan brain status' });
+    }
+  });
+
+  // 10. Account Security Verification & Resolution Pipeline (Preserved!)
+  router.post('/appeal-chat', securityLimiters.otpRequestIp, securityLimiters.otpRequestAccount, async (req, res) => {
+    try {
+      let { email, message } = req.body || {};
+      if (!message?.trim()) {
+        return res.status(400).json({ error: 'Message is required' });
+      }
+
+      if (!email || email === `user@${PLATFORM_CONFIG.primaryDomain}` || !email.trim()) {
+        const emailMatch = message.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+        if (emailMatch) {
+          email = emailMatch[0];
+        }
+      }
+
+      if (!email) {
+        return res.json({
+          reply: 'Please provide your registered Tiwlo email address so the Account Security Team can locate your record and evaluate your appeal.',
+          restored: false,
+          requiresEmail: true
+        });
+      }
+
+      const result = await processSecurityAppeal({ email, message });
+      res.json(result);
+    } catch (err) {
+      console.error('Error in /api/support/appeal-chat:', err);
+      res.status(500).json({ error: 'Security review server is temporarily unavailable. Please try again.' });
+    }
+  });
+
+  // 11. Cryptographic Restore & Security Checkup Token Verification Endpoint (Preserved!)
+  router.post('/verify-restore-token', async (req, res) => {
+    try {
+      const { token } = req.body || {};
+      const verification = RestoreSessions.verifySession(token);
+      if (!verification.valid) {
+        return res.json(verification);
+      }
+
+      let userDetails = null;
+      try {
+        const found = await MasterDB.findUserByIdentifier(verification.session.userId || verification.session.email);
+        if (found) {
+          userDetails = {
+            id: found.id,
+            email: found.email,
+            name: found.name || found.storeName || 'Merchant',
+            storeName: found.storeName || found.name || 'Tiwlo Store',
+            tiwiId: found.tiwiId || found.storeId || '',
+            avatar: found.avatar || null,
+            twoFactorEnabled: !!found.twoFactorEnabled,
+            createdAt: found.createdAt
+          };
+        }
+      } catch (e) {
+        console.warn('Error reading master user for restore token:', e.message);
+      }
+
+      res.json({
+        ...verification,
+        user: userDetails || { email: verification.session.email }
+      });
+    } catch (err) {
+      res.status(500).json({ valid: false, error: err.message });
+    }
+  });
+
+  // 12. Real-Time Live Chat Queue & AI-to-Human Handoff Endpoints
+  const liveChatQueue = deps.liveChatQueueService || getDefaultLiveChatQueueService();
+
+  function handleLiveChatErr(res, err, fallback) {
+    if (err instanceof LiveChatQueueError || (err && Number.isInteger(err.statusCode))) {
+      return res.status(err.statusCode || 400).json({
+        success: false,
+        error: err.message,
+        ...(err.code ? { code: err.code } : {})
       });
     }
-
-    // Appeals are recorded for human review; this endpoint cannot restore accounts.
-    const result = await processSecurityAppeal({ email, message });
-
-    res.json(result);
-  } catch (err) {
-    console.error('Error in /api/support/appeal-chat:', err);
-    res.status(500).json({ error: 'Security review server is temporarily unavailable. Please try again.' });
+    return handleRouteError(res, err, fallback);
   }
-});
 
-// 11. Cryptographic Restore & Security Checkup Token Verification Endpoint
-router.post('/verify-restore-token', async (req, res) => {
-  try {
-    const { token } = req.body;
-    const verification = RestoreSessions.verifySession(token);
-    if (!verification.valid) {
-      return res.json(verification);
-    }
-
-    let userDetails = null;
+  router.post('/live-chat/request', async (req, res) => {
     try {
-      const found = await MasterDB.findUserByIdentifier(verification.session.userId || verification.session.email);
-      if (found) {
-        userDetails = {
-          id: found.id,
-          email: found.email,
-          name: found.name || found.storeName || 'Merchant',
-          storeName: found.storeName || found.name || 'Tiwlo Store',
-          tiwiId: found.tiwiId || found.storeId || '',
-          avatar: found.avatar || null,
-          twoFactorEnabled: !!found.twoFactorEnabled,
-          createdAt: found.createdAt
-        };
-      }
-    } catch (e) {
-      console.warn('Error reading master user for restore token:', e.message);
+      const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: true });
+      const body = req.body || {};
+      const result = await liveChatQueue.requestLiveChat({
+        authUser,
+        guestSession,
+        guestName: body.guestName || guestSession?.visitorName,
+        guestEmail: body.guestEmail || guestSession?.visitorEmail,
+        guestPhone: body.guestPhone || guestSession?.visitorPhone,
+        topic: body.topic || 'Live Support Request',
+        department: body.department || 'General Support',
+        initialMessage: body.initialMessage || body.message || '',
+        req
+      });
+      res.status(result.reused ? 200 : 201).json({ success: true, ...result });
+    } catch (err) {
+      handleLiveChatErr(res, err, 'Failed to join live chat queue');
     }
+  });
 
-    res.json({
-      ...verification,
-      user: userDetails || { email: verification.session.email }
-    });
-  } catch (err) {
-    res.status(500).json({ valid: false, error: err.message });
-  }
-});
+  router.get('/live-chat/status', async (req, res) => {
+    try {
+      const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: false });
+      const result = await liveChatQueue.getCustomerLiveChatStatus({
+        chatId: req.query.chatId || null,
+        authUser,
+        guestSession
+      });
+      res.json({ success: true, ...result });
+    } catch (err) {
+      handleLiveChatErr(res, err, 'Failed to read live chat status');
+    }
+  });
 
-export default router;
+  router.post('/live-chat/messages', async (req, res) => {
+    try {
+      const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: false });
+      const body = req.body || {};
+      const result = await liveChatQueue.sendCustomerLiveChatMessage({
+        chatId: body.chatId,
+        body: body.message || body.body,
+        authUser,
+        guestSession
+      });
+      res.status(201).json({ success: true, ...result });
+    } catch (err) {
+      handleLiveChatErr(res, err, 'Failed to send live chat message');
+    }
+  });
+
+  router.post('/live-chat/end', async (req, res) => {
+    try {
+      const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: false });
+      const chat = await liveChatQueue.endLiveChatSession(req.body?.chatId, {
+        actor: { authUser, guestSession },
+        actorType: 'customer',
+        req
+      });
+      res.json({ success: true, chat });
+    } catch (err) {
+      handleLiveChatErr(res, err, 'Failed to end live chat session');
+    }
+  });
+
+  // 12b. Consent-Based Visitor Co-Browsing State Sync
+  router.post('/live-chat/co-browse', async (req, res) => {
+    try {
+      const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: false });
+      const body = req.body || {};
+      const result = await liveChatQueue.updateCoBrowsingState(body.chatId, {
+        actorType: 'customer',
+        authUser,
+        guestSession,
+        enabled: body.enabled,
+        route: body.route,
+        scrollPct: body.scrollPct,
+        viewport: body.viewport
+      });
+      res.json({ success: true, ...result });
+    } catch (err) {
+      handleLiveChatErr(res, err, 'Failed to update co-browsing state');
+    }
+  });
+
+  // 12c. Post-Resolution Automated CSAT Survey
+  router.post('/csat-survey', async (req, res) => {
+    try {
+      const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: false });
+      const body = req.body || {};
+      const targetType = body.targetType === 'ticket' ? 'ticket' : 'live_chat';
+      let staffIdOverride = null;
+      let staffNameOverride = null;
+      let resolvedTargetId = body.targetId || body.chatId || body.ticketId;
+
+      if (targetType === 'ticket') {
+        const ticket = await ticketing.getCustomerTicket(resolvedTargetId, {
+          user: authUser,
+          guestSession
+        });
+        if (!ticket) {
+          return res.status(404).json({ success: false, error: 'Ticket not found.' });
+        }
+        resolvedTargetId = ticket.id;
+        staffIdOverride = ticket.assignedAgentId || null;
+        staffNameOverride = ticket.assignedAgentName || null;
+      }
+
+      const survey = await liveChatQueue.submitCsatSurvey({
+        targetType,
+        targetId: resolvedTargetId,
+        rating: body.rating,
+        tags: body.tags || [],
+        comment: body.comment || '',
+        authUser,
+        guestSession,
+        staffIdOverride,
+        staffNameOverride
+      });
+      res.status(201).json({ success: true, survey });
+    } catch (err) {
+      handleLiveChatErr(res, err, 'Failed to submit customer satisfaction survey');
+    }
+  });
+
+  // 13. Support Attachment Download & Inbound Email Sync
+  router.get('/attachments/:attachmentId', async (req, res) => {
+    try {
+      const att = await ticketing.getSupportAttachmentById(req.params.attachmentId);
+      if (!att) {
+        return res.status(404).json({ success: false, error: 'Attachment not found.' });
+      }
+      res.setHeader('Content-Type', att.mimeType || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `inline; filename="${String(att.filename || 'file').replace(/"/g, '')}"`);
+      return res.send(att.buffer);
+    } catch (err) {
+      return handleRouteError(res, err, 'Failed to load attachment');
+    }
+  });
+
+  router.post('/email-inbound', async (req, res) => {
+    try {
+      const webhookSecret = process.env.SUPPORT_EMAIL_WEBHOOK_SECRET;
+      if (webhookSecret && req.headers['x-tiwlo-email-secret'] !== webhookSecret) {
+        return res.status(401).json({ success: false, error: 'Invalid inbound email webhook secret.' });
+      }
+      const result = await ticketing.ingestInboundTicketEmail(req.body || {});
+      res.status(201).json({ success: true, ...result });
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to ingest inbound ticket email');
+    }
+  });
+
+  return router;
+}
+
+const defaultRouter = createSupportRouter();
+export default defaultRouter;

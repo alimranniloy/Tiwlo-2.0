@@ -16,9 +16,62 @@ export interface PaymentProvider {
   currency: 'BDT';
 }
 
+export interface DeliveryRouteEstimate {
+  durationSeconds: number;
+  distanceMeters: number;
+  etaMinutes: number;
+  encodedPolyline: string;
+}
+
+export interface DeliveryRoutePoint {
+  latitude: number;
+  longitude: number;
+}
+
+export function decodeDeliveryRoute(encodedPolyline: string): DeliveryRoutePoint[] {
+  const points: DeliveryRoutePoint[] = [];
+  let index = 0;
+  let latitude = 0;
+  let longitude = 0;
+
+  while (index < encodedPolyline.length) {
+    let result = 0;
+    let shift = 0;
+    let byte: number;
+    do {
+      if (index >= encodedPolyline.length) return [];
+      byte = encodedPolyline.charCodeAt(index++) - 63;
+      if (byte < 0 || byte > 63) return [];
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    latitude += (result & 1) ? ~(result >> 1) : result >> 1;
+
+    result = 0;
+    shift = 0;
+    do {
+      if (index >= encodedPolyline.length) return [];
+      byte = encodedPolyline.charCodeAt(index++) - 63;
+      if (byte < 0 || byte > 63) return [];
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    longitude += (result & 1) ? ~(result >> 1) : result >> 1;
+
+    const point = {
+      latitude: latitude / 1e5,
+      longitude: longitude / 1e5
+    };
+    if (Math.abs(point.latitude) > 90 || Math.abs(point.longitude) > 180) return [];
+    points.push(point);
+  }
+  return points;
+}
+
 export interface OrderSubmission extends PickOrder {
   checkoutUrl?: string;
   expiresAt?: string;
+  checkoutError?: string;
 }
 
 export interface PickOrderItem {
@@ -28,6 +81,7 @@ export interface PickOrderItem {
   nameBn: string;
   unitEn: string;
   unitBn: string;
+  image: string;
   quantity: number;
   unitPrice: number;
   lineTotal: number;
@@ -38,6 +92,8 @@ export interface PickOrder {
   orderType: 'grocery' | 'parcel';
   status: string;
   deliveryAddress: string;
+  deliveryLatitude: number | null;
+  deliveryLongitude: number | null;
   subtotal: number;
   deliveryFee: number;
   total: number;
@@ -146,6 +202,7 @@ function parseOrder(value: unknown): PickOrder {
       nameBn: item.nameBn,
       unitEn: item.unitEn,
       unitBn: item.unitBn,
+      image: typeof item.image === 'string' ? item.image : '',
       quantity: numberValue(item.quantity, 'item quantity'),
       unitPrice: numberValue(item.unitPrice, 'item price'),
       lineTotal: numberValue(item.lineTotal, 'item total')
@@ -156,6 +213,12 @@ function parseOrder(value: unknown): PickOrder {
     orderType: order.orderType,
     status: order.status,
     deliveryAddress: order.deliveryAddress,
+    deliveryLatitude: order.deliveryLatitude === null || order.deliveryLatitude === undefined
+      ? null
+      : numberValue(order.deliveryLatitude, 'delivery latitude'),
+    deliveryLongitude: order.deliveryLongitude === null || order.deliveryLongitude === undefined
+      ? null
+      : numberValue(order.deliveryLongitude, 'delivery longitude'),
     subtotal: numberValue(order.subtotal, 'subtotal'),
     deliveryFee: numberValue(order.deliveryFee, 'delivery fee'),
     total: numberValue(order.total, 'total'),
@@ -178,6 +241,27 @@ export async function getOrders(): Promise<PickOrder[]> {
   const result = await readResponse(await authenticatedRequest('/orders'));
   if (!Array.isArray(result.orders)) throw new Error('The PICK order response is invalid.');
   return result.orders.map(parseOrder);
+}
+
+export async function getDeliveryRouteEstimate(orderId: string): Promise<DeliveryRouteEstimate> {
+  const result = await readResponse(await authenticatedRequest(
+    `/orders/${encodeURIComponent(orderId)}/tracking-route`
+  ));
+  if (typeof result.durationSeconds !== 'number' ||
+      typeof result.distanceMeters !== 'number' ||
+      typeof result.etaMinutes !== 'number' ||
+      typeof result.encodedPolyline !== 'string' ||
+      !Number.isFinite(result.durationSeconds) ||
+      !Number.isFinite(result.distanceMeters) ||
+      !Number.isFinite(result.etaMinutes)) {
+    throw new Error('The PICK server returned an invalid delivery route estimate.');
+  }
+  return {
+    durationSeconds: result.durationSeconds,
+    distanceMeters: result.distanceMeters,
+    etaMinutes: result.etaMinutes,
+    encodedPolyline: result.encodedPolyline
+  };
 }
 
 export async function getGroceryDeliveryFee(): Promise<number> {
@@ -218,6 +302,7 @@ export async function createGroceryOrder(
   return {
     ...parseOrder(result.order),
     ...(typeof result.checkoutUrl === 'string' ? { checkoutUrl: result.checkoutUrl } : {}),
-    ...(typeof result.expiresAt === 'string' ? { expiresAt: result.expiresAt } : {})
+    ...(typeof result.expiresAt === 'string' ? { expiresAt: result.expiresAt } : {}),
+    ...(typeof result.checkoutError === 'string' ? { checkoutError: result.checkoutError } : {})
   };
 }

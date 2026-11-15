@@ -51,7 +51,11 @@ import {
   renderAccountRestoredEmail,
   renderIdentityVerificationRequiredEmail,
   renderIdentityVerificationCompleteEmail,
-  renderContentRemovedEmail
+  renderContentRemovedEmail,
+  renderStoreCreatedEmail,
+  renderStoreGracePeriodEmail,
+  renderStoreSuspendedEmail,
+  renderStoreDeletedEmail
 } from '../email/index.js';
 
 // Runtime email configuration is derived from environment and platform config.
@@ -257,6 +261,7 @@ export async function sendTiwloEmail({
   fromEmail,
   fromName,
   replyTo,
+  headers: customHeaders = {},
   subject,
   html,
   text,
@@ -288,7 +293,8 @@ export async function sendTiwloEmail({
     headers: {
       ...(!isUserMail ? config.antiSpam.headerHeaders : {}),
       'X-Tiwlo-Mail-Type': type,
-      'X-Mailer': isUserMail ? 'Tiwlo Mail' : 'Tiwlo Core Security v2.5'
+      'X-Mailer': isUserMail ? 'Tiwlo Mail' : 'Tiwlo Core Security v2.5',
+      ...(customHeaders && typeof customHeaders === 'object' ? customHeaders : {})
     }
   };
 
@@ -633,5 +639,53 @@ export async function sendContentRemovedEmail({ to, name, contentType, policyNam
     text: `Notice: Your ${contentType || 'content'} was removed because it violated Tiwlo's ${policyName || 'Acceptable Use Policy'}. Reason: ${reason || 'Safety compliance violation'}. Visit ${appealUrl || getPlatformUrl('help-support')} to review or appeal.`,
     type: 'content_removed',
     metadata: { recipientName: name, contentType, policyName, reason, appealUrl }
+  });
+}
+
+export async function sendStoreCreatedEmail({ to, name, storeName, subdomain, planName, storeUrl, dashboardUrl }) {
+  const html = renderStoreCreatedEmail({ to, name, storeName, subdomain, planName, storeUrl, dashboardUrl });
+  return sendTiwloEmail({
+    to,
+    subject: `Your Tiwlo store "${storeName || 'New Store'}" is live`,
+    html,
+    text: `Hello ${name || 'Merchant'}, your store "${storeName}" (${subdomain || ''}) is ready on plan ${planName || 'Free Starter'}. Visit ${storeUrl || getPlatformUrl()} or manage it at ${dashboardUrl || getPlatformUrl('dashboard')}.`,
+    type: 'store_created',
+    metadata: { storeName, subdomain, planName }
+  });
+}
+
+export async function sendStoreGracePeriodEmail({ to, name, storeName, subdomain, planName, amountDue, currency = 'USD', graceEndsAt, billingUrl }) {
+  const html = renderStoreGracePeriodEmail({ to, name, storeName, subdomain, planName, amountDue, currency, graceEndsAt, billingUrl });
+  return sendTiwloEmail({
+    to,
+    subject: `Action required: 3-day grace period for ${storeName || 'your Tiwlo store'}`,
+    html,
+    text: `Your subscription for ${storeName} (${subdomain || ''}) expired and auto-renewal could not charge ${currency} ${Number(amountDue || 0).toFixed(2)}. Add funds before ${new Date(graceEndsAt).toUTCString()} to avoid store suspension.`,
+    type: 'store_grace_period',
+    metadata: { storeName, subdomain, planName, amountDue, currency, graceEndsAt }
+  });
+}
+
+export async function sendStoreSuspendedEmail({ to, name, storeName, subdomain, planName, suspendedAt, scheduledDeletionAt, billingUrl }) {
+  const html = renderStoreSuspendedEmail({ to, name, storeName, subdomain, planName, suspendedAt, scheduledDeletionAt, billingUrl });
+  return sendTiwloEmail({
+    to,
+    subject: `Store suspended: ${storeName || 'Tiwlo Store'} (180-day deletion notice)`,
+    html,
+    text: `Your store ${storeName} (${subdomain || ''}) has been suspended after the 3-day grace period. All store data and media files will be permanently deleted on ${new Date(scheduledDeletionAt).toUTCString()} (180 days) unless renewed. Your Tiwlo user account stays active.`,
+    type: 'store_suspended',
+    metadata: { storeName, subdomain, planName, suspendedAt, scheduledDeletionAt }
+  });
+}
+
+export async function sendStoreDeletedEmail({ to, name, storeName, subdomain, deletedAt, dashboardUrl }) {
+  const html = renderStoreDeletedEmail({ to, name, storeName, subdomain, deletedAt, dashboardUrl });
+  return sendTiwloEmail({
+    to,
+    subject: `Store permanently deleted after 180 days: ${storeName || 'Tiwlo Store'}`,
+    html,
+    text: `Your suspended store ${storeName} (${subdomain || ''}) and its database records and uploaded images were permanently deleted on ${new Date(deletedAt).toUTCString()} after 180 days without renewal. Your Tiwlo user account remains intact.`,
+    type: 'store_deleted',
+    metadata: { storeName, subdomain, deletedAt }
   });
 }

@@ -22,6 +22,7 @@ import { ProductDetailScreen } from '../screens/8_ProductDetailScreen';
 import { CheckoutScreen } from '../screens/9_CheckoutScreen';
 import { OrderTrackingScreen } from '../screens/10_OrderTrackingScreen';
 import { OrdersScreen } from '../screens/11_OrdersScreen';
+import { PaymentResultScreen, PaymentResultState } from '../screens/PaymentResultScreen';
 import { WalletScreen } from '../screens/12_WalletScreen';
 import { ProfileScreen } from '../screens/13_ProfileScreen';
 import {
@@ -38,6 +39,7 @@ import {
   PaymentMethod,
   PaymentProvider,
   PickOrder,
+  OrderSubmission,
   createGroceryOrder,
   getGroceryDeliveryFee,
   getOrders,
@@ -73,6 +75,7 @@ export type ScreenKey =
   | 'product_detail'
   | 'checkout'
   | 'order_tracking'
+  | 'payment_result'
   | 'orders'
   | 'wallet'
   | 'profile';
@@ -104,6 +107,7 @@ export const AppNavigator: React.FC = () => {
   const [orders, setOrders] = useState<PickOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [paymentCheckoutError, setPaymentCheckoutError] = useState('');
   const [parcelVehicles, setParcelVehicles] = useState<ParcelVehicle[]>([]);
   const [parcelVehiclesLoading, setParcelVehiclesLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
@@ -208,7 +212,7 @@ export const AppNavigator: React.FC = () => {
 
   useEffect(() => {
     if (isOffline ||
-        !['orders', 'order_tracking', 'parcel_intro'].includes(currentScreen) ||
+        !['orders', 'order_tracking', 'payment_result', 'parcel_intro'].includes(currentScreen) ||
         !user) return;
     let active = true;
     getOrders()
@@ -304,7 +308,8 @@ export const AppNavigator: React.FC = () => {
   const navigate = useCallback((screen: ScreenKey) => {
     if (currentScreen === screen) return;
     if (screen === 'checkout') setDeliveryFee(null);
-    if (screen === 'orders' || screen === 'order_tracking' || screen === 'parcel_intro') {
+    if (screen === 'orders' || screen === 'order_tracking' ||
+        screen === 'payment_result' || screen === 'parcel_intro') {
       setOrdersLoading(true);
     }
     if (['checkout', 'parcel_review', 'wallet'].includes(screen)) {
@@ -581,11 +586,14 @@ export const AppNavigator: React.FC = () => {
   };
 
   const finishOrderSubmission = async (
-    order: PickOrder & { checkoutUrl?: string },
+    order: OrderSubmission,
     isGrocery: boolean
   ) => {
-    let checkoutError: unknown = null;
-    if (order.checkoutUrl && order.paymentProvider) {
+    let checkoutError: unknown = order.checkoutError
+      ? new Error(order.checkoutError)
+      : null;
+    setPaymentCheckoutError('');
+    if (!checkoutError && order.checkoutUrl && order.paymentProvider) {
       const provider = paymentProviders.find((item) => item.id === order.paymentProvider);
       if (!provider) {
         checkoutError = new Error('This payment method is no longer available.');
@@ -596,14 +604,35 @@ export const AppNavigator: React.FC = () => {
           checkoutError = error;
         }
       }
+      if (checkoutError) {
+        setPaymentCheckoutError(checkoutError instanceof Error
+          ? checkoutError.message
+          : 'Could not open the payment provider.');
+      }
     }
     if (isGrocery) setCart([]);
     setSelectedOrderId(order.id);
     setOrders((current) => [order, ...current.filter((item) => item.id !== order.id)]);
-    navigate('order_tracking');
     try {
-      setOrders(await getOrders());
+      let refreshedOrders = await getOrders();
+      let refreshedOrder = refreshedOrders.find((item) => item.id === order.id);
+      if (order.paymentMethod.toLowerCase() !== 'cod' &&
+          refreshedOrder?.paymentStatus.toLowerCase() === 'pending') {
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1200));
+          refreshedOrders = await getOrders();
+          refreshedOrder = refreshedOrders.find((item) => item.id === order.id);
+          if (refreshedOrder?.paymentStatus.toLowerCase() !== 'pending') break;
+        }
+      }
+      setOrders(refreshedOrders);
+      navigate(order.paymentMethod.toLowerCase() === 'cod'
+        ? 'order_tracking'
+        : 'payment_result');
     } catch (error) {
+      navigate(order.paymentMethod.toLowerCase() === 'cod'
+        ? 'order_tracking'
+        : 'payment_result');
       showNotice(
         'Order placed',
         error instanceof Error
@@ -611,14 +640,6 @@ export const AppNavigator: React.FC = () => {
           : 'The order was placed, but its latest status could not be loaded.'
       );
       return;
-    }
-    if (checkoutError) {
-      showNotice(
-        'Payment pending',
-        checkoutError instanceof Error
-          ? `The order is saved as pending payment. ${checkoutError.message}`
-          : 'The order is saved as pending payment. Reopen PICK to check its status.'
-      );
     }
   };
 
@@ -943,6 +964,52 @@ export const AppNavigator: React.FC = () => {
             order={orders.find((order) => order.id === selectedOrderId) ?? null}
           />
         );
+
+      case 'payment_result': {
+        const order = orders.find((item) => item.id === selectedOrderId);
+        if (!order) {
+          return (
+            <OrdersScreen
+              onBack={goBack}
+              orders={orders}
+              loading={ordersLoading}
+              onTrackOrder={(orderId) => {
+                setSelectedOrderId(orderId);
+                navigate('order_tracking');
+              }}
+              onReorder={() => showNotice('Reorder unavailable', 'Open your order list to choose an available product.')}
+              onTabPress={handleTabPress}
+            />
+          );
+        }
+        const paymentStatus = order.paymentStatus.toLowerCase();
+        const paymentResult: PaymentResultState = paymentStatus === 'paid'
+          ? 'success'
+          : ['failed', 'expired', 'cancelled', 'canceled'].includes(paymentStatus) ||
+              ['payment_failed', 'cancelled', 'canceled', 'failed'].includes(order.status.toLowerCase())
+            ? 'failed'
+            : 'pending';
+        return (
+          <PaymentResultScreen
+            order={order}
+            result={paymentResult}
+            checkoutError={paymentCheckoutError || undefined}
+            onBack={goBack}
+            onViewOrder={() => navigate('order_tracking')}
+            onViewOrders={() => navigate('orders')}
+            onCheckAgain={() => {
+              setOrdersLoading(true);
+              getOrders()
+                .then(setOrders)
+                .catch((error: unknown) => showNotice(
+                  'Payment status unavailable',
+                  error instanceof Error ? error.message : 'Could not refresh this payment.'
+                ))
+                .finally(() => setOrdersLoading(false));
+            }}
+          />
+        );
+      }
 
       case 'orders':
         return (

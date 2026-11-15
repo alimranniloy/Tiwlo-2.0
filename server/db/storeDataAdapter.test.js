@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getActiveTiwiId, resolveActiveStore, resolveStorefrontHost } from './storeDataAdapter.js';
+import { getActiveTiwiId, resolveActiveStore, resolveStorefrontHost, resolveSuspendedStorefrontHost } from './storeDataAdapter.js';
 import { normalizeStoreSubdomain } from './storeSubdomain.js';
 
 test('active store selection is limited to the authenticated account', async () => {
@@ -115,4 +115,79 @@ test('storefront host resolution maps active custom domains to an eligible tenan
   assert.equal(await resolveStorefrontHost('paused.example.com', masterDb, resolveCustomDomain), null);
   assert.equal(await resolveStorefrontHost('banned.example.com', masterDb, resolveCustomDomain), null);
   assert.equal(await resolveStorefrontHost('unknown.example.com', masterDb, resolveCustomDomain), null);
+});
+
+test('suspended storefront host resolution returns billing suspension info only for non-banned owners', async () => {
+  const suspendedAt = '2026-10-01T00:00:00.000Z';
+  const scheduledDeletionAt = '2027-03-30T00:00:00.000Z';
+  const masterDb = {
+    async getMasterData() {
+      return {
+        stores: [
+          { tiwiId: 'TIW-ACTIVE', ownerId: 'owner-1', storeName: 'Active Store', subdomain: 'active.tiwlo.com', status: 'active' },
+          {
+            tiwiId: 'TIW-SUSPENDED',
+            ownerId: 'owner-1',
+            storeName: 'Paused Store',
+            subdomain: 'paused.tiwlo.com',
+            status: 'suspended',
+            suspendedAt,
+            scheduledDeletionAt
+          },
+          {
+            tiwiId: 'TIW-BANNED-SUSP',
+            ownerId: 'owner-2',
+            storeName: 'Banned Paused Store',
+            subdomain: 'banned-paused.tiwlo.com',
+            status: 'suspended',
+            suspendedAt,
+            scheduledDeletionAt
+          },
+          {
+            tiwiId: 'TIW-DELETED',
+            ownerId: 'owner-1',
+            storeName: 'Deleted Store',
+            subdomain: 'deleted.tiwlo.com',
+            status: 'deleted'
+          }
+        ],
+        users: [
+          { id: 'owner-1', tiwiId: 'TIW-BASE', storeName: 'Base Store' },
+          { id: 'owner-2', tiwiId: 'TIW-BANNED', isBanned: true }
+        ]
+      };
+    }
+  };
+  const resolveCustomDomain = async hostname => ({
+    'paused-custom.example.com': { tiwiId: 'TIW-SUSPENDED' },
+    'banned-custom.example.com': { tiwiId: 'TIW-BANNED-SUSP' }
+  })[hostname] || null;
+
+  assert.deepEqual(
+    await resolveSuspendedStorefrontHost('paused.tiwlo.com', masterDb, resolveCustomDomain),
+    {
+      storeSuspended: true,
+      tiwiId: 'TIW-SUSPENDED',
+      storeName: 'Paused Store',
+      subdomain: 'paused.tiwlo.com',
+      suspendedAt,
+      scheduledDeletionAt
+    }
+  );
+  assert.deepEqual(
+    await resolveSuspendedStorefrontHost('paused-custom.example.com', masterDb, resolveCustomDomain),
+    {
+      storeSuspended: true,
+      tiwiId: 'TIW-SUSPENDED',
+      storeName: 'Paused Store',
+      subdomain: 'paused-custom.example.com',
+      suspendedAt,
+      scheduledDeletionAt
+    }
+  );
+  assert.equal(await resolveSuspendedStorefrontHost('active.tiwlo.com', masterDb, resolveCustomDomain), null);
+  assert.equal(await resolveSuspendedStorefrontHost('deleted.tiwlo.com', masterDb, resolveCustomDomain), null);
+  assert.equal(await resolveSuspendedStorefrontHost('banned-paused.tiwlo.com', masterDb, resolveCustomDomain), null);
+  assert.equal(await resolveSuspendedStorefrontHost('banned-custom.example.com', masterDb, resolveCustomDomain), null);
+  assert.equal(await resolveSuspendedStorefrontHost('unknown.tiwlo.com', masterDb, resolveCustomDomain), null);
 });

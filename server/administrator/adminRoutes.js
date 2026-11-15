@@ -1,8 +1,12 @@
 import express from 'express';
+import os from 'node:os';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { isIPv4, isIPv6 } from 'node:net';
 import { MasterDB, TenantDB } from '../db/multiTenant.js';
-import { getEcommerceCatalog, saveEcommerceCatalog } from '../db/packages.js';
+import { getEcommerceCatalog, getEcommercePackageById, saveEcommerceCatalog } from '../db/packages.js';
 import {
   getWelcomePromoSettings,
   saveWelcomePromoSettings,
@@ -19,19 +23,29 @@ import {
   identityVerificationEmailNotifications
 } from '../db/emailService.js';
 import { RestoreSessions } from '../db/restoreSessions.js';
-import { queryPg } from '../db/postgres.js';
+import { isPgActive, queryPg, recordPlatformBillingOrder } from '../db/postgres.js';
+import { BillingDB } from '../db/billing.js';
+import { deleteMedia } from '../db/mediaStorage.js';
+import { purgeStoreMediaAssets, syncStoreLifecycleOnPlanChange } from '../db/storeLifecycle.js';
+import { isStoreSubdomainAvailable, normalizeStoreSubdomain } from '../db/storeSubdomain.js';
 import { identityVerificationEvidence } from '../db/identityVerificationEvidence.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
 import { requireRecentReauth } from '../security/recentReauth.js';
 import { unblockUserAndSignals } from '../security/freeTierAbuseGuard.js';
+import { formatTrend, getSalesPeriod } from './adminAnalytics.js';
 import {
-  formatPeriodLabel,
-  formatTrend,
-  getSaleAmount,
-  getSaleTimestamp,
-  getSalesPeriod,
-  isPaidSale
-} from './adminAnalytics.js';
+  computePlatformFinancialSummary,
+  computeStoreTierBreakdown
+} from './platformAccounting.js';
+import { createAdminRiskRouter } from './adminRiskRoutes.js';
+import { createAdminPlatformOpsRouter } from './adminPlatformOpsRoutes.js';
+import { createAdminSupportRouter } from './adminSupportRoutes.js';
+import { createAdminChatSystemRouter } from './adminChatSystemRoutes.js';
+import { createAdminTelemetryRouter } from './adminTelemetryRoutes.js';
+import { defaultTicketingService } from '../support/ticketingService.js';
+import { enrichUsersWithRiskIntel, isSuperAdminAccount } from './identityRiskGraph.js';
+import { getMarketUsdRates } from '../routes/marketCurrencyRates.js';
+import { normalizeCurrencyCode, normalizeUsdRates } from '../routes/currencyHelpers.js';
 import {
   addGoogleDriveServiceAccount,
   getPlatformStorageSettings,
@@ -45,6 +59,98 @@ import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 const router = express.Router();
 const PICK_APPEAL_CATEGORY = 'PICK Account Appeal';
 const PICK_APPEAL_STATUSES = new Set(['OPEN', 'IN_PROGRESS', 'REJECTED', 'RESOLVED']);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const LOCAL_UPLOAD_DIRS = [
+  path.resolve(__dirname, '../../upload'),
+  path.resolve(__dirname, '../uploads')
+];
+
+let cachedStaffSecurityService = null;
+let lastStaffSecurityAttempt = 0;
+async function loadStaffSecurityService() {
+  if (cachedStaffSecurityService) return cachedStaffSecurityService;
+  if (Date.now() - lastStaffSecurityAttempt < 5000) return null;
+  lastStaffSecurityAttempt = Date.now();
+  try {
+    cachedStaffSecurityService = await import('./staffSecurityService.js');
+    return cachedStaffSecurityService;
+  } catch {
+    return null;
+  }
+}
+
+let cachedFleetRouter = null;
+let cachedStaffRouter = null;
+let lastStaffRouterAttempt = 0;
+async function loadOptionalStaffRouter() {
+  if (cachedStaffRouter) return cachedStaffRouter;
+  if (Date.now() - lastStaffRouterAttempt < 5000) return null;
+  lastStaffRouterAttempt = Date.now();
+  try {
+    const mod = await import('./adminStaffRoutes.js');
+    if (typeof mod?.createAdminStaffRouter === 'function') {
+      cachedStaffRouter = mod.createAdminStaffRouter({
+        requireAdmin,
+        requireRecentReauth,
+        MasterDB
+      });
+    } else if (mod?.default) {
+      cachedStaffRouter = mod.default;
+    }
+    return cachedStaffRouter;
+  } catch {
+    return null;
+  }
+}
+
+export const adminPlatformOpsRouter = createAdminPlatformOpsRouter({ requireAdmin, requireRecentReauth });
+export const adminSupportRouter = createAdminSupportRouter({ requireAdmin, requireRecentReauth });
+export const adminChatSystemRouter = createAdminChatSystemRouter({ requireAdmin, requireRecentReauth });
+export const adminTelemetryRouter = createAdminTelemetryRouter({ requireAdmin, requireRecentReauth });
+
+// ---- Sub-router mounting (Staff/PIN, Identity Risk, Server Fleet, Platform Ops, Support Desk, Chat AI, Telemetry) ----
+// Mounted before legacy routes so the platform (non-retail) handlers take precedence.
+router.use(async (req, res, next) => {
+  const staffRouter = await loadOptionalStaffRouter();
+  if (!staffRouter) return next();
+  return staffRouter(req, res, next);
+});
+router.use(createAdminRiskRouter({ requireAdmin, requireRecentReauth }));
+router.use('/fleet', async (req, res, next) => {
+  try {
+    const mod = await import('./adminServerFleetRoutes.js');
+    cachedFleetRouter ||= mod.createAdminServerFleetRouter({ requireAdmin, requireRecentReauth });
+    return cachedFleetRouter(req, res, next);
+  } catch (error) {
+    console.error('[Admin Fleet] Router unavailable:', error.message);
+    return res.status(503).json({ error: 'Server fleet service is unavailable.' });
+  }
+});
+router.use(adminPlatformOpsRouter);
+router.use(adminSupportRouter);
+router.use(adminChatSystemRouter);
+router.use('/telemetry', adminTelemetryRouter);
+
+function requirePermission(permission) {
+  return async (req, res, next) => {
+    if (!req.adminUser) {
+      return res.status(401).json({ error: 'Unauthorized. Admin credentials required.' });
+    }
+    if (isSuperAdminUser(req.adminUser)) return next();
+    const staffSvc = await loadStaffSecurityService();
+    if (staffSvc && typeof staffSvc.hasAdminPermission === 'function') {
+      const allowed = staffSvc.hasAdminPermission(req.adminProfile, permission, req.adminUser);
+      if (!allowed) {
+        return res.status(403).json({
+          error: 'You do not have permission to perform this action.',
+          code: 'ADMIN_PERMISSION_DENIED',
+          permission
+        });
+      }
+    }
+    return next();
+  };
+}
 
 const DNS_HOST_TARGET = /^(?=.{1,253}\.?$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*\.?$/i;
 function validateDnsRecord(input = {}) {
@@ -262,7 +368,21 @@ export function requireAdmin(req, res, next) {
       return res.status(403).json({ error: 'Forbidden. Admin privileges required.' });
     }
     req.adminUser = user;
-    next();
+    if (isSuperAdminUser(user)) return next();
+    // Optional per-staff IP whitelist: block immediately when configured and not matched.
+    return loadStaffSecurityService().then(async (staffSvc) => {
+      if (staffSvc && typeof staffSvc.enforceStaffIpForLogin === 'function') {
+        const check = await staffSvc.enforceStaffIpForLogin(user, req);
+        req.adminProfile = check?.profile || null;
+        if (check && check.allowed === false) {
+          return res.status(check.statusCode || 403).json({
+            error: check.error || 'Your IP is not whitelisted',
+            code: check.code || 'ADMIN_IP_NOT_ALLOWED'
+          });
+        }
+      }
+      return next();
+    });
   }).catch(err => {
     console.error('[Admin Auth Error]', err);
     res.status(500).json({ error: 'Authentication check failed.' });
@@ -270,7 +390,7 @@ export function requireAdmin(req, res, next) {
 }
 
 function isSuperAdminUser(user) {
-  return user?.role === 'super_admin';
+  return user?.role === 'super_admin' || isSuperAdminAccount(user);
 }
 
 // Helper to read Master DB safely
@@ -549,7 +669,9 @@ router.get('/overview', requireAdmin, async (req, res) => {
 // GET /api/admin/customers - E-commerce Merchants & Customers with real Store Counts
 router.get('/customers', requireAdmin, async (req, res) => {
   try {
-    const users = await MasterDB.getUsers();
+    const rawUsers = await MasterDB.getUsers();
+    const requesterIsSuperAdmin = isSuperAdminUser(req.adminUser);
+    const users = requesterIsSuperAdmin ? rawUsers : rawUsers.filter(u => !isSuperAdminUser(u));
     const { allStores: stores } = (await getAggregatedStoreData());
     const query = (req.query.q || req.query.search || '').trim().toLowerCase();
     const userIds = users.map(user => user.id);
@@ -651,6 +773,7 @@ router.get('/customers', requireAdmin, async (req, res) => {
 
 router.get('/user-locations', requireAdmin, async (req, res) => {
   try {
+    const requesterIsSuperAdmin = isSuperAdminUser(req.adminUser);
     const result = await queryPg(
       `WITH all_locations AS (
          SELECT user_id, location_source, latitude, longitude, accuracy_meters,
@@ -670,15 +793,18 @@ router.get('/user-locations', requireAdmin, async (req, res) => {
          WHERE address_verified_at IS NOT NULL AND address_verified_location IS NOT NULL
        )
        SELECT DISTINCT ON (l.user_id)
-              u.id AS user_id, u.name, u.email, u.avatar,
+              u.id AS user_id, u.name, u.email, u.role, u.avatar,
               l.location_source, l.latitude, l.longitude, l.accuracy_meters,
               l.formatted_address, l.area, l.postal_code, l.plus_code, l.captured_at
        FROM all_locations l
        JOIN system_users u ON u.id = l.user_id
        ORDER BY l.user_id, l.captured_at DESC, l.id DESC`
     );
+    const visibleRows = (result.rows || [])
+      .filter(row => requesterIsSuperAdmin || !isSuperAdminUser(row))
+      .map(({ role: _hiddenRole, ...rest }) => rest);
     res.setHeader('Cache-Control', 'no-store');
-    return res.json({ success: true, users: result.rows });
+    return res.json({ success: true, users: visibleRows });
   } catch (error) {
     console.error('[Admin User Locations] Could not list location records:', error.message);
     return res.status(503).json({ error: 'Could not load user location records.' });
@@ -688,10 +814,14 @@ router.get('/user-locations', requireAdmin, async (req, res) => {
 router.get('/user-locations/:id', requireAdmin, async (req, res) => {
   try {
     const userResult = await queryPg(
-      'SELECT id, name, email FROM system_users WHERE id = $1',
+      'SELECT id, name, email, role FROM system_users WHERE id = $1',
       [req.params.id]
     );
     if (!userResult.rows[0]) return res.status(404).json({ error: 'User not found.' });
+    if (isSuperAdminUser(userResult.rows[0]) && !isSuperAdminUser(req.adminUser)) {
+      return res.status(403).json({ error: 'Access restricted for Super Administrator accounts.' });
+    }
+    const { role: _hiddenRole, ...safeUser } = userResult.rows[0];
 
     const locationsResult = await queryPg(
       `WITH all_locations AS (
@@ -733,7 +863,7 @@ router.get('/user-locations/:id', requireAdmin, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     return res.json({
       success: true,
-      user: userResult.rows[0],
+      user: safeUser,
       locations: locationsResult.rows
     });
   } catch (error) {
@@ -930,7 +1060,9 @@ router.post('/users/:id/identity-verification/require', requireAdmin, async (req
 // GET /api/admin/users - Full System Users Management with strict 20 items/page pagination & search
 router.get('/users', requireAdmin, async (req, res) => {
   try {
-    const rawUsers = await MasterDB.getUsers();
+    const allUsers = await MasterDB.getUsers();
+    const requesterIsSuperAdmin = isSuperAdminUser(req.adminUser);
+    const rawUsers = requesterIsSuperAdmin ? allUsers : allUsers.filter(u => !isSuperAdminUser(u));
     const { allStores: stores } = (await getAggregatedStoreData());
     const pickUsersResult = await queryPg(
       `SELECT pu.tiwlo_user_id, pu.registration_source,
@@ -1039,11 +1171,11 @@ router.get('/users', requireAdmin, async (req, res) => {
   }
 });
 
-// POST /api/admin/users/:id/ban - Ban / Suspend / Unban user with instant session termination
-router.post('/users/:id/ban', requireAdmin, requireRecentReauth, async (req, res) => {
+// POST /api/admin/users/:id/ban - Ban / Suspend / Unban user with instant session termination & appeal assignment lock
+router.post('/users/:id/ban', requireAdmin, requirePermission('ban_users'), requireRecentReauth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { isBanned, reason } = req.body;
+    const { isBanned, reason, appealTicketId } = req.body;
     if (isBanned !== undefined && typeof isBanned !== 'boolean') {
       return res.status(400).json({ error: 'isBanned must be a boolean value.' });
     }
@@ -1059,6 +1191,44 @@ router.post('/users/:id/ban', requireAdmin, requireRecentReauth, async (req, res
     }
 
     const newBanStatus = isBanned !== undefined ? isBanned === true : !existingUser.isBanned;
+    // Anti-Collusion Appeal Assignment Lock:
+    // Non-super-admin staff cannot unban friends by arbitrary ID — if unbanning, verify active appeal assignment!
+    if (!newBanStatus && !isSuperAdminUser(req.adminUser)) {
+      const adminList = await defaultTicketingService.listAdminTickets({
+        search: existingUser.email || existingUser.id,
+        limit: 50,
+        adminUser: req.adminUser,
+        adminProfile: req.adminProfile || null
+      }).catch(() => ({ tickets: [] }));
+      const userTickets = (adminList.tickets || []).filter(
+        (t) =>
+          (t.userId && String(t.userId) === String(existingUser.id)) ||
+          (t.requesterEmail && existingUser.email && t.requesterEmail.toLowerCase() === existingUser.email.toLowerCase())
+      );
+      const activeAppeals = userTickets.filter(
+        (t) => t.status !== 'closed' && (!appealTicketId || String(t.id) === String(appealTicketId) || String(t.serialNumber) === String(appealTicketId))
+      );
+      const assignedToActor = activeAppeals.some(
+        (t) =>
+          t.assignedAgentId &&
+          String(t.assignedAgentId) === String(req.adminUser.id) &&
+          t.assignmentState !== 'pending_acceptance'
+      );
+      if (!assignedToActor) {
+        await defaultTicketingService.recordStaffPermissionAudit({
+          actor: req.adminUser,
+          action: 'user.unban_blocked_unassigned',
+          targetType: 'user',
+          targetId: existingUser.id,
+          details: { targetEmail: existingUser.email, appealTicketId: appealTicketId || null },
+          req
+        }).catch(() => {});
+        return res.status(403).json({
+          error: 'Only the assigned specialist who accepted this user appeal ticket (or Super Admin) can unban/restore this account.',
+          code: 'APPEAL_ASSIGNMENT_LOCKED'
+        });
+      }
+    }
     const banReason = newBanStatus
       ? (typeof reason === 'string' && reason.trim()
         ? reason.trim().slice(0, 1000)
@@ -1117,6 +1287,14 @@ router.post('/users/:id/ban', requireAdmin, requireRecentReauth, async (req, res
     }
 
     const actionText = newBanStatus ? 'disabled / banned' : 'restored / activated';
+    await defaultTicketingService.recordStaffPermissionAudit({
+      actor: req.adminUser,
+      action: newBanStatus ? 'user.banned' : 'user.unbanned',
+      targetType: 'user',
+      targetId: targetUser.id,
+      details: { email: targetUser.email, reason: banReason, appealTicketId: appealTicketId || null },
+      req
+    }).catch(() => {});
     console.log(`[Admin Action] User ${targetUser.email} has been ${actionText} by ${req.adminUser.email}`);
 
     res.json({
@@ -1246,38 +1424,6 @@ router.get('/orders', requireAdmin, async (req, res) => {
     res.json({ success: true, orders, liveCount: allSales.length });
   } catch (err) {
     res.status(500).json({ error: 'Failed to retrieve orders.' });
-  }
-});
-
-router.get('/products', requireAdmin, async (req, res) => {
-  try {
-    const { allProducts } = (await getAggregatedStoreData());
-    const query = String(req.query.q || '').trim().toLowerCase();
-    const products = allProducts
-      .filter(product => !query || [
-        product.name,
-        product.sku,
-        product.categoryName,
-        product.category,
-        product.storeName
-      ].some(value => String(value || '').toLowerCase().includes(query)))
-      .map(product => ({
-        id: product.id,
-        storeId: product.storeId,
-        storeName: product.storeName,
-        name: product.name || 'Unnamed product',
-        sku: product.sku || '',
-        category: product.categoryName || product.category || 'Uncategorized',
-        price: product.price !== null && product.price !== undefined && Number.isFinite(Number(product.price)) ? Number(product.price) : null,
-        stock: product.stock !== null && product.stock !== undefined && Number.isFinite(Number(product.stock)) ? Number(product.stock) : null,
-        status: product.status || 'Unknown',
-        image: product.image || null,
-        currency: product.currency
-      }));
-    res.json({ success: true, products, total: products.length });
-  } catch (error) {
-    console.error('[Admin Products Error]', error.message);
-    res.status(503).json({ error: 'Could not read live store product catalogs.' });
   }
 });
 
@@ -1469,25 +1615,27 @@ router.post('/payment-gateways', requireAdmin, requireRecentReauth, async (req, 
 // GET /api/admin/packages
 router.get('/packages', requireAdmin, async (_req, res) => {
   try {
-    const { packages, addons } = await getEcommerceCatalog();
-    res.json({ success: true, packages, addons });
+    const catalog = await getEcommerceCatalog();
+    res.json({ success: true, ...catalog });
   } catch (error) {
     console.error('[Admin Packages Get Error]', error.message);
-    res.status(500).json({ error: 'Failed to load e-commerce packages.' });
+    res.status(500).json({ error: 'Failed to load packages.' });
   }
 });
 
 // PUT /api/admin/packages
 router.put('/packages', requireAdmin, async (req, res) => {
   try {
-    const { packages, addons } = await saveEcommerceCatalog({
+    const catalog = await saveEcommerceCatalog({
       packages: req.body?.packages,
-      addons: req.body?.addons
+      addons: req.body?.addons,
+      discordPackages: req.body?.discordPackages,
+      whatsappPackages: req.body?.whatsappPackages
     });
-    res.json({ success: true, packages, addons, message: 'E-commerce packages updated successfully.' });
+    res.json({ success: true, ...catalog, message: 'Subscription packages updated successfully.' });
   } catch (error) {
     console.error('[Admin Packages Save Error]', error.message);
-    res.status(400).json({ error: error.message || 'Failed to save e-commerce packages.' });
+    res.status(400).json({ error: error.message || 'Failed to save packages.' });
   }
 });
 

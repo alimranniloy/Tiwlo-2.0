@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
@@ -61,17 +60,8 @@ export function DeliveryEntryScreen() {
     setDisabled(true);
   }, []);
 
-  if (showSplash) {
+  if (showSplash || checking) {
     return <SplashScreen onNext={finishSplash} />;
-  }
-
-  if (checking) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#17A56B" />
-        <Text style={styles.muted}>Checking your Tiwlo account…</Text>
-      </View>
-    );
   }
 
   if (connectionError) {

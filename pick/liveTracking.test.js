@@ -1,26 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getGoogleDrivingEstimate } from './liveTracking.js';
+import { getOpenDrivingEstimate } from './liveTracking.js';
 
-test('uses Google traffic-aware driving duration and distance for the rider route', async () => {
+test('uses OSRM driving duration, distance, and encoded route geometry', async () => {
   let requestUrl;
-  const estimate = await getGoogleDrivingEstimate({
+  let requestOptions;
+  const estimate = await getOpenDrivingEstimate({
     origin: { latitude: 23.8, longitude: 90.4 },
     destination: { latitude: 23.9, longitude: 90.5 },
-    apiKey: 'server-only-key',
-    fetchImpl: async (url) => {
+    fetchImpl: async (url, options) => {
       requestUrl = new URL(url);
+      requestOptions = options;
       return {
         ok: true,
         json: async () => ({
-          status: 'OK',
-          routes: [{
-            legs: [{
-              duration: { value: 500 },
-              duration_in_traffic: { value: 181 },
-              distance: { value: 2400 }
-            }]
-          }]
+          code: 'Ok',
+          routes: [{ duration: 181, distance: 2400, geometry: 'encoded-route' }]
         })
       };
     }
@@ -29,47 +24,51 @@ test('uses Google traffic-aware driving duration and distance for the rider rout
   assert.equal(estimate.durationSeconds, 181);
   assert.equal(estimate.etaMinutes, 4);
   assert.equal(estimate.distanceMeters, 2400);
-  assert.equal(requestUrl.searchParams.get('origin'), '23.8,90.4');
-  assert.equal(requestUrl.searchParams.get('destination'), '23.9,90.5');
-  assert.equal(requestUrl.searchParams.get('departure_time'), 'now');
-  assert.equal(requestUrl.searchParams.get('key'), 'server-only-key');
+  assert.equal(estimate.encodedPolyline, 'encoded-route');
+  assert.equal(
+    requestUrl.pathname,
+    '/route/v1/driving/90.4,23.8;90.5,23.9'
+  );
+  assert.equal(requestUrl.searchParams.get('overview'), 'full');
+  assert.equal(requestUrl.searchParams.get('geometries'), 'polyline');
+  assert.equal(requestUrl.searchParams.has('key'), false);
+  assert.equal(requestOptions.headers['User-Agent'], 'Tiwlo-PICK/1.0 (delivery routing)');
 });
 
-test('falls back to the normal driving duration when traffic duration is unavailable', async () => {
-  const estimate = await getGoogleDrivingEstimate({
+test('rejects invalid coordinates and unsuccessful OSRM route responses', async () => {
+  await assert.rejects(getOpenDrivingEstimate({
+    origin: { latitude: 91, longitude: 90.4 },
+    destination: { latitude: 23.9, longitude: 90.5 }
+  }), /coordinates are invalid/);
+
+  await assert.rejects(getOpenDrivingEstimate({
     origin: { latitude: 23.8, longitude: 90.4 },
     destination: { latitude: 23.9, longitude: 90.5 },
-    apiKey: 'server-only-key',
     fetchImpl: async () => ({
       ok: true,
-      json: async () => ({
-        status: 'OK',
-        routes: [{ legs: [{ duration: { value: 120 }, distance: { value: 900 } }] }]
-      })
+      json: async () => ({ code: 'NoRoute', routes: [] })
     })
-  });
-
-  assert.deepEqual(estimate, {
-    durationSeconds: 120,
-    distanceMeters: 900,
-    etaMinutes: 2
-  });
+  }), /NoRoute/);
 });
 
-test('rejects missing keys and unsuccessful Google route responses', async () => {
-  await assert.rejects(getGoogleDrivingEstimate({
+test('supports a configured OSRM base URL', async () => {
+  let requestUrl;
+  await getOpenDrivingEstimate({
     origin: { latitude: 23.8, longitude: 90.4 },
     destination: { latitude: 23.9, longitude: 90.5 },
-    apiKey: ''
-  }), /API key is not configured/);
+    baseUrl: 'https://routing.example/custom/',
+    fetchImpl: async (url) => {
+      requestUrl = new URL(url);
+      return {
+        ok: true,
+        json: async () => ({
+          code: 'Ok',
+          routes: [{ duration: 60, distance: 300, geometry: 'route' }]
+        })
+      };
+    }
+  });
 
-  await assert.rejects(getGoogleDrivingEstimate({
-    origin: { latitude: 23.8, longitude: 90.4 },
-    destination: { latitude: 23.9, longitude: 90.5 },
-    apiKey: 'server-only-key',
-    fetchImpl: async () => ({
-      ok: true,
-      json: async () => ({ status: 'REQUEST_DENIED' })
-    })
-  }), /REQUEST_DENIED/);
+  assert.equal(requestUrl.origin, 'https://routing.example');
+  assert.equal(requestUrl.pathname, '/custom/route/v1/driving/90.4,23.8;90.5,23.9');
 });

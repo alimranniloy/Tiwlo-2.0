@@ -1,15 +1,19 @@
 import { applicationFetch as fetch } from '../../../api/graphqlTransport.js';
 import React, { useEffect, useState } from 'react';
 import { STORE_DOMAIN } from '../../../config/platformConfig';
+import CountrySelect from '../../../components/CountrySelect';
 import useStoreSubdomainAvailability from '../hooks/useStoreSubdomainAvailability';
 import { getCloudBillingData } from '../graphql/cloudQueries';
 import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
+  ArrowUpRight,
   Check,
   CreditCard,
   Info,
+  Lock,
+  Sparkles,
   Store
 } from 'lucide-react';
 
@@ -49,13 +53,16 @@ function getDraftKey(userId) {
   return `tiwlo.createStoreDraft.${userId || 'anon'}`;
 }
 
-export default function CreateStoreView({ userId, userStores = [], onBack, onCreateStore, onOpenBilling }) {
+export default function CreateStoreView({ userId, userStores = [], onBack, onCreateStore, onOpenBilling, onOpenUpgrade }) {
   const draftKey = getDraftKey(userId);
-  const hasFreeStore = Array.isArray(userStores) && userStores.some(
-    (store) =>
-      String(store?.status || 'active').toLowerCase() !== 'deleted' &&
-      String(store?.planId || 'free').toLowerCase() === 'free'
-  );
+  const activeUserStores = Array.isArray(userStores)
+    ? userStores.filter((store) => String(store?.status || 'active').toLowerCase() !== 'deleted')
+    : [];
+  const existingFreeStore = activeUserStores.find(
+    (store) => String(store?.planId || 'free').toLowerCase() === 'free'
+  ) || null;
+  const hasFreeStore = Boolean(existingFreeStore);
+  const [paidUpgradeMode, setPaidUpgradeMode] = useState(false);
 
   const [step, setStep] = useState(() => {
     try {
@@ -142,9 +149,10 @@ export default function CreateStoreView({ userId, userStores = [], onBack, onCre
     setForm((prev) => ({ ...prev, storeName: val, subdomain: slug }));
   };
 
-  const paidFallbackPackage = hasFreeStore
-    ? packages.find((p) => Number(p.price || 0) > 0 && String(p.planId).toLowerCase() !== 'free')
-    : null;
+  const paidPackages = packages.filter(
+    (p) => Number(p.price || 0) > 0 && String(p.planId || '').toLowerCase() !== 'free' && p.enabled !== false
+  );
+  const paidFallbackPackage = hasFreeStore ? (paidPackages[0] || null) : null;
   const rawSelectedPackage = packages.find((p) => p.planId === form.planId) || packages[0] || {
     planId: 'free',
     planName: 'Free Starter',
@@ -157,6 +165,180 @@ export default function CreateStoreView({ userId, userStores = [], onBack, onCre
   const effectivePlanId = selectedPackage?.planId || form.planId;
   const monthlyCost = Number(selectedPackage?.price || 0);
   const hasEnoughCredits = monthlyCost <= 0 || (creditBalance !== null && creditBalance >= monthlyCost);
+
+  if (hasFreeStore && !paidUpgradeMode) {
+    const startPaidStoreWithPlan = (planId) => {
+      setErrorMsg('');
+      if (planId) {
+        updateField('planId', planId);
+      } else if (paidFallbackPackage?.planId) {
+        updateField('planId', paidFallbackPackage.planId);
+      }
+      setPaidUpgradeMode(true);
+    };
+
+    return (
+      <div className="mx-auto w-full max-w-3xl space-y-5 pb-16 sm:space-y-6">
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                sessionStorage.removeItem(draftKey);
+              } catch {}
+              onBack?.();
+            }}
+            className="inline-flex h-9 w-fit items-center gap-2 whitespace-nowrap rounded-lg border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+          >
+            <ArrowLeft className="h-4 w-4 shrink-0" />
+            Back to Online Store
+          </button>
+        </div>
+
+        <div className="rounded-xl border border-neutral-200 bg-white p-5 sm:p-6 dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="flex flex-col gap-4 border-b border-neutral-100 pb-5 sm:flex-row sm:items-start sm:justify-between dark:border-neutral-800">
+            <div className="flex items-start gap-3.5">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-800 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200">
+                <Lock className="h-5 w-5" />
+              </span>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center rounded-md border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[11px] font-semibold text-neutral-800 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200">
+                    Free Store Limit Reached
+                  </span>
+                  <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
+                    1 / 1 Free Slot Used
+                  </span>
+                </div>
+                <h1 className="text-base font-semibold tracking-tight text-neutral-950 sm:text-lg dark:text-white">
+                  You have already created 1 Free store
+                </h1>
+                <p className="text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+                  Your account already has an active Free Starter store. Upgrade your plan to unlock more store slots, or launch an additional store on a paid monthly package.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3.5 dark:border-neutral-800 dark:bg-neutral-950">
+              <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
+                Active Free Store
+              </p>
+              <p className="mt-1 truncate text-sm font-semibold text-neutral-950 dark:text-white">
+                {existingFreeStore?.storeName || existingFreeStore?.tiwiId}
+              </p>
+              <p className="mt-0.5 truncate font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
+                {existingFreeStore?.tiwiId}
+                {existingFreeStore?.subdomain ? ` · ${existingFreeStore.subdomain}.${STORE_DOMAIN}` : ''}
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 p-3.5 dark:border-neutral-800 dark:bg-neutral-950">
+              <div>
+                <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
+                  Available Cloud Credits
+                </p>
+                <p className="mt-1 text-sm font-semibold text-neutral-950 dark:text-white">
+                  {creditBalance === null ? '—' : `$${creditBalance.toFixed(2)} USD`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => onOpenBilling?.('credits')}
+                className="inline-flex h-8 items-center gap-1 rounded-md border border-neutral-200 bg-white px-2.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+              >
+                Add Credits
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                Available Paid Store Packages
+              </h2>
+              {paidPackages.length > 0 && (
+                <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                  Select a paid tier for an extra store
+                </span>
+              )}
+            </div>
+
+            {packagesLoading ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {[1, 2, 3].map((n) => (
+                  <div key={n} className="h-28 animate-pulse rounded-lg border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {paidPackages.map((pkg) => (
+                  <div
+                    key={pkg.planId}
+                    className="flex flex-col justify-between rounded-lg border border-neutral-200 bg-white p-3.5 dark:border-neutral-800 dark:bg-neutral-950"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-neutral-950 dark:text-white">
+                          {pkg.planName}
+                        </span>
+                        <span className="text-xs font-bold text-neutral-950 dark:text-white">
+                          ${Number(pkg.price || 0)}/mo
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
+                        {Number(pkg.productLimit).toLocaleString()} products · {pkg.warehouseLimit} warehouses · {pkg.staffLimit} staff
+                        {pkg.hasPos ? ' · POS' : ''}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => startPaidStoreWithPlan(pkg.planId)}
+                      className="mt-3 inline-flex h-8 w-full items-center justify-center rounded-md border border-neutral-200 bg-neutral-50 px-3 text-xs font-medium text-neutral-800 transition hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+                    >
+                      Use {pkg.planName}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-6 flex flex-col-reverse gap-2.5 border-t border-neutral-100 pt-5 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800">
+            <button
+              type="button"
+              onClick={() => onBack?.()}
+              className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 sm:w-auto dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            >
+              Back to Online Store
+            </button>
+
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+              {paidFallbackPackage && (
+                <button
+                  type="button"
+                  onClick={() => startPaidStoreWithPlan(paidFallbackPackage.planId)}
+                  className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 text-xs font-medium text-neutral-800 transition hover:bg-neutral-50 sm:w-auto dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100 dark:hover:bg-neutral-800"
+                >
+                  Create Additional Paid Store
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => onOpenUpgrade?.(existingFreeStore)}
+                className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#1ed760] px-4 text-xs font-semibold text-black transition hover:bg-[#16c653] sm:w-auto"
+              >
+                <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                Upgrade Plan to Add Slots
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleNext = () => {
     setErrorMsg('');
@@ -233,8 +415,8 @@ export default function CreateStoreView({ userId, userStores = [], onBack, onCre
   ];
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 pb-16">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto w-full max-w-3xl space-y-5 pb-16 sm:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <button
           type="button"
           onClick={() => {
@@ -243,21 +425,24 @@ export default function CreateStoreView({ userId, userStores = [], onBack, onCre
             } catch {}
             onBack?.();
           }}
-          className="inline-flex h-9 items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+          className="inline-flex h-9 w-fit shrink-0 items-center gap-2 self-start whitespace-nowrap rounded-lg border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 sm:self-auto dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-4 w-4 shrink-0" />
           Back to Online Store
         </button>
 
-        <nav aria-label="Setup steps" className="flex items-center gap-2">
+        <nav
+          aria-label="Setup steps"
+          className="flex w-full items-center justify-between gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 sm:w-auto sm:justify-end sm:gap-2 sm:border-0 sm:bg-transparent sm:p-0 dark:border-neutral-800 dark:bg-neutral-900 sm:dark:bg-transparent"
+        >
           {steps.map((item, idx) => {
             const active = step === item.id;
             const done = step > item.id;
             return (
               <React.Fragment key={item.id}>
-                <div className="flex items-center gap-1.5">
+                <div className="flex shrink-0 items-center gap-1.5">
                   <span
-                    className={`flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold ${
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold ${
                       done
                         ? 'border-[#1ed760] bg-[#1ed760] text-black'
                         : active
@@ -268,7 +453,7 @@ export default function CreateStoreView({ userId, userStores = [], onBack, onCre
                     {done ? <Check className="h-3.5 w-3.5" /> : item.id}
                   </span>
                   <span
-                    className={`text-xs font-medium ${
+                    className={`whitespace-nowrap text-xs font-medium ${
                       active || done
                         ? 'text-neutral-950 dark:text-white'
                         : 'text-neutral-500 dark:text-neutral-400'
@@ -278,7 +463,7 @@ export default function CreateStoreView({ userId, userStores = [], onBack, onCre
                   </span>
                 </div>
                 {idx < steps.length - 1 && (
-                  <span className="h-px w-5 bg-neutral-200 dark:bg-neutral-800" />
+                  <span className="h-px flex-1 bg-neutral-200 sm:w-5 sm:flex-none dark:bg-neutral-800" />
                 )}
               </React.Fragment>
             );
@@ -286,13 +471,13 @@ export default function CreateStoreView({ userId, userStores = [], onBack, onCre
         </nav>
       </div>
 
-      <div className="rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
-        <div className="mb-6 flex items-center gap-3 border-b border-neutral-100 pb-5 dark:border-neutral-800">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-800 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200">
-            <Store className="h-5 w-5" />
+      <div className="rounded-xl border border-neutral-200 bg-white p-4 sm:p-6 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="mb-5 flex items-start gap-3 border-b border-neutral-100 pb-4 sm:mb-6 sm:items-center sm:pb-5 dark:border-neutral-800">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-800 sm:h-10 sm:w-10 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200">
+            <Store className="h-4 w-4 sm:h-5 sm:w-5" />
           </span>
-          <div>
-            <h1 className="text-lg font-semibold tracking-tight text-neutral-950 dark:text-white">
+          <div className="min-w-0">
+            <h1 className="text-base font-semibold tracking-tight text-neutral-950 sm:text-lg dark:text-white">
               Create your store
             </h1>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
@@ -340,7 +525,7 @@ export default function CreateStoreView({ userId, userStores = [], onBack, onCre
                     placeholder="urban-threads"
                     className="h-full min-w-0 flex-1 bg-transparent px-3 text-sm text-neutral-950 outline-none dark:text-white"
                   />
-                  <span className="flex items-center border-l border-neutral-200 bg-neutral-50 px-3 text-xs font-medium text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+                  <span className="flex shrink-0 items-center whitespace-nowrap border-l border-neutral-200 bg-neutral-50 px-2.5 text-xs font-medium text-neutral-500 sm:px-3 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
                     .{STORE_DOMAIN}
                   </span>
                 </div>
@@ -453,12 +638,10 @@ export default function CreateStoreView({ userId, userStores = [], onBack, onCre
                   <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
                     Country *
                   </label>
-                  <input
-                    type="text"
+                  <CountrySelect
                     required
                     value={form.country}
-                    onChange={(e) => updateField('country', e.target.value)}
-                    className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-900 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                    onChange={(nextCountry) => updateField('country', nextCountry)}
                   />
                 </div>
                 <div>
@@ -501,7 +684,7 @@ export default function CreateStoreView({ userId, userStores = [], onBack, onCre
                 </div>
               )}
 
-              <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-950">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-950">
                 <div className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300">
                   <CreditCard className="h-4 w-4 text-neutral-500" />
                   <span>Available Cloud Credits</span>
@@ -592,14 +775,14 @@ export default function CreateStoreView({ userId, userStores = [], onBack, onCre
               )}
 
               {monthlyCost > 0 && !hasEnoughCredits && (
-                <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-amber-900/50 dark:bg-amber-950/30">
+                <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-neutral-50/70 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800 dark:bg-neutral-900/50">
                   <div className="flex items-start gap-2.5">
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-neutral-600 dark:text-neutral-400" />
                     <div>
-                      <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+                      <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">
                         Add your credit
                       </p>
-                      <p className="text-xs text-amber-800 dark:text-amber-300">
+                      <p className="text-xs text-neutral-600 dark:text-neutral-400">
                         {selectedPackage.planName} requires ${monthlyCost.toFixed(2)}/mo in Cloud Credits. Your current balance is ${(creditBalance || 0).toFixed(2)}.
                       </p>
                     </div>
@@ -616,7 +799,7 @@ export default function CreateStoreView({ userId, userStores = [], onBack, onCre
             </div>
           )}
 
-          <div className="flex items-center justify-between border-t border-neutral-100 pt-5 dark:border-neutral-800">
+          <div className="flex flex-col-reverse gap-2.5 border-t border-neutral-100 pt-5 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800">
             {step > 1 ? (
               <button
                 type="button"
@@ -624,29 +807,29 @@ export default function CreateStoreView({ userId, userStores = [], onBack, onCre
                   setErrorMsg('');
                   setStep((s) => Math.max(1, s - 1));
                 }}
-                className="inline-flex h-10 items-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 sm:w-auto dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
               >
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-4 w-4 shrink-0" />
                 Back
               </button>
             ) : (
-              <span />
+              <span className="hidden sm:block" />
             )}
 
             {step < 3 ? (
               <button
                 type="button"
                 onClick={handleNext}
-                className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#1ed760] px-5 text-xs font-semibold text-black transition hover:bg-[#16c653]"
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#1ed760] px-5 text-xs font-semibold text-black transition hover:bg-[#16c653] sm:w-auto"
               >
                 Next
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4 shrink-0" />
               </button>
             ) : (
               <button
                 type="submit"
                 disabled={submitting || (hasFreeStore && monthlyCost <= 0) || (monthlyCost > 0 && !hasEnoughCredits)}
-                className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#1ed760] px-5 text-xs font-semibold text-black transition hover:bg-[#16c653] disabled:opacity-50"
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#1ed760] px-5 text-xs font-semibold text-black transition hover:bg-[#16c653] disabled:opacity-50 sm:w-auto"
               >
                 {submitting ? 'Creating store...' : monthlyCost > 0 ? `Pay $${monthlyCost}/mo & Create Store` : 'Create Free Store'}
               </button>
