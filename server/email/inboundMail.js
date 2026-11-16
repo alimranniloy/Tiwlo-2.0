@@ -6,6 +6,7 @@ import { simpleParser } from 'mailparser';
 import { getPgPool } from '../db/postgres.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
+import { defaultTicketingService } from '../support/ticketingService.js';
 
 const MAX_RAW_MESSAGE_BYTES = 25 * 1024 * 1024;
 const MAX_ATTACHMENTS = 20;
@@ -14,6 +15,7 @@ const MAX_MAILBOX_MESSAGES = 2000;
 const MAX_MAILBOX_ATTACHMENT_BYTES = 500 * 1024 * 1024;
 const SPAM_CHECK_TIMEOUT_MS = 5000;
 const LOCAL_PART_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{1,28}[a-z0-9])$/;
+const TICKET_ALIAS_PATTERN = /^ticket\+[a-z0-9._-]+-[a-f0-9]{6,64}@[a-z0-9.-]+$/i;
 
 function scanForSpam(rawMessage) {
   if (process.env.NODE_ENV !== 'production') return Promise.resolve({ isSpam: false, score: null });
@@ -77,6 +79,52 @@ function cleanAddress(value) {
     return null;
   }
   return address;
+}
+
+function cleanTicketAlias(value) {
+  const address = String(value || '').trim().replace(/^<|>$/g, '').toLowerCase();
+  if (!address || !TICKET_ALIAS_PATTERN.test(address)) return null;
+  const [, domain, ...extra] = address.split('@');
+  if (extra.length || !domain) return null;
+  const allowedDomains = new Set([
+    String(PLATFORM_CONFIG.primaryDomain || '').toLowerCase(),
+    ...(Array.isArray(PLATFORM_CONFIG.managedDomains)
+      ? PLATFORM_CONFIG.managedDomains.map((d) => String(d).toLowerCase())
+      : [])
+  ].filter(Boolean));
+  if (allowedDomains.size > 0 && !allowedDomains.has(domain)) {
+    return null;
+  }
+  return address;
+}
+
+function extractInboundReplyText(parsedText = '', parsedHtml = '') {
+  const normalizedText = String(parsedText || '')
+    .replace(/\r\n/g, '\n')
+    .trim();
+  if (normalizedText) {
+    // Strip standard quoted reply tail ("On ... wrote:" / "-----Original Message-----" / leading ">")
+    const lines = normalizedText.split('\n');
+    const kept = [];
+    for (const line of lines) {
+      if (
+        /^On .+ wrote:\s*$/i.test(line.trim()) ||
+        /^-{2,}\s*Original Message\s*-{2,}\s*$/i.test(line.trim()) ||
+        /^From:\s.+@/i.test(line.trim())
+      ) {
+        break;
+      }
+      if (!line.trim().startsWith('>')) {
+        kept.push(line);
+      }
+    }
+    const cleaned = kept.join('\n').trim();
+    return (cleaned || normalizedText).slice(0, 100000);
+  }
+  const cleanHtmlText = sanitizeHtml(String(parsedHtml || ''), { allowedTags: [], allowedAttributes: {} })
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleanHtmlText.slice(0, 100000);
 }
 
 function toRecipients(addresses = []) {
@@ -163,12 +211,15 @@ export function sanitizeIncomingHtml(value, fallbackText = '', cidImageUrls = ne
   });
 }
 
-export async function storeInboundMail(rawMessage, envelopeRecipient) {
+export async function storeInboundMail(rawMessage, envelopeRecipient, options = {}) {
   if (!Buffer.isBuffer(rawMessage) || rawMessage.length === 0 || rawMessage.length > MAX_RAW_MESSAGE_BYTES) {
     throw new TypeError('Incoming message size is invalid.');
   }
-  const recipient = cleanAddress(envelopeRecipient);
-  if (!recipient) throw new TypeError('Incoming recipient is invalid.');
+  const mailboxRecipient = cleanAddress(envelopeRecipient);
+  const directTicketAlias = cleanTicketAlias(envelopeRecipient);
+  if (!mailboxRecipient && !directTicketAlias) {
+    throw new TypeError('Incoming recipient is invalid.');
+  }
 
   const spamResult = await scanForSpam(rawMessage);
   const parsed = await simpleParser(rawMessage, {
@@ -191,6 +242,49 @@ export async function storeInboundMail(rawMessage, envelopeRecipient) {
   if (totalAttachmentBytes > MAX_ATTACHMENT_BYTES) {
     throw new TypeError('Incoming message attachments exceed the 20 MB total limit.');
   }
+
+  // Dedicated ephemeral ticket reply routing (active only until ticket is permanently closed)
+  const resolvedTicketAlias = directTicketAlias ||
+    (parsed.to?.value || []).map((entry) => cleanTicketAlias(entry?.address)).find(Boolean) ||
+    null;
+  if (resolvedTicketAlias) {
+    const ingestFn = options.ingestTicketEmail || defaultTicketingService.ingestInboundTicketEmail;
+    const replyText = extractInboundReplyText(parsed.text, parsed.html);
+    const mappedAttachments = attachments.slice(0, 10).map((att, idx) => {
+      const contentBuf = Buffer.isBuffer(att.content)
+        ? att.content
+        : att.content instanceof Uint8Array
+          ? Buffer.from(att.content)
+          : Buffer.from(att.content || '');
+      const fallbackName = att.cid ? `inline_${idx + 1}` : `attachment_${idx + 1}`;
+      return {
+        filename: safeFilename(att.filename || fallbackName),
+        contentType: String(att.contentType || 'application/octet-stream').slice(0, 120),
+        mimeType: String(att.contentType || 'application/octet-stream').slice(0, 120),
+        buffer: contentBuf,
+        content: contentBuf
+      };
+    });
+    const ingested = await ingestFn({
+      to: resolvedTicketAlias,
+      fromEmail: senderEmail,
+      fromName: sender?.name || null,
+      subject: String(parsed.subject || '').replace(/[\r\n]/g, ' ').slice(0, 998),
+      text: replyText,
+      html: String(parsed.html || ''),
+      attachments: mappedAttachments,
+      emailMessageId: String(parsed.messageId || '').trim() || null
+    });
+    return {
+      duplicate: Boolean(ingested?.duplicate),
+      routedTo: 'support_ticket',
+      ticketId: ingested?.ticket?.id || null,
+      ticketNumber: ingested?.ticket?.serialNumber || null,
+      attachmentCount: Array.isArray(ingested?.attachments) ? ingested.attachments.length : 0
+    };
+  }
+
+  const recipient = mailboxRecipient;
   const headerRecipients = toRecipients(parsed.to?.value || []);
   if (!headerRecipients.some((entry) => entry.email === recipient)) {
     headerRecipients.push({ name: recipient, email: recipient });

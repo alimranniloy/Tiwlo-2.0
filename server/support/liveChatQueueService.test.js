@@ -476,10 +476,32 @@ test('Guest requestLiveChat maps visitorName/visitorEmail/visitorPhone and mapMe
   assert.equal(reused.chat.id, started.chat.id);
 
   const agent = { id: 'staff_g1', name: 'Grace Agent', email: 'grace@tiwlo.com', role: 'admin' };
+  const otherAgent = { id: 'staff_g2', name: 'Other Agent', email: 'other@tiwlo.com', role: 'admin' };
+
+  // Strict Accept-First: waiting chat cannot receive a staff reply before Accept
+  await assert.rejects(
+    () => svc.sendStaffLiveChatReply(started.chat.id, {
+      body: 'Replying before accept should fail',
+      staffActor: agent,
+      nowMs: 4_001_500
+    }),
+    (err) => err.code === 'CHAT_ACCEPTANCE_REQUIRED' && err.statusCode === 403
+  );
+
   await svc.acceptLiveChatRequest(started.chat.id, agent, {
     req: fakeReq({ ip: '198.51.100.88', ua: 'Chrome' }),
     nowMs: 4_002_000
   });
+
+  // Strict Exclusive Lock: once accepted by Grace, other staff cannot steal or reply
+  await assert.rejects(
+    () => svc.sendStaffLiveChatReply(started.chat.id, {
+      body: 'Intruding reply',
+      staffActor: otherAgent,
+      nowMs: 4_002_500
+    }),
+    (err) => err.code === 'CHAT_ISOLATED_ACTIVE' && err.statusCode === 403
+  );
 
   // Verify admin detail exposes guest contact mapped from visitorName/visitorEmail/visitorPhone
   const adminDetail = await svc.getAdminLiveChatDetail(started.chat.id, agent);

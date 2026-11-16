@@ -463,9 +463,9 @@ export default function SupportInboxView({
   const allowNewTicket = supportConfig?.allowNewTicketCreation !== false;
 
   return (
-    <div className="w-full space-y-5 pb-12">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="w-full space-y-4 sm:space-y-5 pb-4 sm:pb-12">
+      {/* Header (hidden on mobile while inside active full-page chat) */}
+      <div className={`flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${mobileChatView ? 'hidden lg:flex' : 'flex'}`}>
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -500,7 +500,7 @@ export default function SupportInboxView({
 
       {/* Guest Active Indicator */}
       {!currentUser && guestSession && (
-        <div className="flex items-center gap-2 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900 px-4 py-2.5 text-xs text-neutral-700 dark:text-neutral-200">
+        <div className={`items-center gap-2 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900 px-4 py-2.5 text-xs text-neutral-700 dark:text-neutral-200 ${mobileChatView ? 'hidden lg:flex' : 'flex'}`}>
           <span className="h-2 w-2 rounded-full bg-[#1ED760]" />
           <ShieldCheck className="h-4 w-4 text-[#1ED760]" />
           <span>
@@ -575,7 +575,7 @@ export default function SupportInboxView({
           </form>
         </section>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 rounded-xl border border-neutral-200/80 dark:border-neutral-800 overflow-hidden min-h-[560px] sm:min-h-[620px] bg-white dark:bg-neutral-950 shadow-xs">
+        <div className="grid grid-cols-1 lg:grid-cols-12 rounded-xl border border-neutral-200/80 dark:border-neutral-800 overflow-hidden h-[calc(100dvh-130px)] min-h-[520px] lg:h-[640px] bg-white dark:bg-neutral-950 shadow-xs">
           {/* Left Column: Conversations */}
           <div className={`lg:col-span-4 border-r border-neutral-200/80 dark:border-neutral-800 flex flex-col bg-[#fafafa] dark:bg-neutral-900 ${mobileChatView ? 'hidden lg:flex' : 'flex'}`}>
             <div className="p-3.5 border-b border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950">
@@ -656,7 +656,7 @@ export default function SupportInboxView({
           </div>
 
           {/* Right Column: Active Chat */}
-          <div className={`lg:col-span-8 flex flex-col h-[560px] sm:h-[620px] bg-white dark:bg-neutral-950 ${!mobileChatView ? 'hidden lg:flex' : 'flex'}`}>
+          <div className={`lg:col-span-8 flex flex-col h-full min-h-0 bg-white dark:bg-neutral-950 ${!mobileChatView ? 'hidden lg:flex' : 'flex'}`}>
             {!activeConv ? (
               <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-3">
                 <Headphones className="h-10 w-10 text-neutral-300 dark:text-neutral-700" />

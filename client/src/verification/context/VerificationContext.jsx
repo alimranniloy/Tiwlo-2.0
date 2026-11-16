@@ -5,6 +5,7 @@ const VerificationContext = createContext(null);
 export const STEPS = {
   SELECT_DOCUMENT: 1,
   UPLOAD_DOCUMENT: 2,
+  CONFIRM_NAME: 'confirm-name',
   CAPTURE_SELFIE: 3,
   PROCESSING: 4,
   SUCCESS: 5,
@@ -14,11 +15,14 @@ export const STEPS = {
 export const STEP_ROUTES = {
   1: '/verification/select-document',
   2: '/verification/upload-document',
+  'confirm-name': '/verification/confirm-name',
   3: '/verification/capture-selfie',
   4: '/verification/processing',
   5: '/verification/success',
   6: '/verification/failed',
 };
+
+const VALID_STEPS = new Set(Object.values(STEPS));
 
 export function VerificationProvider({
   children,
@@ -28,13 +32,17 @@ export function VerificationProvider({
   accessToken = null,
 }) {
   const [currentStep, setCurrentStep] = useState(initialStep);
-  const [selectedDocument, setSelectedDocument] = useState('passport'); // 'passport' | 'national_id' | 'aadhaar'
+  const [selectedDocument, setSelectedDocument] = useState('passport'); // 'passport' | 'national_id' | 'other_document'
   const [documentFile, setDocumentFile] = useState(null);
   const [documentPreview, setDocumentPreview] = useState(null);
+  const [documentBackFile, setDocumentBackFile] = useState(null);
+  const [documentBackPreview, setDocumentBackPreview] = useState(null);
+  const [documentAnalysis, setDocumentAnalysis] = useState(null);
+  const [manualReviewInfo, setManualReviewInfo] = useState(null);
   const [selfieImage, setSelfieImage] = useState(null);
   const [recordedVideo, setRecordedVideo] = useState(null);
   const [livenessSessionId, setLivenessSessionId] = useState(null);
-  const [verificationResult, setVerificationResult] = useState(null); // 'success' | 'failed' | null
+  const [verificationResult, setVerificationResult] = useState(null); // 'success' | 'manual_review' | 'failed' | null
   const [failureReason, setFailureReason] = useState("We couldn't verify your identity. Please check your information and try again.");
   const [failureType, setFailureType] = useState('verification');
   const [consentAccepted, setConsentAccepted] = useState(false);
@@ -47,7 +55,11 @@ export function VerificationProvider({
   });
 
   const goToStep = useCallback((step) => {
-    const targetStep = Math.max(1, Math.min(step, 6));
+    const targetStep = VALID_STEPS.has(step)
+      ? step
+      : typeof step === 'number'
+        ? Math.max(1, Math.min(step, 6))
+        : STEPS.SELECT_DOCUMENT;
     setCurrentStep(targetStep);
 
     // Update browser URL predictably without reload
@@ -63,24 +75,44 @@ export function VerificationProvider({
   }, []);
 
   const nextStep = useCallback(() => {
-    if (currentStep === STEPS.CAPTURE_SELFIE) {
+    if (currentStep === STEPS.SELECT_DOCUMENT) {
+      goToStep(STEPS.UPLOAD_DOCUMENT);
+    } else if (currentStep === STEPS.UPLOAD_DOCUMENT) {
+      goToStep(STEPS.CONFIRM_NAME);
+    } else if (currentStep === STEPS.CONFIRM_NAME) {
+      goToStep(STEPS.CAPTURE_SELFIE);
+    } else if (currentStep === STEPS.CAPTURE_SELFIE) {
       goToStep(STEPS.PROCESSING);
     } else if (currentStep === STEPS.PROCESSING) {
       goToStep(verificationResult === 'failed' ? STEPS.FAILED : STEPS.SUCCESS);
-    } else if (currentStep < 5) {
+    } else if (typeof currentStep === 'number' && currentStep < 5) {
       goToStep(currentStep + 1);
     }
   }, [currentStep, verificationResult, goToStep]);
 
   const prevStep = useCallback(() => {
-    if (currentStep > 1 && currentStep <= 4) {
-      goToStep(currentStep - 1);
+    if (currentStep === STEPS.UPLOAD_DOCUMENT) {
+      goToStep(STEPS.SELECT_DOCUMENT);
+    } else if (currentStep === STEPS.CONFIRM_NAME) {
+      goToStep(STEPS.UPLOAD_DOCUMENT);
+    } else if (currentStep === STEPS.CAPTURE_SELFIE) {
+      if (
+        documentAnalysis?.needsNameCorrection ||
+        documentAnalysis?.nameMismatch ||
+        documentAnalysis?.dobMismatch
+      ) {
+        goToStep(STEPS.CONFIRM_NAME);
+      } else {
+        goToStep(STEPS.UPLOAD_DOCUMENT);
+      }
+    } else if (currentStep === STEPS.PROCESSING) {
+      goToStep(STEPS.CAPTURE_SELFIE);
     } else if (currentStep === STEPS.FAILED) {
       goToStep(STEPS.SELECT_DOCUMENT);
     } else if (onCancel) {
       onCancel();
     }
-  }, [currentStep, goToStep, onCancel]);
+  }, [currentStep, documentAnalysis, goToStep, onCancel]);
 
   const setUploadedDocument = useCallback((file, previewUrl = null) => {
     if (documentPreview && documentPreview !== previewUrl) {
@@ -90,6 +122,14 @@ export function VerificationProvider({
     setDocumentPreview(previewUrl);
   }, [documentPreview]);
 
+  const setUploadedDocumentBack = useCallback((file, previewUrl = null) => {
+    if (documentBackPreview && documentBackPreview !== previewUrl) {
+      URL.revokeObjectURL(documentBackPreview);
+    }
+    setDocumentBackFile(file);
+    setDocumentBackPreview(previewUrl);
+  }, [documentBackPreview]);
+
   const setConsent = useCallback((accepted) => {
     setConsentAccepted(Boolean(accepted));
   }, []);
@@ -97,8 +137,10 @@ export function VerificationProvider({
   const selectDocumentType = useCallback((type) => {
     setSelectedDocument(type);
     setUploadedDocument(null, null);
+    setUploadedDocumentBack(null, null);
+    setDocumentAnalysis(null);
     setConsent(false);
-  }, [setConsent, setUploadedDocument]);
+  }, [setConsent, setUploadedDocument, setUploadedDocumentBack]);
 
   const setCapturedSelfie = useCallback((imageDataUrl) => {
     setSelfieImage(imageDataUrl);
@@ -106,6 +148,9 @@ export function VerificationProvider({
 
   const resetVerification = useCallback(() => {
     setUploadedDocument(null, null);
+    setUploadedDocumentBack(null, null);
+    setDocumentAnalysis(null);
+    setManualReviewInfo(null);
     setSelfieImage(null);
     setRecordedVideo(null);
     setLivenessSessionId(null);
@@ -119,7 +164,7 @@ export function VerificationProvider({
     setFailureReason("We couldn't verify your identity. Please check your information and try again.");
     setFailureType('verification');
     goToStep(STEPS.SELECT_DOCUMENT);
-  }, [goToStep, setFailureReason, setUploadedDocument]);
+  }, [goToStep, setFailureReason, setUploadedDocument, setUploadedDocumentBack]);
 
   return (
     <VerificationContext.Provider
@@ -136,6 +181,13 @@ export function VerificationProvider({
         documentFile,
         documentPreview,
         setUploadedDocument,
+        documentBackFile,
+        documentBackPreview,
+        setUploadedDocumentBack,
+        documentAnalysis,
+        setDocumentAnalysis,
+        manualReviewInfo,
+        setManualReviewInfo,
         selfieImage,
         setCapturedSelfie,
         recordedVideo,

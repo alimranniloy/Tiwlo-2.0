@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ArrowLeft,
   BookmarkPlus,
   Eye,
   Headphones,
@@ -44,12 +45,14 @@ function formatDateTime(val) {
 
 export default function AdminLiveChatQueuePanel({
   apiBase = '/api',
+  currentUser = null,
   isSuperAdmin = false,
   aiEnabled = true,
   showToast,
   onCountsChange,
 }) {
   const [statusTab, setStatusTab] = useState('waiting'); // 'waiting' | 'my_active' | 'active' | 'on_hold' | 'closed'
+  const [mobileView, setMobileView] = useState('list'); // 'list' | 'thread' | 'cobrowse'
   const [searchQuery, setSearchQuery] = useState('');
   const [chats, setChats] = useState([]);
   const [counts, setCounts] = useState({
@@ -162,6 +165,10 @@ export default function AdminLiveChatQueuePanel({
         if (res.ok && json.chat) {
           setActiveChat(json.chat);
           setChatMessages(Array.isArray(json.messages) ? json.messages : []);
+        } else if (res.status === 403 || res.status === 404) {
+          setActiveChat(null);
+          setChatMessages([]);
+          setSelectedChatId(null);
         }
       } catch {
         // Ignore transient
@@ -433,11 +440,20 @@ export default function AdminLiveChatQueuePanel({
   const coBrowseTelemetry = activeChat?.coBrowse || activeChat?.coBrowseTelemetry || null;
   const coBrowseConsented = Boolean(coBrowseTelemetry?.consent || activeChat?.coBrowseConsent);
   const isClosedChat = String(activeChat?.status || '').toLowerCase() === 'closed';
+  const activeStatusLower = String(activeChat?.status || '').toLowerCase();
+  const currentActorId = currentUser?.id ? String(currentUser.id) : '';
+  const isChatOwnedByMe = Boolean(
+    activeChat?.assignedAgentId && currentActorId && String(activeChat.assignedAgentId) === currentActorId
+  );
+  const isChatLockedToOther = Boolean(
+    activeStatusLower === 'active' && !isSuperAdmin && activeChat?.assignedAgentId && !isChatOwnedByMe
+  );
+  const needsAcceptanceToReply = Boolean(activeChat && !isClosedChat && activeStatusLower !== 'active');
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {/* Strict Session Isolation + Presence Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-3.5">
+      <div className={`flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-3 sm:p-3.5 ${mobileView !== 'list' ? 'hidden xl:flex' : 'flex'}`}>
         <div className="flex items-start gap-2.5 min-w-0">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#1ED760]/15 text-emerald-700 dark:text-[#1ED760]">
             <ShieldCheck className="h-4 w-4" />
@@ -572,8 +588,8 @@ export default function AdminLiveChatQueuePanel({
       )}
 
       {/* Queue Tabs + Search */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-3">
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className={`flex-wrap items-center justify-between gap-2.5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-3 ${mobileView !== 'list' ? 'hidden xl:flex' : 'flex'}`}>
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
           {queueTabs.map((tab) => {
             const active = statusTab === tab.id;
             return (
@@ -625,8 +641,8 @@ export default function AdminLiveChatQueuePanel({
       {/* Main Split Live Chat Workspace */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         {/* Left: Paginated Queue Table/List */}
-        <div className="xl:col-span-4 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 flex flex-col overflow-hidden">
-          <div className="divide-y divide-neutral-200/70 dark:divide-neutral-800 max-h-[540px] overflow-y-auto flex-1">
+        <div className={`xl:col-span-4 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 flex-col overflow-hidden ${mobileView === 'list' ? 'flex' : 'hidden xl:flex'}`}>
+          <div className="divide-y divide-neutral-200/70 dark:divide-neutral-800 max-h-[65dvh] xl:max-h-[540px] overflow-y-auto flex-1">
             {loadingList && chats.length === 0 ? (
               <div className="py-12 text-center text-xs text-neutral-500">Loading live queue...</div>
             ) : pagedChats.length === 0 ? (
@@ -640,7 +656,10 @@ export default function AdminLiveChatQueuePanel({
                   <button
                     key={chat.id}
                     type="button"
-                    onClick={() => setSelectedChatId(chat.id)}
+                    onClick={() => {
+                      setSelectedChatId(chat.id);
+                      setMobileView('thread');
+                    }}
                     className={`w-full text-left p-3.5 transition cursor-pointer ${
                       selected
                         ? 'bg-[#1ED760]/10 border-l-2 border-l-[#1ED760]'
@@ -681,8 +700,8 @@ export default function AdminLiveChatQueuePanel({
         </div>
 
         {/* Center/Right: Active Live Chat Thread + Co-Browse Sync + Composer */}
-        <div className="xl:col-span-8 grid grid-cols-1 lg:grid-cols-12 gap-4">
-          <div className="lg:col-span-8 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 flex flex-col min-h-[540px] overflow-hidden">
+        <div className={`xl:col-span-8 grid grid-cols-1 lg:grid-cols-12 gap-4 ${mobileView === 'list' ? 'hidden xl:grid' : 'grid'}`}>
+          <div className={`lg:col-span-8 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 flex-col h-[calc(100dvh-165px)] min-h-[480px] xl:h-[600px] overflow-hidden ${mobileView === 'cobrowse' ? 'hidden lg:flex' : 'flex'}`}>
             {!activeChat ? (
               <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
                 <Headphones className="h-8 w-8 text-neutral-300 dark:text-neutral-700" />
@@ -692,26 +711,44 @@ export default function AdminLiveChatQueuePanel({
                 <p className="mt-1 text-xs text-neutral-500">
                   Accept waiting visitors to claim exclusive isolation and start helping.
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setMobileView('list')}
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-200 xl:hidden cursor-pointer"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Back to Queue
+                </button>
               </div>
             ) : (
               <>
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200/80 dark:border-neutral-800 p-3.5">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-neutral-900 dark:text-neutral-100">
-                        {activeChat.serialNumber || `#${activeChat.id}`}
-                      </span>
-                      <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
-                        {activeChat.customerName || activeChat.guestName || 'Visitor'}
-                      </span>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200/80 dark:border-neutral-800 p-3 sm:p-3.5">
+                  <div className="flex items-start gap-2 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => setMobileView('list')}
+                      aria-label="Back to live chat queue"
+                      className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 xl:hidden cursor-pointer"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </button>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-xs font-bold text-neutral-900 dark:text-neutral-100">
+                          {activeChat.serialNumber || `#${activeChat.id}`}
+                        </span>
+                        <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200 truncate">
+                          {activeChat.customerName || activeChat.guestName || 'Visitor'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-500 mt-0.5 truncate">
+                        {activeChat.customerEmail || activeChat.guestEmail || 'No email'} · {activeChat.topic || 'Live Queue'}
+                      </p>
                     </div>
-                    <p className="text-[11px] text-neutral-500 mt-0.5">
-                      {activeChat.customerEmail || activeChat.guestEmail || 'No email'} · {activeChat.topic || 'Live Queue'}
-                    </p>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-1.5">
-                    {!activeChat.assignedAgentId && !isClosedChat && (
+                    {needsAcceptanceToReply && (
                       <button
                         type="button"
                         disabled={actingChat}
@@ -719,9 +756,21 @@ export default function AdminLiveChatQueuePanel({
                         className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#1ED760] px-3 text-xs font-semibold text-neutral-950 hover:bg-[#19c355] cursor-pointer"
                       >
                         <UserCheck className="h-3.5 w-3.5" />
-                        Accept Chat
+                        {activeStatusLower === 'on_hold' ? 'Resume & Accept' : 'Accept Chat'}
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => setMobileView('cobrowse')}
+                      className={`inline-flex h-8 items-center gap-1 rounded-lg border px-2.5 text-xs font-medium lg:hidden cursor-pointer ${
+                        coBrowseConsented
+                          ? 'border-[#1ED760]/40 bg-[#1ED760]/10 text-emerald-700 dark:text-[#1ED760]'
+                          : 'border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200'
+                      }`}
+                    >
+                      <Monitor className="h-3.5 w-3.5" />
+                      Co-Browse
+                    </button>
                     {!isClosedChat && (
                       <button
                         type="button"
@@ -813,11 +862,38 @@ export default function AdminLiveChatQueuePanel({
                   <div ref={messagesEndRef} />
                 </div>
 
-                {/* Staff Composer + Templates + AI Assist Toolbar */}
+                {/* Staff Composer + Accept Lock + Templates + AI Assist Toolbar */}
                 {isClosedChat ? (
                   <div className="border-t border-neutral-200/80 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900 p-3 flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
                     <Lock className="h-4 w-4 shrink-0" />
                     <span>This live chat session is closed and archived.</span>
+                  </div>
+                ) : isChatLockedToOther ? (
+                  <div className="border-t border-neutral-200/80 dark:border-neutral-800 bg-amber-50/70 dark:bg-amber-950/20 p-3 flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300">
+                    <Lock className="h-4 w-4 shrink-0" />
+                    <span>
+                      Exclusive Lock: Active chat handled by <strong>{activeChat.assignedAgentName || 'another specialist'}</strong>. Other staff cannot reply.
+                    </span>
+                  </div>
+                ) : needsAcceptanceToReply ? (
+                  <div className="border-t border-neutral-200/80 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900 p-3 flex flex-wrap items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2 text-xs text-neutral-700 dark:text-neutral-300">
+                      <Lock className="h-4 w-4 shrink-0 text-[#1ED760]" />
+                      <span>
+                        {activeStatusLower === 'on_hold'
+                          ? 'Chat is on hold. Resume & Accept to lock and reply exclusively.'
+                          : 'Accept this chat first to claim exclusive ownership and send replies.'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={actingChat}
+                      onClick={() => handleChatAction('accept')}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#1ED760] px-3.5 text-xs font-semibold text-neutral-950 hover:bg-[#19c355] disabled:opacity-50 cursor-pointer"
+                    >
+                      <UserCheck className="h-3.5 w-3.5" />
+                      {activeStatusLower === 'on_hold' ? 'Resume & Accept' : 'Accept Chat to Reply'}
+                    </button>
                   </div>
                 ) : (
                   <form onSubmit={handleSendReply} className="border-t border-neutral-200/80 dark:border-neutral-800 p-3 space-y-2">
@@ -853,10 +929,11 @@ export default function AdminLiveChatQueuePanel({
                             type="button"
                             disabled={aiBusy || !replyText.trim()}
                             onClick={() => handleAiAssist('polish_reply')}
-                            className="inline-flex h-7 items-center gap-1 rounded-md border border-neutral-200 dark:border-neutral-700 px-2 text-[11px] font-medium text-neutral-700 dark:text-neutral-200 disabled:opacity-40 cursor-pointer"
+                            title="Rewrite your draft following Tiwlo Brand Guidelines and preview it in the box before sending"
+                            className="inline-flex h-7 items-center gap-1 rounded-md border border-[#1ED760]/40 bg-[#1ED760]/10 px-2 text-[11px] font-semibold text-emerald-800 dark:text-[#1ED760] hover:bg-[#1ED760]/20 disabled:opacity-40 cursor-pointer"
                           >
                             <Wand2 className="h-3 w-3" />
-                            Polish
+                            AI Write
                           </button>
                           <button
                             type="button"
@@ -894,9 +971,16 @@ export default function AdminLiveChatQueuePanel({
           </div>
 
           {/* Co-Browsing Live Sync Card (Consent telemetry + Push step guidance, NO voice-to-text) */}
-          <div className="lg:col-span-4 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-4 space-y-3 h-fit">
-            <div className="flex items-center justify-between">
+          <div className={`lg:col-span-4 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-4 space-y-3 h-fit ${mobileView === 'cobrowse' ? 'block' : 'hidden lg:block'}`}>
+            <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMobileView('thread')}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 lg:hidden cursor-pointer"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                </button>
                 <Monitor className={`h-4 w-4 ${coBrowseConsented ? 'text-[#1ED760]' : 'text-neutral-400'}`} />
                 <h3 className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">
                   Co-Browsing Live Sync

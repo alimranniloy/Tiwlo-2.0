@@ -19,6 +19,7 @@ import AdminUserLocationsView from './AdminUserLocationsView';
 import AdminUsersView from './AdminUsersView';
 import AdminGoogleDrivePage from './AdminGoogleDrivePage';
 import AdminIdentityVerificationPage from './AdminIdentityVerificationPage';
+import AdminIdentityReviewView from './AdminIdentityReviewView';
 import AdminSocialLoginSettings from './AdminSocialLoginSettings';
 import AdminGoogleMapsSettings from './AdminGoogleMapsSettings';
 import AdminPlatformPaymentsView from './AdminPlatformPaymentsView';
@@ -48,6 +49,7 @@ const API_BASE =
 function resolveInitialView() {
   const pathname = window.location.pathname.replace(/^\/+|\/+$/g, '');
   if (pathname === 'administrator/customers' || pathname === 'admin/customers') return 'customers';
+  if (pathname === 'administrator/identity-reviews' || pathname === 'admin/identity-reviews') return 'identity-reviews';
   if (pathname === 'administrator/users' || pathname === 'admin/users') return 'users';
   if (pathname === 'administrator/orders' || pathname === 'admin/orders') return 'orders';
   if (pathname === 'administrator/servers' || pathname === 'admin/servers') return 'servers';
@@ -315,6 +317,16 @@ function AdminDashboardContent({
     if (activeView === 'customers') {
       return (
         <AdminCustomersView
+          onBackToDashboard={() => handleNavigate('dashboard')}
+          onNavigate={handleNavigate}
+          showToast={showToast}
+          currentUser={currentUser}
+        />
+      );
+    }
+    if (activeView === 'identity-reviews') {
+      return (
+        <AdminIdentityReviewView
           onBackToDashboard={() => handleNavigate('dashboard')}
           onNavigate={handleNavigate}
           showToast={showToast}

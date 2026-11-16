@@ -31,7 +31,9 @@ export default function ProcessingStep() {
     verificationAccessToken,
     selectedDocument,
     setVerificationResult,
+    setManualReviewInfo,
     documentFile,
+    documentBackFile,
     selfieImage,
     recordedVideo,
     livenessSessionId,
@@ -54,7 +56,7 @@ export default function ProcessingStep() {
     const finish = (result) => {
       if (!active) return;
       setVerificationResult(result);
-      goToStep(result === 'success' ? STEPS.SUCCESS : STEPS.FAILED);
+      goToStep(result === 'failed' ? STEPS.FAILED : STEPS.SUCCESS);
     };
 
     const submitVerification = async () => {
@@ -74,6 +76,9 @@ export default function ProcessingStep() {
         const selfieBlob = imageDataUrlToBlob(selfieImage);
         const body = new FormData();
         body.append('document', documentFile, documentFile.name || 'document-image');
+        if (documentBackFile) {
+          body.append('documentBack', documentBackFile, documentBackFile.name || 'document-back-image');
+        }
         body.append('selfie', selfieBlob, 'selfie-image');
         body.append('recording', recordedVideo, recordedVideo.name);
         body.append('livenessSessionId', livenessSessionId);
@@ -107,16 +112,44 @@ export default function ProcessingStep() {
           throw new Error('The verification service returned an invalid response.');
         }
         if (!response.ok) {
+          if (
+            response.status === 403 &&
+            (result?.code === 'DUPLICATE_IDENTITY_PERMANENT_BAN' || result?.permanentlyBanned === true)
+          ) {
+            const error = new Error(
+              result?.error ||
+                'This identity document was already used on another verified account. Your account has been permanently disabled.'
+            );
+            error.failureType = 'verification';
+            throw error;
+          }
           const error = new Error(result.error || 'The verification service is unavailable.');
           error.failureType = response.status === 429 || response.status >= 500
             ? 'service'
             : 'verification';
           throw error;
         }
+
+        const isManualReview =
+          response.status === 202 ||
+          result?.manualReview === true ||
+          result?.status === 'pending_review';
+
+        if (isManualReview) {
+          setFaceMatched(true);
+          setSecurityValidated(true);
+          setManualReviewInfo(result);
+          setFailureReason('');
+          setFailureType('verification');
+          finish('manual_review');
+          return;
+        }
+
         if (result.success !== true || typeof result.isMatch !== 'boolean') {
           throw new Error('The verification service returned an invalid result.');
         }
 
+        setManualReviewInfo(null);
         setFaceMatched(true);
         setSecurityValidated(true);
         if (result.isMatch) {
@@ -165,6 +198,7 @@ export default function ProcessingStep() {
     };
   }, [
     consentAccepted,
+    documentBackFile,
     documentFile,
     goToStep,
     livenessSessionId,
@@ -173,6 +207,7 @@ export default function ProcessingStep() {
     recordedVideo,
     setFailureReason,
     setFailureType,
+    setManualReviewInfo,
     setVerificationResult,
     STEPS.FAILED,
     STEPS.SUCCESS,
@@ -224,10 +259,10 @@ export default function ProcessingStep() {
         {/* Title & Guidance */}
         <div className="text-center mb-7">
           <h2 className="text-[24px] font-bold text-neutral-900 tracking-tight leading-snug">
-            Checking the face match
+            Verifying your identity
           </h2>
           <p className="text-[13.5px] text-neutral-500 font-normal mt-2 leading-relaxed px-4">
-            Images are processed for this check and are not saved.
+            Analyzing your document and live selfie securely with Gemini AI.
           </p>
         </div>
 
@@ -249,7 +284,7 @@ export default function ProcessingStep() {
               )}
             </div>
             <span className={`text-[14px] font-medium transition-colors ${documentChecked ? 'text-neutral-800' : 'text-neutral-500'}`}>
-              Preparing document image
+              Preparing document &amp; selfie
             </span>
           </div>
 
@@ -273,7 +308,7 @@ export default function ProcessingStep() {
               )}
             </div>
             <span className={`text-[14px] font-medium transition-colors ${faceMatched ? 'text-neutral-800' : 'text-neutral-500'}`}>
-              Comparing faces
+              Analyzing document &amp; matching faces
             </span>
           </div>
 
@@ -297,14 +332,14 @@ export default function ProcessingStep() {
               )}
             </div>
             <span className={`text-[14px] font-medium transition-colors ${securityValidated ? 'text-neutral-800' : 'text-neutral-500'}`}>
-              Checking passive liveness
+              Validating live capture
             </span>
           </div>
         </div>
       </div>
 
       <div className="pt-4 text-center text-[12px] text-neutral-400">
-        The face match does not verify document authenticity.
+        If Gemini AI is busy, your submission is safely queued for manual review.
       </div>
     </div>
   );

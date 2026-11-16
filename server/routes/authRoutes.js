@@ -62,6 +62,7 @@ import {
 } from '../security/signupIdentity.js';
 import { recordDuplicateSignupSignal } from '../security/signupBrowser.js';
 import { blockBannedDeviceMiddleware, recordDeviceIdentityLink } from '../security/freeTierAbuseGuard.js';
+import { evaluateMultiAccountStepUpRisk } from '../security/identityVerificationEngine.js';
 import { recordSuccessfulLoginDevice } from '../security/loginRisk.js';
 import { getUserTwoFactorStatus, verifyUserTotpOrRecoveryCode } from './userAccountRoutes.js';
 import { requireRecentReauth } from '../security/recentReauth.js';
@@ -803,6 +804,7 @@ async function completeSocialLogin(provider, req, res) {
     await recordSuccessfulLoginDevice(user, req).catch(error => {
       console.warn('[Login Risk] Could not record trusted device:', error.message);
     });
+    await evaluateMultiAccountStepUpRisk({ userId: user.id, user, req }).catch(() => {});
     setSessionCookie(res, req, sessionToken);
     clearOAuthMfaCookie(res, req);
     await logActivity(
@@ -1109,6 +1111,7 @@ router.post('/auth/social/complete-profile', async (req, res) => {
     await recordSuccessfulLoginDevice(user, req).catch(error => {
       console.warn('[Login Risk] Could not record trusted device:', error.message);
     });
+    await evaluateMultiAccountStepUpRisk({ userId: user.id, user, req }).catch(() => {});
     setSessionCookie(res, req, sessionToken);
     clearOAuthMfaCookie(res, req);
     res.clearCookie('tiwlo_social_profile', {
@@ -1508,6 +1511,7 @@ router.post('/auth/register', selectRegistrationGuards, blockBannedDeviceMiddlew
 
     (await logActivity('auth', `Store "${newUser.storeName}" Created`, `Tiwi ID: ${tiwiId} • Email: ${normalizedEmail}`, tiwiId));
     await recordDeviceIdentityLink({ userId: newUser.id, req }).catch(() => {});
+    await evaluateMultiAccountStepUpRisk({ userId: newUser.id, user: newUser, req }).catch(() => {});
 
     const verifyOtp = await generateSecureOtp(newUser.email, 'email_verify', 15);
     const masked = maskEmail(newUser.email);
@@ -1886,6 +1890,7 @@ router.post('/auth/verify-2fa', securityLimiters.otpVerifyIp, securityLimiters.o
     await recordSuccessfulLoginDevice(user, req).catch(error => {
       console.warn('[Login Risk] Could not record trusted device:', error.message);
     });
+    await evaluateMultiAccountStepUpRisk({ userId: user.id, user, req }).catch(() => {});
     setSessionCookie(res, req, sessionToken);
     clearOAuthMfaCookie(res, req);
 
@@ -2073,6 +2078,7 @@ router.post('/auth/setup-2fa', securityLimiters.otpVerifyIp, securityLimiters.ot
     await recordSuccessfulLoginDevice(user, req).catch(error => {
       console.warn('[Login Risk] Could not record trusted device:', error.message);
     });
+    await evaluateMultiAccountStepUpRisk({ userId: user.id, user, req }).catch(() => {});
     setSessionCookie(res, req, sessionToken);
     clearOAuthMfaCookie(res, req);
 
@@ -2945,6 +2951,7 @@ router.post('/auth/sso/consume-handshake', async (req, res) => {
     await recordSuccessfulLoginDevice(user, req).catch(error => {
       console.warn('[Login Risk] Could not record trusted device:', error.message);
     });
+    await evaluateMultiAccountStepUpRisk({ userId: user.id, user, req }).catch(() => {});
 
     setSessionCookie(res, req, sessionToken);
 

@@ -7,7 +7,8 @@ import { useVerification } from '../../context/VerificationContext';
  * Screen 6 in reference mockup
  */
 export default function VerificationFailedStep({ onTryAgain = null, onContactSupport = null }) {
-  const { failureReason, failureType, resetVerification } = useVerification();
+  const { failureReason, failureType, resetVerification, documentFile, goToStep, STEPS } = useVerification();
+  const isMismatchFailure = /name|birth|dob|profile|mismatch/i.test(String(failureReason || ''));
 
   const handleTryAgain = () => {
     if (onTryAgain) {
@@ -51,7 +52,16 @@ export default function VerificationFailedStep({ onTryAgain = null, onContactSup
 
       {/* Action Buttons */}
       <div className="pt-4 space-y-3">
-        {/* Try Again Button: White with blue border */}
+        {isMismatchFailure && documentFile && STEPS?.CONFIRM_NAME && (
+          <button
+            onClick={() => goToStep(STEPS.CONFIRM_NAME)}
+            type="button"
+            className="w-full py-3.5 px-4 bg-[#1ED760] hover:bg-[#19c355] text-neutral-950 font-semibold text-[15px] rounded-xl transition-all duration-150 active:scale-[0.98] cursor-pointer"
+          >
+            Update Name / Date of Birth
+          </button>
+        )}
+        {/* Try Again Button: White with neutral border */}
         <button
           onClick={handleTryAgain}
           type="button"

@@ -562,12 +562,17 @@ export function createTicketingService(deps = {}) {
     if (isUsingPg()) {
       await ensureSupportEmailAndAttachmentSchema();
       try {
-        await queryPgFn(
+        const { rows } = await queryPgFn(
           `INSERT INTO support_ticket_email_threads (ticket_id, ticket_number, reply_to_alias, root_message_id)
            VALUES ($1, $2, $3, $4)
-           ON CONFLICT (ticket_id) DO NOTHING`,
+           ON CONFLICT (ticket_id) DO UPDATE SET ticket_number = EXCLUDED.ticket_number
+           RETURNING reply_to_alias, root_message_id`,
           [thread.ticketId, thread.ticketNumber, thread.replyToAlias, thread.rootMessageId]
         );
+        if (rows?.[0]) {
+          thread.replyToAlias = rows[0].reply_to_alias || thread.replyToAlias;
+          thread.rootMessageId = rows[0].root_message_id || thread.rootMessageId;
+        }
       } catch {
         // Ignore duplicate alias conflict
       }
@@ -601,14 +606,35 @@ export function createTicketingService(deps = {}) {
   }
 
   const ALLOWED_ATTACHMENT_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'txt', 'csv', 'json', 'zip', 'log']);
+  const MIME_EXT_FALLBACK = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+    'application/pdf': 'pdf',
+    'text/plain': 'txt',
+    'text/csv': 'csv',
+    'application/json': 'json',
+    'application/zip': 'zip',
+    'application/x-zip-compressed': 'zip'
+  };
   async function storeSupportAttachments(files = [], { ticketId = null, uploadedBy = null } = {}) {
     if (!Array.isArray(files) || files.length === 0) return [];
     const saved = [];
     for (const file of files.slice(0, 10)) {
-      const rawName = String(file?.filename || file?.name || file?.originalname || 'attachment.bin')
+      const mimeTypeRaw = String(file?.mimeType || file?.contentType || file?.mimetype || 'application/octet-stream')
+        .split(';')[0]
+        .trim()
+        .toLowerCase();
+      let rawName = String(file?.filename || file?.name || file?.originalname || 'attachment')
         .replace(/[^a-zA-Z0-9._-]/g, '_')
         .slice(0, 140);
-      const ext = rawName.includes('.') ? rawName.split('.').pop().toLowerCase() : '';
+      let ext = rawName.includes('.') ? rawName.split('.').pop().toLowerCase() : '';
+      if (!ALLOWED_ATTACHMENT_EXTS.has(ext) && MIME_EXT_FALLBACK[mimeTypeRaw]) {
+        ext = MIME_EXT_FALLBACK[mimeTypeRaw];
+        rawName = `${rawName.replace(/\.+$/, '') || 'attachment'}.${ext}`;
+      }
       if (!ALLOWED_ATTACHMENT_EXTS.has(ext)) {
         throw new SupportServiceError(`File type ".${ext || 'unknown'}" is not allowed for support attachments.`, {
           statusCode: 400,
@@ -616,7 +642,18 @@ export function createTicketingService(deps = {}) {
         });
       }
       const rawBase64 = String(file?.contentBase64 || file?.dataBase64 || '').replace(/^data:[^;]+;base64,/, '');
-      const buf = file?.buffer instanceof Buffer ? file.buffer : Buffer.from(rawBase64, 'base64');
+      let buf = null;
+      if (file?.buffer instanceof Buffer) {
+        buf = file.buffer;
+      } else if (file?.content instanceof Buffer) {
+        buf = file.content;
+      } else if (file?.buffer instanceof Uint8Array) {
+        buf = Buffer.from(file.buffer);
+      } else if (file?.content instanceof Uint8Array) {
+        buf = Buffer.from(file.content);
+      } else if (rawBase64) {
+        buf = Buffer.from(rawBase64, 'base64');
+      }
       if (!buf || buf.length === 0) continue;
       if (buf.length > 5 * 1024 * 1024) {
         throw new SupportServiceError(`Attachment "${rawName}" exceeds 5MB limit.`, {
@@ -625,7 +662,7 @@ export function createTicketingService(deps = {}) {
         });
       }
       const attId = `supatt_${randomUUID()}`;
-      const mimeType = String(file?.mimeType || file?.contentType || file?.mimetype || 'application/octet-stream').slice(0, 120);
+      const mimeType = String(mimeTypeRaw || 'application/octet-stream').slice(0, 120);
       const b64 = buf.toString('base64');
       if (isUsingPg()) {
         await ensureSupportEmailAndAttachmentSchema();
@@ -1692,6 +1729,15 @@ export function createTicketingService(deps = {}) {
     if (!requesterIsSuperAdmin && isTicketOwnedBySuperAdmin(ticket, superAdminIds)) {
       return false;
     }
+    if (
+      !requesterIsSuperAdmin &&
+      ticket.status !== 'closed' &&
+      ticket.metadata?.assignmentStatus === 'accepted' &&
+      ticket.assignedAgentId &&
+      String(ticket.assignedAgentId) !== String(adminUser?.id || '')
+    ) {
+      return false;
+    }
     if (!requesterIsSuperAdmin && toggles.restrictStaffToAssignedTickets) {
       const hasViewAll = hasSupportPermission(adminUser, adminProfile, 'support.view_all');
       if (!hasViewAll) {
@@ -2169,6 +2215,17 @@ export function createTicketingService(deps = {}) {
     const requesterIsSuperAdmin = actorType === 'admin' ? isSuperAdminUserRecord(adminUser) : false;
 
     if (actorType === 'admin') {
+      if (
+        !isInternal &&
+        !requesterIsSuperAdmin &&
+        raw.assignedAgentId &&
+        String(raw.assignedAgentId) !== String(adminUser?.id || '')
+      ) {
+        throw new SupportServiceError('This ticket is locked exclusively to the specialist who accepted or owns the assignment.', {
+          statusCode: 403,
+          code: 'TICKET_LOCKED_TO_ASSIGNEE'
+        });
+      }
       if (!isTicketVisibleToStaff(raw, { adminUser, adminProfile, toggles, superAdminIds })) {
         throw new SupportServiceError('Not authorized to access this ticket.', { statusCode: 403, code: 'FORBIDDEN' });
       }
@@ -2185,18 +2242,19 @@ export function createTicketingService(deps = {}) {
       });
     }
 
-    if (
-      actorType === 'admin' &&
-      !isInternal &&
-      !requesterIsSuperAdmin &&
-      raw.assignedAgentId &&
-      String(raw.assignedAgentId) !== String(adminUser?.id || '') &&
-      raw.metadata?.assignmentStatus === 'accepted'
-    ) {
-      throw new SupportServiceError('This ticket is locked exclusively to the specialist who accepted the assignment.', {
-        statusCode: 403,
-        code: 'TICKET_LOCKED_TO_ASSIGNEE'
-      });
+    if (actorType === 'admin' && !isInternal && !requesterIsSuperAdmin) {
+      if (raw.assignedAgentId && String(raw.assignedAgentId) !== String(adminUser?.id || '')) {
+        throw new SupportServiceError('This ticket is locked exclusively to the specialist who accepted or owns the assignment.', {
+          statusCode: 403,
+          code: 'TICKET_LOCKED_TO_ASSIGNEE'
+        });
+      }
+      if (raw.metadata?.assignmentStatus !== 'accepted' || !raw.assignedAgentId) {
+        throw new SupportServiceError('You must Accept this ticket before posting a public reply.', {
+          statusCode: 403,
+          code: 'TICKET_ACCEPTANCE_REQUIRED'
+        });
+      }
     }
 
     const effectiveInternal = actorType === 'admin' ? Boolean(isInternal) : false;
@@ -2607,7 +2665,7 @@ export function createTicketingService(deps = {}) {
     });
   }
 
-  async function assignTicket({ ticketIdOrKey, assignedAgentId = null, requireAcceptance = false, adminUser, adminProfile = null } = {}) {
+  async function assignTicket({ ticketIdOrKey, assignedAgentId = null, requireAcceptance = true, adminUser, adminProfile = null } = {}) {
     const raw = await findRawTicketByIdentifier(ticketIdOrKey);
     if (!raw) {
       throw new SupportServiceError('Support ticket not found.', { statusCode: 404, code: 'TICKET_NOT_FOUND' });
@@ -2647,6 +2705,10 @@ export function createTicketingService(deps = {}) {
       }
       if (requireAcceptance) {
         patch = {
+          assignedAgentId: null,
+          assignedAgentName: null,
+          assignedAgentAvatar: null,
+          assignedAgentRole: null,
           metadata: {
             ...(raw.metadata || {}),
             assignmentStatus: 'pending_acceptance',
@@ -2709,6 +2771,17 @@ export function createTicketingService(deps = {}) {
     }
     const requesterIsSuperAdmin = isSuperAdminUserRecord(adminUser);
     const superAdminIds = await getSuperAdminIdSet();
+    if (
+      raw.metadata?.assignmentStatus === 'accepted' &&
+      raw.assignedAgentId &&
+      String(raw.assignedAgentId) !== String(adminUser?.id || '') &&
+      !requesterIsSuperAdmin
+    ) {
+      throw new SupportServiceError('This ticket has already been accepted by another specialist.', {
+        statusCode: 409,
+        code: 'TICKET_ALREADY_ACCEPTED'
+      });
+    }
     const pendingId = raw.metadata?.pendingAssigneeId;
     if (pendingId && String(pendingId) !== String(adminUser?.id) && !requesterIsSuperAdmin) {
       throw new SupportServiceError('Only the designated specialist can accept this assignment request.', {
@@ -2756,11 +2829,20 @@ export function createTicketingService(deps = {}) {
     subject = '',
     text = '',
     html = '',
-    attachments = []
+    attachments = [],
+    emailMessageId = null
   } = {}) {
-    const toLower = String(to || '').trim().toLowerCase();
+    const toLower = String(to || '').trim().replace(/^<|>$/g, '').toLowerCase();
     const subjStr = String(subject || '').trim();
-    const cleanBody = String(text || '').trim() || String(html || '').replace(/<[^>]+>/g, ' ').trim();
+    const strippedHtml = String(html || '')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+\n/g, '\n')
+      .trim();
+    const cleanBody = String(text || '').trim() || strippedHtml;
     if (!cleanBody && (!Array.isArray(attachments) || attachments.length === 0)) {
       throw new SupportServiceError('Inbound email must contain message text or attachments.', {
         statusCode: 400,
@@ -2778,6 +2860,15 @@ export function createTicketingService(deps = {}) {
       if (rows?.[0]?.ticket_id) {
         matchedTicket = await findRawTicketByIdentifier(rows[0].ticket_id);
       }
+      if (!matchedTicket) {
+        const { rows: metaRows } = await queryPgFn(
+          `SELECT * FROM support_tickets WHERE LOWER(COALESCE(metadata->>'replyToEmailAlias', '')) = $1 LIMIT 1`,
+          [toLower]
+        );
+        if (metaRows?.[0]) {
+          matchedTicket = rowToTicket(metaRows[0]);
+        }
+      }
     } else if (toLower) {
       for (const tInfo of mem.emailThreads.values()) {
         if (String(tInfo.replyToAlias || '').toLowerCase() === toLower) {
@@ -2785,9 +2876,19 @@ export function createTicketingService(deps = {}) {
           break;
         }
       }
+      if (!matchedTicket) {
+        for (const t of mem.tickets.values()) {
+          if (String(t?.metadata?.replyToEmailAlias || '').toLowerCase() === toLower) {
+            matchedTicket = t;
+            break;
+          }
+        }
+      }
     }
 
-    if (!matchedTicket) {
+    // Only allow subject fallback if no ephemeral ticket+ alias was supplied in To:
+    const hasEphemeralTicketAddress = toLower.startsWith('ticket+');
+    if (!matchedTicket && !hasEphemeralTicketAddress) {
       const refMatch = subjStr.match(/TWTK-[A-Z0-9-]+/i);
       if (refMatch) {
         matchedTicket = await findRawTicketByIdentifier(refMatch[0].toUpperCase());
@@ -2807,18 +2908,32 @@ export function createTicketingService(deps = {}) {
       });
     }
 
+    const cleanEmailMsgId = String(emailMessageId || '').trim();
+    const seenEmailIds = Array.isArray(matchedTicket.metadata?.processedEmailMessageIds)
+      ? matchedTicket.metadata.processedEmailMessageIds
+      : [];
+    if (cleanEmailMsgId && seenEmailIds.includes(cleanEmailMsgId)) {
+      return {
+        duplicate: true,
+        reply: null,
+        ticket: matchedTicket,
+        attachments: []
+      };
+    }
+
     const storedFiles = await storeSupportAttachments(attachments, {
       ticketId: matchedTicket.id,
       uploadedBy: fromEmail || matchedTicket.guestEmail || matchedTicket.userEmail || 'email'
     });
 
+    const displayMessage = cleanBody || `(Email attachment${storedFiles.length > 1 ? 's' : ''}: ${storedFiles.map((f) => f.filename).join(', ')})`;
     const msg = await insertMessageRecord({
       ticketId: matchedTicket.id,
       senderId: matchedTicket.userId || matchedTicket.guestSessionId || null,
       senderType: matchedTicket.userId ? 'user' : 'guest',
       senderName: fromName || matchedTicket.userName || matchedTicket.guestName || fromEmail || 'Customer (Email)',
       senderRole: 'email_reply',
-      message: cleanBody || '(Email attachment received)',
+      message: displayMessage,
       isInternal: false,
       attachments: storedFiles
     });
@@ -2826,7 +2941,15 @@ export function createTicketingService(deps = {}) {
     const nextPatch = {
       unreadByStaff: true,
       unreadByUser: false,
-      autoCloseAt: null
+      autoCloseAt: null,
+      ...(cleanEmailMsgId
+        ? {
+            metadata: {
+              ...(matchedTicket.metadata || {}),
+              processedEmailMessageIds: [...seenEmailIds, cleanEmailMsgId].slice(-50)
+            }
+          }
+        : {})
     };
     if (matchedTicket.status === 'waiting_customer') {
       nextPatch.status = 'open';
@@ -2841,7 +2964,44 @@ export function createTicketingService(deps = {}) {
       summary: `Inbound email reply (${storedFiles.length} attachment${storedFiles.length === 1 ? '' : 's'}) synced from ${fromEmail || 'customer'}`
     });
 
+    // Push inbound email reply + attachments directly into linked Support Inbox conversations
+    try {
+      const db = await SupportDB.getAllData();
+      const convs = Array.isArray(db?.conversations) ? db.conversations : [];
+      const createdTs = msg.createdAt || new Date().toISOString();
+      const timeStr = new Date(createdTs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      let changed = false;
+      for (const c of convs) {
+        if (c && (c.ticketId === matchedTicket.ticketId || c.ticketId === matchedTicket.id)) {
+          if (!Array.isArray(c.messages)) c.messages = [];
+          if (!c.messages.some((m) => m.id === msg.id || m.ticketMessageId === msg.id)) {
+            c.messages.push({
+              id: msg.id,
+              ticketMessageId: msg.id,
+              sender: 'user',
+              senderType: 'email_reply',
+              senderName: msg.senderName,
+              text: displayMessage,
+              attachments: storedFiles,
+              time: timeStr,
+              timestamp: createdTs
+            });
+          }
+          c.lastMessage = displayMessage;
+          c.time = timeStr;
+          c.ticketStatus = updated.status || c.ticketStatus;
+          changed = true;
+        }
+      }
+      if (changed) {
+        await SupportDB.saveAllData(db);
+      }
+    } catch {
+      // Best-effort non-fatal sync
+    }
+
     return {
+      duplicate: false,
       reply: msg,
       ticket: updated,
       attachments: storedFiles

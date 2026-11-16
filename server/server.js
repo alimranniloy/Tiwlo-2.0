@@ -224,7 +224,10 @@ app.post('/internal/email/inbound', express.raw({
     if (error.code === 'MAILBOX_QUOTA_EXCEEDED') {
       return res.status(452).send('Mailbox storage quota exceeded.');
     }
-    return res.status(error instanceof TypeError ? 422 : 503).send('Inbound mail could not be stored.');
+    const isPermanentReject =
+      error instanceof TypeError ||
+      [400, 403, 404, 422].includes(Number(error?.statusCode));
+    return res.status(isPermanentReject ? 422 : 503).send('Inbound mail could not be stored.');
   }
 });
 

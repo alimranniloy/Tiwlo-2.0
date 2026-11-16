@@ -574,6 +574,9 @@ export function createSupportRouter(deps = {}) {
         if (existingById) {
           existingById.text = mapped.text;
           existingById.editedAt = mapped.editedAt;
+          if (Array.isArray(mapped.attachments) && mapped.attachments.length > 0) {
+            existingById.attachments = mapped.attachments;
+          }
           if (!existingById.agentName && mapped.agentName) existingById.agentName = mapped.agentName;
           if (!existingById.senderType && mapped.senderType) existingById.senderType = mapped.senderType;
           continue;
@@ -588,6 +591,9 @@ export function createSupportRouter(deps = {}) {
         });
         if (duplicate) {
           if (!duplicate.ticketMessageId) duplicate.ticketMessageId = tm.id;
+          if ((!Array.isArray(duplicate.attachments) || duplicate.attachments.length === 0) && Array.isArray(mapped.attachments) && mapped.attachments.length > 0) {
+            duplicate.attachments = mapped.attachments;
+          }
           continue;
         }
 

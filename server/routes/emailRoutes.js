@@ -5,6 +5,7 @@ import { getPgPool } from '../db/postgres.js';
 import { sendTiwloEmail } from '../db/emailService.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { securityLimiters } from '../plugins/security/index.js';
+import { defaultTicketingService } from '../support/ticketingService.js';
 
 const router = express.Router();
 const upload = multer({
@@ -493,6 +494,29 @@ router.post('/send', securityLimiters.mailSendAccount, securityLimiters.mailSend
           error: 'The SMTP server could not deliver this email. Check the email configuration and retry.',
           email
         });
+      }
+      // Route any local-domain ticket+ alias recipient directly into Support Ticketing & Inbox (idempotent by emailMessageId)
+      const ticketRecipients = [...to, ...cc]
+        .map((addr) => String(addr || '').trim().toLowerCase())
+        .filter((addr) => /^ticket\+[a-z0-9._-]+-[a-f0-9]{6,64}@/i.test(addr) && addr.endsWith(`@${PLATFORM_CONFIG.primaryDomain}`));
+      if (ticketRecipients.length > 0) {
+        for (const ticketAlias of new Set(ticketRecipients)) {
+          await defaultTicketingService.ingestInboundTicketEmail({
+            to: ticketAlias,
+            fromEmail: senderEmail,
+            fromName: req.activeUser.name || senderEmail,
+            subject: cleanSubject,
+            text: bodyText,
+            html: renderBodyHtml(bodyText),
+            attachments: files.map((file, index) => ({
+              filename: attachmentMetadata[index].filename,
+              mimeType: attachmentMetadata[index].contentType,
+              contentType: attachmentMetadata[index].contentType,
+              buffer: file.buffer
+            })),
+            emailMessageId: delivery.messageId || messageId
+          }).catch(() => {});
+        }
       }
       if (draftId) {
         await pool.query(

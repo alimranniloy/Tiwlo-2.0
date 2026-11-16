@@ -37,7 +37,7 @@ function createMemorySupportDb() {
   };
 }
 
-async function startTestApp({ ticketingService, SupportDB, storeMediaImpl = null }) {
+async function startTestApp({ ticketingService, SupportDB, storeMediaImpl = null, liveChatQueueService = null }) {
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
@@ -83,7 +83,7 @@ async function startTestApp({ ticketingService, SupportDB, storeMediaImpl = null
     createAdminSupportRouter({
       requireAdmin,
       requireRecentReauth: (_req, _res, next) => next(),
-      deps: { ticketingService, SupportDB }
+      deps: { ticketingService, SupportDB, ...(liveChatQueueService ? { liveChatQueueService } : {}) }
     })
   );
 
@@ -265,6 +265,22 @@ test('Closed ticket reply lock, reopen policy toggle, reply editHistory & intern
   assert.equal(created.status, 201);
   const tid = created.json.ticket.id;
 
+  // Admin cannot post a public reply before accepting assignment
+  const preAcceptBlocked = await srv.request(`/api/admin/support/tickets/${tid}/replies`, {
+    method: 'POST',
+    headers: adminHdr,
+    body: { message: 'Premature public reply', isInternal: false }
+  });
+  assert.equal(preAcceptBlocked.status, 403);
+  assert.equal(preAcceptBlocked.json.code, 'TICKET_ACCEPTANCE_REQUIRED');
+
+  // Admin accepts ticket assignment -> unlocks public replies exclusively for Alice
+  const acceptRes = await srv.request(`/api/admin/support/tickets/${tid}/accept-assignment`, {
+    method: 'POST',
+    headers: adminHdr
+  });
+  assert.equal(acceptRes.status, 200);
+
   // Admin posts an internal note and a public reply, then edits the public reply
   const internalRes = await srv.request(`/api/admin/support/tickets/${tid}/replies`, {
     method: 'POST',
@@ -280,6 +296,21 @@ test('Closed ticket reply lock, reopen policy toggle, reply editHistory & intern
   });
   assert.equal(pubReplyRes.status, 201);
   const replyId = pubReplyRes.json.reply.id;
+
+  // Another non-super admin CANNOT accept or post public reply once accepted
+  const otherAdminHdr = { 'x-test-admin': JSON.stringify({ id: 'adm_2', name: 'Bob Agent', email: 'bob@tiwlo.com', role: 'admin' }) };
+  const hijackRes = await srv.request(`/api/admin/support/tickets/${tid}/accept-assignment`, {
+    method: 'POST',
+    headers: otherAdminHdr
+  });
+  assert.equal(hijackRes.status, 409);
+  const otherBlocked = await srv.request(`/api/admin/support/tickets/${tid}/replies`, {
+    method: 'POST',
+    headers: otherAdminHdr,
+    body: { message: 'Second agent hijack attempt', isInternal: false }
+  });
+  assert.equal(otherBlocked.status, 403);
+  assert.equal(otherBlocked.json.code, 'TICKET_LOCKED_TO_ASSIGNEE');
 
   const editRes = await srv.request(`/api/admin/support/tickets/${tid}/replies/${replyId}`, {
     method: 'PATCH',
@@ -417,16 +448,16 @@ test('Super Admin privacy protection, staff RBAC permissions & restrictStaffToAs
     subject: 'Ticket for Carol'
   });
 
-  // Carol assigns custTicket1 -> Bob, custTicket2 -> Carol
+  // Carol assigns custTicket1 -> Bob, custTicket2 -> Carol (explicit immediate assignment for RBAC visibility toggle test)
   await srv.request(`/api/admin/support/tickets/${custTicket1.ticket.id}/assign`, {
     method: 'POST',
     headers: carolHdr,
-    body: { assignedAgentId: 'adm_1' }
+    body: { assignedAgentId: 'adm_1', requireAcceptance: false }
   });
   await srv.request(`/api/admin/support/tickets/${custTicket2.ticket.id}/assign`, {
     method: 'POST',
     headers: carolHdr,
-    body: { assignedAgentId: 'adm_2' }
+    body: { assignedAgentId: 'adm_2', requireAcceptance: false }
   });
 
   // Non-super-admin cannot assign to super_admin
@@ -706,7 +737,9 @@ test('Admin workflows: search, merge, sub-ticket, link-user, collision heartbeat
   assert.equal(bulkRes.status, 200);
   assert.equal(bulkRes.json.updatedCount, 1);
   assert.equal(bulkRes.json.tickets[0].status, 'resolved');
-  assert.equal(bulkRes.json.tickets[0].assignedAgentId, 'adm_2');
+  assert.equal(bulkRes.json.tickets[0].assignedAgentId, null);
+  assert.equal(bulkRes.json.tickets[0].metadata?.assignmentStatus, 'pending_acceptance');
+  assert.equal(bulkRes.json.tickets[0].metadata?.pendingAssigneeId, 'adm_2');
 
   // Overview KPIs
   const ovRes = await srv.request('/api/admin/support/overview', { headers: adminHdr });
@@ -934,6 +967,12 @@ test('Guest session reuse preserves ID & admin public ticket reply syncs to GET 
   assert.equal(userInit.status, 200);
   const userTicketId = userInit.json.ticket.id;
 
+  const userAccept = await srv.request(`/api/admin/support/tickets/${userTicketId}/accept-assignment`, {
+    method: 'POST',
+    headers: adminHdr
+  });
+  assert.equal(userAccept.status, 200);
+
   // Admin posts an internal note (must NEVER leak) and a public reply
   const userInternal = await srv.request(`/api/admin/support/tickets/${userTicketId}/replies`, {
     method: 'POST',
@@ -985,6 +1024,12 @@ test('Guest session reuse preserves ID & admin public ticket reply syncs to GET 
   const guestRecovery = guestInit.json.recoveryCode;
   assert.ok(guestRecovery);
 
+  const guestAccept = await srv.request(`/api/admin/support/tickets/${guestTicketId}/accept-assignment`, {
+    method: 'POST',
+    headers: adminHdr
+  });
+  assert.equal(guestAccept.status, 200);
+
   const guestInternal = await srv.request(`/api/admin/support/tickets/${guestTicketId}/replies`, {
     method: 'POST',
     headers: adminHdr,
@@ -1033,4 +1078,149 @@ test('Guest session reuse preserves ID & admin public ticket reply syncs to GET 
   const syncedConv = convsAfterLookup.json.conversations.find((c) => c.ticketId === guestInit.json.ticket.ticketId);
   assert.ok(syncedConv);
   assert.ok(syncedConv.messages.some((m) => m.text === 'Direct ticket reply after lookup'));
+});
+
+test('Pending assignment lock, strict post-accept read privacy until closed, Tiwlo Brand AI Write & inbound email attachments', async (t) => {
+  const staff = [
+    { id: 'adm_a', name: 'Amina Specialist', email: 'amina@tiwlo.com', role: 'admin', roleKey: 'support_agent' },
+    { id: 'adm_b', name: 'Babar Lead', email: 'babar@tiwlo.com', role: 'admin', roleKey: 'support_lead' },
+    { id: 'sup_1', name: 'Owner Super', email: 'owner@tiwlo.com', role: 'super_admin' }
+  ];
+  let capturedPrompt = '';
+  const { createLiveChatQueueService } = await import('./liveChatQueueService.js');
+  const mockLiveChatQueue = createLiveChatQueueService({
+    useMemory: true,
+    getChatSettingsFn: async () => ({ enabled: true, aiAgentAssistEnabled: true }),
+    executeAiFn: async ({ payload }) => {
+      capturedPrompt = payload?.contents?.[0]?.parts?.[0]?.text || '';
+      return {
+        ok: true,
+        text: 'Hello Rahim, thank you for contacting Tiwlo Support. Your DNS propagation is nearly complete and our team is monitoring it.\n\nBest regards,\nTiwlo Support Team',
+        model: 'gemini-3.5-flash'
+      };
+    }
+  });
+  const SupportDB = createMemorySupportDb();
+  const svc = createTicketingService({ useMemory: true, SupportDB, staffUsers: staff });
+  const srv = await startTestApp({ ticketingService: svc, SupportDB, liveChatQueueService: mockLiveChatQueue });
+  t.after(async () => { svc.stopSupportAutomationScheduler(); await srv.close(); });
+
+  const userHdr = { 'x-test-user': JSON.stringify({ id: 'cust_r1', name: 'Rahim Mia', email: 'rahim@example.com' }) };
+  const aminaHdr = {
+    'x-test-admin': JSON.stringify({ id: 'adm_a', name: 'Amina Specialist', email: 'amina@tiwlo.com', role: 'admin' }),
+    'x-test-admin-profile': JSON.stringify({ roleKey: 'support_agent', permissions: ['support.view', 'support.reply'], isActive: true })
+  };
+  const babarHdr = {
+    'x-test-admin': JSON.stringify({ id: 'adm_b', name: 'Babar Lead', email: 'babar@tiwlo.com', role: 'admin' }),
+    'x-test-admin-profile': JSON.stringify({ roleKey: 'support_lead', permissions: ['support.view', 'support.view_all', 'support.reply', 'support.assign'], isActive: true })
+  };
+  const superHdr = { 'x-test-admin': JSON.stringify({ id: 'sup_1', name: 'Owner Super', email: 'owner@tiwlo.com', role: 'super_admin' }) };
+
+  // Create ticket-linked chat session
+  const initRes = await srv.request('/api/support/initiate', {
+    method: 'POST',
+    headers: userHdr,
+    body: { initialSubject: 'Private Ticket & Email Sync Test', initialMessage: 'My store SSL shows pending.' }
+  });
+  assert.equal(initRes.status, 200);
+  const tktId = initRes.json.ticket.id;
+  const replyAlias = initRes.json.ticket.metadata?.replyToEmailAlias;
+  assert.ok(replyAlias && replyAlias.startsWith('ticket+'));
+
+  // R2: Default assignment puts ticket in pending_acceptance with assignedAgentId === null until Amina accepts
+  const assignRes = await srv.request(`/api/admin/support/tickets/${tktId}/assign`, {
+    method: 'POST',
+    headers: babarHdr,
+    body: { assignedAgentId: 'adm_a' }
+  });
+  assert.equal(assignRes.status, 200);
+  assert.equal(assignRes.json.ticket.assignedAgentId, null);
+  assert.equal(assignRes.json.ticket.metadata?.assignmentStatus, 'pending_acceptance');
+  assert.equal(assignRes.json.ticket.metadata?.pendingAssigneeId, 'adm_a');
+
+  // Babar cannot accept Amina's pending request
+  const wrongAccept = await srv.request(`/api/admin/support/tickets/${tktId}/accept-assignment`, {
+    method: 'POST',
+    headers: babarHdr
+  });
+  assert.equal(wrongAccept.status, 403);
+
+  // Amina accepts -> exclusively locked to Amina
+  const rightAccept = await srv.request(`/api/admin/support/tickets/${tktId}/accept-assignment`, {
+    method: 'POST',
+    headers: aminaHdr
+  });
+  assert.equal(rightAccept.status, 200);
+  assert.equal(rightAccept.json.ticket.assignedAgentId, 'adm_a');
+  assert.equal(rightAccept.json.ticket.metadata?.assignmentStatus, 'accepted');
+
+  // R1: While ticket is NOT closed, even Babar (support.view_all, non-super-admin) CANNOT read ticket detail or see it in list
+  const babarDetailBlocked = await srv.request(`/api/admin/support/tickets/${tktId}`, { headers: babarHdr });
+  assert.equal(babarDetailBlocked.status, 403);
+  const babarList = await srv.request('/api/admin/support/tickets', { headers: babarHdr });
+  assert.ok(!babarList.json.tickets.some((x) => x.id === tktId));
+
+  // R3: "AI Write" rewrites draft using Tiwlo Brand Guidelines WITHOUT sending any message
+  const aiRes = await srv.request(`/api/admin/support/tickets/${tktId}/ai-assist`, {
+    method: 'POST',
+    headers: aminaHdr,
+    body: { mode: 'polish_reply', draft: 'dns propagating soon wait' }
+  });
+  assert.equal(aiRes.status, 200);
+  assert.equal(aiRes.json.brandCompliant, true);
+  assert.match(capturedPrompt, /Tiwlo Brand Guidelines/i);
+  assert.match(aiRes.json.suggestion, /Tiwlo Support Team/);
+
+  const detailBeforeSend = await srv.request(`/api/admin/support/tickets/${tktId}`, { headers: aminaHdr });
+  assert.ok(!detailBeforeSend.json.messages.some((m) => String(m.message).includes('DNS propagation is nearly complete')));
+
+  // R4: Inbound email with mailparser Buffer (.content) PDF & JPG attachments lands in ticket AND Support Inbox (/conversations)
+  const pdfBytes = Buffer.from('%PDF-1.4\n%test-pdf-payload', 'utf8');
+  const jpgBytes = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46]);
+  const inboundRes = await svc.ingestInboundTicketEmail({
+    to: replyAlias,
+    fromEmail: 'rahim@example.com',
+    fromName: 'Rahim Mia',
+    subject: `Re: Private Ticket (${initRes.json.ticket.serialNumber})`,
+    text: 'Here is my PDF invoice and JPG screenshot.',
+    emailMessageId: '<inbound-msg-1@example.com>',
+    attachments: [
+      { filename: 'invoice.pdf', contentType: 'application/pdf', content: pdfBytes },
+      { filename: 'error-screen.jpg', contentType: 'image/jpeg', content: jpgBytes }
+    ]
+  });
+  assert.equal(inboundRes.attachments.length, 2);
+  assert.equal(inboundRes.attachments[0].filename, 'invoice.pdf');
+  assert.equal(inboundRes.attachments[1].filename, 'error-screen.jpg');
+
+  const userInbox = await srv.request('/api/support/conversations', { headers: userHdr });
+  assert.equal(userInbox.status, 200);
+  const conv = userInbox.json.conversations.find((c) => c.id === initRes.json.sessionId);
+  assert.ok(conv);
+  const emailMsg = conv.messages.find((m) => m.text === 'Here is my PDF invoice and JPG screenshot.');
+  assert.ok(emailMsg);
+  assert.equal(emailMsg.attachments.length, 2);
+
+  // Attachment binary download returns real PDF bytes
+  const dlPdf = await srv.request(emailMsg.attachments[0].url, { headers: userHdr });
+  assert.equal(dlPdf.status, 200);
+
+  // Closing the ticket lifts R1 archive block for other staff AND permanently blocks inbound email replies to that alias
+  await srv.request(`/api/admin/support/tickets/${tktId}`, {
+    method: 'PATCH',
+    headers: superHdr,
+    body: { status: 'closed' }
+  });
+  const babarDetailAfterClose = await srv.request(`/api/admin/support/tickets/${tktId}`, { headers: babarHdr });
+  assert.equal(babarDetailAfterClose.status, 200);
+
+  await assert.rejects(
+    () => svc.ingestInboundTicketEmail({
+      to: replyAlias,
+      fromEmail: 'rahim@example.com',
+      text: 'Reply after closed should fail',
+      attachments: []
+    }),
+    (err) => err.statusCode === 403 || err.statusCode === 404
+  );
 });

@@ -3,7 +3,7 @@ import { ChevronRight, ShieldCheck } from 'lucide-react';
 import { useVerification } from '../../context/VerificationContext';
 import VerificationHeader from '../../components/VerificationHeader';
 import StepIndicator from '../../components/StepIndicator';
-import { PassportIcon, NationalIdIcon, AadhaarIcon } from '../../components/DocumentIllustrations';
+import { PassportIcon, NationalIdIcon, OtherDocumentIcon } from '../../components/DocumentIllustrations';
 
 /**
  * Step 1: Choose your government document
@@ -43,10 +43,10 @@ export default function SelectDocumentStep({ onNext = null, onBack = null }) {
       icon: <NationalIdIcon className="w-13 h-10" />,
     },
     {
-      id: 'aadhaar',
-      title: 'Aadhaar Card',
-      subtitle: <>Indian Aadhaar card<br />(front and back)</>,
-      icon: <AadhaarIcon className="w-13 h-10" />,
+      id: 'other_document',
+      title: 'Other Document',
+      subtitle: <>Driver’s license, residence<br />permit, or other government ID</>,
+      icon: <OtherDocumentIcon className="w-13 h-10" />,
     },
   ];
 
@@ -121,7 +121,7 @@ export default function SelectDocumentStep({ onNext = null, onBack = null }) {
             <ShieldCheck className="w-5 h-5 text-neutral-400" strokeWidth={1.8} />
           </div>
           <p className="text-[12px] text-neutral-500 leading-relaxed font-normal">
-            Only a face match is checked; document authenticity is not verified.
+            Your document and live selfie are checked by Gemini AI, with manual review fallback by our Identity Review team if needed.
           </p>
         </div>
       </div>

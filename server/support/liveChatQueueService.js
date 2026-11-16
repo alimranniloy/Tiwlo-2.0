@@ -1352,7 +1352,13 @@ export function createLiveChatQueueService({
       throw new LiveChatQueueError('Cannot reply to a closed live chat.', { statusCode: 403, code: 'CHAT_CLOSED' });
     }
     const superAdmin = isSuperAdminActor(staffActor);
-    if (chat.status === 'active' && !superAdmin && String(chat.assignedAgentId) !== String(staffActor.id)) {
+    if (chat.status !== 'active') {
+      throw new LiveChatQueueError('You must Accept this live chat before sending a reply.', {
+        statusCode: 403,
+        code: 'CHAT_ACCEPTANCE_REQUIRED'
+      });
+    }
+    if (!superAdmin && (!chat.assignedAgentId || String(chat.assignedAgentId) !== String(staffActor.id))) {
       throw new LiveChatQueueError('This live chat is actively handled by another specialist until held or closed.', {
         statusCode: 403,
         code: 'CHAT_ISOLATED_ACTIVE'
@@ -1982,6 +1988,44 @@ export function createLiveChatQueueService({
     return { ok: mem.templates.length < before };
   }
 
+  function buildTiwloBrandAiPrompt({
+    mode = 'polish_reply',
+    draft = '',
+    topic = '',
+    transcript = '',
+    customerName = 'Customer',
+    channelLabel = 'support'
+  }) {
+    const cleanDraft = String(draft || '').trim();
+    const guidelineHeader = [
+      'You are writing on behalf of Tiwlo Customer Support.',
+      'Strictly follow Tiwlo Brand Guidelines:',
+      '- Voice & Tone: Warm, calm, respectful, trustworthy, and solution-oriented.',
+      '- Language Fidelity: Match the exact language of the staff draft (or customer conversation if no draft), e.g., Bengali or English.',
+      '- Formatting: Start with a natural, courteous greeting, present clear next steps or the answer concisely, and end with a polite Tiwlo Support sign-off.',
+      '- Truthfulness & Isolation: Keep every technical detail, promise, and fact from the staff draft intact; NEVER invent refunds, deadlines, credentials, links, or internal system details.',
+      '- Output Rule: Return ONLY the ready-to-send message body with no markdown fences, quotes, or meta-commentary.'
+    ].join('\n');
+
+    const taskByMode = {
+      polish_reply: cleanDraft
+        ? `Rewrite and format the following staff draft into a polished Tiwlo-brand customer reply while preserving its exact meaning and facts:\n"""\n${cleanDraft}\n"""`
+        : `Draft a courteous, brand-aligned Tiwlo Support reply tailored to the customer conversation below.`,
+      suggest_reply: `Draft one clear, empathetic, accurate Tiwlo-brand ${channelLabel} reply ready for the specialist to review and send based on the conversation below.`,
+      summarize: 'Summarize the customer issue, key context, sentiment, and next recommended action in 3 crisp bullet points.'
+    };
+
+    return [
+      guidelineHeader,
+      '',
+      taskByMode[mode] || taskByMode.polish_reply,
+      '',
+      `Customer: ${customerName || 'Customer'}`,
+      topic ? `Subject/Topic: ${topic}` : '',
+      transcript ? `Recent Conversation:\n${transcript}` : ''
+    ].filter(Boolean).join('\n');
+  }
+
   async function generateAiAssistForLiveChat(chatIdOrNumber, { mode = 'suggest_reply', draft = '', staffActor = null } = {}) {
     const chat = await findChatByIdOrNumber(chatIdOrNumber);
     if (!chat) {
@@ -2000,12 +2044,14 @@ export function createLiveChatQueueService({
 
     const msgs = await listMessagesRaw(chat.id);
     const transcript = msgs.slice(-15).map((m) => `${m.senderType.toUpperCase()} (${m.senderName}): ${m.body}`).join('\n');
-    const instructions = {
-      suggest_reply: 'Draft one clear, empathetic, accurate customer support reply ready to send in live chat. Do not invent facts or policy numbers.',
-      polish_reply: `Polish and improve this agent draft while keeping its exact meaning:\n"${String(draft || '').trim()}"`,
-      summarize: 'Summarize the customer issue, key context, sentiment, and next action in 3 short bullet points.'
-    };
-    const prompt = `${instructions[mode] || instructions.suggest_reply}\n\nCustomer Topic: ${chat.topic}\nTranscript:\n${transcript}`;
+    const prompt = buildTiwloBrandAiPrompt({
+      mode,
+      draft,
+      topic: chat.topic,
+      transcript,
+      customerName: chat.guestName || 'Customer',
+      channelLabel: 'live chat'
+    });
 
     const aiRes = await executeAiFn({
       payload: {
@@ -2023,6 +2069,61 @@ export function createLiveChatQueueService({
     return {
       ok: true,
       mode,
+      brandCompliant: true,
+      suggestion: String(aiRes.text || '').trim(),
+      model: aiRes.model || null,
+      keyLabel: aiRes.keyLabel || null
+    };
+  }
+
+  async function generateAiAssistForTicket({ ticket, messages = [], mode = 'polish_reply', draft = '' } = {}) {
+    if (!ticket) {
+      throw new LiveChatQueueError('Support ticket not found.', { statusCode: 404, code: 'TICKET_NOT_FOUND' });
+    }
+    if (String(ticket.status || '').toLowerCase() === 'closed') {
+      throw new LiveChatQueueError('Closed tickets are permanently locked.', {
+        statusCode: 403,
+        code: 'TICKET_CLOSED_LOCKED'
+      });
+    }
+    const settings = await getChatSettingsFn();
+    if (settings?.enabled === false || settings?.aiAgentAssistEnabled === false) {
+      throw new LiveChatQueueError('AI Agent Assist is currently disabled in Chat System Settings.', {
+        statusCode: 503,
+        code: 'AI_ASSIST_DISABLED'
+      });
+    }
+    const publicMsgs = (Array.isArray(messages) ? messages : []).filter((m) => !m.isInternal);
+    const transcript = publicMsgs
+      .slice(-12)
+      .map((m) => `${String(m.senderType || 'USER').toUpperCase()} (${m.senderName || 'User'}): ${m.message || m.text || ''}`)
+      .join('\n');
+    const prompt = buildTiwloBrandAiPrompt({
+      mode,
+      draft,
+      topic: `[${ticket.serialNumber || ticket.ticketId || 'Ticket'}] ${ticket.subject || ''}`.trim(),
+      transcript: transcript || String(ticket.description || ''),
+      customerName: ticket.userName || ticket.guestName || 'Customer',
+      channelLabel: 'ticket support'
+    });
+
+    const aiRes = await executeAiFn({
+      payload: {
+        contents: [{ parts: [{ text: prompt }] }]
+      }
+    });
+
+    if (!aiRes?.ok) {
+      throw new LiveChatQueueError(aiRes?.error || 'All configured Gemini AI keys are currently unavailable or exhausted.', {
+        statusCode: 503,
+        code: 'AI_UNAVAILABLE'
+      });
+    }
+
+    return {
+      ok: true,
+      mode,
+      brandCompliant: true,
       suggestion: String(aiRes.text || '').trim(),
       model: aiRes.model || null,
       keyLabel: aiRes.keyLabel || null
@@ -2273,6 +2374,7 @@ export function createLiveChatQueueService({
     createTemplate,
     deleteTemplate,
     generateAiAssistForLiveChat,
+    generateAiAssistForTicket,
     updateCoBrowsingState,
     submitCsatSurvey,
     getCsatAnalytics

@@ -27,6 +27,7 @@ const VIEW_REQUIRED_PERMISSIONS = {
   dashboard: null,
   orders: ['manage_orders', 'view_financials'],
   customers: ['view_stores', 'manage_stores'],
+  'identity-reviews': ['view_stores', 'manage_stores', 'manage_users_security'],
   'identity-verification': ['view_stores', 'manage_stores', 'manage_users_security'],
   packages: ['manage_packages_promos'],
   promotions: ['manage_packages_promos'],
@@ -116,6 +117,7 @@ const NAV_SECTIONS = [
       { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
       { id: 'orders', label: 'System Orders', icon: Receipt },
       { id: 'customers', label: 'Merchants & Stores', icon: Store },
+      { id: 'identity-reviews', label: 'Identity Review', icon: FileCheck2 },
       { id: 'packages', label: 'Plans & Add-ons', icon: Package },
       { id: 'promotions', label: 'Promotions & Credits', icon: Gift },
       { id: 'platform-payments', label: 'Payment Gateways', icon: CreditCard }

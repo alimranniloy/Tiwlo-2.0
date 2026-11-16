@@ -4,6 +4,8 @@ import express from 'express';
 import { getPgPool } from '../db/postgres.js';
 import { MasterDB } from '../db/multiTenant.js';
 import { identityVerificationEmailNotifications } from '../db/emailService.js';
+import { identityVerificationEvidence } from '../db/identityVerificationEvidence.js';
+import { decryptDocumentNumber, identityReviewStore } from '../db/identityReviewStore.js';
 import adminRoutes from './adminRoutes.js';
 
 test('admin identity lock requires confirmation request and affects only the selected account', async t => {
@@ -187,4 +189,321 @@ test('verification evidence is listed only through the authenticated admin page'
     'identity_verification',
     '/uploads/verification/TW-1001/'
   ]);
+});
+
+test('GET /api/admin/identity-reviews returns enriched risk score, stores, orders stats, and masked PII before review', async t => {
+  identityReviewStore.resetMemoryStore();
+  identityVerificationEvidence.resetMemoryStore();
+  t.after(() => {
+    identityReviewStore.resetMemoryStore();
+    identityVerificationEvidence.resetMemoryStore();
+  });
+
+  const users = new Map([
+    ['customer-risk', {
+      id: 'customer-risk',
+      tiwiId: 'TW-2001',
+      storeId: 'TW-2001',
+      name: 'Risky Applicant',
+      email: 'risky@mailinator.com',
+      phone: '+15550001111',
+      role: 'owner',
+      planId: 'growth',
+      planName: 'Growth Retailer',
+      identityVerified: false,
+      identityVerificationRequired: true,
+      isBanned: false
+    }],
+    ['banned-sibling', {
+      id: 'banned-sibling',
+      tiwiId: 'TW-2002',
+      name: 'Banned Sibling',
+      email: 'sibling@example.com',
+      phone: '+15550001111',
+      role: 'owner',
+      isBanned: true,
+      banReason: 'Abuse'
+    }]
+  ]);
+
+  t.mock.method(MasterDB, 'getSession', async () => ({
+    user: { id: 'admin-one', email: 'admin@example.com', role: 'admin' }
+  }));
+  t.mock.method(getPgPool(), 'query', async (sql) => {
+    if (String(sql).includes('FROM orders')) {
+      return { rows: [{ count: 4 }] };
+    }
+    return { rows: [] };
+  });
+  t.mock.method(MasterDB, 'getUsers', async () => [...users.values()]);
+  t.mock.method(MasterDB, 'findUserByIdentifier', async id => users.get(id) || null);
+  t.mock.method(MasterDB, 'getMasterData', async () => ({
+    stores: [
+      { id: 'st-1', tiwiId: 'TW-2001', ownerId: 'customer-risk', storeName: 'Alpha Store', subdomain: 'alpha.tiwlo.com', planId: 'growth', status: 'active' },
+      { id: 'st-2', tiwiId: 'TW-2009', ownerId: 'customer-risk', storeName: 'Beta Store', subdomain: 'beta.tiwlo.com', planId: 'free', status: 'active' }
+    ]
+  }));
+
+  const storedFiles = await identityVerificationEvidence.store({
+    user: users.get('customer-risk'),
+    document: { buffer: Buffer.from('doc-bytes'), detectedFormat: 'png' },
+    selfie: { buffer: Buffer.from('selfie-bytes'), detectedFormat: 'jpg' },
+    recording: Buffer.from('mp4-bytes'),
+    documentType: 'other_document'
+  });
+  assert.equal(storedFiles.length, 3);
+  assert.ok(storedFiles.some(f => f.filename === 'other_document-document.png'));
+
+  const created = await identityReviewStore.createOrUpdateReview({
+    id: 'rev-risk-1',
+    userId: 'customer-risk',
+    tiwiId: 'TW-2001',
+    userName: 'Risky Applicant',
+    userEmail: 'risky@mailinator.com',
+    documentType: 'other_document',
+    source: 'gemini_fallback',
+    aiConfidence: 0.42,
+    aiReason: 'Glare on document corner',
+    extractedData: {
+      fullName: 'Risky Applicant',
+      dateOfBirth: '1994-05-12',
+      documentNumber: 'DOC99884321'
+    },
+    evidenceFiles: storedFiles,
+    metadata: {
+      telemetry: { vpnDetected: true, attemptCount: 3 },
+      attestation: { challengePassed: true },
+      duplicateLinkedAccounts: [{ userId: 'banned-sibling', tiwiId: 'TW-2002', reason: 'Document match' }]
+    }
+  });
+  await identityReviewStore.createOrUpdateReview({
+    id: 'rev-other-user',
+    userId: 'banned-sibling',
+    tiwiId: 'TW-2002',
+    userName: 'Banned Sibling',
+    userEmail: 'sibling@example.com',
+    documentType: 'passport'
+  });
+  assert.equal(created.extractedData.documentNumber, undefined);
+  assert.equal(created.extractedData.maskedDocumentNumber, '*******4321');
+  assert.equal(decryptDocumentNumber(created.metadata.encryptedDocumentNumber), 'DOC99884321');
+
+  const app = express();
+  app.use(express.json());
+  app.use('/api/admin', adminRoutes);
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise(resolve => server.once('listening', resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+
+  const listRes = await fetch(`http://127.0.0.1:${server.address().port}/api/admin/identity-reviews?status=pending_review&userId=customer-risk`, {
+    headers: { Authorization: 'Bearer admin-session' }
+  });
+  assert.equal(listRes.status, 200);
+  const listData = await listRes.json();
+  assert.equal(listData.success, true);
+  assert.equal(listData.counts.all, 1);
+  assert.equal(listData.counts.pending_review, 1);
+  assert.equal(listData.reviews.length, 1);
+
+  const review = listData.reviews[0];
+  assert.equal(review.id, 'rev-risk-1');
+  assert.deepEqual(review.metadata.duplicateLinkedAccounts, [{ userId: 'banned-sibling', tiwiId: 'TW-2002', reason: 'Document match' }]);
+  assert.equal(review.documentType, 'other_document');
+  assert.equal(review.documentTypeLabel, 'Other Document');
+  assert.equal(review.extractedData.documentNumber, undefined);
+  assert.equal(review.extractedData.maskedDocumentNumber, '*******4321');
+  assert.ok(review.riskSummary.riskScore >= 50, `Expected high riskScore, got ${review.riskSummary.riskScore}`);
+  assert.ok(['high', 'critical'].includes(review.riskSummary.riskLevel));
+  assert.ok(review.riskSummary.flags.includes('BAN_EVASION_RISK'));
+  assert.ok(review.riskSummary.flags.includes('DISPOSABLE_EMAIL'));
+  assert.ok(review.riskSummary.flags.includes('VPN_OR_PROXY_NETWORK'));
+  assert.ok(review.riskSummary.flags.includes('RAPID_VERIFICATION_ATTEMPTS'));
+  assert.equal(review.stats.storesCount, 2);
+  assert.equal(review.stats.stores.length, 2);
+  assert.equal(review.stats.ordersCount, 4);
+  assert.equal(review.stats.subscriptionPlan, 'Growth Retailer');
+  assert.equal(review.evidenceFiles.length, 3);
+
+  const detailRes = await fetch(`http://127.0.0.1:${server.address().port}/api/admin/identity-reviews/rev-risk-1`, {
+    headers: { Authorization: 'Bearer admin-session' }
+  });
+  assert.equal(detailRes.status, 200);
+  const detailData = await detailRes.json();
+  assert.equal(detailData.review.id, 'rev-risk-1');
+  assert.equal(detailData.review.evidenceFiles.length, 3);
+});
+
+test('POST /api/admin/identity-reviews/:id/decision handles accept, decline, and permanent close lock', async t => {
+  identityReviewStore.resetMemoryStore();
+  t.after(() => identityReviewStore.resetMemoryStore());
+
+  const users = new Map([
+    ['user-accept', {
+      id: 'user-accept',
+      email: 'accept@example.com',
+      name: 'Accept User',
+      role: 'owner',
+      identityVerified: false,
+      identityVerificationRequired: true
+    }],
+    ['user-decline', {
+      id: 'user-decline',
+      email: 'decline@example.com',
+      name: 'Decline User',
+      role: 'owner',
+      identityVerified: false,
+      identityVerificationRequired: true
+    }],
+    ['user-close', {
+      id: 'user-close',
+      email: 'close@example.com',
+      name: 'Close User',
+      role: 'owner',
+      identityVerified: false,
+      identityVerificationRequired: true
+    }]
+  ]);
+
+  const completedEmails = [];
+  const requiredEmails = [];
+
+  t.mock.method(MasterDB, 'getSession', async () => ({
+    user: { id: 'admin-one', email: 'admin@example.com', role: 'admin' }
+  }));
+  t.mock.method(getPgPool(), 'query', async () => ({ rows: [{ id: 1 }] }));
+  t.mock.method(MasterDB, 'findUserByIdentifier', async id => users.get(id) || null);
+  t.mock.method(MasterDB, 'updateUser', async (id, updates) => {
+    const user = users.get(id);
+    if (!user) return null;
+    Object.assign(user, updates);
+    return user;
+  });
+  t.mock.method(identityVerificationEmailNotifications, 'completed', async ({ to }) => {
+    completedEmails.push(to);
+    return { success: true };
+  });
+  t.mock.method(identityVerificationEmailNotifications, 'required', async ({ to }) => {
+    requiredEmails.push(to);
+    return { success: true };
+  });
+
+  await identityReviewStore.createOrUpdateReview({ id: 'rev-accept', userId: 'user-accept', userEmail: 'accept@example.com', documentType: 'passport' });
+  await identityReviewStore.createOrUpdateReview({ id: 'rev-decline', userId: 'user-decline', userEmail: 'decline@example.com', documentType: 'national_id' });
+  await identityReviewStore.createOrUpdateReview({ id: 'rev-close', userId: 'user-close', userEmail: 'close@example.com', documentType: 'drivers_license' });
+
+  const app = express();
+  app.use(express.json());
+  app.use('/api/admin', adminRoutes);
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise(resolve => server.once('listening', resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const baseUrl = `http://127.0.0.1:${server.address().port}/api/admin/identity-reviews`;
+  const headers = { Authorization: 'Bearer admin-session', 'Content-Type': 'application/json' };
+
+  // 1. Accept
+  const acceptRes = await fetch(`${baseUrl}/rev-accept/decision`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ action: 'accept', reason: 'Verified manually' })
+  });
+  assert.equal(acceptRes.status, 200);
+  const acceptBody = await acceptRes.json();
+  assert.equal(acceptBody.review.status, 'accepted');
+  assert.equal(users.get('user-accept').identityVerified, true);
+  assert.equal(users.get('user-accept').identityVerificationRequired, false);
+  assert.deepEqual(completedEmails, ['accept@example.com']);
+
+  // 2. Decline
+  const declineRes = await fetch(`${baseUrl}/rev-decline/decision`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ action: 'decline', reason: 'Blurry photo' })
+  });
+  assert.equal(declineRes.status, 200);
+  const declineBody = await declineRes.json();
+  assert.equal(declineBody.review.status, 'declined');
+  assert.equal(users.get('user-decline').identityVerified, false);
+  assert.equal(users.get('user-decline').identityVerificationRequired, true);
+  assert.deepEqual(requiredEmails, ['decline@example.com']);
+
+  // 3. Permanently close
+  const closeRes = await fetch(`${baseUrl}/rev-close/decision`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ action: 'permanently_close', reason: 'Forged document' })
+  });
+  assert.equal(closeRes.status, 200);
+  const closeBody = await closeRes.json();
+  assert.equal(closeBody.review.status, 'permanently_closed');
+  assert.equal(closeBody.review.isPermanentlyClosed, true);
+  assert.equal(users.get('user-close').identityVerified, false);
+  assert.equal(users.get('user-close').identityVerificationRequired, true);
+
+  // Trying any action after permanently_close must return 403 REVIEW_PERMANENTLY_CLOSED
+  for (const blockedAction of ['accept', 'decline', 'permanently_close']) {
+    const retryRes = await fetch(`${baseUrl}/rev-close/decision`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ action: blockedAction, reason: 'Attempt override' })
+    });
+    assert.equal(retryRes.status, 403);
+    const retryBody = await retryRes.json();
+    assert.equal(retryBody.code, 'REVIEW_PERMANENTLY_CLOSED');
+  }
+});
+
+test('identityReviewStore.findDuplicateDocumentMatch detects reused document numbers and identity hashes across accounts', async t => {
+  identityReviewStore.resetMemoryStore();
+  t.after(() => identityReviewStore.resetMemoryStore());
+
+  const original = await identityReviewStore.createOrUpdateReview({
+    id: 'rev-orig-1',
+    userId: 'user-original',
+    userEmail: 'orig@example.com',
+    documentType: 'passport',
+    status: 'accepted',
+    extractedData: {
+      fullName: 'Alice Rahman',
+      dateOfBirth: '1992-03-14',
+      documentNumber: 'P-88776655'
+    }
+  });
+
+  // Same user should NOT trigger duplicate match
+  const selfMatch = await identityReviewStore.findDuplicateDocumentMatch({
+    documentFingerprint: original.documentFingerprint,
+    identityHash: original.identityHash,
+    excludeUserId: 'user-original'
+  });
+  assert.equal(selfMatch, null);
+
+  // Different user with same document number should match
+  const docMatch = await identityReviewStore.findDuplicateDocumentMatch({
+    documentFingerprint: original.documentFingerprint,
+    excludeUserId: 'user-offender'
+  });
+  assert.ok(docMatch);
+  assert.equal(docMatch.id, 'rev-orig-1');
+  assert.equal(docMatch.userId, 'user-original');
+
+  // Different user with same fullName + dateOfBirth (when documentNumber is present) should also match
+  const idMatch = await identityReviewStore.findDuplicateDocumentMatch({
+    identityHash: original.identityHash,
+    excludeUserId: 'user-offender-2'
+  });
+  assert.ok(idMatch);
+  assert.equal(idMatch.id, 'rev-orig-1');
+
+  // Mark offending account duplicate ban and verify fraud permanently_closed also blocks future reuse
+  const bannedReview = await identityReviewStore.markDuplicateIdentityBan({
+    userId: 'user-offender',
+    documentType: 'passport',
+    documentFingerprint: original.documentFingerprint,
+    identityHash: original.identityHash,
+    matchedReviewId: original.id,
+    matchedUserId: original.userId
+  });
+  assert.equal(bannedReview.status, 'permanently_closed');
+  assert.equal(bannedReview.isPermanentlyClosed, true);
+  assert.equal(bannedReview.metadata.duplicateIdentityBan, true);
 });

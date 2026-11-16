@@ -13,13 +13,14 @@ export { default as HomeIndicator } from './components/HomeIndicator';
 export {
   PassportIcon,
   NationalIdIcon,
-  AadhaarIcon,
+  OtherDocumentIcon,
   UploadHeroIllustration,
 } from './components/DocumentIllustrations';
 
 // Re-export Step Components
 export { default as SelectDocumentStep } from './steps/select-document/SelectDocumentStep';
 export { default as UploadDocumentStep } from './steps/upload-document/UploadDocumentStep';
+export { default as ConfirmNameStep } from './steps/confirm-name/ConfirmNameStep';
 export { default as CaptureSelfieStep } from './steps/capture-selfie/CaptureSelfieStep';
 export { default as ProcessingStep } from './steps/processing/ProcessingStep';
 export { default as VerificationSuccessStep } from './steps/verification-success/VerificationSuccessStep';

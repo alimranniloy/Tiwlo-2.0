@@ -272,12 +272,12 @@ export function createAdminSupportRouter({
     }
   });
 
-  // Assign / reassign ticket
+  // Assign / reassign ticket (requires specialist acceptance unless explicitly bypassed)
   router.post('/support/tickets/:id/assign', requireAdmin, requireSupportPermission('support.assign'), async (req, res) => {
     try {
       const ctx = await buildEffectiveAdminContext(req);
       const assignedAgentId = req.body?.assignedAgentId ?? req.body?.agentId ?? null;
-      const requireAcceptance = Boolean(req.body?.requireAcceptance);
+      const requireAcceptance = req.body?.requireAcceptance !== false;
       const ticket = await ticketing.assignTicket({
         ticketIdOrKey: req.params.id,
         assignedAgentId,
@@ -287,6 +287,26 @@ export function createAdminSupportRouter({
       res.json({ success: true, ticket });
     } catch (err) {
       handleAdminSupportError(res, err, 'Failed to assign ticket');
+    }
+  });
+
+  // Tiwlo Brand AI reply rewriter / assistant for formal tickets (puts result in composer, never auto-sends)
+  router.post('/support/tickets/:id/ai-assist', requireAdmin, requireSupportPermission('support.reply'), async (req, res) => {
+    try {
+      const ctx = await buildEffectiveAdminContext(req);
+      const detail = await ticketing.getTicketDetail(req.params.id, {
+        viewerType: 'admin',
+        ...ctx
+      });
+      const result = await liveChatQueue.generateAiAssistForTicket({
+        ticket: detail.ticket,
+        messages: detail.messages,
+        mode: req.body?.mode || 'polish_reply',
+        draft: req.body?.draft || ''
+      });
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to generate AI ticket reply assist');
     }
   });
 

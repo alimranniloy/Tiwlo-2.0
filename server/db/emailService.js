@@ -597,15 +597,16 @@ export async function sendAccountRestoredEmail({ to, name, checkupUrl }) {
   });
 }
 
-export async function sendIdentityVerificationRequiredEmail({ to, name, identityUrl }) {
-  const html = renderIdentityVerificationRequiredEmail({ to, name, identityUrl });
+export async function sendIdentityVerificationRequiredEmail({ to, name, identityUrl, reason = '' }) {
+  const html = renderIdentityVerificationRequiredEmail({ to, name, identityUrl, reason });
+  const reasonNote = String(reason || '').trim() ? ` Reason: ${String(reason).trim()}.` : '';
   return sendTiwloEmail({
     to,
     subject: 'Action required: verify your Tiwlo identity',
     html,
-    text: `Identity verification is required before you can use your Tiwlo account. Sign in and complete verification to restore access: ${identityUrl || getPlatformUrl('identity-required')}`,
+    text: `Identity verification is required before you can use your Tiwlo account.${reasonNote} Sign in and complete verification to restore access: ${identityUrl || getPlatformUrl('identity-required')}`,
     type: 'identity_verification_required',
-    metadata: { recipientName: name, identityUrl }
+    metadata: { recipientName: name, identityUrl, reason: reason || null }
   });
 }
 

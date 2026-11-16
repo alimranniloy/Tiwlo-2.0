@@ -1134,3 +1134,33 @@ test('Preferences persists widgetOrder without reintroducing API key fields', as
   ]);
   assert.equal(prefsBody.preferences.apiKeys, undefined);
 });
+
+test('Changing name or date of birth on a verified account automatically resets verification and requires re-verification', async (t) => {
+  const harness = createMockHarness({
+    userOverrides: {
+      identityVerified: true,
+      identityVerificationRequired: false,
+      name: 'Original Verified Name',
+      dateOfBirth: '1995-04-12'
+    }
+  });
+  const call = await withApp(t, harness.deps);
+  const authHeaders = {
+    Authorization: 'Bearer valid-session-token',
+    'Content-Type': 'application/json'
+  };
+
+  const res = await call('/api/user/account/settings', {
+    method: 'PUT',
+    headers: authHeaders,
+    body: JSON.stringify({
+      name: 'Changed New Name'
+    })
+  });
+  assert.equal(res.status, 200);
+  const updatedUser = harness.state?.user || harness.user;
+  if (updatedUser) {
+    assert.equal(updatedUser.identityVerified, false);
+    assert.equal(updatedUser.identityVerificationRequired, true);
+  }
+});

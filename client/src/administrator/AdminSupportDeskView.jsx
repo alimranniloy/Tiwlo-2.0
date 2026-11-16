@@ -48,6 +48,7 @@ import {
   Unlock,
   UserCheck,
   Users,
+  Wand2,
   X,
 } from 'lucide-react';
 
@@ -393,6 +394,7 @@ export default function AdminSupportDeskView({
   // Composer & reply editing
   const [composerMode, setComposerMode] = useState('public'); // 'public' | 'internal'
   const [composerText, setComposerText] = useState('');
+  const [aiWriting, setAiWriting] = useState(false);
   const [sendingReply, setSendingReply] = useState(false);
   const [macroDrawerOpen, setMacroDrawerOpen] = useState(false);
   const [editingReplyId, setEditingReplyId] = useState(null);
@@ -577,6 +579,10 @@ export default function AdminSupportDeskView({
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json.success === false) {
+        if (res.status === 403 || res.status === 404) {
+          setActiveTicket(null);
+          setSelectedTicketId(null);
+        }
         throw new Error(json.error || 'Could not load ticket details.');
       }
       const rawTicket = json.ticket || json.data?.ticket || json.data || json;
@@ -813,7 +819,7 @@ export default function AdminSupportDeskView({
     }
   };
 
-  const handleAssignAgent = async (agentId) => {
+  const handleAssignAgent = async (agentId, { requireAcceptance = true } = {}) => {
     if (!activeTicket) return;
     setAssigning(true);
     try {
@@ -821,19 +827,55 @@ export default function AdminSupportDeskView({
         method: 'POST',
         credentials: 'include',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ assignedAgentId: agentId || null, agentId: agentId || null, assignedTo: agentId || null }),
+        body: JSON.stringify({
+          assignedAgentId: agentId || null,
+          agentId: agentId || null,
+          assignedTo: agentId || null,
+          requireAcceptance: Boolean(requireAcceptance),
+        }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json.success === false) {
         throw new Error(json.error || 'Could not update assignment.');
       }
       setAssignPopoverOpen(false);
-      showToast?.(agentId ? 'Ticket assigned successfully.' : 'Ticket unassigned.', 'success');
+      showToast?.(
+        !agentId
+          ? 'Ticket unassigned.'
+          : requireAcceptance
+            ? 'Assignment requested — awaiting staff acceptance.'
+            : 'Ticket assigned successfully.',
+        'success'
+      );
       await Promise.all([loadTicketDetail(activeTicket.id || activeTicket.ticketId), loadTickets()]);
     } catch (err) {
       showToast?.(err.message || 'Assignment update failed.', 'error');
     } finally {
       setAssigning(false);
+    }
+  };
+
+  const handleAiWriteTicket = async () => {
+    if (!activeTicket || !composerText.trim()) return;
+    setAiWriting(true);
+    try {
+      const ticketKey = activeTicket.id || activeTicket.ticketId;
+      const res = await fetch(`${API_BASE}/admin/support/tickets/${encodeURIComponent(ticketKey)}/ai-assist`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ mode: 'polish_reply', draft: composerText }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.success === false || !json.suggestion) {
+        throw new Error(json.error || 'AI Write could not polish the draft.');
+      }
+      setComposerText(String(json.suggestion).trim());
+      showToast?.('AI polished your reply following Tiwlo Brand Guidelines — review and send when ready.', 'success');
+    } catch (err) {
+      showToast?.(err.message || 'AI Write failed.', 'error');
+    } finally {
+      setAiWriting(false);
     }
   };
 
@@ -1245,6 +1287,23 @@ export default function AdminSupportDeskView({
   const activeAgent = resolveAgentObj(activeTicket, agents);
   const ticketClosed = isClosedStatus(activeTicket?.status);
   const lockClosed = ticketClosed && switches.lockClosedReplies !== false;
+  const ticketAssignmentStatus = String(
+    activeTicket?.assignmentStatus || activeTicket?.metadata?.assignmentStatus || ''
+  ).toLowerCase();
+  const isTicketAccepted = ticketAssignmentStatus === 'accepted' && Boolean(activeTicket?.assignedAgentId);
+  const currentActorId = currentUser?.id ? String(currentUser.id) : '';
+  const pendingAssigneeId = activeTicket?.metadata?.pendingAssigneeId ? String(activeTicket.metadata.pendingAssigneeId) : '';
+  const pendingAssigneeName = activeTicket?.metadata?.pendingAssigneeName || '';
+  const canAcceptPending = !pendingAssigneeId || pendingAssigneeId === currentActorId || isSuperAdmin;
+  const isTicketOwnedByMe = Boolean(
+    activeTicket?.assignedAgentId && currentActorId && String(activeTicket.assignedAgentId) === currentActorId
+  );
+  const isTicketLockedToOther = Boolean(
+    !isSuperAdmin && activeTicket?.assignedAgentId && !isTicketOwnedByMe
+  );
+  const needsTicketAcceptance = Boolean(
+    activeTicket && !ticketClosed && !isSuperAdmin && !isTicketAccepted && !isTicketLockedToOther
+  );
   const otherViewers = viewers.filter(
     (v) => (v.userId || v.id) !== currentUser?.id && (v.email || '') !== currentUser?.email
   );
@@ -1415,8 +1474,8 @@ export default function AdminSupportDeskView({
         )}
       </div>
 
-      {/* Summary KPI Strip */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      {/* Summary KPI Strip (hidden while inspecting a thread/customer on mobile for clean full-page chat view) */}
+      <div className={`grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-3 lg:grid-cols-6 ${deskSection === 'desk' && mobilePane !== 'queue' ? 'hidden xl:grid' : 'grid'}`}>
         {kpiCards.map((kpi) => (
           <div
             key={kpi.label}
@@ -1511,6 +1570,7 @@ export default function AdminSupportDeskView({
       {deskSection === 'live-chats' && (
         <AdminLiveChatQueuePanel
           apiBase={API_BASE}
+          currentUser={currentUser}
           isSuperAdmin={isSuperAdmin}
           aiEnabled={Boolean(switches.aiAgentDraftAssist || switches.aiAutoReply)}
           showToast={showToast}
@@ -1573,8 +1633,8 @@ export default function AdminSupportDeskView({
 
       {deskSection === 'desk' && (
         <>
-          {/* Queue Tabs + Filters + Presets */}
-          <div className="space-y-3 rounded-xl border border-neutral-200/80 bg-white p-3.5 dark:border-neutral-800 dark:bg-neutral-950">
+          {/* Queue Tabs + Filters + Presets (hidden on mobile while reading a thread so chat gets full height) */}
+          <div className={`space-y-3 rounded-xl border border-neutral-200/80 bg-white p-3.5 dark:border-neutral-800 dark:bg-neutral-950 ${mobilePane !== 'queue' ? 'hidden xl:block' : 'block'}`}>
             <div className="flex flex-wrap items-center gap-1.5">
               {QUEUE_TABS.map((q) => {
                 const active = activeQueue === q.id;
@@ -2037,16 +2097,15 @@ export default function AdminSupportDeskView({
                       </div>
 
                       <div className="flex flex-wrap items-center gap-1.5">
-                        {(String(activeTicket.assignmentStatus || '').toLowerCase() === 'pending_acceptance' ||
-                          String(activeTicket.status || '').toLowerCase() === 'pending_acceptance') && (
+                        {!ticketClosed && !isTicketAccepted && !isTicketLockedToOther && (
                           <button
                             type="button"
                             disabled={acceptingAssignmentId === (activeTicket.id || activeTicket.ticketId)}
                             onClick={(e) => handleAcceptAssignment(activeTicket.id || activeTicket.ticketId, e)}
-                            className="inline-flex h-8 items-center gap-1 rounded-lg bg-red-600 px-2.5 text-xs font-semibold text-white hover:bg-red-700 cursor-pointer"
+                            className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#1ED760] px-3 text-xs font-semibold text-neutral-950 hover:bg-[#19c354] cursor-pointer"
                           >
                             <UserCheck className="h-3.5 w-3.5" />
-                            Accept Assignment
+                            {acceptingAssignmentId === (activeTicket.id || activeTicket.ticketId) ? 'Accepting...' : 'Accept Ticket'}
                           </button>
                         )}
                         {!isClosedStatus(activeTicket.status) && (
@@ -2137,6 +2196,10 @@ export default function AdminSupportDeskView({
                                 </p>
                               </div>
                             </>
+                          ) : pendingAssigneeId ? (
+                            <span className="font-medium text-amber-600 dark:text-amber-400">
+                              Pending Accept: {pendingAssigneeName || 'Specialist'}
+                            </span>
                           ) : (
                             <span className="font-medium text-neutral-500">Unassigned — Choose Staff</span>
                           )}
@@ -2190,11 +2253,11 @@ export default function AdminSupportDeskView({
                         <button
                           type="button"
                           disabled={assigning || !currentUser?.id}
-                          onClick={() => handleAssignAgent(currentUser?.id)}
+                          onClick={(e) => handleAcceptAssignment(activeTicket.id || activeTicket.ticketId, e)}
                           className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#1ED760]/15 px-2.5 text-[11px] font-semibold text-emerald-800 hover:bg-[#1ED760]/25 disabled:opacity-40 dark:text-[#1ED760]"
                         >
                           <UserCheck className="h-3.5 w-3.5" />
-                          Assign to Me
+                          Accept &amp; Assign to Me
                         </button>
                         {activeAgent && (
                           <button
@@ -2332,7 +2395,7 @@ export default function AdminSupportDeskView({
                   </div>
 
                   {/* Structured Replies Timeline */}
-                  <div className="flex-1 space-y-3 overflow-y-auto p-4 max-h-[48vh]">
+                  <div className="flex-1 space-y-3 overflow-y-auto p-3.5 sm:p-4 min-h-[46dvh] max-h-[60dvh] xl:min-h-[340px] xl:max-h-[48vh]">
                     {/* Original Ticket Description */}
                     {activeTicket.description && (
                       <div className="rounded-xl border border-neutral-200/80 bg-neutral-50/70 p-3.5 dark:border-neutral-800 dark:bg-neutral-900/40">
@@ -2645,64 +2708,108 @@ export default function AdminSupportDeskView({
                           </div>
                         </div>
 
-                        <textarea
-                          rows={4}
-                          value={composerText}
-                          onChange={(e) => setComposerText(e.target.value)}
-                          placeholder={
-                            composerMode === 'internal'
-                              ? 'Write an internal staff-only note (never visible to the customer)...'
-                              : 'Write a public reply to the customer...'
-                          }
-                          className={`w-full rounded-xl border p-3 text-xs outline-none transition ${
-                            composerMode === 'internal'
-                              ? 'border-slate-300 bg-slate-50 text-neutral-900 focus:border-slate-500 dark:border-slate-700 dark:bg-slate-900/60 dark:text-white'
-                              : 'border-neutral-200/80 bg-neutral-50 text-neutral-900 focus:border-[#1ED760] focus:bg-white dark:border-neutral-800 dark:bg-neutral-900 dark:text-white'
-                          }`}
-                        />
+                        {composerMode === 'public' && (isTicketLockedToOther || needsTicketAcceptance) ? (
+                          <div className="rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900 p-3.5 flex flex-wrap items-center justify-between gap-2.5">
+                            <div className="flex items-center gap-2 text-xs text-neutral-700 dark:text-neutral-300">
+                              <Lock className="h-4 w-4 shrink-0 text-[#1ED760]" />
+                              <span>
+                                {isTicketLockedToOther
+                                  ? `Exclusive Lock: Only ${activeTicket.assignedAgentName || 'the assigned specialist'} can post public replies.`
+                                  : pendingAssigneeId && !canAcceptPending
+                                    ? `Assignment requested for ${pendingAssigneeName || 'another specialist'}. Only they can accept and reply.`
+                                    : 'Accept this ticket first to unlock public replies and lock it exclusively to you.'}
+                              </span>
+                            </div>
+                            {needsTicketAcceptance && canAcceptPending && (
+                              <button
+                                type="button"
+                                disabled={acceptingAssignmentId === (activeTicket.id || activeTicket.ticketId)}
+                                onClick={(e) => handleAcceptAssignment(activeTicket.id || activeTicket.ticketId, e)}
+                                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#1ED760] px-3.5 text-xs font-semibold text-black hover:bg-[#19c354] disabled:opacity-50 cursor-pointer"
+                              >
+                                <UserCheck className="h-3.5 w-3.5" />
+                                Accept &amp; Lock Ticket
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <>
+                            <textarea
+                              rows={4}
+                              value={composerText}
+                              onChange={(e) => setComposerText(e.target.value)}
+                              placeholder={
+                                composerMode === 'internal'
+                                  ? 'Write an internal staff-only note (never visible to the customer)...'
+                                  : 'Write a public reply to the customer...'
+                              }
+                              className={`w-full rounded-xl border p-3 text-xs outline-none transition ${
+                                composerMode === 'internal'
+                                  ? 'border-slate-300 bg-slate-50 text-neutral-900 focus:border-slate-500 dark:border-slate-700 dark:bg-slate-900/60 dark:text-white'
+                                  : 'border-neutral-200/80 bg-neutral-50 text-neutral-900 focus:border-[#1ED760] focus:bg-white dark:border-neutral-800 dark:bg-neutral-900 dark:text-white'
+                              }`}
+                            />
 
-                        <div className="flex flex-wrap items-center justify-end gap-2">
-                          {composerMode === 'internal' ? (
-                            <button
-                              type="button"
-                              disabled={!composerText.trim() || sendingReply}
-                              onClick={() => handleSendReply(null)}
-                              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-slate-900 px-4 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-40 dark:bg-slate-200 dark:text-slate-950"
-                            >
-                              <Lock className="h-3.5 w-3.5" />
-                              {sendingReply ? 'Saving...' : 'Add Internal Note'}
-                            </button>
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                disabled={!composerText.trim() || sendingReply}
-                                onClick={() => handleSendReply('Waiting Customer')}
-                                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-neutral-200/80 bg-white px-3 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200"
-                              >
-                                Send &amp; Mark Waiting
-                              </button>
-                              <button
-                                type="button"
-                                disabled={!composerText.trim() || sendingReply}
-                                onClick={() => handleSendReply('Resolved')}
-                                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-500/20 disabled:opacity-40 dark:text-[#1ED760]"
-                              >
-                                <CheckCheck className="h-3.5 w-3.5" />
-                                Send &amp; Resolve
-                              </button>
-                              <button
-                                type="button"
-                                disabled={!composerText.trim() || sendingReply}
-                                onClick={() => handleSendReply('Open')}
-                                className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#1ED760] px-4 text-xs font-semibold text-black hover:bg-[#19c354] disabled:opacity-40"
-                              >
-                                <Send className="h-3.5 w-3.5" />
-                                {sendingReply ? 'Sending...' : 'Send & Keep Open'}
-                              </button>
-                            </>
-                          )}
-                        </div>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              {composerMode === 'public' ? (
+                                <button
+                                  type="button"
+                                  disabled={aiWriting || sendingReply || !composerText.trim()}
+                                  onClick={handleAiWriteTicket}
+                                  title="Polish your draft into a Tiwlo Brand-compliant reply right inside the box so you can review before sending"
+                                  className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#1ED760]/40 bg-[#1ED760]/10 px-3 text-xs font-semibold text-emerald-800 hover:bg-[#1ED760]/20 disabled:opacity-40 dark:text-[#1ED760] cursor-pointer"
+                                >
+                                  <Wand2 className="h-3.5 w-3.5" />
+                                  {aiWriting ? 'AI Writing...' : 'AI Write'}
+                                </button>
+                              ) : (
+                                <span />
+                              )}
+                              <div className="flex flex-wrap items-center justify-end gap-2">
+                              {composerMode === 'internal' ? (
+                                <button
+                                  type="button"
+                                  disabled={!composerText.trim() || sendingReply}
+                                  onClick={() => handleSendReply(null)}
+                                  className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-slate-900 px-4 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-40 dark:bg-slate-200 dark:text-slate-950"
+                                >
+                                  <Lock className="h-3.5 w-3.5" />
+                                  {sendingReply ? 'Saving...' : 'Add Internal Note'}
+                                </button>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled={!composerText.trim() || sendingReply || aiWriting}
+                                    onClick={() => handleSendReply('Waiting Customer')}
+                                    className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-neutral-200/80 bg-white px-3 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200"
+                                  >
+                                    Send &amp; Mark Waiting
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={!composerText.trim() || sendingReply || aiWriting}
+                                    onClick={() => handleSendReply('Resolved')}
+                                    className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-500/20 disabled:opacity-40 dark:text-[#1ED760]"
+                                  >
+                                    <CheckCheck className="h-3.5 w-3.5" />
+                                    Send &amp; Resolve
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={!composerText.trim() || sendingReply || aiWriting}
+                                    onClick={() => handleSendReply('Open')}
+                                    className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#1ED760] px-4 text-xs font-semibold text-black hover:bg-[#19c354] disabled:opacity-40"
+                                  >
+                                    <Send className="h-3.5 w-3.5" />
+                                    {sendingReply ? 'Sending...' : 'Send & Keep Open'}
+                                  </button>
+                                </>
+                              )}
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>

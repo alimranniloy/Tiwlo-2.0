@@ -1171,14 +1171,14 @@ export default function LiveSupportWidget({ currentUser, onNavigateSupport }) {
 
   return (
     <div
-      className={`fixed inset-x-2.5 bottom-2.5 sm:inset-auto sm:bottom-6 sm:right-6 z-50 flex flex-col overflow-hidden rounded-2xl bg-white dark:bg-neutral-950 shadow-2xl transition-all ${
+      className={`fixed inset-0 h-[100dvh] w-full rounded-none border-0 sm:inset-auto sm:bottom-6 sm:right-6 z-50 flex flex-col overflow-hidden sm:rounded-2xl bg-white dark:bg-neutral-950 shadow-2xl transition-all ${
         coBrowseShared
-          ? 'border-2 border-[#1ED760] ring-4 ring-[#1ED760]/20'
-          : 'border border-neutral-200/80 dark:border-neutral-800'
+          ? 'sm:border-2 sm:border-[#1ED760] sm:ring-4 sm:ring-[#1ED760]/20'
+          : 'sm:border sm:border-neutral-200/80 dark:sm:border-neutral-800'
       } ${
         widgetView === 'home' || widgetView === 'guest-gate'
-          ? 'sm:w-[390px] h-[84dvh] sm:h-[570px] max-h-[640px]'
-          : 'sm:w-[420px] h-[88dvh] sm:h-[630px] max-h-[680px]'
+          ? 'sm:w-[390px] sm:h-[580px] sm:max-h-[640px]'
+          : 'sm:w-[420px] sm:h-[640px] sm:max-h-[680px]'
       }`}
     >
       {/* VIEW 1: HOME */}

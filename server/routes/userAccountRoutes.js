@@ -12,8 +12,10 @@ import {
   generateSecureOtp,
   verifySecureOtp,
   sendTwoFactorOtpEmail,
-  sendTiwloEmail
+  sendTiwloEmail,
+  identityVerificationEmailNotifications
 } from '../db/emailService.js';
+import { recordSecurityEvent } from '../db/securityPersistence.js';
 import { renderBaseEmail } from '../email/index.js';
 import { getPlatformUrl } from '../config/platformConfig.js';
 import {
@@ -1419,8 +1421,40 @@ export function createUserAccountRouter(overrides = {}) {
       }
 
       let updatedUser = user;
+      let identityReverificationTriggered = false;
+      const previousNameNorm = String(user.name || '').trim().toLowerCase();
+      const nextNameNorm = updates.name !== undefined ? String(updates.name || '').trim().toLowerCase() : previousNameNorm;
+      const previousDobNorm = user.dateOfBirth ? String(user.dateOfBirth).slice(0, 10) : '';
+      const nextDobNorm = updates.dateOfBirth !== undefined ? String(updates.dateOfBirth || '').slice(0, 10) : previousDobNorm;
+      if (
+        user.identityVerified === true &&
+        user.role !== 'super_admin' &&
+        (nextNameNorm !== previousNameNorm || nextDobNorm !== previousDobNorm)
+      ) {
+        updates.identityVerified = false;
+        updates.identityVerificationRequired = true;
+        identityReverificationTriggered = true;
+      }
+
       if (Object.keys(updates).length > 0) {
         updatedUser = (await deps.masterDb.updateUser(user.id, updates)) || { ...user, ...updates };
+        if (identityReverificationTriggered) {
+          identityVerificationEmailNotifications.required({
+            to: updatedUser.email || user.email,
+            name: updatedUser.name || updatedUser.storeName || 'Tiwlo user',
+            reason: 'Your account display name or date of birth was changed, so re-verification is required with a valid matching ID document.'
+          }).catch(() => {});
+          recordSecurityEvent({
+            eventType: 'account.identity_details_changed_reverify',
+            severity: 'warning',
+            userId: user.id,
+            subject: updatedUser.email || user.email,
+            details: {
+              nameChanged: nextNameNorm !== previousNameNorm,
+              dobChanged: nextDobNorm !== previousDobNorm
+            }
+          }).catch(() => {});
+        }
         const socialFields = {};
         if (updates.name) socialFields.name = updates.name;
         if (updates.avatar) socialFields.avatar = updates.avatar;

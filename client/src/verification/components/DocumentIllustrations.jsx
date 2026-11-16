@@ -2,10 +2,10 @@ import React from 'react';
 
 /**
  * Authentic SVG Illustrations matching the reference design for:
- * 1. Passport (Navy blue cover with gold crest & PASSPORT title)
+ * 1. Passport (Navy/charcoal cover with gold crest & PASSPORT title)
  * 2. National ID Card (Emerald green card with photo, chip & credentials)
- * 3. Aadhaar Card (Indian Aadhaar card with red/orange sunburst emblem)
- * 4. Upload Hero Graphic (Passport + ID card with soft blue backdrop)
+ * 3. Other Document (Government ID / Driver's License / Residence Permit card)
+ * 4. Upload Hero Graphic (Passport + ID card with soft backdrop)
  */
 
 export function PassportIcon({ className = "w-12 h-12" }) {
@@ -70,54 +70,30 @@ export function NationalIdIcon({ className = "w-12 h-12" }) {
   );
 }
 
-export function AadhaarIcon({ className = "w-12 h-12" }) {
+export function OtherDocumentIcon({ className = "w-12 h-12" }) {
   return (
     <div className={`relative flex items-center justify-center shrink-0 ${className}`}>
       <svg viewBox="0 0 54 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-sm">
         {/* Card Base */}
-        <rect x="1" y="1" width="52" height="38" rx="5" fill="#FFFBEB" stroke="#FDE68A" strokeWidth="1" />
+        <rect x="1" y="1" width="52" height="38" rx="5" fill="#F8FAFC" stroke="#CBD5E1" strokeWidth="1" />
 
-        {/* Top Tricolor Strip */}
-        <rect x="2" y="2" width="50" height="3" rx="2" fill="#F97316" />
-        <rect x="2" y="5" width="50" height="2" fill="#FFFFFF" />
-        <rect x="2" y="7" width="50" height="3" fill="#16A34A" />
+        {/* Header Band */}
+        <rect x="2" y="2" width="50" height="7" rx="3" fill="#334155" />
+        <rect x="6" y="4.5" width="18" height="2" rx="1" fill="#E2E8F0" />
+        <circle cx="46" cy="5.5" r="1.5" fill="#1ED760" />
 
-        {/* Aadhaar Sunburst Graphic */}
-        <g transform="translate(14, 23)">
-          {/* Central circle */}
-          <circle cx="0" cy="0" r="3.2" fill="#EA580C" />
-          {/* Sun Rays */}
-          {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((deg, i) => (
-            <line
-              key={i}
-              x1="0"
-              y1="-4"
-              x2="0"
-              y2="-6"
-              stroke="#EA580C"
-              strokeWidth="1"
-              strokeLinecap="round"
-              transform={`rotate(${deg})`}
-            />
-          ))}
-        </g>
+        {/* Portrait Box */}
+        <rect x="5" y="12" width="13" height="17" rx="2" fill="#E2E8F0" />
+        <circle cx="11.5" cy="17.5" r="3.1" fill="#64748B" />
+        <path d="M7.2 27C7.2 24.5 9.1 23 11.5 23C13.9 23 15.8 24.5 15.8 27H7.2Z" fill="#64748B" />
 
-        {/* Text lines simulating Aadhaar number & name */}
-        <rect x="23" y="16" width="24" height="2.2" rx="1" fill="#282828" fillOpacity="0.8" />
-        <rect x="23" y="21" width="18" height="2" rx="1" fill="#727272" fillOpacity="0.7" />
+        {/* Credential Lines */}
+        <rect x="22" y="14" width="24" height="2.4" rx="1.2" fill="#1E293B" fillOpacity="0.85" />
+        <rect x="22" y="19.5" width="18" height="2" rx="1" fill="#64748B" fillOpacity="0.7" />
+        <rect x="22" y="24.5" width="21" height="2" rx="1" fill="#94A3B8" fillOpacity="0.7" />
 
-        {/* Barcode representation */}
-        <g transform="translate(23, 27)">
-          <rect x="0" y="0" width="1" height="5" fill="#3f3f3f" />
-          <rect x="2" y="0" width="1.5" height="5" fill="#3f3f3f" />
-          <rect x="5" y="0" width="0.8" height="5" fill="#3f3f3f" />
-          <rect x="7" y="0" width="2" height="5" fill="#3f3f3f" />
-          <rect x="10.5" y="0" width="1" height="5" fill="#3f3f3f" />
-          <rect x="13" y="0" width="1.8" height="5" fill="#3f3f3f" />
-          <rect x="16" y="0" width="0.8" height="5" fill="#3f3f3f" />
-          <rect x="18" y="0" width="1.5" height="5" fill="#3f3f3f" />
-          <rect x="21" y="0" width="1" height="5" fill="#3f3f3f" />
-        </g>
+        {/* Bottom MRZ / Card Number Strip */}
+        <rect x="5" y="32" width="44" height="2.5" rx="1" fill="#CBD5E1" />
       </svg>
     </div>
   );

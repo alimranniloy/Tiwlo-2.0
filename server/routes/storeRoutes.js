@@ -33,6 +33,10 @@ import {
 } from '../db/storeDataAdapter.js';
 import { generateOtpWithRust, verifyOtpWithRust } from '../security/rustAuthSessionClient.js';
 import { blockBannedDeviceMiddleware } from '../security/freeTierAbuseGuard.js';
+import {
+  evaluateStoreCreationAnomaly,
+  recordAndEvaluatePaymentBillingRisk
+} from '../security/identityVerificationEngine.js';
 import { sendInvoiceEmail, sendSignupVerificationOtpEmail, sendStoreCreatedEmail } from '../db/emailService.js';
 import {
   buildStoreDashboardNotifications,
@@ -2142,6 +2146,20 @@ router.post('/stores', storeCreateLimiter, blockBannedDeviceMiddleware, async (r
       billingDetails,
       request: req
     });
+    evaluateStoreCreationAnomaly({
+      userId,
+      storeName,
+      subdomain: store?.subdomain || subdomain,
+      description,
+      category
+    }).catch(() => {});
+    recordAndEvaluatePaymentBillingRisk({
+      userId,
+      billingEmail: email || billingDetails?.email,
+      billingPhone: phone || billingDetails?.phone,
+      paymentAccountId: billingDetails?.paymentAccountId || billingDetails?.walletNumber || '',
+      cardFingerprint: billingDetails?.cardFingerprint || billingDetails?.last4 || ''
+    }).catch(() => {});
     Promise.resolve().then(async () => {
       const owner = req.activeUser?.email
         ? req.activeUser

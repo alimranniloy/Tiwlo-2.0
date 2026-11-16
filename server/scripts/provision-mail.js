@@ -101,7 +101,7 @@ function getDatabaseMapConfig(connectionString) {
     `dbname = ${values.database}`,
     `user = ${values.username}`,
     `password = ${values.password}`,
-    `query = SELECT 'tiwlo/' FROM system_user_mailboxes WHERE LOWER(address) = LOWER('%s')`
+    `query = SELECT 'tiwlo/' FROM system_user_mailboxes WHERE LOWER(address) = LOWER('%s') UNION ALL SELECT 'tiwlo/' FROM support_ticket_email_threads t JOIN support_tickets st ON (st.id = t.ticket_id OR st.ticket_id = t.ticket_id) WHERE LOWER(t.reply_to_alias) = LOWER('%s') AND LOWER(st.status) <> 'closed' LIMIT 1`
   ];
   const sslMode = url.searchParams.get('sslmode');
   if (sslMode) {

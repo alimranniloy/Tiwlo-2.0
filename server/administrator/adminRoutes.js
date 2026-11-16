@@ -23,12 +23,14 @@ import {
   identityVerificationEmailNotifications
 } from '../db/emailService.js';
 import { RestoreSessions } from '../db/restoreSessions.js';
-import { isPgActive, queryPg, recordPlatformBillingOrder } from '../db/postgres.js';
+import { getPgPool, isPgActive, queryPg, recordPlatformBillingOrder } from '../db/postgres.js';
 import { BillingDB } from '../db/billing.js';
 import { deleteMedia } from '../db/mediaStorage.js';
 import { purgeStoreMediaAssets, syncStoreLifecycleOnPlanChange } from '../db/storeLifecycle.js';
 import { isStoreSubdomainAvailable, normalizeStoreSubdomain } from '../db/storeSubdomain.js';
 import { identityVerificationEvidence } from '../db/identityVerificationEvidence.js';
+import { identityReviewStore } from '../db/identityReviewStore.js';
+import { scanAndNotifyExpiringDocuments } from '../security/identityVerificationEngine.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
 import { requireRecentReauth } from '../security/recentReauth.js';
 import { unblockUserAndSignals } from '../security/freeTierAbuseGuard.js';
@@ -1237,6 +1239,569 @@ router.post('/users/:id/identity-verification/require', requireAdmin, async (req
   } catch (error) {
     console.error('[Admin Identity Verification] Could not require verification:', error);
     return res.status(500).json({ error: 'Could not require identity verification for this account.' });
+  }
+});
+
+const DISPOSABLE_EMAIL_DOMAINS = new Set([
+  'mailinator.com',
+  'tempmail.com',
+  'temp-mail.org',
+  '10minutemail.com',
+  'guerrillamail.com',
+  'yopmail.com',
+  'trashmail.com',
+  'sharklasers.com',
+  'getnada.com',
+  'dispostable.com',
+  'maildrop.cc'
+]);
+
+function normalizeReviewDocumentType(docType) {
+  const clean = String(docType || '').trim().toLowerCase();
+  if (!clean) return null;
+  return clean === 'aadhaar' ? 'other_document' : clean;
+}
+
+function formatDocumentTypeLabel(docType) {
+  const clean = normalizeReviewDocumentType(docType);
+  if (clean === 'passport') return 'Passport';
+  if (clean === 'national_id') return 'National ID';
+  if (clean === 'drivers_license') return "Driver's License";
+  if (clean === 'other_document') return 'Other Document';
+  return 'Identity Document';
+}
+
+async function safeRecordSecurityEvent(payload) {
+  try {
+    const pool = getPgPool();
+    if (!isPgActive() && !pool?.query?.mock) return;
+    await recordSecurityEvent(payload);
+  } catch (error) {
+    console.warn('[Admin Identity Review] Security event skipped:', error.message);
+  }
+}
+
+async function safeFindReviewUser(userId) {
+  if (!userId) return null;
+  try {
+    if (!isPgActive() && !MasterDB.findUserByIdentifier?.mock) return null;
+    return await MasterDB.findUserByIdentifier(userId);
+  } catch {
+    return null;
+  }
+}
+
+async function safeLoadStoresForReviews() {
+  try {
+    if (typeof MasterDB.listAllStores === 'function') {
+      const stores = await MasterDB.listAllStores();
+      return Array.isArray(stores) ? stores : [];
+    }
+    if (isPgActive() || MasterDB.getMasterData?.mock) {
+      const master = await MasterDB.getMasterData();
+      return Array.isArray(master?.stores) ? master.stores : [];
+    }
+  } catch {
+    // Non-fatal fallback
+  }
+  return [];
+}
+
+async function safeLoadUserOrdersCount(userId, userStores = []) {
+  const pool = getPgPool();
+  if (pool && (isPgActive() || pool.query?.mock)) {
+    const queries = [
+      'SELECT COUNT(*)::int AS count FROM orders WHERE user_id = $1',
+      'SELECT COUNT(*)::int AS count FROM system_orders WHERE user_id = $1',
+      'SELECT COUNT(*)::int AS count FROM store_orders WHERE user_id = $1'
+    ];
+    for (const sql of queries) {
+      try {
+        const res = await pool.query(sql, [String(userId)]);
+        const row = res?.rows?.[0];
+        const rawCount = row?.count ?? row?.cnt ?? row?.total;
+        if (rawCount !== undefined && rawCount !== null && Number.isFinite(Number(rawCount))) {
+          return Number(rawCount);
+        }
+      } catch {
+        // Table may not exist in current schema; try next non-fatally
+      }
+    }
+  }
+
+  if (isPgActive() && Array.isArray(userStores) && userStores.length > 0) {
+    let total = 0;
+    for (const store of userStores) {
+      try {
+        const storeId = store.tiwiId || store.id;
+        if (!storeId) continue;
+        const db = await TenantDB.getStoreDb(storeId);
+        if (Array.isArray(db?.sales)) total += db.sales.length;
+      } catch {
+        // Non-fatal
+      }
+    }
+    return total;
+  }
+
+  return 0;
+}
+
+function mergeEvidenceFiles(storedFiles = [], reviewFiles = []) {
+  const byKey = new Map();
+  for (const file of (Array.isArray(reviewFiles) ? reviewFiles : [])) {
+    if (!file) continue;
+    const key = String(file.id || file.storagePath || file.filename || file.originalFilename || randomUUID());
+    byKey.set(key, {
+      id: file.id || null,
+      kind: file.kind || file.category || 'evidence',
+      category: file.category || file.kind || 'evidence',
+      label: file.label || file.name || 'Verification evidence',
+      name: file.name || file.label || 'Verification evidence',
+      filename: file.filename || file.originalFilename || 'evidence',
+      originalFilename: file.originalFilename || file.filename || 'evidence',
+      contentType: file.contentType || 'application/octet-stream',
+      sizeBytes: Number(file.sizeBytes ?? file.size ?? 0),
+      size: Number(file.size ?? file.sizeBytes ?? 0),
+      storagePath: file.storagePath || null,
+      createdAt: file.createdAt || null
+    });
+  }
+  for (const file of (Array.isArray(storedFiles) ? storedFiles : [])) {
+    if (!file) continue;
+    const key = String(file.id || file.storagePath || file.originalFilename || file.filename || randomUUID());
+    const prev = byKey.get(key) || {};
+    byKey.set(key, {
+      ...prev,
+      id: file.id ?? prev.id ?? null,
+      kind: file.kind || file.category || prev.kind || 'evidence',
+      category: file.category || file.kind || prev.category || 'evidence',
+      label: file.label || file.name || prev.label || 'Verification evidence',
+      name: file.name || file.label || prev.name || 'Verification evidence',
+      filename: file.filename || file.originalFilename || prev.filename || 'evidence',
+      originalFilename: file.originalFilename || file.filename || prev.originalFilename || 'evidence',
+      contentType: file.contentType || prev.contentType || 'application/octet-stream',
+      sizeBytes: Number(file.sizeBytes ?? file.size ?? prev.sizeBytes ?? 0),
+      size: Number(file.size ?? file.sizeBytes ?? prev.size ?? 0),
+      storagePath: file.storagePath || prev.storagePath || null,
+      createdAt: file.createdAt || prev.createdAt || null
+    });
+  }
+  return [...byKey.values()];
+}
+
+function buildReviewRiskSummary(review, user, riskIntel, allReviews = []) {
+  let riskScore = Number(riskIntel?.riskScore || 0);
+  const flags = new Set(Array.isArray(riskIntel?.flags) ? riskIntel.flags : []);
+  const riskSignals = new Set(
+    Array.isArray(riskIntel?.matchedSignals)
+      ? riskIntel.matchedSignals
+      : (Array.isArray(riskIntel?.riskSignals) ? riskIntel.riskSignals : [])
+  );
+
+  const linkedAccounts = Array.isArray(riskIntel?.linkedAccounts) ? riskIntel.linkedAccounts : [];
+  if (linkedAccounts.length > 0) {
+    flags.add('MULTI_ACCOUNT_RING');
+  }
+  if (linkedAccounts.some(account => account?.isBanned)) {
+    flags.add('BAN_EVASION_RISK');
+    riskSignals.add('Linked Banned Account');
+  }
+
+  const email = String(user?.email || review.userEmail || '').trim().toLowerCase();
+  const emailDomain = email.includes('@') ? email.split('@')[1] : '';
+  if (emailDomain && DISPOSABLE_EMAIL_DOMAINS.has(emailDomain)) {
+    flags.add('DISPOSABLE_EMAIL');
+    riskSignals.add('Disposable Email Domain');
+    riskScore = Math.min(100, Math.max(riskScore, 35));
+  }
+
+  const telemetry = review.metadata?.telemetry || {};
+  const attestation = review.metadata?.attestation || {};
+  if (
+    telemetry.vpnDetected || telemetry.isVpn || telemetry.proxyDetected || telemetry.isProxy || telemetry.torDetected ||
+    attestation.vpnDetected || attestation.proxyDetected
+  ) {
+    flags.add('VPN_OR_PROXY_NETWORK');
+    riskSignals.add('VPN / Proxy Network');
+    riskScore = Math.min(100, riskScore + 20);
+  }
+
+  const reviewTs = new Date(review.createdAt || 0).getTime();
+  const sameUserRecentAttempts = Number.isFinite(reviewTs) && reviewTs > 0
+    ? allReviews.filter(r =>
+        String(r.userId) === String(review.userId) &&
+        Math.abs(new Date(r.createdAt || 0).getTime() - reviewTs) <= 3600 * 1000
+      ).length
+    : 0;
+  if (sameUserRecentAttempts >= 3 || Number(telemetry.attemptCount || 0) >= 3) {
+    flags.add('RAPID_VERIFICATION_ATTEMPTS');
+    riskSignals.add('Rapid Verification Attempts');
+    riskScore = Math.min(100, riskScore + 15);
+  }
+
+  const riskLevel = riskScore >= 75
+    ? 'critical'
+    : (riskScore >= 50 ? 'high' : (riskScore >= 25 ? 'medium' : 'low'));
+
+  return {
+    riskScore,
+    riskLevel,
+    flags: [...flags],
+    riskSignals: [...riskSignals]
+  };
+}
+
+async function enrichIdentityReviews(reviews, { req, allReviewsForContext = reviews } = {}) {
+  const viewerIsSuperAdmin = isSuperAdminUser(req.adminUser);
+  const uniqueUserIds = [...new Set(reviews.map(r => String(r.userId)).filter(Boolean))];
+
+  let knownUsers = [];
+  try {
+    if (isPgActive() || MasterDB.getUsers?.mock) {
+      knownUsers = await MasterDB.getUsers();
+    }
+  } catch {
+    knownUsers = [];
+  }
+  const usersById = new Map((Array.isArray(knownUsers) ? knownUsers : []).map(u => [String(u.id), u]));
+
+  await Promise.all(
+    uniqueUserIds.map(async (uid) => {
+      if (usersById.has(uid)) return;
+      const found = await safeFindReviewUser(uid);
+      if (found) {
+        usersById.set(uid, found);
+      } else {
+        const sample = reviews.find(r => String(r.userId) === uid);
+        usersById.set(uid, {
+          id: uid,
+          tiwiId: sample?.tiwiId || '',
+          name: sample?.userName || 'Tiwlo user',
+          email: sample?.userEmail || '',
+          role: 'owner'
+        });
+      }
+    })
+  );
+
+  let riskByUserId = {};
+  try {
+    const riskResult = await enrichUsersWithRiskIntel([...usersById.values()], { viewerIsSuperAdmin });
+    riskByUserId = riskResult?.riskByUserId || {};
+  } catch (err) {
+    console.warn('[Admin Identity Reviews] Risk enrichment fallback:', err.message);
+  }
+
+  const allStores = await safeLoadStoresForReviews();
+
+  return Promise.all(
+    reviews.map(async (review) => {
+      const uid = String(review.userId);
+      const user = usersById.get(uid) || null;
+      const normalizedDocType = normalizeReviewDocumentType(review.documentType);
+
+      let userStores = allStores.filter(s => s && (
+        (s.ownerId && String(s.ownerId) === uid) ||
+        (user?.storeId && (String(s.tiwiId) === String(user.storeId) || String(s.id) === String(user.storeId))) ||
+        (user?.tiwiId && (String(s.tiwiId) === String(user.tiwiId) || String(s.id) === String(user.tiwiId))) ||
+        (review.tiwiId && (String(s.tiwiId) === String(review.tiwiId) || String(s.id) === String(review.tiwiId)))
+      ));
+
+      if (userStores.length === 0 && (isPgActive() || MasterDB.getUserStores?.mock)) {
+        try {
+          const directStores = await MasterDB.getUserStores(uid);
+          if (Array.isArray(directStores)) userStores = directStores;
+        } catch {
+          // Non-fatal
+        }
+      }
+
+      const formattedStores = userStores.map(s => ({
+        id: s.id || s.tiwiId,
+        tiwiId: s.tiwiId || s.id,
+        name: s.storeName || s.name || 'Store',
+        subdomain: s.subdomain || null,
+        planId: s.planId || null,
+        status: s.status || null
+      }));
+
+      const ordersCount = await safeLoadUserOrdersCount(uid, formattedStores);
+      const subscriptionPlan =
+        user?.planName ||
+        user?.planId ||
+        review.metadata?.subscriptionPlan ||
+        formattedStores[0]?.planId ||
+        'free';
+
+      let storedEvidence = [];
+      try {
+        const userForEvidence = {
+          id: uid,
+          tiwiId: user?.tiwiId || user?.storeId || review.tiwiId || uid
+        };
+        storedEvidence = await identityVerificationEvidence.listForUser(userForEvidence);
+      } catch {
+        storedEvidence = [];
+      }
+
+      const riskSummary = buildReviewRiskSummary(
+        review,
+        user,
+        riskByUserId[uid] || user?.riskIntelligence || {},
+        allReviewsForContext
+      );
+
+      return {
+        ...review,
+        metadata: {
+          ...(review.metadata || {}),
+          ...(Array.isArray(review.metadata?.duplicateLinkedAccounts)
+            ? { duplicateLinkedAccounts: review.metadata.duplicateLinkedAccounts }
+            : {})
+        },
+        documentType: normalizedDocType,
+        documentTypeLabel: formatDocumentTypeLabel(normalizedDocType),
+        user: user ? {
+          id: user.id,
+          tiwiId: user.tiwiId || user.storeId || review.tiwiId || '',
+          name: user.name || user.storeName || review.userName || 'Tiwlo user',
+          email: user.email || review.userEmail || '',
+          planId: user.planId || 'free',
+          planName: user.planName || user.planId || 'Free Starter',
+          identityVerified: user.identityVerified === true,
+          identityVerificationRequired: user.identityVerificationRequired === true,
+          isBanned: user.isBanned === true
+        } : null,
+        riskSummary,
+        stats: {
+          storesCount: formattedStores.length,
+          stores: formattedStores,
+          ordersCount,
+          subscriptionPlan
+        },
+        evidenceFiles: mergeEvidenceFiles(storedEvidence, review.evidenceFiles)
+      };
+    })
+  );
+}
+
+// GET /api/admin/identity-reviews - List AI fallback & manual identity reviews with risk + account stats
+router.get('/identity-reviews', requireAdmin, async (req, res) => {
+  try {
+    const userIdFilter = typeof req.query.userId === 'string' ? req.query.userId.trim() : '';
+    const allReviews = await identityReviewStore.listReviews({ status: 'all' });
+    const scopedReviews = userIdFilter
+      ? allReviews.filter(r => String(r.userId) === userIdFilter)
+      : allReviews;
+    const counts = {
+      all: scopedReviews.length,
+      pending_review: scopedReviews.filter(r => r.status === 'pending_review').length,
+      accepted: scopedReviews.filter(r => r.status === 'accepted').length,
+      declined: scopedReviews.filter(r => r.status === 'declined').length,
+      permanently_closed: scopedReviews.filter(r => r.status === 'permanently_closed').length
+    };
+
+    let filteredReviews = await identityReviewStore.listReviews({
+      status: req.query.status || 'all',
+      search: req.query.q || req.query.search || ''
+    });
+    if (userIdFilter) {
+      filteredReviews = filteredReviews.filter(r => String(r.userId) === userIdFilter);
+    }
+
+    const reviews = await enrichIdentityReviews(filteredReviews, {
+      req,
+      allReviewsForContext: allReviews
+    });
+
+    return res.json({ success: true, reviews, counts });
+  } catch (error) {
+    console.error('[Admin Identity Reviews] Could not list reviews:', error);
+    return res.status(500).json({ error: 'Identity verification reviews could not be loaded.' });
+  }
+});
+
+// POST /api/admin/identity-reviews/run-expiry-sweep - Automated 30-day document expiry alert & lock sweep
+router.post('/identity-reviews/run-expiry-sweep', requireAdmin, async (req, res) => {
+  try {
+    const daysWindow = Math.max(1, Math.min(90, Number(req.body?.daysWindow) || 30));
+    const result = await scanAndNotifyExpiringDocuments({ daysWindow });
+    await safeRecordSecurityEvent({
+      eventType: 'admin.identity_expiry_sweep_run',
+      severity: 'info',
+      userId: req.adminUser?.id || null,
+      subject: req.adminUser?.email || null,
+      details: { daysWindow, ...result }
+    });
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('[Admin Identity Expiry Sweep] Failed:', error.message);
+    return res.status(503).json({ error: 'Document expiry sweep could not be completed.' });
+  }
+});
+
+// GET /api/admin/identity-reviews/:id - Single enriched identity verification review
+router.get('/identity-reviews/:id', requireAdmin, async (req, res) => {
+  try {
+    const review = await identityReviewStore.getReviewById(req.params.id);
+    if (!review) {
+      return res.status(404).json({
+        error: 'Identity verification review not found.',
+        code: 'REVIEW_NOT_FOUND'
+      });
+    }
+    const [enriched] = await enrichIdentityReviews([review], { req });
+    return res.json({ success: true, review: enriched });
+  } catch (error) {
+    console.error('[Admin Identity Review] Could not load review:', error);
+    return res.status(500).json({ error: 'Identity verification review could not be loaded.' });
+  }
+});
+
+// POST /api/admin/identity-reviews/:id/decision - Accept, decline, or permanently close a review
+router.post('/identity-reviews/:id/decision', requireAdmin, async (req, res) => {
+  try {
+    const rawAction = String(req.body?.action || '').trim().toLowerCase();
+    if (!['accept', 'decline', 'permanently_close', 'request_correction', 'sync_and_accept'].includes(rawAction)) {
+      return res.status(400).json({
+        error: 'Decision action must be accept, decline, request_correction, sync_and_accept, or permanently_close.',
+        code: 'INVALID_REVIEW_ACTION'
+      });
+    }
+
+    const mappedDecisionAction = rawAction === 'sync_and_accept'
+      ? 'accept'
+      : rawAction === 'request_correction'
+        ? 'decline'
+        : rawAction;
+
+    let reason = typeof req.body?.reason === 'string' ? req.body.reason : '';
+    if (rawAction === 'request_correction' && !reason.trim()) {
+      reason = 'Your Tiwlo account name or date of birth did not match your submitted ID card. Please update your profile details during verification and re-submit.';
+    }
+    if (rawAction === 'sync_and_accept' && !reason.trim()) {
+      reason = 'Account profile synced to verified ID document details and approved by administrator.';
+    }
+    const banUser = req.body?.banUser === true;
+    const review = await identityReviewStore.decideReview({
+      reviewId: req.params.id,
+      action: mappedDecisionAction,
+      reason,
+      adminUser: req.adminUser,
+      banUser
+    });
+
+    const user = await safeFindReviewUser(review.userId);
+    const displayName = user?.name || user?.storeName || review.userName || 'Tiwlo user';
+    const recipientEmail = user?.email || review.userEmail || null;
+
+    if (mappedDecisionAction === 'accept') {
+      if (user) {
+        const acceptUpdates = {
+          identityVerified: true,
+          identityVerificationRequired: false
+        };
+        if (rawAction === 'sync_and_accept' && review.extractedData) {
+          if (review.extractedData.fullName) acceptUpdates.name = String(review.extractedData.fullName).trim().slice(0, 120);
+          if (review.extractedData.dateOfBirth && /^\d{4}-\d{2}-\d{2}/.test(String(review.extractedData.dateOfBirth))) {
+            acceptUpdates.dateOfBirth = String(review.extractedData.dateOfBirth).slice(0, 10);
+          }
+        }
+        await MasterDB.updateUser(user.id, acceptUpdates);
+      }
+      if (recipientEmail) {
+        identityVerificationEmailNotifications.completed({
+          to: recipientEmail,
+          name: displayName
+        }).catch(err => console.error('[Identity Verification Complete Email Error]', err.message));
+      }
+      await safeRecordSecurityEvent({
+        eventType: rawAction === 'sync_and_accept' ? 'admin.identity_review_synced_accepted' : 'admin.identity_review_accepted',
+        severity: 'info',
+        userId: user?.id || review.userId,
+        subject: recipientEmail,
+        details: {
+          reviewId: review.id,
+          administrator: req.adminUser.email,
+          reason: review.reviewReason || ''
+        }
+      });
+    } else if (mappedDecisionAction === 'decline') {
+      if (user) {
+        await MasterDB.updateUser(user.id, {
+          identityVerified: false,
+          identityVerificationRequired: true
+        });
+      }
+      if (recipientEmail) {
+        identityVerificationEmailNotifications.required({
+          to: recipientEmail,
+          name: displayName,
+          reason: review.reviewReason || ''
+        }).catch(err => console.error('[Identity Verification Required Email Error]', err.message));
+      }
+      await safeRecordSecurityEvent({
+        eventType: rawAction === 'request_correction' ? 'admin.identity_review_correction_requested' : 'admin.identity_review_declined',
+        severity: 'warning',
+        userId: user?.id || review.userId,
+        subject: recipientEmail,
+        details: {
+          reviewId: review.id,
+          administrator: req.adminUser.email,
+          reason: review.reviewReason || ''
+        }
+      });
+    } else if (mappedDecisionAction === 'permanently_close') {
+      if (user) {
+        const userUpdates = {
+          identityVerified: false,
+          identityVerificationRequired: true
+        };
+        if (banUser) {
+          userUpdates.isBanned = true;
+          userUpdates.banReason = review.reviewReason || 'Identity verification permanently closed.';
+        }
+        await MasterDB.updateUser(user.id, userUpdates);
+      }
+      if (recipientEmail) {
+        identityVerificationEmailNotifications.required({
+          to: recipientEmail,
+          name: displayName,
+          reason: review.reviewReason || 'Your verification case has been permanently closed.'
+        }).catch(() => {});
+      }
+      await safeRecordSecurityEvent({
+        eventType: 'admin.identity_review_permanently_closed',
+        severity: 'warning',
+        userId: user?.id || review.userId,
+        subject: recipientEmail,
+        details: {
+          reviewId: review.id,
+          administrator: req.adminUser.email,
+          reason: review.reviewReason || ''
+        }
+      });
+    }
+
+    const normalizedDocType = normalizeReviewDocumentType(review.documentType);
+    return res.json({
+      success: true,
+      review: {
+        ...review,
+        documentType: normalizedDocType,
+        documentTypeLabel: formatDocumentTypeLabel(normalizedDocType)
+      }
+    });
+  } catch (error) {
+    if (error?.statusCode === 400 || error?.statusCode === 403 || error?.statusCode === 404) {
+      return res.status(error.statusCode).json({
+        error: error.message,
+        code: error.code
+      });
+    }
+    console.error('[Admin Identity Review] Could not record decision:', error);
+    return res.status(500).json({ error: 'Identity verification decision could not be recorded.' });
   }
 });
 

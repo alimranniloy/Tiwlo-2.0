@@ -6,6 +6,7 @@ import DesktopVerificationPage from './DesktopVerificationPage';
 // Step components
 import SelectDocumentStep from './steps/select-document/SelectDocumentStep';
 import UploadDocumentStep from './steps/upload-document/UploadDocumentStep';
+import ConfirmNameStep from './steps/confirm-name/ConfirmNameStep';
 import CaptureSelfieStep from './steps/capture-selfie/CaptureSelfieStep';
 import ProcessingStep from './steps/processing/ProcessingStep';
 import VerificationSuccessStep from './steps/verification-success/VerificationSuccessStep';
@@ -20,6 +21,8 @@ function FlowRouter() {
       const pathname = window.location.pathname.replace(/^\/+|\/+$/g, '');
       if (pathname === 'verification/upload-document') {
         goToStep(STEPS.UPLOAD_DOCUMENT);
+      } else if (pathname === 'verification/confirm-name') {
+        goToStep(STEPS.CONFIRM_NAME);
       } else if (pathname === 'verification/capture-selfie') {
         goToStep(STEPS.CAPTURE_SELFIE);
       } else if (pathname === 'verification/processing') {
@@ -44,6 +47,8 @@ function FlowRouter() {
         return <SelectDocumentStep />;
       case STEPS.UPLOAD_DOCUMENT:
         return <UploadDocumentStep />;
+      case STEPS.CONFIRM_NAME:
+        return <ConfirmNameStep />;
       case STEPS.CAPTURE_SELFIE:
         return <CaptureSelfieStep />;
       case STEPS.PROCESSING:
