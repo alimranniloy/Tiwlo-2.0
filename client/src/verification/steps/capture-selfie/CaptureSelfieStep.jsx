@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
-  Check,
   Loader2,
   RotateCcw,
 } from 'lucide-react';
@@ -23,9 +22,10 @@ const CHALLENGE_LABELS = {
   open_mouth: 'Open your mouth gently',
   blink: 'Blink once',
 };
-const FRAME_INTERVAL_MS = 500;
-const QUALITY_RETRY_MS = 1200;
+const FRAME_INTERVAL_MS = 260;
+const QUALITY_RETRY_MS = 550;
 const FACE_ID_TICK_COUNT = 60;
+const REQUIRED_FULL_FACE_STREAK = 2;
 
 function getTransientRetryDelay(failureCount) {
   return Math.min(1000 * (2 ** Math.max(0, failureCount - 1)), 8000);
@@ -128,6 +128,8 @@ export default function CaptureSelfieStep() {
   const preparingRecorderRef = useRef(false);
   const finishedRef = useRef(false);
   const discardRecordingRef = useRef(false);
+  const consecutiveReadyStreakRef = useRef(0);
+  const consecutivePassportStreakRef = useRef(0);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -225,7 +227,7 @@ export default function CaptureSelfieStep() {
       stopCamera();
       completionTimerRef.current = window.setTimeout(() => {
         nextStep();
-      }, 500);
+      }, 1050);
     }, { once: true });
     if (typeof recorder.requestData === 'function') {
       try {
@@ -277,10 +279,15 @@ export default function CaptureSelfieStep() {
         typeof result.quality?.brightness === 'number' && result.quality.brightness < 35
       );
       if (result.ready) {
-        const selfie = await blobToDataUrl(frame);
-        awaitingFinalSelfieRef.current = false;
-        setAwaitingFinalSelfie(false);
-        completeCapture(selfie);
+        consecutivePassportStreakRef.current += 1;
+        if (consecutivePassportStreakRef.current >= REQUIRED_FULL_FACE_STREAK) {
+          const selfie = await blobToDataUrl(frame);
+          awaitingFinalSelfieRef.current = false;
+          setAwaitingFinalSelfie(false);
+          completeCapture(selfie);
+        }
+      } else {
+        consecutivePassportStreakRef.current = 0;
       }
     } catch (error) {
       if (error.status === 429) {
@@ -544,10 +551,16 @@ export default function CaptureSelfieStep() {
         if (cancelled) return;
         transientFailuresRef.current = 0;
         retryDelayRef.current = QUALITY_RETRY_MS;
-        faceReadyRef.current = result.ready;
-        setFaceGuidance(result.guidance || (result.ready ? 'ready' : 'checking'));
         setLowLightWarning(typeof result.quality?.brightness === 'number' && result.quality.brightness < 35);
         if (result.ready) {
+          consecutiveReadyStreakRef.current += 1;
+        } else {
+          consecutiveReadyStreakRef.current = 0;
+        }
+        const confirmedReady = result.ready && consecutiveReadyStreakRef.current >= REQUIRED_FULL_FACE_STREAK;
+        faceReadyRef.current = confirmedReady;
+        setFaceGuidance(confirmedReady ? 'ready' : (result.guidance || 'checking'));
+        if (confirmedReady) {
           setFaceReady(true);
           startRecording();
           return;
@@ -602,6 +615,8 @@ export default function CaptureSelfieStep() {
     setIsRecording(false);
     setFaceReady(false);
     faceReadyRef.current = false;
+    consecutiveReadyStreakRef.current = 0;
+    consecutivePassportStreakRef.current = 0;
     awaitingFinalSelfieRef.current = false;
     setAwaitingFinalSelfie(false);
     setFaceIdCompleted(false);
@@ -807,11 +822,52 @@ export default function CaptureSelfieStep() {
                   />
                 )}
 
-                {/* Clean White Emerald Checkmark on Completion */}
+                {/* Apple iPhone Face ID Smooth Completion Animation */}
                 {faceIdCompleted && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 backdrop-blur-xs animate-[fadeIn_200ms_ease-out]">
-                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#1ED760]/15 ring-2 ring-[#1ED760]">
-                      <Check className="h-10 w-10 text-[#159f46]" strokeWidth={3} />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/95 backdrop-blur-xs">
+                    <style>{`
+                      @keyframes tiwloFaceIdPop {
+                        0% { transform: scale(0.76); opacity: 0; }
+                        55% { transform: scale(1.06); opacity: 1; }
+                        100% { transform: scale(1); opacity: 1; }
+                      }
+                      @keyframes tiwloFaceIdCircle {
+                        to { stroke-dashoffset: 0; }
+                      }
+                      @keyframes tiwloFaceIdCheck {
+                        to { stroke-dashoffset: 0; }
+                      }
+                    `}</style>
+                    <div
+                      className="flex h-24 w-24 items-center justify-center rounded-full"
+                      style={{ animation: 'tiwloFaceIdPop 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards' }}
+                    >
+                      <svg viewBox="0 0 80 80" className="h-24 w-24" aria-hidden="true">
+                        <circle
+                          cx="40"
+                          cy="40"
+                          r="34"
+                          fill="rgba(30, 215, 96, 0.08)"
+                          stroke="#1ED760"
+                          strokeWidth="3.5"
+                          strokeDasharray="214"
+                          strokeDashoffset="214"
+                          strokeLinecap="round"
+                          transform="rotate(-90 40 40)"
+                          style={{ animation: 'tiwloFaceIdCircle 480ms cubic-bezier(0.22, 1, 0.36, 1) forwards' }}
+                        />
+                        <path
+                          d="M25.5 41.5 L35.5 51.5 L55 30.5"
+                          fill="none"
+                          stroke="#1ED760"
+                          strokeWidth="4.2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeDasharray="48"
+                          strokeDashoffset="48"
+                          style={{ animation: 'tiwloFaceIdCheck 320ms 240ms cubic-bezier(0.22, 1, 0.36, 1) forwards' }}
+                        />
+                      </svg>
                     </div>
                   </div>
                 )}

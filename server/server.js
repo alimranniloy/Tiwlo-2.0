@@ -63,6 +63,7 @@ import { ensureAiKeyPoolSchema } from './support/ai/aiKeyPoolService.js';
 import { ensureLiveVisitorSchema } from './analytics/liveVisitorService.js';
 import { getDefaultLiveChatQueueService } from './support/liveChatQueueService.js';
 import { startSupportAutomationScheduler } from './support/ticketingService.js';
+import { warmupFaceLivenessEngine } from './security/faceLivenessEngine.js';
 import { startAutomatedLogRetentionScheduler } from './db/logRotationService.js';
 import { ensureServiceSubscriptionsSchema } from './db/serviceSubscriptions.js';
 import whatsappRoutes from './whatsapp/whatsappRoutes.js';
@@ -857,6 +858,14 @@ async function startServer() {
     });
   }
   serverStarted = true;
+
+  warmupFaceLivenessEngine()
+    .then(() => {
+      console.log('🧠 Node.js 3D Face Verification Engine (@vladmandic/human WASM) loaded automatically.');
+    })
+    .catch((err) => {
+      console.warn('⚠️ Local Node.js Face Engine pre-warm skipped:', err.message);
+    });
 }
 
 startServer().catch((err) => {

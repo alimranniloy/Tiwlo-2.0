@@ -18,6 +18,7 @@ import {
   normalizeDocumentType,
   normalizeIsoDate
 } from '../security/geminiIdentityVerifier.js';
+import { faceLivenessEngine } from '../security/faceLivenessEngine.js';
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_RECORDING_BYTES = 30 * 1024 * 1024;
@@ -613,7 +614,8 @@ async function handleDuplicateDocumentCheck({
  */
 export function createVerificationRouter({
   geminiVerifier = geminiIdentityVerifier,
-  reviewStore = null
+  reviewStore = null,
+  faceEngine = faceLivenessEngine
 } = {}) {
   const router = express.Router();
   const livenessSessions = new Map();
@@ -971,6 +973,7 @@ export function createVerificationRouter({
         lastFrameThumb: null,
         frameEntropies: [],
         frameDeltas: [],
+        poseState: {},
         expiresAt: Date.now() + LIVENESS_SESSION_TTL_MS
       });
 
@@ -1043,6 +1046,7 @@ export function createVerificationRouter({
         const currentIndex = session.stepIndex;
         const challengeType = session.challenges[currentIndex];
         const frameMime = req.file?.mimetype || (frame.format === 'png' ? 'image/png' : frame.format === 'webp' ? 'image/webp' : 'image/jpeg');
+        let resolvedPose = null;
 
         if (typeof geminiVerifier.verifyLivenessChallengeFrameWithGemini === 'function') {
           const visionCheck = await geminiVerifier.verifyLivenessChallengeFrameWithGemini({
@@ -1050,45 +1054,56 @@ export function createVerificationRouter({
             mimeType: frameMime,
             challengeType
           });
-
           if (visionCheck && visionCheck.fallback === false) {
-            if (!visionCheck.faceDetected) {
-              session.failedFrameCount += 1;
-              return res.status(200).json({
-                challenge_index: currentIndex,
-                complete: false,
-                action_detected: false,
-                faceDetected: false,
-                guidance: visionCheck.guidance || 'no_face',
-                challenge_type: challengeType,
-                challengeType,
-                passed: false,
-                challengesRemaining: Math.max(0, session.challenges.length - session.stepIndex),
-                state: 'in_progress',
-                quality: {
-                  brightness: frame.brightness,
-                  sharpness: frame.sharpness
-                }
-              });
-            }
-            if (!visionCheck.actionDetected) {
-              return res.status(200).json({
-                challenge_index: currentIndex,
-                complete: false,
-                action_detected: false,
-                faceDetected: true,
-                guidance: visionCheck.guidance || 'perform_action',
-                challenge_type: challengeType,
-                challengeType,
-                passed: false,
-                challengesRemaining: Math.max(0, session.challenges.length - session.stepIndex),
-                state: 'in_progress',
-                quality: {
-                  brightness: frame.brightness,
-                  sharpness: frame.sharpness
-                }
-              });
-            }
+            resolvedPose = visionCheck;
+          }
+        }
+
+        if (!resolvedPose && faceEngine && typeof faceEngine.verifyActiveChallengeFrame === 'function') {
+          resolvedPose = await faceEngine.verifyActiveChallengeFrame({
+            frameBuffer: req.file.buffer,
+            challengeType,
+            sessionState: session.poseState || (session.poseState = {})
+          });
+        }
+
+        if (resolvedPose) {
+          if (!resolvedPose.faceDetected) {
+            session.failedFrameCount += 1;
+            return res.status(200).json({
+              challenge_index: currentIndex,
+              complete: false,
+              action_detected: false,
+              faceDetected: false,
+              guidance: resolvedPose.guidance || 'no_face',
+              challenge_type: challengeType,
+              challengeType,
+              passed: false,
+              challengesRemaining: Math.max(0, session.challenges.length - session.stepIndex),
+              state: 'in_progress',
+              quality: {
+                brightness: frame.brightness,
+                sharpness: frame.sharpness
+              }
+            });
+          }
+          if (!resolvedPose.actionDetected) {
+            return res.status(200).json({
+              challenge_index: currentIndex,
+              complete: false,
+              action_detected: false,
+              faceDetected: true,
+              guidance: resolvedPose.guidance || 'perform_action',
+              challenge_type: challengeType,
+              challengeType,
+              passed: false,
+              challengesRemaining: Math.max(0, session.challenges.length - session.stepIndex),
+              state: 'in_progress',
+              quality: {
+                brightness: frame.brightness,
+                sharpness: frame.sharpness
+              }
+            });
           }
         }
 
@@ -1169,6 +1184,21 @@ export function createVerificationRouter({
           }
         }
 
+        if (faceEngine && typeof faceEngine.inspectFullFaceFrame === 'function') {
+          const localQuality = await faceEngine.inspectFullFaceFrame({
+            frameBuffer: req.file.buffer,
+            requirePassportFraming
+          });
+          return res.json({
+            ready: Boolean(localQuality.ready),
+            faceDetected: Boolean(localQuality.faceDetected),
+            fullFaceVisible: Boolean(localQuality.fullFaceVisible),
+            passportQuality: Boolean(localQuality.passportQuality),
+            guidance: localQuality.ready ? null : (localQuality.guidance || 'no_face'),
+            quality
+          });
+        }
+
         return res.json({
           ready: true,
           guidance: null,
@@ -1182,6 +1212,31 @@ export function createVerificationRouter({
       }
     }
   );
+
+  router.get('/review-status', requireIdentityVerificationUser, sendNoStore, async (req, res) => {
+    try {
+      const store = await resolveReviewStore();
+      const userId = req.activeUser?.id;
+      let latest = null;
+      if (store?.listReviews && userId) {
+        const result = await store.listReviews({ userId, limit: 1 });
+        latest = Array.isArray(result?.reviews) ? result.reviews[0] || null : null;
+      }
+      return res.json({
+        success: true,
+        identityVerified: req.activeUser?.identityVerified === true,
+        identityVerificationRequired: req.activeUser?.identityVerificationRequired === true,
+        reviewStatus: latest
+          ? (latest.isPermanentlyClosed ? 'permanently_closed' : (latest.status || null))
+          : null,
+        reviewId: latest?.id || null,
+        reviewReason: latest?.reviewReason || null,
+        submittedAt: latest?.createdAt || null
+      });
+    } catch {
+      return res.status(503).json({ error: 'Verification status is temporarily unavailable.' });
+    }
+  });
 
   router.delete(
     '/liveness/:sessionId',

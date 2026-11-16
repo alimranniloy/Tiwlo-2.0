@@ -1,6 +1,7 @@
 import express from 'express';
 import crypto from 'node:crypto';
 import { MasterDB } from '../db/multiTenant.js';
+import { identityReviewStore } from '../db/identityReviewStore.js';
 import { hasUnverifiedSsoIdentity } from '../security/authGuards.js';
 import {
   BruteForceShield,
@@ -2618,6 +2619,23 @@ router.get('/auth/me', async (req, res) => {
     const tiwiId = freshUser.tiwiId || freshUser.storeId || null;
     migrateSessionCookie(res, req, token);
 
+    let identityReviewFields = { identityReviewStatus: null, identityReviewId: null, identityReviewReason: null };
+    if (freshUser.identityVerificationRequired === true && freshUser.identityVerified !== true) {
+      try {
+        const resReviews = await identityReviewStore.listReviews({ userId: freshUser.id, limit: 1 });
+        const latestRev = Array.isArray(resReviews?.reviews) ? resReviews.reviews[0] : null;
+        if (latestRev) {
+          identityReviewFields = {
+            identityReviewStatus: latestRev.isPermanentlyClosed ? 'permanently_closed' : (latestRev.status || null),
+            identityReviewId: latestRev.id || null,
+            identityReviewReason: latestRev.reviewReason || null
+          };
+        }
+      } catch {
+        // Non-fatal lookup
+      }
+    }
+
     res.json({
       success: true,
       authenticated: true,
@@ -2635,6 +2653,7 @@ router.get('/auth/me', async (req, res) => {
         email: freshUser.email,
         identityVerified: freshUser.identityVerified === true,
         identityVerificationRequired: freshUser.identityVerificationRequired === true,
+        ...identityReviewFields,
         addressVerified: freshUser.addressVerified === true,
         role: freshUser.role || 'owner',
         authMethod: freshUser.authMethod || 'credentials',
@@ -2686,6 +2705,23 @@ router.get('/auth/sync-session', async (req, res) => {
     const tiwiId = freshUser.tiwiId || freshUser.storeId || null;
     migrateSessionCookie(res, req, token);
 
+    let syncReviewFields = { identityReviewStatus: null, identityReviewId: null, identityReviewReason: null };
+    if (freshUser.identityVerificationRequired === true && freshUser.identityVerified !== true) {
+      try {
+        const resReviews = await identityReviewStore.listReviews({ userId: freshUser.id, limit: 1 });
+        const latestRev = Array.isArray(resReviews?.reviews) ? resReviews.reviews[0] : null;
+        if (latestRev) {
+          syncReviewFields = {
+            identityReviewStatus: latestRev.isPermanentlyClosed ? 'permanently_closed' : (latestRev.status || null),
+            identityReviewId: latestRev.id || null,
+            identityReviewReason: latestRev.reviewReason || null
+          };
+        }
+      } catch {
+        // Non-fatal lookup
+      }
+    }
+
     res.json({
       success: true,
       authenticated: true,
@@ -2703,6 +2739,7 @@ router.get('/auth/sync-session', async (req, res) => {
         email: freshUser.email,
         identityVerified: freshUser.identityVerified === true,
         identityVerificationRequired: freshUser.identityVerificationRequired === true,
+        ...syncReviewFields,
         addressVerified: freshUser.addressVerified === true,
         role: freshUser.role || 'owner',
         authMethod: freshUser.authMethod || 'credentials',

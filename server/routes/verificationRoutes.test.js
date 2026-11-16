@@ -57,7 +57,7 @@ function createMockReviewStore() {
   };
 }
 
-async function createClient(t, { geminiVerifier, reviewStore } = {}) {
+async function createClient(t, { geminiVerifier, reviewStore, faceEngine = null } = {}) {
   const clientIp = `198.51.100.${nextTestIp++}`;
   const app = express();
   app.use(express.json());
@@ -72,7 +72,21 @@ async function createClient(t, { geminiVerifier, reviewStore } = {}) {
     }
     next();
   });
-  const router = createVerificationRouter({ geminiVerifier, reviewStore });
+  const effectiveFaceEngine = faceEngine === 'real'
+    ? undefined
+    : (faceEngine || {
+        async inspectFullFaceFrame() {
+          return { ok: true, ready: true, faceDetected: true, fullFaceVisible: true, passportQuality: true, guidance: 'ready' };
+        },
+        async verifyActiveChallengeFrame() {
+          return { ok: true, faceDetected: true, fullFaceVisible: true, actionDetected: true, guidance: 'passed' };
+        }
+      });
+  const router = createVerificationRouter({
+    geminiVerifier,
+    reviewStore,
+    ...(effectiveFaceEngine ? { faceEngine: effectiveFaceEngine } : {})
+  });
   app.use('/api/verification', router);
   const server = app.listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
@@ -1242,4 +1256,76 @@ test('liveness quality & challenge frames block empty/no-face frames and enforce
   });
   const passJson = await passRes.json();
   assert.equal(passJson.isMatch, true);
+});
+
+test('real Node.js faceLivenessEngine rejects no-face frames and GET /review-status preserves pending manual review across refresh', async t => {
+  mockIdentityCompletion(t, {
+    id: 'user-review-persist',
+    name: 'Imran Khan',
+    identityVerificationRequired: true,
+    identityVerified: false
+  });
+
+  const stored = [
+    {
+      id: 'rev-pending-99',
+      userId: 'user-review-persist',
+      status: 'pending_review',
+      isPermanentlyClosed: false,
+      reviewReason: null,
+      createdAt: '2026-11-16T10:00:00.000Z'
+    }
+  ];
+
+  const reviewStore = {
+    async listReviews({ userId }) {
+      const reviews = stored.filter(r => String(r.userId) === String(userId));
+      return { reviews, total: reviews.length };
+    }
+  };
+
+  // Use the REAL Node.js @vladmandic/human faceLivenessEngine (not mocked)
+  const call = await createClient(t, { faceEngine: 'real', reviewStore });
+
+  // 1) Real face engine MUST return ready: false, faceDetected: false on a non-face wall/pattern image
+  const noFaceForm = new FormData();
+  noFaceForm.append('frame', new Blob([await createImage(320, 240, 7)], { type: 'image/png' }), 'wall.png');
+  const qRes = await call('/api/verification/liveness/quality?mode=passport', {
+    method: 'POST',
+    headers: { 'x-user-id': 'user-review-persist' },
+    body: noFaceForm
+  });
+  assert.equal(qRes.status, 200);
+  const qJson = await qRes.json();
+  assert.equal(qJson.ready, false);
+  assert.equal(qJson.faceDetected, false);
+  assert.equal(qJson.guidance, 'no_face');
+
+  // 2) Active challenge frame without face MUST NOT pass or advance
+  const sRes = await call('/api/verification/liveness/session', {
+    method: 'POST',
+    headers: { 'x-user-id': 'user-review-persist' }
+  });
+  const sJson = await sRes.json();
+  const fForm = new FormData();
+  fForm.append('frame', new Blob([await createImage(320, 240, 8)], { type: 'image/png' }), 'empty.png');
+  const fRes = await call(`/api/verification/liveness/${sJson.session_id}/frame`, {
+    method: 'POST',
+    headers: { 'x-user-id': 'user-review-persist' },
+    body: fForm
+  });
+  assert.equal(fRes.status, 200);
+  const fJson = await fRes.json();
+  assert.equal(fJson.passed, false);
+  assert.equal(fJson.faceDetected, false);
+  assert.equal(fJson.complete, false);
+
+  // 3) GET /api/verification/review-status returns pending_review across refresh
+  const statusRes = await call('/api/verification/review-status', {
+    headers: { 'x-user-id': 'user-review-persist' }
+  });
+  assert.equal(statusRes.status, 200);
+  const statusJson = await statusRes.json();
+  assert.equal(statusJson.reviewStatus, 'pending_review');
+  assert.equal(statusJson.reviewId, 'rev-pending-99');
 });

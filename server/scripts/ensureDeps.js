@@ -24,6 +24,16 @@ try {
   ensureNodeModules(rootDir, 'root');
   ensureNodeModules(serverDir, 'server', process.env.NODE_ENV === 'production');
 
+  const humanCheck = resolve(serverDir, 'node_modules', '@vladmandic', 'human', 'dist', 'human.node-wasm.js');
+  const wasmCheck = resolve(serverDir, 'node_modules', '@tensorflow', 'tfjs-backend-wasm', 'dist');
+  if (!existsSync(humanCheck) || !existsSync(wasmCheck)) {
+    console.log('[Tiwlo Startup] Installing local Node.js face detection packages...');
+    const flag = process.env.NODE_ENV === 'production' ? ' --omit=dev' : '';
+    execSync(`npm --prefix "${serverDir}" install${flag} --no-audit --no-fund`, {
+      stdio: 'inherit'
+    });
+  }
+
   try {
     execSync('ffmpeg -version', { stdio: 'ignore' });
   } catch {
