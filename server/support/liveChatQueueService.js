@@ -516,10 +516,12 @@ export function createLiveChatQueueService({
   }
 
   function mapMessageRow(row) {
+    const senderType = row.sender_type ?? row.senderType;
     return {
       id: row.id,
       chatId: row.chat_id ?? row.chatId,
-      senderType: row.sender_type ?? row.senderType,
+      senderType,
+      senderRole: senderType === 'staff' ? 'agent' : senderType,
       senderId: row.sender_id ?? row.senderId ?? null,
       senderName: row.sender_name ?? row.senderName ?? 'Support',
       body: row.body,
@@ -530,19 +532,30 @@ export function createLiveChatQueueService({
   function sanitizeChatForCustomer(chat) {
     if (!chat) return null;
     // IMPORTANT: Never expose internal staff role, agent email, IP/device hashes, or collusion forensics to customer!
+    const coBrowsing = chat.coBrowsingState || { enabled: false };
     return {
       id: chat.id,
       chatNumber: chat.chatNumber,
+      serialNumber: chat.chatNumber,
       status: chat.status,
       topic: chat.topic,
       department: chat.department,
+      assignedAgentName: chat.assignedAgentName || null,
       assignedAgent: chat.assignedAgentId
         ? {
             id: chat.assignedAgentId,
             displayName: chat.assignedAgentName || 'Support Specialist'
           }
         : null,
-      coBrowsing: chat.coBrowsingState || { enabled: false },
+      coBrowsing,
+      coBrowseConsent: Boolean(coBrowsing.enabled),
+      coBrowseGuide:
+        coBrowsing.enabled && (coBrowsing.agentGuidanceNote || coBrowsing.highlightSelector)
+          ? {
+              note: coBrowsing.agentGuidanceNote || '',
+              selector: coBrowsing.highlightSelector || ''
+            }
+          : null,
       joinedAt: chat.joinedAt,
       acceptedAt: chat.acceptedAt,
       heldAt: chat.heldAt,
@@ -894,9 +907,9 @@ export function createLiveChatQueueService({
 
     const isAuthed = Boolean(authUser?.id);
     if (!isAuthed) {
-      const nameClean = String(guestName || guestSession?.guestName || '').trim();
-      const emailClean = String(guestEmail || guestSession?.guestEmail || '').trim();
-      const phoneClean = String(guestPhone || guestSession?.guestPhone || '').trim();
+      const nameClean = String(guestName || guestSession?.guestName || guestSession?.visitorName || guestSession?.name || '').trim();
+      const emailClean = String(guestEmail || guestSession?.guestEmail || guestSession?.visitorEmail || guestSession?.email || '').trim();
+      const phoneClean = String(guestPhone || guestSession?.guestPhone || guestSession?.visitorPhone || guestSession?.phone || '').trim();
       if (nameClean.length < 2 || !emailClean.includes('@') || phoneClean.replace(/\D/g, '').length < 6) {
         throw new LiveChatQueueError('Guest full name, email address, and phone number are required before starting live chat.', {
           statusCode: 400,
@@ -1380,7 +1393,7 @@ export function createLiveChatQueueService({
       await queryPgFn(
         `UPDATE support_live_chat_requests
          SET staff_messages_count = staff_messages_count + 1,
-             first_response_ms = CASE WHEN first_response_ms IS NULL THEN $2 ELSE first_response_ms END,
+             first_response_ms = CASE WHEN first_response_ms IS NULL THEN $2::int ELSE first_response_ms END,
              awaiting_customer_since = NULL,
              last_message_at = $3,
              updated_at = $3

@@ -14,8 +14,10 @@ import { securityLimiters } from '../../plugins/security/index.js';
 import { isSuperAdminAccount } from '../../administrator/identityRiskGraph.js';
 import {
   defaultTicketingService,
+  GUEST_SUPPORT_COOKIE,
   setGuestSupportCookie,
   clearGuestSupportCookie,
+  validateGuestContact,
   SupportServiceError
 } from '../ticketingService.js';
 import {
@@ -154,8 +156,31 @@ export function createSupportRouter(deps = {}) {
           error: 'Guest support sessions are currently disabled.'
         });
       }
+      const body = req.body || {};
+      const guestName = body.guestName ?? body.name ?? body.fullName ?? body.visitorName ?? body.userName;
+      const guestEmail = body.guestEmail ?? body.email ?? body.visitorEmail;
+      const guestPhone = body.guestPhone ?? body.phone ?? body.visitorPhone;
+      const existingGuest = await ticketing.resolveGuestSessionFromRequest(req);
+      const requestedEmail = String(guestEmail || '').trim().toLowerCase();
+      if (
+        existingGuest &&
+        requestedEmail &&
+        String(existingGuest.visitorEmail || '').trim().toLowerCase() === requestedEmail
+      ) {
+        validateGuestContact({ guestName, guestEmail, guestPhone });
+        const existingRawToken =
+          req?.cookies?.[GUEST_SUPPORT_COOKIE] ||
+          req?.headers?.['x-guest-support-token'] ||
+          null;
+        if (existingRawToken) {
+          setGuestSupportCookie(res, existingRawToken, req);
+        }
+        return res.status(200).json({ success: true, guestSession: existingGuest, reused: true });
+      }
       const { session, rawToken } = await ticketing.createOrUpdateGuestSession({
-        ...(req.body || {}),
+        guestName,
+        guestEmail,
+        guestPhone,
         req
       });
       setGuestSupportCookie(res, rawToken, req);
@@ -486,16 +511,137 @@ export function createSupportRouter(deps = {}) {
     }
   );
 
+  function mapTicketMessageToConvMessage(tm) {
+    const senderTypeLower = String(tm?.senderType || tm?.senderRole || '').toLowerCase();
+    const isCustomer = ['user', 'customer', 'guest', 'requester'].includes(senderTypeLower);
+    const isBot = senderTypeLower === 'bot' || senderTypeLower === 'ai';
+    const isSystem = senderTypeLower === 'system';
+    const ts = tm?.createdAt || tm?.timestamp || new Date().toISOString();
+    const parsedTs = Date.parse(ts);
+    const timeStr = Number.isFinite(parsedTs)
+      ? new Date(parsedTs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : 'Just now';
+
+    return {
+      id: tm.id,
+      ticketMessageId: tm.id,
+      sender: isCustomer ? 'user' : isSystem ? 'system' : 'agent',
+      senderType: senderTypeLower || (isCustomer ? 'user' : 'agent'),
+      isBot,
+      isSystemNotice: isSystem,
+      agentName: isCustomer
+        ? undefined
+        : isBot
+          ? (tm.senderName || 'Tiwi AI Assistant')
+          : (tm.senderName || 'Support Specialist'),
+      avatar: tm.senderAvatar || null,
+      text: tm.message ?? tm.body ?? tm.text ?? '',
+      attachments: Array.isArray(tm.attachments) ? tm.attachments : [],
+      editedAt: tm.editedAt || null,
+      time: timeStr,
+      timestamp: ts
+    };
+  }
+
+  async function enrichConversationWithTicket(conv, { authUser, guestSession }) {
+    if (!conv || !conv.ticketId) return conv;
+    try {
+      const detail = await ticketing.getTicketDetail(conv.ticketId, {
+        viewerType: authUser ? 'customer' : 'guest',
+        authUser,
+        guestSession
+      });
+      const publicTicketMessages = (Array.isArray(detail?.messages) ? detail.messages : [])
+        .filter((m) => !m.isInternal && m.visibility !== 'internal');
+
+      const baseMessages = Array.isArray(conv.messages) ? conv.messages.map((m) => ({ ...m })) : [];
+      const normalizeBody = (v) => String(v || '').trim().replace(/\s+/g, ' ');
+      const roleGroup = (m) => {
+        const s = String(m?.senderType || m?.sender || '').toLowerCase();
+        if (['user', 'customer', 'guest', 'requester'].includes(s)) return 'user';
+        if (s === 'system' || m?.isSystemNotice) return 'system';
+        return 'agent';
+      };
+
+      for (const tm of publicTicketMessages) {
+        const mapped = mapTicketMessageToConvMessage(tm);
+        const mappedBody = normalizeBody(mapped.text);
+        const mappedTs = Date.parse(mapped.timestamp || 0) || 0;
+
+        const existingById = baseMessages.find(
+          (m) => (m.id && m.id === tm.id) || (m.ticketMessageId && m.ticketMessageId === tm.id)
+        );
+        if (existingById) {
+          existingById.text = mapped.text;
+          existingById.editedAt = mapped.editedAt;
+          if (!existingById.agentName && mapped.agentName) existingById.agentName = mapped.agentName;
+          if (!existingById.senderType && mapped.senderType) existingById.senderType = mapped.senderType;
+          continue;
+        }
+
+        const duplicate = baseMessages.find((m) => {
+          if (roleGroup(m) !== roleGroup(mapped)) return false;
+          if (normalizeBody(m.text ?? m.body ?? m.message) !== mappedBody) return false;
+          const mTs = Date.parse(m.timestamp || m.createdAt || 0) || 0;
+          if (!mTs || !mappedTs) return true;
+          return Math.abs(mTs - mappedTs) < 120000;
+        });
+        if (duplicate) {
+          if (!duplicate.ticketMessageId) duplicate.ticketMessageId = tm.id;
+          continue;
+        }
+
+        baseMessages.push(mapped);
+      }
+
+      baseMessages.sort((a, b) => {
+        const ta = Date.parse(a.timestamp || a.createdAt || 0) || 0;
+        const tb = Date.parse(b.timestamp || b.createdAt || 0) || 0;
+        if (ta && tb && ta !== tb) return ta - tb;
+        return 0;
+      });
+
+      const lastMsg = baseMessages[baseMessages.length - 1];
+      return {
+        ...conv,
+        serialNumber: detail?.ticket?.serialNumber || conv.serialNumber,
+        ticketStatus: detail?.ticket?.status || conv.ticketStatus,
+        assignedAgentName: detail?.ticket?.assignedAgentName ?? conv.assignedAgentName ?? null,
+        messages: baseMessages,
+        lastMessage: lastMsg?.text || conv.lastMessage,
+        time: lastMsg?.time || conv.time
+      };
+    } catch {
+      return conv;
+    }
+  }
+
   // 4. Conversations API: GET conversations strictly filtered by verified user or guest session
   router.get('/conversations', async (req, res) => {
     try {
       const { authUser, guestSession } = await resolveSupportRequester(req, res, { allowInlineGuestContact: false });
       const db = await SupportDB.getAllData();
+      const ownedTickets = await ticketing.listTicketsForRequester({ authUser, guestSession }).catch(() => []);
+      const ownedTicketIds = new Set();
+      for (const t of ownedTickets || []) {
+        if (t?.id) ownedTicketIds.add(t.id);
+        if (t?.ticketId) ownedTicketIds.add(t.ticketId);
+      }
+
       const userConvs = (db.conversations || []).filter((c) => {
-        if (authUser) return userMatchesRecord(authUser, c.userId);
-        return Boolean(guestSession && c.guestSessionId === guestSession.id);
+        if (authUser) {
+          return userMatchesRecord(authUser, c.userId) || Boolean(c.ticketId && ownedTicketIds.has(c.ticketId));
+        }
+        return Boolean(
+          guestSession &&
+          (c.guestSessionId === guestSession.id || (c.ticketId && ownedTicketIds.has(c.ticketId)))
+        );
       });
-      res.json({ success: true, conversations: userConvs });
+
+      const enriched = await Promise.all(
+        userConvs.map((c) => enrichConversationWithTicket(c, { authUser, guestSession }))
+      );
+      res.json({ success: true, conversations: enriched });
     } catch (err) {
       handleRouteError(res, err, 'Failed to fetch conversations');
     }

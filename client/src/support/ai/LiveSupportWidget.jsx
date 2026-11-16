@@ -49,6 +49,24 @@ function normalizeStatus(status) {
   return s || 'open';
 }
 
+function normalizeGuestSession(sess) {
+  if (!sess) return null;
+  const name = sess.visitorName || sess.name || sess.fullName || '';
+  const email = sess.visitorEmail || sess.email || '';
+  const phone = sess.visitorPhone || sess.phone || '';
+  if (!email && !sess.verified && !sess.id) return null;
+  return {
+    ...sess,
+    visitorName: name,
+    visitorEmail: email,
+    visitorPhone: phone,
+    name,
+    fullName: name,
+    email,
+    phone,
+  };
+}
+
 function renderFormattedMessage(text) {
   if (!text) return null;
   const lines = String(text).split('\n');
@@ -203,12 +221,18 @@ export default function LiveSupportWidget({ currentUser, onNavigateSupport }) {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const lastCoBrowseSentAtRef = useRef(0);
+  const isTypingRef = useRef(false);
+  useEffect(() => {
+    isTypingRef.current = isTyping;
+  }, [isTyping]);
 
   const isLoggedIn = Boolean(currentUser && (currentUser.id || currentUser.tiwiId || currentUser.email));
   const userName = isLoggedIn
     ? currentUser?.name || currentUser?.storeName?.split(' ')[0] || currentUser?.email?.split('@')[0] || 'Store Owner'
-    : guestSession?.name || guestSession?.fullName || 'Guest';
-  const userEmail = isLoggedIn ? currentUser?.email || '' : guestSession?.email || '';
+    : guestSession?.visitorName || guestSession?.name || guestSession?.fullName || 'Guest';
+  const userEmail = isLoggedIn
+    ? currentUser?.email || ''
+    : guestSession?.visitorEmail || guestSession?.email || '';
   const storeName = isLoggedIn ? currentUser?.storeName || '' : '';
   const userId = isLoggedIn ? currentUser?.id || currentUser?.tiwiId || 'user' : 'guest';
 
@@ -272,9 +296,16 @@ export default function LiveSupportWidget({ currentUser, onNavigateSupport }) {
           if (Array.isArray(statusRes.messages)) {
             setLiveQueueMessages(statusRes.messages);
           }
+          const cb = statusRes.chat.coBrowsing || statusRes.chat.coBrowsingState || null;
           const guide =
             statusRes.chat.coBrowseGuide ||
             statusRes.coBrowseGuide ||
+            (cb?.agentGuidanceNote || cb?.highlightSelector
+              ? {
+                  note: cb.agentGuidanceNote || '',
+                  selector: cb.highlightSelector || '',
+                }
+              : null) ||
             (statusRes.chat.guidanceNote || statusRes.chat.guideSelector
               ? {
                   note: statusRes.chat.guidanceNote || '',
@@ -308,6 +339,7 @@ export default function LiveSupportWidget({ currentUser, onNavigateSupport }) {
   useEffect(() => {
     if (!isOpen || widgetView !== 'queue-chat' || !liveQueueChat?.id) return undefined;
     if (normalizeStatus(liveQueueChat.status) === 'closed') return undefined;
+    refreshConfigAndQueueStatus(liveQueueChat.id);
     const timer = window.setInterval(() => {
       refreshConfigAndQueueStatus(liveQueueChat.id);
     }, 4000);
@@ -323,8 +355,9 @@ export default function LiveSupportWidget({ currentUser, onNavigateSupport }) {
     fetch('/api/support/guest/session', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        const sess = data?.guestSession || data?.session || (data?.verified ? data : null);
-        if (sess && (sess.email || sess.verified)) {
+        const rawSess = data?.guestSession || data?.session || (data?.verified ? data : null);
+        const sess = normalizeGuestSession(rawSess);
+        if (sess) {
           setGuestSession(sess);
         }
       })
@@ -387,6 +420,18 @@ export default function LiveSupportWidget({ currentUser, onNavigateSupport }) {
   useEffect(() => {
     loadUserSupportData();
   }, [loadUserSupportData]);
+
+  // Poll active AI/ticket-linked chat every 5s so human ticket replies appear automatically
+  useEffect(() => {
+    if (!isOpen || widgetView !== 'chat' || !activeConvId) return undefined;
+    if (normalizeStatus(ticketInfo?.status) === 'closed') return undefined;
+    const timer = window.setInterval(() => {
+      if (!isTypingRef.current) {
+        loadUserSupportData();
+      }
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [isOpen, widgetView, activeConvId, ticketInfo?.status, loadUserSupportData]);
 
   useEffect(() => {
     if (isOpen && !minimized && (widgetView === 'chat' || widgetView === 'queue-chat')) {
@@ -539,9 +584,15 @@ export default function LiveSupportWidget({ currentUser, onNavigateSupport }) {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          guestName: isLoggedIn ? userName : activeGuest?.name || activeGuest?.fullName || 'Guest',
-          guestEmail: isLoggedIn ? userEmail : activeGuest?.email || '',
-          guestPhone: isLoggedIn ? currentUser?.phone || '' : activeGuest?.phone || '',
+          guestName: isLoggedIn
+            ? userName
+            : activeGuest?.visitorName || activeGuest?.name || activeGuest?.fullName || 'Guest',
+          guestEmail: isLoggedIn
+            ? userEmail
+            : activeGuest?.visitorEmail || activeGuest?.email || '',
+          guestPhone: isLoggedIn
+            ? currentUser?.phone || ''
+            : activeGuest?.visitorPhone || activeGuest?.phone || '',
           topic: typeof initialPrompt === 'string' && initialPrompt.trim() ? initialPrompt.trim().slice(0, 80) : 'Live Specialist Queue',
           department: 'General Support',
           initialMessage:
@@ -782,7 +833,7 @@ export default function LiveSupportWidget({ currentUser, onNavigateSupport }) {
 
     const displayName = isLoggedIn
       ? userName
-      : activeGuest?.name || activeGuest?.fullName || 'Guest';
+      : activeGuest?.visitorName || activeGuest?.name || activeGuest?.fullName || 'Guest';
 
     try {
       const res = await fetch('/api/support/initiate', {
@@ -793,7 +844,7 @@ export default function LiveSupportWidget({ currentUser, onNavigateSupport }) {
           isLoggedIn,
           userName: displayName,
           userId,
-          userEmail: isLoggedIn ? userEmail : activeGuest?.email || '',
+          userEmail: isLoggedIn ? userEmail : activeGuest?.visitorEmail || activeGuest?.email || '',
           storeName,
           channel: 'Widget',
           initialSubject:
@@ -878,7 +929,19 @@ export default function LiveSupportWidget({ currentUser, onNavigateSupport }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Could not verify guest contact.');
-      const verified = data?.guestSession || data?.session || { name, fullName: name, email, phone, verified: true };
+      const verified = normalizeGuestSession(
+        data?.guestSession ||
+          data?.session || {
+            visitorName: name,
+            visitorEmail: email,
+            visitorPhone: phone,
+            name,
+            fullName: name,
+            email,
+            phone,
+            verified: true,
+          }
+      );
       setGuestSession(verified);
       const starter = pendingStarterPrompt;
       const mode = pendingMode;
@@ -1219,7 +1282,11 @@ export default function LiveSupportWidget({ currentUser, onNavigateSupport }) {
                           {isLoggedIn
                             ? storeName || userEmail || 'Verified Account'
                             : guestSession
-                            ? `${guestSession.email}${guestSession.phone ? ` · ${guestSession.phone}` : ''}`
+                            ? `${guestSession.visitorEmail || guestSession.email || ''}${
+                                guestSession.visitorPhone || guestSession.phone
+                                  ? ` · ${guestSession.visitorPhone || guestSession.phone}`
+                                  : ''
+                              }`
                             : 'Contact verification required before chat'}
                         </p>
                       </div>
@@ -1633,12 +1700,15 @@ export default function LiveSupportWidget({ currentUser, onNavigateSupport }) {
               </div>
             ) : (
               liveQueueMessages.map((m, idx) => {
+                const senderType = String(m.senderType || m.senderRole || m.sender || '').toLowerCase();
+                const isSystem = senderType === 'system' || Boolean(m.isSystemNotice);
                 const isVisitor =
-                  m.senderRole === 'customer' ||
-                  m.senderRole === 'visitor' ||
-                  m.sender === 'user' ||
-                  m.senderType === 'customer';
-                const isSystem = m.senderRole === 'system' || m.isSystemNotice;
+                  !isSystem &&
+                  (senderType === 'customer' ||
+                    senderType === 'visitor' ||
+                    senderType === 'user' ||
+                    senderType === 'guest');
+                const isAi = !isSystem && (senderType === 'ai' || senderType === 'bot');
                 if (isSystem) {
                   return (
                     <div key={m.id || idx} className="text-center py-1">
@@ -1651,15 +1721,18 @@ export default function LiveSupportWidget({ currentUser, onNavigateSupport }) {
                 return (
                   <div key={m.id || idx} className={`flex items-end gap-2 ${isVisitor ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[84%] space-y-0.5`}>
-                      {!isVisitor && (m.senderName || m.agentName) && (
-                        <p className="text-[10px] font-semibold text-neutral-500 px-1">
-                          {m.senderName || m.agentName}
+                      {!isVisitor && (m.senderName || m.agentName || isAi) && (
+                        <p className="flex items-center gap-1 text-[10px] font-semibold text-neutral-500 px-1">
+                          {isAi && <Sparkles className="h-2.5 w-2.5 text-indigo-500" />}
+                          <span>{m.senderName || m.agentName || 'Tiwi AI Assistant'}</span>
                         </p>
                       )}
                       <div
                         className={`rounded-xl px-3 py-2 text-xs ${
                           isVisitor
                             ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 rounded-br-xs'
+                            : isAi
+                            ? 'bg-indigo-50/70 dark:bg-indigo-950/30 text-neutral-900 dark:text-neutral-100 border border-indigo-200/80 dark:border-indigo-800/70 rounded-bl-xs'
                             : 'bg-[#fafafa] dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 border border-neutral-200/80 dark:border-neutral-800 rounded-bl-xs'
                         }`}
                       >
@@ -1963,7 +2036,8 @@ export default function LiveSupportWidget({ currentUser, onNavigateSupport }) {
                   </div>
                 );
               }
-              const isUser = msg.sender === 'user';
+              const senderLower = String(msg.senderType || msg.sender || '').toLowerCase();
+              const isUser = ['user', 'customer', 'guest', 'requester'].includes(senderLower);
               return (
                 <div key={msg.id} className={`flex items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
                   {!isUser && (
@@ -1974,6 +2048,9 @@ export default function LiveSupportWidget({ currentUser, onNavigateSupport }) {
                     />
                   )}
                   <div className={`max-w-[82%] space-y-0.5 ${isUser ? 'items-end' : 'items-start'}`}>
+                    {!isUser && msg.agentName && (
+                      <p className="px-1 text-[10px] font-semibold text-neutral-500">{msg.agentName}</p>
+                    )}
                     <div
                       className={`rounded-xl px-3 py-2.5 text-xs ${
                         isUser

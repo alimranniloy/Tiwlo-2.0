@@ -1,6 +1,7 @@
 import express from 'express';
 import { isPgActive as defaultIsPgActive, queryPg as defaultQueryPg } from '../db/postgres.js';
 import { MasterDB as defaultMasterDB } from '../db/multiTenant.js';
+import { SupportDB as defaultSupportDB } from '../db/supportDb.js';
 import {
   defaultTicketingService,
   isSuperAdminUserRecord,
@@ -55,6 +56,7 @@ export function createAdminSupportRouter({
   const queryPgFn = (...args) => (deps.queryPg || defaultQueryPg)(...args);
   const isPgActiveFn = () => (deps.isPgActive || defaultIsPgActive)();
   const getMasterDb = () => deps.MasterDB || defaultMasterDB;
+  const SupportDB = deps.SupportDB || defaultSupportDB;
 
   async function loadRawSupportPermissions(req) {
     if (req._rawSupportPerms !== undefined) return req._rawSupportPerms;
@@ -300,6 +302,45 @@ export function createAdminSupportRouter({
         actorType: 'admin',
         ...ctx
       });
+      if (!req.body?.isInternal && result?.reply && result?.ticket) {
+        try {
+          const db = await SupportDB.getAllData();
+          const convs = Array.isArray(db?.conversations) ? db.conversations : [];
+          const targetTicketId = result.ticket.ticketId;
+          const targetId = result.ticket.id;
+          const createdTs = result.reply.createdAt || new Date().toISOString();
+          const timeStr = new Date(createdTs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          let changed = false;
+          for (const c of convs) {
+            if (c && (c.ticketId === targetTicketId || c.ticketId === targetId)) {
+              if (!Array.isArray(c.messages)) c.messages = [];
+              if (!c.messages.some((m) => m.id === result.reply.id || m.ticketMessageId === result.reply.id)) {
+                c.messages.push({
+                  id: result.reply.id,
+                  ticketMessageId: result.reply.id,
+                  sender: 'agent',
+                  senderType: 'agent',
+                  agentName: result.reply.senderName || 'Support Specialist',
+                  avatar: result.reply.senderAvatar || null,
+                  text: result.reply.message || req.body?.message || req.body?.text || '',
+                  attachments: Array.isArray(result.reply.attachments) ? result.reply.attachments : [],
+                  time: timeStr,
+                  timestamp: createdTs
+                });
+              }
+              c.lastMessage = result.reply.message || c.lastMessage;
+              c.time = timeStr;
+              c.ticketStatus = result.ticket.status || c.ticketStatus;
+              changed = true;
+            }
+          }
+          if (changed) {
+            await SupportDB.saveAllData(db);
+          }
+        } catch {
+          // Best-effort non-fatal sync
+        }
+      }
       res.status(201).json({ success: true, ...result });
     } catch (err) {
       handleAdminSupportError(res, err, 'Failed to post reply');

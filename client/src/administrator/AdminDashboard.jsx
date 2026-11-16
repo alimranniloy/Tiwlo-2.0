@@ -71,13 +71,18 @@ function isIpBlockedPayload(status, json) {
   return code === 'ADMIN_IP_NOT_ALLOWED' || /your ip is not whitelisted/i.test(message);
 }
 
+function isAddressVerificationRequiredPayload(status, json) {
+  return status === 403 && String(json?.code || '') === 'ADDRESS_VERIFICATION_REQUIRED';
+}
+
 function AdminDashboardContent({
   currentUser,
   onLogout,
   showToast,
   ipBlockedMessage,
   onIpBlocked,
-  onRetryIpCheck
+  onRetryIpCheck,
+  onRequireAddressVerification
 }) {
   const [activeView, setActiveView] = useState(resolveInitialView);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -117,6 +122,10 @@ function AdminDashboardContent({
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
       const json = await res.json().catch(() => ({}));
+      if (isAddressVerificationRequiredPayload(res.status, json)) {
+        onRequireAddressVerification?.();
+        return;
+      }
       if (isIpBlockedPayload(res.status, json)) {
         setAdminData(null);
         onIpBlocked(json?.error || 'Your IP is not whitelisted');
@@ -130,7 +139,7 @@ function AdminDashboardContent({
     } finally {
       setStaffLoading(false);
     }
-  }, [onIpBlocked]);
+  }, [onIpBlocked, onRequireAddressVerification]);
 
   const fetchOverview = useCallback(
     async (range = selectedRange) => {
@@ -141,6 +150,10 @@ function AdminDashboardContent({
           headers: token ? { Authorization: `Bearer ${token}` } : {}
         });
         const json = await res.json().catch(() => ({}));
+        if (isAddressVerificationRequiredPayload(res.status, json)) {
+          onRequireAddressVerification?.();
+          return;
+        }
         if (isIpBlockedPayload(res.status, json)) {
           setAdminData(null);
           onIpBlocked(json?.error || 'Your IP is not whitelisted');
@@ -157,7 +170,7 @@ function AdminDashboardContent({
         setOverviewError(err.message || 'Live dashboard data could not be loaded.');
       }
     },
-    [onIpBlocked, selectedRange]
+    [onIpBlocked, onRequireAddressVerification, selectedRange]
   );
 
   useEffect(() => {
@@ -733,7 +746,7 @@ function AdminDashboardContent({
   );
 }
 
-export default function AdminDashboard({ currentUser, onLogout, showToast }) {
+export default function AdminDashboard({ currentUser, onLogout, showToast, onRequireAddressVerification }) {
   const [ipBlockedMessage, setIpBlockedMessage] = useState('');
 
   const isAuthorizedAdmin =
@@ -742,11 +755,25 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
       currentUser.role === 'super_admin' ||
       currentUser.email?.toLowerCase().trim() === 'tiwloltd@gmail.com');
 
+  const requiresAddressVerification = Boolean(
+    isAuthorizedAdmin && currentUser?.addressVerified !== true
+  );
+
   useEffect(() => {
     if (!isAuthorizedAdmin) {
       window.location.replace('/');
     }
   }, [isAuthorizedAdmin]);
+
+  useEffect(() => {
+    if (!requiresAddressVerification) return;
+    if (typeof onRequireAddressVerification === 'function') {
+      onRequireAddressVerification();
+      return;
+    }
+    const returnTo = encodeURIComponent(window.location.href);
+    window.location.replace(`/address-verification?return_to=${returnTo}`);
+  }, [requiresAddressVerification, onRequireAddressVerification]);
 
   useEffect(() => {
     const handleIpEvent = (event) => {
@@ -765,6 +792,14 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
     );
   }
 
+  if (requiresAddressVerification) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#fafafa] dark:bg-neutral-950 text-neutral-600 dark:text-neutral-400 font-sans">
+        <p className="text-sm">Redirecting to address verification...</p>
+      </div>
+    );
+  }
+
   return (
     <AdminCurrencyProvider onIpBlocked={(msg) => setIpBlockedMessage(msg || 'Your IP is not whitelisted')}>
       <AdminDashboardContent
@@ -774,6 +809,7 @@ export default function AdminDashboard({ currentUser, onLogout, showToast }) {
         ipBlockedMessage={ipBlockedMessage}
         onIpBlocked={(msg) => setIpBlockedMessage(msg || 'Your IP is not whitelisted')}
         onRetryIpCheck={() => setIpBlockedMessage('')}
+        onRequireAddressVerification={onRequireAddressVerification}
       />
     </AdminCurrencyProvider>
   );

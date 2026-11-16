@@ -13,7 +13,8 @@ import {
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 
 const API_BASE = '/api';
-const TIWLO_LOGO = '/tiwlo-light-logo.png';
+const TIWLO_LIGHT_LOGO = '/tiwlo-light-logo.png';
+const TIWLO_DARK_LOGO = '/tiwlo-dark-bg-logo.png';
 
 function getLocationError(error) {
   if (error?.code === 1) {
@@ -145,24 +146,29 @@ export default function AddressVerificationView({ onVerified, onSignOut }) {
     : 16;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f4f4f4] px-4 py-8 text-[#1F1F1F]">
+    <main className="flex min-h-screen items-center justify-center bg-[#f4f4f4] px-4 py-8 text-[#1F1F1F] dark:bg-[#0f0f0f] dark:text-neutral-100">
       <section
         aria-labelledby="address-verification-title"
-        className="w-full max-w-[448px] rounded-[28px] border border-[#dcdcdc] bg-white p-7 shadow-none sm:p-9"
+        className="w-full max-w-[448px] rounded-[28px] border border-[#dcdcdc] bg-white p-7 shadow-none sm:p-9 dark:border-neutral-800 dark:bg-neutral-900"
       >
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center">
             <img
-              src={TIWLO_LOGO}
+              src={TIWLO_LIGHT_LOGO}
               alt="Tiwlo"
-              className="h-8 w-auto object-contain sm:h-9"
+              className="h-8 w-auto object-contain sm:h-9 dark:hidden"
+            />
+            <img
+              src={TIWLO_DARK_LOGO}
+              alt="Tiwlo"
+              className="hidden h-8 w-auto object-contain sm:h-9 dark:block"
             />
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onSignOut}
-              className="inline-flex min-h-9 items-center gap-2 rounded-full px-3 text-sm font-medium text-[#636363] transition hover:bg-[#F1F3F4] hover:text-[#212121] focus:outline-none focus:ring-2 focus:ring-[#e1e1e1]"
+              className="inline-flex min-h-9 items-center gap-2 rounded-full px-3 text-sm font-medium text-[#636363] transition hover:bg-[#F1F3F4] hover:text-[#212121] focus:outline-none focus:ring-2 focus:ring-[#e1e1e1] dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white dark:focus:ring-neutral-700"
               aria-label="Sign out"
             >
               <LogOut className="h-[18px] w-[18px]" aria-hidden="true" />
@@ -202,12 +208,12 @@ export default function AddressVerificationView({ onVerified, onSignOut }) {
             </div>
           )}
 
-          <h1 id="address-verification-title" className="text-[24px] font-normal leading-[1.3] tracking-[-0.35px] text-[#212121]">
+          <h1 id="address-verification-title" className="text-[24px] font-normal leading-[1.3] tracking-[-0.35px] text-[#212121] dark:text-white">
             {phase === 'success'
               ? 'Address verified'
               : 'Your account is locked. Verify your address to continue.'}
           </h1>
-          <p className="mt-2 text-sm leading-[1.5] text-[#636363]">
+          <p className="mt-2 text-sm leading-[1.5] text-[#636363] dark:text-neutral-400">
             {phase === 'success'
               ? isApproximate
                 ? 'Google resolved the best available GPS coordinates. The map pin is approximate because your device reported a wide accuracy range.'
@@ -294,7 +300,7 @@ export default function AddressVerificationView({ onVerified, onSignOut }) {
               type="button"
               onClick={startVerification}
               disabled={isWorking}
-              className="mt-5 flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[#000000] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#3c3c3c] focus:outline-none focus:ring-4 focus:ring-[#e1e1e1] disabled:cursor-wait disabled:opacity-70"
+              className="mt-5 flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[#000000] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#3c3c3c] focus:outline-none focus:ring-4 focus:ring-[#e1e1e1] disabled:cursor-wait disabled:opacity-70 dark:bg-white dark:text-black dark:hover:bg-neutral-200 dark:focus:ring-neutral-700"
             >
               {isWorking ? (
                 <>

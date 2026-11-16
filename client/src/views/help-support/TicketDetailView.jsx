@@ -268,10 +268,13 @@ export default function TicketDetailView({
 
   const allowAttachments = supportConfig?.allowAttachments !== false;
 
-  const loadTicketDetail = useCallback(async () => {
+  const loadTicketDetail = useCallback(async (options = {}) => {
+    const silent = Boolean(options?.silent);
     if (!ticketId) return;
-    setLoading(true);
-    setError('');
+    if (!silent) {
+      setLoading(true);
+      setError('');
+    }
     try {
       const cleanId = String(ticketId).replace(/^#/, '');
       const res = await fetch(`/api/support/tickets/${encodeURIComponent(cleanId)}`, {
@@ -281,12 +284,14 @@ export default function TicketDetailView({
       if (res.ok && (data?.ticket || data?.id || data?.ticketId)) {
         const t = data.ticket || data;
         setTicket(t);
-        const rawReplies = Array.isArray(data.replies)
+        const rawReplies = Array.isArray(data.messages)
+          ? data.messages
+          : Array.isArray(data.replies)
           ? data.replies
-          : Array.isArray(t.replies)
-          ? t.replies
           : Array.isArray(t.messages)
           ? t.messages
+          : Array.isArray(t.replies)
+          ? t.replies
           : [];
         setReplies(rawReplies);
         const rawEvents = Array.isArray(data.events)
@@ -306,15 +311,15 @@ export default function TicketDetailView({
           setCsatRating(Number(t.csatRating || t.rating) || 0);
           setCsatFeedback(t.csatFeedback || t.feedback || '');
         }
-      } else if (!initialTicket) {
+      } else if (!silent && !initialTicket) {
         setError(data?.error || 'Unable to load ticket details. Please verify your session or recovery code.');
       }
     } catch (err) {
-      if (!initialTicket) {
+      if (!silent && !initialTicket) {
         setError(err?.message || 'Unable to connect to the support server.');
       }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [ticketId, initialTicket]);
 
@@ -339,6 +344,14 @@ export default function TicketDetailView({
   const normalizedStatus = normalizeStatus(effectiveTicket?.status);
   const isClosed = normalizedStatus === 'closed';
   const isResolved = normalizedStatus === 'resolved';
+
+  useEffect(() => {
+    if (!ticketId || isClosed) return undefined;
+    const timer = window.setInterval(() => {
+      loadTicketDetail({ silent: true });
+    }, 6000);
+    return () => window.clearInterval(timer);
+  }, [ticketId, isClosed, loadTicketDetail]);
   const agent = parseAssignedAgent(effectiveTicket);
   const watchers = Array.isArray(effectiveTicket?.watchers)
     ? effectiveTicket.watchers
@@ -1061,10 +1074,15 @@ export default function TicketDetailView({
                   const rId = reply.id || reply._id || `reply_${index}`;
                   const senderType = String(reply.senderType || reply.sender || reply.role || 'customer').toLowerCase();
                   const isSystem = senderType === 'system';
+                  const isBot = senderType === 'bot' || senderType === 'ai';
                   const isStaff = senderType === 'agent' || senderType === 'staff' || senderType === 'support' || senderType === 'admin';
-                  const isOwnReply = !isSystem && !isStaff;
-                  const roleLabel = isSystem ? 'System' : isStaff ? 'Support Specialist' : 'Customer';
-                  const senderName = reply.senderName || reply.authorName || reply.agentName || (isStaff ? 'Support Specialist' : effectiveTicket?.userName || 'Customer');
+                  const isOwnReply = !isSystem && !isStaff && !isBot;
+                  const roleLabel = isSystem ? 'System' : isBot ? 'AI Assistant' : isStaff ? 'Support Specialist' : 'Customer';
+                  const senderName =
+                    reply.senderName ||
+                    reply.authorName ||
+                    reply.agentName ||
+                    (isBot ? 'Tiwi AI Assistant' : isStaff ? 'Support Specialist' : effectiveTicket?.userName || 'Customer');
                   const bodyText = reply.body || reply.text || reply.message || '';
                   const editHistory = Array.isArray(reply.editHistory) ? reply.editHistory : [];
                   const isEdited = Boolean(reply.edited || reply.editedAt || editHistory.length > 0);
@@ -1078,6 +1096,8 @@ export default function TicketDetailView({
                       className={`rounded-xl border p-4 sm:p-5 transition ${
                         isStaff
                           ? 'border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950'
+                          : isBot
+                          ? 'border-indigo-200/70 dark:border-indigo-900/50 bg-indigo-50/40 dark:bg-indigo-950/20'
                           : isSystem
                           ? 'border-neutral-200/80 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900/70'
                           : 'border-neutral-200/80 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900'
@@ -1102,6 +1122,8 @@ export default function TicketDetailView({
                                 className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold ${
                                   isStaff
                                     ? 'bg-[#1ED760]/15 text-emerald-800 dark:text-[#1ED760] border-[#1ED760]/30'
+                                    : isBot
+                                    ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/25'
                                     : isSystem
                                     ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700'
                                     : 'bg-white dark:bg-neutral-950 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700'

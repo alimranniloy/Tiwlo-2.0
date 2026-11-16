@@ -2557,7 +2557,11 @@ export default function CreateAccountView({
                       }}
                       className="w-full sm:w-auto min-w-[220px] h-10 px-8 bg-[#000000] hover:bg-[#3c3c3c] text-white rounded-full text-[14px] font-medium shadow-xs cursor-pointer inline-flex items-center justify-center gap-2 transition-all"
                     >
-                      <span>Continue to Workspace</span>
+                      <span>
+                        {createdResult?.user?.addressVerified === true
+                          ? 'Continue to Workspace'
+                          : 'Verify Address & Continue'}
+                      </span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>

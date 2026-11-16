@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BookmarkPlus,
   Eye,
@@ -99,8 +99,17 @@ export default function AdminLiveChatQueuePanel({
   const [guideNote, setGuideNote] = useState('');
   const [pushingGuide, setPushingGuide] = useState(false);
 
-  const loadChats = useCallback(async () => {
-    setLoadingList(true);
+  const selectedChatIdRef = useRef(selectedChatId);
+  useEffect(() => {
+    selectedChatIdRef.current = selectedChatId;
+  }, [selectedChatId]);
+
+  const messagesEndRef = useRef(null);
+
+  const loadChats = useCallback(async (options = {}) => {
+    const preserveSelection = Boolean(options?.preserveSelection);
+    const silent = Boolean(options?.silent);
+    if (!silent) setLoadingList(true);
     try {
       const apiStatus = statusTab === 'my_active' ? 'active' : statusTab;
       const params = new URLSearchParams();
@@ -122,25 +131,28 @@ export default function AdminLiveChatQueuePanel({
         }
         if (json.presence) setPresence((prev) => ({ ...prev, ...json.presence }));
         setSelectedChatId((prev) => {
-          if (prev && list.some((c) => c.id === prev)) return prev;
+          const current = prev || selectedChatIdRef.current;
+          if (current && list.some((c) => c.id === current)) return current;
+          if (preserveSelection && current) return current;
           return list[0]?.id || null;
         });
       }
     } catch {
       // Non-fatal
     } finally {
-      setLoadingList(false);
+      if (!silent) setLoadingList(false);
     }
   }, [apiBase, statusTab, searchQuery, onCountsChange]);
 
   const loadChatDetail = useCallback(
-    async (chatId) => {
+    async (chatId, options = {}) => {
+      const silent = Boolean(options?.silent);
       if (!chatId) {
         setActiveChat(null);
         setChatMessages([]);
         return;
       }
-      setLoadingChat(true);
+      if (!silent) setLoadingChat(true);
       try {
         const res = await fetch(`${apiBase}/admin/support/live-chats/${encodeURIComponent(chatId)}`, {
           credentials: 'include',
@@ -154,7 +166,7 @@ export default function AdminLiveChatQueuePanel({
       } catch {
         // Ignore transient
       } finally {
-        setLoadingChat(false);
+        if (!silent) setLoadingChat(false);
       }
     },
     [apiBase]
@@ -193,11 +205,15 @@ export default function AdminLiveChatQueuePanel({
     }
   }, [selectedChatId, loadChatDetail]);
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages.length, selectedChatId]);
+
   // Live poll every 6s for waiting queue updates & active co-browse telemetry
   useEffect(() => {
     const timer = window.setInterval(() => {
-      loadChats();
-      if (selectedChatId) loadChatDetail(selectedChatId);
+      loadChats({ preserveSelection: true, silent: true });
+      if (selectedChatId) loadChatDetail(selectedChatId, { silent: true });
     }, 6000);
     return () => window.clearInterval(timer);
   }, [loadChats, loadChatDetail, selectedChatId]);
@@ -244,6 +260,11 @@ export default function AdminLiveChatQueuePanel({
       if (!res.ok || json.success === false) {
         throw new Error(json.error || `Could not perform ${action}`);
       }
+      if (json.chat) setActiveChat(json.chat);
+      if (Array.isArray(json.messages)) setChatMessages(json.messages);
+      if (action === 'accept') {
+        setStatusTab('my_active');
+      }
       showToast?.(
         action === 'accept'
           ? 'Live chat accepted.'
@@ -254,7 +275,10 @@ export default function AdminLiveChatQueuePanel({
               : 'Converted to support ticket.',
         'success'
       );
-      await Promise.all([loadChats(), loadChatDetail(activeChat.id)]);
+      await Promise.all([
+        loadChats({ preserveSelection: true, silent: true }),
+        loadChatDetail(activeChat.id, { silent: true }),
+      ]);
     } catch (err) {
       showToast?.(err.message || 'Action failed', 'error');
     } finally {
@@ -278,8 +302,17 @@ export default function AdminLiveChatQueuePanel({
       if (!res.ok || json.success === false) {
         throw new Error(json.error || 'Could not send reply');
       }
+      if (Array.isArray(json.messages)) {
+        setChatMessages(json.messages);
+      } else if (json.message) {
+        setChatMessages((prev) => [...prev, json.message]);
+      }
+      if (json.chat) setActiveChat(json.chat);
       setReplyText('');
-      await Promise.all([loadChatDetail(activeChat.id), loadChats()]);
+      await Promise.all([
+        loadChatDetail(activeChat.id, { silent: true }),
+        loadChats({ preserveSelection: true, silent: true }),
+      ]);
     } catch (err) {
       showToast?.(err.message || 'Reply failed', 'error');
     } finally {
@@ -369,8 +402,8 @@ export default function AdminLiveChatQueuePanel({
           credentials: 'include',
           headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
-            selector: guideSelector.trim(),
-            note: guideNote.trim(),
+            highlightSelector: guideSelector.trim(),
+            agentGuidanceNote: guideNote.trim(),
           }),
         }
       );
@@ -581,7 +614,7 @@ export default function AdminLiveChatQueuePanel({
           />
           <button
             type="button"
-            onClick={loadChats}
+            onClick={() => loadChats()}
             className="inline-flex h-8 items-center gap-1 rounded-lg border border-neutral-200 dark:border-neutral-800 px-2.5 text-xs font-medium text-neutral-700 dark:text-neutral-200 cursor-pointer"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loadingList ? 'animate-spin' : ''}`} />
@@ -738,8 +771,10 @@ export default function AdminLiveChatQueuePanel({
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#fafafa]/40 dark:bg-neutral-950">
                   {chatMessages.map((msg, idx) => {
-                    const isStaff = msg.senderRole === 'agent' || msg.senderRole === 'staff';
-                    const isSystem = msg.senderRole === 'system';
+                    const senderType = String(msg.senderType || msg.senderRole || '').toLowerCase();
+                    const isSystem = senderType === 'system';
+                    const isStaff = senderType === 'staff' || senderType === 'agent';
+                    const isAi = senderType === 'ai' || senderType === 'bot';
                     if (isSystem) {
                       return (
                         <div key={msg.id || idx} className="text-center">
@@ -755,17 +790,27 @@ export default function AdminLiveChatQueuePanel({
                           className={`max-w-[80%] rounded-xl px-3.5 py-2 text-xs ${
                             isStaff
                               ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-950'
-                              : 'bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100'
+                              : isAi
+                                ? 'bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/70 text-neutral-900 dark:text-neutral-100'
+                                : 'bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100'
                           }`}
                         >
-                          <p className="text-[10px] opacity-70 mb-0.5 font-semibold">
-                            {msg.senderName || (isStaff ? 'Specialist' : 'Visitor')} · {formatDateTime(msg.createdAt)}
-                          </p>
+                          <div className="flex items-center gap-1.5 text-[10px] opacity-80 mb-0.5 font-semibold">
+                            <span>{msg.senderName || (isStaff ? 'Specialist' : isAi ? 'Tiwi AI Assistant' : 'Visitor')}</span>
+                            {isAi && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full border border-indigo-300/70 bg-indigo-100/80 px-1.5 py-0 text-[9px] font-semibold text-indigo-700 dark:border-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300">
+                                <Sparkles className="h-2.5 w-2.5" />
+                                AI
+                              </span>
+                            )}
+                            <span>· {formatDateTime(msg.createdAt)}</span>
+                          </div>
                           <p className="whitespace-pre-wrap">{msg.body || msg.text || msg.message}</p>
                         </div>
                       </div>
                     );
                   })}
+                  <div ref={messagesEndRef} />
                 </div>
 
                 {/* Staff Composer + Templates + AI Assist Toolbar */}

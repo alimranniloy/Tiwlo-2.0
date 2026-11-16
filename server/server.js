@@ -25,6 +25,7 @@ import { RESERVED_STORE_SUBDOMAIN_LABELS } from './db/storeSubdomain.js';
 import { createGraphQLMiddleware } from './graphql/index.js';
 import { createApplicationGraphQL, protectAsyncRouter } from './graphql/applicationApi.js';
 import { InputSanitizer } from './security/cryptoSecurity.js';
+import { requiresAddressVerificationForRequest } from './security/authGuards.js';
 import {
   getRateLimitStore,
   initializeOptionalSecurity,
@@ -295,17 +296,11 @@ app.use(async (req, res, next) => {
             redirectUrl: '/identity-required'
           });
         }
-        if (
-          req.path !== '/api/graphql' &&
-          isProtectedApiRequest &&
-          !isAuthRequest &&
-          !isAddressVerificationRequest &&
-          !isPickProfileBootstrap &&
-          !isPickAccountStatusPath &&
-          !isAdminApiRequest &&
-          sessionData.user.authMethod === 'pick_credentials' &&
-          sessionData.user.addressVerified !== true
-        ) {
+        if (requiresAddressVerificationForRequest({
+          path: req.path,
+          method: req.method,
+          activeUser: sessionData.user
+        })) {
           return res.status(403).json({
             error: 'Address verification is required before you can use this account.',
             code: 'ADDRESS_VERIFICATION_REQUIRED',

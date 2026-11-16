@@ -25,3 +25,34 @@ export function requireAuthenticatedUser(req, res, next, { allowIdentityVerifica
   }
   return next();
 }
+
+export function requiresAddressVerificationForRequest({ path = '', method = 'GET', activeUser = null } = {}) {
+  if (!activeUser || activeUser.addressVerified === true) {
+    return false;
+  }
+  const normalizedPath = String(path || '');
+  const normalizedMethod = String(method || 'GET').toUpperCase();
+  if (normalizedPath === '/api/graphql') {
+    return false;
+  }
+  const isProtectedApiRequest = normalizedPath.startsWith('/api/') || normalizedPath === '/graphql';
+  if (!isProtectedApiRequest) {
+    return false;
+  }
+  if (
+    normalizedPath === '/api/health' ||
+    normalizedPath.startsWith('/api/public/') ||
+    normalizedPath === '/api/auth' ||
+    normalizedPath.startsWith('/api/auth/') ||
+    normalizedPath === '/api/verification' ||
+    normalizedPath.startsWith('/api/verification/') ||
+    normalizedPath === '/api/address-verification' ||
+    normalizedPath.startsWith('/api/address-verification/') ||
+    (normalizedMethod === 'GET' && normalizedPath === '/api/pick/me') ||
+    normalizedPath === '/api/pick/account-status' ||
+    normalizedPath === '/api/pick/account-appeals'
+  ) {
+    return false;
+  }
+  return true;
+}

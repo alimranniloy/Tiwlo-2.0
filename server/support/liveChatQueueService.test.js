@@ -439,3 +439,72 @@ test('Anti-Collusion detects same-IP & rapid VPN dual-phone self-chats and quara
   const logs = await svc.listForensicAuditLogs({ limit: 10 });
   assert.ok(logs.some((l) => l.staffId === 'staff_shady' && l.signals.includes('SAME_IP_ADDRESS')));
 });
+
+test('Guest requestLiveChat maps visitorName/visitorEmail/visitorPhone and mapMessageRow emits senderType + senderRole', async () => {
+  const svc = createLiveChatQueueService({
+    useMemory: true,
+    getChatSettingsFn: async () => ({ liveChatWidgetEnabled: true, aiAutoReplyEnabled: false })
+  });
+
+  const guestSession = {
+    id: 'gsess_guest_1',
+    visitorName: 'Nadia Visitor',
+    visitorEmail: 'nadia@example.com',
+    visitorPhone: '+8801711223344'
+  };
+
+  const started = await svc.requestLiveChat({
+    guestSession,
+    topic: 'Shipping Sync',
+    initialMessage: 'Hello from guest session',
+    req: fakeReq({ ip: '203.0.113.55', ua: 'Safari' }),
+    nowMs: 4_000_000
+  });
+
+  assert.equal(started.chat.status, 'waiting');
+  assert.ok(started.chat.serialNumber);
+
+  // Reusing the same guestSession returns the existing waiting chat with mapped fields intact
+  const reused = await svc.requestLiveChat({
+    guestSession,
+    topic: 'Shipping Sync',
+    initialMessage: 'Follow up',
+    req: fakeReq({ ip: '203.0.113.55', ua: 'Safari' }),
+    nowMs: 4_001_000
+  });
+  assert.equal(reused.reused, true);
+  assert.equal(reused.chat.id, started.chat.id);
+
+  const agent = { id: 'staff_g1', name: 'Grace Agent', email: 'grace@tiwlo.com', role: 'admin' };
+  await svc.acceptLiveChatRequest(started.chat.id, agent, {
+    req: fakeReq({ ip: '198.51.100.88', ua: 'Chrome' }),
+    nowMs: 4_002_000
+  });
+
+  // Verify admin detail exposes guest contact mapped from visitorName/visitorEmail/visitorPhone
+  const adminDetail = await svc.getAdminLiveChatDetail(started.chat.id, agent);
+  assert.equal(adminDetail.chat.guestName, 'Nadia Visitor');
+  assert.equal(adminDetail.chat.guestEmail, 'nadia@example.com');
+
+  const replyRes = await svc.sendStaffLiveChatReply(started.chat.id, {
+    body: 'Hi Nadia, checking your shipping now.',
+    staffActor: agent,
+    nowMs: 4_003_000
+  });
+
+  const visitorMsg = replyRes.messages.find((m) => m.body === 'Hello from guest session');
+  const staffMsg = replyRes.messages.find((m) => m.body === 'Hi Nadia, checking your shipping now.');
+  const systemMsg = replyRes.messages.find((m) => m.senderType === 'system');
+
+  assert.ok(visitorMsg);
+  assert.equal(visitorMsg.senderType, 'customer');
+  assert.equal(visitorMsg.senderRole, 'customer');
+
+  assert.ok(staffMsg);
+  assert.equal(staffMsg.senderType, 'staff');
+  assert.equal(staffMsg.senderRole, 'agent');
+
+  assert.ok(systemMsg);
+  assert.equal(systemMsg.senderType, 'system');
+  assert.equal(systemMsg.senderRole, 'system');
+});

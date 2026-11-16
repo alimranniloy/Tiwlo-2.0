@@ -83,7 +83,7 @@ async function startTestApp({ ticketingService, SupportDB, storeMediaImpl = null
     createAdminSupportRouter({
       requireAdmin,
       requireRecentReauth: (_req, _res, next) => next(),
-      deps: { ticketingService }
+      deps: { ticketingService, SupportDB }
     })
   );
 
@@ -910,4 +910,127 @@ test('PostgreSQL Section 4 DDL & SQL persistence work end-to-end on PGlite', asy
   await pgSvc.updateSupportToggles({ lockClosedTicketReplies: true, restrictStaffToAssignedTickets: true });
   const toggles = await pgSvc.getSupportToggles();
   assert.equal(toggles.restrictStaffToAssignedTickets, true);
+});
+
+test('Guest session reuse preserves ID & admin public ticket reply syncs to GET /api/support/conversations for auth and guest sessions', async (t) => {
+  const staffUsers = [
+    { id: 'sup_1', name: 'Root Owner', email: 'tiwloltd@gmail.com', role: 'super_admin' },
+    { id: 'adm_1', name: 'Alice Support', email: 'alice@tiwlo.com', role: 'admin', roleKey: 'support_agent' }
+  ];
+  const svc = createTicketingService({ useMemory: true, staffUsers });
+  const supportDb = createMemorySupportDb();
+  const srv = await startTestApp({ ticketingService: svc, SupportDB: supportDb });
+  t.after(async () => { svc.stopSupportAutomationScheduler(); await srv.close(); });
+
+  const adminHdr = { 'x-test-admin': JSON.stringify(staffUsers[1]) };
+  const userHdr = { 'x-test-user': JSON.stringify({ id: 'u_sync_1', name: 'Sync Merchant', email: 'sync@shop.com', role: 'owner' }) };
+
+  // 1. Authenticated user initiates a ticket-linked conversation
+  const userInit = await srv.request('/api/support/initiate', {
+    method: 'POST',
+    headers: userHdr,
+    body: { initialSubject: 'Sync Test Ticket' }
+  });
+  assert.equal(userInit.status, 200);
+  const userTicketId = userInit.json.ticket.id;
+
+  // Admin posts an internal note (must NEVER leak) and a public reply
+  const userInternal = await srv.request(`/api/admin/support/tickets/${userTicketId}/replies`, {
+    method: 'POST',
+    headers: adminHdr,
+    body: { message: 'Internal only check', isInternal: true }
+  });
+  assert.equal(userInternal.status, 201);
+
+  const userPublic = await srv.request(`/api/admin/support/tickets/${userTicketId}/replies`, {
+    method: 'POST',
+    headers: adminHdr,
+    body: { message: 'We fixed your DNS record.', isInternal: false }
+  });
+  assert.equal(userPublic.status, 201);
+
+  const userConvs = await srv.request('/api/support/conversations', { headers: userHdr });
+  assert.equal(userConvs.status, 200);
+  const matchedUserConv = userConvs.json.conversations.find((c) => c.id === userInit.json.sessionId);
+  assert.ok(matchedUserConv);
+  assert.ok(matchedUserConv.messages.some((m) => m.text === 'We fixed your DNS record.' && m.sender === 'agent'));
+  assert.ok(!matchedUserConv.messages.some((m) => String(m.text).includes('Internal only check')));
+
+  // 2. Guest verifies session -> reusing same email keeps existing guestSession.id
+  const gSess1 = await srv.request('/api/support/guest/session', {
+    method: 'POST',
+    body: { name: 'Tariq Guest', email: 'Tariq@Example.com', phone: '+8801711999888' }
+  });
+  assert.equal(gSess1.status, 201);
+  const guestCookie = extractCookieValue(gSess1.setCookies, GUEST_SUPPORT_COOKIE);
+  assert.ok(guestCookie);
+
+  const gSess2 = await srv.request('/api/support/guest/session', {
+    method: 'POST',
+    cookie: guestCookie,
+    body: { name: 'Tariq Guest', email: 'tariq@example.com', phone: '+8801711999888' }
+  });
+  assert.equal(gSess2.status, 200);
+  assert.equal(gSess2.json.guestSession.id, gSess1.json.guestSession.id);
+  assert.equal(gSess2.json.reused, true);
+
+  // Guest initiates a ticket-linked chat -> admin replies publicly -> synced to guest /conversations
+  const guestInit = await srv.request('/api/support/initiate', {
+    method: 'POST',
+    cookie: guestCookie,
+    body: { initialSubject: 'Guest Sync Inquiry' }
+  });
+  assert.equal(guestInit.status, 200);
+  const guestTicketId = guestInit.json.ticket.id;
+  const guestRecovery = guestInit.json.recoveryCode;
+  assert.ok(guestRecovery);
+
+  const guestInternal = await srv.request(`/api/admin/support/tickets/${guestTicketId}/replies`, {
+    method: 'POST',
+    headers: adminHdr,
+    body: { message: 'Secret guest internal note', isInternal: true }
+  });
+  assert.equal(guestInternal.status, 201);
+
+  const guestPublic = await srv.request(`/api/admin/support/tickets/${guestTicketId}/replies`, {
+    method: 'POST',
+    headers: adminHdr,
+    body: { message: 'Hello Tariq, your refund is processed.', isInternal: false }
+  });
+  assert.equal(guestPublic.status, 201);
+
+  const guestConvs = await srv.request('/api/support/conversations', { cookie: guestCookie });
+  assert.equal(guestConvs.status, 200);
+  const matchedGuestConv = guestConvs.json.conversations.find((c) => c.id === guestInit.json.sessionId);
+  assert.ok(matchedGuestConv);
+  assert.ok(matchedGuestConv.messages.some((m) => m.text === 'Hello Tariq, your refund is processed.' && m.sender === 'agent'));
+  assert.ok(!matchedGuestConv.messages.some((m) => String(m.text).includes('Secret guest internal note')));
+
+  // 3. Guest lookup in a brand new browser (new guestSessionId) STILL sees linked conversation & replies
+  const lookupRes = await srv.request('/api/support/guest/lookup', {
+    method: 'POST',
+    body: {
+      ticketNumber: guestInit.json.ticket.serialNumber,
+      guestEmail: 'tariq@example.com',
+      guestPhone: '+8801711999888',
+      recoveryCode: guestRecovery
+    }
+  });
+  assert.equal(lookupRes.status, 200);
+  const lookupCookie = extractCookieValue(lookupRes.setCookies, GUEST_SUPPORT_COOKIE);
+  assert.ok(lookupCookie);
+
+  // Also test ticket reply added directly in ticketingService (not via SupportDB push) still merges on GET /conversations
+  await svc.addTicketReply({
+    ticketIdOrKey: guestTicketId,
+    message: 'Direct ticket reply after lookup',
+    actorType: 'admin',
+    adminUser: staffUsers[1]
+  });
+
+  const convsAfterLookup = await srv.request('/api/support/conversations', { cookie: lookupCookie });
+  assert.equal(convsAfterLookup.status, 200);
+  const syncedConv = convsAfterLookup.json.conversations.find((c) => c.ticketId === guestInit.json.ticket.ticketId);
+  assert.ok(syncedConv);
+  assert.ok(syncedConv.messages.some((m) => m.text === 'Direct ticket reply after lookup'));
 });

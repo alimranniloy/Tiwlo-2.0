@@ -40,6 +40,7 @@ import {
   Send,
   ShieldCheck,
   SlidersHorizontal,
+  Sparkles,
   Square,
   Store,
   Tag,
@@ -562,12 +563,13 @@ export default function AdminSupportDeskView({
     loadSwitches();
   }, [loadAgentsAndMacros, loadSwitches]);
 
-  const loadTicketDetail = useCallback(async (ticketId) => {
+  const loadTicketDetail = useCallback(async (ticketId, options = {}) => {
+    const silent = Boolean(options?.silent);
     if (!ticketId) {
       setActiveTicket(null);
       return;
     }
-    setLoadingDetail(true);
+    if (!silent) setLoadingDetail(true);
     try {
       const res = await fetch(`${API_BASE}/admin/support/tickets/${encodeURIComponent(ticketId)}`, {
         credentials: 'include',
@@ -577,22 +579,53 @@ export default function AdminSupportDeskView({
       if (!res.ok || json.success === false) {
         throw new Error(json.error || 'Could not load ticket details.');
       }
-      const detail = json.ticket || json.data?.ticket || json.data || json;
+      const rawTicket = json.ticket || json.data?.ticket || json.data || json;
+      const mergedMessages = Array.isArray(json.messages)
+        ? json.messages
+        : Array.isArray(json.replies)
+          ? json.replies
+          : Array.isArray(rawTicket.replies)
+            ? rawTicket.replies
+            : Array.isArray(rawTicket.messages)
+              ? rawTicket.messages
+              : [];
+      const mergedEvents = Array.isArray(json.events)
+        ? json.events
+        : Array.isArray(rawTicket.auditHistory)
+          ? rawTicket.auditHistory
+          : Array.isArray(rawTicket.events)
+            ? rawTicket.events
+            : Array.isArray(rawTicket.history)
+              ? rawTicket.history
+              : [];
+      const detail = {
+        ...rawTicket,
+        replies: mergedMessages,
+        messages: mergedMessages,
+        auditHistory: mergedEvents,
+        events: mergedEvents,
+        ...(Array.isArray(json.subTickets) ? { subTickets: json.subTickets } : {}),
+        ...(json.parentTicket !== undefined ? { parentTicket: json.parentTicket } : {}),
+      };
       setActiveTicket(detail);
       setViewers(Array.isArray(detail.viewers) ? detail.viewers : Array.isArray(json.viewers) ? json.viewers : []);
-      setEditForm({
-        subject: detail.subject || '',
-        category: detail.category || 'General Inquiry',
-        priority: detail.priority || 'Medium',
-        status: detail.status || 'Open',
-        department: detail.department || 'Customer Support',
-        escalationTier: String(detail.escalationTier || '1'),
-        tagsText: Array.isArray(detail.tags) ? detail.tags.join(', ') : '',
-      });
+      if (!silent) {
+        setEditForm({
+          subject: detail.subject || '',
+          category: detail.category || 'General Inquiry',
+          priority: detail.priority || 'Medium',
+          status: detail.status || 'Open',
+          department: detail.department || 'Customer Support',
+          escalationTier: String(detail.escalationTier || '1'),
+          tagsText: Array.isArray(detail.tags) ? detail.tags.join(', ') : '',
+        });
+      }
     } catch (err) {
-      showToast?.(err.message || 'Could not load ticket thread.', 'error');
+      if (!silent) {
+        showToast?.(err.message || 'Could not load ticket thread.', 'error');
+      }
     } finally {
-      setLoadingDetail(false);
+      if (!silent) setLoadingDetail(false);
     }
   }, [showToast]);
 
@@ -603,6 +636,15 @@ export default function AdminSupportDeskView({
       setActiveTicket(null);
     }
   }, [selectedTicketId, loadTicketDetail]);
+
+  // Silent 6s ticket thread sync while viewing a ticket
+  useEffect(() => {
+    if (deskSection !== 'desk' || !selectedTicketId) return undefined;
+    const timer = window.setInterval(() => {
+      loadTicketDetail(selectedTicketId, { silent: true });
+    }, 6000);
+    return () => window.clearInterval(timer);
+  }, [deskSection, selectedTicketId, loadTicketDetail]);
 
   // Collision prevention heartbeat
   useEffect(() => {
@@ -779,7 +821,7 @@ export default function AdminSupportDeskView({
         method: 'POST',
         credentials: 'include',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ agentId: agentId || null, assignedTo: agentId || null }),
+        body: JSON.stringify({ assignedAgentId: agentId || null, agentId: agentId || null, assignedTo: agentId || null }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json.success === false) {
@@ -867,8 +909,27 @@ export default function AdminSupportDeskView({
         throw new Error(json.error || 'Failed to post reply.');
       }
       setComposerText('');
+      if (json.reply) {
+        setActiveTicket((prev) => {
+          if (!prev) return prev;
+          const existing = Array.isArray(prev.replies)
+            ? prev.replies
+            : Array.isArray(prev.messages)
+              ? prev.messages
+              : [];
+          const nextReplies = existing.some((r) => r.id && r.id === json.reply.id)
+            ? existing
+            : [...existing, json.reply];
+          return {
+            ...prev,
+            ...(json.ticket || {}),
+            replies: nextReplies,
+            messages: nextReplies,
+          };
+        });
+      }
       showToast?.(composerMode === 'internal' ? 'Internal note added.' : 'Reply sent to customer.', 'success');
-      await Promise.all([loadTicketDetail(ticketKey), loadTickets()]);
+      await Promise.all([loadTicketDetail(ticketKey, { silent: true }), loadTickets()]);
     } catch (err) {
       showToast?.(err.message || 'Could not send reply.', 'error');
     } finally {
@@ -2311,9 +2372,12 @@ export default function AdminSupportDeskView({
                       }
 
                       const isInternal = Boolean(item.isInternal || item.visibility === 'internal');
+                      const senderTypeLower = String(item.senderType || item.sender || item.senderRole || '').toLowerCase();
+                      const isBot = !isInternal && (senderTypeLower === 'bot' || senderTypeLower === 'ai');
                       const isCustomer =
                         !isInternal &&
-                        ['user', 'customer', 'guest', 'requester'].includes(String(item.senderType || item.sender || '').toLowerCase());
+                        !isBot &&
+                        ['user', 'customer', 'guest', 'requester'].includes(senderTypeLower);
                       const revisions = Array.isArray(item.editHistory)
                         ? item.editHistory
                         : Array.isArray(item.revisions)
@@ -2328,12 +2392,18 @@ export default function AdminSupportDeskView({
                               ? 'border-slate-300/80 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/50'
                               : isCustomer
                                 ? 'border-neutral-200/80 bg-white dark:border-neutral-800 dark:bg-neutral-900/40'
-                                : 'border-[#1ED760]/30 bg-[#1ED760]/6 dark:border-[#1ED760]/25 dark:bg-[#1ED760]/8'
+                                : isBot
+                                  ? 'border-indigo-200/80 bg-indigo-50/40 dark:border-indigo-900/40 dark:bg-indigo-950/20'
+                                  : 'border-[#1ED760]/30 bg-[#1ED760]/6 dark:border-[#1ED760]/25 dark:bg-[#1ED760]/8'
                           }`}
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
-                              {!isCustomer && (
+                              {isBot ? (
+                                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-indigo-200 bg-indigo-100 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                                  <Sparkles className="h-3.5 w-3.5" />
+                                </span>
+                              ) : !isCustomer ? (
                                 <StaffAvatar
                                   agent={{
                                     name: item.authorName || item.senderName || 'Support Agent',
@@ -2341,9 +2411,13 @@ export default function AdminSupportDeskView({
                                   }}
                                   size="sm"
                                 />
-                              )}
+                              ) : null}
                               <span className="text-xs font-semibold text-neutral-950 dark:text-white">
-                                {item.authorName || item.senderName || (isCustomer ? activeTicket.userName || 'Customer' : 'Support Agent')}
+                                {isBot
+                                  ? item.authorName || item.senderName || 'Tiwi AI Assistant'
+                                  : item.authorName ||
+                                    item.senderName ||
+                                    (isCustomer ? activeTicket.userName || 'Customer' : 'Support Agent')}
                               </span>
                               {isInternal ? (
                                 <span className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-slate-200/70 px-2 py-0.5 text-[10px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
@@ -2353,6 +2427,11 @@ export default function AdminSupportDeskView({
                               ) : isCustomer ? (
                                 <span className="rounded-full border border-neutral-200 bg-neutral-100 px-2 py-0.5 text-[10px] font-medium text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
                                   {isActiveGuest ? 'Guest Reply' : 'Customer Reply'}
+                                </span>
+                              ) : isBot ? (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-100/80 px-2 py-0.5 text-[10px] font-medium text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300">
+                                  <Sparkles className="h-2.5 w-2.5" />
+                                  Tiwi AI Assistant
                                 </span>
                               ) : (
                                 <span className="rounded-full border border-[#1ED760]/30 bg-[#1ED760]/15 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-[#1ED760]">

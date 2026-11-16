@@ -1118,11 +1118,11 @@ export default function App() {
 
               const isUidsAuthorizationRoute = isDashboardSubdomain() && initialPath === 'authorize';
               const safeReturnTo = getSafeReturnToTarget(returnTo);
-              if (data.user.authMethod === 'pick_credentials' && data.user.addressVerified !== true) {
-                if (isAuthHost) {
-                  redirectAfterAuthentication(getAddressVerificationUrl(data.user));
+              if (data.user.addressVerified !== true) {
+                const addressUrl = new URL(getAddressVerificationUrl(data.user));
+                if (isAuthHost || addressUrl.origin !== window.location.origin) {
+                  redirectAfterAuthentication(addressUrl.toString());
                 } else {
-                  const addressUrl = new URL(getAddressVerificationUrl(data.user));
                   setActiveTab('address-verification');
                   window.history.replaceState(null, '', `${addressUrl.pathname}${addressUrl.search}`);
                 }
@@ -1311,7 +1311,12 @@ export default function App() {
                 prev.name !== data.user.name ||
                 prev.avatar !== data.user.avatar ||
                 prev.coverPhoto !== data.user.coverPhoto ||
-                prev.credits !== data.user.credits
+                prev.credits !== data.user.credits ||
+                prev.addressVerified !== data.user.addressVerified ||
+                prev.identityVerified !== data.user.identityVerified ||
+                prev.identityVerificationRequired !== data.user.identityVerificationRequired ||
+                prev.role !== data.user.role ||
+                prev.authMethod !== data.user.authMethod
               ) {
                 localStorage.setItem('stockpro_user', JSON.stringify(data.user));
                 return data.user;
@@ -1503,7 +1508,7 @@ export default function App() {
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
     claimGuestSupportSession();
-    if (user?.authMethod === 'pick_credentials' && user?.addressVerified !== true) {
+    if (user?.addressVerified !== true) {
       const addressUrl = new URL(getAddressVerificationUrl(user));
       if (isAuthSubdomain() || addressUrl.origin !== window.location.origin) {
         redirectAfterAuthentication(addressUrl.toString());
@@ -1567,7 +1572,7 @@ export default function App() {
   const handleRegisterSuccess = (user) => {
     setCurrentUser(user);
     claimGuestSupportSession();
-    if (user?.authMethod === 'pick_credentials' && user?.addressVerified !== true) {
+    if (user?.addressVerified !== true) {
       const addressUrl = new URL(getAddressVerificationUrl(user));
       if (isAuthSubdomain() || addressUrl.origin !== window.location.origin) {
         redirectAfterAuthentication(addressUrl.toString());
@@ -2183,10 +2188,10 @@ export default function App() {
 
       {/* DEDICATED AUTHENTICATION, LANDING & ONBOARDING VIEWS */}
       <Suspense fallback={<TiwloTopSyncBar active={true} />}>
-        {authChecking && (activeTab === 'administrator' || activeTab === 'admin' || activeTab === 'tpanel') ? (
+        {authChecking && (activeTab === 'administrator' || activeTab === 'admin' || activeTab.startsWith('administrator/') || activeTab.startsWith('admin/') || activeTab === 'tpanel') ? (
           <TiwloPageLoader />
         ) : !authChecking && currentUser &&
-          ((currentUser.authMethod === 'pick_credentials' && currentUser.addressVerified !== true) || activeTab === 'address-verification') ? (
+          (currentUser.addressVerified !== true || activeTab === 'address-verification') ? (
           <AddressVerificationView
             onSignOut={handleLogout}
             onVerified={() => {
@@ -2298,6 +2303,7 @@ export default function App() {
         <AdminDashboard
           currentUser={currentUser}
           onLogout={handleLogout}
+          onRequireAddressVerification={() => handleTabChange('address-verification')}
           showToast={showToast}
         />
       ) : activeTab === 'tpanel' ? (
