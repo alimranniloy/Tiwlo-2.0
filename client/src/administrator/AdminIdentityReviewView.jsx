@@ -231,21 +231,30 @@ function resolveTelemetryData(review) {
       ? [tamperingRaw.trim()]
       : [];
 
-  const hasAny =
-    telemetry.completionDurationMs !== undefined ||
-    Boolean(telemetry.geoCountry) ||
-    telemetry.issuingCountryMismatch !== undefined ||
-    meta.spoofRisk !== undefined ||
-    telemetry.spoofRisk !== undefined ||
-    tamperingList.length > 0;
+  const completionDurationMs =
+    telemetry.completionDurationMs ??
+    telemetry.challengeDurationMs ??
+    meta.completionDurationMs ??
+    meta.challengeDurationMs ??
+    null;
+  const geoCountry = telemetry.geoCountry || meta.geoCountry || null;
+  const documentCountry =
+    telemetry.documentCountry ||
+    meta.documentCountry ||
+    review?.extractedData?.country ||
+    null;
+  const mismatchRaw = telemetry.issuingCountryMismatch ?? telemetry.countryMismatch ?? meta.countryMismatch;
+  const hasMismatchField = Boolean(geoCountry && documentCountry) || mismatchRaw !== undefined;
 
   return {
-    hasAny,
-    completionDurationMs: telemetry.completionDurationMs,
-    geoCountry: telemetry.geoCountry || null,
-    issuingCountryMismatch: Boolean(telemetry.issuingCountryMismatch),
-    hasMismatchField: telemetry.issuingCountryMismatch !== undefined,
+    hasAny: true,
+    completionDurationMs,
+    geoCountry,
+    documentCountry,
+    issuingCountryMismatch: Boolean(mismatchRaw),
+    hasMismatchField,
     spoofRisk: meta.spoofRisk ?? telemetry.spoofRisk ?? null,
+    retakeCount: telemetry.retakeCount ?? meta.retakeCount ?? null,
     tamperingSignals: tamperingList,
   };
 }
@@ -909,7 +918,7 @@ export default function AdminIdentityReviewView({
 
           <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
             <Button
-              variant={autoRefreshEnabled ? 'brand' : 'outline'}
+              variant={autoRefreshEnabled ? 'primary' : 'outline'}
               size="md"
               onClick={() => setAutoRefreshEnabled((prev) => !prev)}
               className={
@@ -1401,61 +1410,66 @@ export default function AdminIdentityReviewView({
                     </div>
                   </div>
 
-                  {/* Geo & Behavioral Zero-Trust Telemetry (if present in review.metadata) */}
-                  {selectedTelemetry.hasAny && (
-                    <div className="rounded-xl border border-neutral-200/80 bg-white p-3.5 dark:border-neutral-800 dark:bg-neutral-950 space-y-2.5">
+                  {/* Geo & Behavioral Zero-Trust Telemetry */}
+                  <div className="rounded-xl border border-neutral-200/80 bg-white p-3.5 dark:border-neutral-800 dark:bg-neutral-950 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-900 dark:text-white">
                         <Fingerprint className="h-3.5 w-3.5 text-[#1ED760]" />
                         Geo &amp; Behavioral Zero-Trust Telemetry
                       </div>
-                      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 text-xs">
-                        <div className="rounded-lg bg-neutral-50 p-2.5 dark:bg-neutral-900">
-                          <span className="text-[10px] text-neutral-500">Completion Time</span>
-                          <p className="mt-0.5 font-semibold tabular-nums text-neutral-900 dark:text-white">
-                            {formatDurationMs(selectedTelemetry.completionDurationMs)}
-                          </p>
-                        </div>
-                        <div className="rounded-lg bg-neutral-50 p-2.5 dark:bg-neutral-900">
-                          <span className="text-[10px] text-neutral-500">Geo Country</span>
-                          <p className="mt-0.5 font-semibold text-neutral-900 dark:text-white flex items-center gap-1">
-                            <Globe className="h-3 w-3 text-neutral-400" />
-                            {selectedTelemetry.geoCountry || '—'}
-                          </p>
-                        </div>
-                        <div className="rounded-lg bg-neutral-50 p-2.5 dark:bg-neutral-900">
-                          <span className="text-[10px] text-neutral-500">Issuing Country Check</span>
-                          <p className="mt-0.5">
-                            {selectedTelemetry.hasMismatchField ? (
-                              <Badge variant={selectedTelemetry.issuingCountryMismatch ? 'destructive' : 'success'}>
-                                {selectedTelemetry.issuingCountryMismatch ? 'Country Mismatch' : 'Matched'}
-                              </Badge>
-                            ) : (
-                              <span className="font-semibold text-neutral-700 dark:text-neutral-300">—</span>
-                            )}
-                          </p>
-                        </div>
-                        <div className="rounded-lg bg-neutral-50 p-2.5 dark:bg-neutral-900">
-                          <span className="text-[10px] text-neutral-500">Spoof Risk</span>
-                          <p className="mt-0.5 font-semibold text-neutral-900 dark:text-white">
-                            {selectedTelemetry.spoofRisk !== null && selectedTelemetry.spoofRisk !== undefined
-                              ? String(selectedTelemetry.spoofRisk)
-                              : '—'}
-                          </p>
-                        </div>
-                      </div>
-
-                      {selectedTelemetry.tamperingSignals.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                          <span className="text-[11px] font-medium text-neutral-500">Tampering Signals:</span>
-                          {selectedTelemetry.tamperingSignals.map((sig) => (
-                            <Badge key={String(sig)} variant="destructive">
-                              {String(sig)}
-                            </Badge>
-                          ))}
-                        </div>
+                      {selectedTelemetry.documentCountry && (
+                        <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                          Document: {selectedTelemetry.documentCountry}
+                        </span>
                       )}
                     </div>
-                  )}
+                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 text-xs">
+                      <div className="rounded-lg bg-neutral-50 p-2.5 dark:bg-neutral-900">
+                        <span className="text-[10px] text-neutral-500">Completion Time</span>
+                        <p className="mt-0.5 font-semibold tabular-nums text-neutral-900 dark:text-white">
+                          {formatDurationMs(selectedTelemetry.completionDurationMs)}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-neutral-50 p-2.5 dark:bg-neutral-900">
+                        <span className="text-[10px] text-neutral-500">Geo Country</span>
+                        <p className="mt-0.5 font-semibold text-neutral-900 dark:text-white flex items-center gap-1">
+                          <Globe className="h-3 w-3 text-neutral-400" />
+                          {selectedTelemetry.geoCountry || 'Local / Unavailable'}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-neutral-50 p-2.5 dark:bg-neutral-900">
+                        <span className="text-[10px] text-neutral-500">Issuing Country Check</span>
+                        <p className="mt-0.5">
+                          {selectedTelemetry.hasMismatchField ? (
+                            <Badge variant={selectedTelemetry.issuingCountryMismatch ? 'destructive' : 'success'}>
+                              {selectedTelemetry.issuingCountryMismatch ? 'Country Mismatch' : 'Matched'}
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">Pending Geo</Badge>
+                          )}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-neutral-50 p-2.5 dark:bg-neutral-900">
+                        <span className="text-[10px] text-neutral-500">Spoof Risk</span>
+                        <p className="mt-0.5 font-semibold capitalize text-neutral-900 dark:text-white">
+                          {selectedTelemetry.spoofRisk !== null && selectedTelemetry.spoofRisk !== undefined
+                            ? String(selectedTelemetry.spoofRisk)
+                            : 'Low'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {selectedTelemetry.tamperingSignals.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="text-[11px] font-medium text-neutral-500">Tampering Signals:</span>
+                        {selectedTelemetry.tamperingSignals.map((sig) => (
+                          <Badge key={String(sig)} variant="destructive">
+                            {String(sig)}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Merchant Stores, Orders & Account Metadata */}
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 text-xs">
@@ -1751,7 +1765,7 @@ export default function AdminIdentityReviewView({
                       Request Correction
                     </Button>
 
-                    {(extracted?.fullName || extracted?.dateOfBirth) && (
+                    {(selectedExtraction?.detectedName !== '—' || selectedExtraction?.detectedDob !== '—') && (
                       <Button
                         variant="outline"
                         disabled={selectedLocked || actionLoading}

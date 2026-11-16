@@ -290,7 +290,7 @@ function buildDocumentAnalysisPrompt({ documentType, expectedName, expectedDob, 
   ].filter(Boolean).join('\n');
 }
 
-function buildFaceMatchPrompt({ documentType, expectedName, expectedAddress, livenessPassed }) {
+function buildFaceMatchPrompt({ documentType, expectedName, expectedDob, expectedAddress, livenessPassed }) {
   const docLabel = getDocumentTypeLabel(documentType);
   return [
     'You are an expert biometric KYC identity verifier.',
@@ -299,6 +299,7 @@ function buildFaceMatchPrompt({ documentType, expectedName, expectedAddress, liv
     '- Image 2: A live selfie capture.',
     `Declared Document Type: ${docLabel} (${normalizeDocumentType(documentType)})`,
     expectedName ? `Expected Account Name: ${expectedName}` : '',
+    expectedDob ? `Expected Account Date of Birth (YYYY-MM-DD): ${expectedDob}` : '',
     expectedAddress ? `Expected Account Address: ${expectedAddress}` : '',
     `Active Liveness Challenges Passed: ${livenessPassed ? 'true' : 'false'}`,
     '',
@@ -306,9 +307,10 @@ function buildFaceMatchPrompt({ documentType, expectedName, expectedAddress, liv
     '1) Both Image 1 (document portrait) and Image 2 (live selfie) contain a clear, visible human face.',
     '2) Both faces belong to the same person (`isMatch`: boolean).',
     '3) Provide a match confidence score from 0 to 100 (`confidenceScore`).',
-    '4) Extract readable document details (`extractedName`, `extractedAddress`, `documentNumber`, `dateOfBirth`, `country`).',
-    '5) Perform Deepfake, Synthetic Face, and Screen-Replay Spoof Screening on both the document and the selfie: detect AI-generated/synthetic faces, face-swap artifacts, monitor/phone screen replay, printed photo presentation attacks, or document tampering (`deepfakeOrReplaySuspected`: boolean, `spoofRisk`: "low" | "medium" | "high", `tamperingSignals`: array of strings, `documentExpiryValid`: boolean or null, `isScreenRecaptureOrPrintedCopy`: boolean).',
-    '6) If `isMatch` is false or any deepfake/replay/spoof is detected, set `reason` to one of: "face_mismatch", "document_face_not_clear", "selfie_face_not_clear", "document_unreadable", "spoof_or_deepfake_detected". If `isMatch` is true and clean, set `reason` to null.',
+    '4) Extract readable document details (`extractedName`, `extractedAddress`, `documentNumber`, `dateOfBirth` in YYYY-MM-DD, `country`). Support Bangla/non-Latin documents and include English transliteration of `extractedName` when possible.',
+    '5) Compare extracted legal full name against Expected Account Name (`nameMatchesAccount`: boolean). Note: Address differences or missing address on Passports are allowed and must NOT mark a rejection.',
+    '6) Perform Deepfake, Synthetic Face, and Screen-Replay Spoof Screening on both the document and the selfie: detect AI-generated/synthetic faces, face-swap artifacts, monitor/phone screen replay, printed photo presentation attacks, or document tampering (`deepfakeOrReplaySuspected`: boolean, `spoofRisk`: "low" | "medium" | "high", `tamperingSignals`: array of strings, `documentExpiryValid`: boolean or null, `isScreenRecaptureOrPrintedCopy`: boolean).',
+    '7) If `isMatch` is false or any deepfake/replay/spoof is detected, set `reason` to one of: "face_mismatch", "document_face_not_clear", "selfie_face_not_clear", "document_unreadable", "spoof_or_deepfake_detected". If `isMatch` is true and clean, set `reason` to null.',
     '',
     'Return ONLY a strict JSON object with these exact keys:',
     '{',
@@ -316,6 +318,7 @@ function buildFaceMatchPrompt({ documentType, expectedName, expectedAddress, liv
     '  "selfieFaceClear": boolean,',
     '  "documentReadable": boolean,',
     '  "isMatch": boolean,',
+    '  "nameMatchesAccount": boolean,',
     '  "confidenceScore": number (0-100),',
     '  "extractedName": string or null,',
     '  "extractedAddress": string or null,',
@@ -506,6 +509,7 @@ export async function matchDocumentAndSelfieWithGemini({
   selfieMimeType,
   documentType = 'national_id',
   expectedName = '',
+  expectedDob = '',
   expectedAddress = '',
   livenessPassed = true,
   executeAiFn = executeGeminiWithFailover,
@@ -531,6 +535,7 @@ export async function matchDocumentAndSelfieWithGemini({
     const prompt = buildFaceMatchPrompt({
       documentType,
       expectedName,
+      expectedDob,
       expectedAddress,
       livenessPassed
     });
@@ -562,7 +567,7 @@ export async function matchDocumentAndSelfieWithGemini({
         fallbackToManual: true,
         isMatch: false,
         isLiveValid: false,
-        error: buildFallbackReason(aiResult, 'Gemini face match service is unavailable.')
+        error: buildFallbackReason(aiResult, 'Automated face match service is unavailable.')
       };
     }
 
@@ -573,7 +578,7 @@ export async function matchDocumentAndSelfieWithGemini({
         fallbackToManual: true,
         isMatch: false,
         isLiveValid: false,
-        error: 'Gemini returned an unparseable face match response.'
+        error: 'Automated face match returned an unparseable response.'
       };
     }
 
@@ -615,6 +620,7 @@ export async function matchDocumentAndSelfieWithGemini({
       fallbackToManual: false,
       isMatch,
       isLiveValid: Boolean(livenessPassed),
+      nameMatchesAccount: typeof parsed.nameMatchesAccount === 'boolean' ? parsed.nameMatchesAccount : null,
       confidenceScore: normalizeConfidence(parsed.confidenceScore),
       documentReadable,
       documentFaceClear,
@@ -631,14 +637,277 @@ export async function matchDocumentAndSelfieWithGemini({
       fallbackToManual: true,
       isMatch: false,
       isLiveValid: false,
-      error: error?.message || 'Gemini face match failed.'
+      error: error?.message || 'Face match verification failed.'
     };
+  }
+}
+
+const ALLOWED_FRAMINGS = new Set([
+  'good',
+  'move_closer',
+  'move_back',
+  'center_left',
+  'center_right',
+  'center_upper',
+  'center_lower'
+]);
+
+/**
+ * Inspects a live camera frame for real human face presence, single-person framing,
+ * and passport-portrait quality before starting liveness or capturing final selfie.
+ */
+export async function inspectLivenessQualityWithGemini({
+  frameBuffer,
+  mimeType = 'image/jpeg',
+  requirePassportFraming = false,
+  executeAiFn = executeGeminiWithFailover,
+  getSettingsFn = getChatSystemSettings
+} = {}) {
+  try {
+    const settingsCheck = await checkAiEnabled(getSettingsFn);
+    if (!settingsCheck.enabled) {
+      return { ok: false, fallback: true, aiDisabled: true };
+    }
+
+    const prepared = await prepareImageForGemini(frameBuffer, mimeType);
+    const prompt = [
+      'Inspect this live camera frame for identity verification.',
+      'Be STRICT: If there is no clear real human face (empty wall, object, ceiling, blocked camera, covered face, or dark frame), set "faceDetected": false and "faceCount": 0.',
+      'Check if there is more than one person visible (`faceCount`).',
+      requirePassportFraming
+        ? 'Also check PASSPORT-PORTRAIT quality: face must look straight toward the camera, eyes clearly open, sharp focus, well-lit, and cleanly framed in passport head-and-shoulders proportion (`passportQuality`: true).'
+        : 'Check whether the single face is reasonably centered and sized inside the circle (`framing`: "good" | "move_closer" | "move_back" | "center_left" | "center_right" | "center_upper" | "center_lower").',
+      'Detect if the camera is pointing at a phone/monitor screen photo or printed photo (`spoofOrScreen`: boolean).',
+      '',
+      'Return ONLY a strict JSON object with these keys:',
+      '{',
+      '  "faceDetected": boolean,',
+      '  "faceCount": number,',
+      '  "framing": "good" | "move_closer" | "move_back" | "center_left" | "center_right" | "center_upper" | "center_lower",',
+      '  "passportQuality": boolean,',
+      '  "eyesOpen": boolean,',
+      '  "sharp": boolean,',
+      '  "spoofOrScreen": boolean',
+      '}'
+    ].join('\n');
+
+    const aiResult = await executeAiFn({
+      payload: {
+        contents: [
+          {
+            parts: [
+              { text: prompt },
+              { inlineData: { mimeType: prepared.mimeType, data: prepared.data } }
+            ]
+          }
+        ],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.05
+        }
+      },
+      timeoutMs: 12_000
+    });
+
+    if (!aiResult || !aiResult.text) {
+      const noKeys = Boolean(aiResult?.disabled || /no .*key|disabled/i.test(String(aiResult?.reason || '')));
+      return { ok: false, fallback: true, aiDisabled: noKeys };
+    }
+
+    const parsed = parseGeminiJson(aiResult.text);
+    if (!parsed || typeof parsed.faceDetected !== 'boolean') {
+      return { ok: false, fallback: true, aiDisabled: false };
+    }
+
+    const faceDetected = parsed.faceDetected === true;
+    const faceCount = Number.isFinite(Number(parsed.faceCount))
+      ? Math.max(0, Math.round(Number(parsed.faceCount)))
+      : (faceDetected ? 1 : 0);
+    const spoofOrScreen = parsed.spoofOrScreen === true;
+    const rawFraming = String(parsed.framing || 'good').trim().toLowerCase();
+    const framing = ALLOWED_FRAMINGS.has(rawFraming) ? rawFraming : 'good';
+    const eyesOpen = typeof parsed.eyesOpen === 'boolean' ? parsed.eyesOpen : true;
+    const sharp = typeof parsed.sharp === 'boolean' ? parsed.sharp : true;
+    const passportQuality = Boolean(parsed.passportQuality && eyesOpen && sharp && faceDetected && faceCount === 1 && !spoofOrScreen);
+
+    if (!faceDetected || faceCount === 0 || spoofOrScreen) {
+      return {
+        ok: true,
+        fallback: false,
+        faceDetected: false,
+        faceCount: 0,
+        passportQuality: false,
+        ready: false,
+        guidance: 'no_face'
+      };
+    }
+
+    if (faceCount > 1) {
+      return {
+        ok: true,
+        fallback: false,
+        faceDetected: true,
+        faceCount,
+        passportQuality: false,
+        ready: false,
+        guidance: 'multiple_faces'
+      };
+    }
+
+    if (framing !== 'good') {
+      return {
+        ok: true,
+        fallback: false,
+        faceDetected: true,
+        faceCount: 1,
+        passportQuality: false,
+        ready: false,
+        guidance: framing
+      };
+    }
+
+    if (requirePassportFraming && !passportQuality) {
+      return {
+        ok: true,
+        fallback: false,
+        faceDetected: true,
+        faceCount: 1,
+        passportQuality: false,
+        ready: false,
+        guidance: 'hold_still'
+      };
+    }
+
+    return {
+      ok: true,
+      fallback: false,
+      faceDetected: true,
+      faceCount: 1,
+      passportQuality,
+      ready: true,
+      guidance: 'ready'
+    };
+  } catch {
+    return { ok: false, fallback: true, aiDisabled: false };
+  }
+}
+
+/**
+ * Verifies that a real human face is clearly present and actively performing
+ * the requested liveness challenge (`turn_left`, `turn_right`, `open_mouth`, or `blink`).
+ */
+export async function verifyLivenessChallengeFrameWithGemini({
+  frameBuffer,
+  mimeType = 'image/jpeg',
+  challengeType = 'turn_right',
+  executeAiFn = executeGeminiWithFailover,
+  getSettingsFn = getChatSystemSettings
+} = {}) {
+  try {
+    const settingsCheck = await checkAiEnabled(getSettingsFn);
+    if (!settingsCheck.enabled) {
+      return { ok: false, fallback: true, aiDisabled: true };
+    }
+
+    const prepared = await prepareImageForGemini(frameBuffer, mimeType);
+    const prompt = [
+      'Evaluate this live camera frame for an active biometric liveness check.',
+      `Requested Challenge: "${challengeType}".`,
+      'Rules (BE VERY STRICT):',
+      '1) First confirm a REAL live human face is visible (`faceDetected`: true, `faceCount`: 1, `spoofOrScreen`: false). Empty walls, ceilings, objects, covered faces, or screen photos MUST return `faceDetected: false` and `actionDetected: false`.',
+      '2) If a face IS present, verify the exact requested challenge:',
+      '   - "turn_left": The person clearly turned THEIR OWN head toward THEIR LEFT (meaning left cheek/ear recedes and nose points to their left). A straight/frontal neutral face MUST be false.',
+      '   - "turn_right": The person clearly turned THEIR OWN head toward THEIR RIGHT (meaning right cheek/ear recedes and nose points to their right). A straight/frontal neutral face MUST be false.',
+      '   - "open_mouth": The person\'s mouth is visibly wide/clearly open.',
+      '   - "blink": The person\'s eyes are closed/blinking clearly.',
+      '3) Note: Evaluate `turn_left` and `turn_right` strictly by the SUBJECT\'s own anatomical head turn (left vs right), NOT viewer side, OR note headDirection.',
+      '',
+      'Return ONLY strict JSON:',
+      '{',
+      '  "faceDetected": boolean,',
+      '  "faceCount": number,',
+      '  "headDirection": "front" | "left" | "right",',
+      '  "mouthOpen": boolean,',
+      '  "eyesClosed": boolean,',
+      '  "actionDetected": boolean,',
+      '  "spoofOrScreen": boolean',
+      '}'
+    ].join('\n');
+
+    const aiResult = await executeAiFn({
+      payload: {
+        contents: [
+          {
+            parts: [
+              { text: prompt },
+              { inlineData: { mimeType: prepared.mimeType, data: prepared.data } }
+            ]
+          }
+        ],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.05
+        }
+      },
+      timeoutMs: 12_000
+    });
+
+    if (!aiResult || !aiResult.text) {
+      const noKeys = Boolean(aiResult?.disabled || /no .*key|disabled/i.test(String(aiResult?.reason || '')));
+      return { ok: false, fallback: true, aiDisabled: noKeys };
+    }
+
+    const parsed = parseGeminiJson(aiResult.text);
+    if (!parsed || typeof parsed.faceDetected !== 'boolean') {
+      return { ok: false, fallback: true, aiDisabled: false };
+    }
+
+    const faceDetected = parsed.faceDetected === true;
+    const faceCount = Number.isFinite(Number(parsed.faceCount))
+      ? Math.max(0, Math.round(Number(parsed.faceCount)))
+      : (faceDetected ? 1 : 0);
+    const spoofOrScreen = parsed.spoofOrScreen === true;
+
+    if (!faceDetected || faceCount !== 1 || spoofOrScreen) {
+      return {
+        ok: true,
+        fallback: false,
+        faceDetected: faceCount > 1,
+        faceCount,
+        actionDetected: false,
+        guidance: faceCount > 1 ? 'multiple_faces' : 'no_face'
+      };
+    }
+
+    let actionDetected = parsed.actionDetected === true;
+    if (challengeType === 'turn_left') {
+      actionDetected = actionDetected && parsed.headDirection === 'left';
+    } else if (challengeType === 'turn_right') {
+      actionDetected = actionDetected && parsed.headDirection === 'right';
+    } else if (challengeType === 'open_mouth') {
+      actionDetected = actionDetected && parsed.mouthOpen === true;
+    } else if (challengeType === 'blink') {
+      actionDetected = actionDetected && parsed.eyesClosed === true;
+    }
+
+    return {
+      ok: true,
+      fallback: false,
+      faceDetected: true,
+      faceCount: 1,
+      actionDetected,
+      guidance: actionDetected ? 'passed' : 'perform_action'
+    };
+  } catch {
+    return { ok: false, fallback: true, aiDisabled: false };
   }
 }
 
 export const geminiIdentityVerifier = {
   analyzeIdentityDocumentWithGemini,
   matchDocumentAndSelfieWithGemini,
+  inspectLivenessQualityWithGemini,
+  verifyLivenessChallengeFrameWithGemini,
   normalizeDocumentType
 };
 

@@ -952,59 +952,57 @@ export default function AdminIdentityVerificationPage({
               </div>
             </div>
 
-            {telemetry.hasAny && (
-              <div className="rounded-xl border border-neutral-200/80 p-3.5 dark:border-neutral-800 space-y-2.5">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-900 dark:text-white">
-                  <Fingerprint className="h-3.5 w-3.5 text-[#1ED760]" />
-                  Geo &amp; Behavioral Zero-Trust Telemetry
-                </div>
-                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 text-xs">
-                  <div className="rounded-lg bg-neutral-50 p-2.5 dark:bg-neutral-900">
-                    <span className="text-[10px] text-neutral-500">Completion Time</span>
-                    <p className="mt-0.5 font-semibold tabular-nums text-neutral-900 dark:text-white">
-                      {formatDurationMs(telemetry.completionDurationMs)}
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-neutral-50 p-2.5 dark:bg-neutral-900">
-                    <span className="text-[10px] text-neutral-500">Geo Country</span>
-                    <p className="mt-0.5 font-semibold text-neutral-900 dark:text-white flex items-center gap-1">
-                      <Globe className="h-3 w-3 text-neutral-400" />
-                      {telemetry.geoCountry || '—'}
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-neutral-50 p-2.5 dark:bg-neutral-900">
-                    <span className="text-[10px] text-neutral-500">Issuing Country Check</span>
-                    <p className="mt-0.5">
-                      {telemetry.hasMismatchField ? (
-                        <Badge variant={telemetry.issuingCountryMismatch ? 'destructive' : 'success'}>
-                          {telemetry.issuingCountryMismatch ? 'Country Mismatch' : 'Matched'}
-                        </Badge>
-                      ) : (
-                        <span className="font-semibold text-neutral-700 dark:text-neutral-300">—</span>
-                      )}
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-neutral-50 p-2.5 dark:bg-neutral-900">
-                    <span className="text-[10px] text-neutral-500">Spoof Risk</span>
-                    <p className="mt-0.5 font-semibold text-neutral-900 dark:text-white">
-                      {telemetry.spoofRisk !== null && telemetry.spoofRisk !== undefined
-                        ? String(telemetry.spoofRisk)
-                        : '—'}
-                    </p>
-                  </div>
-                </div>
-                {telemetry.tamperingSignals.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[11px] font-medium text-neutral-500">Tampering Signals:</span>
-                    {telemetry.tamperingSignals.map((sig) => (
-                      <Badge key={String(sig)} variant="destructive">
-                        {String(sig)}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+            <div className="rounded-xl border border-neutral-200/80 p-3.5 dark:border-neutral-800 space-y-2.5">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-900 dark:text-white">
+                <Fingerprint className="h-3.5 w-3.5 text-[#1ED760]" />
+                Geo &amp; Behavioral Zero-Trust Telemetry
               </div>
-            )}
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 text-xs">
+                <div className="rounded-lg bg-neutral-50 p-2.5 dark:bg-neutral-900">
+                  <span className="text-[10px] text-neutral-500">Completion Time</span>
+                  <p className="mt-0.5 font-semibold tabular-nums text-neutral-900 dark:text-white">
+                    {formatDurationMs(telemetry.completionDurationMs)}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-neutral-50 p-2.5 dark:bg-neutral-900">
+                  <span className="text-[10px] text-neutral-500">Geo Country</span>
+                  <p className="mt-0.5 font-semibold text-neutral-900 dark:text-white flex items-center gap-1">
+                    <Globe className="h-3 w-3 text-neutral-400" />
+                    {telemetry.geoCountry || 'Local / Unavailable'}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-neutral-50 p-2.5 dark:bg-neutral-900">
+                  <span className="text-[10px] text-neutral-500">Issuing Country Check</span>
+                  <p className="mt-0.5">
+                    {telemetry.hasMismatchField ? (
+                      <Badge variant={telemetry.issuingCountryMismatch ? 'destructive' : 'success'}>
+                        {telemetry.issuingCountryMismatch ? 'Country Mismatch' : 'Matched'}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">Pending Geo</Badge>
+                    )}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-neutral-50 p-2.5 dark:bg-neutral-900">
+                  <span className="text-[10px] text-neutral-500">Spoof Risk</span>
+                  <p className="mt-0.5 font-semibold capitalize text-neutral-900 dark:text-white">
+                    {telemetry.spoofRisk !== null && telemetry.spoofRisk !== undefined
+                      ? String(telemetry.spoofRisk)
+                      : 'Low'}
+                  </p>
+                </div>
+              </div>
+              {telemetry.tamperingSignals.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] font-medium text-neutral-500">Tampering Signals:</span>
+                  {telemetry.tamperingSignals.map((sig) => (
+                    <Badge key={String(sig)} variant="destructive">
+                      {String(sig)}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {merchantStores.length > 0 && (
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 text-xs">

@@ -222,7 +222,7 @@ export default function ConfirmNameStep({ onNext = null, onBack = null }) {
                 : 'border-neutral-200/80 bg-white'
             }`}>
               <p className="text-[11px] font-medium uppercase tracking-wider text-neutral-400">
-                Document name (Gemini)
+                Document name
               </p>
               <p className="mt-0.5 text-[13.5px] font-semibold text-neutral-900 truncate">
                 {detectedName || 'Not detected'}
@@ -250,7 +250,7 @@ export default function ConfirmNameStep({ onNext = null, onBack = null }) {
                 : 'border-neutral-200/80 bg-white'
             }`}>
               <p className="text-[11px] font-medium uppercase tracking-wider text-neutral-400">
-                Document DOB (Gemini)
+                Document date of birth
               </p>
               <p className="mt-0.5 text-[13.5px] font-semibold text-neutral-900">
                 {detectedDob || 'Not detected'}

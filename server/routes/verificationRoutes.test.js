@@ -1063,3 +1063,183 @@ test('duplicate Passport or NID used on a second account permanently bans the du
   assert.equal(permClosedReviews[1].metadata.duplicateLinkedAccounts[0].userEmail, 'user1@example.com');
   assert.ok(updateUser.mock.calls.some(c => c.arguments[0] === 'user-2' && c.arguments[1].isBanned === true));
 });
+
+test('liveness quality & challenge frames block empty/no-face frames and enforce Name+DOB match on face-match', async t => {
+  mockIdentityCompletion(t, {
+    id: 'user-liveness',
+    name: 'Imran Khan',
+    dateOfBirth: '1992-05-10',
+    address: 'Old Dhaka Road',
+    identityVerificationRequired: true
+  });
+
+  let allowFace = false;
+  let allowAction = false;
+  let faceMatchMode = 'name_mismatch';
+
+  const geminiVerifier = {
+    async inspectLivenessQualityWithGemini() {
+      if (!allowFace) {
+        return { ok: true, fallback: false, faceDetected: false, faceCount: 0, passportQuality: false, ready: false, guidance: 'no_face' };
+      }
+      return { ok: true, fallback: false, faceDetected: true, faceCount: 1, passportQuality: true, ready: true, guidance: 'ready' };
+    },
+    async verifyLivenessChallengeFrameWithGemini() {
+      if (!allowFace) {
+        return { ok: true, fallback: false, faceDetected: false, faceCount: 0, actionDetected: false, guidance: 'no_face' };
+      }
+      if (!allowAction) {
+        return { ok: true, fallback: false, faceDetected: true, faceCount: 1, actionDetected: false, guidance: 'perform_action' };
+      }
+      return { ok: true, fallback: false, faceDetected: true, faceCount: 1, actionDetected: true, guidance: 'passed' };
+    },
+    async matchDocumentAndSelfieWithGemini() {
+      if (faceMatchMode === 'name_mismatch') {
+        return {
+          ok: true,
+          fallbackToManual: false,
+          isMatch: true,
+          nameMatchesAccount: false,
+          extracted: {
+            fullName: 'Tariq Ahmed',
+            dateOfBirth: '1992-05-10',
+            address: 'Completely Different Address',
+            country: 'Bangladesh'
+          }
+        };
+      }
+      if (faceMatchMode === 'dob_mismatch') {
+        return {
+          ok: true,
+          fallbackToManual: false,
+          isMatch: true,
+          nameMatchesAccount: true,
+          extracted: {
+            fullName: 'Imran Khan',
+            dateOfBirth: '1988-01-01',
+            country: 'Bangladesh'
+          }
+        };
+      }
+      // Address mismatch on passport should STILL pass cleanly
+      return {
+        ok: true,
+        fallbackToManual: false,
+        isMatch: true,
+        nameMatchesAccount: true,
+        extracted: {
+          fullName: 'Imran Khan',
+          dateOfBirth: '1992-05-10',
+          address: 'London, UK (Different from profile)',
+          country: 'Bangladesh'
+        }
+      };
+    }
+  };
+
+  const call = await createClient(t, { geminiVerifier, reviewStore: createMockReviewStore() });
+
+  // 1) Quality rejects no-face
+  const qForm1 = new FormData();
+  qForm1.append('frame', new Blob([await createImage(320, 240, 1)], { type: 'image/png' }), 'wall.png');
+  const qRes1 = await call('/api/verification/liveness/quality?mode=passport', {
+    method: 'POST',
+    headers: { 'x-user-id': 'user-liveness' },
+    body: qForm1
+  });
+  const qJson1 = await qRes1.json();
+  assert.equal(qJson1.ready, false);
+  assert.equal(qJson1.guidance, 'no_face');
+
+  // 2) Start session & submit frame without face -> passed: false (does NOT complete!)
+  const sRes = await call('/api/verification/liveness/session', {
+    method: 'POST',
+    headers: { 'x-user-id': 'user-liveness' }
+  });
+  const sJson = await sRes.json();
+
+  const fForm1 = new FormData();
+  fForm1.append('frame', new Blob([await createImage(320, 240, 2)], { type: 'image/png' }), 'f1.png');
+  const fRes1 = await call(`/api/verification/liveness/${sJson.session_id}/frame`, {
+    method: 'POST',
+    headers: { 'x-user-id': 'user-liveness' },
+    body: fForm1
+  });
+  const fJson1 = await fRes1.json();
+  assert.equal(fJson1.passed, false);
+  assert.equal(fJson1.faceDetected, false);
+  assert.equal(fJson1.complete, false);
+
+  // 3) Face present but movement NOT performed -> passed: false
+  allowFace = true;
+  const fForm2 = new FormData();
+  fForm2.append('frame', new Blob([await createImage(320, 240, 3)], { type: 'image/png' }), 'f2.png');
+  const fRes2 = await call(`/api/verification/liveness/${sJson.session_id}/frame`, {
+    method: 'POST',
+    headers: { 'x-user-id': 'user-liveness' },
+    body: fForm2
+  });
+  const fJson2 = await fRes2.json();
+  assert.equal(fJson2.passed, false);
+  assert.equal(fJson2.faceDetected, true);
+  assert.equal(fJson2.complete, false);
+
+  // 4) Perform all 3 actions genuinely
+  allowAction = true;
+  for (let i = 0; i < 3; i++) {
+    const fForm = new FormData();
+    fForm.append('frame', new Blob([await createImage(320, 240, 10 + i)], { type: 'image/png' }), `ok-${i}.png`);
+    const okF = await call(`/api/verification/liveness/${sJson.session_id}/frame`, {
+      method: 'POST',
+      headers: { 'x-user-id': 'user-liveness' },
+      body: fForm
+    });
+    const okJson = await okF.json();
+    assert.equal(okJson.passed, true);
+  }
+
+  // 5) Name mismatch rejects
+  const nmRes = await call('/api/verification/face-match', {
+    method: 'POST',
+    headers: { 'x-user-id': 'user-liveness' },
+    body: createForm(await createImage(320, 240, 20), { sessionId: sJson.session_id, documentType: 'passport' })
+  });
+  const nmJson = await nmRes.json();
+  assert.equal(nmJson.isMatch, false);
+  assert.equal(nmJson.reason, 'name_mismatch');
+
+  // 6) DOB mismatch rejects
+  faceMatchMode = 'dob_mismatch';
+  const sRes2 = await call('/api/verification/liveness/session', { method: 'POST', headers: { 'x-user-id': 'user-liveness' } });
+  const sJson2 = await sRes2.json();
+  for (let i = 0; i < 3; i++) {
+    const f = new FormData();
+    f.append('frame', new Blob([await createImage(320, 240, 30 + i)], { type: 'image/png' }), `ok2-${i}.png`);
+    await call(`/api/verification/liveness/${sJson2.session_id}/frame`, { method: 'POST', headers: { 'x-user-id': 'user-liveness' }, body: f });
+  }
+  const dobRes = await call('/api/verification/face-match', {
+    method: 'POST',
+    headers: { 'x-user-id': 'user-liveness' },
+    body: createForm(await createImage(320, 240, 40), { sessionId: sJson2.session_id, documentType: 'passport' })
+  });
+  const dobJson = await dobRes.json();
+  assert.equal(dobJson.isMatch, false);
+  assert.equal(dobJson.reason, 'dob_mismatch');
+
+  // 7) Exact Name + DOB match with different Passport address STILL passes cleanly
+  faceMatchMode = 'pass';
+  const sRes3 = await call('/api/verification/liveness/session', { method: 'POST', headers: { 'x-user-id': 'user-liveness' } });
+  const sJson3 = await sRes3.json();
+  for (let i = 0; i < 3; i++) {
+    const f = new FormData();
+    f.append('frame', new Blob([await createImage(320, 240, 50 + i)], { type: 'image/png' }), `ok3-${i}.png`);
+    await call(`/api/verification/liveness/${sJson3.session_id}/frame`, { method: 'POST', headers: { 'x-user-id': 'user-liveness' }, body: f });
+  }
+  const passRes = await call('/api/verification/face-match', {
+    method: 'POST',
+    headers: { 'x-user-id': 'user-liveness' },
+    body: createForm(await createImage(320, 240, 60), { sessionId: sJson3.session_id, documentType: 'passport' })
+  });
+  const passJson = await passRes.json();
+  assert.equal(passJson.isMatch, true);
+});

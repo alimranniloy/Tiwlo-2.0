@@ -58,7 +58,7 @@ export default function VerificationSuccessStep({ onContinue = null }) {
             Submitted for Manual Review
           </h2>
           <p className="text-[14px] text-neutral-500 font-normal mt-2.5 max-w-[320px] leading-relaxed">
-            Automated Gemini verification is currently busy, so your document and liveness check have been safely queued for our Identity Review team.
+            Automated verification is currently busy, so your document and selfie check have been safely queued for our Identity Review team.
           </p>
 
           <div className="mt-5 w-full max-w-[320px] rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50/80 to-emerald-50/50 p-4 text-left space-y-1.5">

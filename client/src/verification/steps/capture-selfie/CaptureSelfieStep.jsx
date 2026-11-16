@@ -8,7 +8,6 @@ import {
   Check,
   Loader2,
   RotateCcw,
-  ScanFace,
 } from 'lucide-react';
 import { useVerification } from '../../context/VerificationContext';
 import VerificationHeader from '../../components/VerificationHeader';
@@ -228,6 +227,13 @@ export default function CaptureSelfieStep() {
         nextStep();
       }, 500);
     }, { once: true });
+    if (typeof recorder.requestData === 'function') {
+      try {
+        recorder.requestData();
+      } catch {
+        // Ignore flush error before stop
+      }
+    }
     recorder.stop();
   }, [
     failCapture,
@@ -253,7 +259,7 @@ export default function CaptureSelfieStep() {
 
       const body = new FormData();
       body.append('frame', frame, 'final-selfie.jpg');
-      const response = await fetch('/api/verification/liveness/quality', {
+      const response = await fetch('/api/verification/liveness/quality?mode=passport', {
         method: 'POST',
         credentials: 'include',
         headers: accessHeaders,
@@ -333,11 +339,19 @@ export default function CaptureSelfieStep() {
 
       const passedIndex = session.challenges.length - result.challengesRemaining - (result.passed ? 1 : 0);
       if (result.passed) {
+        setFaceReady(true);
+        setFaceGuidance('ready');
         setLastPassedIndex(Math.max(0, passedIndex));
         setChallengeIndex(Math.min(session.challenges.length - 1, passedIndex + 1));
         setChallengePassed(true);
         window.clearTimeout(challengePassedTimerRef.current);
         challengePassedTimerRef.current = window.setTimeout(() => setChallengePassed(false), 700);
+      } else {
+        if (result.faceDetected === false) {
+          setFaceGuidance(result.guidance || 'no_face');
+        } else {
+          setFaceGuidance(result.guidance || 'perform_action');
+        }
       }
       if (result.complete) {
         awaitingFinalSelfieRef.current = true;
@@ -612,7 +626,6 @@ export default function CaptureSelfieStep() {
       ? Math.min(1, Math.max(0, (lastPassedIndex + 1) / challenges.length))
       : 0;
   const activeTickCount = Math.round(progressRatio * FACE_ID_TICK_COUNT);
-  const progressPercent = Math.round(progressRatio * 100);
 
   const guidance = {
     no_face: 'Position your face within the frame.',
@@ -623,10 +636,11 @@ export default function CaptureSelfieStep() {
     center_right: 'Move your face slightly right.',
     center_lower: 'Lower the camera slightly.',
     center_upper: 'Raise the camera slightly.',
-    hold_still: 'Hold still while the camera focuses.',
+    perform_action: 'Perform the prompted movement clearly.',
+    hold_still: 'Look straight ahead cleanly for a passport-quality photo.',
     connection: 'Reconnecting to the verification check...',
     checking: 'Position your face within the frame.',
-    ready: 'Face aligned. Starting live scan...',
+    ready: 'Face detected cleanly.',
   }[faceGuidance] || 'Position your face within the frame.';
 
   const guidanceTitle = {
@@ -638,7 +652,8 @@ export default function CaptureSelfieStep() {
     center_right: 'Shift slightly right',
     center_lower: 'Lower camera slightly',
     center_upper: 'Raise camera slightly',
-    hold_still: 'Hold still',
+    perform_action: 'Follow the camera prompt',
+    hold_still: 'Look straight ahead cleanly',
     connection: 'Reconnecting...',
     checking: 'Position your face within the frame',
     ready: 'Face detected',
@@ -671,29 +686,33 @@ export default function CaptureSelfieStep() {
           : '';
 
   const primaryInstruction = cameraError
-    ? 'Face ID Check Paused'
+    ? 'Camera Check Paused'
     : faceIdCompleted
-      ? 'Face ID Complete'
+      ? 'Selfie Captured'
       : awaitingFinalSelfie
-        ? 'Hold still for final capture'
+        ? 'Look straight ahead cleanly'
         : faceReady
-          ? challengeLabel
+          ? faceGuidance === 'no_face' || faceGuidance === 'multiple_faces'
+            ? guidanceTitle
+            : challengeLabel
           : guidanceTitle;
 
   const secondaryInstruction = cameraError
     ? cameraError
     : faceIdCompleted
-      ? 'Live scan verified. Preparing your submission...'
+      ? 'Preparing your verification...'
       : awaitingFinalSelfie
         ? faceGuidance === 'ready'
-          ? 'Capturing crisp verification frame...'
+          ? 'Capturing passport-quality portrait...'
           : guidance
         : faceReady
-          ? 'Move gently and keep your face inside the aperture.'
+          ? faceGuidance === 'no_face' || faceGuidance === 'multiple_faces'
+            ? guidance
+            : 'Follow the movement clearly with your face inside the circle.'
           : guidance;
 
   return (
-    <div className="flex-1 flex flex-col justify-between px-5 pb-6 pt-1 select-none">
+    <div className="flex-1 flex flex-col justify-between px-4 sm:px-5 pb-5 pt-1 select-none bg-white">
       <div>
         <VerificationHeader
           title="Identity Verification"
@@ -702,59 +721,22 @@ export default function CaptureSelfieStep() {
         />
         <StepIndicator currentStep={3} totalSteps={5} />
 
-        {/* Dark Frosted Shadcn Glass Surface */}
-        <div className="mt-4 rounded-3xl border border-white/10 bg-neutral-950/95 p-6 text-white shadow-2xl backdrop-blur-xl relative overflow-hidden">
-          {/* Subtle top radial emerald ambient glow */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -top-20 left-1/2 h-44 w-72 -translate-x-1/2 rounded-full blur-3xl transition-opacity duration-700"
-            style={{
-              background: faceReady || faceIdCompleted
-                ? 'radial-gradient(circle, rgba(30,215,96,0.22) 0%, rgba(30,215,96,0) 70%)'
-                : 'radial-gradient(circle, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 70%)',
-            }}
-          />
-
-          {/* Top Status Pill */}
-          <div className="relative z-10 flex items-center justify-between mb-5">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11.5px] font-medium tracking-wide text-neutral-200 backdrop-blur-md">
-              {faceIdCompleted ? (
-                <>
-                  <span className="h-2 w-2 rounded-full bg-[#1ED760]" />
-                  <span className="text-[#1ED760]">Face ID Verified</span>
-                </>
-              ) : isRecording ? (
-                <>
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-[#1ED760]" />
-                  <span>Live Scan Active</span>
-                </>
-              ) : (
-                <>
-                  <ScanFace className="h-3.5 w-3.5 text-neutral-300" />
-                  <span>Face ID Setup</span>
-                </>
-              )}
-            </div>
-
-            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-neutral-300">
-              {progressPercent}%
-            </span>
-          </div>
-
-          {/* Apple Face ID 60-Tick Radial Progress Ring + Circular Camera Aperture */}
-          <div className="relative z-10 my-2 flex flex-col items-center">
+        {/* Clean White Shadcn Card Surface */}
+        <div className="mt-4 rounded-3xl border border-neutral-200/80 bg-white p-5 sm:p-6 text-neutral-950 shadow-xs relative overflow-hidden">
+          {/* 60-Tick Radial Progress Ring + Circular Camera Aperture */}
+          <div className="relative z-10 flex flex-col items-center">
             <div
               role="img"
               aria-label={
                 faceIdCompleted
-                  ? 'Face ID scan complete'
+                  ? 'Selfie capture complete'
                   : challengePassed || allChallengesPassed
                     ? 'Liveness step complete'
                     : faceReady
-                      ? 'Face centered inside Face ID ring'
-                      : 'Aligning face inside Face ID ring'
+                      ? 'Face centered inside frame'
+                      : 'Aligning face inside frame'
               }
-              className={`relative flex h-72 w-72 items-center justify-center transition-transform duration-500 ${
+              className={`relative flex h-68 w-68 sm:h-72 sm:w-72 items-center justify-center transition-transform duration-500 ${
                 challengePassed && !faceIdCompleted ? 'scale-[1.02]' : ''
               }`}
             >
@@ -782,12 +764,11 @@ export default function CaptureSelfieStep() {
                       y1={y1.toFixed(2)}
                       x2={x2.toFixed(2)}
                       y2={y2.toFixed(2)}
-                      stroke={isLit ? (isLeading ? '#34C759' : '#1ED760') : 'rgba(163, 163, 163, 0.35)'}
+                      stroke={isLit ? (isLeading ? '#16b950' : '#1ED760') : 'rgba(115, 115, 115, 0.28)'}
                       strokeWidth={isLit ? 2.8 : 2}
                       strokeLinecap="round"
                       style={{
                         transition: 'stroke 240ms ease-out, stroke-width 240ms ease-out',
-                        filter: isLit ? 'drop-shadow(0 0 4px rgba(30, 215, 96, 0.55))' : undefined,
                       }}
                     />
                   );
@@ -795,7 +776,7 @@ export default function CaptureSelfieStep() {
               </svg>
 
               {/* Circular Camera Aperture */}
-              <div className="relative z-10 h-[232px] w-[232px] overflow-hidden rounded-full bg-neutral-900 ring-1 ring-white/15 shadow-[inset_0_0_24px_rgba(0,0,0,0.65)]">
+              <div className="relative z-10 h-[220px] w-[220px] sm:h-[232px] sm:w-[232px] overflow-hidden rounded-full bg-neutral-100 ring-1 ring-neutral-200/90 shadow-inner">
                 {stream && !faceIdCompleted ? (
                   <video
                     ref={videoRef}
@@ -805,50 +786,32 @@ export default function CaptureSelfieStep() {
                     className="h-full w-full scale-x-[-1] object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-neutral-900/95">
+                  <div className="flex h-full w-full items-center justify-center bg-neutral-100">
                     {cameraError ? (
-                      <AlertCircle className="h-9 w-9 text-amber-400" />
+                      <AlertCircle className="h-9 w-9 text-amber-500" />
                     ) : faceIdCompleted ? null : (
                       <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
                     )}
                   </div>
                 )}
 
-                {/* Subtle Dashed Alignment Ring + Animated Directional Sweep */}
+                {/* Subtle Dashed Alignment Ring */}
                 {!cameraError && !faceIdCompleted && (
-                  <>
-                    <div
-                      aria-hidden="true"
-                      className={`pointer-events-none absolute inset-3 rounded-full border border-dashed transition-colors duration-500 ${
-                        faceReady
-                          ? 'border-[#1ED760]/70'
-                          : 'border-white/25'
-                      }`}
-                    />
-                    <svg
-                      viewBox="0 0 100 100"
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-0 h-full w-full animate-[spin_5s_linear_infinite] opacity-75"
-                    >
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="47"
-                        fill="none"
-                        stroke={faceReady ? '#1ED760' : 'rgba(255,255,255,0.35)'}
-                        strokeWidth="1.1"
-                        strokeDasharray="28 268"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </>
+                  <div
+                    aria-hidden="true"
+                    className={`pointer-events-none absolute inset-3 rounded-full border border-dashed transition-colors duration-500 ${
+                      faceReady && faceGuidance !== 'no_face'
+                        ? 'border-[#1ED760]/75'
+                        : 'border-white/60'
+                    }`}
+                  />
                 )}
 
-                {/* Animated Emerald Face ID Checkmark Ring on Completion */}
+                {/* Clean White Emerald Checkmark on Completion */}
                 {faceIdCompleted && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-950/85 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]">
-                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#1ED760]/15 ring-2 ring-[#1ED760] shadow-[0_0_28px_rgba(30,215,96,0.45)]">
-                      <Check className="h-10 w-10 text-[#1ED760]" strokeWidth={3} />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 backdrop-blur-xs animate-[fadeIn_200ms_ease-out]">
+                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#1ED760]/15 ring-2 ring-[#1ED760]">
+                      <Check className="h-10 w-10 text-[#159f46]" strokeWidth={3} />
                     </div>
                   </div>
                 )}
@@ -856,11 +819,7 @@ export default function CaptureSelfieStep() {
                 {/* Directional Guidance Arrow inside Aperture */}
                 {ringDirectionIcon && !cameraError && (
                   <span
-                    className={`absolute z-20 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 backdrop-blur-md shadow-lg ${
-                      isRecording
-                        ? 'bg-[#1ED760] text-neutral-950'
-                        : 'bg-neutral-900/80 text-white'
-                    } ${ringDirectionPosition}`}
+                    className={`absolute z-20 flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-neutral-900 backdrop-blur-md shadow-md ${ringDirectionPosition}`}
                   >
                     {React.createElement(ringDirectionIcon, { className: 'h-4 w-4 animate-pulse' })}
                   </span>
@@ -884,8 +843,8 @@ export default function CaptureSelfieStep() {
                         isDone
                           ? 'w-5 bg-[#1ED760]'
                           : isCurrent
-                            ? 'w-4 bg-white/80'
-                            : 'w-1.5 bg-white/20'
+                            ? 'w-4 bg-neutral-500'
+                            : 'w-1.5 bg-neutral-200'
                       }`}
                     />
                   );
@@ -893,16 +852,16 @@ export default function CaptureSelfieStep() {
               </div>
             )}
 
-            {/* Minimal Apple-clean Floating Instruction Text */}
-            <h2 className="mt-4 text-center text-[19px] font-semibold tracking-tight text-white">
+            {/* Clean Instruction Text on White */}
+            <h2 className="mt-4 text-center text-[19px] font-semibold tracking-tight text-neutral-950">
               {primaryInstruction}
             </h2>
-            <p className="mt-1.5 max-w-[290px] text-center text-[12.5px] leading-relaxed text-neutral-400">
+            <p className="mt-1.5 max-w-[290px] text-center text-[12.5px] leading-relaxed text-neutral-500">
               {secondaryInstruction}
             </p>
 
             {lowLightWarning && !cameraError && !faceIdCompleted && (
-              <div className="mt-3 rounded-full border border-amber-400/25 bg-amber-500/10 px-3 py-1 text-[11.5px] font-medium text-amber-300">
+              <div className="mt-3 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[11.5px] font-medium text-amber-800">
                 Brighter lighting can help speed up detection
               </div>
             )}
@@ -910,8 +869,8 @@ export default function CaptureSelfieStep() {
 
           {cameraError && (
             <div className="mt-4 space-y-3">
-              <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+              <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                 <span>{cameraError}</span>
               </div>
               <button
@@ -928,10 +887,10 @@ export default function CaptureSelfieStep() {
       </div>
 
       {!cameraError && (
-        <p className="pt-4 pb-1 text-center text-[11.5px] text-neutral-400">
+        <p className="pt-3 pb-1 text-center text-[11.5px] text-neutral-400">
           {awaitingFinalSelfie
-            ? 'Hold steady for a brief moment while we finalize your selfie.'
-            : 'Keep your face centered in the circular frame and follow each prompt.'}
+            ? 'Hold steady for a moment while we capture your passport-quality selfie.'
+            : 'Keep your face centered inside the frame and follow each prompt.'}
         </p>
       )}
       <canvas ref={canvasRef} className="hidden" />

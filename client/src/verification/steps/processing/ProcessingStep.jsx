@@ -32,6 +32,7 @@ export default function ProcessingStep() {
     selectedDocument,
     setVerificationResult,
     setManualReviewInfo,
+    setDocumentAnalysis,
     documentFile,
     documentBackFile,
     selfieImage,
@@ -158,23 +159,31 @@ export default function ProcessingStep() {
           finish('success');
           return;
         }
+        if (result.nameMismatch || result.dobMismatch || result.reason === 'name_mismatch' || result.reason === 'dob_mismatch') {
+          setDocumentAnalysis(result);
+        }
         setFailureType('verification');
         setFailureReason(
-          result.reason === 'active_liveness_failed'
-            ? 'The live camera actions did not complete. Keep your face in view, hold the phone steady, and follow each prompt slowly.'
-            : result.reason === 'passive_liveness_failed' || result.reason === 'liveness_check_failed'
-              ? 'Your live actions were completed, but the final selfie check could not confirm a live camera image. Look straight at the camera, hold still, and use steady light. Do not use a photo or a screen.'
-            : result.reason === 'document_face_not_clear'
-              ? 'We could not find exactly one clear face in the document photo. For an ID card, include its portrait; for a passport, use the photo page and keep the face unobstructed.'
-              : result.reason === 'selfie_face_not_clear'
-                ? 'We could not find exactly one clear face in the selfie. Remove anything covering your face, move closer, and use steady light.'
-                : result.reason === 'face_not_clear'
-                  ? 'We could not detect one face in both images. Check that the document portrait and selfie are fully visible and in focus.'
-                  : result.reason === 'invalid_image'
-                    ? 'One of the uploaded images could not be read. Upload a JPEG, PNG, or WebP photo.'
-                    : result.reason === 'face_mismatch'
-                      ? 'The face in the selfie did not match the face in the document photo. Check that you uploaded your own document.'
-                      : 'The face match could not be completed. Check the document portrait and selfie, then try again.'
+          result.message ||
+            (result.reason === 'name_mismatch'
+              ? 'The name on your identity document does not match your Tiwlo account name.'
+              : result.reason === 'dob_mismatch'
+                ? 'The date of birth on your identity document does not match your Tiwlo account.'
+                : result.reason === 'active_liveness_failed'
+                  ? 'The live camera actions did not complete. Keep your face in view, hold the phone steady, and follow each prompt slowly.'
+                  : result.reason === 'passive_liveness_failed' || result.reason === 'liveness_check_failed'
+                    ? 'Your live actions were completed, but the final selfie check could not confirm a live camera image. Look straight at the camera, hold still, and use steady light. Do not use a photo or a screen.'
+                    : result.reason === 'document_face_not_clear'
+                      ? 'We could not find exactly one clear face in the document photo. For an ID card, include its portrait; for a passport, use the photo page and keep the face unobstructed.'
+                      : result.reason === 'selfie_face_not_clear'
+                        ? 'We could not find exactly one clear face in the selfie. Remove anything covering your face, move closer, and use steady light.'
+                        : result.reason === 'face_not_clear'
+                          ? 'We could not detect one face in both images. Check that the document portrait and selfie are fully visible and in focus.'
+                          : result.reason === 'invalid_image'
+                            ? 'One of the uploaded images could not be read. Upload a JPEG, PNG, or WebP photo.'
+                            : result.reason === 'face_mismatch'
+                              ? 'The face in the selfie did not match the face in the document photo. Check that you uploaded your own document.'
+                              : 'The face match could not be completed. Check the document portrait and selfie, then try again.')
         );
         finish('failed');
       } catch (error) {
@@ -207,6 +216,7 @@ export default function ProcessingStep() {
     recordedVideo,
     setFailureReason,
     setFailureType,
+    setDocumentAnalysis,
     setManualReviewInfo,
     setVerificationResult,
     STEPS.FAILED,
@@ -262,7 +272,7 @@ export default function ProcessingStep() {
             Verifying your identity
           </h2>
           <p className="text-[13.5px] text-neutral-500 font-normal mt-2 leading-relaxed px-4">
-            Analyzing your document and live selfie securely with Gemini AI.
+            Verifying your document details and live selfie securely with Tiwlo.
           </p>
         </div>
 
@@ -308,7 +318,7 @@ export default function ProcessingStep() {
               )}
             </div>
             <span className={`text-[14px] font-medium transition-colors ${faceMatched ? 'text-neutral-800' : 'text-neutral-500'}`}>
-              Analyzing document &amp; matching faces
+              Verifying document &amp; matching face
             </span>
           </div>
 
@@ -339,7 +349,7 @@ export default function ProcessingStep() {
       </div>
 
       <div className="pt-4 text-center text-[12px] text-neutral-400">
-        If Gemini AI is busy, your submission is safely queued for manual review.
+        If automated verification takes longer, your submission is safely queued for our Identity Review team.
       </div>
     </div>
   );

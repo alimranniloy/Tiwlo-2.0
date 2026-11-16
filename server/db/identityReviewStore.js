@@ -750,6 +750,30 @@ export const identityReviewStore = {
     });
     memoryReviews.set(id, updated);
     return formatReviewRow(updated);
+  },
+
+  async deleteByUserId(userId) {
+    const cleanUserId = String(userId ?? '').trim();
+    if (!cleanUserId) return 0;
+
+    if (usePg()) {
+      await ensureSchema();
+      const pool = getPgPool();
+      const { rowCount } = await pool.query(
+        'DELETE FROM identity_verification_reviews WHERE user_id = $1',
+        [cleanUserId]
+      );
+      return Number(rowCount || 0);
+    }
+
+    let deleted = 0;
+    for (const [id, item] of memoryReviews.entries()) {
+      if (String(item?.userId || '') === cleanUserId) {
+        memoryReviews.delete(id);
+        deleted += 1;
+      }
+    }
+    return deleted;
   }
 };
 

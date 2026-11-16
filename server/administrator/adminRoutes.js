@@ -1144,6 +1144,14 @@ router.post('/users/:id/identity-verification/unverify', requireAdmin, async (re
     });
     if (!updatedUser) return res.status(404).json({ error: 'User not found.' });
 
+    // Clear previous verification evidence & prior review records so the next verification starts clean
+    try {
+      await identityVerificationEvidence.deleteForUser(targetUser);
+      await identityReviewStore.deleteByUserId(targetUser.id);
+    } catch (cleanupErr) {
+      console.warn('[Admin Identity Verification] Previous evidence cleanup warning:', cleanupErr.message);
+    }
+
     await recordSecurityEvent({
       eventType: 'admin.identity_verification_revoked',
       severity: 'warning',
@@ -1204,6 +1212,15 @@ router.post('/users/:id/identity-verification/require', requireAdmin, async (req
       identityVerificationRequired: true
     });
     if (!updatedUser) return res.status(404).json({ error: 'User not found in system.' });
+
+    // Remove any stale prior ID evidence/review records when sending a fresh verification request
+    try {
+      await identityVerificationEvidence.deleteForUser(targetUser);
+      await identityReviewStore.deleteByUserId(targetUser.id);
+    } catch (cleanupErr) {
+      console.warn('[Admin Identity Verification] Prior cleanup warning:', cleanupErr.message);
+    }
+
     await recordSecurityEvent({
       eventType: 'admin.identity_verification_required',
       severity: 'warning',

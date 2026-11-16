@@ -506,4 +506,8 @@ test('identityReviewStore.findDuplicateDocumentMatch detects reused document num
   assert.equal(bannedReview.status, 'permanently_closed');
   assert.equal(bannedReview.isPermanentlyClosed, true);
   assert.equal(bannedReview.metadata.duplicateIdentityBan, true);
+
+  const deletedCount = await identityReviewStore.deleteByUserId('user-original');
+  assert.equal(deletedCount, 1);
+  assert.equal(await identityReviewStore.getReviewById('rev-orig-1'), null);
 });

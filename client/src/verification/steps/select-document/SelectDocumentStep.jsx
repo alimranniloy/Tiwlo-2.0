@@ -121,7 +121,7 @@ export default function SelectDocumentStep({ onNext = null, onBack = null }) {
             <ShieldCheck className="w-5 h-5 text-neutral-400" strokeWidth={1.8} />
           </div>
           <p className="text-[12px] text-neutral-500 leading-relaxed font-normal">
-            Your document and live selfie are checked by Gemini AI, with manual review fallback by our Identity Review team if needed.
+            Your document and live selfie are securely verified by Tiwlo, with manual Identity Review support if needed.
           </p>
         </div>
       </div>

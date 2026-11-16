@@ -115,12 +115,16 @@ export const identityVerificationEvidence = {
     }
 
     if (Buffer.isBuffer(recording) && recording.length > 0) {
+      const isWebm =
+        recording.length >= 4 && recording.readUInt32BE(0) === 0x1a45dfa3;
+      const recExt = isWebm ? 'webm' : 'mp4';
+      const recMime = isWebm ? 'video/webm' : 'video/mp4';
       uploads.push({
         kind: 'liveness-recording',
         buffer: recording,
-        contentType: 'video/mp4',
-        extension: 'mp4',
-        originalFilename: 'liveness-recording.mp4'
+        contentType: recMime,
+        extension: recExt,
+        originalFilename: `liveness-recording.${recExt}`
       });
     }
 

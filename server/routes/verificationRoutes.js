@@ -4,6 +4,7 @@ import { createHash, createHmac, randomBytes, randomInt, randomUUID, timingSafeE
 import multer from 'multer';
 import rateLimit from 'express-rate-limit';
 import sharp from 'sharp';
+import geoip from 'geoip-lite';
 import { MasterDB } from '../db/multiTenant.js';
 import { identityVerificationEmailNotifications } from '../db/emailService.js';
 import { identityVerificationEvidence } from '../db/identityVerificationEvidence.js';
@@ -12,6 +13,7 @@ import { requireAuthenticatedUser } from '../security/authGuards.js';
 import { activateBanAndBlockSignals } from '../security/freeTierAbuseGuard.js';
 import {
   evaluateDobMatch,
+  evaluateNameMatch,
   geminiIdentityVerifier,
   normalizeDocumentType,
   normalizeIsoDate
@@ -193,9 +195,11 @@ function convertRecordingToMp4(recording) {
       '-loglevel', 'error',
       '-i', 'pipe:0',
       '-an',
+      '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
       '-c:v', 'libx264',
       '-preset', 'ultrafast',
-      '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+      '-pix_fmt', 'yuv420p',
+      '-movflags', 'frag_keyframe+empty_moov+default_base_moof+faststart',
       '-f', 'mp4',
       'pipe:1'
     ], { stdio: ['pipe', 'pipe', 'pipe'] });
@@ -217,6 +221,11 @@ function convertRecordingToMp4(recording) {
     });
     ffmpeg.once('error', error => {
       clearTimeout(timeout);
+      if (error && error.code === 'ENOENT') {
+        console.warn('[Verification] ffmpeg not installed on host; storing original WebM recording directly.');
+        resolve(recording.buffer);
+        return;
+      }
       reject(error);
     });
     ffmpeg.once('close', code => {
@@ -226,12 +235,14 @@ function convertRecordingToMp4(recording) {
         return;
       }
       if (code !== 0) {
-        reject(new TypeError(errorOutput || 'The liveness recording could not be converted.'));
+        console.warn('[Verification] ffmpeg WebM->MP4 transcoding failed; falling back to original WebM recording:', errorOutput);
+        resolve(recording.buffer);
         return;
       }
       const mp4 = Buffer.concat(output);
       if (mp4.length < 12 || mp4.toString('ascii', 4, 8) !== 'ftyp') {
-        reject(new TypeError('The converted recording is not a valid MP4 file.'));
+        console.warn('[Verification] Converted MP4 header invalid; storing original WebM recording.');
+        resolve(recording.buffer);
         return;
       }
       resolve(mp4);
@@ -337,19 +348,26 @@ function collectZeroTrustTelemetry(req, livenessSession, geminiRes) {
     ''
   ).slice(0, 128) || null;
 
+  const cleanIpForGeo = clientIp ? clientIp.replace(/^::ffff:/i, '') : '';
+  const geoLookupCountry = cleanIpForGeo ? geoip.lookup(cleanIpForGeo)?.country : null;
   const rawGeoCountry =
     req.headers['cf-ipcountry'] ||
     req.headers['x-vercel-ip-country'] ||
     req.headers['x-geo-country'] ||
     req.body?.geoCountry ||
+    geoLookupCountry ||
     '';
-  const geoCountry = String(rawGeoCountry).trim().toUpperCase() || null;
+  const normalizedGeo = String(rawGeoCountry).trim().toUpperCase();
+  const geoCountry =
+    normalizedGeo && normalizedGeo !== 'XX' && normalizedGeo !== 'ZZ' && normalizedGeo !== 'T1'
+      ? normalizedGeo
+      : null;
   const documentCountry = geminiRes?.extracted?.country || null;
   const matchResult = countriesMatch(geoCountry, documentCountry);
   const countryMismatch = matchResult === null ? false : !matchResult;
 
   const challengeDurationMs = livenessSession?.startedAt
-    ? Math.max(0, (livenessSession.completedAt || Date.now()) - livenessSession.startedAt)
+    ? Math.max(100, (livenessSession.completedAt || Date.now()) - livenessSession.startedAt)
     : null;
 
   const retakeCount = Math.max(
@@ -1024,6 +1042,56 @@ export function createVerificationRouter({
 
         const currentIndex = session.stepIndex;
         const challengeType = session.challenges[currentIndex];
+        const frameMime = req.file?.mimetype || (frame.format === 'png' ? 'image/png' : frame.format === 'webp' ? 'image/webp' : 'image/jpeg');
+
+        if (typeof geminiVerifier.verifyLivenessChallengeFrameWithGemini === 'function') {
+          const visionCheck = await geminiVerifier.verifyLivenessChallengeFrameWithGemini({
+            frameBuffer: req.file.buffer,
+            mimeType: frameMime,
+            challengeType
+          });
+
+          if (visionCheck && visionCheck.fallback === false) {
+            if (!visionCheck.faceDetected) {
+              session.failedFrameCount += 1;
+              return res.status(200).json({
+                challenge_index: currentIndex,
+                complete: false,
+                action_detected: false,
+                faceDetected: false,
+                guidance: visionCheck.guidance || 'no_face',
+                challenge_type: challengeType,
+                challengeType,
+                passed: false,
+                challengesRemaining: Math.max(0, session.challenges.length - session.stepIndex),
+                state: 'in_progress',
+                quality: {
+                  brightness: frame.brightness,
+                  sharpness: frame.sharpness
+                }
+              });
+            }
+            if (!visionCheck.actionDetected) {
+              return res.status(200).json({
+                challenge_index: currentIndex,
+                complete: false,
+                action_detected: false,
+                faceDetected: true,
+                guidance: visionCheck.guidance || 'perform_action',
+                challenge_type: challengeType,
+                challengeType,
+                passed: false,
+                challengesRemaining: Math.max(0, session.challenges.length - session.stepIndex),
+                state: 'in_progress',
+                quality: {
+                  brightness: frame.brightness,
+                  sharpness: frame.sharpness
+                }
+              });
+            }
+          }
+        }
+
         session.stepIndex += 1;
         if (session.stepIndex >= session.challenges.length) {
           session.complete = true;
@@ -1034,6 +1102,7 @@ export function createVerificationRouter({
           challenge_index: currentIndex,
           complete: session.complete,
           action_detected: true,
+          faceDetected: true,
           challenge_type: challengeType,
           challengeType,
           passed: true,
@@ -1077,6 +1146,27 @@ export function createVerificationRouter({
         }
         if (frame.brightness > 250 && frame.sharpness < 2) {
           return res.json({ ready: false, guidance: 'too_bright', quality });
+        }
+
+        const requirePassportFraming = String(req.query?.mode || '').trim().toLowerCase() === 'passport';
+        const frameMime = req.file?.mimetype || (frame.format === 'png' ? 'image/png' : frame.format === 'webp' ? 'image/webp' : 'image/jpeg');
+
+        if (typeof geminiVerifier.inspectLivenessQualityWithGemini === 'function') {
+          const visionQuality = await geminiVerifier.inspectLivenessQualityWithGemini({
+            frameBuffer: req.file.buffer,
+            mimeType: frameMime,
+            requirePassportFraming
+          });
+
+          if (visionQuality && visionQuality.fallback === false) {
+            return res.json({
+              ready: Boolean(visionQuality.ready),
+              faceDetected: Boolean(visionQuality.faceDetected),
+              passportQuality: Boolean(visionQuality.passportQuality),
+              guidance: visionQuality.ready ? null : (visionQuality.guidance || 'no_face'),
+              quality
+            });
+          }
         }
 
         return res.json({
@@ -1361,6 +1451,8 @@ export function createVerificationRouter({
         }
 
         const activeLivenessComplete = Boolean(livenessSession.complete);
+        const expectedDob = normalizeIsoDate(expectedUser?.dateOfBirth || expectedUser?.birthday) ||
+          (expectedUser?.dateOfBirth ? String(expectedUser.dateOfBirth).slice(0, 10) : '');
         const geminiRes = await geminiVerifier.matchDocumentAndSelfieWithGemini({
           documentBuffer: document.buffer,
           documentMimeType: imageTypes.get(documentFormat),
@@ -1368,6 +1460,7 @@ export function createVerificationRouter({
           selfieMimeType: imageTypes.get(selfieFormat),
           documentType,
           expectedName: expectedUser?.name || '',
+          expectedDob,
           expectedAddress: expectedUser?.address || expectedUser?.billingDetails?.address || '',
           livenessPassed: activeLivenessComplete
         });
@@ -1476,11 +1569,53 @@ export function createVerificationRouter({
           });
         }
 
-        // Path 2: Gemini auto-approved match + active liveness passed
+        // Path 2: Gemini auto-approved match + active liveness + Name & DOB match
         if (geminiRes.isMatch === true && activeLivenessComplete) {
           const verificationUser = await MasterDB.findUserByIdentifier(userId);
           if (!verificationUser) {
             throw new Error('The account for this verification session no longer exists.');
+          }
+
+          const resolvedExpectedName = String(verificationUser.name || expectedUser?.name || '').trim();
+          const resolvedExpectedDob =
+            normalizeIsoDate(verificationUser.dateOfBirth || verificationUser.birthday) ||
+            expectedDob ||
+            '';
+          const extractedName = geminiRes.extracted?.fullName || null;
+          const extractedDob = geminiRes.extracted?.dateOfBirth || null;
+
+          const nameMismatch =
+            Boolean(resolvedExpectedName && extractedName) &&
+            evaluateNameMatch(extractedName, resolvedExpectedName, geminiRes.nameMatchesAccount).nameMismatch;
+          const dobMismatch =
+            Boolean(resolvedExpectedDob && extractedDob) &&
+            evaluateDobMatch(extractedDob, resolvedExpectedDob);
+
+          if (nameMismatch || dobMismatch) {
+            const mismatchReason = nameMismatch ? 'name_mismatch' : 'dob_mismatch';
+            const mismatchMessage = nameMismatch
+              ? 'The name on your identity document does not match your Tiwlo account name.'
+              : 'The date of birth on your identity document does not match your Tiwlo account.';
+            if (req.verificationHandoff) {
+              setHandoffStatus(req.verificationHandoff, 'failed', mismatchReason);
+            }
+            return res.status(200).json({
+              success: true,
+              isMatch: false,
+              isLive: activeLivenessComplete,
+              reason: mismatchReason,
+              nameMismatch,
+              dobMismatch,
+              accountName: resolvedExpectedName,
+              accountDob: resolvedExpectedDob,
+              extracted: {
+                fullName: extractedName,
+                dateOfBirth: extractedDob,
+                address: geminiRes.extracted?.address || null,
+                country: geminiRes.extracted?.country || null
+              },
+              message: mismatchMessage
+            });
           }
 
           const storedEvidence = await identityVerificationEvidence.store({
