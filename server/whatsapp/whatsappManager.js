@@ -6,6 +6,7 @@ import { getPlatformUrl } from '../config/platformConfig.js';
 import { queryPg } from '../db/postgres.js';
 import { readState, saveState } from '../db/stateDocuments.js';
 import { checkServiceLimit, incrementServiceUsage } from '../db/serviceSubscriptions.js';
+import { executeGeminiWithFailover } from '../support/ai/aiKeyPoolService.js';
 // In-memory active sockets Map: sessionId -> { sock, qr, qrDataUrl, status, ... }
 const activeSockets = new Map();
 
@@ -51,19 +52,10 @@ export async function createPostgresAuthState(sessionId) {
   };
 }
 
-// Gemini AI Call for WhatsApp Auto-Replies
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const CANDIDATE_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-2.0-flash',
-  'gemini-1.5-flash',
-  'gemini-flash-lite-latest'
-];
-
+// Gemini AI Call for WhatsApp Auto-Replies (routed through Admin Gemini AI Key Pool + env fallback)
 async function callGeminiAi({ systemInstruction, userMessage, conversationHistory = [] }) {
   const contents = [];
-  
-  // Append recent history if any
+
   for (const h of conversationHistory.slice(-6)) {
     if (h.direction === 'inbound') {
       contents.push({ role: 'user', parts: [{ text: h.text }] });
@@ -86,24 +78,15 @@ async function callGeminiAi({ systemInstruction, userMessage, conversationHistor
     }
   };
 
-  for (const model of CANDIDATE_MODELS) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(8000)
-      });
-      const data = await res.json();
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) return text.trim();
-    } catch (err) {
-      // Try next model
+  try {
+    const result = await executeGeminiWithFailover({ payload, timeoutMs: 15000 });
+    if (result && typeof result.text === 'string' && result.text.trim()) {
+      return result.text.trim();
     }
+  } catch (err) {
+    console.warn('[WhatsAppManager] Gemini AI Pool failover error:', err.message);
   }
 
-  // Fallback if AI call failed
   return null;
 }
 

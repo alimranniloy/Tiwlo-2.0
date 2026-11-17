@@ -8,13 +8,17 @@ import sharp from 'sharp';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const serverDir = resolve(__dirname, '..');
 const modelsDir = resolve(serverDir, 'node_modules', '@vladmandic', 'human', 'models');
+const faceApiModelsDir = resolve(serverDir, 'node_modules', '@vladmandic', 'face-api', 'model');
 const wasmDir = resolve(serverDir, 'node_modules', '@tensorflow', 'tfjs-backend-wasm', 'dist');
 const humanNodeWasmPath = resolve(serverDir, 'node_modules', '@vladmandic', 'human', 'dist', 'human.node-wasm.js');
+const faceApiNodeWasmPath = resolve(serverDir, 'node_modules', '@vladmandic', 'face-api', 'dist', 'face-api.node-wasm.js');
 
 const require = createRequire(import.meta.url);
 
 let humanPromise = null;
 let humanInstance = null;
+let faceApiInstance = null;
+let faceApiReady = false;
 let loadRouterRegistered = false;
 
 function getModelsLoadedList(instance) {
@@ -26,8 +30,9 @@ function getModelsLoadedList(instance) {
 }
 
 /**
- * Initializes and caches the local Node.js neural 3D face mesh + iris + anti-spoof
- * verification engine using @vladmandic/human and TensorFlow.js WASM backend.
+ * Initializes and caches the dual local Node.js neural face liveness engines:
+ * 1) @vladmandic/human (BlazeFace + 468 FaceMesh + AntiSpoof + Liveness WASM)
+ * 2) @vladmandic/face-api (TinyFaceDetector + 68-Landmark TinyNet WASM for 35ms response)
  */
 export async function warmupFaceLivenessEngine() {
   if (humanInstance) return humanInstance;
@@ -52,22 +57,25 @@ export async function warmupFaceLivenessEngine() {
       async: true,
       warmup: 'none',
       cacheSensitivity: 0,
+      filter: { enabled: false },
       face: {
         enabled: true,
         detector: {
           enabled: true,
-          rotation: true,
+          rotation: false,
           maxDetected: 4,
-          minConfidence: 0.45,
-          iouThreshold: 0.3
+          minConfidence: 0.35,
+          iouThreshold: 0.3,
+          skipFrames: 0,
+          skipTime: 0
         },
         mesh: { enabled: true, keepInvalid: false },
-        iris: { enabled: true },
+        iris: { enabled: false },
         attention: false,
         emotion: { enabled: false },
         description: { enabled: false },
-        antispoof: { enabled: true },
-        liveness: { enabled: true }
+        antispoof: { enabled: true, skipFrames: 0, skipTime: 0 },
+        liveness: { enabled: true, skipFrames: 0, skipTime: 0 }
       },
       body: { enabled: false },
       hand: { enabled: false },
@@ -121,6 +129,31 @@ export async function warmupFaceLivenessEngine() {
       instance.tf.dispose(warmTensor);
     }
 
+    if (existsSync(faceApiNodeWasmPath) && existsSync(faceApiModelsDir)) {
+      try {
+        const faceapi = require(faceApiNodeWasmPath);
+        await faceapi.tf.setBackend('wasm');
+        await faceapi.tf.ready();
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromDisk(faceApiModelsDir),
+          faceapi.nets.faceLandmark68TinyNet.loadFromDisk(faceApiModelsDir)
+        ]);
+        const faWarm = faceapi.tf.zeros([224, 224, 3], 'int32');
+        try {
+          await faceapi.detectAllFaces(
+            faWarm,
+            new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 })
+          ).withFaceLandmarks(true);
+        } finally {
+          faceapi.tf.dispose(faWarm);
+        }
+        faceApiInstance = faceapi;
+        faceApiReady = true;
+      } catch (err) {
+        console.warn('[FaceEngine] Optional @vladmandic/face-api fast track unavailable:', err.message);
+      }
+    }
+
     humanInstance = instance;
     return instance;
   })().catch((error) => {
@@ -135,7 +168,8 @@ export function getFaceLivenessEngineStatus() {
   return {
     initialized: Boolean(humanInstance),
     backend: humanInstance?.tf?.getBackend?.() || null,
-    modelsLoaded: humanInstance ? getModelsLoadedList(humanInstance) : []
+    modelsLoaded: humanInstance ? getModelsLoadedList(humanInstance) : [],
+    faceApiReady
   };
 }
 
@@ -189,12 +223,52 @@ function computeMouthMetrics(annotations = {}, faceHeight = 1) {
     return { mouthOpenRatio: 0, mouthGapToFace: 0 };
   }
 
-  const leftCorner = upper[0];
-  const rightCorner = upper[upper.length - 1];
-  const mouthWidth = pointDistance2D(leftCorner, rightCorner);
-  const midIdxUpper = Math.floor(upper.length / 2);
-  const midIdxLower = Math.floor(lower.length / 2);
-  const gap = pointDistance2D(upper[midIdxUpper], lower[midIdxLower]);
+  // Span mouth width across outer contour points when available to avoid inner vertex ordering skew
+  const outerPts = [
+    ...(Array.isArray(annotations.lipsUpperOuter) ? annotations.lipsUpperOuter : upper),
+    ...(Array.isArray(annotations.lipsLowerOuter) ? annotations.lipsLowerOuter : lower)
+  ];
+  let minX = Infinity;
+  let maxX = -Infinity;
+  for (const p of outerPts) {
+    if (p && typeof p[0] === 'number') {
+      if (p[0] < minX) minX = p[0];
+      if (p[0] > maxX) maxX = p[0];
+    }
+  }
+  const mouthWidth = maxX > minX ? maxX - minX : pointDistance2D(upper[0], upper[upper.length - 1]);
+
+  let gap = 0;
+  if (upper.length === 3 && lower.length === 3) {
+    gap = pointDistance2D(upper[1], lower[1]);
+  } else {
+    // Compare matched-X vertical separation across central inner-lip vertices
+    const midStart = minX + mouthWidth * 0.2;
+    const midEnd = maxX - mouthWidth * 0.2;
+    let maxCenterGap = 0;
+    let sumCenterGap = 0;
+    let centerCount = 0;
+    for (const pu of upper) {
+      if (!pu || pu[0] < midStart || pu[0] > midEnd) continue;
+      let bestLower = null;
+      let bestDx = Infinity;
+      for (const pl of lower) {
+        if (!pl) continue;
+        const dx = Math.abs(pl[0] - pu[0]);
+        if (dx < bestDx) {
+          bestDx = dx;
+          bestLower = pl;
+        }
+      }
+      if (bestLower) {
+        const dy = Math.max(0, bestLower[1] - pu[1]);
+        if (dy > maxCenterGap) maxCenterGap = dy;
+        sumCenterGap += dy;
+        centerCount += 1;
+      }
+    }
+    gap = centerCount > 0 ? Math.max(maxCenterGap * 0.85, sumCenterGap / centerCount) : pointDistance2D(upper[Math.floor(upper.length / 2)], lower[Math.floor(lower.length / 2)]);
+  }
 
   return {
     mouthOpenRatio: mouthWidth > 1e-3 ? gap / mouthWidth : 0,
@@ -243,17 +317,17 @@ export function extractMetricsFromFace(face, gestures = [], imgWidth = 1, imgHei
     }
   }
 
-  // Enforce full-face visibility inside camera boundaries while tolerating square-cropped portraits
+  // Enforce full-face visibility inside camera boundaries while tolerating close circular crops
   const [rx, ry, rw, rh] = boxRaw;
-  const marginX = rx >= 0.015 && (rx + rw) <= 0.985;
-  const marginY = ry >= 0.015 && (ry + rh) <= 0.985;
+  const marginX = rx >= 0.005 && (rx + rw) <= 0.995;
+  const marginY = ry >= 0.005 && (ry + rh) <= 0.995;
   const silhouette = Array.isArray(annotations.silhouette) ? annotations.silhouette : [];
   let contourInside = true;
   if (silhouette.length > 0 && imgWidth > 1 && imgHeight > 1) {
     for (const pt of silhouette) {
       const nx = Number(pt?.[0] || 0) / imgWidth;
       const ny = Number(pt?.[1] || 0) / imgHeight;
-      if (nx < 0.005 || nx > 0.995 || ny < 0.005 || ny > 0.995) {
+      if (nx < 0.003 || nx > 0.997 || ny < 0.003 || ny > 0.997) {
         contourInside = false;
         break;
       }
@@ -290,30 +364,210 @@ export function extractMetricsFromFace(face, gestures = [], imgWidth = 1, imgHei
   };
 }
 
-async function detectFacesFromBuffer(frameBuffer) {
-  const human = await warmupFaceLivenessEngine();
-  const { data, info } = await sharp(frameBuffer, { limitInputPixels: 20_000_000 })
-    .rotate()
-    .resize({ width: 384, height: 384, fit: 'inside', withoutEnlargement: false })
-    .toColourspace('srgb')
-    .removeAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
+function unpadDetectedFace(face, padX, padY, origWidth, origHeight) {
+  if (!face || typeof face !== 'object') return face;
+  const shiftPoint = (pt) => (Array.isArray(pt) ? [Number(pt[0] || 0) - padX, Number(pt[1] || 0) - padY, ...pt.slice(2)] : pt);
+  const origBox = Array.isArray(face.box) ? face.box : [0, 0, 0, 0];
+  const bx = Number(origBox[0] || 0) - padX;
+  const by = Number(origBox[1] || 0) - padY;
+  const bw = Number(origBox[2] || 0);
+  const bh = Number(origBox[3] || 0);
+  const remappedAnnotations = {};
+  if (face.annotations && typeof face.annotations === 'object') {
+    for (const [key, pts] of Object.entries(face.annotations)) {
+      remappedAnnotations[key] = Array.isArray(pts) ? pts.map(shiftPoint) : pts;
+    }
+  }
+  return {
+    ...face,
+    box: [bx, by, bw, bh],
+    boxRaw: [
+      bx / Math.max(1, origWidth),
+      by / Math.max(1, origHeight),
+      bw / Math.max(1, origWidth),
+      bh / Math.max(1, origHeight)
+    ],
+    mesh: Array.isArray(face.mesh) ? face.mesh.map(shiftPoint) : face.mesh,
+    annotations: remappedAnnotations
+  };
+}
 
-  const tensor = human.tf.tensor3d(new Int32Array(data), [info.height, info.width, info.channels], 'int32');
+async function runHumanDetectRaw(human, rawBuffer, width, height, channels) {
+  const tensor = human.tf.tensor3d(new Int32Array(rawBuffer), [height, width, channels], 'int32');
   try {
-    const result = await human.detect(tensor);
-    return { result, width: info.width, height: info.height };
+    return await human.detect(tensor);
   } finally {
     human.tf.dispose(tensor);
   }
 }
 
-async function detectFilteredFaces(frameBuffer) {
-  const { result, width, height } = await detectFacesFromBuffer(frameBuffer);
-  const faces = Array.isArray(result?.face)
-    ? result.face.filter((f) => Number(f?.boxScore ?? f?.score ?? 0) >= 0.52 && Number(f?.faceScore ?? f?.score ?? 0) >= 0.5)
-    : [];
+function computeEyeAspectRatio68(eyePts) {
+  if (!Array.isArray(eyePts) || eyePts.length < 6) return null;
+  const p = (i) => [eyePts[i].x, eyePts[i].y];
+  const width = pointDistance2D(p(0), p(3));
+  if (width <= 1e-3) return null;
+  const v1 = pointDistance2D(p(1), p(5));
+  const v2 = pointDistance2D(p(2), p(4));
+  return (v1 + v2) / (2 * width);
+}
+
+function extractMetricsFromFaceApi(det, imgWidth = 1, imgHeight = 1) {
+  const box = det?.detection?.box || { x: 0, y: 0, width: 0, height: 0 };
+  const bx = Number(box.x || 0);
+  const by = Number(box.y || 0);
+  const bw = Number(box.width || 0);
+  const bh = Number(box.height || 0);
+  const boxRaw = [
+    bx / Math.max(1, imgWidth),
+    by / Math.max(1, imgHeight),
+    bw / Math.max(1, imgWidth),
+    bh / Math.max(1, imgHeight)
+  ];
+
+  const lm = det?.landmarks;
+  const leftEye = lm?.getLeftEye?.() || [];
+  const rightEye = lm?.getRightEye?.() || [];
+  const mouth = lm?.getMouth?.() || [];
+  const nose = lm?.getNose?.() || [];
+  const jaw = lm?.getJawOutline?.() || [];
+
+  const leftEAR = computeEyeAspectRatio68(leftEye);
+  const rightEAR = computeEyeAspectRatio68(rightEye);
+  const earValues = [leftEAR, rightEAR].filter((v) => typeof v === 'number' && Number.isFinite(v));
+  const avgEAR = earValues.length > 0 ? earValues.reduce((a, b) => a + b, 0) / earValues.length : null;
+  const minEAR = earValues.length > 0 ? Math.min(...earValues) : null;
+
+  let mouthOpenRatio = 0;
+  let mouthGapToFace = 0;
+  let mouthPercent = 0;
+  if (mouth.length >= 20) {
+    const innerW = Math.max(1, Math.hypot(mouth[16].x - mouth[12].x, mouth[16].y - mouth[12].y));
+    const g1 = Math.max(0, mouth[19].y - mouth[13].y);
+    const g2 = Math.max(0, mouth[18].y - mouth[14].y);
+    const g3 = Math.max(0, mouth[17].y - mouth[15].y);
+    const avgInnerGap = (g1 + g2 + g3) / 3;
+    const innerMar = avgInnerGap / innerW;
+    mouthOpenRatio = innerMar * 0.48;
+    mouthGapToFace = bh > 1 ? avgInnerGap / bh : 0;
+    mouthPercent = Math.min(100, Math.round(innerMar * 100));
+  }
+
+  let noseShiftRatio = 0;
+  let yawDeg = 0;
+  if (jaw.length >= 17 && nose.length >= 4) {
+    const jawMidX = (jaw[0].x + jaw[16].x) / 2;
+    const halfJawW = Math.max(1, (jaw[16].x - jaw[0].x) / 2);
+    noseShiftRatio = (nose[3].x - jawMidX) / halfJawW;
+    yawDeg = -noseShiftRatio * 42;
+  }
+
+  const [rx, ry, rw, rh] = boxRaw;
+  const fullFaceVisible = Boolean(
+    rx >= 0.005 &&
+      (rx + rw) <= 0.995 &&
+      ry >= 0.005 &&
+      (ry + rh) <= 0.995 &&
+      leftEye.length >= 6 &&
+      rightEye.length >= 6 &&
+      mouth.length >= 20
+  );
+
+  return {
+    boxRaw,
+    leftEAR,
+    rightEAR,
+    avgEAR,
+    minEAR,
+    mouthOpenRatio,
+    mouthGapToFace,
+    mouthPercent,
+    noseShiftRatio,
+    yawDeg,
+    pitchDeg: 0,
+    rollDeg: 0,
+    gestureLabels: [],
+    fullFaceVisible,
+    realScore: null,
+    liveScore: null
+  };
+}
+
+async function prepareRawRgbBuffer(frameBuffer, maxSize = 256) {
+  return sharp(frameBuffer, { limitInputPixels: 20_000_000 })
+    .rotate()
+    .resize({ width: maxSize, height: maxSize, fit: 'inside', withoutEnlargement: false })
+    .toColourspace('srgb')
+    .removeAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+}
+
+async function detectWithFaceApiFast(rawBuffer, width, height, channels, scoreThreshold = 0.42) {
+  if (!faceApiReady || !faceApiInstance) return null;
+  const tensor = faceApiInstance.tf.tensor3d(new Int32Array(rawBuffer), [height, width, channels], 'int32');
+  try {
+    const detections = await faceApiInstance
+      .detectAllFaces(
+        tensor,
+        new faceApiInstance.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold })
+      )
+      .withFaceLandmarks(true);
+    return Array.isArray(detections) ? detections : [];
+  } finally {
+    faceApiInstance.tf.dispose(tensor);
+  }
+}
+
+async function detectFacesFromBuffer(frameBuffer, { maxSize = 320 } = {}) {
+  const human = await warmupFaceLivenessEngine();
+  const { data, info } = await prepareRawRgbBuffer(frameBuffer, maxSize);
+  let result = await runHumanDetectRaw(human, data, info.width, info.height, info.channels);
+
+  // Close-up webcam crops can fill >90% of the circular viewport and miss BlazeFace anchors;
+  // retry once with soft edge padding and map coordinates back to the original crop.
+  if (!Array.isArray(result?.face) || result.face.length === 0) {
+    const pad = Math.round(Math.max(info.width, info.height) * 0.22);
+    const padded = await sharp(data, { raw: { width: info.width, height: info.height, channels: info.channels } })
+      .extend({ top: pad, bottom: pad, left: pad, right: pad, extendWith: 'copy' })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const paddedResult = await runHumanDetectRaw(human, padded.data, padded.info.width, padded.info.height, padded.info.channels);
+    if (Array.isArray(paddedResult?.face) && paddedResult.face.length > 0) {
+      result = {
+        ...paddedResult,
+        face: paddedResult.face.map((face) => unpadDetectedFace(face, pad, pad, info.width, info.height))
+      };
+    }
+  }
+
+  return { result, width: info.width, height: info.height };
+}
+
+async function detectFilteredFaces(frameBuffer, { minBoxScore = 0.44, minFaceScore = 0.44, allowSingleWeakFallback = false, maxSize = 320 } = {}) {
+  const { result, width, height } = await detectFacesFromBuffer(frameBuffer, { maxSize });
+  const rawFaces = Array.isArray(result?.face) ? result.face : [];
+  const scoreSum = (f) => Number(f?.faceScore ?? f?.score ?? 0) + Number(f?.boxScore ?? f?.score ?? 0);
+  const strongFaces = rawFaces
+    .filter((f) => Number(f?.boxScore ?? f?.score ?? 0) >= 0.5 && Number(f?.faceScore ?? f?.score ?? 0) >= 0.5)
+    .sort((a, b) => scoreSum(b) - scoreSum(a));
+
+  if (strongFaces.length > 0) {
+    return { result, faces: strongFaces, width, height };
+  }
+
+  const fallbackFaces = rawFaces
+    .filter((f) => {
+      const boxScore = Number(f?.boxScore ?? f?.score ?? 0);
+      const faceScore = Number(f?.faceScore ?? f?.score ?? 0);
+      const bw = Array.isArray(f?.boxRaw) ? Number(f.boxRaw[2] || 0) : 1;
+      const bh = Array.isArray(f?.boxRaw) ? Number(f.boxRaw[3] || 0) : 1;
+      return boxScore >= minBoxScore && faceScore >= minFaceScore && bw >= 0.10 && bh >= 0.10;
+    })
+    .sort((a, b) => scoreSum(b) - scoreSum(a));
+
+  const faces = allowSingleWeakFallback && fallbackFaces.length > 1
+    ? [fallbackFaces[0]]
+    : fallbackFaces;
   return { result, faces, width, height };
 }
 
@@ -377,17 +631,17 @@ export function evaluateFullFaceMetrics(metrics, { requirePassportFraming = fals
     return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: false, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'move_back', metrics };
   }
 
-  if (rw < 0.18 || rh < 0.22) {
+  if (rw < 0.15 || rh < 0.18) {
     return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'move_closer', metrics };
   }
-  if (rw > 0.88 || rh > 0.92) {
+  if (rw > 0.94 || rh > 0.95) {
     return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'move_back', metrics };
   }
 
-  if (cx < 0.28) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'center_left', metrics };
-  if (cx > 0.72) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'center_right', metrics };
-  if (cy < 0.26) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'center_upper', metrics };
-  if (cy > 0.74) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'center_lower', metrics };
+  if (cx < 0.24) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'center_left', metrics };
+  if (cx > 0.76) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'center_right', metrics };
+  if (cy < 0.22) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'center_upper', metrics };
+  if (cy > 0.78) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'center_lower', metrics };
 
   const blinkGesture = metrics.gestureLabels.some((g) => g.includes('blink'));
   const eyesOpen =
@@ -407,12 +661,14 @@ export function evaluateFullFaceMetrics(metrics, { requirePassportFraming = fals
       eyesOpen &&
       mouthNeutral &&
       !antiSpoof.spoofDetected &&
-      rw >= 0.22 &&
-      rh >= 0.26 &&
-      cx >= 0.30 &&
-      cx <= 0.70 &&
-      cy >= 0.28 &&
-      cy <= 0.72
+      rw >= 0.20 &&
+      rh >= 0.24 &&
+      rw <= 0.90 &&
+      rh <= 0.92 &&
+      cx >= 0.26 &&
+      cx <= 0.74 &&
+      cy >= 0.24 &&
+      cy <= 0.76
   );
 
   if (requirePassportFraming && !passportQuality) {
@@ -461,7 +717,11 @@ export async function inspectFullFaceFrame({ frameBuffer, requirePassportFraming
     };
   }
 
-  const { result, faces, width, height } = await detectFilteredFaces(frameBuffer);
+  const { result, faces, width, height } = await detectFilteredFaces(frameBuffer, {
+    minBoxScore: 0.44,
+    minFaceScore: 0.44,
+    maxSize: requirePassportFraming ? 320 : 256
+  });
 
   if (faces.length === 0) {
     return {
@@ -528,13 +788,40 @@ export function evaluateActiveChallengeMetrics(
     sessionState.baselineEar = Math.min(0.45, metrics.avgEAR);
   }
 
+  // Record neutral resting yaw and nose offset in sessionState so natural desk-angle offsets still detect turns cleanly
+  if (typeof metrics.yawDeg === 'number' && Number.isFinite(metrics.yawDeg) && Math.abs(metrics.yawDeg) <= 12) {
+    if (typeof sessionState.baselineYawDeg !== 'number') {
+      sessionState.baselineYawDeg = metrics.yawDeg;
+    } else if (Math.abs(metrics.yawDeg - sessionState.baselineYawDeg) < 3.2) {
+      sessionState.baselineYawDeg = sessionState.baselineYawDeg * 0.75 + metrics.yawDeg * 0.25;
+    }
+  }
+  if (typeof metrics.noseShiftRatio === 'number' && Number.isFinite(metrics.noseShiftRatio) && Math.abs(metrics.noseShiftRatio) <= 0.14) {
+    if (typeof sessionState.baselineNoseShift !== 'number') {
+      sessionState.baselineNoseShift = metrics.noseShiftRatio;
+    } else if (Math.abs(metrics.noseShiftRatio - sessionState.baselineNoseShift) < 0.035) {
+      sessionState.baselineNoseShift = sessionState.baselineNoseShift * 0.75 + metrics.noseShiftRatio * 0.25;
+    }
+  }
+  if (typeof metrics.mouthOpenRatio === 'number' && Number.isFinite(metrics.mouthOpenRatio) && metrics.mouthOpenRatio <= 0.085) {
+    if (typeof sessionState.baselineMouthRatio !== 'number') {
+      sessionState.baselineMouthRatio = metrics.mouthOpenRatio;
+    } else if (metrics.mouthOpenRatio < sessionState.baselineMouthRatio + 0.02) {
+      sessionState.baselineMouthRatio = Math.min(sessionState.baselineMouthRatio, metrics.mouthOpenRatio * 0.5 + sessionState.baselineMouthRatio * 0.5);
+    }
+  }
+
   let actionDetected = false;
   if (challengeType === 'open_mouth') {
     const gestureMouth = metrics.gestureLabels.some((g) => g.includes('mouth'));
+    const adaptiveMouth =
+      typeof sessionState.baselineMouthRatio === 'number' &&
+      metrics.mouthOpenRatio >= sessionState.baselineMouthRatio + 0.045;
     actionDetected =
-      metrics.mouthOpenRatio >= 0.145 ||
-      metrics.mouthGapToFace >= 0.052 ||
-      metrics.mouthPercent >= 15 ||
+      metrics.mouthOpenRatio >= 0.085 ||
+      metrics.mouthGapToFace >= 0.028 ||
+      metrics.mouthPercent >= 9 ||
+      adaptiveMouth ||
       gestureMouth;
   } else if (challengeType === 'blink') {
     const gestureBlink = metrics.gestureLabels.some((g) => g.includes('blink'));
@@ -542,30 +829,42 @@ export function evaluateActiveChallengeMetrics(
       typeof sessionState.baselineEar === 'number' &&
       typeof metrics.avgEAR === 'number' &&
       sessionState.baselineEar >= 0.24 &&
-      metrics.avgEAR <= sessionState.baselineEar * 0.76;
+      metrics.avgEAR <= sessionState.baselineEar * 0.78;
     actionDetected =
       gestureBlink ||
       adaptiveBlink ||
-      (typeof metrics.minEAR === 'number' && metrics.minEAR <= 0.235) ||
-      (typeof metrics.avgEAR === 'number' && metrics.avgEAR <= 0.248);
+      (typeof metrics.minEAR === 'number' && metrics.minEAR <= 0.245) ||
+      (typeof metrics.avgEAR === 'number' && metrics.avgEAR <= 0.255);
   } else if (challengeType === 'turn_left') {
     // Un-mirrored frame: subject turning their own head left produces 'facing left', negative yaw, and nose shift toward viewer right (+X)
     const facingLeft = metrics.gestureLabels.some((g) => g === 'facing left');
     const facingRight = metrics.gestureLabels.some((g) => g === 'facing right');
-    actionDetected =
-      !facingRight &&
-      (facingLeft ||
-        metrics.yawDeg <= -7.5 ||
-        (metrics.noseShiftRatio >= 0.085 && metrics.yawDeg <= 2));
+    const lookingLeft = metrics.gestureLabels.some((g) => g === 'looking left');
+    const baselineYaw = typeof sessionState.baselineYawDeg === 'number' ? sessionState.baselineYawDeg : null;
+    const baselineNose = typeof sessionState.baselineNoseShift === 'number' ? sessionState.baselineNoseShift : null;
+    const yawLeft =
+      metrics.yawDeg <= -5.0 ||
+      (baselineYaw !== null && (metrics.yawDeg - baselineYaw) <= -5.0 && metrics.yawDeg <= 2.5);
+    const noseLeft =
+      (metrics.noseShiftRatio >= 0.055 && metrics.yawDeg <= 2.5) ||
+      (baselineNose !== null && (metrics.noseShiftRatio - baselineNose) >= 0.055 && metrics.yawDeg <= 2.5);
+    const irisAssistedLeft = lookingLeft && (metrics.yawDeg <= -3.2 || metrics.noseShiftRatio >= 0.042);
+    actionDetected = !facingRight && (facingLeft || yawLeft || noseLeft || irisAssistedLeft);
   } else if (challengeType === 'turn_right') {
     // Un-mirrored frame: subject turning their own head right produces 'facing right', positive yaw, and nose shift toward viewer left (-X)
     const facingRight = metrics.gestureLabels.some((g) => g === 'facing right');
     const facingLeft = metrics.gestureLabels.some((g) => g === 'facing left');
-    actionDetected =
-      !facingLeft &&
-      (facingRight ||
-        metrics.yawDeg >= 7.5 ||
-        (metrics.noseShiftRatio <= -0.085 && metrics.yawDeg >= -2));
+    const lookingRight = metrics.gestureLabels.some((g) => g === 'looking right');
+    const baselineYaw = typeof sessionState.baselineYawDeg === 'number' ? sessionState.baselineYawDeg : null;
+    const baselineNose = typeof sessionState.baselineNoseShift === 'number' ? sessionState.baselineNoseShift : null;
+    const yawRight =
+      metrics.yawDeg >= 5.0 ||
+      (baselineYaw !== null && (metrics.yawDeg - baselineYaw) >= 5.0 && metrics.yawDeg >= -2.5);
+    const noseRight =
+      (metrics.noseShiftRatio <= -0.055 && metrics.yawDeg >= -2.5) ||
+      (baselineNose !== null && (metrics.noseShiftRatio - baselineNose) <= -0.055 && metrics.yawDeg >= -2.5);
+    const irisAssistedRight = lookingRight && (metrics.yawDeg >= 3.2 || metrics.noseShiftRatio <= -0.042);
+    actionDetected = !facingLeft && (facingRight || yawRight || noseRight || irisAssistedRight);
   }
 
   return {
@@ -583,7 +882,7 @@ export function evaluateActiveChallengeMetrics(
 
 /**
  * Evaluates active liveness challenge frames (`turn_left`, `turn_right`, `open_mouth`, `blink`)
- * whenever a single face is detected (without dropping turned heads as `no_face`), with anti-spoof checks.
+ * using our fast dual Node.js engine (@vladmandic/face-api 35ms track + @vladmandic/human 3D/anti-spoof track).
  */
 export async function verifyActiveChallengeFrame({
   frameBuffer,
@@ -602,9 +901,39 @@ export async function verifyActiveChallengeFrame({
     };
   }
 
-  const { result, faces, width, height } = await detectFilteredFaces(frameBuffer);
+  await warmupFaceLivenessEngine();
+
+  // Fast 35ms frontal 68-landmark track for mouth/blink once neural anti-spoof has already cleared
+  if (
+    faceApiReady &&
+    sessionState.antiSpoofChecked === true &&
+    (challengeType === 'open_mouth' || challengeType === 'blink')
+  ) {
+    const { data, info } = await prepareRawRgbBuffer(frameBuffer, 256);
+    const faFaces = await detectWithFaceApiFast(data, info.width, info.height, info.channels, 0.42);
+    if (Array.isArray(faFaces) && faFaces.length === 1) {
+      const faMetrics = extractMetricsFromFaceApi(faFaces[0], info.width, info.height);
+      return evaluateActiveChallengeMetrics(faMetrics, { challengeType, sessionState });
+    }
+  }
+
+  const { result, faces, width, height } = await detectFilteredFaces(frameBuffer, {
+    minBoxScore: 0.3,
+    minFaceScore: 0.3,
+    allowSingleWeakFallback: true,
+    maxSize: 256
+  });
 
   if (faces.length === 0) {
+    // Secondary fast frontal fallback if Human missed extreme lighting/close-up
+    if (faceApiReady) {
+      const { data, info } = await prepareRawRgbBuffer(frameBuffer, 256);
+      const faFaces = await detectWithFaceApiFast(data, info.width, info.height, info.channels, 0.4);
+      if (Array.isArray(faFaces) && faFaces.length === 1) {
+        const faMetrics = extractMetricsFromFaceApi(faFaces[0], info.width, info.height);
+        return evaluateActiveChallengeMetrics(faMetrics, { challengeType, sessionState });
+      }
+    }
     return {
       ok: true,
       faceDetected: false,
@@ -633,7 +962,11 @@ export async function verifyActiveChallengeFrame({
     ? face.gestures
     : result?.gesture || [];
   const metrics = extractMetricsFromFace(face, faceGestures, width, height);
-  return evaluateActiveChallengeMetrics(metrics, { challengeType, sessionState });
+  const evalResult = evaluateActiveChallengeMetrics(metrics, { challengeType, sessionState });
+  if (!evalResult.spoofDetected) {
+    sessionState.antiSpoofChecked = true;
+  }
+  return evalResult;
 }
 
 export const faceLivenessEngine = {

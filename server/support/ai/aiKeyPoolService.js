@@ -16,16 +16,19 @@ export const KEY_STATUSES = Object.freeze([
 ]);
 
 export const DEFAULT_CANDIDATE_MODELS = Object.freeze([
+  'gemini-3.1-flash-lite-preview',
+  'gemini-3.5-flash-lite',
+  'gemini-flash-lite-latest',
+  'gemini-3-flash-preview',
   'gemini-3.5-flash',
-  'gemini-3.1-flash-lite',
-  'gemini-flash-lite-latest'
+  'gemini-3.1-flash-lite'
 ]);
 
 export const DEFAULT_CHAT_SYSTEM_SETTINGS = Object.freeze({
   enabled: true,
   autoFailover: true,
   cooldownMinutes: 15,
-  preferredModel: 'gemini-3.5-flash',
+  preferredModel: 'gemini-3.1-flash-lite-preview',
   candidateModels: [...DEFAULT_CANDIDATE_MODELS],
   requireGuestContact: true,
   guestChatEnabled: true,
@@ -1311,7 +1314,7 @@ export async function executeGeminiWithFailover({
   payload,
   preferredModel = null,
   fetchFn = globalThis.fetch,
-  timeoutMs = 6500
+  timeoutMs = 15000
 } = {}) {
   const settings = await getChatSystemSettings();
   if (settings.enabled === false) {
@@ -1482,7 +1485,7 @@ export async function executeGeminiWithFailover({
 /**
  * Runs a live diagnostic ping ("Reply OK") against a specific stored key by ID.
  */
-export async function testGeminiKeyById(id, { fetchFn = globalThis.fetch, timeoutMs = 6500 } = {}) {
+export async function testGeminiKeyById(id, { fetchFn = globalThis.fetch, timeoutMs = 12000 } = {}) {
   const row = await getRawKeyRowById(id);
   if (!row) return null;
   if (typeof fetchFn !== 'function') {
@@ -1490,7 +1493,10 @@ export async function testGeminiKeyById(id, { fetchFn = globalThis.fetch, timeou
   }
 
   const settings = await getChatSystemSettings();
-  const model = row.model_override || settings.preferredModel || DEFAULT_CANDIDATE_MODELS[0];
+  const candidateModels = row.model_override
+    ? [row.model_override]
+    : buildModelsForKey(null, null, settings);
+  let model = candidateModels[0] || DEFAULT_CANDIDATE_MODELS[0];
   const startedAt = Date.now();
 
   let apiKey;
@@ -1519,23 +1525,29 @@ export async function testGeminiKeyById(id, { fetchFn = globalThis.fetch, timeou
     };
   }
 
-  let result;
-  try {
-    result = await callGeminiGenerateContent({
-      apiKey,
-      model,
-      payload: {
-        contents: [{ role: 'user', parts: [{ text: 'Reply OK' }] }],
-        generationConfig: { maxOutputTokens: 16, temperature: 0 }
-      },
-      fetchFn,
-      timeoutMs
-    });
-  } catch (err) {
-    result = {
-      ok: false,
-      failure: classifyGeminiFailure(0, null, err)
-    };
+  let result = null;
+  for (const tryModel of candidateModels) {
+    model = tryModel;
+    try {
+      result = await callGeminiGenerateContent({
+        apiKey,
+        model: tryModel,
+        payload: {
+          contents: [{ role: 'user', parts: [{ text: 'Reply OK' }] }],
+          generationConfig: { maxOutputTokens: 16, temperature: 0 }
+        },
+        fetchFn,
+        timeoutMs
+      });
+    } catch (err) {
+      result = {
+        ok: false,
+        failure: classifyGeminiFailure(0, null, err)
+      };
+    }
+    if (result.ok || result.failure?.kind === 'quota' || result.failure?.kind === 'invalid') {
+      break;
+    }
   }
 
   const latencyMs = Math.max(0, Date.now() - startedAt);

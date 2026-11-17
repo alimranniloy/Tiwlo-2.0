@@ -22,11 +22,11 @@ const CHALLENGE_LABELS = {
   open_mouth: 'Open your mouth gently',
   blink: 'Blink once',
 };
-const FRAME_INTERVAL_MS = 260;
-const QUALITY_RETRY_MS = 280;
+const FRAME_INTERVAL_MS = 140;
+const QUALITY_RETRY_MS = 140;
 const FACE_ID_TICK_COUNT = 60;
 const REQUIRED_FULL_FACE_STREAK = 1;
-const REQUIRED_PASSPORT_STREAK = 2;
+const REQUIRED_PASSPORT_STREAK = 1;
 const CAPTURE_FRAME_MAX_SIZE = 512;
 const AUTO_LIGHTING_MIN_LUMA = 18;
 const AUTO_LIGHTING_MAX_LUMA = 100;
@@ -784,11 +784,28 @@ export default function CaptureSelfieStep() {
     ? CHALLENGE_LABELS[currentChallenge.type] || currentChallenge.instruction
     : 'Preparing Face ID check';
 
+  const blockingGuidance = isBlockingFaceGuidance(faceGuidance);
+  const readyActive = faceReady && !blockingGuidance;
+  const readyGlowRingClass = !cameraError && !faceIdCompleted
+    ? blockingGuidance
+      ? faceGuidance === 'spoof_detected' || faceGuidance === 'too_dark' || faceGuidance === 'too_bright'
+        ? 'ring-2 ring-amber-400/80 shadow-inner'
+        : 'ring-1 ring-neutral-200/90 shadow-inner'
+      : faceReady
+        ? 'ring-2 ring-[#1ED760] shadow-[0_0_24px_rgba(30,215,96,0.28)]'
+        : 'ring-1 ring-neutral-200/90 shadow-inner'
+    : 'ring-1 ring-neutral-200/90 shadow-inner';
+  const challengeProgress = challenges.length > 0
+    ? Math.min(1, Math.max(0, (lastPassedIndex + 1) / challenges.length))
+    : 0;
+  // Light up a 25% emerald readiness arc immediately when positioned cleanly, advancing smoothly to 100%.
   const progressRatio = faceIdCompleted || awaitingFinalSelfie || allChallengesPassed
     ? 1
-    : faceReady && challenges.length > 0
-      ? Math.min(1, Math.max(0, (lastPassedIndex + 1) / challenges.length))
-      : 0;
+    : readyActive
+      ? 0.25 + 0.75 * challengeProgress
+      : faceReady && challenges.length > 0
+        ? Math.max(0.15, challengeProgress)
+        : 0;
   const activeTickCount = Math.round(progressRatio * FACE_ID_TICK_COUNT);
 
   const guidance = {
@@ -831,7 +848,6 @@ export default function CaptureSelfieStep() {
     passed: 'Prompt complete',
   }[faceGuidance] || 'Position your face within the frame';
 
-  const blockingGuidance = isBlockingFaceGuidance(faceGuidance);
   const directionIcon = {
     center_left: ArrowLeft,
     center_right: ArrowRight,
@@ -951,7 +967,7 @@ export default function CaptureSelfieStep() {
               </svg>
 
               {/* Circular Camera Aperture */}
-              <div className="relative z-10 h-[220px] w-[220px] sm:h-[232px] sm:w-[232px] overflow-hidden rounded-full bg-neutral-100 ring-1 ring-neutral-200/90 shadow-inner">
+              <div className={`relative z-10 h-[220px] w-[220px] sm:h-[232px] sm:w-[232px] overflow-hidden rounded-full bg-neutral-100 transition-shadow duration-300 ${readyGlowRingClass}`}>
                 {stream && !faceIdCompleted ? (
                   <video
                     ref={videoRef}

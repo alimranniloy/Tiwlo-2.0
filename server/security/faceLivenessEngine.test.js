@@ -1,11 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import {
   evaluateActiveChallengeMetrics,
   evaluateAntiSpoof,
   evaluateFullFaceMetrics,
   extractMetricsFromFace,
+  getFaceLivenessEngineStatus,
   inspectFullFaceFrame,
   verifyActiveChallengeFrame
 } from './faceLivenessEngine.js';
@@ -271,4 +273,59 @@ test('real-time anti-spoof rejects clear spoof scores without falsely rejecting 
   assert.equal(challengeSpoof.actionDetected, false);
   assert.equal(challengeSpoof.spoofDetected, true);
   assert.equal(challengeSpoof.guidance, 'spoof_detected');
+});
+
+test('close circular selfie crops, baseline-relative head turns, and real turned-head portraits respond reliably', async () => {
+  // Close-up centered face (rw=0.92, rh=0.93) passes initial readiness check for circular UI
+  const closeUpMetrics = extractMetricsFromFace(
+    buildMockFace({ boxRaw: [0.04, 0.035, 0.92, 0.93], silhouetteMargin: 0.008 }),
+    [{ gesture: 'facing center' }],
+    384,
+    384
+  );
+  const closeUpReady = evaluateFullFaceMetrics(closeUpMetrics, { requirePassportFraming: false });
+  assert.equal(closeUpReady.ready, true);
+  assert.equal(closeUpReady.fullFaceVisible, true);
+  assert.equal(closeUpReady.guidance, 'ready');
+
+  // Baseline-relative turn_left works smoothly even when camera sits slightly off-axis (+3.5° resting yaw -> -2.5° turn)
+  const sessionState = {};
+  const restingMetrics = extractMetricsFromFace(buildMockFace({ yawDeg: 3.5, noseShift: -0.02 }), [], 384, 384);
+  assert.equal(evaluateActiveChallengeMetrics(restingMetrics, { challengeType: 'turn_left', sessionState }).actionDetected, false);
+
+  const naturalTurnLeft = extractMetricsFromFace(buildMockFace({ yawDeg: -2.5, noseShift: 0.03 }), [], 384, 384);
+  assert.equal(evaluateActiveChallengeMetrics(naturalTurnLeft, { challengeType: 'turn_left', sessionState }).actionDetected, true);
+
+  // Iris-assisted turn cue ('looking left' + modest yaw -3.5°) also responds without cross-triggering right
+  const irisLeft = extractMetricsFromFace(buildMockFace({ yawDeg: -3.5, noseShift: 0.045 }), [{ gesture: 'looking left' }], 384, 384);
+  assert.equal(evaluateActiveChallengeMetrics(irisLeft, { challengeType: 'turn_left', sessionState: {} }).actionDetected, true);
+  assert.equal(evaluateActiveChallengeMetrics(irisLeft, { challengeType: 'turn_right', sessionState: {} }).actionDetected, false);
+
+  // Real turned portrait crop from @vladmandic/human/assets/samples.jpg passes turn_left and ignores weak background ghosts
+  const samplesPath = fileURLToPath(new URL('../node_modules/@vladmandic/human/assets/samples.jpg', import.meta.url));
+  const meta = await sharp(samplesPath).metadata();
+  const turnedTile = await sharp(samplesPath)
+    .extract({ left: 0, top: 0, width: Math.floor(meta.width / 3), height: Math.floor(meta.height / 2) })
+    .jpeg()
+    .toBuffer();
+  const realTurnLeft = await verifyActiveChallengeFrame({ frameBuffer: turnedTile, challengeType: 'turn_left', sessionState: {} });
+  assert.equal(realTurnLeft.faceDetected, true);
+  assert.equal(realTurnLeft.actionDetected, true);
+  assert.equal(realTurnLeft.guidance, 'passed');
+
+  const wrongDirection = await verifyActiveChallengeFrame({ frameBuffer: turnedTile, challengeType: 'turn_right', sessionState: {} });
+  assert.equal(wrongDirection.actionDetected, false);
+
+  // Dual Node.js engine loads @vladmandic/face-api fast track alongside @vladmandic/human
+  const status = getFaceLivenessEngineStatus();
+  assert.equal(status.initialized, true);
+  assert.equal(status.faceApiReady, true);
+
+  // Adaptive open_mouth responds quickly to gentle parting of lips while staying false when closed
+  const mouthState = { antiSpoofChecked: true };
+  const closedLipMetrics = extractMetricsFromFace(buildMockFace({ mouthGapRatio: 0.03 }), [], 384, 384);
+  assert.equal(evaluateActiveChallengeMetrics(closedLipMetrics, { challengeType: 'open_mouth', sessionState: mouthState }).actionDetected, false);
+
+  const gentleOpenMetrics = extractMetricsFromFace(buildMockFace({ mouthGapRatio: 0.08 }), [], 384, 384);
+  assert.equal(evaluateActiveChallengeMetrics(gentleOpenMetrics, { challengeType: 'open_mouth', sessionState: mouthState }).actionDetected, true);
 });

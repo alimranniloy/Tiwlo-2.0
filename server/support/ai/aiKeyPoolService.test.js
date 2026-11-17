@@ -178,7 +178,7 @@ test('automatic failover switches from quota-exhausted Key #1 (429) to Key #2 se
   assert.equal(result.text, 'Hello from Key 2 after instant failover!');
   assert.equal(result.usedKeyId, k2.id);
   assert.equal(result.usedKeyLabel, 'Key 2 (Healthy)');
-  assert.equal(result.usedModel, 'gemini-3.5-flash');
+  assert.equal(result.usedModel, 'gemini-3.1-flash-lite-preview');
   assert.equal(result.failoverCount, 1);
 
   // Key 1 should move immediately into cooldown with quotaHits === 1 (without cycling all models on Key 1)

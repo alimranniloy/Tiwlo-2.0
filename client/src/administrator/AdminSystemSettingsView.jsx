@@ -54,11 +54,12 @@ const FALLBACK_RATES = {
 };
 
 const GEMINI_MODEL_OPTIONS = [
+  'gemini-3.1-flash-lite-preview',
+  'gemini-3.5-flash-lite',
+  'gemini-flash-lite-latest',
+  'gemini-3-flash-preview',
   'gemini-3.5-flash',
   'gemini-3.1-flash-lite',
-  'gemini-flash-lite-latest',
-  'gemini-2.5-flash',
-  'gemini-2.5-pro',
 ];
 
 const CHAT_FEATURE_SWITCHES = [
@@ -78,7 +79,7 @@ const DEFAULT_CHAT_SETTINGS = {
   aiEnabled: true,
   autoFailover: true,
   cooldownMinutes: 15,
-  preferredModel: 'gemini-3.5-flash',
+  preferredModel: 'gemini-3.1-flash-lite-preview',
   requireGuestContact: true,
   guestChatEnabled: true,
   guestTicketsEnabled: true,
@@ -1016,7 +1017,7 @@ export default function AdminSystemSettingsView({ onBackToDashboard, onNavigate,
                       Preferred Gemini Model
                     </label>
                     <select
-                      value={chatSettings.preferredModel || 'gemini-3.5-flash'}
+                      value={chatSettings.preferredModel || 'gemini-3.1-flash-lite-preview'}
                       onChange={(e) => setChatSettings((s) => ({ ...s, preferredModel: e.target.value }))}
                       className="h-9 w-full rounded-xl border border-neutral-200/80 bg-white px-3 text-xs text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
                     >

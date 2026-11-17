@@ -621,6 +621,11 @@ export function createVerificationRouter({
   const livenessSessions = new Map();
   const handoffSessions = new Map();
   const handoffTokens = new Map();
+  // Real-time 150ms liveness frames must execute locally without waiting seconds on cloud Gemini HTTPS,
+  // unless an injected mock verifier (tests) or ENABLE_GEMINI_FRAME_LIVENESS=true is explicitly set.
+  const useGeminiForRealtimeFrames =
+    process.env.ENABLE_GEMINI_FRAME_LIVENESS === 'true' ||
+    geminiVerifier !== geminiIdentityVerifier;
 
   async function resolveReviewStore() {
     if (reviewStore) return reviewStore;
@@ -1057,7 +1062,7 @@ export function createVerificationRouter({
         const frameMime = req.file?.mimetype || (frame.format === 'png' ? 'image/png' : frame.format === 'webp' ? 'image/webp' : 'image/jpeg');
         let resolvedPose = null;
 
-        if (typeof geminiVerifier.verifyLivenessChallengeFrameWithGemini === 'function') {
+        if (useGeminiForRealtimeFrames && typeof geminiVerifier.verifyLivenessChallengeFrameWithGemini === 'function') {
           const visionCheck = await geminiVerifier.verifyLivenessChallengeFrameWithGemini({
             frameBuffer: req.file.buffer,
             mimeType: frameMime,
@@ -1142,6 +1147,10 @@ export function createVerificationRouter({
         }
 
         session.stepIndex += 1;
+        session.poseState = {
+          antiSpoofChecked: Boolean(session.poseState?.antiSpoofChecked)
+        };
+        session.consecutiveStaticFrames = 0;
         if (session.stepIndex >= session.challenges.length) {
           session.complete = true;
           session.completedAt = Date.now();
@@ -1202,7 +1211,7 @@ export function createVerificationRouter({
         const requirePassportFraming = String(req.query?.mode || '').trim().toLowerCase() === 'passport';
         const frameMime = req.file?.mimetype || (frame.format === 'png' ? 'image/png' : frame.format === 'webp' ? 'image/webp' : 'image/jpeg');
 
-        if (typeof geminiVerifier.inspectLivenessQualityWithGemini === 'function') {
+        if (useGeminiForRealtimeFrames && typeof geminiVerifier.inspectLivenessQualityWithGemini === 'function') {
           const visionQuality = await geminiVerifier.inspectLivenessQualityWithGemini({
             frameBuffer: req.file.buffer,
             mimeType: frameMime,
