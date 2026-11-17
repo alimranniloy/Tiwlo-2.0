@@ -1224,3 +1224,212 @@ test('Pending assignment lock, strict post-accept read privacy until closed, Tiw
     (err) => err.statusCode === 403 || err.statusCode === 404
   );
 });
+
+test('Security: attachment download authorization & safe headers, upload allowlist & magic bytes, and fail-closed email-inbound webhook', async (t) => {
+  const staffUsers = [
+    { id: 'sup_1', name: 'Root', email: 'tiwloltd@gmail.com', role: 'super_admin' },
+    { id: 'adm_a', name: 'Amina Agent', email: 'amina@tiwlo.com', role: 'admin', roleKey: 'support_agent' },
+    { id: 'adm_b', name: 'Babar Agent', email: 'babar@tiwlo.com', role: 'admin', roleKey: 'support_agent' }
+  ];
+  const storedMediaCalls = [];
+  const svc = createTicketingService({ useMemory: true, staffUsers });
+  const srv = await startTestApp({
+    ticketingService: svc,
+    SupportDB: createMemorySupportDb(),
+    storeMediaImpl: async (opts) => {
+      storedMediaCalls.push(opts);
+      return { id: `media_${storedMediaCalls.length}`, size: opts.buffer.length, sha256: 'abc' };
+    }
+  });
+  const prevSecret = process.env.SUPPORT_EMAIL_WEBHOOK_SECRET;
+  t.after(async () => {
+    if (prevSecret === undefined) delete process.env.SUPPORT_EMAIL_WEBHOOK_SECRET;
+    else process.env.SUPPORT_EMAIL_WEBHOOK_SECRET = prevSecret;
+    svc.stopSupportAutomationScheduler();
+    await srv.close();
+  });
+
+  const ownerHdr = { 'x-test-user': JSON.stringify({ id: 'cust_owner', name: 'Owner User', email: 'owner@shop.com', role: 'owner' }) };
+  const otherHdr = { 'x-test-user': JSON.stringify({ id: 'cust_other', name: 'Other User', email: 'other@shop.com', role: 'owner' }) };
+  const aminaHdr = { 'x-test-admin': JSON.stringify(staffUsers[1]) };
+  const babarHdr = { 'x-test-admin': JSON.stringify(staffUsers[2]) };
+
+  // 1. POST /api/support/email-inbound fails closed (503) when SUPPORT_EMAIL_WEBHOOK_SECRET is unset
+  delete process.env.SUPPORT_EMAIL_WEBHOOK_SECRET;
+  const unconfiguredInbound = await srv.request('/api/support/email-inbound', {
+    method: 'POST',
+    body: { to: 'ticket+none@tiwlo.com', text: 'Unconfigured secret test' }
+  });
+  assert.equal(unconfiguredInbound.status, 503);
+  assert.equal(unconfiguredInbound.json.code, 'EMAIL_WEBHOOK_NOT_CONFIGURED');
+
+  // Create owner ticket and guest ticket
+  const ownerTktRes = await srv.request('/api/support/tickets', {
+    method: 'POST',
+    headers: ownerHdr,
+    body: { subject: 'Attachment Auth Ticket', description: 'Testing attachments' }
+  });
+  assert.equal(ownerTktRes.status, 201);
+  const ownerTicket = ownerTktRes.json.ticket;
+
+  const guestTktRes = await srv.request('/api/support/tickets', {
+    method: 'POST',
+    body: {
+      guestName: 'Guest Owner',
+      guestEmail: 'guestowner@example.com',
+      guestPhone: '+8801711222333',
+      subject: 'Guest Attachment Ticket',
+      description: 'Guest ticket'
+    }
+  });
+  assert.equal(guestTktRes.status, 201);
+  const guestOwnerCookie = extractCookieValue(guestTktRes.setCookies, GUEST_SUPPORT_COOKIE);
+
+  const otherGuestRes = await srv.request('/api/support/guest/session', {
+    method: 'POST',
+    body: { guestName: 'Other Guest', guestEmail: 'otherguest@example.com', guestPhone: '+8801711444555' }
+  });
+  assert.equal(otherGuestRes.status, 201);
+  const otherGuestCookie = extractCookieValue(otherGuestRes.setCookies, GUEST_SUPPORT_COOKIE);
+
+  // 2. When SUPPORT_EMAIL_WEBHOOK_SECRET is set, missing/wrong secret -> 401, valid secret -> 201
+  process.env.SUPPORT_EMAIL_WEBHOOK_SECRET = 'super-secret-webhook-key-123';
+  const badLenSecret = await srv.request('/api/support/email-inbound', {
+    method: 'POST',
+    headers: { 'x-tiwlo-email-secret': 'short' },
+    body: { to: ownerTicket.metadata.replyToEmailAlias, text: 'Wrong secret' }
+  });
+  assert.equal(badLenSecret.status, 401);
+
+  const badSameLenSecret = await srv.request('/api/support/email-inbound', {
+    method: 'POST',
+    headers: { 'x-tiwlo-email-secret': 'super-secret-webhook-key-999' },
+    body: { to: ownerTicket.metadata.replyToEmailAlias, text: 'Wrong same length' }
+  });
+  assert.equal(badSameLenSecret.status, 401);
+
+  const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
+  const pdfBytes = Buffer.from('%PDF-1.4\n%safe-pdf-content', 'utf8');
+  const validInbound = await srv.request('/api/support/email-inbound', {
+    method: 'POST',
+    headers: { 'x-tiwlo-email-secret': 'super-secret-webhook-key-123' },
+    body: {
+      to: ownerTicket.metadata.replyToEmailAlias,
+      fromEmail: 'owner@shop.com',
+      text: 'Attached PNG and PDF via webhook',
+      attachments: [
+        { filename: 'proof.png', contentType: 'image/png', contentBase64: pngMagic.toString('base64') },
+        { filename: 'doc.pdf', contentType: 'application/pdf', contentBase64: pdfBytes.toString('base64') },
+        { filename: 'notes.txt', contentType: 'text/html', contentBase64: Buffer.from('plain text').toString('base64') }
+      ].slice(0, 2)
+    }
+  });
+  assert.equal(validInbound.status, 201);
+  assert.equal(validInbound.json.attachments.length, 2);
+
+  const pngAttUrl = validInbound.json.attachments[0].url;
+  const pdfAttUrl = validInbound.json.attachments[1].url;
+
+  // Store a guest attachment directly
+  const guestStored = await svc.storeSupportAttachments(
+    [{ filename: 'guest-shot.png', contentType: 'image/png', buffer: pngMagic }],
+    { ticketId: guestTktRes.json.ticket.id, uploadedBy: guestTktRes.json.ticket.guestSessionId }
+  );
+  const guestAttUrl = guestStored[0].url;
+
+  // 3. GET /api/support/attachments/:attachmentId authorization checks
+  assert.equal((await srv.request(pngAttUrl)).status, 401);
+  assert.equal((await srv.request(pngAttUrl, { headers: otherHdr })).status, 403);
+  assert.equal((await srv.request(pngAttUrl, { cookie: guestOwnerCookie })).status, 403);
+  assert.equal((await srv.request(guestAttUrl, { cookie: otherGuestCookie })).status, 403);
+  assert.equal((await srv.request('/api/support/attachments/supatt_does_not_exist', { headers: ownerHdr })).status, 404);
+
+  // Guest owner can download own ticket attachment
+  const guestOk = await srv.request(guestAttUrl, { cookie: guestOwnerCookie });
+  assert.equal(guestOk.status, 200);
+
+  // Ticket owner gets inline for safe raster PNG + security headers
+  const ownerPng = await srv.request(pngAttUrl, { headers: ownerHdr });
+  assert.equal(ownerPng.status, 200);
+  assert.equal(ownerPng.headers.get('content-type'), 'image/png');
+  assert.match(ownerPng.headers.get('content-disposition') || '', /^inline;\s*filename="proof\.png"/);
+  assert.equal(ownerPng.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(ownerPng.headers.get('content-security-policy'), "default-src 'none'; sandbox");
+  assert.equal(ownerPng.headers.get('cache-control'), 'private, no-store');
+
+  // Ticket owner gets forced attachment disposition for PDF + security headers
+  const ownerPdf = await srv.request(pdfAttUrl, { headers: ownerHdr });
+  assert.equal(ownerPdf.status, 200);
+  assert.equal(ownerPdf.headers.get('content-type'), 'application/pdf');
+  assert.match(ownerPdf.headers.get('content-disposition') || '', /^attachment;\s*filename="doc\.pdf"/);
+  assert.equal(ownerPdf.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(ownerPdf.headers.get('content-security-policy'), "default-src 'none'; sandbox");
+  assert.equal(ownerPdf.headers.get('cache-control'), 'private, no-store');
+
+  // Support staff access follows ticket visibility (accept lock hides from other staff)
+  const aminaAccept = await srv.request(`/api/admin/support/tickets/${ownerTicket.id}/accept-assignment`, {
+    method: 'POST',
+    headers: aminaHdr
+  });
+  assert.equal(aminaAccept.status, 200);
+  assert.equal((await srv.request(pdfAttUrl, { headers: aminaHdr })).status, 200);
+  assert.equal((await srv.request(pdfAttUrl, { headers: babarHdr })).status, 403);
+
+  // 4. Upload allowlist & MIME/magic-byte validation on POST /api/support/attachments & storeSupportAttachments
+  for (const bad of [
+    { filename: 'xss.html', contentType: 'text/html', data: '<h1>hi</h1>' },
+    { filename: 'xss.htm', contentType: 'text/html', data: '<script>1</script>' },
+    { filename: 'xss.svg', contentType: 'image/svg+xml', data: '<svg onload="alert(1)"/>' },
+    { filename: 'xss.js', contentType: 'application/javascript', data: 'alert(1)' },
+    { filename: 'xss.mjs', contentType: 'text/javascript', data: 'export default 1' },
+    { filename: 'xss.xhtml', contentType: 'application/xhtml+xml', data: '<html/>' },
+    { filename: 'xss.xml', contentType: 'application/xml', data: '<root/>' },
+    { filename: 'spoof.html', contentType: 'image/png', data: '<html>bad</html>' },
+    { filename: 'spoof.txt', contentType: 'text/html', data: '<script>alert(1)</script>' },
+    { filename: 'polyglot.png', contentType: 'image/png', data: '  <svg onload=alert(1)>' }
+  ]) {
+    const res = await srv.request('/api/support/attachments', {
+      method: 'POST',
+      headers: ownerHdr,
+      body: {
+        filename: bad.filename,
+        contentType: bad.contentType,
+        dataBase64: Buffer.from(bad.data, 'utf8').toString('base64')
+      }
+    });
+    assert.equal(res.status, 400, `Expected 400 for ${bad.filename} (${bad.contentType})`);
+    assert.equal(res.json.code, 'INVALID_ATTACHMENT_TYPE');
+  }
+
+  // Multipart upload rejects .svg and accepts valid .png with canonical MIME
+  const badForm = new FormData();
+  badForm.append('file', new Blob(['<svg onload=alert(1)/>'], { type: 'image/svg+xml' }), 'evil.svg');
+  const badMultipart = await fetch(`${srv.baseUrl}/api/support/attachments`, {
+    method: 'POST',
+    headers: ownerHdr,
+    body: badForm
+  });
+  assert.equal(badMultipart.status, 400);
+  const badMultipartJson = await badMultipart.json();
+  assert.equal(badMultipartJson.code, 'INVALID_ATTACHMENT_TYPE');
+
+  const goodForm = new FormData();
+  goodForm.append('file', new Blob([pngMagic], { type: 'application/octet-stream' }), 'real.png');
+  const goodMultipart = await fetch(`${srv.baseUrl}/api/support/attachments`, {
+    method: 'POST',
+    headers: ownerHdr,
+    body: goodForm
+  });
+  assert.equal(goodMultipart.status, 201);
+  const goodMultipartJson = await goodMultipart.json();
+  assert.equal(goodMultipartJson.attachments[0].contentType, 'image/png');
+
+  // storeSupportAttachments rejects scriptable MIME spoof on .txt
+  await assert.rejects(
+    () => svc.storeSupportAttachments(
+      [{ filename: 'notes.txt', mimeType: 'text/html', buffer: Buffer.from('hello') }],
+      { ticketId: ownerTicket.id }
+    ),
+    (err) => err.statusCode === 400 && err.code === 'INVALID_ATTACHMENT_TYPE'
+  );
+});

@@ -19,9 +19,37 @@ function createStoreError(message, statusCode, code) {
   return error;
 }
 
+let ephemeralPiiSecret = null;
+
+function getPiiSecret() {
+  const configured = [
+    process.env.IDENTITY_PII_KEY,
+    process.env.SECURITY_SECRET,
+    process.env.SESSION_SECRET
+  ].find(value => typeof value === 'string' && value.trim().length > 0) || '';
+
+  if (process.env.NODE_ENV === 'production') {
+    if (configured.trim().length < 32) {
+      throw new Error(
+        'FATAL SECURITY ERROR: IDENTITY_PII_KEY, SECURITY_SECRET, or SESSION_SECRET must be set to at least 32 characters in production.'
+      );
+    }
+    return configured;
+  }
+
+  if (configured.trim().length > 0) {
+    return configured;
+  }
+
+  // Ephemeral per-process key for dev/test only so PII encryption never relies on a hardcoded literal.
+  if (!ephemeralPiiSecret) {
+    ephemeralPiiSecret = crypto.randomBytes(32).toString('hex');
+  }
+  return ephemeralPiiSecret;
+}
+
 function getPiiKey() {
-  const secret = process.env.IDENTITY_PII_KEY || process.env.SESSION_SECRET || 'tiwlo-identity-dev-key';
-  return crypto.createHash('sha256').update(String(secret)).digest();
+  return crypto.createHash('sha256').update(String(getPiiSecret())).digest();
 }
 
 export function computeDocumentFingerprint(documentNumber) {

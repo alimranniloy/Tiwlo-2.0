@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHmac } from 'node:crypto';
+import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import {
   evaluateFreeStoreEligibility,
   extractClientSignals,
@@ -169,4 +171,65 @@ test('active blocked identity immediately denies store creation and flags ban', 
   assert.equal(decision.statusCode, 403);
   assert.equal(decision.code, 'DEVICE_OR_NETWORK_BLOCKED');
   assert.equal(decision.shouldBanAccount, true);
+});
+
+function withAbuseEnv(overrides, fn) {
+  const keys = Object.keys(overrides);
+  const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+  try {
+    return fn();
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
+
+test('hashAbuseSignal fails closed in production when ABUSE_HASH_SECRET and SECURITY_SECRET are missing or too short', () => {
+  withAbuseEnv(
+    { NODE_ENV: 'production', ABUSE_HASH_SECRET: undefined, SECURITY_SECRET: undefined },
+    () => {
+      assert.throws(() => hashAbuseSignal('ip', '203.0.113.10'), /FATAL SECURITY ERROR/);
+    }
+  );
+
+  withAbuseEnv(
+    { NODE_ENV: 'production', ABUSE_HASH_SECRET: 'too-short', SECURITY_SECRET: undefined },
+    () => {
+      assert.throws(() => hashAbuseSignal('ip', '203.0.113.10'), /at least 32 characters/);
+    }
+  );
+
+  withAbuseEnv(
+    { NODE_ENV: 'production', ABUSE_HASH_SECRET: 's'.repeat(32), SECURITY_SECRET: undefined },
+    () => {
+      assert.match(hashAbuseSignal('ip', '203.0.113.10'), /^[a-f0-9]{64}$/);
+    }
+  );
+});
+
+test('hashAbuseSignal uses an ephemeral per-process CSPRNG key in non-production instead of domain/literal fallbacks', () => {
+  withAbuseEnv(
+    { NODE_ENV: 'test', ABUSE_HASH_SECRET: undefined, SECURITY_SECRET: undefined },
+    () => {
+      const first = hashAbuseSignal('fingerprint', 'fp-ephemeral-check');
+      const second = hashAbuseSignal('fingerprint', 'fp-ephemeral-check');
+      assert.equal(first, second);
+      assert.match(first, /^[a-f0-9]{64}$/);
+
+      const domainFallback = createHmac('sha256', PLATFORM_CONFIG.primaryDomain)
+        .update('fingerprint:fp-ephemeral-check')
+        .digest('hex');
+      const literalFallback = createHmac('sha256', 'tiwlo-device-guard')
+        .update('fingerprint:fp-ephemeral-check')
+        .digest('hex');
+      assert.notEqual(first, domainFallback);
+      assert.notEqual(first, literalFallback);
+    }
+  );
 });

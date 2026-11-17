@@ -922,7 +922,7 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
               className="flex-1 sm:flex-none px-2.5 py-1.5 text-xs bg-neutral-50 dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 rounded-xl text-neutral-700 dark:text-neutral-300 focus:outline-none focus:border-[#1ED760]"
             >
               <option value="all">All Roles</option>
-              <option value="owner">Store Owners</option>
+              <option value="owner">Tiwlo Users (Owners)</option>
               <option value="super_admin">Super Admins</option>
               <option value="staff">Staff Members</option>
               <option value="customer">Customers</option>
@@ -1044,7 +1044,7 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
                                   : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700'
                             }`}
                           >
-                            {isSuperAdmin ? 'Super Admin' : u.role === 'owner' ? 'Store Owner' : u.role}
+                            {isSuperAdmin ? 'Super Admin' : u.role === 'owner' ? 'Tiwlo User' : u.role}
                           </span>
                           <span className="text-[11px] text-neutral-600 dark:text-neutral-400 tabular-nums">
                             {u.planName || 'Free Starter'} · {u.storeCount || 0} store{u.storeCount === 1 ? '' : 's'}
@@ -1950,7 +1950,7 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
                     onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value })}
                     className="w-full p-2 text-xs rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 disabled:opacity-60"
                   >
-                    <option value="owner">Store Owner</option>
+                    <option value="owner">Account Owner</option>
                     <option value="staff">Staff</option>
                     <option value="customer">Customer</option>
                     <option value="admin">Admin</option>

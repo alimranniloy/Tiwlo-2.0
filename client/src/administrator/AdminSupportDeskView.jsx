@@ -1145,7 +1145,7 @@ export default function AdminSupportDeskView({
         throw new Error(json.error || 'Could not link account.');
       }
       setLinkUserIdentifier('');
-      showToast?.('Guest ticket linked to verified merchant account.', 'success');
+      showToast?.('Guest ticket linked to verified Tiwlo account.', 'success');
       await Promise.all([loadTickets(), loadTicketDetail(ticketKey)]);
     } catch (err) {
       showToast?.(err.message || 'Account linking failed.', 'error');
@@ -1336,7 +1336,7 @@ export default function AdminSupportDeskView({
               </span>
             </div>
             <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-              Manage guest &amp; merchant tickets, SLA compliance, internal notes, staff assignments, and canned macros.
+              Manage guest &amp; user tickets, SLA compliance, internal notes, staff assignments, and canned macros.
             </p>
           </div>
 
@@ -1957,7 +1957,7 @@ export default function AdminSupportDeskView({
                                 : 'border-[#1ED760]/30 bg-[#1ED760]/12 text-emerald-700 dark:text-[#1ED760]'
                             }`}
                           >
-                            {guest ? 'Guest' : 'Merchant'}
+                            {guest ? 'Guest' : 'Tiwlo User'}
                           </span>
                         </div>
 
@@ -2881,7 +2881,7 @@ export default function AdminSupportDeskView({
                               type="text"
                               value={linkUserIdentifier}
                               onChange={(e) => setLinkUserIdentifier(e.target.value)}
-                              placeholder="Merchant email or Tiwi ID"
+                              placeholder="User email or Tiwi ID"
                               className="h-8 min-w-0 flex-1 rounded-lg border border-neutral-200 bg-white px-2 text-xs outline-none focus:border-[#1ED760] dark:border-neutral-700 dark:bg-neutral-950 dark:text-white"
                             />
                             <button
@@ -2937,7 +2937,7 @@ export default function AdminSupportDeskView({
 
                         {Array.isArray(customerInfo?.stores) && customerInfo.stores.length > 0 && (
                           <div className="border-t border-neutral-200/70 pt-2 dark:border-neutral-800">
-                            <p className="mb-1.5 text-[11px] font-medium text-neutral-500">Merchant Stores</p>
+                            <p className="mb-1.5 text-[11px] font-medium text-neutral-500">Connected Stores</p>
                             <div className="space-y-1">
                               {customerInfo.stores.slice(0, 5).map((store) => (
                                 <div

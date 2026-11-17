@@ -38,6 +38,77 @@ import CloudInvoicePage from '../invoice/CloudInvoicePage.jsx';
 
 const FORM_FIELD = 'mt-1.5 w-full rounded-xl border border-[#dcdcdc] bg-white px-3.5 py-2.5 text-sm font-normal text-[#212121] outline-none transition placeholder:text-[#858585] focus:border-[#696969] focus:ring-2 focus:ring-[#e1e1e1] dark:border-[#3f3f3f] dark:bg-[#212121] dark:text-white dark:focus:ring-[#494949]/40';
 
+function isFreeTrialInvoice(inv) {
+  const st = String(inv?.status || '').trim().toLowerCase();
+  const orderType = String(inv?.orderType || '').trim().toLowerCase();
+  return Boolean(inv?.isFreeTrial) ||
+    ['free trial', 'trial', 'free_trial'].includes(st) ||
+    orderType === 'free_trial' ||
+    (Number(inv?.amount) === 0 && String(inv?.planId || '').trim().toLowerCase() === 'free');
+}
+
+function getInvoiceStatusMeta(inv) {
+  const raw = String(inv?.status || '').trim();
+  const st = raw.toLowerCase();
+  if (isFreeTrialInvoice(inv)) {
+    return {
+      label: 'Free Trial',
+      className: 'bg-[#E6F4EA] text-[#137333] dark:bg-[#12351F] dark:text-[#81C995]',
+      textClass: 'text-[#137333] dark:text-[#81C995]'
+    };
+  }
+  if (['paid', 'verified'].includes(st)) {
+    return {
+      label: raw || 'Paid',
+      className: 'bg-[#E6F4EA] text-[#137333] dark:bg-[#12351F] dark:text-[#81C995]',
+      textClass: 'text-[#137333] dark:text-[#81C995]'
+    };
+  }
+  if (st === 'pending') {
+    return {
+      label: 'Pending',
+      className: 'bg-[#FEF7E0] text-[#8D5B00] dark:bg-[#3A2D10] dark:text-[#FDD663]',
+      textClass: 'text-[#B06000] dark:text-[#FDD663]'
+    };
+  }
+  if (['failed', 'cancelled', 'canceled', 'expired'].includes(st)) {
+    return {
+      label: raw || 'Failed',
+      className: 'bg-[#FCE8E6] text-[#B3261E] dark:bg-[#3C2020] dark:text-[#F28B82]',
+      textClass: 'text-[#B3261E] dark:text-[#F28B82]'
+    };
+  }
+  return {
+    label: raw || 'Unknown',
+    className: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-200',
+    textClass: 'text-neutral-600 dark:text-neutral-300'
+  };
+}
+
+function formatInvoiceOrderType(orderType) {
+  if (!orderType) return '';
+  const clean = String(orderType).trim().toLowerCase();
+  const labels = {
+    credit_topup: 'Credit Top-up',
+    voucher_redeem: 'Voucher Credit',
+    subscription_charge: 'Subscription',
+    store_creation: 'Store Activation',
+    free_trial: 'Free Starter Trial',
+    plan_upgrade: 'Plan Upgrade',
+    plan_renewal: 'Plan Renewal',
+    addon_purchase: 'Store Add-on',
+    discord_subscription: 'Discord Bot',
+    whatsapp_subscription: 'WhatsApp Bot'
+  };
+  return labels[clean] || clean.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatInvoiceDate(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+}
+
 export default function CloudBillingView({ currentUser, initialTab = 'overview', onBack, showToast }) {
   const userId = currentUser?.id || currentUser?.tiwiId || null;
   const [activeTab, setActiveTab] = useState(initialTab || 'overview');
@@ -145,7 +216,8 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
   };
 
   const handleCancelInvoice = async (invoice) => {
-    if (cancellingInvoiceId) return;
+    const canCancel = String(invoice?.status || '').toLowerCase() === 'pending' && String(invoice?.id || '').startsWith('ctu-');
+    if (cancellingInvoiceId || !canCancel) return;
     const confirmed = await openMaterialDialog({
       type: 'confirm',
       title: 'Cancel this checkout?',
@@ -1130,18 +1202,48 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
               </h3>
               {Array.isArray(account.invoices) && account.invoices.length ? (
                 <div className="divide-y divide-[#f2f2f2] dark:divide-[#2d2d2d]">
-                  {account.invoices.map(invoice => (
-                    <div key={invoice.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-xs">
-                      <div>
-                        <p className="font-medium text-[#212121] dark:text-white">{invoice.description || 'Cloud credit transaction'}</p>
-                        <p className="mt-1 text-[#636363] dark:text-[#9f9f9f]">{new Date(invoice.createdAt).toLocaleString()} · {invoice.id}</p>
+                  {account.invoices.map(invoice => {
+                    const statusMeta = getInvoiceStatusMeta(invoice);
+                    const isTrial = isFreeTrialInvoice(invoice);
+                    const orderTypeLabel = formatInvoiceOrderType(invoice.orderType);
+                    return (
+                      <div key={invoice.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-xs">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-medium text-[#212121] dark:text-white">{invoice.description || 'Cloud credit transaction'}</p>
+                            {orderTypeLabel && (
+                              <span className="rounded-md bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+                                {orderTypeLabel}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 text-[#636363] dark:text-[#9f9f9f]">{formatInvoiceDate(invoice.createdAt)} · {invoice.id}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <p className="font-semibold tabular-nums text-[#212121] dark:text-white">
+                              {formatMoney(Number(invoice.amount ?? 0), invoice.currency)}
+                              {isTrial ? ' · Free Trial' : ''}
+                            </p>
+                            <p className={`text-[11px] font-medium ${statusMeta.textClass}`}>{statusMeta.label}</p>
+                          </div>
+                          <a
+                            href={`/billing/invoices/${encodeURIComponent(invoice.id)}`}
+                            onClick={(e) => {
+                              if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+                                e.preventDefault();
+                                window.history.pushState(null, '', `/billing/invoices/${encodeURIComponent(invoice.id)}`);
+                                setInvoiceId(invoice.id);
+                              }
+                            }}
+                            className="inline-flex items-center rounded-full border border-neutral-200 px-2.5 py-1 text-[11px] font-medium text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                          >
+                            View Invoice
+                          </a>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-[#212121] dark:text-white">{formatMoney(Number(invoice.amount), invoice.currency)}</p>
-                        <p className={invoice.status === 'Paid' || invoice.status === 'Verified' ? 'text-[#137333]' : 'text-[#B06000]'}>{invoice.status}</p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="py-10 text-center rounded-xl bg-[#fafafa] dark:bg-[#2d2d2d] text-xs text-[#636363] dark:text-[#9f9f9f]">
@@ -1322,27 +1424,61 @@ export default function CloudBillingView({ currentUser, initialTab = 'overview',
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#f2f2f2] dark:divide-[#2d2d2d]">
-                      {account.invoices.map(inv => (
-                        <tr key={inv.id}>
-                          <td className="py-3.5 px-3 font-mono font-medium">{inv.id}</td>
-                          <td className="py-3.5 px-3">{inv.description || '—'}</td>
-                          <td className="py-3.5 px-3 text-[#636363]">{inv.createdAt}</td>
-                          <td className="py-3.5 px-3 font-semibold">{formatMoney(inv.amount, inv.currency)}</td>
-                          <td className="py-3.5 px-3">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${inv.status?.toLowerCase() === 'paid' ? 'bg-[#E6F4EA] text-[#137333]' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-200'}`}>
-                              {inv.status || 'Unknown'}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-3 text-right">
-                            <a
-                              href={`/billing/invoices/${encodeURIComponent(inv.id)}`}
-                              className="inline-flex items-center rounded-full px-3 py-1.5 font-medium text-[#696969] transition hover:bg-[#efefef] dark:hover:bg-[#2b2b2b]"
-                            >
-                              View invoice
-                            </a>
-                          </td>
-                        </tr>
-                      ))}
+                      {account.invoices.map(inv => {
+                        const statusMeta = getInvoiceStatusMeta(inv);
+                        const isTrial = isFreeTrialInvoice(inv);
+                        const orderTypeLabel = formatInvoiceOrderType(inv.orderType);
+                        const cashUsed = Number(inv.cashCreditUsed || 0);
+                        const promoUsed = Number(inv.promoCreditUsed || 0);
+                        return (
+                          <tr key={inv.id}>
+                            <td className="py-3.5 px-3 font-mono font-medium text-[#212121] dark:text-white">{inv.id}</td>
+                            <td className="py-3.5 px-3">
+                              <p className="font-medium text-[#212121] dark:text-white">{inv.description || '—'}</p>
+                              {(orderTypeLabel || inv.planId || cashUsed > 0 || promoUsed > 0) && (
+                                <p className="mt-0.5 text-[11px] text-[#636363] dark:text-[#9f9f9f]">
+                                  {[
+                                    orderTypeLabel,
+                                    inv.planId ? `Plan: ${inv.planId}` : '',
+                                    cashUsed > 0 || promoUsed > 0
+                                      ? `Credits: ${cashUsed > 0 ? `$${cashUsed.toFixed(2)} cash` : ''}${cashUsed > 0 && promoUsed > 0 ? ' + ' : ''}${promoUsed > 0 ? `$${promoUsed.toFixed(2)} promo` : ''}`
+                                      : ''
+                                  ].filter(Boolean).join(' · ')}
+                                </p>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-3 text-[#636363] dark:text-[#9f9f9f]">{formatInvoiceDate(inv.createdAt)}</td>
+                            <td className="py-3.5 px-3 font-semibold tabular-nums text-[#212121] dark:text-white">
+                              <span>{formatMoney(Number(inv.amount ?? 0), inv.currency)}</span>
+                              {isTrial && (
+                                <span className="ml-1.5 text-[10px] font-semibold text-[#137333] dark:text-[#81C995]">
+                                  Free Trial
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-3">
+                              <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${statusMeta.className}`}>
+                                {statusMeta.label}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-3 text-right">
+                              <a
+                                href={`/billing/invoices/${encodeURIComponent(inv.id)}`}
+                                onClick={(e) => {
+                                  if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+                                    e.preventDefault();
+                                    window.history.pushState(null, '', `/billing/invoices/${encodeURIComponent(inv.id)}`);
+                                    setInvoiceId(inv.id);
+                                  }
+                                }}
+                                className="inline-flex items-center rounded-full px-3 py-1.5 font-medium text-[#696969] transition hover:bg-[#efefef] dark:text-[#c4c4c4] dark:hover:bg-[#2b2b2b]"
+                              >
+                                View Invoice
+                              </a>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

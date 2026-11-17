@@ -183,7 +183,7 @@ export default function SystemView({ showToast, onBackToDashboard }) {
               : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-gray-800'
           }`}
         >
-          Company & Store Settings
+          Store Company, Tax &amp; Inventory Settings
         </button>
         <button
           onClick={() => setActiveTab('backup')}
@@ -217,15 +217,15 @@ export default function SystemView({ showToast, onBackToDashboard }) {
         </div>
       )}
 
-      {/* TAB 2: COMPANY & STORE SETTINGS */}
+      {/* TAB 2: STORE COMPANY, TAX & INVENTORY SETTINGS */}
       {activeTab === 'settings' && (
         <div className="bg-white dark:bg-[#181818] rounded-3xl border border-neutral-200/80 dark:border-gray-800 p-4 sm:p-6 shadow-xs max-w-3xl">
           <div className="border-b border-neutral-100 dark:border-gray-800 pb-4 mb-6">
             <h3 className="font-bold text-neutral-900 dark:text-white text-base">
-              Company & Inventory Parameters
+              Store Company, Tax &amp; Inventory Settings
             </h3>
             <p className="text-xs text-neutral-400 mt-0.5">
-              Customize company naming, tax rates, currency symbol, and automatic stock alerts.
+              Configure store company naming, sales tax rates, currency symbol, and inventory stock alerts (separate from your Tiwlo User Account Settings).
             </p>
           </div>
 

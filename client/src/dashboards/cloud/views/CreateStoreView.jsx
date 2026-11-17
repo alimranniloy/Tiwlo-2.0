@@ -10,9 +10,12 @@ import {
   ArrowRight,
   ArrowUpRight,
   Check,
+  CheckCircle2,
   CreditCard,
+  ExternalLink,
   Info,
   Lock,
+  Receipt,
   Sparkles,
   Store
 } from 'lucide-react';
@@ -53,7 +56,7 @@ function getDraftKey(userId) {
   return `tiwlo.createStoreDraft.${userId || 'anon'}`;
 }
 
-export default function CreateStoreView({ userId, userStores = [], onBack, onCreateStore, onOpenBilling, onOpenUpgrade }) {
+export default function CreateStoreView({ userId, userStores = [], onBack, onCreateStore, onOpenBilling, onOpenUpgrade, onOpenStoreDashboard }) {
   const draftKey = getDraftKey(userId);
   const activeUserStores = Array.isArray(userStores)
     ? userStores.filter((store) => String(store?.status || 'active').toLowerCase() !== 'deleted')
@@ -63,6 +66,7 @@ export default function CreateStoreView({ userId, userStores = [], onBack, onCre
   ) || null;
   const hasFreeStore = Boolean(existingFreeStore);
   const [paidUpgradeMode, setPaidUpgradeMode] = useState(false);
+  const [createdReceipt, setCreatedReceipt] = useState(null);
 
   const [step, setStep] = useState(() => {
     try {
@@ -165,6 +169,85 @@ export default function CreateStoreView({ userId, userStores = [], onBack, onCre
   const effectivePlanId = selectedPackage?.planId || form.planId;
   const monthlyCost = Number(selectedPackage?.price || 0);
   const hasEnoughCredits = monthlyCost <= 0 || (creditBalance !== null && creditBalance >= monthlyCost);
+
+  if (createdReceipt) {
+    const { store, invoice, planName, isFreeTrial } = createdReceipt;
+    const invoiceHref = `/billing/invoices/${encodeURIComponent(invoice.id)}`;
+    const invoiceAmount = Number(invoice.amount ?? 0);
+    return (
+      <div className="mx-auto w-full max-w-2xl space-y-5 pb-16 sm:space-y-6">
+        <div className="rounded-xl border border-neutral-200 bg-white p-5 sm:p-6 dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="flex flex-col gap-4 border-b border-neutral-100 pb-5 sm:flex-row sm:items-start sm:justify-between dark:border-neutral-800">
+            <div className="flex items-start gap-3.5">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#1ed760]/15 text-emerald-700 dark:bg-[#1ed760]/20 dark:text-[#1ed760]">
+                <CheckCircle2 className="h-5 w-5" />
+              </span>
+              <div className="space-y-1">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#1ed760]/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800 dark:bg-[#1ed760]/20 dark:text-[#1ed760]">
+                  <Receipt className="h-3 w-3" />
+                  Invoice Ready
+                </span>
+                <h1 className="text-base font-semibold tracking-tight text-neutral-950 sm:text-lg dark:text-white">
+                  {store?.storeName || 'Your store'} is live
+                </h1>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                  {store?.tiwiId ? `Store ID ${store.tiwiId}` : 'Storefront provisioned'}
+                  {store?.subdomain ? ` · ${store.subdomain}` : ''}
+                </p>
+              </div>
+            </div>
+            <span className="inline-flex w-fit items-center rounded-full border border-[#CEEAD6] bg-[#E6F4EA] px-2.5 py-1 text-[11px] font-semibold text-[#137333] dark:border-[#234B32] dark:bg-[#12351F] dark:text-[#81C995]">
+              {isFreeTrial ? 'Free Trial' : (invoice.status || 'Paid')}
+            </span>
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 gap-3 rounded-lg border border-neutral-200 bg-neutral-50 p-4 sm:grid-cols-3 dark:border-neutral-800 dark:bg-neutral-950">
+            <div>
+              <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">Invoice #</p>
+              <p className="mt-1 break-all font-mono text-xs font-semibold text-neutral-950 dark:text-white">
+                {invoice.id}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">Plan</p>
+              <p className="mt-1 text-xs font-semibold text-neutral-950 dark:text-white">
+                {planName}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">Amount</p>
+              <p className="mt-1 text-xs font-semibold tabular-nums text-neutral-950 dark:text-white">
+                ${invoiceAmount.toFixed(2)} {invoice.currency || 'USD'}
+                {isFreeTrial ? ' · Free Trial' : ''}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-col-reverse gap-2.5 border-t border-neutral-100 pt-5 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800">
+            <a
+              href={invoiceHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 text-xs font-semibold text-neutral-800 transition hover:bg-neutral-50 sm:w-auto dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 dark:hover:bg-neutral-800"
+            >
+              <Receipt className="h-4 w-4 shrink-0" />
+              <span>View / Print Invoice</span>
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+            </a>
+
+            <button
+              type="button"
+              onClick={() => (onOpenStoreDashboard ? onOpenStoreDashboard(store) : onBack?.())}
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#1ed760] px-5 text-xs font-semibold text-black transition hover:bg-[#16c653] sm:w-auto"
+            >
+              <span>{onOpenStoreDashboard ? 'Open Store Dashboard' : 'Continue'}</span>
+              <ArrowRight className="h-4 w-4 shrink-0" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (hasFreeStore && !paidUpgradeMode) {
     const startPaidStoreWithPlan = (planId) => {
@@ -379,6 +462,7 @@ export default function CreateStoreView({ userId, userStores = [], onBack, onCre
 
     try {
       setSubmitting(true);
+      const submitStartedAt = Date.now();
       const created = await onCreateStore({
         storeName: form.storeName.trim(),
         category: form.category,
@@ -400,6 +484,55 @@ export default function CreateStoreView({ userId, userStores = [], onBack, onCre
       try {
         sessionStorage.removeItem(draftKey);
       } catch {}
+
+      let invoice = created?.invoice || created?.store?.invoice || null;
+      const orderNumber = created?.orderNumber || created?.store?.orderNumber || null;
+
+      if (!invoice && userId) {
+        const billingData = await getCloudBillingData(userId).catch(() => null);
+        const invoicesList = Array.isArray(billingData?.account?.invoices) ? billingData.account.invoices : [];
+        if (orderNumber) {
+          invoice = invoicesList.find((inv) => inv.id === orderNumber) || null;
+        }
+        if (!invoice) {
+          const cleanStoreName = form.storeName.trim().toLowerCase();
+          invoice = invoicesList.find((inv) => {
+            const createdMs = Date.parse(inv.createdAt || '');
+            if (!Number.isFinite(createdMs) || createdMs < submitStartedAt - 15000) return false;
+            const matchesPlan = String(inv.planId || '').toLowerCase() === String(selectedPackage.planId || '').toLowerCase();
+            const matchesStore = cleanStoreName && String(inv.description || '').toLowerCase().includes(cleanStoreName);
+            return matchesPlan || matchesStore;
+          }) || null;
+        }
+      }
+
+      if (!invoice && orderNumber) {
+        const isTrial = monthlyCost <= 0 || String(selectedPackage.planId || '').toLowerCase() === 'free';
+        invoice = {
+          id: orderNumber,
+          amount: monthlyCost,
+          currency: 'USD',
+          status: isTrial ? 'Free Trial' : 'Paid',
+          planId: selectedPackage.planId,
+          isFreeTrial: isTrial,
+          description: `${selectedPackage.planName || 'Store'} (${created.storeName || form.storeName.trim()})`,
+          createdAt: new Date().toISOString()
+        };
+      }
+
+      if (invoice) {
+        const isTrial = Boolean(invoice.isFreeTrial) ||
+          Number(invoice.amount ?? monthlyCost) <= 0 ||
+          ['free trial', 'trial', 'free_trial'].includes(String(invoice.status || '').toLowerCase());
+        setCreatedReceipt({
+          store: created,
+          invoice,
+          planName: selectedPackage?.planName || created?.planId || 'Free Starter',
+          isFreeTrial: isTrial
+        });
+        return;
+      }
+
       onBack?.();
     } catch (err) {
       setErrorMsg(err.message || 'Failed to create store. Please try again.');

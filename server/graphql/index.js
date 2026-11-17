@@ -4,6 +4,7 @@ import { CloudDB } from '../db/cloud.js';
 import { BillingDB } from '../db/billing.js';
 import { DiscordDB } from '../discord/discordDb.js';
 import { prepareGraphQLQuery } from './queryLimits.js';
+import { sanitizeProductDescription } from '../routes/catalogHelpers.js';
 
 // Construct GraphQL Schema using SDL
 export const schema = buildSchema(`
@@ -476,6 +477,7 @@ export const schema = buildSchema(`
 
   type CloudBillingInvoice {
     id: ID!
+    orderNumber: String
     amount: Float!
     currency: String!
     status: String!
@@ -483,6 +485,12 @@ export const schema = buildSchema(`
     createdAt: String!
     paidAt: String
     expiresAt: String
+    orderType: String
+    planId: String
+    planName: String
+    isFreeTrial: Boolean
+    cashCreditUsed: Float
+    promoCreditUsed: Float
   }
 
   type CloudBillingCostBreakdown {
@@ -678,11 +686,17 @@ export const rootValue = {
 
   // Mutations
   async addProduct({ tiwiId, input }) {
-    return await TenantDB.addProduct(tiwiId, input);
+    const sanitizedInput = input && typeof input === 'object'
+      ? { ...input, description: sanitizeProductDescription(input.description) }
+      : input;
+    return await TenantDB.addProduct(tiwiId, sanitizedInput);
   },
 
   async updateProduct({ tiwiId, id, input }) {
-    return await TenantDB.updateProduct(tiwiId, id, input);
+    const sanitizedInput = input && typeof input === 'object' && input.description !== undefined
+      ? { ...input, description: sanitizeProductDescription(input.description) }
+      : input;
+    return await TenantDB.updateProduct(tiwiId, id, sanitizedInput);
   },
 
   async deleteProduct({ tiwiId, id }) {

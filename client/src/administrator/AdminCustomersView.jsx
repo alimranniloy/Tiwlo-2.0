@@ -31,7 +31,7 @@ const API_BASE = window.location.origin.includes('localhost') || window.location
 const API_ORIGIN = API_BASE.replace(/\/api\/?$/, '') || window.location.origin;
 
 const FILTER_TABS = [
-  { id: 'all', label: 'All Merchants' },
+  { id: 'all', label: 'All Tiwlo Users' },
   { id: 'free', label: 'Free Stores' },
   { id: 'paid', label: 'Paid Stores' },
   { id: 'grace_suspended', label: 'Grace / Suspended' },
@@ -314,9 +314,9 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json.success === false) {
-        throw new Error(json.error || 'Failed to adjust merchant credits.');
+        throw new Error(json.error || 'Failed to adjust user credits.');
       }
-      showToast?.(json.message || 'Merchant credit balance updated.', 'success');
+      showToast?.(json.message || 'User credit balance updated.', 'success');
       setCreditModalTarget(null);
       triggerReload();
     } catch (err) {
@@ -428,7 +428,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
     if (!storeControlContext) return;
     const tiwiId = getStoreTiwiId(storeControlContext.store);
     if (!migrateEmail.trim() || !migrateEmail.includes('@')) {
-      showToast?.('Enter a valid target merchant email.', 'error');
+      showToast?.('Enter a valid target user email.', 'error');
       return;
     }
     try {
@@ -514,7 +514,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
       if (!res.ok || json.success === false) {
         throw new Error(json.error || 'Failed to delete store.');
       }
-      showToast?.(json.message || 'Store permanently deleted. Merchant account preserved.', 'success');
+      showToast?.(json.message || 'Store permanently deleted. Tiwlo account preserved.', 'success');
       setStoreControlContext(null);
       setSelectedCustomerStores(null);
       triggerReload();
@@ -622,14 +622,14 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
           </button>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-semibold tracking-tight text-neutral-950 dark:text-white">
-              Merchants, Wallets &amp; Store Control
+              Tiwlo Users, Wallets &amp; Store Control
             </h2>
             <span className="rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-0.5 text-[11px] font-medium tabular-nums text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
-              {customers.length} Merchants
+              {customers.length} Tiwlo Users
             </span>
           </div>
           <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-            Manage merchant wallets, identity locks, plans, add-ons, store migrations, and lifecycle controls.
+            Manage user wallets, identity locks, plans, add-ons, store migrations, and lifecycle controls.
           </p>
         </div>
 
@@ -647,7 +647,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <div className="rounded-xl border border-neutral-200/80 bg-white p-3.5 dark:border-neutral-800 dark:bg-neutral-950">
-          <span className="text-[11px] font-medium text-neutral-500">Total Merchants</span>
+          <span className="text-[11px] font-medium text-neutral-500">Total Tiwlo Users</span>
           <p className="mt-1 text-xl font-semibold tabular-nums text-neutral-950 dark:text-white">
             {stats.totalMerchants}
           </p>
@@ -722,7 +722,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search merchant, store name, email, Tiwi ID..."
+                placeholder="Search Tiwlo user, store name, email, Tiwi ID..."
                 className="h-9 w-full rounded-xl border border-neutral-200/80 bg-neutral-50 pl-9 pr-3 text-xs text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-[#1ED760] focus:bg-white dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
               />
             </div>
@@ -733,7 +733,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
           <table className="w-full min-w-[1060px] text-left text-xs">
             <thead>
               <tr className="border-b border-neutral-200/80 bg-neutral-50/70 text-[11px] font-semibold text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/50 dark:text-neutral-400">
-                <th className="px-4 py-3">Merchant / Identity</th>
+                <th className="px-4 py-3">Tiwlo User / Identity</th>
                 <th className="px-3 py-3">Wallet (Cash vs Free Promo)</th>
                 <th className="px-3 py-3">Stores &amp; Lifecycle Usage</th>
                 <th className="px-3 py-3 text-center">Account Status</th>
@@ -745,7 +745,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                 <tr>
                   <td colSpan={5} className="px-4 py-12 text-center text-neutral-400">
                     <RefreshCw className="mx-auto mb-2 h-5 w-5 animate-spin" />
-                    Loading store customers...
+                    Loading Tiwlo users...
                   </td>
                 </tr>
               ) : fetchError ? (
@@ -757,7 +757,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
               ) : filteredCustomers.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-12 text-center text-neutral-400">
-                    No merchants found matching this filter.
+                    No Tiwlo users found matching this filter.
                   </td>
                 </tr>
               ) : (
@@ -1111,7 +1111,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                   );
                 })
               ) : (
-                <p className="py-6 text-center text-xs text-neutral-500">No stores found for this merchant.</p>
+                <p className="py-6 text-center text-xs text-neutral-500">No online stores found for this user.</p>
               )}
             </div>
 
@@ -1138,7 +1138,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
             <div className="flex items-center justify-between border-b border-neutral-200/80 pb-3 dark:border-neutral-800">
               <div>
                 <h3 className="text-sm font-semibold text-neutral-950 dark:text-white">
-                  Adjust Merchant Credits
+                  Adjust User Credits
                 </h3>
                 <p className="text-[11px] text-neutral-500">
                   {creditModalTarget.name} ({creditModalTarget.email})
@@ -1474,7 +1474,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                     </label>
                     <label className="flex cursor-pointer items-center justify-between text-xs font-medium text-neutral-800 dark:text-neutral-200">
                       <div>
-                        <span>Charge Merchant Wallet</span>
+                        <span>Charge User Wallet</span>
                         <p className="text-[10px] font-normal text-neutral-500">
                           Off = Admin Grant / Override (no wallet deduction)
                         </p>
@@ -1523,11 +1523,11 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
               {storeControlTab === 'migrate' && (
                 <form onSubmit={handleMigrateOwner} className="space-y-4">
                   <div className="rounded-xl border border-neutral-200/80 bg-neutral-50/70 p-3.5 text-xs text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900/50 dark:text-neutral-300">
-                    Transferring ownership moves this store, its subdomain, products, and sales ledger to the destination merchant account.
+                    Transferring ownership moves this store, its subdomain, products, and sales ledger to the destination Tiwlo account.
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                      Target Merchant Email
+                      Target User Email
                     </label>
                     <input
                       type="email"
@@ -1598,7 +1598,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                       <h4 className="text-xs font-semibold">Delete Store Permanently</h4>
                     </div>
                     <p className="text-xs text-rose-700/90 dark:text-rose-300/90">
-                      Permanently deletes this store, tenant database records, and exclusive media assets. The merchant user account and wallet remain intact.
+                      Permanently deletes this store, tenant database records, and exclusive media assets. The Tiwlo user account and wallet remain intact.
                     </p>
                     <div>
                       <label className="mb-1 block text-[11px] font-medium text-rose-800 dark:text-rose-300">
@@ -1643,7 +1643,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-neutral-950 dark:text-white">
-                  Suspend Merchant Account
+                  Suspend Tiwlo Account
                 </h3>
                 <p className="text-[11px] text-neutral-500">
                   {banModalTarget.name} ({banModalTarget.email})
@@ -1652,12 +1652,12 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
             </div>
 
             <p className="text-xs leading-relaxed text-neutral-600 dark:text-neutral-300">
-              When suspended, the merchant will be immediately logged out and shown the disabled account notice screen upon sign-in. Their stores will be placed in maintenance mode.
+              When suspended, the user will be immediately logged out and shown the disabled account notice screen upon sign-in. Any online stores they own will be placed in maintenance mode.
             </p>
 
             <div>
               <label className="mb-1 block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
-                Reason for suspension (visible to merchant):
+                Reason for suspension (visible to user):
               </label>
               <textarea
                 value={banReason}

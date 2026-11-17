@@ -1,5 +1,5 @@
 import express from 'express';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import multer from 'multer';
 import { getAgentByTier, getOnlineSpecialists, generateTicketSerial } from './agentsPool.js';
 import { TiwiAI as defaultTiwiAI } from './tiwiAi.js';
@@ -8,7 +8,7 @@ import { processSecurityAppeal as defaultProcessSecurityAppeal } from './verific
 import { RestoreSessions as defaultRestoreSessions } from '../../db/restoreSessions.js';
 import { SupportDB as defaultSupportDB } from '../../db/supportDb.js';
 import { MasterDB as defaultMasterDB } from '../../db/multiTenant.js';
-import { getPublicMediaUrl as defaultGetPublicMediaUrl, inferMediaType, storeMedia as defaultStoreMedia } from '../../db/mediaStorage.js';
+import { getPublicMediaUrl as defaultGetPublicMediaUrl, storeMedia as defaultStoreMedia } from '../../db/mediaStorage.js';
 import { PLATFORM_CONFIG } from '../../config/platformConfig.js';
 import { securityLimiters } from '../../plugins/security/index.js';
 import { isSuperAdminAccount } from '../../administrator/identityRiskGraph.js';
@@ -18,6 +18,10 @@ import {
   setGuestSupportCookie,
   clearGuestSupportCookie,
   validateGuestContact,
+  validateSupportAttachment,
+  SAFE_INLINE_IMAGE_MIMES,
+  SAFE_SUPPORT_DOWNLOAD_MIMES,
+  startsWithActiveMarkupOrScript,
   SupportServiceError
 } from '../ticketingService.js';
 import {
@@ -27,8 +31,24 @@ import {
 
 const uploadAttachmentMiddleware = multer({
   storage: multer.memoryStorage(),
-  limits: { files: 10, fileSize: 10 * 1024 * 1024 }
+  limits: { files: 10, fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    try {
+      validateSupportAttachment({
+        filename: file?.originalname,
+        mimetype: file?.mimetype
+      });
+      cb(null, true);
+    } catch (err) {
+      cb(err);
+    }
+  }
 });
+
+export function isSupportStaffUser(user) {
+  if (!user) return false;
+  return user.role === 'admin' || user.role === 'super_admin' || isSuperAdminAccount(user);
+}
 
 export function getAuthenticatedSupportUser(req) {
   const user = req.activeUser || req.user || null;
@@ -428,7 +448,11 @@ export function createSupportRouter(deps = {}) {
       if (ct.includes('multipart/form-data')) {
         return uploadAttachmentMiddleware.any()(req, res, (err) => {
           if (err) {
-            return res.status(400).json({ success: false, error: err.message || 'Invalid upload payload.' });
+            return res.status(err.statusCode || 400).json({
+              success: false,
+              error: err.message || 'Invalid upload payload.',
+              ...(err.code ? { code: err.code } : {})
+            });
           }
           return next();
         });
@@ -451,9 +475,15 @@ export function createSupportRouter(deps = {}) {
         const files = Array.isArray(req.files) ? req.files : [];
         if (files.length > 0) {
           for (const file of files) {
-            const safeName = String(file.originalname || 'attachment.bin').split(/[\\/]/).pop().replace(/[^a-zA-Z0-9._-]/g, '_');
+            const validated = validateSupportAttachment({
+              filename: file.originalname || 'attachment',
+              mimetype: file.mimetype,
+              buffer: file.buffer,
+              maxBytes: 10 * 1024 * 1024
+            });
+            const safeName = validated.filename;
             const aliasPath = `/uploads/support/${randomUUID()}-${safeName}`;
-            const contentType = file.mimetype || inferMediaType(safeName);
+            const contentType = validated.mimeType;
             const stored = await storeMediaFn({
               aliases: [aliasPath],
               buffer: file.buffer,
@@ -472,13 +502,20 @@ export function createSupportRouter(deps = {}) {
             });
           }
         } else if (req.body?.dataBase64 && req.body?.filename) {
-          const safeName = String(req.body.filename).split(/[\\/]/).pop().replace(/[^a-zA-Z0-9._-]/g, '_');
-          const buffer = Buffer.from(String(req.body.dataBase64), 'base64');
+          const rawBase64 = String(req.body.dataBase64).replace(/^data:[^;]+;base64,/i, '');
+          const buffer = Buffer.from(rawBase64, 'base64');
           if (!buffer.length) {
             return res.status(400).json({ success: false, error: 'Attachment dataBase64 cannot be empty.' });
           }
+          const validated = validateSupportAttachment({
+            filename: req.body.filename,
+            contentType: req.body.contentType,
+            buffer,
+            maxBytes: 10 * 1024 * 1024
+          });
+          const safeName = validated.filename;
           const aliasPath = `/uploads/support/${randomUUID()}-${safeName}`;
-          const contentType = req.body.contentType || inferMediaType(safeName);
+          const contentType = validated.mimeType;
           const stored = await storeMediaFn({
             aliases: [aliasPath],
             buffer,
@@ -1225,8 +1262,8 @@ export function createSupportRouter(deps = {}) {
           userDetails = {
             id: found.id,
             email: found.email,
-            name: found.name || found.storeName || 'Merchant',
-            storeName: found.storeName || found.name || 'Tiwlo Store',
+            name: found.name || found.storeName || 'Tiwlo User',
+            storeName: found.storeName || '',
             tiwiId: found.tiwiId || found.storeId || '',
             avatar: found.avatar || null,
             twoFactorEnabled: !!found.twoFactorEnabled,
@@ -1388,12 +1425,39 @@ export function createSupportRouter(deps = {}) {
   // 13. Support Attachment Download & Inbound Email Sync
   router.get('/attachments/:attachmentId', async (req, res) => {
     try {
-      const att = await ticketing.getSupportAttachmentById(req.params.attachmentId);
+      const adminCandidate = req.adminUser?.id && isSupportStaffUser(req.adminUser) ? req.adminUser : null;
+      const activeUser = getAuthenticatedSupportUser(req);
+      const resolvedUser = activeUser || adminCandidate;
+      const guestSession = resolvedUser ? null : await ticketing.resolveGuestSessionFromRequest(req);
+      if (!resolvedUser && !guestSession) {
+        return res.status(401).json({
+          success: false,
+          code: 'GUEST_CONTACT_REQUIRED',
+          error: 'Authentication or verified guest support session required.'
+        });
+      }
+
+      const isStaff = isSupportStaffUser(resolvedUser);
+      const att = await ticketing.getSupportAttachmentById(req.params.attachmentId, {
+        authUser: isStaff ? null : resolvedUser,
+        adminUser: isStaff ? resolvedUser : null,
+        adminProfile: req.adminProfile || null,
+        guestSession
+      });
       if (!att) {
         return res.status(404).json({ success: false, error: 'Attachment not found.' });
       }
-      res.setHeader('Content-Type', att.mimeType || 'application/octet-stream');
-      res.setHeader('Content-Disposition', `inline; filename="${String(att.filename || 'file').replace(/"/g, '')}"`);
+
+      const rawMime = String(att.mimeType || '').split(';')[0].trim().toLowerCase();
+      const safeMime = SAFE_SUPPORT_DOWNLOAD_MIMES.has(rawMime) ? rawMime : 'application/octet-stream';
+      const canInline = SAFE_INLINE_IMAGE_MIMES.has(safeMime) && !startsWithActiveMarkupOrScript(att.buffer);
+      const cleanFilename = String(att.filename || 'file').replace(/[\r\n"\\/]/g, '_');
+
+      res.setHeader('Content-Type', safeMime);
+      res.setHeader('Content-Disposition', `${canInline ? 'inline' : 'attachment'}; filename="${cleanFilename}"`);
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+      res.setHeader('Cache-Control', 'private, no-store');
       return res.send(att.buffer);
     } catch (err) {
       return handleRouteError(res, err, 'Failed to load attachment');
@@ -1402,8 +1466,20 @@ export function createSupportRouter(deps = {}) {
 
   router.post('/email-inbound', async (req, res) => {
     try {
-      const webhookSecret = process.env.SUPPORT_EMAIL_WEBHOOK_SECRET;
-      if (webhookSecret && req.headers['x-tiwlo-email-secret'] !== webhookSecret) {
+      const webhookSecret = String(process.env.SUPPORT_EMAIL_WEBHOOK_SECRET || '');
+      if (!webhookSecret) {
+        return res.status(503).json({
+          success: false,
+          code: 'EMAIL_WEBHOOK_NOT_CONFIGURED',
+          error: 'Inbound email webhook secret is not configured.'
+        });
+      }
+      const providedHeader = Array.isArray(req.headers['x-tiwlo-email-secret'])
+        ? req.headers['x-tiwlo-email-secret'][0]
+        : req.headers['x-tiwlo-email-secret'];
+      const expectedBuf = Buffer.from(webhookSecret, 'utf8');
+      const providedBuf = Buffer.from(String(providedHeader || ''), 'utf8');
+      if (expectedBuf.length !== providedBuf.length || !timingSafeEqual(expectedBuf, providedBuf)) {
         return res.status(401).json({ success: false, error: 'Invalid inbound email webhook secret.' });
       }
       const result = await ticketing.ingestInboundTicketEmail(req.body || {});

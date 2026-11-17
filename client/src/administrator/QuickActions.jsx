@@ -5,7 +5,7 @@ import { isAdminViewPermitted } from './AdminSidebar';
 export default function QuickActions({ onAction, staffAccess }) {
   const actions = [
     { id: 'orders', label: 'System Orders', icon: Receipt },
-    { id: 'customers', label: 'Merchants & Stores', icon: Store },
+    { id: 'customers', label: 'Tiwlo Users & Stores', icon: Store },
     { id: 'users', label: 'Risk Monitor', icon: ShieldAlert },
     { id: 'live-visitors', label: 'Live Visitors', icon: Activity },
     { id: 'compliance-audit', label: 'Compliance & Audit', icon: FileCheck2 },

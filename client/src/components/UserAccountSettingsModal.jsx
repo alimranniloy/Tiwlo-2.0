@@ -431,10 +431,10 @@ function UserAccountSettingsModalContent({
               id="user-account-settings-title"
               className="text-base font-bold text-neutral-950 dark:text-white"
             >
-              Account Settings
+              User Account Settings
             </h2>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              Manage your profile, security controls, and active sessions.
+              Manage your Tiwlo User profile, security controls, and active sessions.
             </p>
           </div>
           <button
@@ -553,7 +553,7 @@ function UserAccountSettingsModalContent({
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                      Store / Workspace Name
+                      Workspace / Organization Name
                     </label>
                     <input
                       type="text"

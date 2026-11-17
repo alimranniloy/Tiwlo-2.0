@@ -748,7 +748,7 @@ export default function UserProfileSettingsView({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-bold tracking-tight text-neutral-950 dark:text-white sm:text-2xl">
-                Account &amp; Profile Settings
+                User &amp; Account Settings
               </h1>
               {accountUser?.planName && (
                 <span className="inline-flex items-center rounded-full border border-neutral-200 bg-[#fafafa] px-2.5 py-0.5 text-[11px] font-semibold text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
@@ -972,7 +972,7 @@ export default function UserProfileSettingsView({
                     Personal &amp; Workspace Identity
                   </h2>
                   <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-                    Update your display name, primary store name, and country.
+                    Update your personal display name, workspace label, and country.
                   </p>
                 </div>
 
@@ -994,7 +994,7 @@ export default function UserProfileSettingsView({
 
                     <div>
                       <label className="mb-1.5 block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
-                        Store / Workspace Name
+                        Workspace / Display Label
                       </label>
                       <input
                         type="text"

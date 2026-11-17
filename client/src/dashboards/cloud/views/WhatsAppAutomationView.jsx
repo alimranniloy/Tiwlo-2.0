@@ -1,5 +1,7 @@
 import { applicationFetch as fetch } from '../../../api/graphqlTransport.js';
 import { openMaterialDialog } from '../../../components/MaterialDialogProvider.jsx';
+import ServiceSubscriptionGateView from '../../../views/ServiceSubscriptionGateView.jsx';
+import { getCloudBillingData } from '../graphql/cloudQueries.js';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   MessageSquare,
@@ -20,10 +22,12 @@ import {
   Send,
   Clock,
   ArrowRight,
+  ArrowUpRight,
   Shield,
   Layers,
   ChevronRight,
   AlertCircle,
+  AlertTriangle,
   HelpCircle,
   Zap,
   Tag,
@@ -43,26 +47,57 @@ import {
   Loader2
 } from 'lucide-react';
 
+async function resilientWaFetch(url, options = {}) {
+  const token =
+    localStorage.getItem('stockpro_session') ||
+    sessionStorage.getItem('stockpro_session') ||
+    '';
+  const reqOptions = {
+    credentials: 'include',
+    ...options,
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
+    },
+  };
+  try {
+    return await fetch(url, reqOptions);
+  } catch (err) {
+    if (String(err?.message || '').includes('No GraphQL operation is registered')) {
+      return globalThis.fetch(url, reqOptions);
+    }
+    throw err;
+  }
+}
+
 export default function WhatsAppAutomationView({
   currentUser,
   currentStore,
   userStores = [],
+  onBack,
+  onNavigateBilling,
   showToast = () => {}
 }) {
   // Navigation Tabs: 'sessions' | 'connect' | 'automation' | 'simulator' | 'logs'
   const [activeTab, setActiveTab] = useState('sessions');
 
   const [sessions, setSessions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [subChecking, setSubChecking] = useState(true);
   const [selectedSessionId, setSelectedSessionId] = useState(null);
 
   // Paid Subscription & Quota State
   const [waSubscription, setWaSubscription] = useState(null);
   const [waPackages, setWaPackages] = useState([]);
+  const [waTierInsight, setWaTierInsight] = useState(null);
+  const [waNotifications, setWaNotifications] = useState([]);
   const [waUsage, setWaUsage] = useState({ sessionsCount: 0, autoReplyFlowsCount: 0, monthlyMessagesUsed: 0, dailyBroadcastsUsed: 0 });
   const [creditsBalance, setCreditsBalance] = useState(null);
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [purchasingPlanId, setPurchasingPlanId] = useState(null);
+  const [modalAutoRenew, setModalAutoRenew] = useState(true);
+  const [togglingAutoRenew, setTogglingAutoRenew] = useState(false);
+  const [dismissingAlert, setDismissingAlert] = useState(false);
   const [subError, setSubError] = useState('');
 
   // Telemetry Chart State (for Activity Logs tab)
@@ -110,13 +145,31 @@ export default function WhatsAppAutomationView({
 
   const pollIntervalRef = useRef(null);
 
-  // 1. Fetch Sessions List
+  const navigateToBilling = (path = '/billing/credits', tab = 'credits') => {
+    if (typeof onNavigateBilling === 'function') {
+      onNavigateBilling(path, tab);
+      return;
+    }
+    try {
+      window.history.pushState(null, '', path);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    } catch {
+      window.location.assign(path);
+    }
+  };
+
+  // 1. Fetch Sessions List (ONLY invoked when subscription is verified active)
   const fetchSessions = async (keepSelection = true) => {
+    setLoading(true);
     try {
       const res = await fetch('/api/whatsapp/sessions', {
         headers: currentUser?.id ? { Authorization: `Bearer ${localStorage.getItem('stockpro_session') || ''}` } : {}
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 402 || data.code === 'SUBSCRIPTION_REQUIRED') {
+        setWaSubscription((prev) => ({ ...(prev || {}), isActive: false }));
+        return;
+      }
       if (data.success) {
         const list = data.sessions || [];
         setSessions(list);
@@ -139,44 +192,109 @@ export default function WhatsAppAutomationView({
 
   const fetchSubscriptionState = async () => {
     try {
-      const token = localStorage.getItem('stockpro_session') || '';
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const [subRes, pkgsRes, billingRes] = await Promise.all([
-        fetch('/api/whatsapp/subscription', { credentials: 'include', headers }),
-        fetch('/api/whatsapp/packages', { credentials: 'include', headers }),
-        fetch('/api/cloud/billing', { credentials: 'include', headers }).catch(() => null),
+      const [subRes, pkgsRes, notifRes, billingRes] = await Promise.all([
+        resilientWaFetch('/api/whatsapp/subscription'),
+        resilientWaFetch('/api/whatsapp/packages'),
+        resilientWaFetch('/api/whatsapp/subscription/notifications').catch(() => null),
+        currentUser?.id
+          ? getCloudBillingData(currentUser.id).catch(() => null)
+          : Promise.resolve(null),
       ]);
-      const subJson = subRes.ok ? await subRes.json().catch(() => ({})) : {};
+      const subJson = await subRes.json().catch(() => ({}));
       const pkgsJson = pkgsRes.ok ? await pkgsRes.json().catch(() => ({})) : {};
-      const billJson = billingRes && billingRes.ok ? await billingRes.json().catch(() => ({})) : {};
+      const notifJson = notifRes && notifRes.ok ? await notifRes.json().catch(() => ({})) : {};
 
-      if (subJson.subscription !== undefined) setWaSubscription(subJson.subscription);
+      if (subRes.status === 402 || subJson.code === 'SUBSCRIPTION_REQUIRED') {
+        setWaSubscription(subJson.subscription || { isActive: false });
+      } else if (subJson.subscription !== undefined) {
+        setWaSubscription(subJson.subscription);
+        if (typeof subJson.subscription?.autoRenew === 'boolean') {
+          setModalAutoRenew(subJson.subscription.autoRenew);
+        }
+      }
+
       if (subJson.usage) setWaUsage(subJson.usage);
+      if (subJson.tierInsight !== undefined) setWaTierInsight(subJson.tierInsight);
+      if (Array.isArray(notifJson.notifications)) setWaNotifications(notifJson.notifications);
+      else if (Array.isArray(subJson.notifications)) setWaNotifications(subJson.notifications);
+
       if (Array.isArray(pkgsJson.packages)) setWaPackages(pkgsJson.packages);
       else if (Array.isArray(subJson.packages)) setWaPackages(subJson.packages);
 
-      const rawCredits = billJson?.credits ?? billJson?.account?.credits;
-      if (rawCredits !== undefined && rawCredits !== null) {
-        setCreditsBalance(Number(rawCredits || 0));
+      const rawCredits = billingRes?.account?.credits ?? billingRes?.credits;
+      if (rawCredits !== undefined && rawCredits !== null && Number.isFinite(Number(rawCredits))) {
+        setCreditsBalance(Number(rawCredits));
       }
+      return subJson?.subscription || null;
     } catch (err) {
       console.warn('Could not load WhatsApp subscription state:', err);
+      return null;
     }
   };
 
-  const handlePurchasePlan = async (planId) => {
+  const handleToggleAutoRenew = async () => {
+    if (togglingAutoRenew || !waSubscription) return;
+    const nextAutoRenew = !(waSubscription.autoRenew !== false);
+    setTogglingAutoRenew(true);
+    try {
+      const res = await resilientWaFetch('/api/whatsapp/subscription/auto-renew', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ autoRenew: nextAutoRenew }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) {
+        throw new Error(data.error || 'Could not update auto-renewal preference.');
+      }
+      setWaSubscription((prev) => ({
+        ...(data.subscription || prev || {}),
+        autoRenew: data.subscription?.autoRenew ?? nextAutoRenew,
+      }));
+      setModalAutoRenew(data.subscription?.autoRenew ?? nextAutoRenew);
+      window.dispatchEvent(new CustomEvent('tiwlo:service-subscriptions-changed'));
+      showToast(`Monthly auto-renewal ${nextAutoRenew ? 'enabled' : 'disabled'}.`, 'success');
+    } catch (err) {
+      showToast(err.message || 'Could not update auto-renewal preference.', 'error');
+    } finally {
+      setTogglingAutoRenew(false);
+    }
+  };
+
+  const handleDismissAlerts = async () => {
+    if (dismissingAlert) return;
+    setDismissingAlert(true);
+    try {
+      const unreadIds = waNotifications
+        .filter((n) => (n.kind === 'payment_failed' || n.type === 'payment_failed') && !n.readAt && !n.read)
+        .map((n) => n.id)
+        .filter(Boolean);
+      await resilientWaFetch('/api/whatsapp/subscription/notifications/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(unreadIds.length ? { notificationIds: unreadIds } : {}),
+      });
+      const readAt = new Date().toISOString();
+      setWaNotifications((prev) =>
+        prev.map((n) =>
+          n.kind === 'payment_failed' || n.type === 'payment_failed' ? { ...n, readAt, read: true } : n
+        )
+      );
+      showToast('Payment alert dismissed.', 'info');
+    } catch (err) {
+      showToast(err.message || 'Could not dismiss alert.', 'error');
+    } finally {
+      setDismissingAlert(false);
+    }
+  };
+
+  const handlePurchasePlan = async (planId, autoRenew = modalAutoRenew) => {
     setPurchasingPlanId(planId);
     setSubError('');
     try {
-      const token = localStorage.getItem('stockpro_session') || '';
-      const res = await fetch('/api/whatsapp/subscription/purchase', {
+      const res = await resilientWaFetch('/api/whatsapp/subscription/purchase', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ planId }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId, autoRenew: Boolean(autoRenew) }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
@@ -188,6 +306,7 @@ export default function WhatsAppAutomationView({
       if (data.billing?.remainingCredits !== undefined && data.billing?.remainingCredits !== null) {
         setCreditsBalance(Number(data.billing.remainingCredits));
       }
+      window.dispatchEvent(new CustomEvent('tiwlo:service-subscriptions-changed'));
       showToast(data.message || 'WhatsApp Bot subscription activated!', 'success');
       await fetchSubscriptionState();
       setShowPlanModal(false);
@@ -200,12 +319,31 @@ export default function WhatsAppAutomationView({
   };
 
   useEffect(() => {
-    fetchSessions(false);
-    fetchSubscriptionState();
+    let cancelled = false;
+    async function verifyAndInit() {
+      setSubChecking(true);
+      const sub = await fetchSubscriptionState();
+      if (cancelled) return;
+      setSubChecking(false);
+      if (sub?.isActive) {
+        await fetchSessions(false);
+      }
+    }
+    verifyAndInit();
     return () => {
+      cancelled = true;
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!waSubscription?.isActive) return undefined;
+    const handleSubChange = () => {
+      fetchSubscriptionState();
+    };
+    window.addEventListener('tiwlo:service-subscriptions-changed', handleSubChange);
+    return () => window.removeEventListener('tiwlo:service-subscriptions-changed', handleSubChange);
+  }, [waSubscription?.isActive]);
 
   // Helper: Load session config into local state
   const loadSessionIntoForm = (sess) => {
@@ -582,8 +720,124 @@ export default function WhatsAppAutomationView({
   // Active stores available for selection
   const availableStores = userStores.length > 0 ? userStores : (currentStore?.tiwiId ? [currentStore] : []);
 
+  if (subChecking) {
+    return (
+      <div className="space-y-6">
+        <div className="h-24 animate-pulse rounded-2xl border border-neutral-200 bg-white dark:border-gray-800 dark:bg-gray-900" />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="h-64 animate-pulse rounded-2xl border border-neutral-200 bg-white dark:border-gray-800 dark:bg-gray-900" />
+          <div className="h-64 animate-pulse rounded-2xl border border-neutral-200 bg-white dark:border-gray-800 dark:bg-gray-900" />
+          <div className="h-64 animate-pulse rounded-2xl border border-neutral-200 bg-white dark:border-gray-800 dark:bg-gray-900" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!waSubscription?.isActive) {
+    return (
+      <ServiceSubscriptionGateView
+        serviceType="whatsapp"
+        currentUser={currentUser}
+        initialData={{
+          subscription: waSubscription,
+          packages: waPackages,
+          tierInsight: waTierInsight,
+          notifications: waNotifications,
+          usage: waUsage,
+        }}
+        onBack={onBack}
+        onNavigateBilling={navigateToBilling}
+        onActivated={async (purchaseData) => {
+          if (purchaseData?.subscription) {
+            setWaSubscription(purchaseData.subscription);
+          }
+          await fetchSubscriptionState();
+          await fetchSessions(false);
+        }}
+        showToast={showToast}
+      />
+    );
+  }
+
+  const unreadPaymentAlerts = waNotifications.filter(
+    (n) => (n.kind === 'payment_failed' || n.type === 'payment_failed') && !n.readAt && !n.read
+  );
+  const hasPaymentAlert = Boolean(
+    waSubscription?.status === 'past_due' ||
+      waSubscription?.lastRenewalError ||
+      unreadPaymentAlerts.length > 0
+  );
+
+  const quotaMetrics = [
+    { label: 'Active Sessions', used: waUsage.sessionsCount ?? sessions.length, limit: waSubscription.limits?.maxSessions ?? 1 },
+    { label: 'Monthly Messages', used: waUsage.monthlyMessagesUsed ?? waSubscription.usage?.monthlyMessages ?? 0, limit: waSubscription.limits?.monthlyMessagesLimit ?? 2000 },
+    { label: 'Daily Broadcasts', used: waUsage.dailyBroadcastsUsed ?? waSubscription.usage?.dailyBroadcasts ?? 0, limit: waSubscription.limits?.dailyBroadcastLimit ?? 100 },
+    { label: 'Auto-Reply Flows', used: waUsage.autoReplyFlowsCount ?? sessions.filter(s => s.automationConfig?.enabled).length, limit: waSubscription.limits?.autoReplyFlowsLimit ?? 3 },
+  ];
+  const computedPeakPct = quotaMetrics.reduce((max, item) => {
+    const pct = Math.min(100, Math.round((Number(item.used || 0) / Math.max(1, Number(item.limit || 1))) * 100));
+    return Math.max(max, pct);
+  }, 0);
+  const peakUsagePct = Number.isFinite(Number(waTierInsight?.peakUsagePercent))
+    ? Number(waTierInsight.peakUsagePercent)
+    : computedPeakPct;
+  const sortedPackages = [...waPackages].sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+  const nextUpgradePlan =
+    (waTierInsight?.recommendedPlanId &&
+      sortedPackages.find((p) => p.planId === waTierInsight.recommendedPlanId && p.planId !== waSubscription.planId)) ||
+    sortedPackages.find((p) => Number(p.price || 0) > Number(waSubscription.price || 0)) ||
+    null;
+  const shouldSuggestUpgrade = Boolean(
+    nextUpgradePlan && (peakUsagePct >= 75 || waTierInsight?.shouldUpgrade)
+  );
+  const autoRenewEnabled = waSubscription?.autoRenew !== false;
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
+
+      {hasPaymentAlert && (
+        <div
+          role="alert"
+          className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3.5 text-xs text-rose-800 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+            <div>
+              <p className="font-semibold text-rose-950">
+                {waSubscription?.status === 'past_due'
+                  ? 'Renewal Payment Failed — Action Required'
+                  : 'Subscription Payment Alert'}
+              </p>
+              <p className="mt-0.5">
+                {waSubscription?.lastRenewalError ||
+                  unreadPaymentAlerts[0]?.message ||
+                  'Your last auto-renewal payment failed. Top up your Tiwlo Credits to keep WhatsApp automation uninterrupted.'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => navigateToBilling('/billing/credits', 'credits')}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-rose-600 px-3 text-xs font-semibold text-white hover:bg-rose-700 cursor-pointer"
+            >
+              <Wallet className="h-3.5 w-3.5" />
+              <span>Top Up Credits</span>
+            </button>
+            {unreadPaymentAlerts.length > 0 && (
+              <button
+                type="button"
+                disabled={dismissingAlert}
+                onClick={handleDismissAlerts}
+                className="inline-flex h-8 items-center gap-1 rounded-lg border border-rose-200 bg-white px-2.5 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-60 cursor-pointer"
+              >
+                <X className="h-3.5 w-3.5" />
+                <span>{dismissingAlert ? 'Dismissing...' : 'Dismiss'}</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ======================================================== */}
       {/* 1. GOOGLE CLOUD STYLE HEADER */}
@@ -639,82 +893,121 @@ export default function WhatsAppAutomationView({
       {/* ======================================================== */}
       {/* 1b. PAID SUBSCRIPTION & QUOTA BAR */}
       {/* ======================================================== */}
-      {waSubscription?.isActive ? (
-        <div className="rounded-2xl border border-[#dcdcdc] dark:border-gray-800 bg-white dark:bg-gray-900 p-4 sm:p-5 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#f0f0f0] dark:border-gray-800 pb-3">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#1ED760]/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Active Plan: {waSubscription.planName}
+      <div className="rounded-2xl border border-[#dcdcdc] dark:border-gray-800 bg-white dark:bg-gray-900 p-4 sm:p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#f0f0f0] dark:border-gray-800 pb-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#1ED760]/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Active Plan: {waSubscription.planName}
+            </span>
+            <span className="text-xs text-[#636363] dark:text-gray-400">
+              ${Number(waSubscription.price || 0).toFixed(2)}/mo · Expires {waSubscription.expiresAt ? new Date(waSubscription.expiresAt).toLocaleDateString() : 'Monthly'}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {creditsBalance !== null && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#1f1f1f] dark:text-gray-200">
+                <Wallet className="w-3.5 h-3.5 text-[#1ED760]" />
+                Credits: ${creditsBalance.toFixed(2)}
               </span>
-              <span className="text-xs text-[#636363] dark:text-gray-400">
-                ${Number(waSubscription.price || 0).toFixed(2)}/mo · Expires {waSubscription.expiresAt ? new Date(waSubscription.expiresAt).toLocaleDateString() : 'Monthly'}
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              {creditsBalance !== null && (
-                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#1f1f1f] dark:text-gray-200">
-                  <Wallet className="w-3.5 h-3.5 text-[#1ED760]" />
-                  Credits: ${creditsBalance.toFixed(2)}
-                </span>
+            )}
+            <button
+              type="button"
+              disabled={togglingAutoRenew}
+              onClick={handleToggleAutoRenew}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold transition cursor-pointer disabled:opacity-60 ${
+                autoRenewEnabled
+                  ? 'border-[#1ED760]/50 bg-[#1ED760]/10 text-emerald-900 hover:bg-[#1ED760]/20'
+                  : 'border-neutral-200 bg-neutral-50 text-neutral-600 hover:bg-neutral-100'
+              }`}
+            >
+              {togglingAutoRenew ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3 h-3" />
               )}
-              <button
-                type="button"
-                onClick={() => setShowPlanModal(true)}
-                className="rounded-full bg-[#1ED760] hover:bg-[#19c354] px-3.5 py-1.5 text-xs font-semibold text-black transition cursor-pointer"
-              >
-                Upgrade Plan
-              </button>
-            </div>
+              <span>Auto-Renew: {autoRenewEnabled ? 'On' : 'Off'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPlanModal(true)}
+              className="rounded-full bg-[#1ED760] hover:bg-[#19c354] px-3.5 py-1.5 text-xs font-semibold text-black transition cursor-pointer"
+            >
+              Upgrade Plan
+            </button>
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { label: 'Active Sessions', used: waUsage.sessionsCount ?? sessions.length, limit: waSubscription.limits?.maxSessions ?? 1 },
-              { label: 'Monthly Messages', used: waUsage.monthlyMessagesUsed ?? waSubscription.usage?.monthlyMessages ?? 0, limit: waSubscription.limits?.monthlyMessagesLimit ?? 2000 },
-              { label: 'Daily Broadcasts', used: waUsage.dailyBroadcastsUsed ?? waSubscription.usage?.dailyBroadcasts ?? 0, limit: waSubscription.limits?.dailyBroadcastLimit ?? 100 },
-              { label: 'Auto-Reply Flows', used: waUsage.autoReplyFlowsCount ?? sessions.filter(s => s.automationConfig?.enabled).length, limit: waSubscription.limits?.autoReplyFlowsLimit ?? 3 },
-            ].map((q) => {
-              const pct = Math.min(100, Math.round((Number(q.used || 0) / Math.max(1, Number(q.limit || 1))) * 100));
-              return (
-                <div key={q.label} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-[#636363] dark:text-gray-400">{q.label}</span>
-                    <span className="font-semibold tabular-nums text-[#1f1f1f] dark:text-white">
-                      {Number(q.used || 0).toLocaleString()} / {Number(q.limit || 0).toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full rounded-full bg-neutral-100 dark:bg-gray-800 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${pct >= 85 ? 'bg-amber-500' : 'bg-[#1ED760]'}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+        <div className="rounded-xl border border-neutral-200/80 dark:border-gray-800 bg-neutral-50/70 dark:bg-gray-950/50 px-3.5 py-2.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="inline-flex items-center gap-1.5 font-medium text-neutral-700 dark:text-gray-300">
+              <TrendingUp className="w-3.5 h-3.5 text-[#1ED760]" />
+              Tier Capacity Meter
+            </span>
+            <span className={`font-semibold tabular-nums ${peakUsagePct >= 75 ? 'text-amber-700' : 'text-neutral-900 dark:text-white'}`}>
+              {peakUsagePct}% peak utilization
+            </span>
+          </div>
+          <div className="mt-1.5 h-1.5 w-full rounded-full bg-neutral-200/80 dark:bg-gray-800 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${peakUsagePct >= 85 ? 'bg-rose-500' : peakUsagePct >= 75 ? 'bg-amber-500' : 'bg-[#1ED760]'}`}
+              style={{ width: `${Math.min(100, peakUsagePct)}%` }}
+            />
           </div>
         </div>
-      ) : (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-xs font-semibold text-amber-900">
-              <AlertCircle className="w-4 h-4 text-amber-600" />
-              <span>Paid Subscription Required · WhatsApp Bot Packages</span>
+
+        {shouldSuggestUpgrade && nextUpgradePlan && (
+          <div className="flex flex-col gap-2.5 rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-0.5">
+              <p className="text-xs font-semibold text-amber-950">
+                {peakUsagePct}% tier usage reached — upgrade to {nextUpgradePlan.planName}
+              </p>
+              <p className="text-[11px] text-amber-800">
+                Scale to {nextUpgradePlan.maxSessions} session(s) &amp; {Number(nextUpgradePlan.monthlyMessagesLimit || 0).toLocaleString()} monthly msgs for ${Number(nextUpgradePlan.price || 0).toFixed(2)}/mo.
+              </p>
             </div>
-            <p className="text-xs text-amber-800">
-              WhatsApp QR sessions, AI auto-replies, and broadcasts require an active paid plan using Tiwlo Credits.
-            </p>
+            <button
+              type="button"
+              disabled={purchasingPlanId !== null}
+              onClick={() => handlePurchasePlan(nextUpgradePlan.planId, autoRenewEnabled)}
+              className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#1ED760] px-3.5 text-xs font-semibold text-black hover:bg-[#19c354] disabled:opacity-60 cursor-pointer"
+            >
+              {purchasingPlanId === nextUpgradePlan.planId ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Upgrading...</span>
+                </>
+              ) : (
+                <>
+                  <span>Upgrade to {nextUpgradePlan.planName}</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </>
+              )}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowPlanModal(true)}
-            className="inline-flex shrink-0 items-center gap-2 rounded-full bg-[#1ED760] hover:bg-[#19c354] px-4 py-2 text-xs font-semibold text-black transition cursor-pointer"
-          >
-            <CreditCard className="w-4 h-4" />
-            Choose Plan &amp; Pay with Credits
-          </button>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {quotaMetrics.map((q) => {
+            const pct = Math.min(100, Math.round((Number(q.used || 0) / Math.max(1, Number(q.limit || 1))) * 100));
+            return (
+              <div key={q.label} className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#636363] dark:text-gray-400">{q.label}</span>
+                  <span className="font-semibold tabular-nums text-[#1f1f1f] dark:text-white">
+                    {Number(q.used || 0).toLocaleString()} / {Number(q.limit || 0).toLocaleString()}
+                  </span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-neutral-100 dark:bg-gray-800 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${pct >= 85 ? 'bg-amber-500' : 'bg-[#1ED760]'}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
-      )}
+      </div>
 
       {/* ======================================================== */}
       {/* 2. GOOGLE CLOUD CONSOLE TOP MENU / TAB BAR */}
@@ -1825,21 +2118,43 @@ export default function WhatsAppAutomationView({
               </div>
             </div>
 
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 dark:border-gray-800 bg-neutral-50 dark:bg-gray-950 px-4 py-3 cursor-pointer">
+              <div className="flex items-center gap-2.5">
+                <RefreshCw className="w-4 h-4 text-[#1ED760]" />
+                <div>
+                  <p className="text-xs font-semibold text-neutral-900 dark:text-white">Auto-Renew Monthly with Tiwlo Credits</p>
+                  <p className="text-[11px] text-neutral-500">Automatically renew every 30 days using your wallet balance.</p>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={modalAutoRenew}
+                onChange={(e) => setModalAutoRenew(e.target.checked)}
+                className="h-4 w-4 rounded border-neutral-300 accent-[#1ED760] cursor-pointer"
+              />
+            </label>
+
             {subError && (
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{subError}</span>
                 </div>
-                <a href="/cloud/billing" className="font-semibold underline">
+                <button
+                  type="button"
+                  onClick={() => navigateToBilling('/billing/credits', 'credits')}
+                  className="font-semibold underline cursor-pointer"
+                >
                   Top Up Credits →
-                </a>
+                </button>
               </div>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {waPackages.map((pkg) => {
                 const isCurrent = waSubscription?.isActive && waSubscription?.planId === pkg.planId;
+                const isRecommended = waTierInsight?.recommendedPlanId === pkg.planId || pkg.recommended;
+                const badgeText = pkg.badge || (isRecommended ? 'Recommended' : null);
                 return (
                   <div
                     key={pkg.planId}
@@ -1855,9 +2170,9 @@ export default function WhatsAppAutomationView({
                           <h3 className="text-base font-semibold text-neutral-950 dark:text-white">{pkg.planName}</h3>
                           <p className="mt-0.5 text-xs text-neutral-500">{pkg.description}</p>
                         </div>
-                        {pkg.badge && (
+                        {badgeText && (
                           <span className="shrink-0 rounded-full bg-[#1ED760]/15 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-800">
-                            {pkg.badge}
+                            {badgeText}
                           </span>
                         )}
                       </div>

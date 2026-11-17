@@ -69,7 +69,7 @@ const navigation = [
   {
     section: 'Settings & support',
     items: [
-      { id: 'settings', label: 'Settings', icon: Settings2 },
+      { id: 'settings', label: 'Store General Settings', icon: Settings2 },
       { id: 'domain-settings', label: 'Domain Settings', icon: Globe },
       { id: 'store-settings', label: 'Storefront & Theme', icon: Store },
       { id: 'help-support', label: 'Help & Support', icon: LifeBuoy },

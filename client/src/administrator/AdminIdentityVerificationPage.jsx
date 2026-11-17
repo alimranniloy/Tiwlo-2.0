@@ -695,7 +695,7 @@ export default function AdminIdentityVerificationPage({
               className="mb-2 inline-flex items-center gap-1.5 text-xs font-medium text-neutral-500 transition hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white cursor-pointer"
             >
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-              Back to Merchants &amp; Stores
+              Back to Tiwlo Users &amp; Stores
             </button>
 
             <div className="flex items-center gap-3">
@@ -801,7 +801,7 @@ export default function AdminIdentityVerificationPage({
         </Card>
 
         <Card className="p-3.5">
-          <span className="text-[11px] font-medium text-neutral-500">Merchant Stores</span>
+          <span className="text-[11px] font-medium text-neutral-500">Connected Stores</span>
           <p className="mt-1 text-xl font-semibold tabular-nums text-neutral-950 dark:text-white">
             {latestReview ? storesCount : '—'}
           </p>
@@ -895,7 +895,7 @@ export default function AdminIdentityVerificationPage({
               <div>
                 <CardTitle className="flex items-center gap-1.5">
                   <ShieldAlert className="h-4 w-4 text-[#1ED760]" />
-                  Risk Intelligence, Fraud Signals &amp; Merchant Context
+                  Risk Intelligence, Fraud Signals &amp; Account Context
                 </CardTitle>
                 <CardDescription className="mt-0.5">
                   Fraud graph risk score, device signals, store footprint, and zero-trust telemetry.
@@ -1014,7 +1014,7 @@ export default function AdminIdentityVerificationPage({
                     <Store className="h-4 w-4 shrink-0 text-[#1ED760]" />
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-neutral-950 dark:text-white">
-                        {s.name || s.storeName || 'Merchant Store'}
+                        {s.name || s.storeName || 'Online Store'}
                       </p>
                       <p className="truncate text-[11px] text-neutral-500">
                         {s.domain || s.subdomain || s.tiwiId || 'Active storefront'}
@@ -1038,7 +1038,7 @@ export default function AdminIdentityVerificationPage({
                 Extracted ID Credentials &amp; Profile Comparison
               </CardTitle>
               <CardDescription className="mt-0.5">
-                Verified credential fields and Gemini AI OCR comparison against the Tiwlo merchant account.
+                Verified credential fields and Gemini AI OCR comparison against the Tiwlo user account.
               </CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
@@ -1189,7 +1189,7 @@ export default function AdminIdentityVerificationPage({
                 No verification files saved
               </p>
               <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                Evidence files appear here once the merchant uploads identity documents.
+                Evidence files appear here once the user uploads identity documents.
               </p>
             </div>
           ) : (

@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import dns from 'node:dns/promises';
 import net from 'node:net';
 import { getPgPool, isPgActive, queryPg } from '../db/postgres.js';
 
@@ -454,17 +455,61 @@ const BLOCKED_METADATA_HOSTS = new Set([
   'fd00:ec2::254'
 ]);
 
-function normalizeIpv4Candidate(rawIp) {
-  const lower = String(rawIp || '').trim().toLowerCase();
-  if (lower.startsWith('::ffff:')) {
-    const mapped = lower.slice(7);
-    if (net.isIPv4(mapped)) return mapped;
+function parseIpv6Groups(rawIp) {
+  let addr = String(rawIp || '').trim().toLowerCase().split('%')[0];
+  if (!addr) return null;
+
+  if (addr.includes('.')) {
+    const lastColon = addr.lastIndexOf(':');
+    if (lastColon === -1) return null;
+    const v4Part = addr.slice(lastColon + 1);
+    if (!net.isIPv4(v4Part)) return null;
+    const octets = v4Part.split('.').map(Number);
+    const hi = ((octets[0] << 8) | octets[1]).toString(16);
+    const lo = ((octets[2] << 8) | octets[3]).toString(16);
+    addr = `${addr.slice(0, lastColon + 1)}${hi}:${lo}`;
   }
-  return net.isIPv4(lower) ? lower : null;
+
+  const doubleColonParts = addr.split('::');
+  if (doubleColonParts.length > 2) return null;
+
+  let groups;
+  if (doubleColonParts.length === 2) {
+    const left = doubleColonParts[0] ? doubleColonParts[0].split(':') : [];
+    const right = doubleColonParts[1] ? doubleColonParts[1].split(':') : [];
+    const missing = 8 - (left.length + right.length);
+    if (missing < 1) return null;
+    groups = [...left, ...Array(missing).fill('0'), ...right];
+  } else {
+    groups = addr.split(':');
+    if (groups.length !== 8) return null;
+  }
+
+  const parsed = [];
+  for (const g of groups) {
+    if (!/^[0-9a-f]{1,4}$/i.test(g)) return null;
+    parsed.push(Number.parseInt(g, 16));
+  }
+  return parsed;
+}
+
+function normalizeIpv4Candidate(rawIp) {
+  const lower = String(rawIp || '').trim().toLowerCase().split('%')[0];
+  if (net.isIPv4(lower)) return lower;
+  if (net.isIPv6(lower)) {
+    const g = parseIpv6Groups(lower);
+    if (g && g[0] === 0 && g[1] === 0 && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0xffff) {
+      return `${g[6] >> 8}.${g[6] & 0xff}.${g[7] >> 8}.${g[7] & 0xff}`;
+    }
+    if (g && g[0] === 0x0064 && g[1] === 0xff9b && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0) {
+      return `${g[6] >> 8}.${g[6] & 0xff}.${g[7] >> 8}.${g[7] & 0xff}`;
+    }
+  }
+  return null;
 }
 
 export function isBlockedMetadataOrSsrfIp(rawIp) {
-  const ip = String(rawIp || '').trim().toLowerCase().replace(/^\[|\]$/g, '');
+  const ip = String(rawIp || '').trim().toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
   if (!ip) return false;
   if (BLOCKED_METADATA_HOSTS.has(ip)) return true;
 
@@ -473,6 +518,7 @@ export function isBlockedMetadataOrSsrfIp(rawIp) {
     const octets = v4.split('.').map(Number);
     // Block 169.254.0.0/16 (cloud metadata / link-local), 100.100.100.200 (Alibaba metadata),
     // 0.0.0.0/8 (unspecified), and 255.255.255.255 (broadcast).
+    // Intentionally allows admin RFC1918 fleet nodes and public Cloudflare IPs.
     if (octets[0] === 169 && octets[1] === 254) return true;
     if (v4 === '100.100.100.200') return true;
     if (octets[0] === 0) return true;
@@ -481,11 +527,14 @@ export function isBlockedMetadataOrSsrfIp(rawIp) {
   }
 
   if (net.isIPv6(ip)) {
-    const noZone = ip.split('%')[0];
-    if (noZone === '::' || noZone === '0:0:0:0:0:0:0:0') return true;
-    if (noZone === 'fd00:ec2::254') return true;
+    const g = parseIpv6Groups(ip);
+    if (!g) return true;
+    if (g.every((part) => part === 0)) return true; // ::
+    if (g[0] === 0xfd00 && g[1] === 0x0ec2 && g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0 && g[6] === 0 && g[7] === 0x0254) {
+      return true; // fd00:ec2::254 AWS IPv6 metadata
+    }
     // Link-local fe80::/10
-    if (/^fe[89ab][0-9a-f]:/i.test(noZone) || noZone.startsWith('fe80:')) return true;
+    if ((g[0] & 0xffc0) === 0xfe80) return true;
   }
 
   return false;
@@ -495,15 +544,16 @@ const HOSTNAME_REGEX = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?
 
 function assertSafeHostname(rawHostname, label = 'hostname') {
   const clean = String(rawHostname || '').trim().toLowerCase().replace(/^\[|\]$/g, '');
-  if (!clean) throw makeValidationError(`${label} is required.`);
-  if (BLOCKED_METADATA_HOSTS.has(clean) || isBlockedMetadataOrSsrfIp(clean)) {
+  const trimmedHost = clean.replace(/\.+$/, '');
+  if (!trimmedHost) throw makeValidationError(`${label} is required.`);
+  if (BLOCKED_METADATA_HOSTS.has(trimmedHost) || isBlockedMetadataOrSsrfIp(trimmedHost)) {
     throw makeValidationError(`${label} cannot target restricted cloud metadata or link-local addresses.`);
   }
-  if (net.isIP(clean)) return clean;
+  if (net.isIP(trimmedHost)) return trimmedHost;
   if (!HOSTNAME_REGEX.test(clean)) {
     throw makeValidationError(`${label} must be a valid DNS hostname or IP address.`);
   }
-  return clean.replace(/\.$/, '');
+  return trimmedHost;
 }
 
 function assertSafeIpAddress(rawIp, label = 'ipAddress', { required = true } = {}) {
@@ -1614,11 +1664,45 @@ function buildProbeHttpUrl(node) {
   return `${scheme}://${host}:${port}${path}`;
 }
 
-async function runHttpHealthProbe(node, timeoutMs = 3500) {
+export async function assertSafeProbeHostResolution(hostname, dnsLookup = dns.lookup) {
+  const cleanHost = String(hostname || '').trim().toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
+  if (!cleanHost) {
+    throw makeValidationError('Health probe target hostname is required.');
+  }
+  if (BLOCKED_METADATA_HOSTS.has(cleanHost) || isBlockedMetadataOrSsrfIp(cleanHost)) {
+    throw makeValidationError(`Health probe blocked restricted host ${cleanHost}.`);
+  }
+  if (net.isIP(cleanHost)) {
+    return [{ address: cleanHost, family: net.isIP(cleanHost) }];
+  }
+
+  const records = await dnsLookup(cleanHost, { all: true });
+  if (!Array.isArray(records) || records.length === 0) {
+    throw makeValidationError(`Health probe DNS lookup returned no addresses for ${cleanHost}.`);
+  }
+  for (const record of records) {
+    const addr = String(record?.address || '').trim();
+    if (!addr || isBlockedMetadataOrSsrfIp(addr)) {
+      throw makeValidationError(
+        `Health probe blocked: ${cleanHost} resolved to restricted metadata or link-local address ${addr || '(empty)'}.`
+      );
+    }
+  }
+  return records;
+}
+
+export async function runHttpHealthProbe(
+  node,
+  timeoutMs = 3500,
+  { dnsLookup = dns.lookup, fetchFn = fetch } = {}
+) {
   const targetUrl = buildProbeHttpUrl(node);
   const started = performance.now();
   try {
-    const response = await fetch(targetUrl, {
+    const parsedTarget = new URL(targetUrl);
+    await assertSafeProbeHostResolution(parsedTarget.hostname, dnsLookup);
+
+    const response = await fetchFn(targetUrl, {
       method: 'GET',
       redirect: 'manual',
       signal: AbortSignal.timeout(timeoutMs),
@@ -1664,13 +1748,13 @@ async function runHttpHealthProbe(node, timeoutMs = 3500) {
   }
 }
 
-async function defaultProbeNode(node) {
+async function defaultProbeNode(node, probeOptions = {}) {
   assertSafeIpAddress(node.ip_address, 'ipAddress', { required: true });
   assertSafeHostname(node.hostname, 'hostname');
 
   const isHttpMode = ['http_health', 'whm_api', 'tiwlo_panel_rpc'].includes(node.connectivity_mode);
   if (isHttpMode && (node.panel_url || node.health_endpoint)) {
-    return runHttpHealthProbe(node, 3500);
+    return runHttpHealthProbe(node, 3500, probeOptions);
   }
   const port = node.panel_type === 'kvm_hypervisor' && node.connectivity_mode === 'tcp_probe'
     ? Number(node.api_port || node.ssh_port || 22)
@@ -1678,7 +1762,7 @@ async function defaultProbeNode(node) {
   return runTcpProbe(node.ip_address, port, 3500);
 }
 
-export async function probeServerConnectivity(nodeId, actorId = null, { probeFn } = {}) {
+export async function probeServerConnectivity(nodeId, actorId = null, { probeFn, dnsLookup, fetchFn } = {}) {
   const existing = await getRawNodeById(nodeId);
   if (!existing) return null;
 
@@ -1691,7 +1775,7 @@ export async function probeServerConnectivity(nodeId, actorId = null, { probeFn 
   try {
     const rawResult = typeof probeFn === 'function'
       ? await probeFn(toSafeNodeDto(existing))
-      : await defaultProbeNode(existing);
+      : await defaultProbeNode(existing, { dnsLookup, fetchFn });
 
     const latencyMs = Number.isFinite(Number(rawResult?.latencyMs))
       ? Math.max(0, Math.round(Number(rawResult.latencyMs)))

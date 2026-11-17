@@ -5,6 +5,9 @@ import { once } from 'node:events';
 import {
   createUserAccountRouter,
   isValidAvatarUrl,
+  isPublicUnicastIp,
+  validateSafeWebhookUrl,
+  resolveAndAssertSafeWebhookUrl,
   validateImageMagicBytes,
   hasSensitiveAccountChange,
   toSafeUserProfile,
@@ -203,7 +206,16 @@ function createMockHarness(initialUser = {}, initialPrefs = {}, options = {}) {
       storedMediaCalls.push(payload);
     },
     getPublicMediaUrl: async (url) => url,
-    logActivity: async () => {}
+    logActivity: async () => {},
+    dnsLookup: options.dnsLookup || (async (hostname) => {
+      if (hostname === 'hooks.example.com' || hostname === 'erp.example.com') {
+        return [{ address: '93.184.216.34', family: 4 }];
+      }
+      const err = new Error(`getaddrinfo ENOTFOUND ${hostname}`);
+      err.code = 'ENOTFOUND';
+      throw err;
+    }),
+    ...(typeof options.webhookFetch === 'function' ? { webhookFetch: options.webhookFetch } : {})
   };
 
   return {
@@ -1163,4 +1175,143 @@ test('Changing name or date of birth on a verified account automatically resets 
     assert.equal(updatedUser.identityVerified, false);
     assert.equal(updatedUser.identityVerificationRequired, true);
   }
+});
+
+test('Webhook SSRF validators block private, CGNAT, IPv4-mapped IPv6, ULA, and embedded credentials while allowing public/Cloudflare IPs', async () => {
+  const blockedUrls = [
+    'http://hooks.example.com/hook',
+    'https://user:pass@hooks.example.com/hook',
+    'https://localhost/hook',
+    'https://localhost./hook',
+    'https://service.local/hook',
+    'https://metadata.google.internal/computeMetadata/v1/',
+    'https://127.0.0.1/hook',
+    'https://10.0.0.5/hook',
+    'https://172.16.0.5/hook',
+    'https://192.168.1.50/hook',
+    'https://100.64.0.1/hook',
+    'https://100.100.100.200/hook',
+    'https://169.254.169.254/latest/meta-data/',
+    'https://0.0.0.0/hook',
+    'https://[::1]/hook',
+    'https://[::]/hook',
+    'https://[fc00::1]/hook',
+    'https://[fd00:ec2::254]/hook',
+    'https://[fe80::1]/hook',
+    'https://[::ffff:127.0.0.1]/hook',
+    'https://[::ffff:169.254.169.254]/hook',
+    'https://[::ffff:10.0.0.1]/hook'
+  ];
+
+  for (const url of blockedUrls) {
+    assert.equal(validateSafeWebhookUrl(url), null, `Expected blocked URL: ${url}`);
+  }
+
+  assert.equal(isPublicUnicastIp('1.1.1.1'), true);
+  assert.equal(isPublicUnicastIp('172.64.155.209'), true);
+  assert.equal(isPublicUnicastIp('2606:4700:4700::1111'), true);
+  assert.equal(isPublicUnicastIp('100.64.10.1'), false);
+  assert.equal(isPublicUnicastIp('::ffff:7f00:1'), false);
+
+  const literalPublic = await resolveAndAssertSafeWebhookUrl('https://172.64.155.209/hook', {
+    dnsLookup: async () => {
+      throw new Error('Should not invoke DNS for IP literals');
+    }
+  });
+  assert.equal(literalPublic?.hostname, '172.64.155.209');
+
+  const literalIpv6 = await resolveAndAssertSafeWebhookUrl('https://[2606:4700:4700::1111]/hook');
+  assert.equal(literalIpv6?.addresses[0]?.family, 6);
+
+  const mixedRebind = await resolveAndAssertSafeWebhookUrl('https://dual.example.com/hook', {
+    dnsLookup: async () => [
+      { address: '93.184.216.34', family: 4 },
+      { address: '10.0.0.8', family: 4 }
+    ]
+  });
+  assert.equal(mixedRebind, null);
+
+  const mappedRebind = await resolveAndAssertSafeWebhookUrl('https://v6alias.example.com/hook', {
+    dnsLookup: async () => [{ address: '::ffff:169.254.169.254', family: 6 }]
+  });
+  assert.equal(mappedRebind, null);
+});
+
+test('Webhook routes reject DNS rebinding on create/test and enforce manual redirect handling', async (t) => {
+  let rebindToPrivate = false;
+  const fetchCalls = [];
+  const harness = createMockHarness({}, {}, {
+    dnsLookup: async (hostname) => {
+      if (hostname === 'rebind.example.com') {
+        return rebindToPrivate
+          ? [{ address: '127.0.0.1', family: 4 }]
+          : [{ address: '93.184.216.34', family: 4 }];
+      }
+      if (hostname === 'cgnat.example.com') {
+        return [{ address: '100.64.1.10', family: 4 }];
+      }
+      const err = new Error(`ENOTFOUND ${hostname}`);
+      err.code = 'ENOTFOUND';
+      throw err;
+    },
+    webhookFetch: async (url, init) => {
+      fetchCalls.push({ url, init });
+      return {
+        ok: false,
+        status: 302,
+        statusText: 'Found'
+      };
+    }
+  });
+
+  const call = await withApp(t, harness.deps);
+  const authHeaders = {
+    Authorization: 'Bearer valid-session-token',
+    'Content-Type': 'application/json'
+  };
+
+  // Reject DNS resolving to CGNAT / unresolvable domain on registration
+  const cgnatRes = await call('/api/user/account/webhooks', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ name: 'CGNAT Hook', url: 'https://cgnat.example.com/hook', events: ['order.created'] })
+  });
+  assert.equal(cgnatRes.status, 400);
+
+  const nxRes = await call('/api/user/account/webhooks', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ name: 'NX Hook', url: 'https://missing.example.invalid/hook', events: ['order.created'] })
+  });
+  assert.equal(nxRes.status, 400);
+
+  // Register while DNS points to public IP
+  const createRes = await call('/api/user/account/webhooks', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ name: 'Rebind Target', url: 'https://rebind.example.com/hook', events: ['order.created'] })
+  });
+  assert.equal(createRes.status, 201);
+  const { webhook } = await createRes.json();
+
+  // Test while public: must pass redirect: 'manual' and NOT treat 302 as ok
+  const redirectTestRes = await call(`/api/user/account/webhooks/${webhook.id}/test`, {
+    method: 'POST',
+    headers: authHeaders
+  });
+  assert.equal(redirectTestRes.status, 200);
+  const redirectBody = await redirectTestRes.json();
+  assert.equal(fetchCalls.length, 1);
+  assert.equal(fetchCalls[0].init.redirect, 'manual');
+  assert.equal(redirectBody.delivery.ok, false);
+  assert.equal(redirectBody.delivery.statusCode, 302);
+
+  // Simulate DNS rebinding to 127.0.0.1 before next test dispatch -> must reject with 400 without fetching
+  rebindToPrivate = true;
+  const blockedTestRes = await call(`/api/user/account/webhooks/${webhook.id}/test`, {
+    method: 'POST',
+    headers: authHeaders
+  });
+  assert.equal(blockedTestRes.status, 400);
+  assert.equal(fetchCalls.length, 1);
 });

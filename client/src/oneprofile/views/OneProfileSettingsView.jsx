@@ -175,7 +175,7 @@ export default function OneProfileSettingsView({ currentUser, profile, onProfile
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-neutral-700 mb-1.5">Store / Profile Name</label>
+          <label className="block text-xs font-bold text-neutral-700 mb-1.5">Profile / Display Name</label>
           <input
             type="text"
             value={storeName}

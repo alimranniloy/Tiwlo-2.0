@@ -1,3 +1,40 @@
+import sanitizeHtml from 'sanitize-html';
+
+const PRODUCT_DESCRIPTION_SANITIZE_OPTIONS = {
+  allowedTags: [
+    'a', 'b', 'blockquote', 'br', 'caption', 'code', 'dd', 'del',
+    'div', 'dl', 'dt', 'em', 'figcaption', 'figure', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr',
+    'i', 'img', 'li', 'ol', 'p', 'pre', 's', 'small', 'span', 'strong', 'sub',
+    'sup', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'u', 'ul'
+  ],
+  allowedAttributes: {
+    a: ['href', 'name', 'target', 'rel'],
+    img: ['src', 'alt', 'title', 'width', 'height'],
+    th: ['colspan', 'rowspan'],
+    td: ['colspan', 'rowspan'],
+    '*': ['class']
+  },
+  allowedSchemes: ['http', 'https', 'mailto'],
+  allowedSchemesByTag: {
+    img: ['http', 'https']
+  },
+  allowProtocolRelative: false,
+  allowedClasses: {
+    '*': ['align-left', 'align-center', 'align-right', 'text-center', 'text-left', 'text-right', 'text-muted']
+  },
+  transformTags: {
+    a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer', target: '_blank' }, true)
+  }
+};
+
+/**
+ * Sanitize rich-HTML product descriptions while keeping safe formatting tags.
+ */
+export function sanitizeProductDescription(description) {
+  if (typeof description !== 'string') return '';
+  return sanitizeHtml(description, PRODUCT_DESCRIPTION_SANITIZE_OPTIONS).trim();
+}
+
 export function getCategoryMetrics(category, products = []) {
   const matchingProducts = products.filter(
     product => (product.category || '').toLowerCase() === (category.name || '').toLowerCase()

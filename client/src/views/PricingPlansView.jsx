@@ -7,16 +7,20 @@ import {
   ArrowLeft,
   Boxes,
   Check,
+  CheckCircle2,
   ChevronRight,
   CreditCard,
   Database,
+  ExternalLink,
   Globe,
   HelpCircle,
   Monitor,
   Plus,
+  Receipt,
   RefreshCw,
   ShoppingBag,
-  Users
+  Users,
+  X
 } from 'lucide-react';
 
 const API_BASE = '/api';
@@ -146,7 +150,17 @@ export default function PricingPlansView({
   const [loading, setLoading] = useState(true);
   const [upgradingPlanId, setUpgradingPlanId] = useState(null);
   const [purchasingAddonId, setPurchasingAddonId] = useState(null);
+  const [latestInvoice, setLatestInvoice] = useState(null);
   const [openFaq, setOpenFaq] = useState(null);
+
+  const refreshBillingSummary = async () => {
+    if (!currentUser?.id) return;
+    const billingData = await getCloudBillingData(currentUser.id).catch(() => null);
+    const rawCredits = Number(billingData?.account?.credits);
+    if (Number.isFinite(rawCredits) && rawCredits >= 0) {
+      setCreditBalance(rawCredits);
+    }
+  };
 
   const fetchPricingData = async (userId) => {
     const [subRes, pkgRes, billingData] = await Promise.all([
@@ -262,7 +276,23 @@ export default function PricingPlansView({
         } else if (planPrice > 0 && creditBalance !== null) {
           setCreditBalance(Math.max(0, Number((creditBalance - planPrice).toFixed(2))));
         }
+        const returnedInvoice = result.invoice || (result.orderNumber ? {
+          id: result.orderNumber,
+          amount: planPrice,
+          currency: 'USD',
+          status: planPrice <= 0 ? 'Free Trial' : 'Paid',
+          isFreeTrial: planPrice <= 0,
+          planId
+        } : null);
+        if (returnedInvoice) {
+          setLatestInvoice({
+            invoice: returnedInvoice,
+            itemName: result.subscription?.planName || targetPlan?.planName || planId,
+            kind: 'plan'
+          });
+        }
         showToast?.(`Your account is now on ${result.subscription?.planName || targetPlan?.planName}.`);
+        await refreshBillingSummary();
         onRefreshData?.();
       } else {
         if (res.status === 402) {
@@ -309,7 +339,23 @@ export default function PricingPlansView({
         } else if (addonPrice > 0 && creditBalance !== null) {
           setCreditBalance(Math.max(0, Number((creditBalance - addonPrice).toFixed(2))));
         }
+        const returnedInvoice = result.invoice || (result.orderNumber ? {
+          id: result.orderNumber,
+          amount: addonPrice,
+          currency: 'USD',
+          status: addonPrice <= 0 ? 'Free Trial' : 'Paid',
+          isFreeTrial: addonPrice <= 0,
+          planId: addonId
+        } : null);
+        if (returnedInvoice) {
+          setLatestInvoice({
+            invoice: returnedInvoice,
+            itemName: addon.name || result.addon?.name || addonId,
+            kind: 'addon'
+          });
+        }
         showToast?.(result.message || `${addon.name} activated.`);
+        await refreshBillingSummary();
         onRefreshData?.();
       } else {
         if (res.status === 402) {
@@ -411,6 +457,61 @@ export default function PricingPlansView({
           )}
         </div>
       )}
+
+      {latestInvoice?.invoice && (() => {
+        const inv = latestInvoice.invoice;
+        const invAmount = Number(inv.amount ?? 0);
+        const isTrial = Boolean(inv.isFreeTrial) ||
+          invAmount <= 0 ||
+          ['free trial', 'trial', 'free_trial'].includes(String(inv.status || '').toLowerCase());
+        const invoiceHref = `/billing/invoices/${encodeURIComponent(inv.id)}`;
+        return (
+          <div className="flex flex-col gap-3 rounded-xl border border-[#CEEAD6] bg-[#E6F4EA]/70 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-[#234B32] dark:bg-[#12351F]/60">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1ed760] text-black">
+                <CheckCircle2 className="h-4 w-4" />
+              </span>
+              <div className="space-y-0.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs font-semibold text-neutral-950 dark:text-white">
+                    {latestInvoice.itemName} — Invoice Ready
+                  </p>
+                  <span className="rounded-full bg-[#1ed760]/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 dark:text-[#81C995]">
+                    {isTrial ? 'Free Trial' : (inv.status || 'Paid')}
+                  </span>
+                </div>
+                <p className="text-xs text-neutral-700 dark:text-neutral-300">
+                  Invoice <span className="font-mono font-semibold">{inv.id}</span> ·{' '}
+                  <span className="font-semibold tabular-nums">
+                    ${invAmount.toFixed(2)} {inv.currency || 'USD'}
+                  </span>
+                  {isTrial ? ' (Free Trial)' : ''}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href={invoiceHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#1ed760] px-3.5 text-xs font-semibold text-black transition hover:bg-[#16c653]"
+              >
+                <Receipt className="h-3.5 w-3.5" />
+                <span>View Printable Invoice</span>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+              <button
+                type="button"
+                onClick={() => setLatestInvoice(null)}
+                aria-label="Dismiss invoice banner"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200/80 bg-white text-neutral-600 transition hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Monthly Packages Grid */}
       <section className="space-y-4">

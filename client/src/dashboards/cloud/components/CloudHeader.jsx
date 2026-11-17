@@ -117,7 +117,7 @@ export default function CloudHeader({
   }, [currentUser?.id, currentUser?.tiwiId]);
 
   const tiwiId = effectiveUser?.tiwiId || effectiveUser?.storeId || '';
-  const displayName = effectiveUser?.name || effectiveUser?.storeName || 'Tiwlo Store';
+  const displayName = effectiveUser?.name || effectiveUser?.email?.split('@')[0] || 'Tiwlo User';
   const email = effectiveUser?.email || '';
   const planName = effectiveUser?.planName || 'Plan unavailable';
   const hasCustomAvatar = Boolean(
@@ -384,7 +384,7 @@ export default function CloudHeader({
                   className="w-full flex items-center px-4 py-2 text-xs text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-gray-800 transition cursor-pointer"
                 >
                   <User className="w-4 h-4 mr-2.5 text-neutral-400" />
-                  <span>Profile Settings</span>
+                  <span>User Settings</span>
                 </button>
 
                 <button

@@ -1661,7 +1661,7 @@ export default function CreateAccountView({
                           </div>
                         </div>
                         <div className="font-medium text-[14px] text-[#1f1f1f]">Business</div>
-                        <div className="text-[12px] text-[#747775]">For merchant or retailer</div>
+                        <div className="text-[12px] text-[#747775]">For company, team, or organization</div>
                       </button>
                     </div>
                   </div>}
@@ -2512,7 +2512,7 @@ export default function CreateAccountView({
                       Registration Complete
                     </h3>
                     <p className="text-[14px] text-[#636363]">
-                      Your account credentials and merchant workspace have been provisioned.
+                      Your Tiwlo User account credentials and workspace have been provisioned.
                     </p>
                   </div>
 

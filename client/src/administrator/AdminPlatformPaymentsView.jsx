@@ -196,7 +196,7 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
             <span>Platform Payment Gateways</span>
           </h1>
           <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-            Configure centralized payment credentials for Tiwlo Cloud Billing and merchant credit top-ups.
+            Configure centralized payment credentials for Tiwlo Cloud Billing and user credit top-ups.
           </p>
         </div>
 
@@ -249,7 +249,7 @@ export default function AdminPlatformPaymentsView({ onBackToDashboard, showToast
             <span className="mx-2 opacity-50">•</span>
             <span className="opacity-85">
               {enabledCount > 0
-                ? 'Merchants can top up Tiwlo Cloud Credits using these active gateway channels.'
+                ? 'Tiwlo users can top up Tiwlo Cloud Credits using these active gateway channels.'
                 : 'Until an active gateway is saved with verified credentials, Cloud credit purchases remain paused.'}
             </span>
           </div>

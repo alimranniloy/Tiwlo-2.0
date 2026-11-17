@@ -971,6 +971,7 @@ export function createVerificationRouter({
         replayRejections: 0,
         frameHashes: new Set(),
         lastFrameThumb: null,
+        consecutiveStaticFrames: 0,
         frameEntropies: [],
         frameDeltas: [],
         poseState: {},
@@ -1024,7 +1025,15 @@ export function createVerificationRouter({
 
         if (session.lastFrameThumb) {
           const delta = computeThumbDelta(frame.thumb32, session.lastFrameThumb);
-          if (session.frameHashes.has(frame.frameHash) || (delta !== null && delta < 0.75)) {
+          const isExactReplay = session.frameHashes.has(frame.frameHash);
+          if (delta !== null && delta < 0.35) {
+            session.consecutiveStaticFrames = (session.consecutiveStaticFrames || 0) + 1;
+          } else {
+            session.consecutiveStaticFrames = 0;
+          }
+          const isSustainedStatic = session.consecutiveStaticFrames >= 4;
+
+          if (isExactReplay || isSustainedStatic) {
             session.failedFrameCount += 1;
             session.replayRejections += 1;
             return res.status(400).json({
@@ -1068,6 +1077,27 @@ export function createVerificationRouter({
         }
 
         if (resolvedPose) {
+          if (resolvedPose.spoofDetected) {
+            session.failedFrameCount += 1;
+            return res.status(200).json({
+              challenge_index: currentIndex,
+              complete: false,
+              action_detected: false,
+              faceDetected: Boolean(resolvedPose.faceDetected),
+              spoofDetected: true,
+              ...(resolvedPose.antiSpoof ? { antiSpoof: resolvedPose.antiSpoof } : {}),
+              guidance: 'spoof_detected',
+              challenge_type: challengeType,
+              challengeType,
+              passed: false,
+              challengesRemaining: Math.max(0, session.challenges.length - session.stepIndex),
+              state: 'in_progress',
+              quality: {
+                brightness: frame.brightness,
+                sharpness: frame.sharpness
+              }
+            });
+          }
           if (!resolvedPose.faceDetected) {
             session.failedFrameCount += 1;
             return res.status(200).json({
@@ -1075,6 +1105,8 @@ export function createVerificationRouter({
               complete: false,
               action_detected: false,
               faceDetected: false,
+              spoofDetected: false,
+              ...(resolvedPose.antiSpoof ? { antiSpoof: resolvedPose.antiSpoof } : {}),
               guidance: resolvedPose.guidance || 'no_face',
               challenge_type: challengeType,
               challengeType,
@@ -1093,6 +1125,8 @@ export function createVerificationRouter({
               complete: false,
               action_detected: false,
               faceDetected: true,
+              spoofDetected: false,
+              ...(resolvedPose.antiSpoof ? { antiSpoof: resolvedPose.antiSpoof } : {}),
               guidance: resolvedPose.guidance || 'perform_action',
               challenge_type: challengeType,
               challengeType,
@@ -1118,6 +1152,8 @@ export function createVerificationRouter({
           complete: session.complete,
           action_detected: true,
           faceDetected: true,
+          spoofDetected: false,
+          ...(resolvedPose?.antiSpoof ? { antiSpoof: resolvedPose.antiSpoof } : {}),
           challenge_type: challengeType,
           challengeType,
           passed: true,
@@ -1174,11 +1210,16 @@ export function createVerificationRouter({
           });
 
           if (visionQuality && visionQuality.fallback === false) {
+            const spoofDetected = Boolean(visionQuality.spoofDetected);
             return res.json({
-              ready: Boolean(visionQuality.ready),
+              ready: Boolean(visionQuality.ready) && !spoofDetected,
               faceDetected: Boolean(visionQuality.faceDetected),
-              passportQuality: Boolean(visionQuality.passportQuality),
-              guidance: visionQuality.ready ? null : (visionQuality.guidance || 'no_face'),
+              passportQuality: Boolean(visionQuality.passportQuality) && !spoofDetected,
+              spoofDetected,
+              ...(visionQuality.antiSpoof ? { antiSpoof: visionQuality.antiSpoof } : {}),
+              guidance: spoofDetected
+                ? 'spoof_detected'
+                : (visionQuality.ready ? null : (visionQuality.guidance || 'no_face')),
               quality
             });
           }
@@ -1189,12 +1230,17 @@ export function createVerificationRouter({
             frameBuffer: req.file.buffer,
             requirePassportFraming
           });
+          const spoofDetected = Boolean(localQuality.spoofDetected);
           return res.json({
-            ready: Boolean(localQuality.ready),
+            ready: Boolean(localQuality.ready) && !spoofDetected,
             faceDetected: Boolean(localQuality.faceDetected),
             fullFaceVisible: Boolean(localQuality.fullFaceVisible),
-            passportQuality: Boolean(localQuality.passportQuality),
-            guidance: localQuality.ready ? null : (localQuality.guidance || 'no_face'),
+            passportQuality: Boolean(localQuality.passportQuality) && !spoofDetected,
+            spoofDetected,
+            ...(localQuality.antiSpoof ? { antiSpoof: localQuality.antiSpoof } : {}),
+            guidance: spoofDetected
+              ? 'spoof_detected'
+              : (localQuality.ready ? null : (localQuality.guidance || 'no_face')),
             quality
           });
         }

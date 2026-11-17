@@ -7,9 +7,13 @@ import { BillingDB } from '../db/billing.js';
 import { getDiscordPackages, getWhatsappPackages, saveDiscordPackages } from '../db/packages.js';
 import {
   checkServiceLimit,
+  evaluateServiceTierInsight,
   getServiceSubscription,
   incrementServiceUsage,
+  listServiceNotifications,
   listServiceOrders,
+  markServiceNotificationsRead,
+  setServiceAutoRenew,
   subscribeServiceWithCredits
 } from '../db/serviceSubscriptions.js';
 import { isSuperAdminAccount } from '../administrator/identityRiskGraph.js';
@@ -110,7 +114,48 @@ function mapDropletWorkspaceService(droplet) {
   };
 }
 
+function isAllowedWithoutDiscordSubscription(reqPath = '') {
+  const p = String(reqPath || '/');
+  return (
+    p === '/packages' ||
+    p === '/subscription' ||
+    p.startsWith('/subscription/') ||
+    p === '/marketplace' ||
+    p.startsWith('/marketplace/') ||
+    p === '/workspace' ||
+    p.startsWith('/workspace/') ||
+    p === '/admin' ||
+    p.startsWith('/admin/')
+  );
+}
+
+async function requireActiveDiscordSubscription(req, res, next) {
+  try {
+    if (isAllowedWithoutDiscordSubscription(req.path)) {
+      return next();
+    }
+    const userId = getAuthUserId(req);
+    const subscription = await getServiceSubscription(userId, 'discord');
+    if (!subscription || subscription.isActive !== true) {
+      const packages = await getDiscordPackages();
+      return res.status(402).json({
+        error: 'Active subscription required before entering the dashboard.',
+        code: 'SUBSCRIPTION_REQUIRED',
+        serviceType: 'discord',
+        subscription: subscription || null,
+        packages
+      });
+    }
+    req.serviceSubscription = subscription;
+    return next();
+  } catch (err) {
+    console.error('[Discord API] Subscription gate error:', err);
+    return res.status(500).json({ error: 'Failed to verify Discord subscription status' });
+  }
+}
+
 router.use(requireDiscordAuth);
+router.use(requireActiveDiscordSubscription);
 
 // ==========================================
 // 0. SUBSCRIPTION & OFFICIAL BOT DISCOVERY
@@ -118,21 +163,36 @@ router.use(requireDiscordAuth);
 router.get('/subscription', async (req, res) => {
   try {
     const userId = getAuthUserId(req);
-    const [subscription, packages, servers, officialBots] = await Promise.all([
+    const [subscription, packages, servers, officialBots, notifications] = await Promise.all([
       getServiceSubscription(userId, 'discord'),
       getDiscordPackages(),
-      DiscordDB.getServers(userId),
-      DiscordDB.getOfficialBots({ activeOnly: true })
+      DiscordDB.getServers(userId).catch(() => []),
+      DiscordDB.getOfficialBots({ activeOnly: true }).catch(() => []),
+      listServiceNotifications(userId, { serviceType: 'discord', unreadOnly: true })
     ]);
+    const usage = {
+      serversCount: servers.length,
+      botsCount: 0,
+      monthlyCommandsUsed: Number(subscription?.usage?.monthlyCommands || 0)
+    };
+    const tierInsight = await evaluateServiceTierInsight({
+      serviceType: 'discord',
+      subscription,
+      packages,
+      usage: {
+        serversCount: usage.serversCount,
+        botsCount: usage.botsCount,
+        monthlyCommands: usage.monthlyCommandsUsed
+      }
+    });
     res.json({
       success: true,
       subscription,
       packages,
       officialBots,
-      usage: {
-        serversCount: servers.length,
-        monthlyCommandsUsed: Number(subscription?.usage?.monthlyCommands || 0)
-      }
+      usage,
+      tierInsight,
+      notifications
     });
   } catch (err) {
     console.error('[Discord API] Get subscription error:', err);
@@ -143,16 +203,22 @@ router.get('/subscription', async (req, res) => {
 router.post('/subscription/purchase', async (req, res) => {
   try {
     const userId = getAuthUserId(req);
-    const { planId } = req.body || {};
+    const { planId, autoRenew } = req.body || {};
     if (!planId || typeof planId !== 'string') {
       return res.status(400).json({ error: 'planId is required.' });
+    }
+    if (autoRenew !== undefined && typeof autoRenew !== 'boolean') {
+      return res.status(400).json({ error: 'autoRenew must be a boolean.' });
     }
     const result = await subscribeServiceWithCredits({
       userId,
       userRole: req.activeUser?.role || req.user?.role,
       serviceType: 'discord',
       planId,
-      billingDB: BillingDB
+      autoRenew,
+      billingDB: BillingDB,
+      userEmail: req.activeUser?.email || req.user?.email || null,
+      userName: req.activeUser?.storeName || req.activeUser?.name || req.user?.name || null
     });
     if (!result.success) {
       return res.status(result.statusCode || 402).json({
@@ -168,11 +234,75 @@ router.post('/subscription/purchase', async (req, res) => {
       success: true,
       subscription: result.subscription,
       billing: result.chargeResult || result.billing,
+      orderNumber: result.orderNumber || result.chargeResult?.orderNumber || result.invoice?.orderNumber || null,
+      invoice: result.invoice || result.chargeResult?.invoice || null,
       message: `${result.subscription?.planName || 'Discord Bot'} subscription activated.`
     });
   } catch (err) {
     console.error('[Discord API] Purchase subscription error:', err);
     res.status(500).json({ error: err.message || 'Failed to activate Discord Bot subscription' });
+  }
+});
+
+router.patch('/subscription/auto-renew', async (req, res) => {
+  try {
+    const userId = getAuthUserId(req);
+    const { autoRenew } = req.body || {};
+    if (typeof autoRenew !== 'boolean') {
+      return res.status(400).json({ error: 'autoRenew boolean is required.' });
+    }
+    const result = await setServiceAutoRenew({
+      userId,
+      serviceType: 'discord',
+      autoRenew
+    });
+    if (!result.success) {
+      return res.status(result.statusCode || 400).json({
+        error: result.error,
+        code: result.code
+      });
+    }
+    res.json({
+      success: true,
+      subscription: result.subscription,
+      message: `Discord Bot auto-renewal ${autoRenew ? 'enabled' : 'disabled'}.`
+    });
+  } catch (err) {
+    console.error('[Discord API] Toggle auto-renew error:', err);
+    res.status(500).json({ error: 'Failed to update Discord auto-renewal setting' });
+  }
+});
+
+router.get('/subscription/notifications', async (req, res) => {
+  try {
+    const userId = getAuthUserId(req);
+    const unreadOnly = req.query.unreadOnly === 'true';
+    const notifications = await listServiceNotifications(userId, {
+      serviceType: 'discord',
+      unreadOnly
+    });
+    res.json({
+      success: true,
+      notifications,
+      unreadCount: notifications.filter((n) => !n.readAt).length
+    });
+  } catch (err) {
+    console.error('[Discord API] List notifications error:', err);
+    res.status(500).json({ error: 'Failed to load Discord subscription notifications' });
+  }
+});
+
+router.post('/subscription/notifications/read', async (req, res) => {
+  try {
+    const userId = getAuthUserId(req);
+    const result = await markServiceNotificationsRead(userId, {
+      serviceType: 'discord',
+      notificationId: req.body?.notificationId || null
+    });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('[Discord API] Mark notifications read error:', err);
+    res.status(500).json({ error: 'Failed to mark Discord notifications as read' });
   }
 });
 
@@ -675,6 +805,8 @@ router.post('/marketplace/:id/install', async (req, res) => {
     let resolvedPlanName = null;
     let subscription = null;
     let billing = null;
+    let orderNumber = null;
+    let invoice = null;
 
     if (paidServiceType) {
       if (planId && typeof planId === 'string') {
@@ -683,7 +815,9 @@ router.post('/marketplace/:id/install', async (req, res) => {
           userRole: req.activeUser?.role || req.user?.role,
           serviceType: paidServiceType,
           planId,
-          billingDB: BillingDB
+          billingDB: BillingDB,
+          userEmail: req.activeUser?.email || req.user?.email || null,
+          userName: req.activeUser?.storeName || req.activeUser?.name || req.user?.name || null
         });
         if (!purchase.success) {
           return res.status(purchase.statusCode || 402).json({
@@ -698,6 +832,8 @@ router.post('/marketplace/:id/install', async (req, res) => {
         }
         subscription = purchase.subscription;
         billing = purchase.chargeResult || purchase.billing;
+        orderNumber = purchase.orderNumber || billing?.orderNumber || purchase.invoice?.orderNumber || null;
+        invoice = purchase.invoice || billing?.invoice || null;
         resolvedPlanName = subscription?.planName || null;
       } else {
         const activeSub = await getServiceSubscription(userId, paidServiceType);
@@ -723,7 +859,7 @@ router.post('/marketplace/:id/install', async (req, res) => {
       logoUrl: logoUrl || null,
       planName: resolvedPlanName
     });
-    res.status(201).json({ success: true, ...result, subscription, billing });
+    res.status(201).json({ success: true, ...result, subscription, billing, orderNumber, invoice });
   } catch (err) {
     const status = err.message === 'Marketplace product not found.' ? 404
       : err.message.includes('already exists') ? 409

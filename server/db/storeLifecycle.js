@@ -377,7 +377,13 @@ export async function processStoreSubscriptionLifecycle({
         const chargeResult = await billingDb.chargeSubscriptionPlan(
           store.ownerId,
           subPrice,
-          `${planName} Auto-Renewal`
+          `${planName} Auto-Renewal`,
+          {
+            tiwiId,
+            orderType: 'ecommerce_subscription',
+            planId,
+            metadata: { tiwiId, planId, planName, renewal: true, stage: 'grace_retry' }
+          }
         );
 
         if (chargeResult?.success) {
@@ -461,7 +467,13 @@ export async function processStoreSubscriptionLifecycle({
         const chargeResult = await billingDb.chargeSubscriptionPlan(
           store.ownerId,
           subPrice,
-          `${planName} Auto-Renewal`
+          `${planName} Auto-Renewal`,
+          {
+            tiwiId,
+            orderType: 'ecommerce_subscription',
+            planId,
+            metadata: { tiwiId, planId, planName, renewal: true, stage: 'expiry_renewal' }
+          }
         );
 
         if (chargeResult?.success) {
@@ -648,13 +660,39 @@ export async function renewStoreSubscriptionForUser({
   const price = parsePrice(pkg?.price ?? dirSub?.price ?? tenantSub?.price ?? store.price ?? 0);
   const billingCycle = dirSub?.billingCycle || tenantSub?.billingCycle || 'monthly';
 
+  let billingInvoice = null;
+  let orderNumber = null;
   if (price > 0) {
-    const chargeResult = await billingDb.chargeSubscriptionPlan(userId, price, `${planName} Renewal`);
+    const chargeResult = await billingDb.chargeSubscriptionPlan(
+      userId,
+      price,
+      `${planName} Renewal`,
+      {
+        tiwiId,
+        orderType: 'ecommerce_subscription',
+        planId,
+        metadata: { tiwiId, planId, planName, renewal: true, manualRenewal: true }
+      }
+    );
     if (!chargeResult?.success) {
       const err = new Error(chargeResult?.error || 'Insufficient cloud credits to renew store subscription.');
       err.statusCode = chargeResult?.statusCode || 402;
       throw err;
     }
+    billingInvoice = chargeResult?.invoice || null;
+    orderNumber = chargeResult?.orderNumber || billingInvoice?.orderNumber || null;
+  } else if (typeof billingDb.recordSubscriptionInvoice === 'function') {
+    billingInvoice = await billingDb.recordSubscriptionInvoice(userId, {
+      amountUsd: 0,
+      planName,
+      tiwiId,
+      orderType: planId === 'free' ? 'ecommerce_free_trial' : 'ecommerce_subscription',
+      planId,
+      provider: 'free_trial',
+      status: planId === 'free' ? 'trial' : 'free',
+      metadata: { tiwiId, planId, planName, renewal: true, isFreeTrial: true }
+    }).catch(() => null);
+    orderNumber = billingInvoice?.orderNumber || null;
   }
 
   const lifecycleFields = syncStoreLifecycleOnPlanChange({
@@ -717,7 +755,9 @@ export async function renewStoreSubscriptionForUser({
   return {
     success: true,
     store,
-    subscription: nextSubscription
+    subscription: nextSubscription,
+    orderNumber,
+    invoice: billingInvoice
   };
 }
 

@@ -344,6 +344,11 @@ export async function getCloudBillingData(userId = null) {
             createdAt
             paidAt
             expiresAt
+            orderType
+            planId
+            isFreeTrial
+            cashCreditUsed
+            promoCreditUsed
           }
           costBreakdown {
             service

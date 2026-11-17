@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { readState } from './stateDocuments.js';
-import { queryPg, recordPlatformBillingOrder } from './postgres.js';
+import { buildPlatformOrderNumber, queryPg, recordPlatformBillingOrder } from './postgres.js';
 import { CloudDB } from './cloud.js';
 import { getPlatformPaymentGatewaysRaw } from '../administrator/adminRoutes.js';
 import { extractClientSignals } from '../security/freeTierAbuseGuard.js';
@@ -17,7 +17,13 @@ import {
 const CHECKOUT_CURRENCIES = Object.freeze({ stripe: 'USD', paypal: 'USD', bkash: 'BDT', sslcommerz: 'BDT' });
 const CHECKOUT_PROVIDERS = new Set(Object.keys(CHECKOUT_CURRENCIES));
 const TERMINAL_TOPUP_STATUSES = new Set(['failed', 'cancelled']);
+const memorySubscriptionInvoices = new Map();
 let topupExpiryTimer = null;
+
+export function resetMemoryBillingInvoices() {
+  memorySubscriptionInvoices.clear();
+}
+
 const invoiceUrlForTopup = topup => {
   const origin = new URL(topup.return_origin).origin;
   return `${origin}/billing/invoices/${encodeURIComponent(topup.id)}`;
@@ -31,15 +37,75 @@ function parseCreditAmount(amount) {
   return parsedAmount;
 }
 const toInvoice = row => ({
-  id: String(row.id), amount: Number(row.amount), currency: String(row.currency || 'USD'),
+  id: String(row.id),
+  orderNumber: String(row.id),
+  amount: Number(row.amount),
+  currency: String(row.currency || 'USD'),
   status: row.status === 'paid' ? 'Paid' : ['pending', 'processing'].includes(row.status) ? 'Pending'
     : row.status === 'cancelled' && row.cancel_reason === 'expired' ? 'Expired'
       : row.status === 'cancelled' ? 'Cancelled' : 'Failed',
   description: `${String(row.provider || '').toUpperCase()} Cloud credit top-up`,
   createdAt: new Date(row.created_at).toISOString(),
   paidAt: row.paid_at ? new Date(row.paid_at).toISOString() : null,
-  expiresAt: row.expires_at ? new Date(row.expires_at).toISOString() : null
+  expiresAt: row.expires_at ? new Date(row.expires_at).toISOString() : null,
+  orderType: 'credit_topup',
+  planId: null,
+  planName: null,
+  isFreeTrial: false,
+  cashCreditUsed: Number(row.amount),
+  promoCreditUsed: 0
 });
+
+function mapOrderStatusToDisplay(rawStatus, grossAmountUsd) {
+  const normalized = String(rawStatus || '').trim().toLowerCase();
+  if (normalized === 'trial' || normalized === 'free_trial' || normalized === 'free') {
+    return 'Free Trial';
+  }
+  if (normalized === 'paid') {
+    return Number(grossAmountUsd || 0) <= 0 ? 'Free Trial' : 'Paid';
+  }
+  if (['pending', 'processing'].includes(normalized)) return 'Pending';
+  if (normalized === 'cancelled' || normalized === 'canceled') return 'Cancelled';
+  return 'Failed';
+}
+
+function orderRowToInvoice(row) {
+  const amount = Number(row.gross_amount_usd ?? row.amount ?? 0);
+  const rawStatus = String(row.status || (amount <= 0 ? 'trial' : 'paid')).toLowerCase();
+  const metadata = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+  const isFreeTrial = Boolean(
+    metadata.isFreeTrial ||
+    amount <= 0 ||
+    rawStatus === 'trial' ||
+    rawStatus === 'free' ||
+    rawStatus === 'free_trial'
+  );
+  const planName = metadata.planName || row.item_name || row.plan_id || 'Subscription';
+  const baseDesc = String(row.item_name || planName || row.order_type || 'Subscription');
+  const description = isFreeTrial && !/free trial/i.test(baseDesc)
+    ? `${baseDesc} (Free Trial)`
+    : baseDesc;
+  const createdAt = row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString();
+  const displayStatus = mapOrderStatusToDisplay(rawStatus, amount);
+  const orderNumber = String(row.order_number || row.id);
+  return {
+    id: orderNumber,
+    orderNumber,
+    amount,
+    currency: String(row.currency || 'USD'),
+    status: displayStatus,
+    description,
+    createdAt,
+    paidAt: (displayStatus === 'Paid' || displayStatus === 'Free Trial') ? createdAt : null,
+    expiresAt: null,
+    orderType: row.order_type || null,
+    planId: row.plan_id || null,
+    planName,
+    isFreeTrial,
+    cashCreditUsed: Number(row.cash_credit_used_usd ?? 0),
+    promoCreditUsed: Number(row.promo_credit_used_usd ?? 0)
+  };
+}
 
 async function getCheckoutGateway(provider) {
   if (!CHECKOUT_PROVIDERS.has(provider)) throw new TypeError('Choose an available payment method.');
@@ -334,6 +400,25 @@ export const BillingDB = {
       SELECT id, amount, currency, provider, status, cancel_reason, expires_at, created_at, paid_at
       FROM cloud_credit_topups WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50
     `, [user.id]);
+    let orderRows = [];
+    try {
+      const orderResult = await queryPg(`
+        SELECT id, order_number, user_id, tiwi_id, order_type, plan_id, item_name,
+               gross_amount_usd, cash_credit_used_usd, promo_credit_used_usd,
+               provider, currency, status, metadata, created_at
+        FROM platform_billing_orders
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        LIMIT 50
+      `, [user.id]);
+      orderRows = Array.isArray(orderResult?.rows) ? orderResult.rows : [];
+    } catch {
+      orderRows = [];
+    }
+    const orderInvoices = orderRows.map(orderRowToInvoice);
+    const seenOrderNumbers = new Set(orderInvoices.map(inv => inv.orderNumber || inv.id));
+    const memInvoices = (memorySubscriptionInvoices.get(String(user.id)) || [])
+      .filter(inv => !seenOrderNumbers.has(inv.orderNumber || inv.id));
     const legacyInvoices = (Array.isArray(legacyAccount?.invoices) ? legacyAccount.invoices : [])
       .filter(invoice =>
         (invoice?.paymentVerified === true || invoice?.grantVerified === true) &&
@@ -341,6 +426,7 @@ export const BillingDB = {
       )
       .map(invoice => ({
         id: String(invoice.id),
+        orderNumber: String(invoice.id),
         amount: Number(invoice.amount),
         currency: String(invoice.currency || billingRow.currency || 'USD'),
         status: String(invoice.status || 'Verified'),
@@ -348,7 +434,7 @@ export const BillingDB = {
         createdAt: String(invoice.createdAt),
         paidAt: invoice.paidAt ? String(invoice.paidAt) : null
       }));
-    const invoices = [...topups.map(toInvoice), ...legacyInvoices]
+    const invoices = [...topups.map(toInvoice), ...orderInvoices, ...memInvoices, ...legacyInvoices]
       .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
       .slice(0, 50);
 
@@ -716,13 +802,105 @@ export const BillingDB = {
     };
   },
 
+  async recordSubscriptionInvoice(userId, {
+    amountUsd = 0,
+    cashCreditUsedUsd = 0,
+    promoCreditUsedUsd = 0,
+    planName = 'Subscription',
+    tiwiId = null,
+    orderType = 'subscription_charge',
+    planId = null,
+    provider = null,
+    status = null,
+    metadata = {},
+    orderNumber = null
+  } = {}) {
+    if (!userId) return null;
+    const numericAmount = Number(Number(amountUsd || 0).toFixed(2));
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+    const isFreeTrial = numericAmount <= 0 || ['trial', 'free', 'free_trial'].includes(normalizedStatus);
+    const resolvedStatus = normalizedStatus || (isFreeTrial ? 'trial' : 'paid');
+    const resolvedProvider = provider || (isFreeTrial ? 'free_trial' : 'wallet');
+    const resolvedOrderNumber = orderNumber || buildPlatformOrderNumber();
+    const nowIso = new Date().toISOString();
+    const resolvedMetadata = {
+      ...(metadata && typeof metadata === 'object' ? metadata : {}),
+      isFreeTrial,
+      planName
+    };
+    const cashUsed = Number(Number(cashCreditUsedUsd || 0).toFixed(2));
+    const promoUsed = Number(Number(promoCreditUsedUsd || 0).toFixed(2));
+
+    const persistedRecord = await recordPlatformBillingOrder({
+      userId,
+      tiwiId,
+      orderType,
+      planId,
+      itemName: planName,
+      grossAmountUsd: numericAmount,
+      cashCreditUsedUsd: cashUsed,
+      promoCreditUsedUsd: promoUsed,
+      netCashRevenueUsd: cashUsed,
+      provider: resolvedProvider,
+      currency: 'USD',
+      status: resolvedStatus,
+      orderNumber: resolvedOrderNumber,
+      metadata: resolvedMetadata
+    });
+
+    const mapped = orderRowToInvoice({
+      id: persistedRecord?.id || `ord_${randomUUID()}`,
+      order_number: persistedRecord?.orderNumber || resolvedOrderNumber,
+      user_id: String(userId),
+      tiwi_id: tiwiId,
+      order_type: orderType,
+      plan_id: planId,
+      item_name: planName,
+      gross_amount_usd: numericAmount,
+      cash_credit_used_usd: cashUsed,
+      promo_credit_used_usd: promoUsed,
+      provider: resolvedProvider,
+      currency: 'USD',
+      status: resolvedStatus,
+      metadata: resolvedMetadata,
+      created_at: nowIso
+    });
+
+    if (!persistedRecord) {
+      const existingList = memorySubscriptionInvoices.get(String(userId)) || [];
+      existingList.unshift(mapped);
+      memorySubscriptionInvoices.set(String(userId), existingList.slice(0, 100));
+    }
+
+    return mapped;
+  },
+
   async chargeSubscriptionPlan(userId, amountUsd, planName = 'Store Subscription', context = {}) {
     const chargeAmount = Number(amountUsd);
     if (!userId) {
       return { success: false, statusCode: 401, error: 'Authentication required for subscription billing.' };
     }
     if (!Number.isFinite(chargeAmount) || chargeAmount <= 0) {
-      return { success: true, chargedAmount: 0, cashCreditUsed: 0, promoCreditUsed: 0 };
+      const invoice = await this.recordSubscriptionInvoice(userId, {
+        amountUsd: 0,
+        cashCreditUsedUsd: 0,
+        promoCreditUsedUsd: 0,
+        planName,
+        tiwiId: context?.tiwiId || null,
+        orderType: context?.orderType || 'subscription_charge',
+        planId: context?.planId || null,
+        provider: context?.provider || 'free_trial',
+        status: context?.status || 'trial',
+        metadata: context?.metadata || {}
+      });
+      return {
+        success: true,
+        chargedAmount: 0,
+        cashCreditUsed: 0,
+        promoCreditUsed: 0,
+        orderNumber: invoice?.orderNumber || null,
+        invoice
+      };
     }
     const { rows } = await queryPg(
       `WITH prev AS (
@@ -763,18 +941,15 @@ export const BillingDB = {
     }
     const promoCreditUsed = Number(Number(rows[0].promo_used || 0).toFixed(2));
     const cashCreditUsed = Number(Number(rows[0].cash_used || 0).toFixed(2));
-    const orderRecord = await recordPlatformBillingOrder({
-      userId,
+    const invoice = await this.recordSubscriptionInvoice(userId, {
+      amountUsd: chargeAmount,
+      cashCreditUsedUsd: cashCreditUsed,
+      promoCreditUsedUsd: promoCreditUsed,
+      planName,
       tiwiId: context?.tiwiId || null,
       orderType: context?.orderType || 'subscription_charge',
       planId: context?.planId || null,
-      itemName: planName,
-      grossAmountUsd: chargeAmount,
-      cashCreditUsedUsd: cashCreditUsed,
-      promoCreditUsedUsd: promoCreditUsed,
-      netCashRevenueUsd: cashCreditUsed,
       provider: context?.provider || 'wallet',
-      currency: 'USD',
       status: 'paid',
       metadata: context?.metadata || {}
     });
@@ -783,7 +958,8 @@ export const BillingDB = {
       chargedAmount: chargeAmount,
       cashCreditUsed,
       promoCreditUsed,
-      orderNumber: orderRecord?.orderNumber || null,
+      orderNumber: invoice?.orderNumber || null,
+      invoice,
       remainingCredits: Number(rows[0].credits) + Number(rows[0].promotional_credits || 0)
     };
   },

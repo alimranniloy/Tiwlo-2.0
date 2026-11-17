@@ -1,22 +1,43 @@
-import { createHmac } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import { isIP } from 'node:net';
-import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { isPgActive, queryPg } from '../db/postgres.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
 import { SIGNUP_BROWSER_COOKIE, verifySignupBrowser } from './signupBrowser.js';
 
-const SIGNAL_SECRET =
-  process.env.ABUSE_HASH_SECRET ||
-  process.env.SECURITY_SECRET ||
-  PLATFORM_CONFIG.primaryDomain ||
-  'tiwlo-device-guard';
+let ephemeralSignalSecret = null;
+
+function getSignalSecret() {
+  const configured = [
+    process.env.ABUSE_HASH_SECRET,
+    process.env.SECURITY_SECRET
+  ].find(value => typeof value === 'string' && value.trim().length > 0) || '';
+
+  if (process.env.NODE_ENV === 'production') {
+    if (configured.trim().length < 32) {
+      throw new Error(
+        'FATAL SECURITY ERROR: ABUSE_HASH_SECRET or SECURITY_SECRET must be set to at least 32 characters in production.'
+      );
+    }
+    return configured;
+  }
+
+  if (configured.trim().length > 0) {
+    return configured;
+  }
+
+  // Ephemeral per-process CSPRNG key for dev/test only; never fall back to predictable domain/literal strings.
+  if (!ephemeralSignalSecret) {
+    ephemeralSignalSecret = randomBytes(32).toString('hex');
+  }
+  return ephemeralSignalSecret;
+}
 
 /** Hash a device or network identifier with a server-side HMAC key. */
 export function hashAbuseSignal(label, value) {
   if (!value || typeof value !== 'string') return null;
   const trimmed = value.trim().toLowerCase();
   if (!trimmed || trimmed === 'unknown') return null;
-  return createHmac('sha256', SIGNAL_SECRET)
+  return createHmac('sha256', getSignalSecret())
     .update(`${label}:${trimmed}`)
     .digest('hex');
 }

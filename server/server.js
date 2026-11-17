@@ -65,7 +65,7 @@ import { getDefaultLiveChatQueueService } from './support/liveChatQueueService.j
 import { startSupportAutomationScheduler } from './support/ticketingService.js';
 import { warmupFaceLivenessEngine } from './security/faceLivenessEngine.js';
 import { startAutomatedLogRetentionScheduler } from './db/logRotationService.js';
-import { ensureServiceSubscriptionsSchema } from './db/serviceSubscriptions.js';
+import { ensureServiceSubscriptionsSchema, startServiceRenewalScheduler } from './db/serviceSubscriptions.js';
 import whatsappRoutes from './whatsapp/whatsappRoutes.js';
 import { WhatsAppManager } from './whatsapp/whatsappManager.js';
 import tpanelRoutes from '../service/TPanel/server/tpanelRoutes.js';
@@ -140,7 +140,11 @@ app.use(['/api', '/graphql'], apiLimiter);
 
 app.use(cookieParser());
 
-const allowedOrigins = [
+const LOCALHOST_ORIGIN_REGEX = /^https?:\/\/([a-zA-Z0-9-]+\.)*(localhost|127\.0\.0\.1|10\.0\.2\.2)(:\d+)?$/;
+const isLocalCorsAllowed = () =>
+  process.env.NODE_ENV !== 'production' || process.env.ALLOW_LOCALHOST_CORS === 'true';
+
+const buildAllowedOrigins = () => [
   `https://${PLATFORM_CONFIG.primaryDomain}`,
   `https://${getSubdomain(PLATFORM_CONFIG.wwwSubdomain)}`,
   `https://${getSubdomain(PLATFORM_CONFIG.authSubdomain)}`,
@@ -148,34 +152,48 @@ const allowedOrigins = [
   `https://${PLATFORM_CONFIG.dashboardHost}`,
   `https://${getSubdomain(PLATFORM_CONFIG.tpanelSubdomain)}`,
   `https://${getSubdomain(PLATFORM_CONFIG.driveSubdomain)}`,
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'http://localhost:5000',
-  `http://${PLATFORM_CONFIG.authSubdomain}.localhost:5173`,
-  `http://${PLATFORM_CONFIG.authSubdomain}.localhost:3000`,
-  `http://${PLATFORM_CONFIG.authSubdomain}.localhost:5000`,
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:3000',
-  'http://127.0.0.1:5000'
+  ...(isLocalCorsAllowed() ? [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://localhost:5000',
+    `http://${PLATFORM_CONFIG.authSubdomain}.localhost:5173`,
+    `http://${PLATFORM_CONFIG.authSubdomain}.localhost:3000`,
+    `http://${PLATFORM_CONFIG.authSubdomain}.localhost:5000`,
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5000'
+  ] : [])
 ];
 
 app.use(cors({
   origin: async function (origin, callback) {
     if (!origin) return callback(null, true);
     if (origin === 'null') return callback(null, false);
+    const localCorsAllowed = isLocalCorsAllowed();
+    const allowedOrigins = buildAllowedOrigins();
     if (allowedOrigins.includes(origin)) return callback(null, true);
+    let parsedOrigin;
     try {
-      const hostname = new URL(origin).hostname.toLowerCase();
+      parsedOrigin = new URL(origin);
+    } catch {
+      return callback(null, false);
+    }
+    const hostname = parsedOrigin.hostname.toLowerCase();
+    const isHttpsOrigin = parsedOrigin.protocol === 'https:';
+    const isHttpOrigin = parsedOrigin.protocol === 'http:';
+    if (isHttpsOrigin || (localCorsAllowed && isHttpOrigin)) {
       if (PLATFORM_CONFIG.managedDomains.some(
         domain => hostname === domain || hostname.endsWith(`.${domain}`)
       )) {
         return callback(null, true);
       }
-      if (await findActiveCustomDomain(hostname)) return callback(null, true);
-    } catch (error) {
-      return callback(error);
+      try {
+        if (await findActiveCustomDomain(hostname)) return callback(null, true);
+      } catch (error) {
+        return callback(error);
+      }
     }
-    if (/^https?:\/\/([a-zA-Z0-9-]+\.)*(localhost|127\.0\.0\.1|10\.0\.2\.2)(:\d+)?$/.test(origin)) {
+    if (localCorsAllowed && LOCALHOST_ORIGIN_REGEX.test(origin)) {
       return callback(null, true);
     }
     return callback(new Error('CORS request blocked: Origin not authorized by Tiwlo Security Policy.'));
@@ -814,6 +832,7 @@ async function startServer() {
     await ensureLiveVisitorSchema().catch((err) => console.warn('[LiveVisitor Schema Notice]', err?.message || err));
     await getDefaultLiveChatQueueService().ensureLiveChatSchema().catch((err) => console.warn('[LiveChat Schema Notice]', err?.message || err));
     await ensureServiceSubscriptionsSchema().catch((err) => console.warn('[ServiceSubscriptions Schema Notice]', err?.message || err));
+    startServiceRenewalScheduler();
     startSupportAutomationScheduler();
     startAutomatedLogRetentionScheduler();
   }

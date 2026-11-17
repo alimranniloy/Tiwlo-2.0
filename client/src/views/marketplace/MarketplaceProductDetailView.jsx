@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
+  ArrowRight,
   Star,
   CheckCircle2,
   Check,
@@ -10,6 +11,8 @@ import {
   Bot,
   MessageCircle,
   CreditCard,
+  ExternalLink,
+  Receipt,
   Wallet
 } from 'lucide-react';
 import { WorkspaceAPI } from '../../api/workspaceApi';
@@ -27,6 +30,7 @@ export default function MarketplaceProductDetailView({ productId, currentUser, o
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [activeSub, setActiveSub] = useState(null);
   const [creditsBalance, setCreditsBalance] = useState(null);
+  const [activatedReceipt, setActivatedReceipt] = useState(null);
 
   const paidServiceType =
     productId === 'tiwlo-discord-bot-manager' ? 'discord'
@@ -98,7 +102,51 @@ export default function MarketplaceProductDetailView({ productId, currentUser, o
       if (paidServiceType && (!activeSub || (selectedPlanId && selectedPlanId !== activeSub.planId))) {
         payload.planId = selectedPlanId;
       }
-      await WorkspaceAPI.activateMarketplaceProduct(product.id, payload);
+      const result = await WorkspaceAPI.activateMarketplaceProduct(product.id, payload);
+      if (paidServiceType) {
+        window.dispatchEvent(new CustomEvent('tiwlo:service-subscriptions-changed', {
+          detail: { serviceType: paidServiceType, subscription: result?.subscription || null }
+        }));
+        if (result?.subscription) {
+          setActiveSub(result.subscription);
+        }
+        if (result?.billing?.remainingCredits !== undefined && result?.billing?.remainingCredits !== null) {
+          setCreditsBalance(Number(result.billing.remainingCredits));
+        } else {
+          fetch('/api/cloud/billing', { credentials: 'include' })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((b) => {
+              const rawCredits = b?.credits ?? b?.account?.credits;
+              if (rawCredits !== undefined && rawCredits !== null) {
+                setCreditsBalance(Number(rawCredits || 0));
+              }
+            })
+            .catch(() => {});
+        }
+      }
+      const fallbackAmount = Number(result?.billing?.chargedAmount ?? selectedPlan?.price ?? 0);
+      const returnedInvoice = result?.invoice || (result?.billing?.orderNumber ? {
+        id: result.billing.orderNumber,
+        amount: fallbackAmount,
+        currency: 'USD',
+        status: fallbackAmount <= 0 ? 'Free Trial' : 'Paid',
+        isFreeTrial: fallbackAmount <= 0,
+        planId: selectedPlanId
+      } : null);
+
+      if (returnedInvoice || paidServiceType) {
+        setActivatedReceipt({
+          invoice: returnedInvoice,
+          service: result?.service || null,
+          subscription: result?.subscription || activeSub || null,
+          planName: result?.subscription?.planName || selectedPlan?.planName || product.name
+        });
+        setMsg({
+          text: result?.message || `${product.name} activated in Workspace.`,
+          type: 'success'
+        });
+        return;
+      }
       onNavigate?.('workspace');
     } catch (error) {
       if (Array.isArray(error.packages) && error.packages.length > 0) {
@@ -327,6 +375,86 @@ export default function MarketplaceProductDetailView({ productId, currentUser, o
           )}
         </div>
       )}
+
+      {/* Activated Service & Invoice Card */}
+      {activatedReceipt && (() => {
+        const inv = activatedReceipt.invoice;
+        const invAmount = Number(inv?.amount ?? 0);
+        const isTrial = Boolean(inv?.isFreeTrial) ||
+          invAmount <= 0 ||
+          ['free trial', 'trial', 'free_trial'].includes(String(inv?.status || '').toLowerCase());
+        const invoiceHref = inv?.id ? `/billing/invoices/${encodeURIComponent(inv.id)}` : null;
+        const handleOpenServiceDashboard = () => {
+          if (paidServiceType === 'whatsapp') {
+            onNavigate?.('whatsapp-automation');
+          } else if (paidServiceType === 'discord') {
+            window.location.assign('/discord');
+          } else if (activatedReceipt.service?.id) {
+            onNavigate?.(`workspace/service/${activatedReceipt.service.id}`);
+          } else {
+            onNavigate?.('workspace-hub');
+          }
+        };
+        return (
+          <div className="rounded-2xl border border-[#CEEAD6] bg-[#E6F4EA]/60 p-5 dark:border-[#234B32] dark:bg-[#12351F]/40">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1ED760] text-black">
+                  <Receipt className="h-5 w-5" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-semibold text-neutral-950 dark:text-white">
+                      {activatedReceipt.planName} Activated
+                    </h3>
+                    {inv && (
+                      <span className="rounded-full bg-[#1ED760]/20 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-900 dark:text-[#81C995]">
+                        {isTrial ? 'Free Trial' : (inv.status || 'Paid')}
+                      </span>
+                    )}
+                  </div>
+                  {inv ? (
+                    <p className="text-xs text-neutral-700 dark:text-neutral-300">
+                      Invoice <span className="font-mono font-semibold">{inv.id}</span> ·{' '}
+                      <span className="font-semibold tabular-nums">
+                        ${invAmount.toFixed(2)} {inv.currency || 'USD'}
+                      </span>
+                      {isTrial ? ' (Free Trial)' : ''}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-neutral-700 dark:text-neutral-300">
+                      Your service is active in Workspace and ready to configure.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                {invoiceHref && (
+                  <a
+                    href={invoiceHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-neutral-300 bg-white px-4 text-xs font-semibold text-neutral-900 transition hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    <Receipt className="h-3.5 w-3.5" />
+                    <span>View Printable Invoice</span>
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={handleOpenServiceDashboard}
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#1ED760] px-4 text-xs font-semibold text-black transition hover:bg-[#19c354] cursor-pointer"
+                >
+                  <span>Open Service Dashboard</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Specifications */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

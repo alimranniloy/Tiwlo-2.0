@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { readState, saveState, isPersistedState } from '../db/stateDocuments.js';
 import { MasterDB, TenantDB } from '../db/multiTenant.js';
 import {
@@ -419,7 +420,7 @@ export const SocialDB = {
     // 4. Session Token Issue (If 2FA is not enabled)
     const profile = profiles[masterUser.id] || {};
     const socialUser = this._toSocialUser(masterUser, profile, data);
-    const token = `tiwi_token_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+    const token = `tiwi_token_${crypto.randomBytes(32).toString('base64url')}`;
     const { password: _, ...safeUser } = socialUser;
     return { user: safeUser, token };
   },
@@ -734,7 +735,7 @@ export const SocialDB = {
     (await this.saveData(data));
 
     const socialUser = this._toSocialUser(newMasterUser, data.profiles[newMasterUser.id], data);
-    const token = `tiwi_token_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+    const token = `tiwi_token_${crypto.randomBytes(32).toString('base64url')}`;
     const { password: _, ...safeUser } = socialUser;
     return { success: true, user: safeUser, token };
   },

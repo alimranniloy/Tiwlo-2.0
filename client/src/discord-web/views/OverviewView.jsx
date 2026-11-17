@@ -2,16 +2,20 @@ import React, { useEffect, useState } from 'react';
 import {
   Activity,
   AlertCircle,
+  ArrowUpRight,
   Bot,
   CheckCircle2,
   CreditCard,
   ExternalLink,
+  Loader2,
   Plus,
+  RefreshCw,
   Server,
   Settings2,
   Shield,
   Sparkles,
   Terminal,
+  TrendingUp,
   Zap,
 } from 'lucide-react';
 import { DiscordAPI } from '../api/discordApi';
@@ -40,13 +44,27 @@ function QuotaBar({ label, current, limit, unit = '' }) {
   );
 }
 
-export default function OverviewView({ overviewData, loading, currentUser, onNavigate, onReload }) {
+export default function OverviewView({
+  overviewData,
+  loading,
+  currentUser,
+  subscriptionState,
+  onNavigate,
+  onNavigateBilling,
+  onToggleAutoRenew,
+  onReload,
+}) {
   const [showPlanModal, setShowPlanModal] = useState(false);
-  const [packages, setPackages] = useState([]);
+  const [packages, setPackages] = useState(
+    Array.isArray(subscriptionState?.packages) ? subscriptionState.packages : []
+  );
   const [simulatingId, setSimulatingId] = useState(null);
+  const [togglingAutoRenew, setTogglingAutoRenew] = useState(false);
+  const [upgradingTier, setUpgradingTier] = useState(false);
   const [toastMsg, setToastMsg] = useState(null);
 
-  const subscription = overviewData?.subscription || null;
+  const subscription = overviewData?.subscription || subscriptionState?.subscription || null;
+  const tierInsight = subscriptionState?.tierInsight || overviewData?.tierInsight || null;
   const officialBots = Array.isArray(overviewData?.officialBots) ? overviewData.officialBots : [];
   const primaryBot = officialBots.find((b) => b.isDefault) || officialBots[0] || null;
   const servers = Array.isArray(overviewData?.servers) ? overviewData.servers : [];
@@ -56,10 +74,68 @@ export default function OverviewView({ overviewData, loading, currentUser, onNav
   const serversLimit = Number(subscription?.limits?.maxServersPerBot || 0);
   const commandsLimit = Number(subscription?.limits?.monthlyCommandsLimit || 0);
   const commandsUsed = Number(subscription?.usage?.monthlyCommands || 0);
+  const autoRenewEnabled = subscription?.autoRenew !== false;
+
+  const serversPct = serversLimit > 0 ? Math.min(100, Math.round((servers.length / serversLimit) * 100)) : 0;
+  const commandsPct = commandsLimit > 0 ? Math.min(100, Math.round((commandsUsed / commandsLimit) * 100)) : 0;
+  const peakUsagePct = Number.isFinite(Number(tierInsight?.peakUsagePercent))
+    ? Number(tierInsight.peakUsagePercent)
+    : Math.max(serversPct, commandsPct);
+
+  const sortedPackages = [...packages].sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+  const currentPrice = Number(subscription?.price || 0);
+  const nextUpgradePlan =
+    (tierInsight?.recommendedPlanId &&
+      sortedPackages.find((p) => p.planId === tierInsight.recommendedPlanId && p.planId !== subscription?.planId)) ||
+    sortedPackages.find((p) => Number(p.price || 0) > currentPrice) ||
+    null;
+  const shouldSuggestUpgrade = Boolean(
+    isSubscribed &&
+      nextUpgradePlan &&
+      (peakUsagePct >= 75 || tierInsight?.shouldUpgrade)
+  );
 
   useEffect(() => {
     DiscordAPI.getPackages().then(setPackages).catch(() => {});
   }, []);
+
+  const handleToggleAutoRenewClick = async () => {
+    if (!onToggleAutoRenew || togglingAutoRenew) return;
+    setTogglingAutoRenew(true);
+    setToastMsg(null);
+    try {
+      const next = !autoRenewEnabled;
+      await onToggleAutoRenew(next);
+      setToastMsg({
+        type: 'success',
+        text: `Monthly auto-renewal ${next ? 'enabled' : 'disabled'}.`,
+      });
+    } catch (err) {
+      setToastMsg({ type: 'error', text: err.message || 'Could not update auto-renewal preference.' });
+    } finally {
+      setTogglingAutoRenew(false);
+    }
+  };
+
+  const handleOneClickUpgrade = async (targetPlan) => {
+    if (!targetPlan || upgradingTier) return;
+    setUpgradingTier(true);
+    setToastMsg(null);
+    try {
+      const res = await DiscordAPI.purchaseSubscription(targetPlan.planId, autoRenewEnabled);
+      setToastMsg({
+        type: 'success',
+        text: res.message || `Upgraded to ${targetPlan.planName}!`,
+      });
+      window.dispatchEvent(new CustomEvent('tiwlo:service-subscriptions-changed'));
+      await onReload?.();
+    } catch (err) {
+      setToastMsg({ type: 'error', text: err.message || 'Could not upgrade plan.' });
+      setShowPlanModal(true);
+    } finally {
+      setUpgradingTier(false);
+    }
+  };
 
   const handleSimulateAi = async (server) => {
     setSimulatingId(server.id);
@@ -196,6 +272,24 @@ export default function OverviewView({ overviewData, loading, currentUser, onNav
             </div>
 
             <div className="space-y-4">
+              <div className="rounded-lg border border-neutral-200/80 bg-neutral-50/70 px-3 py-2.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="inline-flex items-center gap-1.5 font-medium text-neutral-700">
+                    <TrendingUp className="h-3.5 w-3.5 text-[#1ED760]" />
+                    Tier Usage Meter
+                  </span>
+                  <span className={`font-semibold tabular-nums ${peakUsagePct >= 75 ? 'text-amber-700' : 'text-neutral-900'}`}>
+                    {peakUsagePct}% peak capacity
+                  </span>
+                </div>
+                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-neutral-200/80">
+                  <div
+                    className={`h-full rounded-full transition-all ${peakUsagePct >= 85 ? 'bg-rose-500' : peakUsagePct >= 75 ? 'bg-amber-500' : 'bg-[#1ED760]'}`}
+                    style={{ width: `${Math.min(100, peakUsagePct)}%` }}
+                  />
+                </div>
+              </div>
+
               <QuotaBar
                 label="Connected Discord Servers"
                 current={servers.length}
@@ -210,19 +304,70 @@ export default function OverviewView({ overviewData, loading, currentUser, onNav
               />
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
-              <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-medium ${
-                subscription.limits?.autoModEnabled
-                  ? 'bg-[#1ED760]/15 text-emerald-800'
-                  : 'bg-neutral-100 text-neutral-500'
-              }`}>
-                <Shield className="h-3 w-3" />
-                Auto-Moderation: {subscription.limits?.autoModEnabled ? 'Enabled' : 'Upgrade for Auto-Mod'}
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-1 font-medium text-neutral-700">
-                <Zap className="h-3 w-3 text-[#1ED760]" />
-                Webhooks Limit: {subscription.limits?.webhookLimit || 2}
-              </span>
+            {shouldSuggestUpgrade && nextUpgradePlan && (
+              <div className="flex flex-col gap-2.5 rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-xs font-semibold text-amber-950">
+                    {peakUsagePct}% tier capacity reached — upgrade to {nextUpgradePlan.planName}
+                  </p>
+                  <p className="text-[11px] text-amber-800">
+                    Unlock {nextUpgradePlan.maxServersPerBot} servers &amp; {Number(nextUpgradePlan.monthlyCommandsLimit || 0).toLocaleString()} cmds/mo for ${Number(nextUpgradePlan.price || 0).toFixed(2)}/mo.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={upgradingTier}
+                  onClick={() => handleOneClickUpgrade(nextUpgradePlan)}
+                  className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#1ED760] px-3 text-xs font-semibold text-black hover:bg-[#19c354] disabled:opacity-60 cursor-pointer"
+                >
+                  {upgradingTier ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>Upgrading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Upgrade Now</span>
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-3">
+              <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-medium ${
+                  subscription.limits?.autoModEnabled
+                    ? 'bg-[#1ED760]/15 text-emerald-800'
+                    : 'bg-neutral-100 text-neutral-500'
+                }`}>
+                  <Shield className="h-3 w-3" />
+                  Auto-Moderation: {subscription.limits?.autoModEnabled ? 'Enabled' : 'Upgrade for Auto-Mod'}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-1 font-medium text-neutral-700">
+                  <Zap className="h-3 w-3 text-[#1ED760]" />
+                  Webhooks Limit: {subscription.limits?.webhookLimit || 2}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                disabled={togglingAutoRenew}
+                onClick={handleToggleAutoRenewClick}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold transition cursor-pointer disabled:opacity-60 ${
+                  autoRenewEnabled
+                    ? 'border-[#1ED760]/50 bg-[#1ED760]/10 text-emerald-900 hover:bg-[#1ED760]/20'
+                    : 'border-neutral-200 bg-neutral-50 text-neutral-600 hover:bg-neutral-100'
+                }`}
+              >
+                {togglingAutoRenew ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3 w-3" />
+                )}
+                <span>Auto-Renew: {autoRenewEnabled ? 'On' : 'Off'}</span>
+              </button>
             </div>
           </div>
 
@@ -438,6 +583,8 @@ export default function OverviewView({ overviewData, loading, currentUser, onNav
           currentUser={currentUser}
           subscription={subscription}
           packages={packages}
+          tierInsight={tierInsight}
+          onNavigateBilling={onNavigateBilling}
           onClose={() => setShowPlanModal(false)}
           onActivated={async () => {
             await onReload?.();

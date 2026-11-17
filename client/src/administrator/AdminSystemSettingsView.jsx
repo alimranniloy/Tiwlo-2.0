@@ -65,7 +65,7 @@ const CHAT_FEATURE_SWITCHES = [
   { key: 'liveChatWidget', label: 'Live Chat Widget', description: 'Show the live support chat widget across Tiwlo apps.' },
   { key: 'guestTicketsEnabled', label: 'Guest Ticketing', description: 'Allow unauthenticated guests to open support tickets.' },
   { key: 'requireGuestContact', label: 'Mandatory Guest Email & Phone', description: 'Verify guest email and phone before starting chat or tickets.' },
-  { key: 'allowNewTickets', label: 'Allow New Tickets', description: 'Enable new ticket creation for merchants and visitors.' },
+  { key: 'allowNewTickets', label: 'Allow New Tickets', description: 'Enable new ticket creation for Tiwlo users and visitors.' },
   { key: 'lockClosedReplies', label: 'Lock Replies on Closed Tickets', description: 'Block customer-facing replies on Closed tickets.' },
   { key: 'allowCustomerReopen', label: 'Allow Customer Reopen', description: 'Allow customers to reopen resolved tickets.' },
   { key: 'fileAttachmentsEnabled', label: 'File Attachments', description: 'Allow file uploads inside support threads.' },

@@ -1,7 +1,9 @@
 import sharp from 'sharp';
 import {
+  buildKeyPoolSummary,
   executeGeminiWithFailover,
-  getChatSystemSettings
+  getChatSystemSettings,
+  listAiKeys
 } from '../support/ai/aiKeyPoolService.js';
 import { validatePassportMrz } from './identityVerificationEngine.js';
 
@@ -235,15 +237,48 @@ function buildFallbackReason(aiResult, defaultMsg) {
   return defaultMsg;
 }
 
+const AI_PRECHECK_CACHE_TTL_MS = 5_000;
+let cachedAiEnabled = { expiresAt: 0, value: null };
+let cachedHealthyKey = { expiresAt: 0, value: false };
+
 async function checkAiEnabled(getSettingsFn) {
+  const isDefaultSettings = getSettingsFn === getChatSystemSettings;
+  const now = Date.now();
+  if (isDefaultSettings && process.env.NODE_ENV === 'production' && cachedAiEnabled.value && cachedAiEnabled.expiresAt > now) {
+    return cachedAiEnabled.value;
+  }
   try {
     const settings = await getSettingsFn();
-    if (settings && settings.enabled === false) {
-      return { enabled: false, reason: 'AI verification is disabled in system settings.' };
+    const res = settings && settings.enabled === false
+      ? { enabled: false, reason: 'AI verification is disabled in system settings.' }
+      : { enabled: true };
+    if (isDefaultSettings && process.env.NODE_ENV === 'production') {
+      cachedAiEnabled = { expiresAt: now + AI_PRECHECK_CACHE_TTL_MS, value: res };
     }
-    return { enabled: true };
+    return res;
   } catch (err) {
     return { enabled: false, reason: err?.message || 'Unable to load AI system settings.' };
+  }
+}
+
+async function hasHealthyGeminiKey() {
+  if (String(process.env.GEMINI_API_KEY || '').trim()) {
+    return true;
+  }
+  const now = Date.now();
+  if (process.env.NODE_ENV === 'production' && cachedHealthyKey.expiresAt > now) {
+    return cachedHealthyKey.value;
+  }
+  try {
+    const keys = await listAiKeys({ includeDisabled: false });
+    const summary = buildKeyPoolSummary(keys);
+    const healthy = summary.healthy > 0 || summary.envFallbackConfigured;
+    if (process.env.NODE_ENV === 'production') {
+      cachedHealthyKey = { expiresAt: now + AI_PRECHECK_CACHE_TTL_MS, value: healthy };
+    }
+    return healthy;
+  } catch {
+    return false;
   }
 }
 
@@ -669,6 +704,10 @@ export async function inspectLivenessQualityWithGemini({
       return { ok: false, fallback: true, aiDisabled: true };
     }
 
+    if (executeAiFn === executeGeminiWithFailover && !(await hasHealthyGeminiKey())) {
+      return { ok: false, fallback: true, aiDisabled: true };
+    }
+
     const prepared = await prepareImageForGemini(frameBuffer, mimeType);
     const prompt = [
       'Inspect this live camera frame for identity verification.',
@@ -730,7 +769,20 @@ export async function inspectLivenessQualityWithGemini({
     const sharp = typeof parsed.sharp === 'boolean' ? parsed.sharp : true;
     const passportQuality = Boolean(parsed.passportQuality && eyesOpen && sharp && faceDetected && faceCount === 1 && !spoofOrScreen);
 
-    if (!faceDetected || faceCount === 0 || spoofOrScreen) {
+    if (spoofOrScreen) {
+      return {
+        ok: true,
+        fallback: false,
+        faceDetected: faceDetected && faceCount > 0,
+        faceCount,
+        passportQuality: false,
+        ready: false,
+        spoofDetected: true,
+        guidance: 'spoof_detected'
+      };
+    }
+
+    if (!faceDetected || faceCount === 0) {
       return {
         ok: true,
         fallback: false,
@@ -738,6 +790,7 @@ export async function inspectLivenessQualityWithGemini({
         faceCount: 0,
         passportQuality: false,
         ready: false,
+        spoofDetected: false,
         guidance: 'no_face'
       };
     }
@@ -750,6 +803,7 @@ export async function inspectLivenessQualityWithGemini({
         faceCount,
         passportQuality: false,
         ready: false,
+        spoofDetected: false,
         guidance: 'multiple_faces'
       };
     }
@@ -762,6 +816,7 @@ export async function inspectLivenessQualityWithGemini({
         faceCount: 1,
         passportQuality: false,
         ready: false,
+        spoofDetected: false,
         guidance: framing
       };
     }
@@ -774,6 +829,7 @@ export async function inspectLivenessQualityWithGemini({
         faceCount: 1,
         passportQuality: false,
         ready: false,
+        spoofDetected: false,
         guidance: 'hold_still'
       };
     }
@@ -785,6 +841,7 @@ export async function inspectLivenessQualityWithGemini({
       faceCount: 1,
       passportQuality,
       ready: true,
+      spoofDetected: false,
       guidance: 'ready'
     };
   } catch {
@@ -809,6 +866,10 @@ export async function verifyLivenessChallengeFrameWithGemini({
       return { ok: false, fallback: true, aiDisabled: true };
     }
 
+    if (executeAiFn === executeGeminiWithFailover && !(await hasHealthyGeminiKey())) {
+      return { ok: false, fallback: true, aiDisabled: true };
+    }
+
     const prepared = await prepareImageForGemini(frameBuffer, mimeType);
     const prompt = [
       'Evaluate this live camera frame for an active biometric liveness check.',
@@ -820,7 +881,7 @@ export async function verifyLivenessChallengeFrameWithGemini({
       '   - "turn_right": The person clearly turned THEIR OWN head toward THEIR RIGHT (meaning right cheek/ear recedes and nose points to their right). A straight/frontal neutral face MUST be false.',
       '   - "open_mouth": The person\'s mouth is visibly wide/clearly open.',
       '   - "blink": The person\'s eyes are closed/blinking clearly.',
-      '3) Note: Evaluate `turn_left` and `turn_right` strictly by the SUBJECT\'s own anatomical head turn (left vs right), NOT viewer side, OR note headDirection.',
+      '3) Note: Evaluate `turn_left`, `turn_right`, and `headDirection` strictly by the SUBJECT\'s own anatomical head turn ("left" when turning their own left, "right" when turning their own right, "front" when straight), NOT viewer side.',
       '',
       'Return ONLY strict JSON:',
       '{',
@@ -868,22 +929,36 @@ export async function verifyLivenessChallengeFrameWithGemini({
       : (faceDetected ? 1 : 0);
     const spoofOrScreen = parsed.spoofOrScreen === true;
 
-    if (!faceDetected || faceCount !== 1 || spoofOrScreen) {
+    if (spoofOrScreen) {
+      return {
+        ok: true,
+        fallback: false,
+        faceDetected: faceDetected && faceCount === 1,
+        faceCount,
+        actionDetected: false,
+        spoofDetected: true,
+        guidance: 'spoof_detected'
+      };
+    }
+
+    if (!faceDetected || faceCount !== 1) {
       return {
         ok: true,
         fallback: false,
         faceDetected: faceCount > 1,
         faceCount,
         actionDetected: false,
+        spoofDetected: false,
         guidance: faceCount > 1 ? 'multiple_faces' : 'no_face'
       };
     }
 
+    const headDirection = String(parsed.headDirection || '').trim().toLowerCase();
     let actionDetected = parsed.actionDetected === true;
     if (challengeType === 'turn_left') {
-      actionDetected = actionDetected && parsed.headDirection === 'left';
+      actionDetected = actionDetected && headDirection === 'left';
     } else if (challengeType === 'turn_right') {
-      actionDetected = actionDetected && parsed.headDirection === 'right';
+      actionDetected = actionDetected && headDirection === 'right';
     } else if (challengeType === 'open_mouth') {
       actionDetected = actionDetected && parsed.mouthOpen === true;
     } else if (challengeType === 'blink') {
@@ -896,6 +971,7 @@ export async function verifyLivenessChallengeFrameWithGemini({
       faceDetected: true,
       faceCount: 1,
       actionDetected,
+      spoofDetected: false,
       guidance: actionDetected ? 'passed' : 'perform_action'
     };
   } catch {

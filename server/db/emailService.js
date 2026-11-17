@@ -59,7 +59,13 @@ import {
 } from '../email/index.js';
 
 // Runtime email configuration is derived from environment and platform config.
+// Note: External SMTP relays and non-25 submission ports verify TLS certificates by default.
+// Set SMTP_TLS_REJECT_UNAUTHORIZED=false only if using a custom internal relay with a self-signed cert.
 export function getEmailConfig() {
+  const host = process.env.SMTP_HOST || '127.0.0.1';
+  const port = Number.parseInt(process.env.SMTP_PORT || '25', 10);
+  const isLocalPort25 = (host === '127.0.0.1' || host === 'localhost') && port === 25;
+
   return {
     senderEmail: PLATFORM_CONFIG.noreplyEmail,
     senderName: PLATFORM_CONFIG.emailSenderName,
@@ -69,10 +75,10 @@ export function getEmailConfig() {
     inboundPolicy: 'registered_mailboxes_only',
     smtp: {
       provider: process.env.SMTP_PROVIDER || 'local_postfix',
-      host: process.env.SMTP_HOST || '127.0.0.1',
-      port: Number.parseInt(process.env.SMTP_PORT || '25', 10),
+      host,
+      port,
       secure: process.env.SMTP_SECURE === 'true',
-      ignoreTLS: true,
+      ignoreTLS: isLocalPort25,
       tls: {
         rejectUnauthorized: process.env.SMTP_TLS_REJECT_UNAUTHORIZED !== 'false',
         ...(process.env.SMTP_TLS_SERVERNAME
@@ -168,6 +174,42 @@ function buildHtmlEmail({ title, recipientEmail, mainMessage, otpCode, details, 
   });
 }
 
+function resolveSmtpTlsOptions(smtpTls) {
+  // Enforce certificate verification by default; allow explicit opt-out via
+  // SMTP_TLS_REJECT_UNAUTHORIZED=false for self-signed custom mail relays.
+  const defaultRejectUnauthorized = process.env.SMTP_TLS_REJECT_UNAUTHORIZED !== 'false';
+  const baseTls = {
+    rejectUnauthorized: defaultRejectUnauthorized,
+    ...(process.env.SMTP_TLS_SERVERNAME
+      ? { servername: process.env.SMTP_TLS_SERVERNAME }
+      : {})
+  };
+  if (smtpTls && typeof smtpTls === 'object') {
+    return {
+      ...baseTls,
+      ...smtpTls,
+      rejectUnauthorized:
+        smtpTls.rejectUnauthorized !== undefined
+          ? Boolean(smtpTls.rejectUnauthorized)
+          : defaultRejectUnauthorized
+    };
+  }
+  return baseTls;
+}
+
+function createLocalPostfixFallbackTransport() {
+  // Unencrypted local Postfix loopback on 127.0.0.1:25 (ignoreTLS skips STARTTLS handshake).
+  return nodemailer.createTransport({
+    host: '127.0.0.1',
+    port: 25,
+    secure: false,
+    ignoreTLS: true,
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 12000
+  });
+}
+
 /**
  * Core SMTP / Nodemailer Transporter
  */
@@ -196,14 +238,17 @@ export function createTransporter(config = getEmailConfig()) {
   const isPort25 = port === 25;
 
   if (isLocal) {
+    if (isPort25) {
+      // Unencrypted local Postfix loopback on 127.0.0.1:25; never send auth on trusted port 25.
+      return createLocalPostfixFallbackTransport();
+    }
     return nodemailer.createTransport({
       host: '127.0.0.1',
       port,
-      secure: false,
-      ignoreTLS: isPort25,
-      tls: { rejectUnauthorized: false },
-      // NEVER provide invalid auth on trusted local loopback port 25
-      ...(user && pass && !isPort25 ? { auth: { user, pass } } : {}),
+      secure: process.env.SMTP_SECURE !== undefined ? process.env.SMTP_SECURE === 'true' : (smtp.secure === true),
+      ignoreTLS: false,
+      tls: resolveSmtpTlsOptions(smtp.tls),
+      ...(user && pass ? { auth: { user, pass } } : {}),
       connectionTimeout: 8000,
       greetingTimeout: 8000,
       socketTimeout: 12000
@@ -216,7 +261,7 @@ export function createTransporter(config = getEmailConfig()) {
     port: Number.parseInt(process.env.SMTP_PORT || smtp.port || '587', 10),
     secure: process.env.SMTP_SECURE !== undefined ? process.env.SMTP_SECURE === 'true' : (smtp.secure === true),
     ...(user && pass ? { auth: { user, pass } } : {}),
-    tls: smtp.tls || { rejectUnauthorized: false },
+    tls: resolveSmtpTlsOptions(smtp.tls),
     connectionTimeout: 8000,
     greetingTimeout: 8000,
     socketTimeout: 12000
@@ -235,13 +280,7 @@ export async function verifySmtpConnection() {
   } catch (err) {
     // If primary failed, test fallback local postfix loopback
     try {
-      const fallback = nodemailer.createTransport({
-        host: '127.0.0.1',
-        port: 25,
-        secure: false,
-        ignoreTLS: true,
-        tls: { rejectUnauthorized: false }
-      });
+      const fallback = createLocalPostfixFallbackTransport();
       await fallback.verify();
       return { ok: true, host: '127.0.0.1', port: 25, note: 'Connected via Postfix loopback fallback' };
     } catch (fbErr) {
@@ -313,16 +352,7 @@ export async function sendTiwloEmail({
   } catch (err) {
     console.warn(`⚠️ [EmailService] Primary transport failed (${err.code || err.name || 'unknown'}); trying configured fallback.`);
     try {
-      const fallbackTransporter = nodemailer.createTransport({
-        host: '127.0.0.1',
-        port: 25,
-        secure: false,
-        ignoreTLS: true,
-        tls: { rejectUnauthorized: false },
-        connectionTimeout: 8000,
-        greetingTimeout: 8000,
-        socketTimeout: 12000
-      });
+      const fallbackTransporter = createLocalPostfixFallbackTransport();
       const info = await fallbackTransporter.sendMail(mailOptions);
       if (Array.isArray(info?.accepted) && info.accepted.length === 0) {
         throw new Error('Fallback SMTP server rejected all message recipients.');
@@ -689,4 +719,71 @@ export async function sendStoreDeletedEmail({ to, name, storeName, subdomain, de
     type: 'store_deleted',
     metadata: { storeName, subdomain, deletedAt }
   });
+}
+
+export async function sendServicePaymentFailureEmail({
+  to,
+  name,
+  serviceType = 'discord',
+  planName = 'Subscription Plan',
+  amountDue = 0,
+  currency = 'USD',
+  reason = '',
+  failureCount = 1,
+  billingUrl = getPlatformUrl('billing')
+} = {}) {
+  const cleanTo = typeof to === 'string' ? to.trim() : '';
+  if (!cleanTo) {
+    return { success: false, skipped: true, reason: 'missing_recipient' };
+  }
+  const serviceLabel = String(serviceType || '').toLowerCase() === 'whatsapp'
+    ? 'WhatsApp Automation'
+    : 'Discord Bot Manager';
+  const formattedAmount = `${currency} ${Number(amountDue || 0).toFixed(2)}`;
+  const safeReason = String(reason || 'Insufficient verified billing credits.').trim();
+  const safeUrl = (() => {
+    try {
+      const parsed = new URL(billingUrl || getPlatformUrl('billing'));
+      return ['http:', 'https:'].includes(parsed.protocol) ? parsed.href : getPlatformUrl('billing');
+    } catch {
+      return getPlatformUrl('billing');
+    }
+  })();
+  const escapeText = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[ch]);
+
+  const html = buildHtmlEmail({
+    title: `Action required: ${escapeText(serviceLabel)} payment failed`,
+    recipientEmail: cleanTo,
+    mainMessage: `Hello ${escapeText(name || 'Customer')}, we could not process <strong>${escapeText(formattedAmount)}</strong> for your <strong>${escapeText(serviceLabel)}</strong> (${escapeText(planName)}) subscription. Top up your Tiwlo Credits to keep your service active.`,
+    details: [
+      { label: 'Service', value: escapeText(serviceLabel) },
+      { label: 'Plan', value: escapeText(planName) },
+      { label: 'Amount Due', value: escapeText(formattedAmount) },
+      { label: 'Attempts', value: escapeText(String(failureCount)) },
+      { label: 'Reason', value: escapeText(safeReason) }
+    ],
+    securityTip: `Visit your <a href="${escapeText(safeUrl)}" style="color: #1a73e8;">Tiwlo Billing Console</a> to add credits and reactivate your subscription.`
+  });
+
+  try {
+    return await sendTiwloEmail({
+      to: cleanTo,
+      subject: `Action required: ${serviceLabel} payment failed (${formattedAmount})`,
+      html,
+      text: `Your ${serviceLabel} (${planName}) payment of ${formattedAmount} failed: ${safeReason}. Add credits at ${safeUrl}.`,
+      type: 'service_payment_failed',
+      metadata: { serviceType, planName, amountDue, currency, failureCount }
+    });
+  } catch (err) {
+    return {
+      success: false,
+      error: err?.message || 'Failed to send service payment failure email'
+    };
+  }
 }

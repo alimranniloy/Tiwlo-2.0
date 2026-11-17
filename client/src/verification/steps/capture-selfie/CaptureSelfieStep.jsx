@@ -23,9 +23,82 @@ const CHALLENGE_LABELS = {
   blink: 'Blink once',
 };
 const FRAME_INTERVAL_MS = 260;
-const QUALITY_RETRY_MS = 550;
+const QUALITY_RETRY_MS = 280;
 const FACE_ID_TICK_COUNT = 60;
-const REQUIRED_FULL_FACE_STREAK = 2;
+const REQUIRED_FULL_FACE_STREAK = 1;
+const REQUIRED_PASSPORT_STREAK = 2;
+const CAPTURE_FRAME_MAX_SIZE = 512;
+const AUTO_LIGHTING_MIN_LUMA = 18;
+const AUTO_LIGHTING_MAX_LUMA = 100;
+const LOW_LIGHT_WARNING_LUMA = 35;
+
+const BLOCKING_GUIDANCES = new Set([
+  'no_face',
+  'multiple_faces',
+  'spoof_detected',
+  'too_dark',
+  'too_bright',
+  'connection',
+]);
+
+function isBlockingFaceGuidance(guidance) {
+  return BLOCKING_GUIDANCES.has(guidance);
+}
+
+function isSpoofResult(result) {
+  return Boolean(result && (result.spoofDetected === true || result.guidance === 'spoof_detected'));
+}
+
+function measureCanvasLuminance(pixels) {
+  const totalPixels = pixels.length / 4;
+  if (!totalPixels) return 128;
+  const pixelStep = Math.max(1, Math.floor(totalPixels / 2048));
+  const byteStep = pixelStep * 4;
+  let sum = 0;
+  let count = 0;
+  for (let i = 0; i < pixels.length; i += byteStep) {
+    sum += 0.2126 * pixels[i] + 0.7152 * pixels[i + 1] + 0.0722 * pixels[i + 2];
+    count += 1;
+  }
+  return count > 0 ? sum / count : 128;
+}
+
+function computeAdaptiveGamma(luma) {
+  if (luma < AUTO_LIGHTING_MIN_LUMA || luma >= AUTO_LIGHTING_MAX_LUMA) {
+    return 1;
+  }
+  const dimFactor = (AUTO_LIGHTING_MAX_LUMA - luma) / (AUTO_LIGHTING_MAX_LUMA - AUTO_LIGHTING_MIN_LUMA);
+  return 1 - 0.34 * dimFactor;
+}
+
+function applyGammaLutToPixels(pixels, gamma) {
+  const lut = new Uint8ClampedArray(256);
+  for (let v = 0; v < 256; v += 1) {
+    lut[v] = Math.round(255 * ((v / 255) ** gamma));
+  }
+  for (let i = 0; i < pixels.length; i += 4) {
+    pixels[i] = lut[pixels[i]];
+    pixels[i + 1] = lut[pixels[i + 1]];
+    pixels[i + 2] = lut[pixels[i + 2]];
+  }
+}
+
+function computePreviewLighting(smoothLuma) {
+  if (
+    typeof smoothLuma !== 'number' ||
+    smoothLuma < AUTO_LIGHTING_MIN_LUMA ||
+    smoothLuma >= AUTO_LIGHTING_MAX_LUMA
+  ) {
+    return { active: false, filter: 'none' };
+  }
+  const dimFactor = (AUTO_LIGHTING_MAX_LUMA - smoothLuma) / (AUTO_LIGHTING_MAX_LUMA - AUTO_LIGHTING_MIN_LUMA);
+  const cssBrightness = (1 + 0.34 * dimFactor).toFixed(2);
+  const cssContrast = (1 + 0.08 * dimFactor).toFixed(2);
+  return {
+    active: true,
+    filter: `brightness(${cssBrightness}) contrast(${cssContrast})`,
+  };
+}
 
 function getTransientRetryDelay(failureCount) {
   return Math.min(1000 * (2 ** Math.max(0, failureCount - 1)), 8000);
@@ -63,6 +136,7 @@ async function readVerificationResponse(response) {
         : `The verification request failed (HTTP ${response.status}).`
     );
     error.status = response.status;
+    error.data = result;
     throw error;
   }
   if (!result || typeof result !== 'object' || Array.isArray(result)) {
@@ -106,6 +180,8 @@ export default function CaptureSelfieStep() {
   const [awaitingFinalSelfie, setAwaitingFinalSelfie] = useState(false);
   const [faceIdCompleted, setFaceIdCompleted] = useState(false);
   const [lowLightWarning, setLowLightWarning] = useState(false);
+  const [autoLightingActive, setAutoLightingActive] = useState(false);
+  const [videoLightingFilter, setVideoLightingFilter] = useState('none');
   const [retry, setRetry] = useState(0);
 
   const videoRef = useRef(null);
@@ -121,6 +197,7 @@ export default function CaptureSelfieStep() {
   const completionTimerRef = useRef(null);
   const frameBusyRef = useRef(false);
   const transientFailuresRef = useRef(0);
+  const consecutiveBadFrameErrorsRef = useRef(0);
   const retryDelayRef = useRef(FRAME_INTERVAL_MS);
   const faceReadyRef = useRef(false);
   const awaitingFinalSelfieRef = useRef(false);
@@ -130,6 +207,8 @@ export default function CaptureSelfieStep() {
   const discardRecordingRef = useRef(false);
   const consecutiveReadyStreakRef = useRef(0);
   const consecutivePassportStreakRef = useRef(0);
+  const smoothedLumaRef = useRef(null);
+  const lastRawLumaRef = useRef(null);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -139,41 +218,54 @@ export default function CaptureSelfieStep() {
     setStream(null);
   }, []);
 
-  const captureFrame = useCallback(async () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video?.videoWidth || !video?.videoHeight || !canvas) return null;
-    const scale = Math.min(1, 640 / Math.max(video.videoWidth, video.videoHeight));
-    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-    const context = canvas.getContext('2d');
-    if (!context) return null;
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.82));
+  const updateLightingTelemetry = useCallback((rawLuma) => {
+    lastRawLumaRef.current = rawLuma;
+    const prevLuma = smoothedLumaRef.current;
+    const smoothLuma = prevLuma === null ? rawLuma : prevLuma * 0.6 + rawLuma * 0.4;
+    smoothedLumaRef.current = smoothLuma;
+    const { active, filter } = computePreviewLighting(smoothLuma);
+    setAutoLightingActive(active);
+    setVideoLightingFilter(prev => (prev === filter ? prev : filter));
   }, []);
 
-  const captureSelfieFrame = useCallback(async () => {
+  const captureSquareFrame = useCallback(async ({ maxSize, jpegQuality }) => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video?.videoWidth || !video?.videoHeight || !canvas) return null;
-    const size = Math.min(video.videoWidth, video.videoHeight);
-    canvas.width = size;
-    canvas.height = size;
-    const context = canvas.getContext('2d');
+    const sourceSize = Math.min(video.videoWidth, video.videoHeight);
+    const sx = (video.videoWidth - sourceSize) / 2;
+    const sy = (video.videoHeight - sourceSize) / 2;
+    const targetSize = maxSize ? Math.max(1, Math.min(maxSize, sourceSize)) : sourceSize;
+    canvas.width = targetSize;
+    canvas.height = targetSize;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
     if (!context) return null;
-    context.drawImage(
-      video,
-      (video.videoWidth - size) / 2,
-      (video.videoHeight - size) / 2,
-      size,
-      size,
-      0,
-      0,
-      size,
-      size
-    );
-    return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
-  }, []);
+    // Keep the uploaded frame un-mirrored while matching the centered 1:1 viewport crop.
+    context.drawImage(video, sx, sy, sourceSize, sourceSize, 0, 0, targetSize, targetSize);
+    try {
+      const imageData = context.getImageData(0, 0, targetSize, targetSize);
+      const rawLuma = measureCanvasLuminance(imageData.data);
+      updateLightingTelemetry(rawLuma);
+      const gamma = computeAdaptiveGamma(rawLuma);
+      if (gamma < 1) {
+        applyGammaLutToPixels(imageData.data, gamma);
+        context.putImageData(imageData, 0, 0);
+      }
+    } catch {
+      // Ignore readback errors and still encode the cropped frame
+    }
+    return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', jpegQuality));
+  }, [updateLightingTelemetry]);
+
+  const captureFrame = useCallback(
+    () => captureSquareFrame({ maxSize: CAPTURE_FRAME_MAX_SIZE, jpegQuality: 0.82 }),
+    [captureSquareFrame]
+  );
+
+  const captureSelfieFrame = useCallback(
+    () => captureSquareFrame({ maxSize: null, jpegQuality: 0.92 }),
+    [captureSquareFrame]
+  );
 
   const failCapture = useCallback((message) => {
     if (finishedRef.current) return;
@@ -245,6 +337,57 @@ export default function CaptureSelfieStep() {
     stopCamera,
   ]);
 
+  const isLowLightResult = useCallback((result) => (
+    (typeof lastRawLumaRef.current === 'number' && lastRawLumaRef.current < LOW_LIGHT_WARNING_LUMA) ||
+    (typeof result?.quality?.brightness === 'number' && result.quality.brightness < LOW_LIGHT_WARNING_LUMA)
+  ), []);
+
+  const handleFrameRequestError = useCallback((error, { defaultGuidance, unavailableMessage, fallbackMessage }) => {
+    if (error.status === 429) {
+      failCapture(error.message || 'Too many camera checks. Please restart verification later.');
+      return false;
+    }
+    if (error.status >= 500 || isVerificationFetchError(error)) {
+      transientFailuresRef.current += 1;
+      retryDelayRef.current = getTransientRetryDelay(transientFailuresRef.current);
+      if (transientFailuresRef.current >= 10) {
+        failCapture(isVerificationFetchError(error)
+          ? VERIFICATION_CONNECTION_ERROR
+          : error.message || unavailableMessage);
+        return false;
+      }
+      setFaceGuidance('connection');
+      return true;
+    }
+    if (error.status === 400) {
+      consecutiveBadFrameErrorsRef.current += 1;
+      const msg = String(error.message || '');
+      const isReplay = Boolean(error.data?.replayDetected) || /static or identical/i.test(msg);
+      const isTooDark = /too dark/i.test(msg);
+      const isSessionTerminal = /unavailable|expired|restart/i.test(msg);
+      if (!isSessionTerminal && isReplay && consecutiveBadFrameErrorsRef.current < 10) {
+        retryDelayRef.current = QUALITY_RETRY_MS;
+        setFaceGuidance('perform_action');
+        return true;
+      }
+      if (!isSessionTerminal && isTooDark && consecutiveBadFrameErrorsRef.current < 10) {
+        retryDelayRef.current = QUALITY_RETRY_MS;
+        setLowLightWarning(true);
+        setFaceGuidance('too_dark');
+        return true;
+      }
+      if (!isSessionTerminal && consecutiveBadFrameErrorsRef.current < 4) {
+        retryDelayRef.current = QUALITY_RETRY_MS;
+        setFaceGuidance(error.data?.guidance || defaultGuidance);
+        return true;
+      }
+    }
+    failCapture(isVerificationFetchError(error)
+      ? VERIFICATION_CONNECTION_ERROR
+      : error.message || fallbackMessage);
+    return false;
+  }, [failCapture]);
+
   const captureFinalSelfie = useCallback(async () => {
     if (!awaitingFinalSelfieRef.current || frameBusyRef.current || finishedRef.current) return;
     if (Date.now() - finalSelfieStartedAtRef.current > 90_000) {
@@ -273,14 +416,20 @@ export default function CaptureSelfieStep() {
       }
 
       transientFailuresRef.current = 0;
+      consecutiveBadFrameErrorsRef.current = 0;
+      setLowLightWarning(isLowLightResult(result));
+      if (isSpoofResult(result)) {
+        consecutivePassportStreakRef.current = 0;
+        retryDelayRef.current = QUALITY_RETRY_MS;
+        setFaceGuidance('spoof_detected');
+        return;
+      }
+
       retryDelayRef.current = result.ready ? FRAME_INTERVAL_MS : QUALITY_RETRY_MS;
       setFaceGuidance(result.guidance || (result.ready ? 'ready' : 'hold_still'));
-      setLowLightWarning(
-        typeof result.quality?.brightness === 'number' && result.quality.brightness < 35
-      );
       if (result.ready) {
         consecutivePassportStreakRef.current += 1;
-        if (consecutivePassportStreakRef.current >= REQUIRED_FULL_FACE_STREAK) {
+        if (consecutivePassportStreakRef.current >= REQUIRED_PASSPORT_STREAK) {
           const selfie = await blobToDataUrl(frame);
           awaitingFinalSelfieRef.current = false;
           setAwaitingFinalSelfie(false);
@@ -290,25 +439,11 @@ export default function CaptureSelfieStep() {
         consecutivePassportStreakRef.current = 0;
       }
     } catch (error) {
-      if (error.status === 429) {
-        failCapture(error.message || 'Too many camera checks. Please restart verification later.');
-        return;
-      }
-      if (error.status >= 500 || isVerificationFetchError(error)) {
-        transientFailuresRef.current += 1;
-        retryDelayRef.current = getTransientRetryDelay(transientFailuresRef.current);
-        if (transientFailuresRef.current >= 10) {
-          failCapture(isVerificationFetchError(error)
-            ? VERIFICATION_CONNECTION_ERROR
-            : error.message || 'The final selfie quality check is temporarily unavailable.');
-          return;
-        }
-        setFaceGuidance('connection');
-      } else {
-        failCapture(isVerificationFetchError(error)
-          ? VERIFICATION_CONNECTION_ERROR
-          : error.message || 'The final selfie could not be checked.');
-      }
+      handleFrameRequestError(error, {
+        defaultGuidance: 'hold_still',
+        unavailableMessage: 'The final selfie quality check is temporarily unavailable.',
+        fallbackMessage: 'The final selfie could not be checked.',
+      });
     } finally {
       frameBusyRef.current = false;
       if (awaitingFinalSelfieRef.current && !finishedRef.current) {
@@ -318,7 +453,7 @@ export default function CaptureSelfieStep() {
         );
       }
     }
-  }, [accessHeaders, captureSelfieFrame, completeCapture, failCapture]);
+  }, [accessHeaders, captureSelfieFrame, completeCapture, failCapture, handleFrameRequestError, isLowLightResult]);
 
   const submitChallengeFrame = useCallback(async () => {
     const session = sessionRef.current;
@@ -326,7 +461,10 @@ export default function CaptureSelfieStep() {
     frameBusyRef.current = true;
     try {
       const frame = await captureFrame();
-      if (!frame) throw new Error('Waiting for a camera frame. Keep your face inside the circle.');
+      if (!frame) {
+        setFaceGuidance('checking');
+        return;
+      }
       const body = new FormData();
       body.append('frame', frame, 'frame.jpg');
       const response = await fetch(
@@ -342,8 +480,16 @@ export default function CaptureSelfieStep() {
         throw new Error('The verification server returned an invalid liveness result.');
       }
       transientFailuresRef.current = 0;
-      retryDelayRef.current = FRAME_INTERVAL_MS;
+      consecutiveBadFrameErrorsRef.current = 0;
+      setLowLightWarning(isLowLightResult(result));
 
+      if (isSpoofResult(result)) {
+        retryDelayRef.current = QUALITY_RETRY_MS;
+        setFaceGuidance('spoof_detected');
+        return;
+      }
+
+      retryDelayRef.current = FRAME_INTERVAL_MS;
       const passedIndex = session.challenges.length - result.challengesRemaining - (result.passed ? 1 : 0);
       if (result.passed) {
         setFaceReady(true);
@@ -371,18 +517,11 @@ export default function CaptureSelfieStep() {
         failCapture(`We could not detect ${action.toLowerCase()} in time. Keep your face in view and follow the prompt slowly, then try again.`);
       }
     } catch (error) {
-      const retryable = isVerificationFetchError(error) || error.status >= 500;
-      if (retryable && transientFailuresRef.current < 10) {
-        transientFailuresRef.current += 1;
-        retryDelayRef.current = getTransientRetryDelay(transientFailuresRef.current);
-        setFaceGuidance('connection');
-      } else if (error.status === 429) {
-        failCapture(error.message || 'Too many camera checks. Please restart verification later.');
-      } else {
-        failCapture(isVerificationFetchError(error)
-          ? VERIFICATION_CONNECTION_ERROR
-          : error.message || 'The liveness check could not process the camera.');
-      }
+      handleFrameRequestError(error, {
+        defaultGuidance: 'perform_action',
+        unavailableMessage: 'The liveness check is temporarily unavailable.',
+        fallbackMessage: 'The liveness check could not process the camera.',
+      });
     } finally {
       frameBusyRef.current = false;
       if (!finishedRef.current) {
@@ -398,7 +537,7 @@ export default function CaptureSelfieStep() {
         );
       }
     }
-  }, [accessHeaders, captureFrame, failCapture]);
+  }, [accessHeaders, captureFrame, failCapture, handleFrameRequestError, isLowLightResult]);
 
   useEffect(() => {
     submitChallengeFrameRef.current = submitChallengeFrame;
@@ -415,6 +554,9 @@ export default function CaptureSelfieStep() {
     frameBusyRef.current = false;
     awaitingFinalSelfieRef.current = false;
     transientFailuresRef.current = 0;
+    consecutiveBadFrameErrorsRef.current = 0;
+    smoothedLumaRef.current = null;
+    lastRawLumaRef.current = null;
     retryDelayRef.current = FRAME_INTERVAL_MS;
     chunksRef.current = [];
 
@@ -529,7 +671,9 @@ export default function CaptureSelfieStep() {
     const inspectFrame = async () => {
       if (cancelled || finishedRef.current || faceReadyRef.current) return;
       try {
-        await video.play();
+        if (video.paused) {
+          await video.play();
+        }
         const frame = await captureFrame();
         if (!frame) {
           setFaceGuidance('checking');
@@ -550,41 +694,36 @@ export default function CaptureSelfieStep() {
         }
         if (cancelled) return;
         transientFailuresRef.current = 0;
+        consecutiveBadFrameErrorsRef.current = 0;
         retryDelayRef.current = QUALITY_RETRY_MS;
-        setLowLightWarning(typeof result.quality?.brightness === 'number' && result.quality.brightness < 35);
-        if (result.ready) {
-          consecutiveReadyStreakRef.current += 1;
-        } else {
+        setLowLightWarning(isLowLightResult(result));
+        if (isSpoofResult(result)) {
           consecutiveReadyStreakRef.current = 0;
-        }
-        const confirmedReady = result.ready && consecutiveReadyStreakRef.current >= REQUIRED_FULL_FACE_STREAK;
-        faceReadyRef.current = confirmedReady;
-        setFaceGuidance(confirmedReady ? 'ready' : (result.guidance || 'checking'));
-        if (confirmedReady) {
-          setFaceReady(true);
-          startRecording();
-          return;
+          faceReadyRef.current = false;
+          setFaceReady(false);
+          setFaceGuidance('spoof_detected');
+        } else {
+          if (result.ready) {
+            consecutiveReadyStreakRef.current += 1;
+          } else {
+            consecutiveReadyStreakRef.current = 0;
+          }
+          const confirmedReady = result.ready && consecutiveReadyStreakRef.current >= REQUIRED_FULL_FACE_STREAK;
+          faceReadyRef.current = confirmedReady;
+          setFaceGuidance(confirmedReady ? 'ready' : (result.guidance || 'checking'));
+          if (confirmedReady) {
+            setFaceReady(true);
+            startRecording();
+            return;
+          }
         }
       } catch (error) {
         if (cancelled) return;
-        if (error.status === 429) {
-          failCapture(error.message || 'Too many camera checks. Please restart verification later.');
-          return;
-        }
-        if (error.status >= 500 || isVerificationFetchError(error)) {
-          transientFailuresRef.current += 1;
-          retryDelayRef.current = getTransientRetryDelay(transientFailuresRef.current);
-          if (transientFailuresRef.current >= 10) {
-            failCapture(isVerificationFetchError(error)
-              ? VERIFICATION_CONNECTION_ERROR
-              : error.message || 'The camera quality check is temporarily unavailable.');
-            return;
-          }
-          setFaceGuidance('connection');
-        } else {
-          failCapture(error.message || 'The camera quality check could not process the frame.');
-          return;
-        }
+        handleFrameRequestError(error, {
+          defaultGuidance: 'checking',
+          unavailableMessage: 'The camera quality check is temporarily unavailable.',
+          fallbackMessage: 'The camera quality check could not process the frame.',
+        });
       }
       if (!finishedRef.current) {
         qualityTimer = window.setTimeout(inspectFrame, retryDelayRef.current);
@@ -592,20 +731,24 @@ export default function CaptureSelfieStep() {
     };
 
     video.play().then(inspectFrame).catch(error => {
-      failCapture(error.message || 'The camera preview could not start.');
+      if (!cancelled) {
+        failCapture(error.message || 'The camera preview could not start.');
+      }
     });
     return () => {
       cancelled = true;
       window.clearTimeout(qualityTimer);
       video.srcObject = null;
     };
-  }, [accessHeaders, captureFrame, stream, failCapture, setLivenessSessionId]);
+  }, [accessHeaders, captureFrame, stream, failCapture, handleFrameRequestError, isLowLightResult, setLivenessSessionId]);
 
   const handleBack = () => {
     prevStep();
   };
 
   const handleRetry = () => {
+    window.clearTimeout(pollTimerRef.current);
+    window.clearTimeout(challengePassedTimerRef.current);
     window.clearTimeout(completionTimerRef.current);
     setCameraError('');
     setChallenges([]);
@@ -617,9 +760,15 @@ export default function CaptureSelfieStep() {
     faceReadyRef.current = false;
     consecutiveReadyStreakRef.current = 0;
     consecutivePassportStreakRef.current = 0;
+    consecutiveBadFrameErrorsRef.current = 0;
+    smoothedLumaRef.current = null;
+    lastRawLumaRef.current = null;
     awaitingFinalSelfieRef.current = false;
     setAwaitingFinalSelfie(false);
     setFaceIdCompleted(false);
+    setLowLightWarning(false);
+    setAutoLightingActive(false);
+    setVideoLightingFilter('none');
     setFaceGuidance('checking');
     setLivenessSessionId(null);
     setCapturedSelfie(null);
@@ -643,7 +792,7 @@ export default function CaptureSelfieStep() {
   const activeTickCount = Math.round(progressRatio * FACE_ID_TICK_COUNT);
 
   const guidance = {
-    no_face: 'Position your face within the frame.',
+    no_face: 'Center your whole face clearly inside the circle.',
     multiple_faces: 'Only one person should be in the frame.',
     move_closer: 'Move your face a little closer.',
     move_back: 'Move the camera slightly farther away.',
@@ -651,12 +800,16 @@ export default function CaptureSelfieStep() {
     center_right: 'Move your face slightly right.',
     center_lower: 'Lower the camera slightly.',
     center_upper: 'Raise the camera slightly.',
+    too_dark: 'Move to a brighter spot or turn on a front light so your face is clearly visible.',
+    too_bright: 'Avoid strong backlight or direct glare behind your face.',
+    spoof_detected: 'Use your live camera directly — avoid holding up a photo or screen.',
     perform_action: 'Perform the prompted movement clearly.',
     hold_still: 'Look straight ahead cleanly for a passport-quality photo.',
     connection: 'Reconnecting to the verification check...',
-    checking: 'Position your face within the frame.',
+    checking: 'Hold steady while we inspect your camera feed.',
     ready: 'Face detected cleanly.',
-  }[faceGuidance] || 'Position your face within the frame.';
+    passed: 'Great, moving to the next prompt.',
+  }[faceGuidance] || 'Center your whole face clearly inside the circle.';
 
   const guidanceTitle = {
     no_face: 'Position your face within the frame',
@@ -667,13 +820,18 @@ export default function CaptureSelfieStep() {
     center_right: 'Shift slightly right',
     center_lower: 'Lower camera slightly',
     center_upper: 'Raise camera slightly',
+    too_dark: 'Lighting is too dark',
+    too_bright: 'Lighting is too bright',
+    spoof_detected: 'Live face required',
     perform_action: 'Follow the camera prompt',
     hold_still: 'Look straight ahead cleanly',
     connection: 'Reconnecting...',
-    checking: 'Position your face within the frame',
+    checking: 'Checking camera...',
     ready: 'Face detected',
+    passed: 'Prompt complete',
   }[faceGuidance] || 'Position your face within the frame';
 
+  const blockingGuidance = isBlockingFaceGuidance(faceGuidance);
   const directionIcon = {
     center_left: ArrowLeft,
     center_right: ArrowRight,
@@ -686,8 +844,8 @@ export default function CaptureSelfieStep() {
       ? ArrowRight
       : null;
   const ringDirectionIcon = isRecording && !challengePassed && !awaitingFinalSelfie && !faceIdCompleted
-    ? challengeDirectionIcon
-    : !faceReady && !faceIdCompleted
+    ? (blockingGuidance ? null : challengeDirectionIcon)
+    : (!faceReady || awaitingFinalSelfie) && !faceIdCompleted
       ? directionIcon
       : null;
   const ringDirectionPosition = ringDirectionIcon === ArrowLeft
@@ -705,9 +863,11 @@ export default function CaptureSelfieStep() {
     : faceIdCompleted
       ? 'Selfie Captured'
       : awaitingFinalSelfie
-        ? 'Look straight ahead cleanly'
+        ? faceGuidance === 'hold_still' || faceGuidance === 'ready' || faceGuidance === 'checking'
+          ? 'Look straight ahead cleanly'
+          : guidanceTitle
         : faceReady
-          ? faceGuidance === 'no_face' || faceGuidance === 'multiple_faces'
+          ? blockingGuidance
             ? guidanceTitle
             : challengeLabel
           : guidanceTitle;
@@ -721,7 +881,7 @@ export default function CaptureSelfieStep() {
           ? 'Capturing passport-quality portrait...'
           : guidance
         : faceReady
-          ? faceGuidance === 'no_face' || faceGuidance === 'multiple_faces'
+          ? blockingGuidance
             ? guidance
             : 'Follow the movement clearly with your face inside the circle.'
           : guidance;
@@ -799,6 +959,10 @@ export default function CaptureSelfieStep() {
                     playsInline
                     muted
                     className="h-full w-full scale-x-[-1] object-cover"
+                    style={{
+                      filter: videoLightingFilter,
+                      transition: 'filter 300ms ease-out',
+                    }}
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center bg-neutral-100">
@@ -815,9 +979,11 @@ export default function CaptureSelfieStep() {
                   <div
                     aria-hidden="true"
                     className={`pointer-events-none absolute inset-3 rounded-full border border-dashed transition-colors duration-500 ${
-                      faceReady && faceGuidance !== 'no_face'
-                        ? 'border-[#1ED760]/75'
-                        : 'border-white/60'
+                      faceGuidance === 'spoof_detected' || faceGuidance === 'too_dark' || faceGuidance === 'too_bright'
+                        ? 'border-amber-400/80'
+                        : faceReady && !blockingGuidance
+                          ? 'border-[#1ED760]/75'
+                          : 'border-white/60'
                     }`}
                   />
                 )}
@@ -916,11 +1082,15 @@ export default function CaptureSelfieStep() {
               {secondaryInstruction}
             </p>
 
-            {lowLightWarning && !cameraError && !faceIdCompleted && (
+            {!cameraError && !faceIdCompleted && lowLightWarning ? (
               <div className="mt-3 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[11.5px] font-medium text-amber-800">
                 Brighter lighting can help speed up detection
               </div>
-            )}
+            ) : !cameraError && !faceIdCompleted && autoLightingActive ? (
+              <div className="mt-3 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-[11px] font-medium text-neutral-600">
+                Auto-lighting balanced for dim room
+              </div>
+            ) : null}
           </div>
 
           {cameraError && (

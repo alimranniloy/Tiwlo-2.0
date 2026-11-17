@@ -8,6 +8,7 @@ import {
   getCategoryMetrics,
   renameCategoryReferences,
   renameSubcategoryReferences,
+  sanitizeProductDescription,
   validateSellingPrice,
   validateStock
 } from './catalogHelpers.js';
@@ -96,4 +97,34 @@ test('stock validation accepts non-negative whole units and rejects invalid inve
   assert.equal(validateStock(-1).valid, false);
   assert.equal(validateStock(1.5).valid, false);
   assert.equal(validateStock('not-a-number').valid, false);
+});
+
+test('product description sanitization strips XSS vectors and keeps safe formatting HTML', () => {
+  const dirty = [
+    '<h2>Specs</h2>',
+    '<script>alert(1)</script>',
+    '<style>body{display:none}</style>',
+    '<iframe src="https://evil.example"></iframe>',
+    '<svg onload="alert(2)"><circle /></svg>',
+    '<img src="https://cdn.example.com/item.png" onerror="alert(3)" alt="Item">',
+    '<img src="javascript:alert(4)" alt="Bad">',
+    '<img src="data:text/html,<script>alert(5)</script>">',
+    '<p onclick="evil()">Cotton <strong>shirt</strong></p>',
+    '<a href="javascript:alert(6)">Bad link</a>',
+    '<a href="//evil.example/phish">Proto-rel</a>',
+    '<a href="https://docs.example.com">Guide</a>',
+    '<table><thead><tr><th>Key</th><th>Val</th></tr></thead><tbody><tr><td>Size</td><td>M</td></tr></tbody></table>'
+  ].join('');
+
+  const clean = sanitizeProductDescription(dirty);
+  assert.match(clean, /<h2>Specs<\/h2>/);
+  assert.match(clean, /<strong>shirt<\/strong>/);
+  assert.match(clean, /<img src="https:\/\/cdn\.example\.com\/item\.png" alt="Item" \/>/);
+  assert.match(clean, /<a href="https:\/\/docs\.example\.com" rel="noopener noreferrer" target="_blank">Guide<\/a>/);
+  assert.match(clean, /<table><thead><tr><th>Key<\/th><th>Val<\/th><\/tr><\/thead><tbody><tr><td>Size<\/td><td>M<\/td><\/tr><\/tbody><\/table>/);
+  assert.doesNotMatch(clean, /<script|<style|<iframe|<svg|onerror|onclick|javascript:|data:text\/html|\/\/evil\.example/i);
+
+  assert.equal(sanitizeProductDescription(null), '');
+  assert.equal(sanitizeProductDescription(undefined), '');
+  assert.equal(sanitizeProductDescription({ html: '<p>x</p>' }), '');
 });

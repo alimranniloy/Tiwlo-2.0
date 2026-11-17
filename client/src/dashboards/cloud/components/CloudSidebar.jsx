@@ -35,14 +35,17 @@ import {
 export default function CloudSidebar({
   activeNav = 'dashboard',
   setActiveNav,
+  currentUser,
   userStores = [],
-  currentStore,
+  serviceSubscriptions = {},
   onOpenCreateStore,
   onOpenCreateDroplet,
   onNavigateTab,
   mobileOpen = false,
   setMobileOpen
 }) {
+  const hasWhatsappSub = Boolean(serviceSubscriptions?.whatsapp?.isActive);
+  const hasDiscordSub = Boolean(serviceSubscriptions?.discord?.isActive);
   const closeMobile = () => setMobileOpen?.(false);
 
   const selectNav = (id) => {
@@ -76,8 +79,8 @@ export default function CloudSidebar({
         { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag },
         { id: 'email', label: 'tMail', icon: Mail, navigateTab: true },
         { id: 'oneprofile', label: 'OneProfile', icon: UserRound, navigateTab: true },
-        { id: 'whatsapp-automation', label: 'WhatsApp Automation', icon: MessageCircle },
-        { id: 'discord', label: 'Discord Console', icon: Bot, navigateTab: true },
+        ...(hasWhatsappSub ? [{ id: 'whatsapp-automation', label: 'WhatsApp Automation', icon: MessageCircle }] : []),
+        ...(hasDiscordSub ? [{ id: 'discord', label: 'Discord Console', icon: Bot, navigateTab: true }] : []),
       ],
     },
     {
@@ -109,7 +112,7 @@ export default function CloudSidebar({
       label: 'Account',
       items: [
         { id: 'identity', label: 'Identity', icon: Fingerprint },
-        { id: 'profile-settings', label: 'Profile Settings', icon: UserRound },
+        { id: 'profile-settings', label: 'User Settings', icon: UserRound },
         { id: 'two-factor-auth', label: 'Two-Factor Auth (2FA)', icon: KeyRound },
         { id: 'team-management', label: 'Team Management', icon: Users },
         { id: 'help-support', label: 'Help & support', icon: HelpCircle },
@@ -153,7 +156,15 @@ export default function CloudSidebar({
     );
   };
 
-  const storeName = currentStore?.storeName || userStores[0]?.storeName || 'Tiwlo Workspace';
+  const accountName = currentUser?.name || currentUser?.email?.split('@')[0] || 'Tiwlo User';
+  const accountSubtitle = currentUser?.tiwiId
+    ? `Tiwlo Account · ${currentUser.tiwiId}`
+    : `Tiwlo Account · ${currentUser?.planName || 'Workspace'}`;
+  const accountInitials = (
+    accountName.trim().split(/\s+/).length > 1
+      ? (accountName.match(/\b\w/g) || []).slice(0, 2).join('')
+      : accountName.slice(0, 2)
+  ).toUpperCase() || 'TU';
 
   return (
     <>
@@ -189,16 +200,16 @@ export default function CloudSidebar({
 
         <button
           type="button"
-          onClick={() => selectNav('my-online-store')}
+          onClick={() => selectNav('profile-settings')}
           className="flex w-full items-center gap-3 rounded-xl bg-white/5 p-2.5 text-left ring-1 ring-white/10 transition hover:bg-white/10"
         >
           <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#1ed760] text-sm font-bold text-black">
-            {storeName.slice(0, 2).toUpperCase()}
+            {accountInitials}
           </span>
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-sm font-semibold text-white">{storeName}</span>
+            <span className="truncate text-sm font-semibold text-white">{accountName}</span>
             <span className="truncate text-xs text-white/50">
-              Cloud · {currentStore?.planName || currentStore?.planId || 'Workspace'}
+              {accountSubtitle}
             </span>
           </span>
           <ChevronsUpDown className="size-4 shrink-0 text-white/50" aria-hidden="true" />

@@ -473,6 +473,195 @@ export function clearGuestSupportCookie(res, req = null) {
   });
 }
 
+export const ALLOWED_SUPPORT_ATTACHMENT_EXTS = new Set([
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'txt', 'csv', 'json', 'zip', 'log'
+]);
+
+export const SAFE_INLINE_IMAGE_MIMES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/avif'
+]);
+
+export const SAFE_SUPPORT_DOWNLOAD_MIMES = new Set([
+  ...SAFE_INLINE_IMAGE_MIMES,
+  'application/pdf',
+  'text/plain',
+  'text/csv',
+  'application/json',
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/octet-stream'
+]);
+
+const EXT_TO_CANONICAL_MIME = Object.freeze({
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  pdf: 'application/pdf',
+  txt: 'text/plain',
+  log: 'text/plain',
+  csv: 'text/csv',
+  json: 'application/json',
+  zip: 'application/zip'
+});
+
+const MIME_EXT_FALLBACK = Object.freeze({
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+  'application/pdf': 'pdf',
+  'text/plain': 'txt',
+  'text/csv': 'csv',
+  'application/json': 'json',
+  'application/zip': 'zip',
+  'application/x-zip-compressed': 'zip'
+});
+
+const ALLOWED_CLIENT_ATTACHMENT_MIMES = new Set([
+  ...Object.keys(MIME_EXT_FALLBACK),
+  'application/octet-stream'
+]);
+
+export function startsWithActiveMarkupOrScript(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length === 0) return false;
+  const head = buf.subarray(0, 256).toString('utf8').replace(/^\uFEFF/, '').trimStart().toLowerCase();
+  return (
+    head.startsWith('<!doctype') ||
+    head.startsWith('<html') ||
+    head.startsWith('<svg') ||
+    head.startsWith('<script') ||
+    head.startsWith('<?xml')
+  );
+}
+
+function matchesAttachmentMagicBytes(ext, buf) {
+  if (!Buffer.isBuffer(buf) || buf.length === 0) return false;
+  if (ext === 'png') {
+    return (
+      buf.length >= 8 &&
+      buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47 &&
+      buf[4] === 0x0d && buf[5] === 0x0a && buf[6] === 0x1a && buf[7] === 0x0a
+    );
+  }
+  if (ext === 'jpg' || ext === 'jpeg') {
+    return buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+  }
+  if (ext === 'gif') {
+    const sig = buf.subarray(0, 6).toString('ascii');
+    return sig === 'GIF87a' || sig === 'GIF89a';
+  }
+  if (ext === 'webp') {
+    return (
+      buf.length >= 12 &&
+      buf.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      buf.subarray(8, 12).toString('ascii') === 'WEBP'
+    );
+  }
+  if (ext === 'pdf') {
+    return buf.subarray(0, 5).toString('ascii') === '%PDF-';
+  }
+  if (ext === 'zip') {
+    return (
+      buf.length >= 4 &&
+      buf[0] === 0x50 &&
+      buf[1] === 0x4b &&
+      ((buf[2] === 0x03 && buf[3] === 0x04) ||
+        (buf[2] === 0x05 && buf[3] === 0x06) ||
+        (buf[2] === 0x07 && buf[3] === 0x08))
+    );
+  }
+  return true;
+}
+
+/**
+ * Validate a support attachment filename, client MIME hint, and optional buffer
+ * against the safe allowlist, returning a sanitized filename and canonical MIME type.
+ */
+export function validateSupportAttachment({
+  filename,
+  contentType,
+  mimeType,
+  mimetype,
+  buffer = null,
+  maxBytes = 5 * 1024 * 1024
+} = {}) {
+  let safeName = String(filename || 'attachment')
+    .split(/[\\/]/)
+    .pop()
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .slice(0, 140) || 'attachment';
+
+  const rawClientMime = String(mimeType || contentType || mimetype || '')
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
+
+  if (
+    rawClientMime &&
+    (!ALLOWED_CLIENT_ATTACHMENT_MIMES.has(rawClientMime) ||
+      /html|svg|javascript|ecmascript|xml/.test(rawClientMime))
+  ) {
+    throw new SupportServiceError(`Attachment content type "${rawClientMime}" is not allowed.`, {
+      statusCode: 400,
+      code: 'INVALID_ATTACHMENT_TYPE'
+    });
+  }
+
+  let ext = safeName.includes('.') ? safeName.split('.').pop().toLowerCase() : '';
+  if (ext && !ALLOWED_SUPPORT_ATTACHMENT_EXTS.has(ext)) {
+    throw new SupportServiceError(`File type ".${ext}" is not allowed for support attachments.`, {
+      statusCode: 400,
+      code: 'INVALID_ATTACHMENT_TYPE'
+    });
+  }
+  if (!ext) {
+    if (rawClientMime && MIME_EXT_FALLBACK[rawClientMime]) {
+      ext = MIME_EXT_FALLBACK[rawClientMime];
+      safeName = `${safeName.replace(/\.+$/, '') || 'attachment'}.${ext}`;
+    } else {
+      throw new SupportServiceError('File type ".unknown" is not allowed for support attachments.', {
+        statusCode: 400,
+        code: 'INVALID_ATTACHMENT_TYPE'
+      });
+    }
+  }
+
+  let canonicalMime = EXT_TO_CANONICAL_MIME[ext] || 'application/octet-stream';
+  if (Buffer.isBuffer(buffer)) {
+    if (maxBytes && buffer.length > maxBytes) {
+      throw new SupportServiceError(`Attachment "${safeName}" exceeds ${Math.round(maxBytes / (1024 * 1024))}MB limit.`, {
+        statusCode: 400,
+        code: 'ATTACHMENT_TOO_LARGE'
+      });
+    }
+    const binaryCheckedExts = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'zip']);
+    if (binaryCheckedExts.has(ext)) {
+      if (startsWithActiveMarkupOrScript(buffer)) {
+        throw new SupportServiceError(`Attachment "${safeName}" contents are not allowed.`, {
+          statusCode: 400,
+          code: 'INVALID_ATTACHMENT_TYPE'
+        });
+      }
+      if (!matchesAttachmentMagicBytes(ext, buffer)) {
+        canonicalMime = 'application/octet-stream';
+      }
+    }
+  }
+
+  return {
+    filename: safeName,
+    ext,
+    mimeType: canonicalMime
+  };
+}
+
 export function createTicketingService(deps = {}) {
   const queryPgFn = deps.queryPg || defaultQueryPg;
   const isPgActiveFn = deps.isPgActive || (() => {
@@ -605,42 +794,10 @@ export function createTicketingService(deps = {}) {
     return { deleted: true, aliasPurgedAt: nextMeta.emailThreadPurgedAt };
   }
 
-  const ALLOWED_ATTACHMENT_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'txt', 'csv', 'json', 'zip', 'log']);
-  const MIME_EXT_FALLBACK = {
-    'image/png': 'png',
-    'image/jpeg': 'jpg',
-    'image/jpg': 'jpg',
-    'image/gif': 'gif',
-    'image/webp': 'webp',
-    'application/pdf': 'pdf',
-    'text/plain': 'txt',
-    'text/csv': 'csv',
-    'application/json': 'json',
-    'application/zip': 'zip',
-    'application/x-zip-compressed': 'zip'
-  };
   async function storeSupportAttachments(files = [], { ticketId = null, uploadedBy = null } = {}) {
     if (!Array.isArray(files) || files.length === 0) return [];
     const saved = [];
     for (const file of files.slice(0, 10)) {
-      const mimeTypeRaw = String(file?.mimeType || file?.contentType || file?.mimetype || 'application/octet-stream')
-        .split(';')[0]
-        .trim()
-        .toLowerCase();
-      let rawName = String(file?.filename || file?.name || file?.originalname || 'attachment')
-        .replace(/[^a-zA-Z0-9._-]/g, '_')
-        .slice(0, 140);
-      let ext = rawName.includes('.') ? rawName.split('.').pop().toLowerCase() : '';
-      if (!ALLOWED_ATTACHMENT_EXTS.has(ext) && MIME_EXT_FALLBACK[mimeTypeRaw]) {
-        ext = MIME_EXT_FALLBACK[mimeTypeRaw];
-        rawName = `${rawName.replace(/\.+$/, '') || 'attachment'}.${ext}`;
-      }
-      if (!ALLOWED_ATTACHMENT_EXTS.has(ext)) {
-        throw new SupportServiceError(`File type ".${ext || 'unknown'}" is not allowed for support attachments.`, {
-          statusCode: 400,
-          code: 'INVALID_ATTACHMENT_TYPE'
-        });
-      }
       const rawBase64 = String(file?.contentBase64 || file?.dataBase64 || '').replace(/^data:[^;]+;base64,/, '');
       let buf = null;
       if (file?.buffer instanceof Buffer) {
@@ -654,15 +811,18 @@ export function createTicketingService(deps = {}) {
       } else if (rawBase64) {
         buf = Buffer.from(rawBase64, 'base64');
       }
+      const validated = validateSupportAttachment({
+        filename: file?.filename || file?.name || file?.originalname,
+        mimeType: file?.mimeType,
+        contentType: file?.contentType,
+        mimetype: file?.mimetype,
+        buffer: buf,
+        maxBytes: 5 * 1024 * 1024
+      });
       if (!buf || buf.length === 0) continue;
-      if (buf.length > 5 * 1024 * 1024) {
-        throw new SupportServiceError(`Attachment "${rawName}" exceeds 5MB limit.`, {
-          statusCode: 400,
-          code: 'ATTACHMENT_TOO_LARGE'
-        });
-      }
+      const rawName = validated.filename;
       const attId = `supatt_${randomUUID()}`;
-      const mimeType = String(mimeTypeRaw || 'application/octet-stream').slice(0, 120);
+      const mimeType = String(validated.mimeType || 'application/octet-stream').slice(0, 120);
       const b64 = buf.toString('base64');
       if (isUsingPg()) {
         await ensureSupportEmailAndAttachmentSchema();
@@ -695,29 +855,79 @@ export function createTicketingService(deps = {}) {
     return saved;
   }
 
-  async function getSupportAttachmentById(attachmentId) {
+  async function getSupportAttachmentById(attachmentId, authContext = null) {
     const cleanId = String(attachmentId || '').trim();
     if (!cleanId) return null;
+    if (authContext && !authContext.authUser && !authContext.guestSession && !authContext.adminUser) {
+      throw new SupportServiceError('Authentication or verified guest support session required.', {
+        statusCode: 401,
+        code: 'GUEST_CONTACT_REQUIRED'
+      });
+    }
+
+    let attachment = null;
     if (isUsingPg()) {
       await ensureSupportEmailAndAttachmentSchema();
       const { rows } = await queryPgFn(`SELECT * FROM support_attachments WHERE id = $1 LIMIT 1`, [cleanId]);
       const r = rows?.[0];
       if (!r) return null;
-      return {
+      attachment = {
         id: r.id,
         ticketId: r.ticket_id,
         filename: r.filename,
         mimeType: r.mime_type,
         size: Number(r.size || 0),
+        uploadedBy: r.uploaded_by || null,
         buffer: Buffer.from(r.content_base64 || '', 'base64')
       };
+    } else {
+      const item = mem.attachments.get(cleanId);
+      if (!item) return null;
+      attachment = {
+        ...item,
+        buffer: Buffer.from(item.contentBase64 || '', 'base64')
+      };
     }
-    const item = mem.attachments.get(cleanId);
-    if (!item) return null;
-    return {
-      ...item,
-      buffer: Buffer.from(item.contentBase64 || '', 'base64')
-    };
+
+    if (authContext) {
+      if (attachment.ticketId) {
+        if (authContext.adminUser) {
+          await getTicketDetail(attachment.ticketId, {
+            viewerType: 'admin',
+            adminUser: authContext.adminUser,
+            adminProfile: authContext.adminProfile || null
+          });
+        } else {
+          await getTicketDetail(attachment.ticketId, {
+            viewerType: authContext.authUser ? 'customer' : 'guest',
+            authUser: authContext.authUser || null,
+            guestSession: authContext.guestSession || null
+          });
+        }
+      } else if (!authContext.adminUser) {
+        const uploadedBy = String(attachment.uploadedBy || '').trim().toLowerCase();
+        const matchesAuth = Boolean(
+          authContext.authUser &&
+          uploadedBy &&
+          (uploadedBy === String(authContext.authUser.id || '').toLowerCase() ||
+            (authContext.authUser.email && uploadedBy === String(authContext.authUser.email).trim().toLowerCase()))
+        );
+        const matchesGuest = Boolean(
+          authContext.guestSession &&
+          uploadedBy &&
+          (uploadedBy === String(authContext.guestSession.id || '').toLowerCase() ||
+            (authContext.guestSession.visitorEmail && uploadedBy === String(authContext.guestSession.visitorEmail).trim().toLowerCase()))
+        );
+        if (!matchesAuth && !matchesGuest) {
+          throw new SupportServiceError('Not authorized to access this attachment.', {
+            statusCode: 403,
+            code: 'FORBIDDEN'
+          });
+        }
+      }
+    }
+
+    return attachment;
   }
 
   // Shared collision viewer map even in PG mode (45s TTL in-memory heartbeat)

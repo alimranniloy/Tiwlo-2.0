@@ -3,7 +3,9 @@ import {
   AlertCircle,
   Check,
   CreditCard,
+  FileText,
   Loader2,
+  RefreshCw,
   Shield,
   Sparkles,
   Wallet,
@@ -16,16 +18,26 @@ export function DiscordPlanSelector({
   currentUser,
   subscription,
   packages: propPackages,
+  tierInsight = null,
   onActivated,
+  onNavigateBilling,
   onClose,
   isModal = false,
 }) {
   const [packages, setPackages] = useState(Array.isArray(propPackages) ? propPackages : []);
   const [creditBalance, setCreditBalance] = useState(null);
+  const [autoRenew, setAutoRenew] = useState(subscription?.autoRenew !== false);
   const [loading, setLoading] = useState(false);
   const [purchasingId, setPurchasingId] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [generatedInvoiceId, setGeneratedInvoiceId] = useState(null);
+
+  useEffect(() => {
+    if (typeof subscription?.autoRenew === 'boolean') {
+      setAutoRenew(subscription.autoRenew);
+    }
+  }, [subscription?.autoRenew]);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,8 +54,9 @@ export function DiscordPlanSelector({
         ]);
         if (cancelled) return;
         setPackages(Array.isArray(pkgs) ? pkgs : []);
-        if (billing && billing.credits !== undefined) {
-          setCreditBalance(Number(billing.credits || 0));
+        const rawCredits = billing?.account?.credits ?? billing?.credits;
+        if (rawCredits !== undefined && rawCredits !== null && Number.isFinite(Number(rawCredits))) {
+          setCreditBalance(Number(rawCredits));
         }
       } catch (err) {
         if (!cancelled) setErrorMsg(err.message || 'Could not load Discord Bot packages.');
@@ -57,20 +70,38 @@ export function DiscordPlanSelector({
     };
   }, [currentUser?.id, propPackages]);
 
+  const navigateBillingPath = (path, tab) => {
+    if (typeof onNavigateBilling === 'function') {
+      onNavigateBilling(path, tab);
+      return;
+    }
+    try {
+      window.history.pushState(null, '', path);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    } catch {
+      window.location.assign(path);
+    }
+  };
+
   const handlePurchase = async (pkg) => {
     setErrorMsg('');
     setSuccessMsg('');
+    setGeneratedInvoiceId(null);
     setPurchasingId(pkg.planId);
     try {
-      const res = await DiscordAPI.purchaseSubscription(pkg.planId);
+      const res = await DiscordAPI.purchaseSubscription(pkg.planId, autoRenew);
       setSuccessMsg(`${pkg.planName} activated using Tiwlo Credits!`);
-      if (res?.billing?.remainingCredits !== undefined && res.billing.remainingCredits !== null) {
+      if (res?.invoice?.id) {
+        setGeneratedInvoiceId(res.invoice.id);
+      }
+      if (res?.billing?.remainingCredits !== undefined && res.billing?.remainingCredits !== null) {
         setCreditBalance(Number(res.billing.remainingCredits));
       } else if (creditBalance !== null) {
         setCreditBalance(Math.max(0, Number((creditBalance - Number(pkg.price || 0)).toFixed(2))));
       }
-      await onActivated?.(res.subscription);
-      if (isModal && onClose) {
+      window.dispatchEvent(new CustomEvent('tiwlo:service-subscriptions-changed'));
+      await onActivated?.(res.subscription, res);
+      if (isModal && onClose && !res?.invoice?.id) {
         setTimeout(() => onClose(), 700);
       }
     } catch (err) {
@@ -100,25 +131,54 @@ export function DiscordPlanSelector({
         </div>
       </div>
 
+      <label className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200/80 bg-white px-4 py-3 cursor-pointer">
+        <div className="flex items-center gap-2.5">
+          <RefreshCw className="h-4 w-4 text-[#1ED760]" />
+          <div>
+            <p className="text-xs font-semibold text-neutral-900">Auto-Renew Monthly with Tiwlo Credits</p>
+            <p className="text-[11px] text-neutral-500">Automatically renew every 30 days using your wallet balance.</p>
+          </div>
+        </div>
+        <input
+          type="checkbox"
+          checked={autoRenew}
+          onChange={(e) => setAutoRenew(e.target.checked)}
+          className="h-4 w-4 rounded border-neutral-300 accent-[#1ED760] cursor-pointer"
+        />
+      </label>
+
       {errorMsg && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
           <div className="flex items-center gap-2">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{errorMsg}</span>
           </div>
-          <a
-            href="/cloud/billing"
-            className="font-semibold text-rose-800 underline hover:text-rose-950"
+          <button
+            type="button"
+            onClick={() => navigateBillingPath('/billing/credits', 'credits')}
+            className="font-semibold text-rose-800 underline hover:text-rose-950 cursor-pointer"
           >
             Add Tiwlo Credits →
-          </a>
+          </button>
         </div>
       )}
 
       {successMsg && (
-        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-[#1ED760]/15 px-4 py-3 text-xs font-semibold text-emerald-800">
-          <Check className="h-4 w-4" />
-          <span>{successMsg}</span>
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-[#1ED760]/15 px-4 py-3 text-xs font-semibold text-emerald-800">
+          <div className="flex items-center gap-2">
+            <Check className="h-4 w-4" />
+            <span>{successMsg}</span>
+          </div>
+          {generatedInvoiceId && (
+            <button
+              type="button"
+              onClick={() => navigateBillingPath(`/billing/invoices/${encodeURIComponent(generatedInvoiceId)}`, 'invoices')}
+              className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-900 border border-emerald-200 hover:bg-emerald-50 cursor-pointer"
+            >
+              <FileText className="h-3 w-3" />
+              View Invoice
+            </button>
+          )}
         </div>
       )}
 
@@ -132,6 +192,8 @@ export function DiscordPlanSelector({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {packages.map((pkg) => {
             const isCurrent = subscription?.isActive && subscription?.planId === pkg.planId;
+            const isRecommended = tierInsight?.recommendedPlanId === pkg.planId || pkg.recommended;
+            const badgeText = pkg.badge || (isRecommended ? 'Recommended' : null);
             const insufficient = creditBalance !== null && creditBalance < Number(pkg.price || 0);
             return (
               <div
@@ -139,7 +201,7 @@ export function DiscordPlanSelector({
                 className={`flex flex-col justify-between rounded-xl border p-5 transition ${
                   isCurrent
                     ? 'border-[#1ED760] bg-[#1ED760]/5 ring-1 ring-[#1ED760]/40'
-                    : pkg.badge
+                    : badgeText
                       ? 'border-neutral-300 bg-white shadow-sm'
                       : 'border-neutral-200/80 bg-white'
                 }`}
@@ -150,9 +212,9 @@ export function DiscordPlanSelector({
                       <h3 className="text-base font-semibold text-neutral-950">{pkg.planName}</h3>
                       <p className="mt-0.5 text-xs text-neutral-500">{pkg.description}</p>
                     </div>
-                    {pkg.badge && (
+                    {badgeText && (
                       <span className="shrink-0 rounded-full bg-[#1ED760]/15 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-800">
-                        {pkg.badge}
+                        {badgeText}
                       </span>
                     )}
                   </div>

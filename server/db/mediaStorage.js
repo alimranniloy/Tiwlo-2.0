@@ -550,15 +550,111 @@ export function parseMediaRange(rangeHeader, size) {
   return { start, end: Math.min(end, size - 1) };
 }
 
+const SCRIPTABLE_MEDIA_MIMES = new Set([
+  'text/html',
+  'application/xhtml+xml',
+  'image/svg+xml',
+  'application/javascript',
+  'text/javascript',
+  'application/ecmascript',
+  'text/ecmascript',
+  'application/xml',
+  'text/xml'
+]);
+
+const SCRIPTABLE_MEDIA_EXTS = new Set([
+  '.html',
+  '.htm',
+  '.xhtml',
+  '.svg',
+  '.svgz',
+  '.js',
+  '.mjs',
+  '.cjs',
+  '.xml'
+]);
+
+const SAFE_RASTER_IMAGE_MIMES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/avif'
+]);
+
+const SAFE_VIDEO_MIMES = new Set([
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  'video/x-m4v',
+  'video/x-matroska',
+  'video/x-msvideo'
+]);
+
+const SAFE_SUPPORT_ATTACHMENT_MIMES = new Set([
+  ...SAFE_RASTER_IMAGE_MIMES,
+  'application/pdf',
+  'text/plain',
+  'text/csv',
+  'application/json',
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/octet-stream'
+]);
+
+function resolveStoredMediaMime(metadata) {
+  return String(metadata?.content_type || inferMediaType(metadata?.original_filename))
+    .split(';', 1)[0]
+    .trim()
+    .toLowerCase();
+}
+
 export function isMediaRequestAuthorized(req, metadata) {
   if (!metadata || metadata.review_status !== 'approved') return false;
 
   const purpose = String(metadata.purpose || 'general');
   if (purpose === 'identity_verification') return false;
+
+  const mime = resolveStoredMediaMime(metadata);
+  const ext = pathExtension(metadata.original_filename).toLowerCase();
+  if (SCRIPTABLE_MEDIA_MIMES.has(mime) || SCRIPTABLE_MEDIA_EXTS.has(ext)) {
+    return false;
+  }
+
+  if (purpose === 'support_attachment') {
+    return SAFE_SUPPORT_ATTACHMENT_MIMES.has(mime);
+  }
+
   if (purpose !== 'direct_message') return true;
 
   const userId = req.activeUser?.id;
   return Boolean(userId && metadata.owner_id && String(userId) === String(metadata.owner_id));
+}
+
+export function applyStoredMediaResponseHeaders(res, metadata) {
+  const rawMime = resolveStoredMediaMime(metadata);
+  const contentType = SCRIPTABLE_MEDIA_MIMES.has(rawMime) ? 'application/octet-stream' : rawMime;
+  const isSafeRasterOrVideo = SAFE_RASTER_IMAGE_MIMES.has(contentType) || SAFE_VIDEO_MIMES.has(contentType);
+  const isSupportAttachment = String(metadata?.purpose || '') === 'support_attachment';
+
+  const etag = `"${metadata.sha256}"`;
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  if (!isSafeRasterOrVideo || isSupportAttachment) {
+    res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+  }
+  if (!isSafeRasterOrVideo) {
+    const cleanFilename = String(metadata?.original_filename || 'file').replace(/[\r\n"\\/]/g, '_');
+    res.setHeader('Content-Disposition', `attachment; filename="${cleanFilename}"`);
+  }
+  res.setHeader('Content-Length', metadata.size_bytes);
+  res.setHeader('Accept-Ranges', 'bytes');
+  res.setHeader('ETag', etag);
+  res.setHeader('Cache-Control', isSupportAttachment ? 'private, no-store' : 'public, max-age=0, must-revalidate');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges, ETag');
+  return etag;
 }
 
 export async function streamStoredMedia(req, res, next) {
@@ -596,15 +692,7 @@ export async function streamStoredMedia(req, res, next) {
     return res.status(404).json({ error: 'MEDIA_NOT_AVAILABLE' });
   }
 
-  const etag = `"${metadata.sha256}"`;
-  res.setHeader('Content-Type', metadata.content_type || inferMediaType(metadata.original_filename));
-  res.setHeader('Content-Length', metadata.size_bytes);
-  res.setHeader('Accept-Ranges', 'bytes');
-  res.setHeader('ETag', etag);
-  res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-  res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges, ETag');
+  const etag = applyStoredMediaResponseHeaders(res, metadata);
 
   if (req.headers['if-none-match'] === etag) return res.status(304).end();
   if (req.method === 'OPTIONS') return res.status(204).end();

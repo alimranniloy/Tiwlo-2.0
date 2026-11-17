@@ -102,13 +102,13 @@ export default function SecurityCheckupView({ user, onComplete }) {
   const name = useMemo(() => {
     return resolvedUser?.name ||
            resolvedUser?.storeName ||
-           (email ? email.split('@')[0] : 'Merchant');
+           (email ? email.split('@')[0] : 'Tiwlo User');
   }, [resolvedUser, email]);
 
   const storeName = useMemo(() => {
     return resolvedUser?.storeName ||
            resolvedUser?.name ||
-           'IMRU Store';
+           'Tiwlo Workspace';
   }, [resolvedUser]);
 
   const tiwiId = useMemo(() => {
@@ -262,7 +262,7 @@ export default function SecurityCheckupView({ user, onComplete }) {
           </div>
 
           <p className="text-[14px] text-[#636363] max-w-[500px] mx-auto mt-2 leading-[22px]">
-            We checked your Tiwlo Account and confirmed that your credentials, active sessions, and store services are protected.
+            We checked your Tiwlo Account and confirmed that your credentials, active sessions, and workspace services are protected.
           </p>
         </div>
 
@@ -435,7 +435,7 @@ export default function SecurityCheckupView({ user, onComplete }) {
                     <span className="text-[12px] font-medium text-[#212121]">{email}</span>
                   </div>
                   <div className="flex items-center justify-between py-1.5 border-b border-[#f1f3f4]">
-                    <span className="text-[13px] text-[#212121]">Merchant Tiwi ID</span>
+                    <span className="text-[13px] text-[#212121]">Tiwlo User ID</span>
                     <span className="text-[12px] font-mono text-[#636363]">{tiwiId}</span>
                   </div>
                   <div className="flex items-center justify-between py-1.5">
@@ -484,19 +484,19 @@ export default function SecurityCheckupView({ user, onComplete }) {
               <div className="px-5 pb-5 pt-1 border-t border-[#dcdcdc] bg-[#ffffff] space-y-3 text-xs text-[#3f3f3f]">
                 <div className="pt-3 space-y-2.5">
                   <p className="text-[13px] text-[#636363] leading-relaxed">
-                    All store databases, product catalogs, customer transaction logs, and cloud micro-instances have been audited and resumed normal operations.
+                    All account databases, workspace resources, and connected cloud instances have been audited and resumed normal operations.
                   </p>
                   <div className="space-y-2 p-3 rounded-[6px] bg-[#f8f9fa] border border-[#eaeaea]">
                     <div className="flex items-center justify-between">
-                      <span className="text-[12px] text-[#636363]">Store Name:</span>
+                      <span className="text-[12px] text-[#636363]">Workspace Name:</span>
                       <span className="text-[12px] text-[#212121] font-medium">{storeName}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[12px] text-[#636363]">Store Database Status:</span>
+                      <span className="text-[12px] text-[#636363]">Account Data Status:</span>
                       <span className="text-[12px] text-[#137333] font-semibold">100% Operational (Isolated)</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[12px] text-[#636363]">POS & Catalog Sync:</span>
+                      <span className="text-[12px] text-[#636363]">Account &amp; Service Sync:</span>
                       <span className="text-[12px] text-[#137333] font-medium">Synchronized</span>
                     </div>
                     <div className="flex items-center justify-between">

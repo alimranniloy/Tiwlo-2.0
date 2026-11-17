@@ -8,14 +8,26 @@ function authHeaders() {
 }
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const url = `${API_BASE}${path}`;
+  const reqOptions = {
     credentials: 'include',
     ...options,
     headers: {
       ...authHeaders(),
       ...options.headers
     }
-  });
+  };
+
+  let response;
+  try {
+    response = await fetch(url, reqOptions);
+  } catch (err) {
+    if (String(err?.message || '').includes('No GraphQL operation is registered')) {
+      response = await globalThis.fetch(url, reqOptions);
+    } else {
+      throw err;
+    }
+  }
 
   const result = await response.json().catch(() => ({}));
 
@@ -30,6 +42,8 @@ async function request(path, options = {}) {
     err.requiredAmount = result.requiredAmount;
     err.availableCredits = result.availableCredits;
     err.shortfall = result.shortfall;
+    err.subscription = result.subscription || null;
+    err.tierInsight = result.tierInsight || null;
     throw err;
   }
 
@@ -47,11 +61,35 @@ export const DiscordAPI = {
     return request('/subscription');
   },
 
-  async purchaseSubscription(planId) {
+  async purchaseSubscription(planId, autoRenew = true) {
     return request('/subscription/purchase', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ planId })
+      body: JSON.stringify({ planId, autoRenew: Boolean(autoRenew) })
+    });
+  },
+
+  async setAutoRenew(autoRenew) {
+    return request('/subscription/auto-renew', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ autoRenew: Boolean(autoRenew) })
+    });
+  },
+
+  async getSubscriptionNotifications() {
+    return request('/subscription/notifications');
+  },
+
+  async markSubscriptionNotificationsRead(notificationIds = null) {
+    return request('/subscription/notifications/read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(
+        Array.isArray(notificationIds) && notificationIds.length > 0
+          ? { notificationIds }
+          : {}
+      )
     });
   },
 

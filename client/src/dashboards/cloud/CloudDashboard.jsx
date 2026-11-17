@@ -105,7 +105,23 @@ export default function CloudDashboard({
   const [loading, setLoading] = useState(true);
   const [cloudError, setCloudError] = useState('');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [billingInitialTab, setBillingInitialTab] = useState('overview');
+  const [billingInitialTab, setBillingInitialTab] = useState(() => {
+    try {
+      const path = window.location.pathname || '';
+      const tabParam = new URLSearchParams(window.location.search).get('tab');
+      if (path.startsWith('/billing/credits') || path.startsWith('/cloud/billing/credits') || tabParam === 'credits') {
+        return 'credits';
+      }
+      if (path.startsWith('/billing/invoices/')) {
+        return 'invoices';
+      }
+    } catch {}
+    return 'overview';
+  });
+  const [serviceSubscriptions, setServiceSubscriptions] = useState({
+    discord: null,
+    whatsapp: null,
+  });
 
   // Cloud Dashboard Data States
   const [metrics, setMetrics] = useState(null);
@@ -258,6 +274,62 @@ export default function CloudDashboard({
     loadCloudData();
   }, [userId]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const fetchServiceSubscriptions = async () => {
+      if (!userId) {
+        if (!cancelled) setServiceSubscriptions({ discord: null, whatsapp: null });
+        return;
+      }
+      const token =
+        localStorage.getItem('stockpro_session') ||
+        sessionStorage.getItem('stockpro_session') ||
+        '';
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const [discordRes, whatsappRes] = await Promise.all([
+        applicationFetch('/api/discord/subscription', { credentials: 'include', headers })
+          .then((r) => (r.ok ? r.json().catch(() => null) : null))
+          .catch(() => null),
+        applicationFetch('/api/whatsapp/subscription', { credentials: 'include', headers })
+          .then((r) => (r.ok ? r.json().catch(() => null) : null))
+          .catch(() => null),
+      ]);
+      if (cancelled) return;
+      setServiceSubscriptions({
+        discord: discordRes?.subscription || null,
+        whatsapp: whatsappRes?.subscription || null,
+      });
+    };
+
+    fetchServiceSubscriptions();
+    const handleSubscriptionChange = () => {
+      fetchServiceSubscriptions();
+    };
+    window.addEventListener('tiwlo:service-subscriptions-changed', handleSubscriptionChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('tiwlo:service-subscriptions-changed', handleSubscriptionChange);
+    };
+  }, [userId]);
+
+  useEffect(() => {
+    const syncBillingTabFromUrl = () => {
+      try {
+        const path = window.location.pathname || '';
+        const tabParam = new URLSearchParams(window.location.search).get('tab');
+        if (path.startsWith('/billing/credits') || path.startsWith('/cloud/billing/credits') || tabParam === 'credits') {
+          setBillingInitialTab('credits');
+          setActiveNav('billing');
+        } else if (path.startsWith('/billing/invoices/')) {
+          setBillingInitialTab('invoices');
+          setActiveNav('billing');
+        }
+      } catch {}
+    };
+    window.addEventListener('popstate', syncBillingTabFromUrl);
+    return () => window.removeEventListener('popstate', syncBillingTabFromUrl);
+  }, []);
+
   // Handler: Create Store ("My Online Store" + action)
   const handleCreateStore = async (storeInput) => {
     try {
@@ -305,8 +377,10 @@ export default function CloudDashboard({
       <CloudSidebar
         activeNav={activeNav}
         setActiveNav={(nav) => navigateCloudView(nav)}
+        currentUser={profileUser || currentUser}
         userStores={userStores}
         currentStore={currentStore}
+        serviceSubscriptions={serviceSubscriptions}
         onNavigateTab={onNavigateTab}
         onOpenCreateStore={() => setActiveNav('create-store')}
         onOpenCreateDroplet={() => {
@@ -323,7 +397,7 @@ export default function CloudDashboard({
         <CloudHeader
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
-          currentUser={{ ...(profileUser || currentUser), storeName: currentStore?.storeName || profileUser?.storeName || currentUser?.storeName }}
+          currentUser={profileUser || currentUser}
           onUserUpdated={(updatedUser) => setProfileUser((prev) => ({ ...(prev || {}), ...updatedUser }))}
           onLogout={onLogout}
           onOpenStore={currentStore?.tiwiId ? () => launchStoreConsole(currentStore) : null}
@@ -386,7 +460,7 @@ export default function CloudDashboard({
                 onStartVerification={() => onNavigateTab?.('verification')}
               />
             </div>
-          ) : activeNav === 'profile-settings' ? (
+          ) : activeNav === 'oneprofile-settings' ? (
             <div className="max-w-[1000px] mx-auto space-y-5">
               <button
                 type="button"
@@ -506,6 +580,16 @@ export default function CloudDashboard({
                 currentStore={currentStore}
                 userStores={userStores}
                 showToast={showToast}
+                onBack={() => navigateCloudView('workspace-hub')}
+                onNavigateBilling={(path = '/billing/credits', tab = 'credits') => {
+                  setBillingInitialTab(tab);
+                  setActiveNav('billing');
+                  try {
+                    if (window.location.pathname !== path) {
+                      window.history.pushState(null, '', path);
+                    }
+                  } catch {}
+                }}
               />
             </div>
           ) : (activeNav === 'help-support' || activeNav.startsWith('help-support')) ? (
@@ -536,7 +620,14 @@ export default function CloudDashboard({
                 }}
               />
             </div>
-          ) : (activeNav === 'profile-settings' || activeNav.startsWith('profile-settings/')) ? (
+          ) : (
+            activeNav === 'profile-settings' ||
+            activeNav.startsWith('profile-settings/') ||
+            activeNav === 'user-settings' ||
+            activeNav.startsWith('user-settings/') ||
+            activeNav === 'account-settings' ||
+            activeNav.startsWith('account-settings/')
+          ) ? (
             <div className="max-w-[1500px] mx-auto">
               <UserProfileSettingsView
                 currentUser={profileUser || currentUser}
@@ -690,7 +781,7 @@ export default function CloudDashboard({
               </div>
 
               <CloudHeroBanner
-                currentUser={{ ...(profileUser || currentUser), storeName: currentStore?.storeName || profileUser?.storeName || currentUser?.storeName }}
+                currentUser={profileUser || currentUser}
                 onCreateDroplet={() => {
                   setInitialDropletImage('Ubuntu 24.04 LTS');
                   setActiveNav('create-droplet');

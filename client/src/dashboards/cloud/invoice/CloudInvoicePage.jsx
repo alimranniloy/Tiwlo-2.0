@@ -28,19 +28,20 @@ function formatMoney(value, currency) {
 }
 
 function getStatusAppearance(status) {
-  if (['paid', 'verified'].includes(status)) {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (['paid', 'verified', 'free trial', 'trial', 'free_trial'].includes(normalized)) {
     return {
       icon: CheckCircle2,
       className: 'border-[#CEEAD6] bg-[#E6F4EA] text-[#137333] dark:border-[#234B32] dark:bg-[#12351F] dark:text-[#81C995]'
     };
   }
-  if (status === 'pending') {
+  if (normalized === 'pending') {
     return {
       icon: Clock3,
       className: 'border-[#F2DFA7] bg-[#FEF7E0] text-[#8D5B00] dark:border-[#5A4618] dark:bg-[#3A2D10] dark:text-[#FDD663]'
     };
   }
-  if (['cancelled', 'expired', 'failed'].includes(status)) {
+  if (['cancelled', 'canceled', 'expired', 'failed'].includes(normalized)) {
     return {
       icon: CircleAlert,
       className: 'border-[#F4C7C3] bg-[#FCE8E6] text-[#B3261E] dark:border-[#5A302C] dark:bg-[#3C2020] dark:text-[#F28B82]'
@@ -50,6 +51,36 @@ function getStatusAppearance(status) {
     icon: ReceiptText,
     className: 'border-[#dcdcdc] bg-[#F1F3F4] text-[#636363] dark:border-[#3f3f3f] dark:bg-[#2d2d2d] dark:text-[#c1c1c1]'
   };
+}
+
+function formatPlanLabel(planId) {
+  if (!planId) return '';
+  const clean = String(planId).trim();
+  const known = {
+    free: 'Free Starter',
+    growth: 'Growth Retailer',
+    pro: 'Pro Business',
+    enterprise: 'Enterprise VIP'
+  };
+  return known[clean.toLowerCase()] || clean.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatOrderTypeLabel(orderType) {
+  if (!orderType) return '';
+  const clean = String(orderType).trim().toLowerCase();
+  const known = {
+    credit_topup: 'Cloud Credit Top-up',
+    voucher_redeem: 'Promotional Voucher',
+    subscription_charge: 'Subscription Charge',
+    store_creation: 'Store Activation',
+    free_trial: 'Free Starter Trial',
+    plan_upgrade: 'Plan Upgrade',
+    plan_renewal: 'Plan Renewal',
+    addon_purchase: 'Store Add-on',
+    discord_subscription: 'Discord Bot Subscription',
+    whatsapp_subscription: 'WhatsApp Bot Subscription'
+  };
+  return known[clean] || clean.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function Detail({ label, children, align = 'left' }) {
@@ -70,12 +101,26 @@ export default function CloudInvoicePage({ invoice, account, onBack, onCancel, i
     billingAddress.postalCode,
     billingAddress.country
   ].filter(Boolean);
-  const invoiceStatus = String(invoice?.status || '').toLowerCase();
+  const rawStatus = String(invoice?.status || '').trim();
+  const invoiceStatus = rawStatus.toLowerCase();
+  const isFreeTrial = Boolean(invoice?.isFreeTrial) ||
+    ['free trial', 'trial', 'free_trial'].includes(invoiceStatus) ||
+    String(invoice?.orderType || '').trim().toLowerCase() === 'free_trial';
+  const displayStatus = isFreeTrial && (!rawStatus || ['paid', 'free trial', 'trial', 'free_trial'].includes(invoiceStatus))
+    ? 'Free Trial'
+    : (rawStatus || 'Status unavailable');
   const isPending = invoiceStatus === 'pending';
   const canCancel = isPending && String(invoice?.id || '').startsWith('ctu-');
   const currency = invoice?.currency || account.currency || 'USD';
-  const StatusIcon = getStatusAppearance(invoiceStatus).icon;
-  const statusClass = getStatusAppearance(invoiceStatus).className;
+  const invoiceAmount = Number(invoice?.amount ?? 0);
+  const cashCreditUsed = Number(invoice?.cashCreditUsed || 0);
+  const promoCreditUsed = Number(invoice?.promoCreditUsed || 0);
+  const hasCreditBreakdown = Number.isFinite(cashCreditUsed) && Number.isFinite(promoCreditUsed) && (cashCreditUsed > 0 || promoCreditUsed > 0);
+  const planLabel = formatPlanLabel(invoice?.planId);
+  const orderTypeLabel = formatOrderTypeLabel(invoice?.orderType);
+  const appearance = getStatusAppearance(isFreeTrial ? 'free trial' : invoiceStatus);
+  const StatusIcon = appearance.icon;
+  const statusClass = appearance.className;
 
   return (
     <main className="min-h-screen bg-[#f8f8f8] px-3 py-4 text-[#212121] dark:bg-[#141414] dark:text-[#E3E3E3] sm:px-6 sm:py-7">
@@ -166,9 +211,16 @@ export default function CloudInvoicePage({ invoice, account, onBack, onCancel, i
               <section className="flex flex-col gap-4 rounded-2xl border border-[#e1e1e1] bg-[#fafafa] px-4 py-4 dark:border-[#393939] dark:bg-[#232323] sm:flex-row sm:items-center sm:justify-between sm:px-5">
                 <div>
                   <p className="text-[11px] font-medium text-[#636363] dark:text-[#9f9f9f]">Total amount</p>
-                  <p className="mt-1 text-[28px] font-normal leading-9 tracking-[-0.7px] text-[#212121] dark:text-[#eaeaea] sm:text-[30px]">
-                    {formatMoney(Number(invoice.amount), currency)}
-                  </p>
+                  <div className="mt-1 flex flex-wrap items-baseline gap-2.5">
+                    <p className="text-[28px] font-normal leading-9 tracking-[-0.7px] text-[#212121] dark:text-[#eaeaea] sm:text-[30px]">
+                      {formatMoney(invoiceAmount, currency)}
+                    </p>
+                    {isFreeTrial && (
+                      <span className="rounded-full border border-[#CEEAD6] bg-[#E6F4EA] px-2 py-0.5 text-[10px] font-semibold text-[#137333] dark:border-[#234B32] dark:bg-[#12351F] dark:text-[#81C995]">
+                        Free Trial
+                      </span>
+                    )}
+                  </div>
                   <p className="mt-0.5 text-[11px] text-[#747474] dark:text-[#9f9f9f]">
                     {invoice.description || 'Tiwlo Cloud billing transaction'}
                   </p>
@@ -176,7 +228,7 @@ export default function CloudInvoicePage({ invoice, account, onBack, onCancel, i
                 <div className="flex flex-row items-center justify-between gap-3 sm:flex-col sm:items-end">
                   <span className={`inline-flex min-h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-medium ${statusClass}`}>
                     <StatusIcon className="h-3.5 w-3.5" />
-                    {invoice.status || 'Status unavailable'}
+                    {displayStatus}
                   </span>
                   <span className="inline-flex items-center gap-1.5 text-[11px] text-[#636363] dark:text-[#9f9f9f]">
                     <CalendarDays className="h-3.5 w-3.5" />
@@ -204,7 +256,13 @@ export default function CloudInvoicePage({ invoice, account, onBack, onCancel, i
 
                 <dl className="grid grid-cols-2 gap-x-3 gap-y-3 border-t border-[#eaeaea] pt-3 dark:border-[#3f3f3f] sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
                   <Detail label="Invoice date">{formatDate(invoice.createdAt)}</Detail>
-                  <Detail label="Payment date">{formatDate(invoice.paidAt)}</Detail>
+                  <Detail label="Payment date">{formatDate(invoice.paidAt || (isFreeTrial ? invoice.createdAt : null))}</Detail>
+                  {planLabel && (
+                    <Detail label="Plan tier">{planLabel}</Detail>
+                  )}
+                  {orderTypeLabel && (
+                    <Detail label="Order type">{orderTypeLabel}</Detail>
+                  )}
                   {canCancel && (
                     <Detail label="Checkout expires">{formatDate(invoice.expiresAt)}</Detail>
                   )}
@@ -244,17 +302,61 @@ export default function CloudInvoicePage({ invoice, account, onBack, onCancel, i
                     <p className="mt-0.5 break-all font-mono text-[10px] leading-4 text-[#747474] dark:text-[#9f9f9f]">
                       Reference: {invoice.id}
                     </p>
+                    {(planLabel || orderTypeLabel || isFreeTrial) && (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] text-[#5e5e5e] dark:text-[#b0b0b0]">
+                        {orderTypeLabel && (
+                          <span className="rounded-md border border-[#e2e2e2] bg-[#f8f8f8] px-2 py-0.5 dark:border-[#3a3a3a] dark:bg-[#262626]">
+                            {orderTypeLabel}
+                          </span>
+                        )}
+                        {planLabel && (
+                          <span className="rounded-md border border-[#e2e2e2] bg-[#f8f8f8] px-2 py-0.5 dark:border-[#3a3a3a] dark:bg-[#262626]">
+                            Plan: {planLabel}
+                          </span>
+                        )}
+                        {isFreeTrial && (
+                          <span className="rounded-md border border-[#CEEAD6] bg-[#E6F4EA] px-2 py-0.5 font-medium text-[#137333] dark:border-[#234B32] dark:bg-[#12351F] dark:text-[#81C995]">
+                            Free Trial ($0.00)
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <p className="shrink-0 text-[12px] font-medium tabular-nums text-[#212121] dark:text-[#eaeaea]">
-                    {formatMoney(Number(invoice.amount), currency)}
-                  </p>
+                  <div className="shrink-0 text-right">
+                    <p className="text-[12px] font-medium tabular-nums text-[#212121] dark:text-[#eaeaea]">
+                      {formatMoney(invoiceAmount, currency)}
+                    </p>
+                    {isFreeTrial && (
+                      <p className="mt-0.5 text-[10px] font-medium text-[#137333] dark:text-[#81C995]">
+                        Free Trial
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className="ml-auto grid max-w-[270px] grid-cols-2 gap-x-4 gap-y-1.5 px-1 pt-3 text-[11px]">
+                <div className="ml-auto grid max-w-[300px] grid-cols-2 gap-x-4 gap-y-1.5 px-1 pt-3 text-[11px]">
                   <span className="text-[#636363] dark:text-[#9f9f9f]">Subtotal</span>
-                  <span className="text-right tabular-nums">{formatMoney(Number(invoice.amount), currency)}</span>
+                  <span className="text-right tabular-nums">{formatMoney(invoiceAmount, currency)}</span>
+                  {isFreeTrial && (
+                    <>
+                      <span className="text-[#636363] dark:text-[#9f9f9f]">Plan charge</span>
+                      <span className="text-right font-medium text-[#137333] dark:text-[#81C995]">Free Trial ($0.00)</span>
+                    </>
+                  )}
+                  {hasCreditBreakdown && cashCreditUsed > 0 && (
+                    <>
+                      <span className="text-[#636363] dark:text-[#9f9f9f]">Wallet cash credit used</span>
+                      <span className="text-right tabular-nums text-[#212121] dark:text-[#eaeaea]">{formatMoney(cashCreditUsed, currency)}</span>
+                    </>
+                  )}
+                  {hasCreditBreakdown && promoCreditUsed > 0 && (
+                    <>
+                      <span className="text-[#636363] dark:text-[#9f9f9f]">Promotional credit used</span>
+                      <span className="text-right tabular-nums text-[#137333] dark:text-[#81C995]">{formatMoney(promoCreditUsed, currency)}</span>
+                    </>
+                  )}
                   <span className="border-t border-[#eaeaea] pt-2 font-semibold text-[#212121] dark:border-[#3f3f3f] dark:text-[#eaeaea]">Total</span>
                   <span className="border-t border-[#eaeaea] pt-2 text-right text-[13px] font-semibold tabular-nums text-[#212121] dark:border-[#3f3f3f] dark:text-[#eaeaea]">
-                    {formatMoney(Number(invoice.amount), currency)}
+                    {formatMoney(invoiceAmount, currency)}
                   </span>
                 </div>
               </section>

@@ -682,7 +682,7 @@ router.get('/customers', requireAdmin, async (req, res) => {
       return {
         id: u.id,
         tiwiId: u.tiwiId || u.storeId || '',
-        name: u.name || u.storeName || 'Merchant User',
+        name: u.name || u.storeName || 'Tiwlo User',
         email: u.email,
         avatar: u.avatar && !u.avatar.includes('unsplash.com') ? u.avatar : '/tiwlo-icon.png',
         role: u.role || 'owner',
@@ -2031,7 +2031,7 @@ router.post('/users/:id/ban', requireAdmin, requirePermission('ban_users'), requ
 
       sendAccountDisabledEmail({
         to: targetUser.email,
-        name: targetUser.name || targetUser.storeName || 'Merchant',
+        name: targetUser.name || targetUser.storeName || 'Tiwlo User',
         reason: banReason,
         restoreUrl: restoreSession.url
       }).catch(err => console.error('[Ban Email Dispatch Error]', err.message));
@@ -2046,7 +2046,7 @@ router.post('/users/:id/ban', requireAdmin, requirePermission('ban_users'), requ
 
       sendAccountRestoredEmail({
         to: targetUser.email,
-        name: targetUser.name || targetUser.storeName || 'Merchant',
+        name: targetUser.name || targetUser.storeName || 'Tiwlo User',
         checkupUrl: checkupSession.url
       }).catch(err => console.error('[Restore Email Dispatch Error]', err.message));
     }

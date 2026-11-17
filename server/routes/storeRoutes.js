@@ -60,6 +60,7 @@ import {
   getCategoryMetrics,
   renameCategoryReferences,
   renameSubcategoryReferences,
+  sanitizeProductDescription,
   validateStock,
   validateSellingPrice
 } from './catalogHelpers.js';
@@ -834,7 +835,7 @@ router.get('/public/storefront', async (req, res) => {
             price: product.price,
             originalPrice: product.originalPrice,
             category: product.category,
-            description: product.description,
+            description: sanitizeProductDescription(product.description),
             image: product.image,
             images: product.images,
             status: product.status,
@@ -2113,6 +2114,8 @@ router.post('/stores/:tiwiId/renew', async (req, res) => {
       success: true,
       store: result?.store || null,
       subscription: result?.subscription || null,
+      orderNumber: result?.orderNumber || null,
+      invoice: result?.invoice || null,
       message: result?.message || 'Store subscription renewed successfully.'
     });
   } catch (err) {
@@ -2294,6 +2297,9 @@ router.post('/products', contentSafetyMiddleware('public_product'), async (req, 
   if (barcode !== undefined && typeof barcode !== 'string') {
     return res.status(400).json({ error: 'Barcode must be text.' });
   }
+  if (description !== undefined && description !== null && typeof description !== 'string') {
+    return res.status(400).json({ error: 'Product description must be text.' });
+  }
   if (!normalizedName || !normalizedSku) {
     return res.status(400).json({ error: 'Name and SKU are required' });
   }
@@ -2409,7 +2415,7 @@ router.post('/products', contentSafetyMiddleware('public_product'), async (req, 
     stockSource: stockSource || (selectedSupplier ? 'supplier' : 'own'),
     image: image || (Array.isArray(images) && images[0]) || '',
     images: Array.isArray(images) && images.length ? images : (image ? [image] : []),
-    description: description || '',
+    description: sanitizeProductDescription(description),
     brand: brand || '',
     unit: unit || 'Pcs',
     shippingWeightKg: parsedShippingWeightKg,
@@ -2524,6 +2530,9 @@ router.put('/products/:id', contentSafetyMiddleware('public_product'), async (re
   if (barcode !== undefined && typeof barcode !== 'string') {
     return res.status(400).json({ error: 'Barcode must be text.' });
   }
+  if (description !== undefined && description !== null && typeof description !== 'string') {
+    return res.status(400).json({ error: 'Product description must be text.' });
+  }
   if (!normalizedName || !normalizedSku || normalizedName.length > 180 || normalizedSku.length > 80 || normalizedBarcode.length > 100) {
     return res.status(400).json({ error: 'Product name, SKU, or barcode is invalid or longer than the allowed limit.' });
   }
@@ -2582,7 +2591,7 @@ router.put('/products/:id', contentSafetyMiddleware('public_product'), async (re
     supplierName: supplierName !== undefined ? supplierName : existing.supplierName,
     image: image !== undefined ? image : existing.image,
     images: images !== undefined ? images : existing.images,
-    description: description !== undefined ? description : existing.description,
+    description: sanitizeProductDescription(description !== undefined ? description : existing.description),
     brand: brand !== undefined ? brand : existing.brand,
     unit: unit !== undefined ? unit : existing.unit,
     shippingWeightKg: parsedShippingWeightKg,
@@ -5064,19 +5073,48 @@ router.post('/subscription/upgrade', subscriptionUpgradeLimiter, async (req, res
     const normalizedCycle = billingCycle === 'monthly' ? 'monthly' : 'monthly';
     const effectivePrice = Number(planInfo.price || 0);
     const currentSub = (await readData(SUBSCRIPTION_FILE, DEFAULT_SUBSCRIPTION));
+    const tiwiId = getActiveTiwiId(req);
 
     // Require verified billing credit deduction when upgrading to a paid plan (unless already on the exact same plan/cycle or admin)
     const isSamePlan = currentSub?.planId === planInfo.planId && currentSub?.billingCycle === normalizedCycle;
+    let billingInvoice = null;
+    let orderNumber = null;
     if (effectivePrice > 0 && !isSamePlan && req.activeUser?.role !== 'admin') {
-      const chargeResult = await BillingDB.chargeSubscriptionPlan(userId, effectivePrice, planInfo.planName);
+      const chargeResult = await BillingDB.chargeSubscriptionPlan(userId, effectivePrice, planInfo.planName, {
+        tiwiId,
+        orderType: 'ecommerce_subscription',
+        planId: planInfo.planId,
+        metadata: { tiwiId, planId: planInfo.planId, planName: planInfo.planName, billingCycle: normalizedCycle }
+      });
       if (!chargeResult.success) {
         return res.status(chargeResult.statusCode || 402).json({
           error: chargeResult.error || 'Payment verification required to upgrade subscription plan.'
         });
       }
+      billingInvoice = chargeResult.invoice || null;
+      orderNumber = chargeResult.orderNumber || billingInvoice?.orderNumber || null;
+    } else if (!isSamePlan && typeof BillingDB.recordSubscriptionInvoice === 'function') {
+      billingInvoice = await BillingDB.recordSubscriptionInvoice(userId, {
+        amountUsd: 0,
+        cashCreditUsedUsd: 0,
+        promoCreditUsedUsd: 0,
+        planName: planInfo.planName || 'Free Starter',
+        tiwiId,
+        orderType: planInfo.planId === 'free' || effectivePrice <= 0 ? 'ecommerce_free_trial' : 'ecommerce_subscription',
+        planId: planInfo.planId,
+        provider: req.activeUser?.role === 'admin' && effectivePrice > 0 ? 'admin_grant' : 'free_trial',
+        status: planInfo.planId === 'free' || effectivePrice <= 0 ? 'trial' : 'free',
+        metadata: {
+          tiwiId,
+          planId: planInfo.planId,
+          planName: planInfo.planName,
+          billingCycle: normalizedCycle,
+          isFreeTrial: planInfo.planId === 'free' || effectivePrice <= 0
+        }
+      }).catch(() => null);
+      orderNumber = billingInvoice?.orderNumber || null;
     }
 
-    const tiwiId = getActiveTiwiId(req);
     const storeSettings = (await readData(STORE_SETTINGS_FILE, {}));
     const cleanStoreName = (storeSettings.storeName || req.activeUser?.storeName || 'store').toLowerCase().replace(/[^a-z0-9]/g, '');
     const now = new Date().toISOString();
@@ -5142,6 +5180,8 @@ router.post('/subscription/upgrade', subscriptionUpgradeLimiter, async (req, res
     res.json({
       success: true,
       subscription: buildSubscriptionWithUsage(updated, { products, staff, sales }),
+      orderNumber,
+      invoice: billingInvoice,
       message: `Successfully switched to ${planInfo.planName}`
     });
   } catch (err) {
@@ -5179,13 +5219,37 @@ router.post('/subscription/addons/purchase', subscriptionUpgradeLimiter, async (
     }
 
     const addonPrice = Number(addon.price || 0);
+    const tiwiId = getActiveTiwiId(req);
+    let billingInvoice = null;
+    let orderNumber = null;
     if (addonPrice > 0 && req.activeUser?.role !== 'admin') {
-      const chargeResult = await BillingDB.chargeSubscriptionPlan(userId, addonPrice, addon.name);
+      const chargeResult = await BillingDB.chargeSubscriptionPlan(userId, addonPrice, addon.name, {
+        tiwiId,
+        orderType: 'ecommerce_addon',
+        planId: addon.addonId,
+        metadata: { tiwiId, addonId: addon.addonId, addonName: addon.name, addonType: addon.type }
+      });
       if (!chargeResult.success) {
         return res.status(chargeResult.statusCode || 402).json({
           error: chargeResult.error || 'Payment verification required to purchase add-on.'
         });
       }
+      billingInvoice = chargeResult.invoice || null;
+      orderNumber = chargeResult.orderNumber || billingInvoice?.orderNumber || null;
+    } else if (typeof BillingDB.recordSubscriptionInvoice === 'function') {
+      billingInvoice = await BillingDB.recordSubscriptionInvoice(userId, {
+        amountUsd: 0,
+        cashCreditUsedUsd: 0,
+        promoCreditUsedUsd: 0,
+        planName: addon.name,
+        tiwiId,
+        orderType: 'ecommerce_addon',
+        planId: addon.addonId,
+        provider: req.activeUser?.role === 'admin' && addonPrice > 0 ? 'admin_grant' : 'free_trial',
+        status: 'free',
+        metadata: { tiwiId, addonId: addon.addonId, addonName: addon.name, addonType: addon.type }
+      }).catch(() => null);
+      orderNumber = billingInvoice?.orderNumber || null;
     }
 
     const existingAddons = Array.isArray(currentSub?.addons) ? currentSub.addons : [];
@@ -5222,6 +5286,8 @@ router.post('/subscription/addons/purchase', subscriptionUpgradeLimiter, async (
       success: true,
       addon: purchasedAddon,
       subscription: buildSubscriptionWithUsage(updated, { products, staff, sales }),
+      orderNumber,
+      invoice: billingInvoice,
       message: `Successfully activated ${addon.name}`
     });
   } catch (err) {

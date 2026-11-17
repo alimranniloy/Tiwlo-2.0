@@ -532,6 +532,15 @@ export default function App() {
         if (pathname === 'profile-settings' || pathname.startsWith('profile-settings/')) {
           return pathname;
         }
+        if (pathname === 'user-settings' || pathname === 'account-settings') {
+          return 'profile-settings';
+        }
+        if (pathname.startsWith('user-settings/')) {
+          return `profile-settings/${pathname.slice('user-settings/'.length)}`;
+        }
+        if (pathname.startsWith('account-settings/')) {
+          return `profile-settings/${pathname.slice('account-settings/'.length)}`;
+        }
         if (pathname === 'two-factor-auth') return 'two-factor-auth';
         if (pathname === 'team-management') return 'team-management';
 
@@ -570,8 +579,12 @@ export default function App() {
       if (searchParams.get('view') === 'store' || searchParams.get('theme') === 'TiwiMart') {
         return 'store';
       }
-      if (searchParams.get('tab')) {
-        return searchParams.get('tab');
+      const tabParam = searchParams.get('tab');
+      if (tabParam) {
+        if (tabParam === 'user-settings' || tabParam === 'account-settings') return 'profile-settings';
+        if (tabParam.startsWith('user-settings/')) return `profile-settings/${tabParam.slice('user-settings/'.length)}`;
+        if (tabParam.startsWith('account-settings/')) return `profile-settings/${tabParam.slice('account-settings/'.length)}`;
+        return tabParam;
       }
 
       if (!pathname && isStorefrontSubdomainHost(hostname)) {
@@ -650,7 +663,14 @@ export default function App() {
   });
 
   // Instant clean URL tab navigation without any '#' hash
-  const handleTabChange = (tabId) => {
+  const handleTabChange = (rawTabId) => {
+    const tabId = rawTabId === 'user-settings' || rawTabId === 'account-settings'
+      ? 'profile-settings'
+      : (typeof rawTabId === 'string' && rawTabId.startsWith('user-settings/')
+        ? `profile-settings/${rawTabId.slice('user-settings/'.length)}`
+        : (typeof rawTabId === 'string' && rawTabId.startsWith('account-settings/')
+          ? `profile-settings/${rawTabId.slice('account-settings/'.length)}`
+          : rawTabId));
     if (tabId === 'address-verification') {
       const addressUrl = new URL(getAddressVerificationUrl(currentUser));
       if (addressUrl.origin !== window.location.origin) {
@@ -788,6 +808,19 @@ export default function App() {
       return;
     }
 
+    if (tabId === 'whatsapp-automation' || (typeof tabId === 'string' && tabId.startsWith('whatsapp-automation/'))) {
+      const hasSession = !!currentUser || (!!localStorage.getItem('stockpro_session') && !!localStorage.getItem('stockpro_user'));
+      if (!hasSession) {
+        window.location.replace(getAuthUrl('/login?redirect=%2Fwhatsapp-automation'));
+        return;
+      }
+      setActiveTab('whatsapp-automation');
+      if (!window.location.pathname.startsWith('/whatsapp-automation')) {
+        window.history.pushState(null, '', '/whatsapp-automation');
+      }
+      return;
+    }
+
     if (tabId === 'discord' || (typeof tabId === 'string' && tabId.startsWith('discord'))) {
       const hasSession = !!localStorage.getItem('stockpro_session') && !!localStorage.getItem('stockpro_user');
       if (!hasSession) {
@@ -811,8 +844,11 @@ export default function App() {
 
     if (tabId === 'billing' || (typeof tabId === 'string' && (tabId.startsWith('billing') || tabId.startsWith('cloud/billing')))) {
       setActiveTab('billing');
-      if (!window.location.pathname.startsWith('/billing')) {
-        window.history.pushState(null, '', '/billing');
+      const targetBillingPath = (tabId.startsWith('billing/') || tabId.startsWith('cloud/billing/'))
+        ? `/${tabId}`
+        : '/billing';
+      if (window.location.pathname !== targetBillingPath) {
+        window.history.pushState(null, '', targetBillingPath);
       }
       return;
     }
@@ -2437,6 +2473,8 @@ export default function App() {
         <DiscordBotManager
           currentUser={currentUser}
           onNavigateHome={() => handleTabChange('dashboard')}
+          onNavigateTab={handleTabChange}
+          showToast={showToast}
         />
       ) : (activeTab === 'studio' || (typeof activeTab === 'string' && activeTab.startsWith('studio'))) ? (
         <TiwloStudioLanding
@@ -2561,12 +2599,10 @@ export default function App() {
         activeTab.startsWith('marketplace') ||
         activeTab === 'whatsapp-automation' ||
         activeTab.startsWith('whatsapp-automation') ||
-        (!selectedStore && (
-          activeTab === 'profile-settings' ||
-          activeTab.startsWith('profile-settings/') ||
-          activeTab === 'two-factor-auth' ||
-          activeTab === 'team-management'
-        ))
+        activeTab === 'profile-settings' ||
+        activeTab.startsWith('profile-settings/') ||
+        activeTab === 'two-factor-auth' ||
+        activeTab === 'team-management'
       ) ? (
         <CloudDashboard
           currentUser={currentUser}

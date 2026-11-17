@@ -587,7 +587,7 @@ export default function UserTeamManagementView({
               </span>
             </div>
             <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-              Invite team members under {currentUser?.storeName || currentUser?.name || 'your account'}, assign granular store &amp; cloud permissions, and enforce 2FA policies.
+              Invite team members under {currentUser?.name || currentUser?.storeName || 'your Tiwlo account'}, assign granular store &amp; cloud permissions, and enforce 2FA policies.
             </p>
           </div>
         </div>

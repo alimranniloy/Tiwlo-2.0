@@ -5,9 +5,13 @@ import { BillingDB } from '../db/billing.js';
 import { getWhatsappPackages, saveWhatsappPackages } from '../db/packages.js';
 import {
   checkServiceLimit,
+  evaluateServiceTierInsight,
   getServiceSubscription,
   incrementServiceUsage,
+  listServiceNotifications,
   listServiceOrders,
+  markServiceNotificationsRead,
+  setServiceAutoRenew,
   subscribeServiceWithCredits
 } from '../db/serviceSubscriptions.js';
 import { isSuperAdminAccount } from '../administrator/identityRiskGraph.js';
@@ -110,25 +114,77 @@ router.get('/admin/orders', requireAdmin, async (req, res) => {
   }
 });
 
+function isAllowedWithoutWhatsappSubscription(reqPath = '') {
+  const p = String(reqPath || '/');
+  return (
+    p === '/packages' ||
+    p === '/subscription' ||
+    p.startsWith('/subscription/') ||
+    p === '/admin' ||
+    p.startsWith('/admin/')
+  );
+}
+
+async function requireActiveWhatsappSubscription(req, res, next) {
+  try {
+    if (isAllowedWithoutWhatsappSubscription(req.path)) {
+      return next();
+    }
+    const userId = requireUser(req, res);
+    if (!userId) return;
+    const subscription = await getServiceSubscription(userId, 'whatsapp');
+    if (!subscription || subscription.isActive !== true) {
+      const packages = await getWhatsappPackages();
+      return res.status(402).json({
+        error: 'Active subscription required before entering the dashboard.',
+        code: 'SUBSCRIPTION_REQUIRED',
+        serviceType: 'whatsapp',
+        subscription: subscription || null,
+        packages
+      });
+    }
+    req.serviceSubscription = subscription;
+    return next();
+  } catch (err) {
+    console.error('WhatsApp subscription gate error:', err);
+    return res.status(500).json({ error: 'Failed to verify WhatsApp subscription status' });
+  }
+}
+
 router.get('/subscription', async (req, res) => {
   try {
     const userId = requireUser(req, res); if (!userId) return;
-    const [subscription, packages, sessions] = await Promise.all([
+    const [subscription, packages, sessions, notifications] = await Promise.all([
       getServiceSubscription(userId, 'whatsapp'),
       getWhatsappPackages(),
-      WhatsAppManager.listSessions(userId)
+      WhatsAppManager.listSessions(userId).catch(() => []),
+      listServiceNotifications(userId, { serviceType: 'whatsapp', unreadOnly: true })
     ]);
     const autoReplyFlowsCount = sessions.filter(s => Boolean(s.automationConfig?.enabled)).length;
+    const usage = {
+      sessionsCount: sessions.length,
+      autoReplyFlowsCount,
+      monthlyMessagesUsed: Number(subscription?.usage?.monthlyMessages || 0),
+      dailyBroadcastsUsed: Number(subscription?.usage?.dailyBroadcasts || 0)
+    };
+    const tierInsight = await evaluateServiceTierInsight({
+      serviceType: 'whatsapp',
+      subscription,
+      packages,
+      usage: {
+        sessionsCount: usage.sessionsCount,
+        autoReplyFlowsCount: usage.autoReplyFlowsCount,
+        monthlyMessages: usage.monthlyMessagesUsed,
+        dailyBroadcasts: usage.dailyBroadcastsUsed
+      }
+    });
     res.json({
       success: true,
       subscription,
       packages,
-      usage: {
-        sessionsCount: sessions.length,
-        autoReplyFlowsCount,
-        monthlyMessagesUsed: Number(subscription?.usage?.monthlyMessages || 0),
-        dailyBroadcastsUsed: Number(subscription?.usage?.dailyBroadcasts || 0)
-      }
+      usage,
+      tierInsight,
+      notifications
     });
   } catch (err) {
     console.error('Error loading whatsapp subscription:', err);
@@ -139,16 +195,22 @@ router.get('/subscription', async (req, res) => {
 router.post('/subscription/purchase', async (req, res) => {
   try {
     const userId = requireUser(req, res); if (!userId) return;
-    const { planId } = req.body || {};
+    const { planId, autoRenew } = req.body || {};
     if (!planId || typeof planId !== 'string') {
       return res.status(400).json({ error: 'planId is required.' });
+    }
+    if (autoRenew !== undefined && typeof autoRenew !== 'boolean') {
+      return res.status(400).json({ error: 'autoRenew must be a boolean.' });
     }
     const result = await subscribeServiceWithCredits({
       userId,
       userRole: req.activeUser?.role || req.user?.role,
       serviceType: 'whatsapp',
       planId,
-      billingDB: BillingDB
+      autoRenew,
+      billingDB: BillingDB,
+      userEmail: req.activeUser?.email || req.user?.email || null,
+      userName: req.activeUser?.storeName || req.activeUser?.name || req.user?.name || null
     });
     if (!result.success) {
       return res.status(result.statusCode || 402).json({
@@ -164,6 +226,8 @@ router.post('/subscription/purchase', async (req, res) => {
       success: true,
       subscription: result.subscription,
       billing: result.chargeResult || result.billing,
+      orderNumber: result.orderNumber || result.chargeResult?.orderNumber || result.invoice?.orderNumber || null,
+      invoice: result.invoice || result.chargeResult?.invoice || null,
       message: `${result.subscription?.planName || 'WhatsApp Bot'} subscription activated.`
     });
   } catch (err) {
@@ -171,6 +235,70 @@ router.post('/subscription/purchase', async (req, res) => {
     res.status(500).json({ error: err.message || 'Failed to activate WhatsApp subscription' });
   }
 });
+
+router.patch('/subscription/auto-renew', async (req, res) => {
+  try {
+    const userId = requireUser(req, res); if (!userId) return;
+    const { autoRenew } = req.body || {};
+    if (typeof autoRenew !== 'boolean') {
+      return res.status(400).json({ error: 'autoRenew boolean is required.' });
+    }
+    const result = await setServiceAutoRenew({
+      userId,
+      serviceType: 'whatsapp',
+      autoRenew
+    });
+    if (!result.success) {
+      return res.status(result.statusCode || 400).json({
+        error: result.error,
+        code: result.code
+      });
+    }
+    res.json({
+      success: true,
+      subscription: result.subscription,
+      message: `WhatsApp auto-renewal ${autoRenew ? 'enabled' : 'disabled'}.`
+    });
+  } catch (err) {
+    console.error('Error toggling whatsapp auto-renew:', err);
+    res.status(500).json({ error: 'Failed to update WhatsApp auto-renewal setting' });
+  }
+});
+
+router.get('/subscription/notifications', async (req, res) => {
+  try {
+    const userId = requireUser(req, res); if (!userId) return;
+    const unreadOnly = req.query.unreadOnly === 'true';
+    const notifications = await listServiceNotifications(userId, {
+      serviceType: 'whatsapp',
+      unreadOnly
+    });
+    res.json({
+      success: true,
+      notifications,
+      unreadCount: notifications.filter((n) => !n.readAt).length
+    });
+  } catch (err) {
+    console.error('Error loading whatsapp notifications:', err);
+    res.status(500).json({ error: 'Failed to load WhatsApp subscription notifications' });
+  }
+});
+
+router.post('/subscription/notifications/read', async (req, res) => {
+  try {
+    const userId = requireUser(req, res); if (!userId) return;
+    const result = await markServiceNotificationsRead(userId, {
+      serviceType: 'whatsapp',
+      notificationId: req.body?.notificationId || null
+    });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('Error marking whatsapp notifications read:', err);
+    res.status(500).json({ error: 'Failed to mark WhatsApp notifications as read' });
+  }
+});
+
+router.use(requireActiveWhatsappSubscription);
 
 // 1. GET /api/whatsapp/sessions - List all sessions
 router.get('/sessions', async (req, res) => {

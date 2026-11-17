@@ -8,9 +8,12 @@ import { identityVerificationEmailNotifications } from '../db/emailService.js';
 import { identityVerificationEvidence } from '../db/identityVerificationEvidence.js';
 import {
   analyzeIdentityDocumentWithGemini,
+  inspectLivenessQualityWithGemini,
   matchDocumentAndSelfieWithGemini,
-  normalizeDocumentType
+  normalizeDocumentType,
+  verifyLivenessChallengeFrameWithGemini
 } from '../security/geminiIdentityVerifier.js';
+import { resetInMemoryAiKeyPoolForTests } from '../support/ai/aiKeyPoolService.js';
 import { computeDocumentHashes, createVerificationRouter } from './verificationRoutes.js';
 
 const originalFetch = globalThis.fetch;
@@ -1328,4 +1331,237 @@ test('real Node.js faceLivenessEngine rejects no-face frames and GET /review-sta
   const statusJson = await statusRes.json();
   assert.equal(statusJson.reviewStatus, 'pending_review');
   assert.equal(statusJson.reviewId, 'rev-pending-99');
+});
+
+test('geminiIdentityVerifier pre-checks key availability before Sharp re-encoding while honoring injected executeAiFn', async () => {
+  const prevEnvKey = process.env.GEMINI_API_KEY;
+  delete process.env.GEMINI_API_KEY;
+  resetInMemoryAiKeyPoolForTests();
+
+  try {
+    // Empty/non-image buffer is NOT touched by Sharp when no healthy Gemini key exists on default executeAiFn
+    const invalidBuf = Buffer.from('not-an-image');
+    const qFastFallback = await inspectLivenessQualityWithGemini({
+      frameBuffer: invalidBuf,
+      mimeType: 'image/jpeg',
+      getSettingsFn: async () => ({ enabled: true })
+    });
+    assert.deepEqual(qFastFallback, { ok: false, fallback: true, aiDisabled: true });
+
+    const cFastFallback = await verifyLivenessChallengeFrameWithGemini({
+      frameBuffer: invalidBuf,
+      mimeType: 'image/jpeg',
+      challengeType: 'turn_left',
+      getSettingsFn: async () => ({ enabled: true })
+    });
+    assert.deepEqual(cFastFallback, { ok: false, fallback: true, aiDisabled: true });
+
+    // Injected executeAiFn still runs normally even with empty key pool
+    const validBuf = await createImage(320, 240, 2);
+    const leftRes = await verifyLivenessChallengeFrameWithGemini({
+      frameBuffer: validBuf,
+      mimeType: 'image/png',
+      challengeType: 'turn_left',
+      getSettingsFn: async () => ({ enabled: true }),
+      executeAiFn: async () => ({
+        text: JSON.stringify({
+          faceDetected: true,
+          faceCount: 1,
+          headDirection: 'left',
+          mouthOpen: false,
+          eyesClosed: false,
+          actionDetected: true,
+          spoofOrScreen: false
+        })
+      })
+    });
+    assert.equal(leftRes.ok, true);
+    assert.equal(leftRes.fallback, false);
+    assert.equal(leftRes.actionDetected, true);
+    assert.equal(leftRes.spoofDetected, false);
+    assert.equal(leftRes.guidance, 'passed');
+
+    const spoofRes = await inspectLivenessQualityWithGemini({
+      frameBuffer: validBuf,
+      mimeType: 'image/png',
+      getSettingsFn: async () => ({ enabled: true }),
+      executeAiFn: async () => ({
+        text: JSON.stringify({
+          faceDetected: true,
+          faceCount: 1,
+          framing: 'good',
+          passportQuality: true,
+          eyesOpen: true,
+          sharp: true,
+          spoofOrScreen: true
+        })
+      })
+    });
+    assert.equal(spoofRes.ok, true);
+    assert.equal(spoofRes.ready, false);
+    assert.equal(spoofRes.spoofDetected, true);
+    assert.equal(spoofRes.guidance, 'spoof_detected');
+  } finally {
+    if (prevEnvKey !== undefined) process.env.GEMINI_API_KEY = prevEnvKey;
+  }
+});
+
+test('liveness frame tolerates brief low-delta frames, blocks sustained static streams, and propagates antiSpoof', async t => {
+  let spoofMode = false;
+  const faceEngine = {
+    async inspectFullFaceFrame() {
+      if (spoofMode) {
+        return {
+          ok: true,
+          ready: false,
+          faceDetected: true,
+          faceCount: 1,
+          fullFaceVisible: true,
+          passportQuality: false,
+          spoofDetected: true,
+          antiSpoof: { spoofDetected: true, realScore: 0.14, liveScore: 0.18 },
+          guidance: 'spoof_detected'
+        };
+      }
+      return {
+        ok: true,
+        ready: true,
+        faceDetected: true,
+        faceCount: 1,
+        fullFaceVisible: true,
+        passportQuality: true,
+        spoofDetected: false,
+        antiSpoof: { spoofDetected: false, realScore: 0.91, liveScore: 0.88 },
+        guidance: 'ready'
+      };
+    },
+    async verifyActiveChallengeFrame() {
+      if (spoofMode) {
+        return {
+          ok: true,
+          faceDetected: true,
+          faceCount: 1,
+          fullFaceVisible: true,
+          actionDetected: false,
+          spoofDetected: true,
+          antiSpoof: { spoofDetected: true, realScore: 0.14, liveScore: 0.18 },
+          guidance: 'spoof_detected'
+        };
+      }
+      return {
+        ok: true,
+        faceDetected: true,
+        faceCount: 1,
+        fullFaceVisible: true,
+        actionDetected: false,
+        spoofDetected: false,
+        antiSpoof: { spoofDetected: false, realScore: 0.91, liveScore: 0.88 },
+        guidance: 'perform_action'
+      };
+    }
+  };
+
+  const call = await createClient(t, { faceEngine });
+
+  // Auto-brightness-adjusted bright image still passes /liveness/quality cleanly
+  const brightBuf = await createSolidImage(320, 240, { r: 210, g: 210, b: 210 });
+  const qBrightForm = new FormData();
+  qBrightForm.append('frame', new Blob([brightBuf], { type: 'image/png' }), 'bright.png');
+  const qBrightRes = await call('/api/verification/liveness/quality?mode=passport', {
+    method: 'POST',
+    headers: { 'x-user-id': 'user-1' },
+    body: qBrightForm
+  });
+  assert.equal(qBrightRes.status, 200);
+  const qBrightJson = await qBrightRes.json();
+  assert.equal(qBrightJson.ready, true);
+  assert.equal(qBrightJson.spoofDetected, false);
+  assert.deepEqual(qBrightJson.antiSpoof, { spoofDetected: false, realScore: 0.91, liveScore: 0.88 });
+
+  // Spoof detection on /liveness/quality returns ready: false, spoofDetected: true, guidance: 'spoof_detected'
+  spoofMode = true;
+  const qSpoofForm = new FormData();
+  qSpoofForm.append('frame', new Blob([await createImage(320, 240, 1)], { type: 'image/png' }), 'spoof.png');
+  const qSpoofRes = await call('/api/verification/liveness/quality?mode=passport', {
+    method: 'POST',
+    headers: { 'x-user-id': 'user-1' },
+    body: qSpoofForm
+  });
+  assert.equal(qSpoofRes.status, 200);
+  const qSpoofJson = await qSpoofRes.json();
+  assert.equal(qSpoofJson.ready, false);
+  assert.equal(qSpoofJson.spoofDetected, true);
+  assert.equal(qSpoofJson.guidance, 'spoof_detected');
+
+  // Create session & verify 1-3 subtle low-delta frames (0 < delta < 0.35) do NOT trigger HTTP 400,
+  // while the 4th consecutive near-static frame triggers HTTP 400 replayDetected: true
+  spoofMode = false;
+  const sRes = await call('/api/verification/liveness/session', {
+    method: 'POST',
+    headers: { 'x-user-id': 'user-1' }
+  });
+  const { session_id: sessionId } = await sRes.json();
+
+  const makeSlightlyShiftedSolid = (luma) => createSolidImage(320, 240, { r: luma, g: luma, b: luma });
+  // Base frame (brightness = 100)
+  const f0 = new FormData();
+  f0.append('frame', new Blob([await makeSlightlyShiftedSolid(100)], { type: 'image/png' }), 'f0.png');
+  assert.equal((await call(`/api/verification/liveness/${sessionId}/frame`, {
+    method: 'POST',
+    headers: { 'x-user-id': 'user-1' },
+    body: f0
+  })).status, 200);
+
+  // Subtle step deltas (different thumb32 hashes, delta ~0.2 < 0.35): frames 1..3 succeed (HTTP 200)
+  for (let i = 1; i <= 3; i++) {
+    const raw = Buffer.alloc(320 * 240 * 3, 100);
+    // Change a small patch so thumb32 hash is distinct and delta is ~0.1-0.25
+    for (let p = 0; p < 32 * 32 * 3; p += 3) {
+      raw[p] = 100 + i * 20;
+      raw[p + 1] = 100 + i * 20;
+      raw[p + 2] = 100 + i * 20;
+    }
+    const buf = await sharp(raw, { raw: { width: 320, height: 240, channels: 3 } }).png().toBuffer();
+    const form = new FormData();
+    form.append('frame', new Blob([buf], { type: 'image/png' }), `subtle-${i}.png`);
+    const res = await call(`/api/verification/liveness/${sessionId}/frame`, {
+      method: 'POST',
+      headers: { 'x-user-id': 'user-1' },
+      body: form
+    });
+    assert.equal(res.status, 200);
+  }
+
+  // 4th consecutive near-static frame triggers HTTP 400 replayDetected
+  const raw4 = Buffer.alloc(320 * 240 * 3, 100);
+  for (let p = 0; p < 32 * 32 * 3; p += 3) {
+    raw4[p] = 180;
+    raw4[p + 1] = 180;
+    raw4[p + 2] = 180;
+  }
+  const buf4 = await sharp(raw4, { raw: { width: 320, height: 240, channels: 3 } }).png().toBuffer();
+  const form4 = new FormData();
+  form4.append('frame', new Blob([buf4], { type: 'image/png' }), 'subtle-4.png');
+  const res4 = await call(`/api/verification/liveness/${sessionId}/frame`, {
+    method: 'POST',
+    headers: { 'x-user-id': 'user-1' },
+    body: form4
+  });
+  assert.equal(res4.status, 400);
+  assert.equal((await res4.json()).replayDetected, true);
+
+  // Spoof frame on /liveness/:sessionId/frame returns HTTP 200 with spoofDetected: true
+  spoofMode = true;
+  const spoofFrameForm = new FormData();
+  spoofFrameForm.append('frame', new Blob([await createImage(320, 240, 22)], { type: 'image/png' }), 'spoof-frame.png');
+  const spoofFrameRes = await call(`/api/verification/liveness/${sessionId}/frame`, {
+    method: 'POST',
+    headers: { 'x-user-id': 'user-1' },
+    body: spoofFrameForm
+  });
+  assert.equal(spoofFrameRes.status, 200);
+  const spoofFrameJson = await spoofFrameRes.json();
+  assert.equal(spoofFrameJson.passed, false);
+  assert.equal(spoofFrameJson.spoofDetected, true);
+  assert.equal(spoofFrameJson.guidance, 'spoof_detected');
 });

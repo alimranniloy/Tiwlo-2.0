@@ -40,6 +40,142 @@ import { openMaterialDialog, showMaterialAlert } from '../components/MaterialDia
 
 const EMPTY_CATEGORIES = [];
 
+const ALLOWED_DESCRIPTION_TAGS = new Set([
+  'a', 'b', 'blockquote', 'br', 'caption', 'code', 'dd', 'del',
+  'div', 'dl', 'dt', 'em', 'figcaption', 'figure', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr',
+  'i', 'img', 'li', 'ol', 'p', 'pre', 's', 'small', 'span', 'strong', 'sub',
+  'sup', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'u', 'ul'
+]);
+
+const DROP_DESCRIPTION_CONTENT_TAGS = new Set([
+  'script', 'style', 'iframe', 'object', 'embed', 'svg', 'math', 'noscript', 'template', 'textarea', 'title'
+]);
+
+const ALLOWED_DESCRIPTION_CLASSES = new Set([
+  'align-left', 'align-center', 'align-right', 'text-center', 'text-left', 'text-right', 'text-muted'
+]);
+
+function isSafeDescriptionUrl(rawValue, allowedProtocols, { allowFragment = false } = {}) {
+  const trimmed = String(rawValue || '').trim();
+  if (!trimmed || trimmed.startsWith('//')) return false;
+  if (trimmed.startsWith('/')) return true;
+  if (allowFragment && trimmed.startsWith('#')) return true;
+  const compact = Array.from(trimmed)
+    .filter(ch => {
+      const code = ch.charCodeAt(0);
+      return code > 0x20 && code !== 0x7f;
+    })
+    .join('');
+  try {
+    const parsed = new URL(compact);
+    return allowedProtocols.includes(parsed.protocol.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeDescriptionElementAttributes(element, tag) {
+  for (const attr of Array.from(element.attributes)) {
+    const name = attr.name.toLowerCase();
+    const value = attr.value;
+    if (name.startsWith('on') || name === 'style' || name === 'srcdoc') {
+      element.removeAttribute(attr.name);
+      continue;
+    }
+    if (name === 'class') {
+      const safeClasses = value
+        .split(/\s+/)
+        .filter(token => ALLOWED_DESCRIPTION_CLASSES.has(token));
+      if (safeClasses.length) {
+        element.setAttribute('class', safeClasses.join(' '));
+      } else {
+        element.removeAttribute(attr.name);
+      }
+      continue;
+    }
+    if (tag === 'a') {
+      if (name === 'href') {
+        if (!isSafeDescriptionUrl(value, ['http:', 'https:', 'mailto:'], { allowFragment: true })) {
+          element.removeAttribute(attr.name);
+        }
+        continue;
+      }
+      if (!['name', 'target', 'rel'].includes(name)) {
+        element.removeAttribute(attr.name);
+      }
+      continue;
+    }
+    if (tag === 'img') {
+      if (name === 'src') {
+        if (!isSafeDescriptionUrl(value, ['http:', 'https:'])) {
+          element.removeAttribute(attr.name);
+        }
+        continue;
+      }
+      if ((name === 'width' || name === 'height') && !/^\d+(?:px|%)?$/i.test(value.trim())) {
+        element.removeAttribute(attr.name);
+        continue;
+      }
+      if (!['alt', 'title', 'width', 'height'].includes(name)) {
+        element.removeAttribute(attr.name);
+      }
+      continue;
+    }
+    if ((tag === 'th' || tag === 'td') && (name === 'colspan' || name === 'rowspan')) {
+      if (!/^[1-9]\d*$/.test(value.trim())) {
+        element.removeAttribute(attr.name);
+      }
+      continue;
+    }
+    element.removeAttribute(attr.name);
+  }
+  if (tag === 'a' && element.hasAttribute('href')) {
+    element.setAttribute('rel', 'noopener noreferrer');
+    element.setAttribute('target', '_blank');
+  }
+}
+
+function sanitizeDescriptionNodeChildren(parent) {
+  for (const child of Array.from(parent.childNodes)) {
+    if (child.nodeType === 3) continue;
+    if (child.nodeType !== 1) {
+      child.remove();
+      continue;
+    }
+    const tag = child.tagName.toLowerCase();
+    if (DROP_DESCRIPTION_CONTENT_TAGS.has(tag)) {
+      child.remove();
+      continue;
+    }
+    sanitizeDescriptionNodeChildren(child);
+    if (!ALLOWED_DESCRIPTION_TAGS.has(tag)) {
+      while (child.firstChild) {
+        parent.insertBefore(child.firstChild, child);
+      }
+      child.remove();
+      continue;
+    }
+    sanitizeDescriptionElementAttributes(child, tag);
+  }
+}
+
+function sanitizeDescriptionHtml(html, ParserClass = globalThis.DOMParser) {
+  if (typeof html !== 'string' || !html.trim()) return '';
+  if (typeof ParserClass !== 'function') {
+    return html
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;')
+      .trim();
+  }
+  const doc = new ParserClass().parseFromString(html, 'text/html');
+  if (!doc?.body) return '';
+  sanitizeDescriptionNodeChildren(doc.body);
+  return doc.body.innerHTML.trim();
+}
+
 export default function AddProductView({
   onBack,
   onSaveProduct,
@@ -274,28 +410,29 @@ export default function AddProductView({
   const executeEditorCommand = (command, value = null) => {
     document.execCommand(command, false, value);
     if (editorRef.current) {
-      setFormData(prev => ({ ...prev, description: editorRef.current.innerHTML }));
+      const sanitized = sanitizeDescriptionHtml(editorRef.current.innerHTML);
+      setFormData(prev => ({ ...prev, description: sanitized }));
     }
   };
 
   // Insert Table Template in Description
   const insertTableTemplate = () => {
     const tableHtml = `
-      <table style="width:100%; border-collapse:collapse; margin:12px 0;">
+      <table>
         <thead>
-          <tr style="background:#f4f4f4; border-bottom:2px solid #d4d4d4;">
-            <th style="padding:8px; text-align:left;">Specification</th>
-            <th style="padding:8px; text-align:left;">Detail</th>
+          <tr>
+            <th>Specification</th>
+            <th>Detail</th>
           </tr>
         </thead>
         <tbody>
-          <tr style="border-bottom:1px solid #e7e7e7;">
-            <td style="padding:6px 8px;">Material</td>
-            <td style="padding:6px 8px;">Premium Alloy / Cotton</td>
+          <tr>
+            <td>Material</td>
+            <td>Premium Alloy / Cotton</td>
           </tr>
-          <tr style="border-bottom:1px solid #e7e7e7;">
-            <td style="padding:6px 8px;">Origin</td>
-            <td style="padding:6px 8px;">Imported</td>
+          <tr>
+            <td>Origin</td>
+            <td>Imported</td>
           </tr>
         </tbody>
       </table>
@@ -511,6 +648,7 @@ export default function AddProductView({
 
     const payload = {
       ...formData,
+      description: sanitizeDescriptionHtml(formData.description),
       image: formData.image || finalImgs[0] || '',
       images: finalImgs,
       price: parseFloat(formData.price) || 0,
@@ -1517,8 +1655,20 @@ export default function AddProductView({
                   <div
                     ref={editorRef}
                     contentEditable
-                    dangerouslySetInnerHTML={{ __html: formData.description }}
-                    onBlur={(e) => setFormData({ ...formData, description: e.currentTarget.innerHTML })}
+                    dangerouslySetInnerHTML={{ __html: sanitizeDescriptionHtml(formData.description) }}
+                    onPaste={(e) => {
+                      const pastedHtml = e.clipboardData?.getData('text/html');
+                      if (!pastedHtml) return;
+                      e.preventDefault();
+                      document.execCommand('insertHTML', false, sanitizeDescriptionHtml(pastedHtml));
+                    }}
+                    onBlur={(e) => {
+                      const sanitized = sanitizeDescriptionHtml(e.currentTarget.innerHTML);
+                      if (e.currentTarget.innerHTML !== sanitized) {
+                        e.currentTarget.innerHTML = sanitized;
+                      }
+                      setFormData(prev => ({ ...prev, description: sanitized }));
+                    }}
                     className="p-4 min-h-[220px] max-h-[360px] overflow-y-auto focus:outline-hidden prose prose-sm dark:prose-invert max-w-none text-neutral-800 dark:text-neutral-200"
                   />
                 )}
@@ -1536,7 +1686,7 @@ export default function AddProductView({
                 {editorMode === 'preview' && (
                   <div className="p-5 bg-neutral-50 dark:bg-gray-950 min-h-[220px]">
                     <div
-                      dangerouslySetInnerHTML={{ __html: formData.description || '<p class="text-neutral-400 italic">No description provided.</p>' }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeDescriptionHtml(formData.description) || '<p class="text-neutral-400 italic">No description provided.</p>' }}
                       className="prose prose-sm dark:prose-invert max-w-none text-neutral-800 dark:text-neutral-200"
                     />
                   </div>
@@ -1619,7 +1769,7 @@ export default function AddProductView({
                 <div className="pt-2 border-t border-neutral-200/60 dark:border-gray-800">
                   <p className="text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">Description Preview:</p>
                   <div
-                    dangerouslySetInnerHTML={{ __html: formData.description }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeDescriptionHtml(formData.description) }}
                     className="text-xs text-neutral-600 dark:text-neutral-300 line-clamp-3 prose prose-xs dark:prose-invert"
                   />
                 </div>

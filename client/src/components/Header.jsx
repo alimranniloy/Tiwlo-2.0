@@ -4,6 +4,7 @@ import {
   Bell,
   ChevronDown,
   KeyRound,
+  LayoutGrid,
   LogOut,
   Menu,
   Moon,
@@ -90,7 +91,7 @@ export default function Header({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const displayName = effectiveUser?.storeName || effectiveUser?.name || 'Tiwlo Store';
+  const displayName = effectiveUser?.name || effectiveUser?.email?.split('@')[0] || 'Tiwlo User';
 
   return (
     <header className="tiwi-v3-topbar sticky top-0 z-30 flex h-[68px] items-center justify-between gap-3 border-b border-neutral-200/70 bg-white/90 px-4 backdrop-blur-xl transition-colors sm:px-7">
@@ -256,7 +257,7 @@ export default function Header({
                 className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-xs text-neutral-700 transition hover:bg-neutral-50 cursor-pointer"
               >
                 <UserRound className="size-4 text-neutral-500" />
-                Profile settings
+                Tiwlo User Settings
               </button>
               <button
                 type="button"
@@ -295,12 +296,23 @@ export default function Header({
                 type="button"
                 onClick={() => {
                   setShowProfileMenu(false);
+                  onNavigateTab?.('dashboard');
+                }}
+                className="flex w-full items-center gap-2.5 border-t border-neutral-100 px-4 py-2.5 text-left text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 cursor-pointer"
+              >
+                <LayoutGrid className="size-4 text-neutral-500" />
+                Back to Tiwlo Account
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowProfileMenu(false);
                   onLogout?.();
                 }}
                 className="flex w-full items-center gap-2.5 border-t border-neutral-100 px-4 py-2.5 text-left text-xs font-medium text-red-600 transition hover:bg-red-50 cursor-pointer"
               >
                 <LogOut className="size-4" />
-                Sign out / switch store
+                Sign out
               </button>
             </div>
           )}

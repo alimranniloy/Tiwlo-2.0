@@ -5,6 +5,7 @@ import http from 'node:http';
 import express from 'express';
 import {
   PANEL_BLUEPRINTS,
+  assertSafeProbeHostResolution,
   bulkImportServerNodes,
   createServerNode,
   decryptServerCredentials,
@@ -15,11 +16,13 @@ import {
   getNodeConnectivityLogs,
   getPublicDropletCatalogAdditions,
   getServerNodeById,
+  isBlockedMetadataOrSsrfIp,
   listServerNodes,
   probeFleetBatch,
   probeServerConnectivity,
   resetInMemoryServerFleetForTests,
   runFleetMonitorSweep,
+  runHttpHealthProbe,
   startFleetConnectivityMonitor,
   stopFleetConnectivityMonitor,
   updateServerNode
@@ -573,4 +576,112 @@ test('adminServerFleetRoutes enforces auth/reauth and executes full CRUD + logs 
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
+});
+
+test('isBlockedMetadataOrSsrfIp blocks hex IPv4-mapped metadata while preserving admin RFC1918 and Cloudflare IPs', async () => {
+  assert.equal(isBlockedMetadataOrSsrfIp('169.254.169.254'), true);
+  assert.equal(isBlockedMetadataOrSsrfIp('::ffff:169.254.169.254'), true);
+  assert.equal(isBlockedMetadataOrSsrfIp('::ffff:a9fe:a9fe'), true);
+  assert.equal(isBlockedMetadataOrSsrfIp('100.100.100.200'), true);
+  assert.equal(isBlockedMetadataOrSsrfIp('0.0.0.0'), true);
+  assert.equal(isBlockedMetadataOrSsrfIp('255.255.255.255'), true);
+  assert.equal(isBlockedMetadataOrSsrfIp('fe80::1'), true);
+  assert.equal(isBlockedMetadataOrSsrfIp('fd00:ec2::254'), true);
+  assert.equal(isBlockedMetadataOrSsrfIp('::'), true);
+
+  // Admin RFC1918 fleet nodes & Cloudflare public IPs remain permitted
+  assert.equal(isBlockedMetadataOrSsrfIp('10.20.1.10'), false);
+  assert.equal(isBlockedMetadataOrSsrfIp('172.16.5.4'), false);
+  assert.equal(isBlockedMetadataOrSsrfIp('192.168.10.20'), false);
+  assert.equal(isBlockedMetadataOrSsrfIp('104.16.132.229'), false);
+  assert.equal(isBlockedMetadataOrSsrfIp('172.64.155.209'), false);
+  assert.equal(isBlockedMetadataOrSsrfIp('2606:4700:4700::1111'), false);
+
+  await assert.rejects(
+    () => createServerNode({
+      name: 'Mapped IPv6 Metadata URL',
+      hostname: 'ok-host3.tiwlo.net',
+      ipAddress: '10.20.1.11',
+      panelType: 'custom_panel',
+      serverRole: 'app_hosting',
+      healthEndpoint: 'http://[::ffff:169.254.169.254]/latest/meta-data/'
+    }, 'admin_1'),
+    (err) => err.statusCode === 400
+  );
+
+  await assert.rejects(
+    () => createServerNode({
+      name: 'Trailing Dot Metadata Host',
+      hostname: 'metadata.google.internal.',
+      ipAddress: '10.20.1.12',
+      panelType: 'custom_panel',
+      serverRole: 'app_hosting'
+    }, 'admin_1'),
+    (err) => err.statusCode === 400
+  );
+});
+
+test('runHttpHealthProbe blocks DNS rebinding to metadata IPs and enforces redirect: manual for allowed fleet/Cloudflare nodes', async () => {
+  const rebindIps = [
+    [{ address: '169.254.169.254', family: 4 }],
+    [{ address: '10.20.1.10', family: 4 }, { address: '169.254.169.254', family: 4 }],
+    [{ address: '100.100.100.200', family: 4 }],
+    [{ address: '::ffff:169.254.169.254', family: 6 }],
+    [{ address: 'fe80::1', family: 6 }],
+    [{ address: 'fd00:ec2::254', family: 6 }],
+    []
+  ];
+
+  for (const records of rebindIps) {
+    let fetchCalled = false;
+    const result = await runHttpHealthProbe(
+      {
+        ip_address: '10.20.1.10',
+        hostname: 'rebind-fleet.tiwlo.net',
+        panel_url: 'https://rebind-fleet.tiwlo.net:9443/health',
+        health_endpoint: '/health'
+      },
+      2000,
+      {
+        dnsLookup: async () => records,
+        fetchFn: async () => {
+          fetchCalled = true;
+          return { status: 200 };
+        }
+      }
+    );
+    assert.equal(fetchCalled, false, `fetch must not run for blocked DNS records: ${JSON.stringify(records)}`);
+    assert.equal(result.ok, false);
+    assert.equal(result.status, 'offline');
+  }
+
+  // Allowed Cloudflare & RFC1918 DNS resolutions proceed with redirect: 'manual'
+  for (const allowedAddr of ['104.16.132.229', '10.20.1.10']) {
+    const fetchArgs = [];
+    const okResult = await runHttpHealthProbe(
+      {
+        ip_address: allowedAddr,
+        hostname: 'edge-node.tiwlo.net',
+        panel_url: 'https://edge-node.tiwlo.net/health',
+        health_endpoint: '/health'
+      },
+      2000,
+      {
+        dnsLookup: async () => [{ address: allowedAddr, family: 4 }],
+        fetchFn: async (url, init) => {
+          fetchArgs.push({ url, init });
+          return { status: 200 };
+        }
+      }
+    );
+    assert.equal(okResult.ok, true);
+    assert.equal(okResult.status, 'online');
+    assert.equal(fetchArgs.length, 1);
+    assert.equal(fetchArgs[0].init.redirect, 'manual');
+  }
+
+  await assert.rejects(
+    () => assertSafeProbeHostResolution('rebind.example', async () => [{ address: '169.254.169.254', family: 4 }]),
+    (err) => err.statusCode === 400
+  );
 });

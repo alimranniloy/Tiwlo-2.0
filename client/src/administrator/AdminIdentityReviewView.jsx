@@ -1123,7 +1123,7 @@ export default function AdminIdentityReviewView({
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="truncate text-xs font-semibold text-neutral-950 dark:text-white">
-                          {item.applicantName || item.userName || item.name || item.user?.name || 'Tiwlo Merchant'}
+                          {item.applicantName || item.userName || item.name || item.user?.name || 'Tiwlo User'}
                         </p>
                         <p className="truncate text-[11px] text-neutral-500 dark:text-neutral-400">
                           {item.email || item.userEmail || item.user?.email || 'No email'}
@@ -1193,7 +1193,7 @@ export default function AdminIdentityReviewView({
                     <div className="space-y-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <CardTitle className="text-base">
-                          {selectedReview.applicantName || selectedReview.userName || selectedReview.name || selectedReview.user?.name || 'Tiwlo Merchant'}
+                          {selectedReview.applicantName || selectedReview.userName || selectedReview.name || selectedReview.user?.name || 'Tiwlo User'}
                         </CardTitle>
                         <Badge variant={selectedStatusMeta.variant}>
                           <SelectedStatusIcon className="h-3 w-3" />
@@ -1348,7 +1348,7 @@ export default function AdminIdentityReviewView({
                     <div>
                       <CardTitle className="flex items-center gap-1.5">
                         <ShieldAlert className="h-4 w-4 text-[#1ED760]" />
-                        Pre-Review Risk Intelligence &amp; Merchant Context
+                        Pre-Review Risk Intelligence &amp; Account Context
                       </CardTitle>
                       <CardDescription className="mt-0.5">
                         Fraud intelligence graph signals, zero-trust telemetry, and store/order footprint before taking action.
@@ -1476,7 +1476,7 @@ export default function AdminIdentityReviewView({
                     <div className="rounded-xl border border-neutral-200/80 p-3 dark:border-neutral-800">
                       <span className="flex items-center gap-1 text-[11px] text-neutral-500">
                         <Store className="h-3 w-3" />
-                        Merchant Stores
+                        Connected Stores
                       </span>
                       <p className="mt-1 text-sm font-semibold tabular-nums text-neutral-950 dark:text-white">
                         {storesCount}
@@ -1691,7 +1691,7 @@ export default function AdminIdentityReviewView({
                     Review Decision
                   </CardTitle>
                   <CardDescription>
-                    Record an administrative note and finalize the merchant verification status.
+                    Record an administrative note and finalize the user verification status.
                   </CardDescription>
                 </CardHeader>
 
@@ -1836,7 +1836,7 @@ export default function AdminIdentityReviewView({
                 </span>
               </Alert>
               <p>
-                Target merchant:{' '}
+                Target user:{' '}
                 <strong className="text-neutral-950 dark:text-white">
                   {selectedReview.applicantName || selectedReview.name || selectedReview.email}
                 </strong>

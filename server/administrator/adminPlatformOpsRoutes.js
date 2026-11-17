@@ -1103,7 +1103,7 @@ export function createAdminPlatformOpsRouter({
         return {
           id: u.id,
           tiwiId: u.tiwiId || u.storeId || '',
-          name: u.name || u.storeName || 'Merchant User',
+          name: u.name || u.storeName || 'Tiwlo User',
           email: u.email,
           avatar: u.avatar && !u.avatar.includes('unsplash.com') ? u.avatar : '/tiwlo-icon.png',
           role: u.role || 'owner',
@@ -1286,7 +1286,7 @@ export function createAdminPlatformOpsRouter({
           planId: requestedPlanId
         });
         if (!charge?.success) {
-          return res.status(charge?.statusCode || 402).json({ error: charge?.error || 'Insufficient merchant balance.' });
+          return res.status(charge?.statusCode || 402).json({ error: charge?.error || 'Insufficient user balance.' });
         }
       }
 
@@ -1384,7 +1384,7 @@ export function createAdminPlatformOpsRouter({
       const tiwiId = String(req.params.tiwiId || '').trim();
       const targetEmail = String(req.body?.newOwnerEmail || req.body?.email || '').trim().toLowerCase();
       if (!targetEmail || !targetEmail.includes('@')) {
-        return res.status(400).json({ error: 'A valid target merchant email is required.' });
+        return res.status(400).json({ error: 'A valid target user email is required.' });
       }
 
       const master = await d.MasterDB.getMasterData();
@@ -1396,7 +1396,7 @@ export function createAdminPlatformOpsRouter({
         (u) => String(u.email || '').trim().toLowerCase() === targetEmail
       );
       if (!targetUser) {
-        return res.status(404).json({ error: `Target merchant "${targetEmail}" was not found.` });
+        return res.status(404).json({ error: `Target user "${targetEmail}" was not found.` });
       }
       if (targetUser.isBanned) {
         return res.status(409).json({ error: 'Cannot migrate store ownership to a banned account.' });
@@ -1559,7 +1559,7 @@ export function createAdminPlatformOpsRouter({
 
       return res.json({
         success: true,
-        message: `Store "${store.storeName || tiwiId}" permanently deleted. Merchant account preserved.`
+        message: `Store "${store.storeName || tiwiId}" permanently deleted. Tiwlo account preserved.`
       });
     } catch (error) {
       console.error('[Admin Delete Store Error]', error.message);
@@ -1571,7 +1571,7 @@ export function createAdminPlatformOpsRouter({
   router.post('/users/:id/credits', requireAdmin, requireRecentReauth, async (req, res) => {
     try {
       const targetUser = await d.MasterDB.findUserByIdentifier(req.params.id);
-      if (!targetUser) return res.status(404).json({ error: 'Merchant account not found.' });
+      if (!targetUser) return res.status(404).json({ error: 'Tiwlo account not found.' });
 
       if (isSuperAdminAccount(targetUser) && !isSuperAdminRequester(req.adminUser)) {
         return res.status(403).json({ error: 'Super Administrator balances cannot be modified here.' });
@@ -1679,7 +1679,7 @@ export function createAdminPlatformOpsRouter({
       });
     } catch (error) {
       console.error('[Admin Credit Adjust Error]', error.message);
-      return res.status(500).json({ error: 'Failed to adjust merchant credits.' });
+      return res.status(500).json({ error: 'Failed to adjust user credits.' });
     }
   });
 

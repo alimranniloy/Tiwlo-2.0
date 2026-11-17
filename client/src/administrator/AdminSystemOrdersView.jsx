@@ -453,7 +453,7 @@ export default function AdminSystemOrdersView({ onBackToDashboard }) {
               <tr className="border-b border-neutral-200/80 bg-neutral-50/70 text-[11px] font-semibold text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/50 dark:text-neutral-400">
                 <th className="px-4 py-3">Order #</th>
                 <th className="px-3 py-3">Date</th>
-                <th className="px-3 py-3">Merchant / Store</th>
+                <th className="px-3 py-3">Tiwlo User / Service</th>
                 <th className="px-3 py-3">Type</th>
                 <th className="px-3 py-3">Plan / Item</th>
                 <th className="px-3 py-3 text-right">Paid Cash</th>

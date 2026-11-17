@@ -187,7 +187,7 @@ export function createAdminRiskRouter({
             });
             sendAccountDisabledEmail({
               to: affected.email,
-              name: affected.name || 'Merchant',
+              name: affected.name || 'Tiwlo User',
               reason: result.reason,
               restoreUrl: restoreSession.url
             }).catch((err) => console.error('[Cluster Ban Email Error]', err.message));
@@ -203,7 +203,7 @@ export function createAdminRiskRouter({
           });
           sendAccountRestoredEmail({
             to: existingUser.email,
-            name: existingUser.name || existingUser.storeName || 'Merchant',
+            name: existingUser.name || existingUser.storeName || 'Tiwlo User',
             checkupUrl: checkupSession.url
           }).catch((err) => console.error('[Cluster Restore Email Error]', err.message));
         } catch (err) {

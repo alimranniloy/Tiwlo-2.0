@@ -5,7 +5,21 @@ import { ensureDiscordSchema } from './discordSchema.js';
 const TOKEN_EPHEMERAL_SECRET = crypto.randomBytes(32).toString('hex');
 
 function getBotTokenKey() {
-  const secret = process.env.DISCORD_TOKEN_SECRET || process.env.SECURITY_SECRET || TOKEN_EPHEMERAL_SECRET;
+  const configured = [
+    process.env.DISCORD_TOKEN_SECRET,
+    process.env.SECURITY_SECRET
+  ].find(value => typeof value === 'string' && value.trim().length > 0) || '';
+
+  if (process.env.NODE_ENV === 'production') {
+    if (configured.trim().length < 32) {
+      throw new Error(
+        'FATAL SECURITY ERROR: DISCORD_TOKEN_SECRET or SECURITY_SECRET must be set to at least 32 characters in production.'
+      );
+    }
+    return crypto.scryptSync(configured, 'tiwlo-official-discord-bot-v1', 32);
+  }
+
+  const secret = configured || TOKEN_EPHEMERAL_SECRET;
   return crypto.scryptSync(String(secret), 'tiwlo-official-discord-bot-v1', 32);
 }
 

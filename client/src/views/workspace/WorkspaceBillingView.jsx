@@ -56,18 +56,91 @@ export default function WorkspaceBillingView({
     loadBilling(false);
   }, [userId]);
 
+  const isFreeTrialInvoice = (inv) => {
+    const st = String(inv?.status || '').trim().toLowerCase();
+    const orderType = String(inv?.orderType || '').trim().toLowerCase();
+    return Boolean(inv?.isFreeTrial) ||
+      ['free trial', 'trial', 'free_trial'].includes(st) ||
+      orderType === 'free_trial' ||
+      (Number(inv?.amount) === 0 && String(inv?.planId || '').trim().toLowerCase() === 'free');
+  };
+
+  const getInvoiceStatusMeta = (inv) => {
+    const raw = String(inv?.status || '').trim();
+    const st = raw.toLowerCase();
+    if (isFreeTrialInvoice(inv)) {
+      return {
+        label: 'Free Trial',
+        className: 'bg-[#1ED760]/15 text-emerald-700 dark:text-[#1ED760]'
+      };
+    }
+    if (['paid', 'verified'].includes(st)) {
+      return {
+        label: raw || 'Paid',
+        className: 'bg-[#1ED760]/15 text-emerald-700 dark:text-[#1ED760]'
+      };
+    }
+    if (st === 'pending') {
+      return {
+        label: 'Pending',
+        className: 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300'
+      };
+    }
+    if (['failed', 'cancelled', 'canceled', 'expired'].includes(st)) {
+      return {
+        label: raw || 'Failed',
+        className: 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
+      };
+    }
+    return {
+      label: raw || 'Pending',
+      className: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
+    };
+  };
+
+  const formatOrderType = (orderType) => {
+    if (!orderType) return '';
+    const clean = String(orderType).trim().toLowerCase();
+    const labels = {
+      credit_topup: 'Credit Top-up',
+      voucher_redeem: 'Voucher Credit',
+      subscription_charge: 'Subscription',
+      store_creation: 'Store Activation',
+      free_trial: 'Free Starter Trial',
+      plan_upgrade: 'Plan Upgrade',
+      plan_renewal: 'Plan Renewal',
+      addon_purchase: 'Store Add-on',
+      discord_subscription: 'Discord Bot',
+      whatsapp_subscription: 'WhatsApp Bot'
+    };
+    return labels[clean] || clean.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+
   const invoices = Array.isArray(billingAccount?.invoices) ? billingAccount.invoices : [];
   const gateways = Array.isArray(billingAccount?.configuredGateways)
     ? billingAccount.configuredGateways.filter((g) => g.enabled)
     : [];
   const filteredInvoices = invoices.filter((inv) => {
-    const st = String(inv.status || '').toLowerCase();
-    if (statusFilter !== 'all' && st !== statusFilter) return false;
+    const st = String(inv.status || '').trim().toLowerCase();
+    const isTrial = isFreeTrialInvoice(inv);
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'free trial') {
+        if (!isTrial) return false;
+      } else if (statusFilter === 'cancelled') {
+        if (!['cancelled', 'canceled', 'expired'].includes(st)) return false;
+      } else if (statusFilter === 'paid') {
+        if (isTrial || !['paid', 'verified'].includes(st)) return false;
+      } else if (st !== statusFilter) {
+        return false;
+      }
+    }
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
       String(inv.id || '').toLowerCase().includes(q) ||
       String(inv.description || '').toLowerCase().includes(q) ||
+      String(inv.planId || '').toLowerCase().includes(q) ||
+      String(inv.orderType || '').toLowerCase().includes(q) ||
       st.includes(q)
     );
   });
@@ -221,8 +294,10 @@ export default function WorkspaceBillingView({
             >
               <option value="all">All Statuses</option>
               <option value="paid">Paid</option>
+              <option value="free trial">Free Trial</option>
               <option value="pending">Pending</option>
               <option value="failed">Failed</option>
+              <option value="cancelled">Cancelled</option>
             </select>
           </div>
         </div>
@@ -243,29 +318,63 @@ export default function WorkspaceBillingView({
                   <th className="py-3 px-5 font-semibold">Amount</th>
                   <th className="py-3 px-5 font-semibold">Status</th>
                   <th className="py-3 px-5 font-semibold">Date</th>
+                  <th className="py-3 px-5 text-right font-semibold">Document</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/70">
                 {filteredInvoices.map((inv) => {
-                  const paid = String(inv.status || '').toLowerCase() === 'paid';
+                  const statusMeta = getInvoiceStatusMeta(inv);
+                  const isTrial = isFreeTrialInvoice(inv);
+                  const orderTypeLabel = formatOrderType(inv.orderType);
+                  const cashUsed = Number(inv.cashCreditUsed || 0);
+                  const promoUsed = Number(inv.promoCreditUsed || 0);
+                  const invoiceHref = `/billing/invoices/${encodeURIComponent(inv.id)}`;
                   return (
                     <tr key={inv.id} className="hover:bg-neutral-50/70 dark:hover:bg-neutral-900/40">
                       <td className="py-3.5 px-5 font-mono font-medium text-neutral-900 dark:text-white">{inv.id}</td>
-                      <td className="py-3.5 px-5 text-neutral-700 dark:text-neutral-300">{inv.description || 'Platform charge'}</td>
+                      <td className="py-3.5 px-5 text-neutral-700 dark:text-neutral-300">
+                        <p className="font-medium text-neutral-900 dark:text-neutral-100">{inv.description || 'Platform charge'}</p>
+                        {(orderTypeLabel || inv.planId || cashUsed > 0 || promoUsed > 0) && (
+                          <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+                            {[
+                              orderTypeLabel,
+                              inv.planId ? `Plan: ${inv.planId}` : '',
+                              cashUsed > 0 || promoUsed > 0
+                                ? `Credits: ${cashUsed > 0 ? `$${cashUsed.toFixed(2)} cash` : ''}${cashUsed > 0 && promoUsed > 0 ? ' + ' : ''}${promoUsed > 0 ? `$${promoUsed.toFixed(2)} promo` : ''}`
+                                : ''
+                            ].filter(Boolean).join(' · ')}
+                          </p>
+                        )}
+                      </td>
                       <td className="py-3.5 px-5 font-semibold tabular-nums text-neutral-950 dark:text-white">
-                        {formatMoney(inv.amount, inv.currency)}
+                        <span>{formatMoney(inv.amount, inv.currency)}</span>
+                        {isTrial && (
+                          <span className="ml-1.5 text-[10px] font-semibold text-emerald-700 dark:text-[#1ED760]">
+                            Free Trial
+                          </span>
+                        )}
                       </td>
                       <td className="py-3.5 px-5">
-                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize ${
-                          paid
-                            ? 'bg-[#1ED760]/15 text-emerald-700 dark:text-[#1ED760]'
-                            : 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300'
-                        }`}>
-                          {inv.status || 'pending'}
+                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize ${statusMeta.className}`}>
+                          {statusMeta.label}
                         </span>
                       </td>
                       <td className="py-3.5 px-5 text-neutral-500 tabular-nums">
                         {inv.paidAt || inv.createdAt ? new Date(inv.paidAt || inv.createdAt).toLocaleString() : '—'}
+                      </td>
+                      <td className="py-3.5 px-5 text-right">
+                        <a
+                          href={invoiceHref}
+                          onClick={(e) => {
+                            if (onNavigate && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+                              e.preventDefault();
+                              onNavigate(`billing/invoices/${encodeURIComponent(inv.id)}`);
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 rounded-lg border border-neutral-200/80 dark:border-neutral-800 px-2.5 py-1 text-[11px] font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                        >
+                          <span>View Invoice</span>
+                        </a>
                       </td>
                     </tr>
                   );

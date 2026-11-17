@@ -202,7 +202,7 @@ function computeMouthMetrics(annotations = {}, faceHeight = 1) {
   };
 }
 
-function extractMetricsFromFace(face, gestures = [], imgWidth = 1, imgHeight = 1) {
+export function extractMetricsFromFace(face, gestures = [], imgWidth = 1, imgHeight = 1) {
   const annotations = face?.annotations || {};
   const box = Array.isArray(face?.box) ? face.box : [0, 0, 0, 0];
   const boxRaw = Array.isArray(face?.boxRaw)
@@ -243,17 +243,17 @@ function extractMetricsFromFace(face, gestures = [], imgWidth = 1, imgHeight = 1
     }
   }
 
-  // Enforce strict full-face visibility inside camera boundaries (never accept partial edge glimpses)
+  // Enforce full-face visibility inside camera boundaries while tolerating square-cropped portraits
   const [rx, ry, rw, rh] = boxRaw;
-  const marginX = rx >= 0.035 && (rx + rw) <= 0.965;
-  const marginY = ry >= 0.035 && (ry + rh) <= 0.965;
+  const marginX = rx >= 0.015 && (rx + rw) <= 0.985;
+  const marginY = ry >= 0.015 && (ry + rh) <= 0.985;
   const silhouette = Array.isArray(annotations.silhouette) ? annotations.silhouette : [];
   let contourInside = true;
   if (silhouette.length > 0 && imgWidth > 1 && imgHeight > 1) {
     for (const pt of silhouette) {
       const nx = Number(pt?.[0] || 0) / imgWidth;
       const ny = Number(pt?.[1] || 0) / imgHeight;
-      if (nx < 0.015 || nx > 0.985 || ny < 0.015 || ny > 0.985) {
+      if (nx < 0.005 || nx > 0.995 || ny < 0.005 || ny > 0.995) {
         contourInside = false;
         break;
       }
@@ -295,6 +295,7 @@ async function detectFacesFromBuffer(frameBuffer) {
   const { data, info } = await sharp(frameBuffer, { limitInputPixels: 20_000_000 })
     .rotate()
     .resize({ width: 384, height: 384, fit: 'inside', withoutEnlargement: false })
+    .toColourspace('srgb')
     .removeAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
@@ -308,98 +309,110 @@ async function detectFacesFromBuffer(frameBuffer) {
   }
 }
 
-/**
- * Strictly validates that a camera frame shows ONE centered, uncropped FULL human face,
- * rejecting empty frames, dark frames, multiple faces, and partial/glimpse faces.
- */
-export async function inspectFullFaceFrame({ frameBuffer, requirePassportFraming = false } = {}) {
-  if (!Buffer.isBuffer(frameBuffer) || frameBuffer.length === 0) {
-    return { ok: false, ready: false, faceDetected: false, faceCount: 0, fullFaceVisible: false, guidance: 'no_face' };
-  }
-
+async function detectFilteredFaces(frameBuffer) {
   const { result, width, height } = await detectFacesFromBuffer(frameBuffer);
   const faces = Array.isArray(result?.face)
     ? result.face.filter((f) => Number(f?.boxScore ?? f?.score ?? 0) >= 0.52 && Number(f?.faceScore ?? f?.score ?? 0) >= 0.5)
     : [];
+  return { result, faces, width, height };
+}
 
-  if (faces.length === 0) {
-    return {
-      ok: true,
-      ready: false,
-      faceDetected: false,
-      faceCount: 0,
-      fullFaceVisible: false,
-      passportQuality: false,
-      guidance: 'no_face'
-    };
+/**
+ * Evaluates @vladmandic/human antispoof (`face.real`) and liveness (`face.live`) scores
+ * only when finite values are emitted, using conservative thresholds to avoid false positives.
+ */
+export function evaluateAntiSpoof(metrics, { isActiveChallenge = false } = {}) {
+  const hasReal = typeof metrics?.realScore === 'number' && Number.isFinite(metrics.realScore);
+  const hasLive = typeof metrics?.liveScore === 'number' && Number.isFinite(metrics.liveScore);
+  const realScore = hasReal ? metrics.realScore : null;
+  const liveScore = hasLive ? metrics.liveScore : null;
+
+  let spoofDetected = false;
+  if (hasReal && hasLive) {
+    spoofDetected = isActiveChallenge
+      ? (realScore < 0.15 || (realScore < 0.22 && liveScore < 0.35) || (realScore < 0.32 && liveScore < 0.20))
+      : (realScore < 0.25 || (realScore < 0.40 && liveScore < 0.28) || liveScore < 0.15);
+  } else if (hasReal) {
+    spoofDetected = realScore < (isActiveChallenge ? 0.20 : 0.25);
+  } else if (hasLive) {
+    spoofDetected = liveScore < (isActiveChallenge ? 0.15 : 0.18);
   }
 
-  if (faces.length > 1) {
+  return {
+    spoofDetected,
+    realScore,
+    liveScore
+  };
+}
+
+/**
+ * Evaluates extracted face metrics for full-face framing, anti-spoofing, and passport quality.
+ */
+export function evaluateFullFaceMetrics(metrics, { requirePassportFraming = false } = {}) {
+  const antiSpoof = evaluateAntiSpoof(metrics, { isActiveChallenge: false });
+  if (antiSpoof.spoofDetected) {
     return {
       ok: true,
       ready: false,
       faceDetected: true,
-      faceCount: faces.length,
-      fullFaceVisible: false,
+      faceCount: 1,
+      fullFaceVisible: Boolean(metrics.fullFaceVisible),
       passportQuality: false,
-      guidance: 'multiple_faces'
+      spoofDetected: true,
+      antiSpoof,
+      guidance: 'spoof_detected',
+      metrics
     };
   }
 
-  const face = faces[0];
-  const faceGestures = Array.isArray(face?.gestures) && face.gestures.length > 0
-    ? face.gestures
-    : result?.gesture || [];
-  const metrics = extractMetricsFromFace(face, faceGestures, width, height);
   const [rx, ry, rw, rh] = metrics.boxRaw;
   const cx = rx + rw / 2;
   const cy = ry + rh / 2;
 
   if (!metrics.fullFaceVisible) {
-    if (cx < 0.36) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: false, passportQuality: false, guidance: 'center_left', metrics };
-    if (cx > 0.64) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: false, passportQuality: false, guidance: 'center_right', metrics };
-    if (cy < 0.36) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: false, passportQuality: false, guidance: 'center_upper', metrics };
-    if (cy > 0.64) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: false, passportQuality: false, guidance: 'center_lower', metrics };
-    return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: false, passportQuality: false, guidance: 'move_back', metrics };
+    if (cx < 0.30) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: false, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'center_left', metrics };
+    if (cx > 0.70) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: false, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'center_right', metrics };
+    if (cy < 0.28) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: false, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'center_upper', metrics };
+    if (cy > 0.72) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: false, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'center_lower', metrics };
+    return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: false, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'move_back', metrics };
   }
 
-  if (rw < 0.22 || rh < 0.28) {
-    return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, guidance: 'move_closer', metrics };
+  if (rw < 0.18 || rh < 0.22) {
+    return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'move_closer', metrics };
   }
-  if (rw > 0.80 || rh > 0.86) {
-    return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, guidance: 'move_back', metrics };
+  if (rw > 0.88 || rh > 0.92) {
+    return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'move_back', metrics };
   }
 
-  if (cx < 0.32) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, guidance: 'center_left', metrics };
-  if (cx > 0.68) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, guidance: 'center_right', metrics };
-  if (cy < 0.30) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, guidance: 'center_upper', metrics };
-  if (cy > 0.70) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, guidance: 'center_lower', metrics };
+  if (cx < 0.28) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'center_left', metrics };
+  if (cx > 0.72) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'center_right', metrics };
+  if (cy < 0.26) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'center_upper', metrics };
+  if (cy > 0.74) return { ok: true, ready: false, faceDetected: true, faceCount: 1, fullFaceVisible: true, passportQuality: false, spoofDetected: false, antiSpoof, guidance: 'center_lower', metrics };
 
   const blinkGesture = metrics.gestureLabels.some((g) => g.includes('blink'));
   const eyesOpen =
     !blinkGesture &&
-    (metrics.leftEAR === null || metrics.leftEAR >= 0.19) &&
-    (metrics.rightEAR === null || metrics.rightEAR >= 0.19);
+    (metrics.leftEAR === null || metrics.leftEAR >= 0.17) &&
+    (metrics.rightEAR === null || metrics.rightEAR >= 0.17);
   const straightPose =
-    Math.abs(metrics.yawDeg) <= 14 &&
-    Math.abs(metrics.noseShiftRatio) <= 0.14 &&
-    Math.abs(metrics.pitchDeg) <= 15 &&
-    Math.abs(metrics.rollDeg) <= 15;
+    Math.abs(metrics.yawDeg) <= 16 &&
+    Math.abs(metrics.noseShiftRatio) <= 0.16 &&
+    Math.abs(metrics.pitchDeg) <= 18 &&
+    Math.abs(metrics.rollDeg) <= 16;
   const mouthNeutral = metrics.mouthPercent < 25 && metrics.mouthOpenRatio < 0.22;
-  const antiSpoofOk = metrics.realScore === null || metrics.realScore >= 0.25;
 
   const passportQuality = Boolean(
     metrics.fullFaceVisible &&
       straightPose &&
       eyesOpen &&
       mouthNeutral &&
-      antiSpoofOk &&
-      rw >= 0.26 &&
-      rh >= 0.32 &&
-      cx >= 0.35 &&
-      cx <= 0.65 &&
-      cy >= 0.33 &&
-      cy <= 0.67
+      !antiSpoof.spoofDetected &&
+      rw >= 0.22 &&
+      rh >= 0.26 &&
+      cx >= 0.30 &&
+      cx <= 0.70 &&
+      cy >= 0.28 &&
+      cy <= 0.72
   );
 
   if (requirePassportFraming && !passportQuality) {
@@ -410,6 +423,8 @@ export async function inspectFullFaceFrame({ frameBuffer, requirePassportFraming
       faceCount: 1,
       fullFaceVisible: true,
       passportQuality: false,
+      spoofDetected: false,
+      antiSpoof,
       guidance: 'hold_still',
       metrics
     };
@@ -422,95 +437,214 @@ export async function inspectFullFaceFrame({ frameBuffer, requirePassportFraming
     faceCount: 1,
     fullFaceVisible: true,
     passportQuality,
+    spoofDetected: false,
+    antiSpoof,
     guidance: 'ready',
     metrics
   };
 }
 
 /**
- * Evaluates active liveness challenge frames (`turn_left`, `turn_right`, `open_mouth`, `blink`)
- * with responsive facial landmark ratios and strict full-face visibility checks.
+ * Strictly validates that a camera frame shows ONE centered, uncropped FULL human face,
+ * rejecting empty frames, dark frames, multiple faces, spoofed faces, and partial/glimpse faces.
  */
-export async function verifyActiveChallengeFrame({
-  frameBuffer,
-  challengeType = 'turn_right',
-  sessionState = {}
-} = {}) {
-  const inspection = await inspectFullFaceFrame({ frameBuffer, requirePassportFraming: false });
-  if (!inspection.faceDetected || inspection.faceCount !== 1 || !inspection.fullFaceVisible) {
+export async function inspectFullFaceFrame({ frameBuffer, requirePassportFraming = false } = {}) {
+  if (!Buffer.isBuffer(frameBuffer) || frameBuffer.length === 0) {
     return {
-      ok: true,
+      ok: false,
+      ready: false,
       faceDetected: false,
-      faceCount: inspection.faceCount || 0,
+      faceCount: 0,
       fullFaceVisible: false,
-      actionDetected: false,
-      guidance: inspection.guidance === 'multiple_faces' ? 'multiple_faces' : 'no_face'
+      spoofDetected: false,
+      guidance: 'no_face'
     };
   }
 
-  const m = inspection.metrics;
+  const { result, faces, width, height } = await detectFilteredFaces(frameBuffer);
+
+  if (faces.length === 0) {
+    return {
+      ok: true,
+      ready: false,
+      faceDetected: false,
+      faceCount: 0,
+      fullFaceVisible: false,
+      passportQuality: false,
+      spoofDetected: false,
+      guidance: 'no_face'
+    };
+  }
+
+  if (faces.length > 1) {
+    return {
+      ok: true,
+      ready: false,
+      faceDetected: true,
+      faceCount: faces.length,
+      fullFaceVisible: false,
+      passportQuality: false,
+      spoofDetected: false,
+      guidance: 'multiple_faces'
+    };
+  }
+
+  const face = faces[0];
+  const faceGestures = Array.isArray(face?.gestures) && face.gestures.length > 0
+    ? face.gestures
+    : result?.gesture || [];
+  const metrics = extractMetricsFromFace(face, faceGestures, width, height);
+  return evaluateFullFaceMetrics(metrics, { requirePassportFraming });
+}
+
+/**
+ * Evaluates extracted metrics for an active liveness challenge and real-time anti-spoofing.
+ */
+export function evaluateActiveChallengeMetrics(
+  metrics,
+  { challengeType = 'turn_right', sessionState = {} } = {}
+) {
+  const antiSpoof = evaluateAntiSpoof(metrics, { isActiveChallenge: true });
+  if (antiSpoof.spoofDetected) {
+    return {
+      ok: true,
+      faceDetected: true,
+      faceCount: 1,
+      fullFaceVisible: Boolean(metrics.fullFaceVisible),
+      actionDetected: false,
+      spoofDetected: true,
+      antiSpoof,
+      guidance: 'spoof_detected',
+      metrics
+    };
+  }
 
   // Update highest neutral open-eye EAR observed in this session for adaptive blink sensitivity
   if (
-    typeof m.avgEAR === 'number' &&
-    !m.gestureLabels.some((g) => g.includes('blink')) &&
-    (!sessionState.baselineEar || m.avgEAR > sessionState.baselineEar)
+    typeof metrics.avgEAR === 'number' &&
+    !metrics.gestureLabels.some((g) => g.includes('blink')) &&
+    (!sessionState.baselineEar || metrics.avgEAR > sessionState.baselineEar)
   ) {
-    sessionState.baselineEar = Math.min(0.45, m.avgEAR);
+    sessionState.baselineEar = Math.min(0.45, metrics.avgEAR);
   }
 
   let actionDetected = false;
   if (challengeType === 'open_mouth') {
-    const gestureMouth = m.gestureLabels.some((g) => g.includes('mouth'));
+    const gestureMouth = metrics.gestureLabels.some((g) => g.includes('mouth'));
     actionDetected =
-      m.mouthOpenRatio >= 0.145 ||
-      m.mouthGapToFace >= 0.052 ||
-      m.mouthPercent >= 15 ||
+      metrics.mouthOpenRatio >= 0.145 ||
+      metrics.mouthGapToFace >= 0.052 ||
+      metrics.mouthPercent >= 15 ||
       gestureMouth;
   } else if (challengeType === 'blink') {
-    const gestureBlink = m.gestureLabels.some((g) => g.includes('blink'));
+    const gestureBlink = metrics.gestureLabels.some((g) => g.includes('blink'));
     const adaptiveBlink =
       typeof sessionState.baselineEar === 'number' &&
-      typeof m.avgEAR === 'number' &&
+      typeof metrics.avgEAR === 'number' &&
       sessionState.baselineEar >= 0.24 &&
-      m.avgEAR <= sessionState.baselineEar * 0.76;
+      metrics.avgEAR <= sessionState.baselineEar * 0.76;
     actionDetected =
       gestureBlink ||
       adaptiveBlink ||
-      (typeof m.minEAR === 'number' && m.minEAR <= 0.235) ||
-      (typeof m.avgEAR === 'number' && m.avgEAR <= 0.248);
-  } else if (challengeType === 'turn_right') {
-    // Un-mirrored webcam frame: subject turning their own head right moves nose toward viewer left (negative X / yaw)
-    const facingLeftInRaw = m.gestureLabels.some((g) => g === 'facing left');
-    actionDetected =
-      m.noseShiftRatio <= -0.095 ||
-      m.yawDeg <= -9.5 ||
-      facingLeftInRaw;
+      (typeof metrics.minEAR === 'number' && metrics.minEAR <= 0.235) ||
+      (typeof metrics.avgEAR === 'number' && metrics.avgEAR <= 0.248);
   } else if (challengeType === 'turn_left') {
-    // Un-mirrored webcam frame: subject turning their own head left moves nose toward viewer right (positive X / yaw)
-    const facingRightInRaw = m.gestureLabels.some((g) => g === 'facing right');
+    // Un-mirrored frame: subject turning their own head left produces 'facing left', negative yaw, and nose shift toward viewer right (+X)
+    const facingLeft = metrics.gestureLabels.some((g) => g === 'facing left');
+    const facingRight = metrics.gestureLabels.some((g) => g === 'facing right');
     actionDetected =
-      m.noseShiftRatio >= 0.095 ||
-      m.yawDeg >= 9.5 ||
-      facingRightInRaw;
+      !facingRight &&
+      (facingLeft ||
+        metrics.yawDeg <= -7.5 ||
+        (metrics.noseShiftRatio >= 0.085 && metrics.yawDeg <= 2));
+  } else if (challengeType === 'turn_right') {
+    // Un-mirrored frame: subject turning their own head right produces 'facing right', positive yaw, and nose shift toward viewer left (-X)
+    const facingRight = metrics.gestureLabels.some((g) => g === 'facing right');
+    const facingLeft = metrics.gestureLabels.some((g) => g === 'facing left');
+    actionDetected =
+      !facingLeft &&
+      (facingRight ||
+        metrics.yawDeg >= 7.5 ||
+        (metrics.noseShiftRatio <= -0.085 && metrics.yawDeg >= -2));
   }
 
   return {
     ok: true,
     faceDetected: true,
     faceCount: 1,
-    fullFaceVisible: true,
+    fullFaceVisible: Boolean(metrics.fullFaceVisible),
     actionDetected: Boolean(actionDetected),
+    spoofDetected: false,
+    antiSpoof,
     guidance: actionDetected ? 'passed' : 'perform_action',
-    metrics: m
+    metrics
   };
+}
+
+/**
+ * Evaluates active liveness challenge frames (`turn_left`, `turn_right`, `open_mouth`, `blink`)
+ * whenever a single face is detected (without dropping turned heads as `no_face`), with anti-spoof checks.
+ */
+export async function verifyActiveChallengeFrame({
+  frameBuffer,
+  challengeType = 'turn_right',
+  sessionState = {}
+} = {}) {
+  if (!Buffer.isBuffer(frameBuffer) || frameBuffer.length === 0) {
+    return {
+      ok: false,
+      faceDetected: false,
+      faceCount: 0,
+      fullFaceVisible: false,
+      actionDetected: false,
+      spoofDetected: false,
+      guidance: 'no_face'
+    };
+  }
+
+  const { result, faces, width, height } = await detectFilteredFaces(frameBuffer);
+
+  if (faces.length === 0) {
+    return {
+      ok: true,
+      faceDetected: false,
+      faceCount: 0,
+      fullFaceVisible: false,
+      actionDetected: false,
+      spoofDetected: false,
+      guidance: 'no_face'
+    };
+  }
+
+  if (faces.length > 1) {
+    return {
+      ok: true,
+      faceDetected: true,
+      faceCount: faces.length,
+      fullFaceVisible: false,
+      actionDetected: false,
+      spoofDetected: false,
+      guidance: 'multiple_faces'
+    };
+  }
+
+  const face = faces[0];
+  const faceGestures = Array.isArray(face?.gestures) && face.gestures.length > 0
+    ? face.gestures
+    : result?.gesture || [];
+  const metrics = extractMetricsFromFace(face, faceGestures, width, height);
+  return evaluateActiveChallengeMetrics(metrics, { challengeType, sessionState });
 }
 
 export const faceLivenessEngine = {
   warmupFaceLivenessEngine,
   getFaceLivenessEngineStatus,
   inspectFullFaceFrame,
-  verifyActiveChallengeFrame
+  verifyActiveChallengeFrame,
+  extractMetricsFromFace,
+  evaluateAntiSpoof,
+  evaluateFullFaceMetrics,
+  evaluateActiveChallengeMetrics
 };
 
 export default faceLivenessEngine;

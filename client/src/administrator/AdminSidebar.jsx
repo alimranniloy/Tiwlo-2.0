@@ -116,7 +116,7 @@ const NAV_SECTIONS = [
     items: [
       { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
       { id: 'orders', label: 'System Orders', icon: Receipt },
-      { id: 'customers', label: 'Merchants & Stores', icon: Store },
+      { id: 'customers', label: 'Tiwlo Users & Stores', icon: Store },
       { id: 'identity-reviews', label: 'Identity Review', icon: FileCheck2 },
       { id: 'packages', label: 'Plans & Add-ons', icon: Package },
       { id: 'promotions', label: 'Promotions & Credits', icon: Gift },

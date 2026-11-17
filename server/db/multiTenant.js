@@ -676,17 +676,33 @@ export const MasterDB = {
 
     const resolvedPlanId = selectedPackage.planId;
     const monthlyPrice = Number(selectedPackage.price || 0);
+    let billingInvoice = null;
+    let orderNumber = null;
     if (monthlyPrice > 0 && user?.role !== 'admin') {
       const chargeResult = await BillingDB.chargeSubscriptionPlan(
         ownerId,
         monthlyPrice,
-        `${selectedPackage.planName} (Monthly)`
+        `${selectedPackage.planName} (Monthly)`,
+        {
+          tiwiId: newTiwiId,
+          orderType: 'ecommerce_subscription',
+          planId: resolvedPlanId,
+          metadata: {
+            storeName: storeName.trim(),
+            subdomain: cleanSubdomain,
+            tiwiId: newTiwiId,
+            planId: resolvedPlanId,
+            planName: selectedPackage.planName
+          }
+        }
       );
       if (!chargeResult.success) {
         const error = new Error(chargeResult.error || 'Insufficient cloud credits. Add your credit to continue.');
         error.statusCode = chargeResult.statusCode || 402;
         throw error;
       }
+      billingInvoice = chargeResult.invoice || null;
+      orderNumber = chargeResult.orderNumber || billingInvoice?.orderNumber || null;
     }
 
     const now = new Date();
@@ -773,7 +789,34 @@ export const MasterDB = {
       }).catch((err) => console.warn('[StoreCreate] Failed to record free claim signal:', err.message));
     }
 
-    return newStore;
+    if (!billingInvoice && typeof BillingDB.recordSubscriptionInvoice === 'function') {
+      billingInvoice = await BillingDB.recordSubscriptionInvoice(ownerId, {
+        amountUsd: 0,
+        cashCreditUsedUsd: 0,
+        promoCreditUsedUsd: 0,
+        planName: selectedPackage.planName || 'Free Starter',
+        tiwiId: newTiwiId,
+        orderType: resolvedPlanId === 'free' || monthlyPrice <= 0 ? 'ecommerce_free_trial' : 'ecommerce_subscription',
+        planId: resolvedPlanId,
+        provider: user?.role === 'admin' && monthlyPrice > 0 ? 'admin_grant' : 'free_trial',
+        status: resolvedPlanId === 'free' || monthlyPrice <= 0 ? 'trial' : 'free',
+        metadata: {
+          storeName: newStore.storeName,
+          subdomain: cleanSubdomain,
+          tiwiId: newTiwiId,
+          planId: resolvedPlanId,
+          planName: selectedPackage.planName || 'Free Starter',
+          isFreeTrial: resolvedPlanId === 'free' || monthlyPrice <= 0
+        }
+      }).catch(() => null);
+      orderNumber = billingInvoice?.orderNumber || null;
+    }
+
+    return {
+      ...newStore,
+      orderNumber,
+      invoice: billingInvoice
+    };
   }
 };
 

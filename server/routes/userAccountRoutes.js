@@ -1,7 +1,10 @@
 import express from 'express';
 import multer from 'multer';
 import crypto from 'node:crypto';
+import dns from 'node:dns/promises';
 import fs from 'node:fs';
+import https from 'node:https';
+import net from 'node:net';
 import QRCode from 'qrcode';
 import { MasterDB } from '../db/multiTenant.js';
 import { queryPg, isPgActive } from '../db/postgres.js';
@@ -772,6 +775,241 @@ export function summarizeDeviceFromUserAgent(userAgent = '') {
   return `${browser} on ${os}`;
 }
 
+const BLOCKED_WEBHOOK_HOSTNAMES = new Set([
+  'localhost',
+  'metadata',
+  'metadata.google.internal',
+  'metadata.goog',
+  'instance-data'
+]);
+
+function isRestrictedIpv4Octets(a, b, c, _d) {
+  if (a === 0) return true; // 0.0.0.0/8 unspecified
+  if (a === 10) return true; // 10.0.0.0/8 RFC1918
+  if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 CGNAT & 100.100.100.200
+  if (a === 127) return true; // 127.0.0.0/8 loopback
+  if (a === 169 && b === 254) return true; // 169.254.0.0/16 link-local / metadata
+  if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12 RFC1918
+  if (a === 192 && b === 0 && c === 0) return true; // 192.0.0.0/24 IETF protocol
+  if (a === 192 && b === 0 && c === 2) return true; // 192.0.2.0/24 TEST-NET-1
+  if (a === 192 && b === 88 && c === 99) return true; // 192.88.99.0/24 6to4 relay
+  if (a === 192 && b === 168) return true; // 192.168.0.0/16 RFC1918
+  if (a === 198 && (b === 18 || b === 19)) return true; // 198.18.0.0/15 benchmarking
+  if (a === 198 && b === 51 && c === 100) return true; // 198.51.100.0/24 TEST-NET-2
+  if (a === 203 && b === 0 && c === 113) return true; // 203.0.113.0/24 TEST-NET-3
+  if (a >= 224) return true; // 224.0.0.0/4 multicast, 240.0.0.0/4 reserved, 255.255.255.255
+  return false;
+}
+
+function parseIpv6Groups(rawIp) {
+  let addr = String(rawIp || '').trim().toLowerCase();
+  if (!addr || addr.includes('%')) return null;
+
+  // Convert trailing dotted-quad IPv4 (e.g. ::ffff:127.0.0.1) to two 16-bit hex groups.
+  if (addr.includes('.')) {
+    const lastColon = addr.lastIndexOf(':');
+    if (lastColon === -1) return null;
+    const v4Part = addr.slice(lastColon + 1);
+    if (!net.isIPv4(v4Part)) return null;
+    const octets = v4Part.split('.').map(Number);
+    const hi = ((octets[0] << 8) | octets[1]).toString(16);
+    const lo = ((octets[2] << 8) | octets[3]).toString(16);
+    addr = `${addr.slice(0, lastColon + 1)}${hi}:${lo}`;
+  }
+
+  const doubleColonParts = addr.split('::');
+  if (doubleColonParts.length > 2) return null;
+
+  let groups;
+  if (doubleColonParts.length === 2) {
+    const left = doubleColonParts[0] ? doubleColonParts[0].split(':') : [];
+    const right = doubleColonParts[1] ? doubleColonParts[1].split(':') : [];
+    const missing = 8 - (left.length + right.length);
+    if (missing < 1) return null;
+    groups = [...left, ...Array(missing).fill('0'), ...right];
+  } else {
+    groups = addr.split(':');
+    if (groups.length !== 8) return null;
+  }
+
+  const parsed = [];
+  for (const g of groups) {
+    if (!/^[0-9a-f]{1,4}$/i.test(g)) return null;
+    parsed.push(Number.parseInt(g, 16));
+  }
+  return parsed;
+}
+
+export function isPublicUnicastIp(rawIp) {
+  const ip = String(rawIp || '').trim().toLowerCase().replace(/^\[|\]$/g, '');
+  if (!ip || ip.includes('%')) return false;
+
+  const family = net.isIP(ip);
+  if (family === 4) {
+    const [a, b, c, d] = ip.split('.').map(Number);
+    return !isRestrictedIpv4Octets(a, b, c, d);
+  }
+  if (family !== 6) return false;
+
+  const g = parseIpv6Groups(ip);
+  if (!g) return false;
+
+  const isZeroPrefix5 = g[0] === 0 && g[1] === 0 && g[2] === 0 && g[3] === 0 && g[4] === 0;
+  // Unspecified (::) and Loopback (::1)
+  if (isZeroPrefix5 && g[5] === 0 && g[6] === 0 && (g[7] === 0 || g[7] === 1)) return false;
+  // IPv4-mapped IPv6 (::ffff:0:0/96): validate embedded IPv4 address.
+  if (isZeroPrefix5 && g[5] === 0xffff) {
+    return !isRestrictedIpv4Octets(g[6] >> 8, g[6] & 0xff, g[7] >> 8, g[7] & 0xff);
+  }
+  // IPv4-compatible IPv6 (::/96)
+  if (isZeroPrefix5 && g[5] === 0) return false;
+  // NAT64 (64:ff9b::/96 and 64:ff9b:1::/48)
+  if (g[0] === 0x0064 && g[1] === 0xff9b && ((g[2] === 0 && g[3] === 0 && g[4] === 0 && g[5] === 0) || g[2] === 1)) {
+    return false;
+  }
+  // Unique Local Address fc00::/7 (includes fd00:ec2::254)
+  if ((g[0] & 0xfe00) === 0xfc00) return false;
+  // Link-local fe80::/10 and deprecated site-local fec0::/10
+  if ((g[0] & 0xffc0) === 0xfe80 || (g[0] & 0xffc0) === 0xfec0) return false;
+  // Multicast ff00::/8
+  if ((g[0] & 0xff00) === 0xff00) return false;
+  // Documentation 2001:db8::/32 and Teredo 2001::/32
+  if (g[0] === 0x2001 && (g[1] === 0x0db8 || g[1] === 0)) return false;
+  // 6to4 2002::/16: reject if embedded IPv4 is restricted.
+  if (g[0] === 0x2002 && isRestrictedIpv4Octets(g[1] >> 8, g[1] & 0xff, g[2] >> 8, g[2] & 0xff)) {
+    return false;
+  }
+  // Require IPv6 Global Unicast (2000::/3).
+  return (g[0] & 0xe000) === 0x2000;
+}
+
+export function validateSafeWebhookUrl(rawUrl) {
+  try {
+    const clean = String(rawUrl || '').trim();
+    if (!clean || /[\r\n\0\s]/.test(clean)) return null;
+    const parsed = new URL(clean);
+    if (parsed.protocol !== 'https:') return null;
+    if (parsed.username || parsed.password) return null;
+
+    const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
+    if (!host) return null;
+    if (
+      BLOCKED_WEBHOOK_HOSTNAMES.has(host) ||
+      host.endsWith('.localhost') ||
+      host.endsWith('.local') ||
+      host.endsWith('.internal')
+    ) {
+      return null;
+    }
+
+    if (net.isIP(host)) {
+      if (!isPublicUnicastIp(host)) return null;
+    }
+
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+export async function resolveAndAssertSafeWebhookUrl(rawUrl, { dnsLookup = dns.lookup } = {}) {
+  const safeUrl = validateSafeWebhookUrl(rawUrl);
+  if (!safeUrl) return null;
+
+  const parsed = new URL(safeUrl);
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
+  const literalFamily = net.isIP(host);
+  if (literalFamily) {
+    if (!isPublicUnicastIp(host)) return null;
+    return {
+      url: safeUrl,
+      hostname: host,
+      addresses: [{ address: host, family: literalFamily }]
+    };
+  }
+
+  let records;
+  try {
+    records = await dnsLookup(host, { all: true });
+  } catch {
+    return null;
+  }
+
+  if (!Array.isArray(records) || records.length === 0) return null;
+
+  const validated = [];
+  for (const rec of records) {
+    const addr = String(rec?.address || '').trim();
+    if (!addr || !isPublicUnicastIp(addr)) {
+      return null;
+    }
+    const family = rec?.family === 4 || rec?.family === 6 ? rec.family : net.isIP(addr);
+    if (family !== 4 && family !== 6) return null;
+    validated.push({ address: addr, family });
+  }
+
+  return {
+    url: safeUrl,
+    hostname: host,
+    addresses: validated
+  };
+}
+
+function createPinnedDnsLookup(expectedHost, resolvedAddresses) {
+  return (hostname, options, callback) => {
+    const cb = typeof options === 'function' ? options : callback;
+    const opts = typeof options === 'function' ? {} : (options || {});
+    const normalized = String(hostname || '').trim().toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
+    if (normalized !== expectedHost) {
+      return cb(new Error(`Unexpected DNS lookup hostname: ${hostname}`));
+    }
+    const family = opts.family;
+    const candidates = family
+      ? resolvedAddresses.filter((entry) => entry.family === family)
+      : resolvedAddresses;
+    if (!candidates.length) {
+      return cb(Object.assign(new Error(`No validated IP addresses available for ${hostname}`), { code: 'ENOTFOUND' }));
+    }
+    if (opts.all) {
+      return cb(null, candidates.map((entry) => ({ address: entry.address, family: entry.family })));
+    }
+    return cb(null, candidates[0].address, candidates[0].family);
+  };
+}
+
+function dispatchPinnedHttpsWebhook({ url, hostname, addresses, headers, body, signal }) {
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Length': Buffer.byteLength(body, 'utf8')
+        },
+        signal,
+        lookup: createPinnedDnsLookup(hostname, addresses)
+      },
+      (res) => {
+        res.resume();
+        const statusCode = Number(res.statusCode || 0);
+        const ok = statusCode >= 200 && statusCode < 300;
+        const isRedirect = statusCode >= 300 && statusCode < 400;
+        resolve({
+          ok,
+          status: statusCode,
+          statusText: isRedirect
+            ? (res.statusMessage ? `${res.statusMessage} (Redirect blocked)` : 'Redirect blocked')
+            : (res.statusMessage || '')
+        });
+      }
+    );
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
 export function createUserAccountRouter(overrides = {}) {
   const router = express.Router();
   const deps = {
@@ -794,6 +1032,8 @@ export function createUserAccountRouter(overrides = {}) {
     storeMedia,
     getPublicMediaUrl,
     logActivity,
+    dnsLookup: dns.lookup,
+    webhookFetch: null,
     ...overrides
   };
 
@@ -2632,31 +2872,6 @@ export function createUserAccountRouter(overrides = {}) {
     }
   });
 
-  const validateSafeWebhookUrl = (rawUrl) => {
-    try {
-      const parsed = new URL(String(rawUrl || '').trim());
-      if (parsed.protocol !== 'https:') return null;
-      const host = parsed.hostname.toLowerCase();
-      if (
-        host === 'localhost' ||
-        host.endsWith('.local') ||
-        host.endsWith('.internal') ||
-        /^127\./.test(host) ||
-        /^10\./.test(host) ||
-        /^192\.168\./.test(host) ||
-        /^169\.254\./.test(host) ||
-        /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
-        host === '::1' ||
-        host === '[::1]'
-      ) {
-        return null;
-      }
-      return parsed.toString();
-    } catch {
-      return null;
-    }
-  };
-
   // 20. GET /user/account/webhooks
   router.get('/user/account/webhooks', requireAuthenticatedUser, async (req, res) => {
     try {
@@ -2682,10 +2897,11 @@ export function createUserAccountRouter(overrides = {}) {
     try {
       res.setHeader('Cache-Control', 'no-store');
       const ownerId = String(req.accountUser.id);
-      const safeUrl = validateSafeWebhookUrl(req.body?.url);
-      if (!safeUrl) {
+      const resolved = await resolveAndAssertSafeWebhookUrl(req.body?.url, { dnsLookup: deps.dnsLookup });
+      if (!resolved) {
         return res.status(400).json({ error: 'Provide a valid public HTTPS webhook URL.' });
       }
+      const safeUrl = resolved.url;
       const events = Array.isArray(req.body?.events)
         ? [...new Set(req.body.events.map((e) => String(e || '').trim()).filter(Boolean))].slice(0, 20)
         : ['order.created'];
@@ -2792,8 +3008,8 @@ export function createUserAccountRouter(overrides = {}) {
       );
       const target = (Array.isArray(doc.webhooks) ? doc.webhooks : []).find((w) => w.id === webhookId);
       if (!target) return res.status(404).json({ error: 'Webhook not found.' });
-      const safeUrl = validateSafeWebhookUrl(target.url);
-      if (!safeUrl) return res.status(400).json({ error: 'Webhook URL is no longer permitted.' });
+      const resolved = await resolveAndAssertSafeWebhookUrl(target.url, { dnsLookup: deps.dnsLookup });
+      if (!resolved) return res.status(400).json({ error: 'Webhook URL is no longer permitted.' });
 
       const payloadJson = JSON.stringify({
         id: `evt_${crypto.randomUUID()}`,
@@ -2813,18 +3029,33 @@ export function createUserAccountRouter(overrides = {}) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
       try {
-        const pingRes = await fetch(safeUrl, {
-          method: 'POST',
-          signal: controller.signal,
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Tiwlo-Signature': `sha256=${signature}`
-          },
-          body: payloadJson
-        });
+        const headers = {
+          'Content-Type': 'application/json',
+          'X-Tiwlo-Signature': `sha256=${signature}`
+        };
+        const pingRes = typeof deps.webhookFetch === 'function'
+          ? await deps.webhookFetch(
+              resolved.url,
+              {
+                method: 'POST',
+                redirect: 'manual',
+                signal: controller.signal,
+                headers,
+                body: payloadJson
+              },
+              resolved
+            )
+          : await dispatchPinnedHttpsWebhook({
+              url: resolved.url,
+              hostname: resolved.hostname,
+              addresses: resolved.addresses,
+              headers,
+              body: payloadJson,
+              signal: controller.signal
+            });
         statusCode = pingRes.status;
-        ok = pingRes.ok;
-        statusText = pingRes.statusText || '';
+        ok = Boolean(pingRes.ok) && !(statusCode >= 300 && statusCode < 400);
+        statusText = pingRes.statusText || (statusCode >= 300 && statusCode < 400 ? 'Redirect blocked' : '');
       } catch (err) {
         statusText = err.name === 'AbortError' ? 'Timed out (5s)' : (err.message || 'Unreachable');
       } finally {
