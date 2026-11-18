@@ -530,3 +530,97 @@ test('Guest requestLiveChat maps visitorName/visitorEmail/visitorPhone and mapMe
   assert.equal(systemMsg.senderType, 'system');
   assert.equal(systemMsg.senderRole, 'system');
 });
+
+test('Cancel/dismiss hides waiting chat only for cancelling staff and deskIsolation hides active chats from super_admin', async () => {
+  const svc = createLiveChatQueueService({
+    useMemory: true,
+    getChatSettingsFn: async () => ({ liveChatWidgetEnabled: true, aiAutoReplyEnabled: false })
+  });
+  const empA = { id: 'emp_lc_a', name: 'Emp A', email: 'a@tiwlo.com', role: 'admin' };
+  const empB = { id: 'emp_lc_b', name: 'Emp B', email: 'b@tiwlo.com', role: 'admin' };
+  const superAdmin = { id: 'sa_lc', name: 'Root', email: 'tiwloltd@gmail.com', role: 'super_admin' };
+
+  const created = await svc.requestLiveChat({
+    authUser: { id: 'u_lc', name: 'Visitor One', email: 'v1@example.com' },
+    topic: 'Live Help',
+    initialMessage: 'Anybody online?',
+    req: fakeReq({ ip: '198.51.100.44' }),
+    nowMs: 5_000_000
+  });
+
+  // Emp A cancels -> gone from Emp A's queue, still waiting for Emp B & Root
+  await svc.cancelLiveChatRequest(created.chat.id, empA, { nowMs: 5_001_000 });
+  const listA = await svc.listAdminLiveChats({ staffActor: empA, status: 'waiting', deskIsolation: true });
+  assert.equal(listA.chats.some((c) => c.id === created.chat.id), false);
+  const listB = await svc.listAdminLiveChats({ staffActor: empB, status: 'waiting', deskIsolation: true });
+  assert.equal(listB.chats.some((c) => c.id === created.chat.id), true);
+
+  // Emp B accepts -> gone from Root's deskIsolation list & strict detail blocked
+  await svc.acceptLiveChatRequest(created.chat.id, empB, { req: fakeReq({ ip: '198.51.100.77' }), nowMs: 5_002_000 });
+  const rootDeskList = await svc.listAdminLiveChats({ staffActor: superAdmin, status: 'all', deskIsolation: true });
+  assert.equal(rootDeskList.chats.some((c) => c.id === created.chat.id), false);
+  await assert.rejects(
+    () => svc.sendStaffLiveChatReply(created.chat.id, { body: 'Bypass', staffActor: superAdmin, enforceStrictAccept: true }),
+    (err) => err.code === 'CHAT_ISOLATED_ACTIVE' && err.statusCode === 403
+  );
+});
+
+test('Gemini AI Assist accepts executeGeminiWithFailover result shape (without explicit ok flag) and computes 5-min reminder cycle', async () => {
+  const svc = createLiveChatQueueService({
+    useMemory: true,
+    getChatSettingsFn: async () => ({ enabled: true, aiAgentAssistEnabled: true, liveChatWidgetEnabled: true }),
+    executeAiFn: async () => ({
+      // Deliberately omit `ok: true` to match historical executeGeminiWithFailover return shape
+      text: 'Hello! Thank you for reaching out to Tiwlo Support. I am looking into this for you right away.\n\nWarm regards,\nTiwlo Support',
+      usedModel: 'gemini-2.5-flash',
+      usedKeyLabel: 'Primary Gemini Key',
+      failoverCount: 0
+    })
+  });
+
+  const emp = { id: 'emp_ai_1', name: 'Nusrat', email: 'nusrat@tiwlo.com', role: 'admin' };
+  const startedMs = 1_000_000;
+  const created = await svc.requestLiveChat({
+    authUser: { id: 'cust_av1', name: 'Ayaan Khan', email: 'ayaan@example.com', avatar: 'https://cdn.example.com/u/ayaan.jpg' },
+    topic: 'Payment Gateway Help',
+    initialMessage: 'Need help with payout setup',
+    req: fakeReq({ ip: '203.0.113.55' }),
+    nowMs: startedMs
+  });
+
+  // Verify 5-minute reminder cycle & userAvatar in waiting queue
+  const listAfter6Min = await svc.listAdminLiveChats({
+    staffActor: emp,
+    status: 'waiting',
+    nowMs: startedMs + 6 * 60 * 1000
+  });
+  assert.equal(listAfter6Min.chats[0].userAvatar, 'https://cdn.example.com/u/ayaan.jpg');
+  assert.equal(listAfter6Min.latestWaitingChat?.reminderCycle, 1);
+  assert.equal(listAfter6Min.latestWaitingChat?.alertKey, `chat:${created.chat.id}:c1`);
+  assert.equal(listAfter6Min.latestWaitingChat?.userAvatar, 'https://cdn.example.com/u/ayaan.jpg');
+
+  const chatAi = await svc.generateAiAssistForLiveChat(created.chat.id, {
+    mode: 'suggest_reply',
+    staffActor: emp
+  });
+  assert.equal(chatAi.ok, true);
+  assert.equal(chatAi.model, 'gemini-2.5-flash');
+  assert.equal(chatAi.keyLabel, 'Primary Gemini Key');
+  assert.match(chatAi.suggestion, /Tiwlo Support/);
+
+  const ticketAi = await svc.generateAiAssistForTicket({
+    ticket: {
+      id: 'tkt_ai_test',
+      serialNumber: '#TKT-9001',
+      subject: 'Payout Delay',
+      status: 'open',
+      userName: 'Ayaan Khan'
+    },
+    messages: [{ senderType: 'user', senderName: 'Ayaan Khan', message: 'Please check payout' }],
+    mode: 'polish_reply',
+    draft: 'checking payout wait'
+  });
+  assert.equal(ticketAi.ok, true);
+  assert.equal(ticketAi.model, 'gemini-2.5-flash');
+  assert.match(ticketAi.suggestion, /Tiwlo Support/);
+});

@@ -11,6 +11,7 @@ import {
 } from './ticketingService.js';
 import { createSupportRouter, userMatchesRecord } from './ai/supportRoutes.js';
 import { createAdminSupportRouter } from '../administrator/adminSupportRoutes.js';
+import { createLiveChatQueueService } from './liveChatQueueService.js';
 
 function createMemorySupportDb() {
   const state = { tickets: [], conversations: [] };
@@ -1432,4 +1433,88 @@ test('Security: attachment download authorization & safe headers, upload allowli
     ),
     (err) => err.statusCode === 400 && err.code === 'INVALID_ATTACHMENT_TYPE'
   );
+});
+
+test('Queue Accept/Cancel per-staff dismiss, strict deskIsolation, pulse-alerts & push-token registration', async (t) => {
+  const staffUsers = [
+    { id: 'sup_1', name: 'Root', email: 'tiwloltd@gmail.com', role: 'super_admin' },
+    { id: 'emp_a', name: 'Emp A', email: 'empa@tiwlo.com', role: 'admin', roleKey: 'support_agent' },
+    { id: 'emp_b', name: 'Emp B', email: 'empb@tiwlo.com', role: 'admin', roleKey: 'support_agent' }
+  ];
+  const svc = createTicketingService({ useMemory: true, staffUsers });
+  const liveSvc = createLiveChatQueueService({ useMemory: true, getChatSettingsFn: async () => ({ liveChatWidgetEnabled: true, aiAutoReplyEnabled: false }) });
+  const srv = await startTestApp({ ticketingService: svc, liveChatQueueService: liveSvc, SupportDB: createMemorySupportDb() });
+  t.after(async () => {
+    svc.stopSupportAutomationScheduler();
+    await srv.close();
+  });
+
+  const custHdr = { 'x-test-user': JSON.stringify({ id: 'cust_q1', name: 'Queue Customer', email: 'cq@example.com', role: 'owner' }) };
+  const superHdr = { 'x-test-admin': JSON.stringify(staffUsers[0]) };
+  const empAHdr = { 'x-test-admin': JSON.stringify(staffUsers[1]) };
+  const empBHdr = { 'x-test-admin': JSON.stringify(staffUsers[2]) };
+
+  const created = await srv.request('/api/support/tickets', {
+    method: 'POST',
+    headers: custHdr,
+    body: { subject: 'Urgent billing question', description: 'Please review invoice' }
+  });
+  assert.equal(created.status, 201);
+  const tid = created.json.ticket.id;
+
+  // Before anyone accepts, even super_admin with x-desk-strict: 1 cannot reply publicly without Accept
+  const preReply = await srv.request(`/api/admin/support/tickets/${tid}/replies`, {
+    method: 'POST',
+    headers: { ...superHdr, 'x-desk-strict': '1' },
+    body: { message: 'Should require accept first', isInternal: false }
+  });
+  assert.equal(preReply.status, 403);
+  assert.equal(preReply.json.code, 'TICKET_ACCEPTANCE_REQUIRED');
+
+  // Emp A sees it in pulse-alerts & list, then clicks Cancel/Dismiss
+  const pulseA1 = await srv.request('/api/admin/support/pulse-alerts', { headers: empAHdr });
+  assert.equal(pulseA1.status, 200);
+  assert.equal(pulseA1.json.unacceptedTicketsCount, 1);
+
+  const dismissRes = await srv.request(`/api/admin/support/tickets/${tid}/cancel-assignment`, {
+    method: 'POST',
+    headers: empAHdr
+  });
+  assert.equal(dismissRes.status, 200);
+
+  // Emp A no longer sees it on overview/list/pulse-alerts, while Emp B & Root still see it
+  const listAAfter = await srv.request('/api/admin/support/tickets?deskIsolation=1', { headers: empAHdr });
+  assert.equal(listAAfter.json.tickets.some((x) => x.id === tid), false);
+  const pulseA2 = await srv.request('/api/admin/support/pulse-alerts', { headers: empAHdr });
+  assert.equal(pulseA2.json.unacceptedTicketsCount, 0);
+
+  const listB = await srv.request('/api/admin/support/tickets?deskIsolation=1', { headers: empBHdr });
+  assert.equal(listB.json.tickets.some((x) => x.id === tid), true);
+
+  // Emp B clicks Accept -> disappears from Root's deskIsolation list & pulse-alerts immediately
+  const acceptB = await srv.request(`/api/admin/support/tickets/${tid}/accept-assignment`, {
+    method: 'POST',
+    headers: empBHdr
+  });
+  assert.equal(acceptB.status, 200);
+  assert.equal(acceptB.json.ticket.assignmentStatus, 'accepted');
+
+  const listRootStrict = await srv.request('/api/admin/support/tickets?deskIsolation=1', { headers: superHdr });
+  assert.equal(listRootStrict.json.tickets.some((x) => x.id === tid), false);
+  const pulseRoot = await srv.request('/api/admin/support/pulse-alerts', { headers: superHdr });
+  assert.equal(pulseRoot.json.unacceptedTicketsCount, 0);
+
+  // Register & unregister push token cleanly
+  const reg = await srv.request('/api/admin/support/push-token', {
+    method: 'POST',
+    headers: empBHdr,
+    body: { token: 'ExponentPushToken[test-device-1]', platform: 'android', deviceName: 'Pixel' }
+  });
+  assert.equal(reg.status, 200);
+  const unreg = await srv.request('/api/admin/support/push-token', {
+    method: 'DELETE',
+    headers: empBHdr,
+    body: { token: 'ExponentPushToken[test-device-1]' }
+  });
+  assert.equal(unreg.status, 200);
 });

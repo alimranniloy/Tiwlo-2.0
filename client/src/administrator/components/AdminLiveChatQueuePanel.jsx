@@ -43,10 +43,72 @@ function formatDateTime(val) {
   });
 }
 
+function getChatReplyLockInfo(chat, { currentActorId = '', isSuperAdmin = false, canReplyPermission = true } = {}) {
+  if (!chat) {
+    return { canReply: false, requiresAccept: false, rowBadge: null, badgeTone: null, reason: null };
+  }
+  const statusLower = String(chat.status || '').toLowerCase();
+  if (statusLower === 'closed' || statusLower === 'cancelled') {
+    return {
+      canReply: false,
+      requiresAccept: false,
+      rowBadge: 'Unable · Closed',
+      badgeTone: 'closed',
+      reason: 'Conversation is closed.',
+    };
+  }
+  if (!canReplyPermission) {
+    return {
+      canReply: false,
+      requiresAccept: false,
+      rowBadge: 'Locked',
+      badgeTone: 'locked',
+      reason: 'Read-only permission.',
+    };
+  }
+  const assignedId = chat.assignedAgentId ? String(chat.assignedAgentId) : '';
+  const ownedByMe = Boolean(assignedId && currentActorId && assignedId === currentActorId);
+  if (statusLower === 'active' && assignedId && !ownedByMe && !isSuperAdmin) {
+    return {
+      canReply: false,
+      requiresAccept: false,
+      rowBadge: 'Locked',
+      badgeTone: 'locked',
+      reason: `Handled by ${chat.assignedAgentName || 'another specialist'}.`,
+    };
+  }
+  if (statusLower === 'active' && assignedId && !ownedByMe) {
+    return {
+      canReply: false,
+      requiresAccept: false,
+      rowBadge: 'Locked',
+      badgeTone: 'locked',
+      reason: `Handled by ${chat.assignedAgentName || 'another specialist'}.`,
+    };
+  }
+  if (statusLower !== 'active' || !assignedId) {
+    return {
+      canReply: false,
+      requiresAccept: true,
+      rowBadge: 'Accept to Reply',
+      badgeTone: 'accept',
+      reason: statusLower === 'on_hold' ? 'Chat is on hold — Resume & Accept required first.' : 'Accept required first.',
+    };
+  }
+  return {
+    canReply: true,
+    requiresAccept: false,
+    rowBadge: null,
+    badgeTone: null,
+    reason: null,
+  };
+}
+
 export default function AdminLiveChatQueuePanel({
   apiBase = '/api',
   currentUser = null,
   isSuperAdmin = false,
+  canReply = true,
   aiEnabled = true,
   showToast,
   onCountsChange,
@@ -119,6 +181,7 @@ export default function AdminLiveChatQueuePanel({
       if (apiStatus) params.set('status', apiStatus);
       if (statusTab === 'my_active') params.set('mine', '1');
       if (searchQuery.trim()) params.set('q', searchQuery.trim());
+      params.set('deskIsolation', '1');
 
       const res = await fetch(`${apiBase}/admin/support/live-chats?${params.toString()}`, {
         credentials: 'include',
@@ -157,7 +220,7 @@ export default function AdminLiveChatQueuePanel({
       }
       if (!silent) setLoadingChat(true);
       try {
-        const res = await fetch(`${apiBase}/admin/support/live-chats/${encodeURIComponent(chatId)}`, {
+        const res = await fetch(`${apiBase}/admin/support/live-chats/${encodeURIComponent(chatId)}?deskIsolation=1`, {
           credentials: 'include',
           headers: getAuthHeaders(),
         });
@@ -242,7 +305,7 @@ export default function AdminLiveChatQueuePanel({
       await fetch(`${apiBase}/admin/support/live-chats/presence`, {
         method: 'POST',
         credentials: 'include',
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: getAuthHeaders({ 'Content-Type': 'application/json', 'x-desk-strict': '1' }),
         body: JSON.stringify({ isOnline: next }),
       });
       await loadChats();
@@ -260,7 +323,7 @@ export default function AdminLiveChatQueuePanel({
       const res = await fetch(`${apiBase}/admin/support/live-chats/${encodeURIComponent(activeChat.id)}/${action}`, {
         method: 'POST',
         credentials: 'include',
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: getAuthHeaders({ 'Content-Type': 'application/json', 'x-desk-strict': '1' }),
         body: JSON.stringify(payload),
       });
       const json = await res.json().catch(() => ({}));
@@ -293,6 +356,42 @@ export default function AdminLiveChatQueuePanel({
     }
   };
 
+  const handleRowQueueAction = async (targetChatId, action, e) => {
+    e?.stopPropagation();
+    if (!targetChatId || actingChat) return;
+    setActingChat(true);
+    try {
+      const res = await fetch(
+        `${apiBase}/admin/support/live-chats/${encodeURIComponent(targetChatId)}/${action}`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: getAuthHeaders({ 'Content-Type': 'application/json', 'x-desk-strict': '1' }),
+          body: '{}',
+        }
+      );
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.success === false) {
+        throw new Error(json.error || `Could not ${action} chat.`);
+      }
+      if (action === 'accept') {
+        setSelectedChatId(targetChatId);
+        setStatusTab('my_active');
+        setMobileView('thread');
+        showToast?.('Live chat accepted.', 'success');
+      } else {
+        setChats((prev) => prev.filter((item) => item.id !== targetChatId));
+        if (selectedChatId === targetChatId) setSelectedChatId(null);
+        showToast?.('Live chat removed from your queue.', 'info');
+      }
+      await loadChats({ preserveSelection: true, silent: true });
+    } catch (err) {
+      showToast?.(err.message || 'Queue action failed.', 'error');
+    } finally {
+      setActingChat(false);
+    }
+  };
+
   const handleSendReply = async (e) => {
     e?.preventDefault();
     const text = replyText.trim();
@@ -302,7 +401,7 @@ export default function AdminLiveChatQueuePanel({
       const res = await fetch(`${apiBase}/admin/support/live-chats/${encodeURIComponent(activeChat.id)}/reply`, {
         method: 'POST',
         credentials: 'include',
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: getAuthHeaders({ 'Content-Type': 'application/json', 'x-desk-strict': '1' }),
         body: JSON.stringify({ message: text }),
       });
       const json = await res.json().catch(() => ({}));
@@ -334,7 +433,7 @@ export default function AdminLiveChatQueuePanel({
       const res = await fetch(`${apiBase}/admin/support/live-chats/${encodeURIComponent(activeChat.id)}/ai-assist`, {
         method: 'POST',
         credentials: 'include',
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: getAuthHeaders({ 'Content-Type': 'application/json', 'x-desk-strict': '1' }),
         body: JSON.stringify({ mode, draft: replyText }),
       });
       const json = await res.json().catch(() => ({}));
@@ -362,7 +461,7 @@ export default function AdminLiveChatQueuePanel({
       const res = await fetch(`${apiBase}/admin/support/live-chats/templates`, {
         method: 'POST',
         credentials: 'include',
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: getAuthHeaders({ 'Content-Type': 'application/json', 'x-desk-strict': '1' }),
         body: JSON.stringify({
           title: tplTitle.trim(),
           category: tplCategory.trim() || 'General',
@@ -407,7 +506,7 @@ export default function AdminLiveChatQueuePanel({
         {
           method: 'POST',
           credentials: 'include',
-          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+          headers: getAuthHeaders({ 'Content-Type': 'application/json', 'x-desk-strict': '1' }),
           body: JSON.stringify({
             highlightSelector: guideSelector.trim(),
             agentGuidanceNote: guideNote.trim(),
@@ -439,16 +538,15 @@ export default function AdminLiveChatQueuePanel({
 
   const coBrowseTelemetry = activeChat?.coBrowse || activeChat?.coBrowseTelemetry || null;
   const coBrowseConsented = Boolean(coBrowseTelemetry?.consent || activeChat?.coBrowseConsent);
-  const isClosedChat = String(activeChat?.status || '').toLowerCase() === 'closed';
   const activeStatusLower = String(activeChat?.status || '').toLowerCase();
+  const isClosedChat = activeStatusLower === 'closed' || activeStatusLower === 'cancelled';
   const currentActorId = currentUser?.id ? String(currentUser.id) : '';
-  const isChatOwnedByMe = Boolean(
-    activeChat?.assignedAgentId && currentActorId && String(activeChat.assignedAgentId) === currentActorId
-  );
-  const isChatLockedToOther = Boolean(
-    activeStatusLower === 'active' && !isSuperAdmin && activeChat?.assignedAgentId && !isChatOwnedByMe
-  );
-  const needsAcceptanceToReply = Boolean(activeChat && !isClosedChat && activeStatusLower !== 'active');
+  const activeChatReplyLock = getChatReplyLockInfo(activeChat, {
+    currentActorId,
+    isSuperAdmin,
+    canReplyPermission: canReply,
+  });
+  const needsAcceptanceToReply = Boolean(activeChat && !isClosedChat && activeStatusLower !== 'active' && canReply);
 
   return (
     <div className="space-y-3 sm:space-y-4">
@@ -652,6 +750,11 @@ export default function AdminLiveChatQueuePanel({
             ) : (
               pagedChats.map((chat) => {
                 const selected = selectedChatId === chat.id;
+                const rowReplyLock = getChatReplyLockInfo(chat, {
+                  currentActorId,
+                  isSuperAdmin,
+                  canReplyPermission: canReply,
+                });
                 return (
                   <button
                     key={chat.id}
@@ -668,11 +771,27 @@ export default function AdminLiveChatQueuePanel({
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-mono text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">
-                        {chat.serialNumber || `#${chat.id}`}
+                        {chat.serialNumber || chat.chatNumber || `#${chat.id}`}
                       </span>
-                      <span className="rounded-full border border-neutral-200 dark:border-neutral-700 px-2 py-0.5 text-[10px] font-medium capitalize text-neutral-600 dark:text-neutral-300">
-                        {String(chat.status || 'waiting').replace(/_/g, ' ')}
-                      </span>
+                      <div className="flex flex-wrap items-center justify-end gap-1">
+                        {rowReplyLock.rowBadge && (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                              rowReplyLock.badgeTone === 'closed'
+                                ? 'border-neutral-300/80 bg-neutral-100 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800/80 dark:text-neutral-400'
+                                : rowReplyLock.badgeTone === 'accept'
+                                  ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                                  : 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300'
+                            }`}
+                          >
+                            <Lock className="h-2.5 w-2.5" />
+                            {rowReplyLock.rowBadge}
+                          </span>
+                        )}
+                        <span className="rounded-full border border-neutral-200 dark:border-neutral-700 px-2 py-0.5 text-[10px] font-medium capitalize text-neutral-600 dark:text-neutral-300">
+                          {String(chat.status || 'waiting').replace(/_/g, ' ')}
+                        </span>
+                      </div>
                     </div>
                     <p className="mt-1.5 text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">
                       {chat.customerName || chat.guestName || 'Visitor'}
@@ -684,6 +803,28 @@ export default function AdminLiveChatQueuePanel({
                       <span>{chat.assignedAgentName || 'Waiting Specialist'}</span>
                       <span>{formatDateTime(chat.updatedAt || chat.createdAt)}</span>
                     </div>
+                    {chat.status === 'waiting' && (
+                      <div className="mt-2 flex items-center gap-1.5 pt-2 border-t border-neutral-100 dark:border-neutral-800/80">
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => handleRowQueueAction(chat.id, 'accept', e)}
+                          className="inline-flex h-6 items-center gap-1 rounded-md bg-[#1ED760] px-2.5 text-[10px] font-semibold text-neutral-950 hover:bg-[#19c354]"
+                        >
+                          <UserCheck className="h-3 w-3" />
+                          Accept
+                        </span>
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => handleRowQueueAction(chat.id, 'cancel', e)}
+                          className="inline-flex h-6 items-center gap-1 rounded-md border border-neutral-200 dark:border-neutral-700 px-2 text-[10px] font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                        >
+                          <X className="h-3 w-3" />
+                          Cancel
+                        </span>
+                      </div>
+                    )}
                   </button>
                 );
               })
@@ -863,37 +1004,36 @@ export default function AdminLiveChatQueuePanel({
                 </div>
 
                 {/* Staff Composer + Accept Lock + Templates + AI Assist Toolbar */}
-                {isClosedChat ? (
-                  <div className="border-t border-neutral-200/80 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900 p-3 flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
-                    <Lock className="h-4 w-4 shrink-0" />
-                    <span>This live chat session is closed and archived.</span>
-                  </div>
-                ) : isChatLockedToOther ? (
-                  <div className="border-t border-neutral-200/80 dark:border-neutral-800 bg-amber-50/70 dark:bg-amber-950/20 p-3 flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300">
-                    <Lock className="h-4 w-4 shrink-0" />
-                    <span>
-                      Exclusive Lock: Active chat handled by <strong>{activeChat.assignedAgentName || 'another specialist'}</strong>. Other staff cannot reply.
-                    </span>
-                  </div>
-                ) : needsAcceptanceToReply ? (
-                  <div className="border-t border-neutral-200/80 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900 p-3 flex flex-wrap items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-2 text-xs text-neutral-700 dark:text-neutral-300">
-                      <Lock className="h-4 w-4 shrink-0 text-[#1ED760]" />
-                      <span>
-                        {activeStatusLower === 'on_hold'
-                          ? 'Chat is on hold. Resume & Accept to lock and reply exclusively.'
-                          : 'Accept this chat first to claim exclusive ownership and send replies.'}
-                      </span>
+                {!activeChatReplyLock.canReply ? (
+                  <div className="border-t border-neutral-200/80 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900 p-3 space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-2 text-xs text-neutral-700 dark:text-neutral-300">
+                        <Lock className={`h-4 w-4 shrink-0 ${activeChatReplyLock.badgeTone === 'accept' ? 'text-[#1ED760]' : 'text-neutral-500'}`} />
+                        <span className="font-medium">
+                          {`Unable to reply — ${activeChatReplyLock.reason || 'Reply access restricted.'}`}
+                        </span>
+                      </div>
+                      {needsAcceptanceToReply && (
+                        <button
+                          type="button"
+                          disabled={actingChat}
+                          onClick={() => handleChatAction('accept')}
+                          className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#1ED760] px-3.5 text-xs font-semibold text-neutral-950 hover:bg-[#19c355] disabled:opacity-50 cursor-pointer"
+                        >
+                          <UserCheck className="h-3.5 w-3.5" />
+                          {activeStatusLower === 'on_hold' ? 'Resume & Accept' : 'Accept Chat to Reply'}
+                        </button>
+                      )}
                     </div>
-                    <button
-                      type="button"
-                      disabled={actingChat}
-                      onClick={() => handleChatAction('accept')}
-                      className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#1ED760] px-3.5 text-xs font-semibold text-neutral-950 hover:bg-[#19c355] disabled:opacity-50 cursor-pointer"
-                    >
-                      <UserCheck className="h-3.5 w-3.5" />
-                      {activeStatusLower === 'on_hold' ? 'Resume & Accept' : 'Accept Chat to Reply'}
-                    </button>
+                    <input
+                      type="text"
+                      disabled
+                      readOnly
+                      value=""
+                      placeholder={`Unable to reply — ${activeChatReplyLock.reason || 'Reply access restricted.'}`}
+                      aria-label="Disabled live chat reply composer"
+                      className="h-9 w-full cursor-not-allowed rounded-lg border border-neutral-200/80 bg-neutral-100/80 px-3 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-950/70 dark:text-neutral-400"
+                    />
                   </div>
                 ) : (
                   <form onSubmit={handleSendReply} className="border-t border-neutral-200/80 dark:border-neutral-800 p-3 space-y-2">

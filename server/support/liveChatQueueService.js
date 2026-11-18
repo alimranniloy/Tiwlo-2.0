@@ -2,6 +2,7 @@ import crypto, { randomUUID } from 'node:crypto';
 import { isPgActive as defaultIsPgActive, queryPg as defaultQueryPg } from '../db/postgres.js';
 import { executeGeminiWithFailover, getChatSystemSettings } from './ai/aiKeyPoolService.js';
 import { isSuperAdminAccount } from '../administrator/identityRiskGraph.js';
+import { dispatchSupportPushAlert } from './supportPushService.js';
 
 export const LIVE_CHAT_STATUSES = Object.freeze([
   'waiting',
@@ -413,6 +414,9 @@ export function createLiveChatQueueService({
 
       await queryPgFn(`ALTER TABLE support_live_chat_requests ADD COLUMN IF NOT EXISTS requester_network_hints JSONB NOT NULL DEFAULT '[]'::jsonb`);
       await queryPgFn(`ALTER TABLE support_live_chat_requests ADD COLUMN IF NOT EXISTS co_browsing_state JSONB NOT NULL DEFAULT '{}'::jsonb`);
+      await queryPgFn(`ALTER TABLE support_live_chat_requests ADD COLUMN IF NOT EXISTS dismissed_by JSONB NOT NULL DEFAULT '[]'::jsonb`);
+      await queryPgFn(`ALTER TABLE support_live_chat_requests ADD COLUMN IF NOT EXISTS user_avatar TEXT`);
+      await queryPgFn(`ALTER TABLE support_live_chat_messages ADD COLUMN IF NOT EXISTS sender_avatar TEXT`);
 
       await queryPgFn(`
         CREATE TABLE IF NOT EXISTS support_csat_surveys (
@@ -464,12 +468,17 @@ export function createLiveChatQueueService({
     if (!coBrowsing || typeof coBrowsing !== 'object' || Array.isArray(coBrowsing)) {
       coBrowsing = {};
     }
+    let dismissedBy = row.dismissed_by ?? row.dismissedBy ?? [];
+    if (typeof dismissedBy === 'string') {
+      try { dismissedBy = JSON.parse(dismissedBy); } catch { dismissedBy = []; }
+    }
     return {
       id: row.id,
       chatNumber: row.chat_number ?? row.chatNumber,
       status: row.status,
       requesterType: row.requester_type ?? row.requesterType ?? 'guest',
       userId: row.user_id ?? row.userId ?? null,
+      userAvatar: row.user_avatar ?? row.userAvatar ?? null,
       guestSessionId: row.guest_session_id ?? row.guestSessionId ?? null,
       guestName: row.guest_name ?? row.guestName ?? null,
       guestEmail: row.guest_email ?? row.guestEmail ?? null,
@@ -506,6 +515,7 @@ export function createLiveChatQueueService({
       staffMessagesCount: Number(row.staff_messages_count ?? row.staffMessagesCount ?? 0),
       collusionScore: Number(row.collusion_score ?? row.collusionScore ?? 0),
       collusionFlags: Array.isArray(flags) ? flags : [],
+      dismissedBy: Array.isArray(dismissedBy) ? dismissedBy.map(String) : [],
       sentimentLabel: row.sentiment_label ?? row.sentimentLabel ?? 'neutral',
       sentimentScore: Number(row.sentiment_score ?? row.sentimentScore ?? 0),
       convertedTicketId: row.converted_ticket_id ?? row.convertedTicketId ?? null,
@@ -524,6 +534,7 @@ export function createLiveChatQueueService({
       senderRole: senderType === 'staff' ? 'agent' : senderType,
       senderId: row.sender_id ?? row.senderId ?? null,
       senderName: row.sender_name ?? row.senderName ?? 'Support',
+      senderAvatar: row.sender_avatar ?? row.senderAvatar ?? null,
       body: row.body,
       createdAt: row.created_at ? new Date(row.created_at).toISOString() : (row.createdAt || new Date().toISOString())
     };
@@ -589,19 +600,25 @@ export function createLiveChatQueueService({
     };
   }
 
-  function canStaffViewChat(chat, staffActor) {
+  function canStaffViewChat(chat, staffActor, { deskIsolation = false, excludeDismissed = true } = {}) {
     if (!chat || !staffActor) return false;
-    if (isSuperAdminActor(staffActor)) return true;
+    const actorId = String(staffActor.id || '');
+    const superAdmin = isSuperAdminActor(staffActor);
 
-    // Waiting queue items are visible to authorized staff so anyone available can Accept
-    if (chat.status === 'waiting') return true;
-
-    // Strict active chat isolation: while active, ONLY the assigned agent (and super_admin above) can view or search!
-    if (chat.status === 'active') {
-      return Boolean(chat.assignedAgentId && String(chat.assignedAgentId) === String(staffActor.id));
+    // Waiting queue items are visible to authorized staff unless that staff cancelled/dismissed them
+    if (chat.status === 'waiting') {
+      if (excludeDismissed && actorId && Array.isArray(chat.dismissedBy) && chat.dismissedBy.map(String).includes(actorId)) {
+        return false;
+      }
+      return true;
     }
 
-    // Once placed on hold or closed/cancelled, authorized staff can view & inspect it (including by chat/ticket number)
+    // Strict active chat isolation: while active, ONLY the assigned agent can see in Desk/Mobile Queue
+    if (chat.status === 'active') {
+      if (!deskIsolation && superAdmin) return true;
+      return Boolean(chat.assignedAgentId && String(chat.assignedAgentId) === actorId);
+    }
+
     if (chat.status === 'on_hold' || chat.status === 'closed' || chat.status === 'cancelled') {
       return true;
     }
@@ -952,6 +969,7 @@ export function createLiveChatQueueService({
       status: 'waiting',
       requesterType: isAuthed ? 'user' : 'guest',
       userId: isAuthed ? String(authUser.id) : null,
+      userAvatar: isAuthed ? (authUser.avatar || null) : null,
       guestSessionId: !isAuthed && guestSession?.id ? String(guestSession.id) : null,
       guestName: isAuthed ? (authUser.name || authUser.username || 'Customer') : guestName,
       guestEmail: isAuthed ? (authUser.email || null) : guestEmail,
@@ -975,6 +993,7 @@ export function createLiveChatQueueService({
       staffMessagesCount: 0,
       collusionScore: 0,
       collusionFlags: [],
+      dismissedBy: [],
       sentimentLabel: 'neutral',
       sentimentScore: 0,
       convertedTicketId: null,
@@ -997,6 +1016,12 @@ export function createLiveChatQueueService({
           JSON.stringify(chat.requesterNetworkHints || []), chat.topic, chat.department, nowIso
         ]
       );
+      if (chat.userAvatar) {
+        await queryPgFn(
+          `UPDATE support_live_chat_requests SET user_avatar = $2 WHERE id = $1`,
+          [chat.id, chat.userAvatar]
+        ).catch(() => {});
+      }
     } else {
       mem.chats.push(chat);
     }
@@ -1029,6 +1054,16 @@ export function createLiveChatQueueService({
       findChatByIdOrNumber(chat.id),
       listMessagesRaw(chat.id)
     ]);
+
+    Promise.resolve(
+      dispatchSupportPushAlert({
+        queryPgFn,
+        isPgActiveFn,
+        title: `New Live Chat ${chat.chatNumber}`,
+        body: `${chat.guestName || 'Visitor'}: ${chat.topic || 'Needs live assistance'}`,
+        data: { type: 'livechat_new', chatId: chat.id, chatNumber: chat.chatNumber }
+      })
+    ).catch(() => {});
 
     return {
       reused: false,
@@ -1173,6 +1208,19 @@ export function createLiveChatQueueService({
       listMessagesRaw(chat.id),
       computeQueueTelemetryForChat(chat, nowMs)
     ]);
+
+    Promise.resolve(
+      dispatchSupportPushAlert({
+        queryPgFn,
+        isPgActiveFn,
+        targetStaffIds: freshChat?.status === 'active' && freshChat?.assignedAgentId ? [String(freshChat.assignedAgentId)] : null,
+        excludeStaffIds: Array.isArray(freshChat?.dismissedBy) ? freshChat.dismissedBy : [],
+        title: `Live Chat ${freshChat?.chatNumber || ''}`,
+        body: `${message.senderName}: ${String(body || '').slice(0, 120)}`,
+        data: { type: 'livechat_message', chatId: chat.id, chatNumber: freshChat?.chatNumber }
+      })
+    ).catch(() => {});
+
     return {
       message,
       aiReply,
@@ -1305,6 +1353,42 @@ export function createLiveChatQueueService({
     };
   }
 
+  async function cancelLiveChatRequest(chatIdOrNumber, staffActor, { nowMs = Date.now() } = {}) {
+    if (!staffActor?.id) {
+      throw new LiveChatQueueError('Staff authentication required.', { statusCode: 401, code: 'UNAUTHORIZED' });
+    }
+    const chat = await findChatByIdOrNumber(chatIdOrNumber);
+    if (!chat) {
+      throw new LiveChatQueueError('Live chat request not found.', { statusCode: 404, code: 'CHAT_NOT_FOUND' });
+    }
+    const actorId = String(staffActor.id);
+    if (chat.status === 'active' && String(chat.assignedAgentId) !== actorId) {
+      throw new LiveChatQueueError('This live chat has already been accepted by another specialist.', {
+        statusCode: 409,
+        code: 'ALREADY_ACCEPTED'
+      });
+    }
+    const existing = Array.isArray(chat.dismissedBy) ? chat.dismissedBy.map(String) : [];
+    const nextDismissed = Array.from(new Set([...existing, actorId]));
+    const nowIso = new Date(nowMs).toISOString();
+
+    if (isUsingPg()) {
+      await queryPgFn(
+        `UPDATE support_live_chat_requests
+         SET dismissed_by = $2::jsonb, updated_at = $3
+         WHERE id = $1`,
+        [chat.id, JSON.stringify(nextDismissed), nowIso]
+      );
+    } else {
+      const target = mem.chats.find((c) => c.id === chat.id);
+      if (target) {
+        target.dismissedBy = nextDismissed;
+        target.updatedAt = nowIso;
+      }
+    }
+    return { cancelled: true, chatId: chat.id };
+  }
+
   async function recordStaffResponseSample({ chat, staffActor, sampleType, responseMs, nowIso }) {
     const isFlagged = Number(chat.collusionScore || 0) >= 50;
     const exclusionReason = isFlagged
@@ -1340,7 +1424,7 @@ export function createLiveChatQueueService({
     return sample;
   }
 
-  async function sendStaffLiveChatReply(chatIdOrNumber, { body, staffActor, req = null, nowMs = Date.now() } = {}) {
+  async function sendStaffLiveChatReply(chatIdOrNumber, { body, staffActor, req = null, nowMs = Date.now(), enforceStrictAccept = false } = {}) {
     if (!staffActor?.id) {
       throw new LiveChatQueueError('Staff authentication required.', { statusCode: 401, code: 'UNAUTHORIZED' });
     }
@@ -1358,7 +1442,7 @@ export function createLiveChatQueueService({
         code: 'CHAT_ACCEPTANCE_REQUIRED'
       });
     }
-    if (!superAdmin && (!chat.assignedAgentId || String(chat.assignedAgentId) !== String(staffActor.id))) {
+    if ((enforceStrictAccept || !superAdmin) && (!chat.assignedAgentId || String(chat.assignedAgentId) !== String(staffActor.id))) {
       throw new LiveChatQueueError('This live chat is actively handled by another specialist until held or closed.', {
         statusCode: 403,
         code: 'CHAT_ISOLATED_ACTIVE'
@@ -1579,14 +1663,60 @@ export function createLiveChatQueueService({
       : sanitizeChatForCustomer(fresh);
   }
 
-  async function listAdminLiveChats({ status = '', q = '', staffActor = null, nowMs = Date.now() } = {}) {
+  async function resolveUserAvatarLookup(items = []) {
+    const map = new Map();
+    if (!isUsingPg() || !Array.isArray(items) || items.length === 0) return map;
+    const ids = [...new Set(items.map((x) => x?.userId || x?.senderId || x?.assignedAgentId).filter(Boolean).map(String))];
+    const emails = [...new Set(items.map((x) => x?.guestEmail).filter(Boolean).map((e) => String(e).trim().toLowerCase()))];
+    if (ids.length === 0 && emails.length === 0) return map;
+    try {
+      const { rows } = await queryPgFn(
+        `SELECT id, LOWER(email) AS email_lower, avatar
+         FROM system_users
+         WHERE avatar IS NOT NULL AND TRIM(avatar) <> ''
+           AND (
+             (array_length($1::text[], 1) IS NOT NULL AND id = ANY($1::text[]))
+             OR (array_length($2::text[], 1) IS NOT NULL AND LOWER(email) = ANY($2::text[]))
+           )`,
+        [ids, emails]
+      );
+      for (const r of rows || []) {
+        if (r.id && r.avatar) map.set(`id:${r.id}`, r.avatar);
+        if (r.email_lower && r.avatar) map.set(`email:${r.email_lower}`, r.avatar);
+      }
+    } catch {
+      // Non-fatal in tests or simplified schemas where system_users is absent
+    }
+    return map;
+  }
+
+  function resolveAvatarFromLookup(lookup, { userId, email, fallbackAvatar } = {}) {
+    if (fallbackAvatar) return fallbackAvatar;
+    if (userId && lookup.has(`id:${userId}`)) return lookup.get(`id:${userId}`);
+    if (email && lookup.has(`email:${String(email).trim().toLowerCase()}`)) {
+      return lookup.get(`email:${String(email).trim().toLowerCase()}`);
+    }
+    return null;
+  }
+
+  async function listAdminLiveChats({ status = '', q = '', staffActor = null, deskIsolation = false, excludeDismissed = true, nowMs = Date.now() } = {}) {
     if (!staffActor?.id) {
       throw new LiveChatQueueError('Staff authentication required.', { statusCode: 401, code: 'UNAUTHORIZED' });
     }
     const superAdmin = isSuperAdminActor(staffActor);
     const all = await getAllChatsRaw();
+    const avatarLookup = await resolveUserAvatarLookup(all);
 
-    const visible = all.filter((c) => canStaffViewChat(c, staffActor));
+    const visible = all
+      .filter((c) => canStaffViewChat(c, staffActor, { deskIsolation, excludeDismissed }))
+      .map((c) => ({
+        ...c,
+        userAvatar: resolveAvatarFromLookup(avatarLookup, {
+          userId: c.userId,
+          email: c.guestEmail,
+          fallbackAvatar: c.userAvatar
+        })
+      }));
     const counts = {
       all: visible.length,
       waiting: 0,
@@ -1596,9 +1726,28 @@ export function createLiveChatQueueService({
       myActive: 0,
       flagged: 0
     };
+    let latestWaitingChat = null;
 
     for (const c of visible) {
-      if (c.status === 'waiting') counts.waiting += 1;
+      if (c.status === 'waiting') {
+        counts.waiting += 1;
+        const waitRefIso = c.joinedAt || c.lastMessageAt;
+        const waitRefMs = Date.parse(waitRefIso || 0);
+        const ageMs = Number.isFinite(waitRefMs) ? Math.max(0, nowMs - waitRefMs) : 0;
+        const reminderCycle = Math.floor(ageMs / 300_000);
+        if (!latestWaitingChat || Date.parse(c.joinedAt || c.lastMessageAt) > Date.parse(latestWaitingChat.createdAt)) {
+          latestWaitingChat = {
+            id: c.id,
+            chatNumber: c.chatNumber,
+            guestName: c.guestName || 'Guest Visitor',
+            userAvatar: c.userAvatar || null,
+            topic: c.topic || 'Live Support',
+            createdAt: waitRefIso,
+            reminderCycle,
+            alertKey: `chat:${c.id}:c${reminderCycle}`
+          };
+        }
+      }
       else if (c.status === 'active') counts.active += 1;
       else if (c.status === 'on_hold') counts.on_hold += 1;
       else if (c.status === 'closed' || c.status === 'cancelled') counts.closed += 1;
@@ -1635,11 +1784,12 @@ export function createLiveChatQueueService({
     return {
       chats: filtered.map((c) => sanitizeChatForAdmin(c, { requesterIsSuperAdmin: superAdmin })),
       counts,
+      latestWaitingChat,
       presence
     };
   }
 
-  async function getAdminLiveChatDetail(chatIdOrNumber, staffActor) {
+  async function getAdminLiveChatDetail(chatIdOrNumber, staffActor, { deskIsolation = false } = {}) {
     if (!staffActor?.id) {
       throw new LiveChatQueueError('Staff authentication required.', { statusCode: 401, code: 'UNAUTHORIZED' });
     }
@@ -1647,15 +1797,38 @@ export function createLiveChatQueueService({
     if (!chat) {
       throw new LiveChatQueueError('Live chat not found.', { statusCode: 404, code: 'CHAT_NOT_FOUND' });
     }
-    if (!canStaffViewChat(chat, staffActor)) {
+    if (!canStaffViewChat(chat, staffActor, { deskIsolation, excludeDismissed: false })) {
       throw new LiveChatQueueError(
         'This conversation is actively isolated to its assigned specialist until placed on hold or closed.',
         { statusCode: 403, code: 'CHAT_ISOLATED_ACTIVE' }
       );
     }
-    const messages = await listMessagesRaw(chat.id);
+    const rawMessages = await listMessagesRaw(chat.id);
+    const avatarLookup = await resolveUserAvatarLookup([
+      chat,
+      ...rawMessages.map((m) => ({ senderId: m.senderId }))
+    ]);
+    const resolvedCustomerAvatar = resolveAvatarFromLookup(avatarLookup, {
+      userId: chat.userId,
+      email: chat.guestEmail,
+      fallbackAvatar: chat.userAvatar
+    });
+    const enrichedChat = {
+      ...chat,
+      userAvatar: resolvedCustomerAvatar
+    };
+    const messages = rawMessages.map((m) => {
+      const isCust = m.senderType === 'customer' || m.senderType === 'user';
+      return {
+        ...m,
+        senderAvatar:
+          m.senderAvatar ||
+          (isCust ? resolvedCustomerAvatar : resolveAvatarFromLookup(avatarLookup, { userId: m.senderId })) ||
+          null
+      };
+    });
     return {
-      chat: sanitizeChatForAdmin(chat, { requesterIsSuperAdmin: isSuperAdminActor(staffActor) }),
+      chat: sanitizeChatForAdmin(enrichedChat, { requesterIsSuperAdmin: isSuperAdminActor(staffActor) }),
       messages
     };
   }
@@ -2059,8 +2232,18 @@ export function createLiveChatQueueService({
       }
     });
 
-    if (!aiRes?.ok) {
-      throw new LiveChatQueueError(aiRes?.error || 'All configured Gemini AI keys are currently unavailable or exhausted.', {
+    const aiText = String(aiRes?.text || '').trim();
+    const aiSucceeded = Boolean(aiRes && aiRes.ok !== false && aiText.length > 0);
+    if (!aiSucceeded) {
+      const failMsg =
+        aiRes?.error ||
+        (aiRes?.disabled
+          ? 'AI system is disabled in Chat System Settings.'
+          : aiRes?.reason === 'NO_HEALTHY_KEYS'
+            ? 'No active Gemini API key is configured. Add one in AI Keys & Models or set GEMINI_API_KEY.'
+            : aiRes?.errors?.[aiRes.errors.length - 1]?.message ||
+              'All configured Gemini AI keys are currently unavailable or exhausted.');
+      throw new LiveChatQueueError(failMsg, {
         statusCode: 503,
         code: 'AI_UNAVAILABLE'
       });
@@ -2070,9 +2253,9 @@ export function createLiveChatQueueService({
       ok: true,
       mode,
       brandCompliant: true,
-      suggestion: String(aiRes.text || '').trim(),
-      model: aiRes.model || null,
-      keyLabel: aiRes.keyLabel || null
+      suggestion: aiText,
+      model: aiRes.model || aiRes.usedModel || null,
+      keyLabel: aiRes.keyLabel || aiRes.usedKeyLabel || null
     };
   }
 
@@ -2113,8 +2296,18 @@ export function createLiveChatQueueService({
       }
     });
 
-    if (!aiRes?.ok) {
-      throw new LiveChatQueueError(aiRes?.error || 'All configured Gemini AI keys are currently unavailable or exhausted.', {
+    const aiText = String(aiRes?.text || '').trim();
+    const aiSucceeded = Boolean(aiRes && aiRes.ok !== false && aiText.length > 0);
+    if (!aiSucceeded) {
+      const failMsg =
+        aiRes?.error ||
+        (aiRes?.disabled
+          ? 'AI system is disabled in Chat System Settings.'
+          : aiRes?.reason === 'NO_HEALTHY_KEYS'
+            ? 'No active Gemini API key is configured. Add one in AI Keys & Models or set GEMINI_API_KEY.'
+            : aiRes?.errors?.[aiRes.errors.length - 1]?.message ||
+              'All configured Gemini AI keys are currently unavailable or exhausted.');
+      throw new LiveChatQueueError(failMsg, {
         statusCode: 503,
         code: 'AI_UNAVAILABLE'
       });
@@ -2124,9 +2317,9 @@ export function createLiveChatQueueService({
       ok: true,
       mode,
       brandCompliant: true,
-      suggestion: String(aiRes.text || '').trim(),
-      model: aiRes.model || null,
-      keyLabel: aiRes.keyLabel || null
+      suggestion: aiText,
+      model: aiRes.model || aiRes.usedModel || null,
+      keyLabel: aiRes.keyLabel || aiRes.usedKeyLabel || null
     };
   }
 
@@ -2361,6 +2554,7 @@ export function createLiveChatQueueService({
     getCustomerLiveChatStatus,
     sendCustomerLiveChatMessage,
     acceptLiveChatRequest,
+    cancelLiveChatRequest,
     sendStaffLiveChatReply,
     holdLiveChatSession,
     endLiveChatSession,

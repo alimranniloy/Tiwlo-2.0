@@ -6,6 +6,7 @@ import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { MasterDB as defaultMasterDB } from '../db/multiTenant.js';
 import { SupportDB as defaultSupportDB } from '../db/supportDb.js';
 import { isSuperAdminAccount } from '../administrator/identityRiskGraph.js';
+import { dispatchSupportPushAlert } from './supportPushService.js';
 
 export const GUEST_SUPPORT_COOKIE = 'tiwlo_guest_support';
 export const SUPPORT_TOGGLES_SETTING_KEY = 'support_system_toggles';
@@ -985,6 +986,7 @@ export function createTicketingService(deps = {}) {
       userId: r.user_id ?? r.userId ?? null,
       userName: r.user_name ?? r.userName ?? null,
       userEmail: r.user_email ?? r.userEmail ?? null,
+      userAvatar: r.user_avatar ?? r.userAvatar ?? null,
       requesterType: r.requester_type || r.requesterType || (r.user_id || r.userId ? 'user' : 'guest'),
       guestSessionId: r.guest_session_id ?? r.guestSessionId ?? null,
       guestName: r.guest_name ?? r.guestName ?? null,
@@ -1158,8 +1160,13 @@ export function createTicketingService(deps = {}) {
         const safeMeta = { ...copy.metadata };
         delete safeMeta.internalNotes;
         delete safeMeta.adminFlags;
+        delete safeMeta.dismissedByStaffIds;
         copy.metadata = safeMeta;
       }
+    } else if (copy.metadata && typeof copy.metadata === 'object') {
+      copy.assignmentStatus = copy.metadata.assignmentStatus || (copy.assignedAgentId ? 'assigned' : 'unassigned');
+      copy.pendingAssigneeId = copy.metadata.pendingAssigneeId || null;
+      copy.pendingAssigneeName = copy.metadata.pendingAssigneeName || null;
     }
     return copy;
   }
@@ -1676,6 +1683,7 @@ export function createTicketingService(deps = {}) {
       userId: authUser ? authUser.id : null,
       userName: authUser ? (authUser.name || authUser.storeName || authUser.email || 'Customer') : null,
       userEmail: authUser ? (authUser.email || null) : null,
+      userAvatar: authUser?.avatar || null,
       requesterType,
       guestSessionId: activeGuestSession ? activeGuestSession.id : null,
       guestName: activeGuestSession ? activeGuestSession.visitorName : null,
@@ -1833,6 +1841,15 @@ export function createTicketingService(deps = {}) {
     }
 
     const mapped = mapTicketRow(record);
+    Promise.resolve(
+      dispatchSupportPushAlert({
+        queryPgFn,
+        isPgActiveFn,
+        title: `New Ticket ${mapped.serialNumber}`,
+        body: mapped.subject || 'Customer opened a new support ticket',
+        data: { type: 'ticket_new', ticketId: mapped.id, serialNumber: mapped.serialNumber }
+      })
+    ).catch(() => {});
     return {
       ticket: sanitizeTicketForViewer(mapped, { viewerType: authUser ? 'customer' : 'guest' }),
       recoveryCode,
@@ -1934,17 +1951,34 @@ export function createTicketingService(deps = {}) {
       }));
   }
 
-  function isTicketVisibleToStaff(ticket, { adminUser, adminProfile, toggles, superAdminIds }) {
+  function isTicketVisibleToStaff(
+    ticket,
+    { adminUser, adminProfile, toggles, superAdminIds, deskIsolation = false, excludeDismissed = true }
+  ) {
     const requesterIsSuperAdmin = isSuperAdminUserRecord(adminUser);
     if (!requesterIsSuperAdmin && isTicketOwnedBySuperAdmin(ticket, superAdminIds)) {
       return false;
     }
+    const actorId = String(adminUser?.id || '');
+    const isAccepted =
+      ticket.metadata?.assignmentStatus === 'accepted' && Boolean(ticket.assignedAgentId);
+    const isMine = Boolean(actorId && ticket.assignedAgentId && String(ticket.assignedAgentId) === actorId);
+
     if (
-      !requesterIsSuperAdmin &&
+      excludeDismissed &&
+      !isMine &&
+      !isAccepted &&
+      actorId &&
+      Array.isArray(ticket.metadata?.dismissedByStaffIds) &&
+      ticket.metadata.dismissedByStaffIds.map(String).includes(actorId)
+    ) {
+      return false;
+    }
+    if (
+      (deskIsolation || !requesterIsSuperAdmin) &&
       ticket.status !== 'closed' &&
-      ticket.metadata?.assignmentStatus === 'accepted' &&
-      ticket.assignedAgentId &&
-      String(ticket.assignedAgentId) !== String(adminUser?.id || '')
+      isAccepted &&
+      !isMine
     ) {
       return false;
     }
@@ -1959,6 +1993,46 @@ export function createTicketingService(deps = {}) {
     return true;
   }
 
+  async function resolveUserAvatarLookup(ticketsOrMsgs = []) {
+    const map = new Map();
+    for (const u of mem.staffUsers || []) {
+      if (u?.id && u?.avatar) map.set(`id:${u.id}`, u.avatar);
+      if (u?.email && u?.avatar) map.set(`email:${String(u.email).trim().toLowerCase()}`, u.avatar);
+    }
+    if (!isUsingPg() || !Array.isArray(ticketsOrMsgs) || ticketsOrMsgs.length === 0) return map;
+    const ids = [...new Set(ticketsOrMsgs.map((x) => x?.userId || x?.senderId || x?.assignedAgentId).filter(Boolean).map(String))];
+    const emails = [...new Set(ticketsOrMsgs.map((x) => x?.userEmail || x?.guestEmail).filter(Boolean).map((e) => String(e).trim().toLowerCase()))];
+    if (ids.length === 0 && emails.length === 0) return map;
+    try {
+      const { rows } = await queryPgFn(
+        `SELECT id, LOWER(email) AS email_lower, avatar
+         FROM system_users
+         WHERE avatar IS NOT NULL AND TRIM(avatar) <> ''
+           AND (
+             (array_length($1::text[], 1) IS NOT NULL AND id = ANY($1::text[]))
+             OR (array_length($2::text[], 1) IS NOT NULL AND LOWER(email) = ANY($2::text[]))
+           )`,
+        [ids, emails]
+      );
+      for (const r of rows || []) {
+        if (r.id && r.avatar) map.set(`id:${r.id}`, r.avatar);
+        if (r.email_lower && r.avatar) map.set(`email:${r.email_lower}`, r.avatar);
+      }
+    } catch {
+      // Safe fallback when system_users table is absent in isolated unit tests
+    }
+    return map;
+  }
+
+  function pickAvatarFromLookup(lookup, { userId, email, fallbackAvatar } = {}) {
+    if (fallbackAvatar) return fallbackAvatar;
+    if (userId && lookup.has(`id:${userId}`)) return lookup.get(`id:${userId}`);
+    if (email && lookup.has(`email:${String(email).trim().toLowerCase()}`)) {
+      return lookup.get(`email:${String(email).trim().toLowerCase()}`);
+    }
+    return null;
+  }
+
   async function listAdminTickets({
     q = '',
     status = '',
@@ -1970,6 +2044,8 @@ export function createTicketingService(deps = {}) {
     slaBreached = null,
     page = 1,
     limit = 25,
+    deskIsolation = false,
+    excludeDismissed = true,
     adminUser = null,
     adminProfile = null
   } = {}) {
@@ -2001,7 +2077,16 @@ export function createTicketingService(deps = {}) {
     const normPriority = priority ? normalizeTicketPriority(priority) : null;
 
     const visibleTickets = allTickets
-      .filter((t) => isTicketVisibleToStaff(t, { adminUser, adminProfile, toggles, superAdminIds }));
+      .filter((t) =>
+        isTicketVisibleToStaff(t, {
+          adminUser,
+          adminProfile,
+          toggles,
+          superAdminIds,
+          deskIsolation,
+          excludeDismissed
+        })
+      );
 
     const statusCounts = {
       all: visibleTickets.length,
@@ -2043,8 +2128,17 @@ export function createTicketingService(deps = {}) {
     const total = filtered.length;
     const totalPages = Math.max(1, Math.ceil(total / safeLimit));
     const offset = (safePage - 1) * safeLimit;
-    const items = filtered
-      .slice(offset, offset + safeLimit)
+    const pageSlice = filtered.slice(offset, offset + safeLimit);
+    const avatarLookup = await resolveUserAvatarLookup(pageSlice);
+    const items = pageSlice
+      .map((t) => ({
+        ...t,
+        userAvatar: pickAvatarFromLookup(avatarLookup, {
+          userId: t.userId,
+          email: t.userEmail || t.guestEmail,
+          fallbackAvatar: t.userAvatar
+        })
+      }))
       .map((t) => sanitizeTicketForViewer(t, { viewerType: 'admin', requesterIsSuperAdmin, superAdminIds }));
 
     return {
@@ -2059,6 +2153,7 @@ export function createTicketingService(deps = {}) {
 
   async function getTicketDetail(ticketIdOrKey, {
     viewerType = 'customer',
+    deskIsolation = false,
     authUser = null,
     guestSession = null,
     adminUser = null,
@@ -2073,7 +2168,7 @@ export function createTicketingService(deps = {}) {
 
     if (viewerType === 'admin') {
       const toggles = await getSupportToggles();
-      if (!isTicketVisibleToStaff(raw, { adminUser, adminProfile, toggles, superAdminIds })) {
+      if (!isTicketVisibleToStaff(raw, { adminUser, adminProfile, toggles, superAdminIds, deskIsolation, excludeDismissed: false })) {
         throw new SupportServiceError('Not authorized to access this ticket.', { statusCode: 403, code: 'FORBIDDEN' });
       }
     } else if (!isRequesterOwner(raw, { authUser, guestSession })) {
@@ -2085,11 +2180,36 @@ export function createTicketingService(deps = {}) {
       listEventsForTicket(raw.id)
     ]);
 
+    const avatarLookup = await resolveUserAvatarLookup([
+      raw,
+      ...rawMessages.map((m) => ({ senderId: m.senderId }))
+    ]);
+    const resolvedTicketUserAvatar = pickAvatarFromLookup(avatarLookup, {
+      userId: raw.userId,
+      email: raw.userEmail || raw.guestEmail,
+      fallbackAvatar: raw.userAvatar
+    });
+    const enrichedRaw = {
+      ...raw,
+      userAvatar: resolvedTicketUserAvatar
+    };
+
     const includeInternal = viewerType === 'admin';
     const messages = sanitizeMessagesForViewer(rawMessages, {
       includeInternal,
       requesterIsSuperAdmin,
       superAdminIds
+    }).map((m) => {
+      const isCust = m.senderType === 'user' || m.senderType === 'guest';
+      return {
+        ...m,
+        senderAvatar:
+          m.senderAvatar ||
+          (isCust
+            ? resolvedTicketUserAvatar
+            : pickAvatarFromLookup(avatarLookup, { userId: m.senderId })) ||
+          null
+      };
     });
 
     const events = includeInternal
@@ -2121,7 +2241,7 @@ export function createTicketingService(deps = {}) {
     }
 
     return {
-      ticket: sanitizeTicketForViewer(raw, { viewerType, requesterIsSuperAdmin, superAdminIds }),
+      ticket: sanitizeTicketForViewer(enrichedRaw, { viewerType, requesterIsSuperAdmin, superAdminIds }),
       messages,
       events,
       subTickets,
@@ -2411,6 +2531,7 @@ export function createTicketingService(deps = {}) {
     isInternal = false,
     attachments = [],
     actorType = 'customer', // 'customer' | 'guest' | 'admin' | 'bot'
+    enforceAcceptLock = false,
     authUser = null,
     guestSession = null,
     adminUser = null,
@@ -2427,7 +2548,7 @@ export function createTicketingService(deps = {}) {
     if (actorType === 'admin') {
       if (
         !isInternal &&
-        !requesterIsSuperAdmin &&
+        (enforceAcceptLock || !requesterIsSuperAdmin) &&
         raw.assignedAgentId &&
         String(raw.assignedAgentId) !== String(adminUser?.id || '')
       ) {
@@ -2436,7 +2557,7 @@ export function createTicketingService(deps = {}) {
           code: 'TICKET_LOCKED_TO_ASSIGNEE'
         });
       }
-      if (!isTicketVisibleToStaff(raw, { adminUser, adminProfile, toggles, superAdminIds })) {
+      if (!isTicketVisibleToStaff(raw, { adminUser, adminProfile, toggles, superAdminIds, deskIsolation: enforceAcceptLock })) {
         throw new SupportServiceError('Not authorized to access this ticket.', { statusCode: 403, code: 'FORBIDDEN' });
       }
     } else {
@@ -2452,7 +2573,7 @@ export function createTicketingService(deps = {}) {
       });
     }
 
-    if (actorType === 'admin' && !isInternal && !requesterIsSuperAdmin) {
+    if (actorType === 'admin' && !isInternal && (enforceAcceptLock || !requesterIsSuperAdmin)) {
       if (raw.assignedAgentId && String(raw.assignedAgentId) !== String(adminUser?.id || '')) {
         throw new SupportServiceError('This ticket is locked exclusively to the specialist who accepted or owns the assignment.', {
           statusCode: 403,
@@ -2535,6 +2656,28 @@ export function createTicketingService(deps = {}) {
         ? `${sender.senderName} added an internal note`
         : `${sender.senderName} posted a reply`
     });
+
+    if (actorType !== 'admin' && actorType !== 'bot') {
+      const targetIds =
+        raw.metadata?.assignmentStatus === 'accepted' && raw.assignedAgentId
+          ? [String(raw.assignedAgentId)]
+          : null;
+      const excludeIds =
+        !targetIds && Array.isArray(raw.metadata?.dismissedByStaffIds)
+          ? raw.metadata.dismissedByStaffIds
+          : [];
+      Promise.resolve(
+        dispatchSupportPushAlert({
+          queryPgFn,
+          isPgActiveFn,
+          targetStaffIds: targetIds,
+          excludeStaffIds: excludeIds,
+          title: `Reply on ${raw.serialNumber}`,
+          body: `${sender.senderName}: ${String(msg.message || '').slice(0, 120)}`,
+          data: { type: 'ticket_reply', ticketId: raw.id, serialNumber: raw.serialNumber }
+        })
+      ).catch(() => {});
+    }
 
     if (actorType === 'admin' && !effectiveInternal) {
       const recipientEmail = raw.userEmail || raw.guestEmail;
@@ -3030,6 +3173,66 @@ export function createTicketingService(deps = {}) {
       requesterIsSuperAdmin,
       superAdminIds
     });
+  }
+
+  async function dismissTicketForStaff({ ticketIdOrKey, adminUser, adminProfile = null } = {}) {
+    const raw = await findRawTicketByIdentifier(ticketIdOrKey);
+    if (!raw) {
+      throw new SupportServiceError('Support ticket not found.', { statusCode: 404, code: 'TICKET_NOT_FOUND' });
+    }
+    const actorId = String(adminUser?.id || '');
+    if (!actorId) {
+      throw new SupportServiceError('Staff authentication required.', { statusCode: 401, code: 'UNAUTHORIZED' });
+    }
+    if (
+      raw.metadata?.assignmentStatus === 'accepted' &&
+      raw.assignedAgentId &&
+      String(raw.assignedAgentId) !== actorId
+    ) {
+      throw new SupportServiceError('This ticket has already been accepted by another specialist.', {
+        statusCode: 409,
+        code: 'TICKET_ALREADY_ACCEPTED'
+      });
+    }
+    const superAdminIds = await getSuperAdminIdSet();
+    const requesterIsSuperAdmin = isSuperAdminUserRecord(adminUser);
+    const existingDismissed = Array.isArray(raw.metadata?.dismissedByStaffIds)
+      ? raw.metadata.dismissedByStaffIds.map(String)
+      : [];
+    const nextDismissed = Array.from(new Set([...existingDismissed, actorId]));
+    const isPendingForActor = String(raw.metadata?.pendingAssigneeId || '') === actorId;
+
+    const updated = await persistTicketUpdate(raw.id, {
+      metadata: {
+        ...(raw.metadata || {}),
+        dismissedByStaffIds: nextDismissed,
+        ...(isPendingForActor
+          ? {
+              assignmentStatus: 'unassigned',
+              pendingAssigneeId: null,
+              pendingAssigneeName: null
+            }
+          : {})
+      }
+    });
+
+    await appendEvent({
+      ticketId: raw.id,
+      actorId,
+      actorName: adminUser?.name || adminProfile?.name || 'Staff',
+      actorType: 'agent',
+      eventType: 'ticket_dismissed',
+      summary: `${adminUser?.name || 'Staff'} cancelled/dismissed ticket from personal queue`
+    });
+
+    return {
+      dismissed: true,
+      ticket: sanitizeTicketForViewer(updated, {
+        viewerType: 'admin',
+        requesterIsSuperAdmin,
+        superAdminIds
+      })
+    };
   }
 
   async function ingestInboundTicketEmail({
@@ -3975,9 +4178,9 @@ export function createTicketingService(deps = {}) {
     return { deleted: true, id };
   }
 
-  async function getSupportOverview({ adminUser, adminProfile = null } = {}) {
+  async function getSupportOverview({ adminUser, adminProfile = null, deskIsolation = false } = {}) {
     const [{ tickets }, agents, macros] = await Promise.all([
-      listAdminTickets({ limit: 500, adminUser, adminProfile }),
+      listAdminTickets({ limit: 500, deskIsolation, adminUser, adminProfile }),
       listAssignableSupportStaff(isSuperAdminUserRecord(adminUser)),
       listMacros()
     ]);
@@ -3993,27 +4196,71 @@ export function createTicketingService(deps = {}) {
     const byPriority = { low: 0, medium: 0, high: 0, urgent: 0 };
     let slaBreachedCount = 0;
     let unassignedCount = 0;
+    let unacceptedCount = 0;
+    let pendingAcceptanceCount = 0;
+    let latestUnacceptedTicket = null;
     let csatSum = 0;
     let csatCount = 0;
+    let myActiveCount = 0;
+    let slaCompliantCount = 0;
+    const actorId = String(adminUser?.id || '');
+    const nowMs = Date.now();
 
     for (const t of tickets) {
       if (Object.prototype.hasOwnProperty.call(byStatus, t.status)) byStatus[t.status] += 1;
       if (Object.prototype.hasOwnProperty.call(byPriority, t.priority)) byPriority[t.priority] += 1;
       if (t.slaBreached) slaBreachedCount += 1;
-      if (!t.assignedAgentId && !['resolved', 'closed'].includes(t.status)) unassignedCount += 1;
+      else slaCompliantCount += 1;
+      const isClosed = ['resolved', 'closed'].includes(t.status);
+      const isAccepted = (t.assignmentStatus || t.metadata?.assignmentStatus) === 'accepted' && Boolean(t.assignedAgentId);
+      if (!isClosed && actorId && String(t.assignedAgentId || '') === actorId) {
+        myActiveCount += 1;
+      }
+      if (!t.assignedAgentId && !isClosed) unassignedCount += 1;
+      if (!isClosed && !isAccepted) {
+        unacceptedCount += 1;
+        if (actorId && (t.pendingAssigneeId || t.metadata?.pendingAssigneeId) === actorId) {
+          pendingAcceptanceCount += 1;
+        }
+        if (!latestUnacceptedTicket) {
+          const refMs = Date.parse(t.createdAt || t.updatedAt || 0);
+          const ageMs = Number.isFinite(refMs) ? Math.max(0, nowMs - refMs) : 0;
+          const reminderCycle = Math.floor(ageMs / 300_000);
+          latestUnacceptedTicket = {
+            id: t.id,
+            serialNumber: t.serialNumber,
+            subject: t.subject,
+            customerName: t.userName || t.guestName || 'Requester',
+            userAvatar: t.userAvatar || null,
+            priority: t.priority,
+            createdAt: t.createdAt,
+            updatedAt: t.updatedAt,
+            reminderCycle,
+            alertKey: `tkt:${t.id}:c${reminderCycle}`
+          };
+        }
+      }
       if (Number.isFinite(Number(t.csatRating)) && Number(t.csatRating) >= 1) {
         csatSum += Number(t.csatRating);
         csatCount += 1;
       }
     }
 
+    const totalForSla = tickets.length || 0;
+    const slaRatePct = totalForSla > 0 ? Math.round((slaCompliantCount / totalForSla) * 100) : 100;
+
     return {
       totalTickets: tickets.length,
       openCount: byStatus.open + byStatus.in_progress + byStatus.waiting_customer + byStatus.escalated,
+      myActiveCount,
+      slaRatePct,
       byStatus,
       byPriority,
       slaBreachedCount,
       unassignedCount,
+      unacceptedCount,
+      pendingAcceptanceCount,
+      latestUnacceptedTicket,
       csatAverage: csatCount > 0 ? Number((csatSum / csatCount).toFixed(2)) : null,
       csatResponses: csatCount,
       assignableAgentsCount: agents.length,
@@ -4053,6 +4300,7 @@ export function createTicketingService(deps = {}) {
 
   let schedulerInterval = null;
   const scheduledDeadlines = new Map();
+  const lastUnacceptedPushCycle = new Map();
 
   function clearScheduledTimers() {
     for (const handle of scheduledDeadlines.values()) {
@@ -4067,6 +4315,7 @@ export function createTicketingService(deps = {}) {
       schedulerInterval = null;
     }
     clearScheduledTimers();
+    lastUnacceptedPushCycle.clear();
   }
 
   async function resumePendingSupportTimers({ now = Date.now(), scheduleTimers = false } = {}) {
@@ -4195,6 +4444,35 @@ export function createTicketingService(deps = {}) {
             remainingMs: resMs - safeNowMs
           });
         }
+
+        const isAccepted =
+          (t.assignmentStatus || t.metadata?.assignmentStatus) === 'accepted' &&
+          Boolean(t.assignedAgentId);
+        if (!isAccepted && t.status !== 'resolved') {
+          const refMs = Date.parse(t.createdAt || t.updatedAt || 0);
+          const ageMs = Number.isFinite(refMs) ? Math.max(0, safeNowMs - refMs) : 0;
+          const cycle = Math.floor(ageMs / 300_000);
+          if (cycle >= 1 && lastUnacceptedPushCycle.get(t.id) !== cycle) {
+            lastUnacceptedPushCycle.set(t.id, cycle);
+            Promise.resolve(
+              dispatchSupportPushAlert({
+                queryPgFn,
+                isPgActiveFn,
+                title: `Unaccepted Ticket ${t.serialNumber} (${cycle * 5}m waiting)`,
+                body: t.subject || 'Pending ticket requires staff acceptance',
+                data: {
+                  type: 'ticket_reminder',
+                  ring: true,
+                  ticketId: t.id,
+                  serialNumber: t.serialNumber,
+                  reminderCycle: cycle
+                }
+              })
+            ).catch(() => {});
+          }
+        } else {
+          lastUnacceptedPushCycle.delete(t.id);
+        }
       }
     }
 
@@ -4276,6 +4554,7 @@ export function createTicketingService(deps = {}) {
     updateTicket,
     assignTicket,
     acceptTicketAssignment,
+    dismissTicketForStaff,
     ingestInboundTicketEmail,
     storeSupportAttachments,
     getSupportAttachmentById,
@@ -4324,6 +4603,7 @@ export const {
   updateTicket,
   assignTicket,
   acceptTicketAssignment,
+  dismissTicketForStaff,
   ingestInboundTicketEmail,
   storeSupportAttachments,
   getSupportAttachmentById,

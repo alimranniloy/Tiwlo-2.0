@@ -1,0 +1,10 @@
+{
+  "appName": "Tiwlo Support",
+  "websiteDomain": "tiwlo.com",
+  "protocol": "https",
+  "apiPathPrefix": "/api",
+  "appScheme": "tiwlosupport",
+  "supportEmail": "support@tiwlo.com",
+  "requestTimeoutMs": 15000,
+  "livePollIntervalMs": 6000
+}

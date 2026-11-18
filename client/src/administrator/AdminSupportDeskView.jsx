@@ -313,6 +313,100 @@ function hasAdminPermission(staffAccess, currentUser, permKey) {
   return false;
 }
 
+function canStaffReplyInDesk(staffAccess, currentUser) {
+  if (!currentUser && !staffAccess) return true;
+  const isSuper =
+    staffAccess?.isSuperAdmin === true ||
+    staffAccess?.role === 'super_admin' ||
+    staffAccess?.roleKey === 'super_admin' ||
+    staffAccess?.unrestricted === true ||
+    currentUser?.role === 'super_admin' ||
+    String(currentUser?.email || '').trim().toLowerCase() === 'tiwloltd@gmail.com';
+  if (isSuper) return true;
+  const perms = Array.isArray(staffAccess?.permissions)
+    ? staffAccess.permissions
+    : Array.isArray(currentUser?.permissions)
+      ? currentUser.permissions
+      : null;
+  if (perms && perms.includes('*')) return true;
+  if (perms && perms.some((p) => String(p).startsWith('support.'))) {
+    return perms.includes('support.reply');
+  }
+  const roleKey = String(staffAccess?.roleKey || staffAccess?.role || currentUser?.roleKey || '').toLowerCase();
+  if (roleKey === 'finance_analyst') return false;
+  return true;
+}
+
+function getTicketReplyLockInfo(
+  ticket,
+  { currentActorId = '', isSuperAdmin = false, canReplyPermission = true, lockClosedReplies = true } = {}
+) {
+  if (!ticket) {
+    return { canReply: false, requiresAccept: false, rowBadge: null, badgeTone: null, reason: null };
+  }
+  if (isClosedStatus(ticket.status) && lockClosedReplies !== false) {
+    return {
+      canReply: false,
+      requiresAccept: false,
+      rowBadge: 'Unable · Closed',
+      badgeTone: 'closed',
+      reason: 'Conversation is closed.',
+    };
+  }
+  if (!canReplyPermission) {
+    return {
+      canReply: false,
+      requiresAccept: false,
+      rowBadge: 'Locked',
+      badgeTone: 'locked',
+      reason: 'Read-only permission.',
+    };
+  }
+  const assignedId = ticket.assignedAgentId ? String(ticket.assignedAgentId) : '';
+  const pendingId = ticket.pendingAssigneeId
+    ? String(ticket.pendingAssigneeId)
+    : ticket.metadata?.pendingAssigneeId
+      ? String(ticket.metadata.pendingAssigneeId)
+      : '';
+  const pendingName = ticket.pendingAssigneeName || ticket.metadata?.pendingAssigneeName || 'another specialist';
+  const assignmentStatus = String(ticket.assignmentStatus || ticket.metadata?.assignmentStatus || '').toLowerCase();
+
+  if (assignedId && (!currentActorId || assignedId !== currentActorId)) {
+    return {
+      canReply: false,
+      requiresAccept: false,
+      rowBadge: 'Locked',
+      badgeTone: 'locked',
+      reason: `Handled by ${ticket.assignedAgentName || 'another specialist'}.`,
+    };
+  }
+  if (pendingId && pendingId !== currentActorId && !isSuperAdmin) {
+    return {
+      canReply: false,
+      requiresAccept: false,
+      rowBadge: 'Locked',
+      badgeTone: 'locked',
+      reason: `Assignment requested for ${pendingName}.`,
+    };
+  }
+  if (assignmentStatus !== 'accepted' || !assignedId) {
+    return {
+      canReply: false,
+      requiresAccept: true,
+      rowBadge: 'Accept to Reply',
+      badgeTone: 'accept',
+      reason: 'Accept required first.',
+    };
+  }
+  return {
+    canReply: true,
+    requiresAccept: false,
+    rowBadge: null,
+    badgeTone: null,
+    reason: null,
+  };
+}
+
 export default function AdminSupportDeskView({
   initialTicketId = null,
   onBackToDashboard,
@@ -466,6 +560,7 @@ export default function AdminSupportDeskView({
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (priorityFilter !== 'all') params.set('priority', priorityFilter);
       if (categoryFilter !== 'all') params.set('category', categoryFilter);
+      params.set('deskIsolation', '1');
 
       const res = await fetch(`${API_BASE}/admin/support/tickets?${params.toString()}`, {
         credentials: 'include',
@@ -573,7 +668,7 @@ export default function AdminSupportDeskView({
     }
     if (!silent) setLoadingDetail(true);
     try {
-      const res = await fetch(`${API_BASE}/admin/support/tickets/${encodeURIComponent(ticketId)}`, {
+      const res = await fetch(`${API_BASE}/admin/support/tickets/${encodeURIComponent(ticketId)}?deskIsolation=1`, {
         credentials: 'include',
         headers: getAuthHeaders(),
       });
@@ -661,7 +756,7 @@ export default function AdminSupportDeskView({
         const res = await fetch(`${API_BASE}/admin/support/tickets/${encodeURIComponent(selectedTicketId)}/view`, {
           method: 'POST',
           credentials: 'include',
-          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+          headers: getAuthHeaders({ 'Content-Type': 'application/json', 'x-desk-strict': '1' }),
           body: '{}',
         });
         const json = await res.json().catch(() => ({}));
@@ -721,7 +816,7 @@ export default function AdminSupportDeskView({
       const res = await fetch(`${API_BASE}/admin/support/tickets/bulk`, {
         method: 'POST',
         credentials: 'include',
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: getAuthHeaders({ 'Content-Type': 'application/json', 'x-desk-strict': '1' }),
         body: JSON.stringify({
           ticketIds: selectedIds,
           ...actionPayload,
@@ -826,7 +921,7 @@ export default function AdminSupportDeskView({
       const res = await fetch(`${API_BASE}/admin/support/tickets/${encodeURIComponent(activeTicket.id || activeTicket.ticketId)}/assign`, {
         method: 'POST',
         credentials: 'include',
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: getAuthHeaders({ 'Content-Type': 'application/json', 'x-desk-strict': '1' }),
         body: JSON.stringify({
           assignedAgentId: agentId || null,
           agentId: agentId || null,
@@ -856,22 +951,23 @@ export default function AdminSupportDeskView({
   };
 
   const handleAiWriteTicket = async () => {
-    if (!activeTicket || !composerText.trim()) return;
+    if (!activeTicket) return;
     setAiWriting(true);
     try {
       const ticketKey = activeTicket.id || activeTicket.ticketId;
+      const mode = composerText.trim() ? 'polish_reply' : 'suggest_reply';
       const res = await fetch(`${API_BASE}/admin/support/tickets/${encodeURIComponent(ticketKey)}/ai-assist`, {
         method: 'POST',
         credentials: 'include',
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ mode: 'polish_reply', draft: composerText }),
+        headers: getAuthHeaders({ 'Content-Type': 'application/json', 'x-desk-strict': '1' }),
+        body: JSON.stringify({ mode, draft: composerText }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json.success === false || !json.suggestion) {
         throw new Error(json.error || 'AI Write could not polish the draft.');
       }
       setComposerText(String(json.suggestion).trim());
-      showToast?.('AI polished your reply following Tiwlo Brand Guidelines — review and send when ready.', 'success');
+      showToast?.('AI prepared your reply following Tiwlo Brand Guidelines — review and send when ready.', 'success');
     } catch (err) {
       showToast?.(err.message || 'AI Write failed.', 'error');
     } finally {
@@ -886,7 +982,7 @@ export default function AdminSupportDeskView({
       const res = await fetch(`${API_BASE}/admin/support/tickets/${encodeURIComponent(activeTicket.id || activeTicket.ticketId)}`, {
         method: 'PATCH',
         credentials: 'include',
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: getAuthHeaders({ 'Content-Type': 'application/json', 'x-desk-strict': '1' }),
         body: JSON.stringify(updates),
       });
       const json = await res.json().catch(() => ({}));
@@ -937,7 +1033,7 @@ export default function AdminSupportDeskView({
       const res = await fetch(`${API_BASE}/admin/support/tickets/${encodeURIComponent(ticketKey)}/replies`, {
         method: 'POST',
         credentials: 'include',
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: getAuthHeaders({ 'Content-Type': 'application/json', 'x-desk-strict': '1' }),
         body: JSON.stringify({
           body: composerText.trim(),
           message: composerText.trim(),
@@ -989,7 +1085,7 @@ export default function AdminSupportDeskView({
         {
           method: 'PATCH',
           credentials: 'include',
-          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+          headers: getAuthHeaders({ 'Content-Type': 'application/json', 'x-desk-strict': '1' }),
           body: JSON.stringify({ body: editingReplyText.trim(), message: editingReplyText.trim() }),
         }
       );
@@ -1033,7 +1129,7 @@ export default function AdminSupportDeskView({
       const res = await fetch(url, {
         method: isEdit ? 'PATCH' : 'POST',
         credentials: 'include',
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: getAuthHeaders({ 'Content-Type': 'application/json', 'x-desk-strict': '1' }),
         body: JSON.stringify({
           title: macroForm.title.trim(),
           category: macroForm.category.trim() || 'General',
@@ -1083,7 +1179,7 @@ export default function AdminSupportDeskView({
       const res = await fetch(`${API_BASE}/admin/support/tickets/${encodeURIComponent(ticketKey)}/merge`, {
         method: 'POST',
         credentials: 'include',
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: getAuthHeaders({ 'Content-Type': 'application/json', 'x-desk-strict': '1' }),
         body: JSON.stringify({ targetTicketId: mergeTargetId.trim(), mergeIntoId: mergeTargetId.trim() }),
       });
       const json = await res.json().catch(() => ({}));
@@ -1110,7 +1206,7 @@ export default function AdminSupportDeskView({
       const res = await fetch(`${API_BASE}/admin/support/tickets/${encodeURIComponent(ticketKey)}/subticket`, {
         method: 'POST',
         credentials: 'include',
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: getAuthHeaders({ 'Content-Type': 'application/json', 'x-desk-strict': '1' }),
         body: JSON.stringify(subticketForm),
       });
       const json = await res.json().catch(() => ({}));
@@ -1137,7 +1233,7 @@ export default function AdminSupportDeskView({
       const res = await fetch(`${API_BASE}/admin/support/tickets/${encodeURIComponent(ticketKey)}/link-user`, {
         method: 'POST',
         credentials: 'include',
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        headers: getAuthHeaders({ 'Content-Type': 'application/json', 'x-desk-strict': '1' }),
         body: JSON.stringify({ identifier: linkUserIdentifier.trim(), email: linkUserIdentifier.trim() }),
       });
       const json = await res.json().catch(() => ({}));
@@ -1164,7 +1260,7 @@ export default function AdminSupportDeskView({
         {
           method: 'POST',
           credentials: 'include',
-          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+          headers: getAuthHeaders({ 'Content-Type': 'application/json', 'x-desk-strict': '1' }),
           body: '{}',
         }
       );
@@ -1177,6 +1273,36 @@ export default function AdminSupportDeskView({
       if (selectedTicketId === ticketId) await loadTicketDetail(ticketId);
     } catch (err) {
       showToast?.(err.message || 'Assignment accept failed.', 'error');
+    } finally {
+      setAcceptingAssignmentId('');
+    }
+  };
+
+  const handleCancelAssignment = async (ticketId, e) => {
+    e?.stopPropagation();
+    if (!ticketId || acceptingAssignmentId) return;
+    setAcceptingAssignmentId(ticketId);
+    try {
+      const res = await fetch(
+        `${API_BASE}/admin/support/tickets/${encodeURIComponent(ticketId)}/cancel-assignment`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: getAuthHeaders({ 'Content-Type': 'application/json', 'x-desk-strict': '1' }),
+          body: '{}',
+        }
+      );
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.success === false) {
+        throw new Error(json.error || 'Could not cancel ticket.');
+      }
+      setTickets((prev) => prev.filter((item) => (item.id || item.ticketId) !== ticketId));
+      if (selectedTicketId === ticketId) {
+        setSelectedTicketId(null);
+      }
+      showToast?.('Ticket removed from your queue.', 'info');
+    } catch (err) {
+      showToast?.(err.message || 'Could not remove ticket.', 'error');
     } finally {
       setAcceptingAssignmentId('');
     }
@@ -1299,11 +1425,18 @@ export default function AdminSupportDeskView({
     activeTicket?.assignedAgentId && currentActorId && String(activeTicket.assignedAgentId) === currentActorId
   );
   const isTicketLockedToOther = Boolean(
-    !isSuperAdmin && activeTicket?.assignedAgentId && !isTicketOwnedByMe
+    activeTicket?.assignedAgentId && !isTicketOwnedByMe
   );
   const needsTicketAcceptance = Boolean(
-    activeTicket && !ticketClosed && !isSuperAdmin && !isTicketAccepted && !isTicketLockedToOther
+    activeTicket && !ticketClosed && !isTicketAccepted && !isTicketLockedToOther
   );
+  const canReplyInDesk = canStaffReplyInDesk(staffAccess, currentUser);
+  const activeReplyLock = getTicketReplyLockInfo(activeTicket, {
+    currentActorId,
+    isSuperAdmin,
+    canReplyPermission: canReplyInDesk,
+    lockClosedReplies: switches.lockClosedReplies !== false,
+  });
   const otherViewers = viewers.filter(
     (v) => (v.userId || v.id) !== currentUser?.id && (v.email || '') !== currentUser?.email
   );
@@ -1572,6 +1705,7 @@ export default function AdminSupportDeskView({
           apiBase={API_BASE}
           currentUser={currentUser}
           isSuperAdmin={isSuperAdmin}
+          canReply={canReplyInDesk}
           aiEnabled={Boolean(switches.aiAgentDraftAssist || switches.aiAutoReply)}
           showToast={showToast}
           onCountsChange={setLiveChatCounts}
@@ -1897,6 +2031,12 @@ export default function AdminSupportDeskView({
                     const isPendingAccept =
                       String(ticket.assignmentStatus || '').toLowerCase() === 'pending_acceptance' ||
                       String(ticket.status || '').toLowerCase() === 'pending_acceptance';
+                    const rowReplyLock = getTicketReplyLockInfo(ticket, {
+                      currentActorId,
+                      isSuperAdmin,
+                      canReplyPermission: canReplyInDesk,
+                      lockClosedReplies: switches.lockClosedReplies !== false,
+                    });
 
                     return (
                       <div
@@ -1980,6 +2120,20 @@ export default function AdminSupportDeskView({
                               Assign Request
                             </span>
                           )}
+                          {rowReplyLock.rowBadge && (
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                                rowReplyLock.badgeTone === 'closed'
+                                  ? 'border-neutral-300/80 bg-neutral-100 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800/80 dark:text-neutral-400'
+                                  : rowReplyLock.badgeTone === 'accept'
+                                    ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                                    : 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300'
+                              }`}
+                            >
+                              <Lock className="h-2.5 w-2.5" />
+                              {rowReplyLock.rowBadge}
+                            </span>
+                          )}
                           {sla && (
                             <span
                               className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
@@ -1994,18 +2148,28 @@ export default function AdminSupportDeskView({
                           )}
                         </div>
 
-                        {/* Assigned Agent Row */}
+                        {/* Assigned Agent Row / Unaccepted Accept-Cancel Controls */}
                         <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-neutral-100 pt-2 dark:border-neutral-900">
-                          {isPendingAccept ? (
-                            <button
-                              type="button"
-                              disabled={acceptingAssignmentId === tid}
-                              onClick={(e) => handleAcceptAssignment(tid, e)}
-                              className="inline-flex h-6 items-center gap-1 rounded-md bg-red-600 px-2 text-[10px] font-semibold text-white hover:bg-red-700 cursor-pointer"
-                            >
-                              <UserCheck className="h-3 w-3" />
-                              {acceptingAssignmentId === tid ? 'Accepting...' : 'Accept Assignment'}
-                            </button>
+                          {isPendingAccept || (!isClosedStatus(ticket.status) && String(ticket.assignmentStatus || ticket.metadata?.assignmentStatus || '').toLowerCase() !== 'accepted') ? (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                disabled={acceptingAssignmentId === tid}
+                                onClick={(e) => handleAcceptAssignment(tid, e)}
+                                className="inline-flex h-6 items-center gap-1 rounded-md bg-[#1ED760] px-2.5 text-[10px] font-semibold text-neutral-950 hover:bg-[#19c354] cursor-pointer"
+                              >
+                                <UserCheck className="h-3 w-3" />
+                                {acceptingAssignmentId === tid ? 'Accepting...' : 'Accept'}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={acceptingAssignmentId === tid}
+                                onClick={(e) => handleCancelAssignment(tid, e)}
+                                className="inline-flex h-6 items-center rounded-md border border-neutral-200 dark:border-neutral-700 px-2 text-[10px] font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                            </div>
                           ) : rowAgent ? (
                             <div className="flex min-w-0 items-center gap-1.5">
                               <StaffAvatar agent={rowAgent} size="sm" />
@@ -2599,32 +2763,43 @@ export default function AdminSupportDeskView({
                   {/* Closed Ticket Lock OR Dual-Mode Composer */}
                   <div className="border-t border-neutral-200/80 p-4 dark:border-neutral-800">
                     {lockClosed ? (
-                      <div className="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800 dark:bg-neutral-900">
-                        <div className="flex items-start gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-600 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
-                            <Lock className="h-4 w-4" />
+                      <div className="space-y-2.5">
+                        <div className="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3.5 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800 dark:bg-neutral-900">
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-600 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
+                              <Lock className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold text-neutral-950 dark:text-white">
+                                Unable to reply — Conversation is closed.
+                              </p>
+                              <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+                                This ticket is permanently closed. Replies and reopening are disabled even for administrators.
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-xs font-semibold text-neutral-950 dark:text-white">
-                              Permanent Closed Lock Active
-                            </p>
-                            <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
-                              This ticket is permanently closed. Replies and reopening are disabled even for administrators.
-                            </p>
-                          </div>
-                        </div>
 
-                        {canReopenClosed && (
-                          <button
-                            type="button"
-                            disabled={savingTicketMeta}
-                            onClick={() => handlePatchTicket({ status: 'Open' }, 'Ticket reopened.')}
-                            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-[#1ED760] px-4 text-xs font-semibold text-black hover:bg-[#19c354] disabled:opacity-50"
-                          >
-                            <Unlock className="h-3.5 w-3.5" />
-                            {savingTicketMeta ? 'Reopening...' : 'Reopen Ticket'}
-                          </button>
-                        )}
+                          {canReopenClosed && (
+                            <button
+                              type="button"
+                              disabled={savingTicketMeta}
+                              onClick={() => handlePatchTicket({ status: 'Open' }, 'Ticket reopened.')}
+                              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-[#1ED760] px-4 text-xs font-semibold text-black hover:bg-[#19c354] disabled:opacity-50"
+                            >
+                              <Unlock className="h-3.5 w-3.5" />
+                              {savingTicketMeta ? 'Reopening...' : 'Reopen Ticket'}
+                            </button>
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          disabled
+                          readOnly
+                          value=""
+                          placeholder="Unable to reply — Conversation is closed."
+                          aria-label="Disabled reply composer"
+                          className="h-10 w-full cursor-not-allowed rounded-xl border border-neutral-200/80 bg-neutral-100/80 px-3.5 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/70 dark:text-neutral-400"
+                        />
                       </div>
                     ) : (
                       <div className="space-y-2.5">
@@ -2708,29 +2883,36 @@ export default function AdminSupportDeskView({
                           </div>
                         </div>
 
-                        {composerMode === 'public' && (isTicketLockedToOther || needsTicketAcceptance) ? (
-                          <div className="rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900 p-3.5 flex flex-wrap items-center justify-between gap-2.5">
-                            <div className="flex items-center gap-2 text-xs text-neutral-700 dark:text-neutral-300">
-                              <Lock className="h-4 w-4 shrink-0 text-[#1ED760]" />
-                              <span>
-                                {isTicketLockedToOther
-                                  ? `Exclusive Lock: Only ${activeTicket.assignedAgentName || 'the assigned specialist'} can post public replies.`
-                                  : pendingAssigneeId && !canAcceptPending
-                                    ? `Assignment requested for ${pendingAssigneeName || 'another specialist'}. Only they can accept and reply.`
-                                    : 'Accept this ticket first to unlock public replies and lock it exclusively to you.'}
-                              </span>
+                        {!canReplyInDesk || (composerMode === 'public' && !activeReplyLock.canReply) ? (
+                          <div className="space-y-2">
+                            <div className="rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-900 p-3.5 flex flex-wrap items-center justify-between gap-2.5">
+                              <div className="flex items-center gap-2 text-xs text-neutral-700 dark:text-neutral-300">
+                                <Lock className="h-4 w-4 shrink-0 text-[#1ED760]" />
+                                <span className="font-medium">
+                                  {`Unable to reply — ${activeReplyLock.reason || 'Reply access restricted.'}`}
+                                </span>
+                              </div>
+                              {canReplyInDesk && needsTicketAcceptance && canAcceptPending && (
+                                <button
+                                  type="button"
+                                  disabled={acceptingAssignmentId === (activeTicket.id || activeTicket.ticketId)}
+                                  onClick={(e) => handleAcceptAssignment(activeTicket.id || activeTicket.ticketId, e)}
+                                  className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#1ED760] px-3.5 text-xs font-semibold text-black hover:bg-[#19c354] disabled:opacity-50 cursor-pointer"
+                                >
+                                  <UserCheck className="h-3.5 w-3.5" />
+                                  Accept &amp; Lock Ticket
+                                </button>
+                              )}
                             </div>
-                            {needsTicketAcceptance && canAcceptPending && (
-                              <button
-                                type="button"
-                                disabled={acceptingAssignmentId === (activeTicket.id || activeTicket.ticketId)}
-                                onClick={(e) => handleAcceptAssignment(activeTicket.id || activeTicket.ticketId, e)}
-                                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#1ED760] px-3.5 text-xs font-semibold text-black hover:bg-[#19c354] disabled:opacity-50 cursor-pointer"
-                              >
-                                <UserCheck className="h-3.5 w-3.5" />
-                                Accept &amp; Lock Ticket
-                              </button>
-                            )}
+                            <input
+                              type="text"
+                              disabled
+                              readOnly
+                              value=""
+                              placeholder={`Unable to reply — ${activeReplyLock.reason || 'Reply access restricted.'}`}
+                              aria-label="Disabled reply composer"
+                              className="h-10 w-full cursor-not-allowed rounded-xl border border-neutral-200/80 bg-neutral-100/80 px-3.5 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/70 dark:text-neutral-400"
+                            />
                           </div>
                         ) : (
                           <>
@@ -2754,13 +2936,13 @@ export default function AdminSupportDeskView({
                               {composerMode === 'public' ? (
                                 <button
                                   type="button"
-                                  disabled={aiWriting || sendingReply || !composerText.trim()}
+                                  disabled={aiWriting || sendingReply}
                                   onClick={handleAiWriteTicket}
-                                  title="Polish your draft into a Tiwlo Brand-compliant reply right inside the box so you can review before sending"
+                                  title="Draft or polish your reply into a Tiwlo Brand-compliant message before sending"
                                   className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#1ED760]/40 bg-[#1ED760]/10 px-3 text-xs font-semibold text-emerald-800 hover:bg-[#1ED760]/20 disabled:opacity-40 dark:text-[#1ED760] cursor-pointer"
                                 >
                                   <Wand2 className="h-3.5 w-3.5" />
-                                  {aiWriting ? 'AI Writing...' : 'AI Write'}
+                                  {aiWriting ? 'AI Writing...' : composerText.trim() ? 'AI Write' : 'AI Draft'}
                                 </button>
                               ) : (
                                 <span />

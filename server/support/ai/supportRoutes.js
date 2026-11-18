@@ -28,6 +28,10 @@ import {
   getDefaultLiveChatQueueService,
   LiveChatQueueError
 } from '../liveChatQueueService.js';
+import {
+  defaultSupportOpsHubService,
+  SupportOpsHubError
+} from '../supportOpsHubService.js';
 
 const uploadAttachmentMiddleware = multer({
   storage: multer.memoryStorage(),
@@ -67,7 +71,11 @@ export function userMatchesRecord(user, recordUserId) {
 }
 
 function handleRouteError(res, err, fallbackMessage = 'Support request failed.') {
-  if (err instanceof SupportServiceError || (err && Number.isInteger(err.statusCode))) {
+  if (
+    err instanceof SupportServiceError ||
+    err instanceof SupportOpsHubError ||
+    (err && Number.isInteger(err.statusCode))
+  ) {
     return res.status(err.statusCode || 400).json({
       success: false,
       error: err.message,
@@ -89,6 +97,7 @@ export function createSupportRouter(deps = {}) {
   const processSecurityAppeal = deps.processSecurityAppeal || defaultProcessSecurityAppeal;
   const storeMediaFn = deps.storeMedia || defaultStoreMedia;
   const getPublicMediaUrlFn = deps.getPublicMediaUrl || defaultGetPublicMediaUrl;
+  const opsHub = deps.opsHubService || defaultSupportOpsHubService;
 
   async function resolveSupportRequester(req, res, { allowInlineGuestContact = false } = {}) {
     const authUser = getAuthenticatedSupportUser(req);
@@ -1486,6 +1495,28 @@ export function createSupportRouter(deps = {}) {
       res.status(201).json({ success: true, ...result });
     } catch (err) {
       handleRouteError(res, err, 'Failed to ingest inbound ticket email');
+    }
+  });
+
+  // 14. Public Staff Onboarding / Sign-Up Access Requests
+  router.post('/staff-access-request', async (req, res) => {
+    try {
+      const result = await opsHub.submitStaffAccessRequest(req.body || {});
+      res.status(201).json(result);
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to submit staff access request');
+    }
+  });
+
+  router.get('/staff-access-request/status', async (req, res) => {
+    try {
+      const result = await opsHub.checkStaffAccessRequestStatus({
+        email: req.query?.email || '',
+        code: req.query?.code || ''
+      });
+      res.json(result);
+    } catch (err) {
+      handleRouteError(res, err, 'Failed to check staff access request status');
     }
   });
 

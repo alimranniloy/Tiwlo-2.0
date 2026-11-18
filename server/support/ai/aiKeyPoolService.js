@@ -21,7 +21,10 @@ export const DEFAULT_CANDIDATE_MODELS = Object.freeze([
   'gemini-flash-lite-latest',
   'gemini-3-flash-preview',
   'gemini-3.5-flash',
-  'gemini-3.1-flash-lite'
+  'gemini-3.1-flash-lite',
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-2.0-flash'
 ]);
 
 export const DEFAULT_CHAT_SYSTEM_SETTINGS = Object.freeze({
@@ -1259,8 +1262,18 @@ async function callGeminiGenerateContent({ apiKey, model, payload, fetchFn, time
     signal: AbortSignal.timeout(timeoutMs)
   });
   const data = await res.json().catch(() => ({}));
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (res.ok && typeof text === 'string' && text.length > 0) {
+  const parts = data?.candidates?.[0]?.content?.parts;
+  const nonThoughtText = Array.isArray(parts)
+    ? parts
+        .filter((p) => p && p.thought !== true && typeof p.text === 'string' && p.text.length > 0)
+        .map((p) => p.text)
+        .join('')
+    : '';
+  const anyText = Array.isArray(parts)
+    ? parts.map((p) => (typeof p?.text === 'string' ? p.text : '')).join('')
+    : '';
+  const text = nonThoughtText.trim() ? nonThoughtText : anyText;
+  if (res.ok && typeof text === 'string' && text.trim().length > 0) {
     return { ok: true, text, data };
   }
   return {
@@ -1319,12 +1332,14 @@ export async function executeGeminiWithFailover({
   const settings = await getChatSystemSettings();
   if (settings.enabled === false) {
     return {
+      ok: false,
       text: null,
       usedKeyId: null,
       usedKeyLabel: null,
       usedModel: null,
       failoverCount: 0,
-      disabled: true
+      disabled: true,
+      error: 'AI system is disabled in Chat System Settings.'
     };
   }
 
@@ -1373,12 +1388,14 @@ export async function executeGeminiWithFailover({
 
   if (candidates.length === 0) {
     return {
+      ok: false,
       text: null,
       usedKeyId: null,
       usedKeyLabel: null,
       usedModel: null,
       failoverCount: 0,
-      reason: 'NO_HEALTHY_KEYS'
+      reason: 'NO_HEALTHY_KEYS',
+      error: 'No active Gemini API key is configured. Add one in AI Keys & Models or set GEMINI_API_KEY.'
     };
   }
 
@@ -1419,7 +1436,10 @@ export async function executeGeminiWithFailover({
           usedAt: attemptAt
         });
         return {
+          ok: true,
           text: result.text,
+          model,
+          keyLabel: candidate.label,
           usedKeyId: candidate.id,
           usedKeyLabel: candidate.label,
           usedModel: model,
@@ -1472,13 +1492,16 @@ export async function executeGeminiWithFailover({
     }
   }
 
+  const lastErrMsg = errors.length > 0 ? errors[errors.length - 1]?.message : '';
   return {
+    ok: false,
     text: null,
     usedKeyId: null,
     usedKeyLabel: null,
     usedModel: null,
     failoverCount,
-    errors
+    errors,
+    error: lastErrMsg || 'All configured Gemini AI keys are currently unavailable or exhausted.'
   };
 }
 

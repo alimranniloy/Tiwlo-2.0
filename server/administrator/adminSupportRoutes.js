@@ -12,6 +12,19 @@ import {
   getDefaultLiveChatQueueService,
   LiveChatQueueError
 } from '../support/liveChatQueueService.js';
+import {
+  registerStaffPushToken,
+  unregisterStaffPushToken
+} from '../support/supportPushService.js';
+import {
+  createSupportOpsHubService,
+  defaultSupportOpsHubService,
+  SupportOpsHubError
+} from '../support/supportOpsHubService.js';
+
+function isDeskStrictRequest(req) {
+  return String(req.query?.deskIsolation || '') === '1' || String(req.headers?.['x-desk-strict'] || '') === '1';
+}
 
 function defaultNoopMiddleware(_req, _res, next) {
   return next();
@@ -21,6 +34,7 @@ function handleAdminSupportError(res, err, fallbackMessage = 'Admin support oper
   if (
     err instanceof SupportServiceError ||
     err instanceof LiveChatQueueError ||
+    err instanceof SupportOpsHubError ||
     (err && Number.isInteger(err.statusCode))
   ) {
     return res.status(err.statusCode || 400).json({
@@ -57,6 +71,24 @@ export function createAdminSupportRouter({
   const isPgActiveFn = () => (deps.isPgActive || defaultIsPgActive)();
   const getMasterDb = () => deps.MasterDB || defaultMasterDB;
   const SupportDB = deps.SupportDB || defaultSupportDB;
+  const fallbackOpsHub =
+    !deps.opsHubService && (deps.ticketingService || deps.liveChatQueueService || deps.queryPg || deps.isPgActive)
+      ? createSupportOpsHubService({
+          isPgActive: deps.isPgActive,
+          queryPg: deps.queryPg,
+          ticketingService: deps.ticketingService,
+          liveChatQueueService: deps.liveChatQueueService,
+          MasterDB: deps.MasterDB,
+          useMemory: !deps.queryPg && !deps.isPgActive
+        })
+      : null;
+  const opsHub = new Proxy({}, {
+    get(_target, prop) {
+      const svc = deps.opsHubService || fallbackOpsHub || defaultSupportOpsHubService;
+      const val = svc[prop];
+      return typeof val === 'function' ? val.bind(svc) : val;
+    }
+  });
 
   async function loadRawSupportPermissions(req) {
     if (req._rawSupportPerms !== undefined) return req._rawSupportPerms;
@@ -141,10 +173,106 @@ export function createAdminSupportRouter({
   router.get('/support/overview', requireAdmin, requireSupportPermission('support.view'), async (req, res) => {
     try {
       const ctx = await buildEffectiveAdminContext(req);
-      const overview = await ticketing.getSupportOverview(ctx);
+      const overview = await ticketing.getSupportOverview({
+        ...ctx,
+        deskIsolation: isDeskStrictRequest(req)
+      });
       res.json({ success: true, overview });
     } catch (err) {
       handleAdminSupportError(res, err, 'Failed to load support overview');
+    }
+  });
+
+  // Fast pulse feed for mobile navbar badge & background monitor (unaccepted queues + unread customer replies)
+  router.get('/support/pulse-alerts', requireAdmin, requireSupportPermission('support.view'), async (req, res) => {
+    try {
+      const ctx = await buildEffectiveAdminContext(req);
+      const [overview, chatsRes] = await Promise.all([
+        ticketing.getSupportOverview({ ...ctx, deskIsolation: true }),
+        liveChatQueue.listAdminLiveChats({
+          status: 'waiting',
+          staffActor: req.adminUser,
+          deskIsolation: true
+        })
+      ]);
+      const actorId = String(req.adminUser?.id || '');
+      const { tickets: myTickets } = await ticketing.listAdminTickets({
+        assignedAgentId: actorId,
+        deskIsolation: true,
+        limit: 50,
+        ...ctx
+      });
+      const unreadTicket = (myTickets || []).find(
+        (t) => t.unreadByStaff && !['resolved', 'closed'].includes(t.status)
+      ) || null;
+      const myUnreadRepliesCount = (myTickets || []).filter(
+        (t) => t.unreadByStaff && !['resolved', 'closed'].includes(t.status)
+      ).length;
+
+      const nowMs = Date.now();
+      const unreadUpdatedMs = unreadTicket ? Date.parse(unreadTicket.updatedAt || 0) : 0;
+      const unreadCycle = Number.isFinite(unreadUpdatedMs) ? Math.floor(Math.max(0, nowMs - unreadUpdatedMs) / 300_000) : 0;
+
+      res.json({
+        success: true,
+        unacceptedTicketsCount: overview?.unacceptedCount || 0,
+        waitingChatsCount: chatsRes?.counts?.waiting || 0,
+        myUnreadRepliesCount,
+        reminderIntervalMs: 300_000,
+        latestUnacceptedTicket: overview?.latestUnacceptedTicket || null,
+        latestWaitingChat: chatsRes?.latestWaitingChat || null,
+        latestUnreadTicket: unreadTicket
+          ? {
+              id: unreadTicket.id,
+              serialNumber: unreadTicket.serialNumber,
+              subject: unreadTicket.subject,
+              customerName: unreadTicket.userName || unreadTicket.guestName || 'Customer',
+              userAvatar: unreadTicket.userAvatar || null,
+              updatedAt: unreadTicket.updatedAt,
+              reminderCycle: unreadCycle,
+              alertKey: `unread:${unreadTicket.id}:${unreadTicket.updatedAt}:c${unreadCycle}`
+            }
+          : null,
+        serverTime: new Date().toISOString()
+      });
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to fetch pulse alerts');
+    }
+  });
+
+  // Register / remove mobile push notification token
+  router.post('/support/push-token', requireAdmin, requireSupportPermission('support.view'), async (req, res) => {
+    try {
+      const token = req.body?.token;
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ success: false, error: 'Push token is required.' });
+      }
+      const saved = await registerStaffPushToken({
+        staffId: req.adminUser.id,
+        staffEmail: req.adminUser.email,
+        token,
+        platform: req.body?.platform || 'android',
+        deviceName: req.body?.deviceName || '',
+        queryPgFn,
+        isPgActiveFn
+      });
+      res.json({ success: true, registration: saved });
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to register push token');
+    }
+  });
+
+  router.delete('/support/push-token', requireAdmin, async (req, res) => {
+    try {
+      await unregisterStaffPushToken({
+        staffId: req.adminUser?.id || '',
+        token: req.body?.token || req.query?.token || '',
+        queryPgFn,
+        isPgActiveFn
+      });
+      res.json({ success: true });
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to unregister push token');
     }
   });
 
@@ -193,6 +321,7 @@ export function createAdminSupportRouter({
         slaBreached: req.query?.slaBreached ?? null,
         page: req.query?.page || 1,
         limit: req.query?.limit || 25,
+        deskIsolation: isDeskStrictRequest(req),
         ...ctx
       });
       res.json({ success: true, ...result });
@@ -229,12 +358,28 @@ export function createAdminSupportRouter({
     }
   });
 
+  // Outbound staff ticket creation on behalf of customer
+  router.post('/support/tickets/create-outbound', requireAdmin, requireSupportPermission('support.reply'), async (req, res) => {
+    try {
+      const ctx = await buildEffectiveAdminContext(req);
+      const result = await opsHub.createOutboundTicket({
+        ...req.body,
+        ...ctx,
+        req
+      });
+      res.status(201).json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to create outbound support ticket');
+    }
+  });
+
   // Ticket detail
   router.get('/support/tickets/:id', requireAdmin, requireSupportPermission('support.view'), async (req, res) => {
     try {
       const ctx = await buildEffectiveAdminContext(req);
       const detail = await ticketing.getTicketDetail(req.params.id, {
         viewerType: 'admin',
+        deskIsolation: isDeskStrictRequest(req),
         ...ctx
       });
       res.json({ success: true, ...detail });
@@ -296,6 +441,7 @@ export function createAdminSupportRouter({
       const ctx = await buildEffectiveAdminContext(req);
       const detail = await ticketing.getTicketDetail(req.params.id, {
         viewerType: 'admin',
+        deskIsolation: isDeskStrictRequest(req),
         ...ctx
       });
       const result = await liveChatQueue.generateAiAssistForTicket({
@@ -320,6 +466,7 @@ export function createAdminSupportRouter({
         isInternal: Boolean(req.body?.isInternal),
         attachments: req.body?.attachments || [],
         actorType: 'admin',
+        enforceAcceptLock: isDeskStrictRequest(req),
         ...ctx
       });
       if (!req.body?.isInternal && result?.reply && result?.ticket) {
@@ -527,6 +674,25 @@ export function createAdminSupportRouter({
     }
   });
 
+  // Cancel / dismiss unaccepted ticket from current staff member's dashboard & queue
+  router.post('/support/tickets/:id/cancel-assignment', requireAdmin, requireSupportPermission('support.reply', 'support.view'), async (req, res) => {
+    try {
+      const ctx = await buildEffectiveAdminContext(req);
+      const result = await ticketing.dismissTicketForStaff({ ticketIdOrKey: req.params.id, ...ctx });
+      await ticketing.recordStaffPermissionAudit({
+        staffActor: req.adminUser,
+        permissionKey: 'support.cancel_assignment',
+        action: 'dismissed_ticket_from_queue',
+        targetType: 'ticket',
+        targetId: req.params.id,
+        req
+      });
+      res.json({ success: true, ...result });
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to dismiss ticket');
+    }
+  });
+
   // Read-only Customer Context for Ticket / Live Chat (Billing ID, Orders, Invoices, Services, Multi-Account Risk, Activity)
   async function loadEnrichedCustomerContext(targetUserId, ticketIdOrKey, req) {
     const ctx = await buildEffectiveAdminContext(req);
@@ -644,7 +810,8 @@ export function createAdminSupportRouter({
       const result = await liveChatQueue.listAdminLiveChats({
         status: req.query.status || '',
         q: req.query.q || '',
-        staffActor: req.adminUser
+        staffActor: req.adminUser,
+        deskIsolation: isDeskStrictRequest(req)
       });
       res.json({ success: true, ...result });
     } catch (err) {
@@ -729,7 +896,9 @@ export function createAdminSupportRouter({
 
   router.get('/support/live-chats/:id', requireAdmin, requireSupportPermission('support.view'), async (req, res) => {
     try {
-      const detail = await liveChatQueue.getAdminLiveChatDetail(req.params.id, req.adminUser);
+      const detail = await liveChatQueue.getAdminLiveChatDetail(req.params.id, req.adminUser, {
+        deskIsolation: isDeskStrictRequest(req)
+      });
       res.json({ success: true, ...detail });
     } catch (err) {
       handleAdminSupportError(res, err, 'Failed to load live chat detail');
@@ -753,12 +922,30 @@ export function createAdminSupportRouter({
     }
   });
 
+  router.post('/support/live-chats/:id/cancel', requireAdmin, requireSupportPermission('support.reply', 'support.view'), async (req, res) => {
+    try {
+      const result = await liveChatQueue.cancelLiveChatRequest(req.params.id, req.adminUser);
+      await ticketing.recordStaffPermissionAudit({
+        staffActor: req.adminUser,
+        permissionKey: 'support.live_chat_cancel',
+        action: 'dismissed_live_chat',
+        targetType: 'live_chat',
+        targetId: req.params.id,
+        req
+      });
+      res.json({ success: true, ...result });
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to dismiss live chat request');
+    }
+  });
+
   router.post('/support/live-chats/:id/reply', requireAdmin, requireSupportPermission('support.reply'), async (req, res) => {
     try {
       const result = await liveChatQueue.sendStaffLiveChatReply(req.params.id, {
         body: req.body?.message || req.body?.body,
         staffActor: req.adminUser,
-        req
+        req,
+        enforceStrictAccept: isDeskStrictRequest(req)
       });
       res.status(201).json({ success: true, ...result });
     } catch (err) {
@@ -1116,6 +1303,467 @@ export function createAdminSupportRouter({
       });
     } catch (err) {
       handleAdminSupportError(res, err, 'Failed to load platform operations summary');
+    }
+  });
+
+  // =========================================================================
+  // Support Operations Hub Endpoints (Quick Peek, Preferences, KB, Incidents,
+  // Shift Handovers, Team Wall, Approvals, QA, AI Playground, Automation,
+  // Departments, Blocklist, Personal Tasks, Customer 360 & Access Requests)
+  // =========================================================================
+
+  router.get('/support/quick-peek/:kind/:id', requireAdmin, requireSupportPermission('support.view'), async (req, res) => {
+    try {
+      const ctx = await buildEffectiveAdminContext(req);
+      const result = await opsHub.getQuickPeek({
+        kind: req.params.kind,
+        id: req.params.id,
+        ...ctx
+      });
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to load quick peek preview');
+    }
+  });
+
+  router.get('/support/preferences/me', requireAdmin, requireSupportPermission('support.view'), async (req, res) => {
+    try {
+      const result = await opsHub.getStaffPreferences(req.adminUser?.id);
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to load staff preferences');
+    }
+  });
+
+  router.put('/support/preferences/me', requireAdmin, requireSupportPermission('support.view'), async (req, res) => {
+    try {
+      const result = await opsHub.updateStaffPreferences(req.adminUser?.id, req.body || {});
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to save staff preferences');
+    }
+  });
+
+  // Knowledge Base Articles
+  router.get('/support/kb/articles', requireAdmin, requireSupportPermission('support.view'), async (req, res) => {
+    try {
+      const result = await opsHub.listKbArticles({
+        q: req.query?.q || '',
+        category: req.query?.category || '',
+        visibility: req.query?.visibility || ''
+      });
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to list KB articles');
+    }
+  });
+
+  router.get('/support/kb/articles/:id', requireAdmin, requireSupportPermission('support.view'), async (req, res) => {
+    try {
+      const result = await opsHub.getKbArticle(req.params.id, { incrementView: true });
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to load KB article');
+    }
+  });
+
+  router.post('/support/kb/articles', requireAdmin, requireSupportPermission('support.reply', 'support.macros', 'support.manage_settings'), async (req, res) => {
+    try {
+      const result = await opsHub.createKbArticle(req.body || {}, req.adminUser);
+      res.status(201).json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to create KB article');
+    }
+  });
+
+  router.patch('/support/kb/articles/:id', requireAdmin, requireSupportPermission('support.reply', 'support.macros', 'support.manage_settings'), async (req, res) => {
+    try {
+      const result = await opsHub.updateKbArticle(req.params.id, req.body || {}, req.adminUser);
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to update KB article');
+    }
+  });
+
+  router.delete('/support/kb/articles/:id', requireAdmin, requireSupportPermission('support.reply', 'support.macros', 'support.manage_settings'), async (req, res) => {
+    try {
+      const result = await opsHub.deleteKbArticle(req.params.id);
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to delete KB article');
+    }
+  });
+
+  router.post('/support/kb/articles/:id/helpful', requireAdmin, requireSupportPermission('support.view'), async (req, res) => {
+    try {
+      const result = await opsHub.markKbArticleHelpful(req.params.id);
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to mark KB article helpful');
+    }
+  });
+
+  // Major Incidents & Outage Broadcasts
+  router.get('/support/incidents', requireAdmin, requireSupportPermission('support.view'), async (req, res) => {
+    try {
+      const result = await opsHub.listIncidents({ status: req.query?.status || '' });
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to list support incidents');
+    }
+  });
+
+  router.post('/support/incidents', requireAdmin, requireSupportPermission('support.reply', 'support.assign', 'support.manage_settings'), async (req, res) => {
+    try {
+      const result = await opsHub.createIncident(req.body || {}, req.adminUser);
+      res.status(201).json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to create support incident');
+    }
+  });
+
+  router.post('/support/incidents/:id/updates', requireAdmin, requireSupportPermission('support.reply', 'support.assign', 'support.manage_settings'), async (req, res) => {
+    try {
+      const result = await opsHub.addIncidentUpdate(req.params.id, req.body || {}, req.adminUser);
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to post incident update');
+    }
+  });
+
+  router.post('/support/incidents/:id/broadcast', requireAdmin, requireSupportPermission('support.reply', 'support.assign', 'support.manage_settings'), async (req, res) => {
+    try {
+      const result = await opsHub.broadcastIncidentUpdate(req.params.id, req.body || {}, req.adminUser);
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to broadcast incident update');
+    }
+  });
+
+  // Shift Handovers
+  router.get('/support/shift-handovers', requireAdmin, requireSupportPermission('support.view'), async (_req, res) => {
+    try {
+      const result = await opsHub.listShiftHandovers();
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to list shift handovers');
+    }
+  });
+
+  router.post('/support/shift-handovers', requireAdmin, requireSupportPermission('support.view', 'support.reply'), async (req, res) => {
+    try {
+      const result = await opsHub.createShiftHandover(req.body || {}, req.adminUser);
+      res.status(201).json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to create shift handover');
+    }
+  });
+
+  router.post('/support/shift-handovers/:id/acknowledge', requireAdmin, requireSupportPermission('support.view', 'support.reply'), async (req, res) => {
+    try {
+      const result = await opsHub.acknowledgeShiftHandover(req.params.id, req.adminUser);
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to acknowledge shift handover');
+    }
+  });
+
+  // Internal Team Wall
+  router.get('/support/team-wall', requireAdmin, requireSupportPermission('support.view'), async (_req, res) => {
+    try {
+      const result = await opsHub.listTeamWallPosts();
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to load team wall');
+    }
+  });
+
+  router.post('/support/team-wall', requireAdmin, requireSupportPermission('support.view', 'support.reply'), async (req, res) => {
+    try {
+      const result = await opsHub.createTeamWallPost(req.body || {}, req.adminUser, req.adminProfile);
+      res.status(201).json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to publish team wall post');
+    }
+  });
+
+  router.post('/support/team-wall/:id/pin', requireAdmin, requireSupportPermission('support.reply', 'support.assign', 'support.manage_settings'), async (req, res) => {
+    try {
+      const result = await opsHub.togglePinTeamWallPost(req.params.id);
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to toggle team wall pin');
+    }
+  });
+
+  router.post('/support/team-wall/:id/react', requireAdmin, requireSupportPermission('support.view', 'support.reply'), async (req, res) => {
+    try {
+      const result = await opsHub.reactTeamWallPost(req.params.id, req.body || {}, req.adminUser);
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to update team wall reaction');
+    }
+  });
+
+  router.delete('/support/team-wall/:id', requireAdmin, requireSupportPermission('support.reply', 'support.assign', 'support.manage_settings'), async (req, res) => {
+    try {
+      const result = await opsHub.deleteTeamWallPost(req.params.id);
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to delete team wall post');
+    }
+  });
+
+  // Tier-2 Escalations & Action Approvals
+  router.get('/support/approvals', requireAdmin, requireSupportPermission('support.view'), async (req, res) => {
+    try {
+      const result = await opsHub.listApprovals({ status: req.query?.status || '' });
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to list approval requests');
+    }
+  });
+
+  router.post('/support/approvals', requireAdmin, requireSupportPermission('support.reply', 'support.view'), async (req, res) => {
+    try {
+      const result = await opsHub.createApprovalRequest(req.body || {}, req.adminUser);
+      res.status(201).json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to create approval request');
+    }
+  });
+
+  router.post('/support/approvals/:id/decide', requireAdmin, requireSupportPermission('support.assign', 'support.manage_settings', 'support.reply'), async (req, res) => {
+    try {
+      const result = await opsHub.decideApprovalRequest(req.params.id, req.body || {}, req.adminUser);
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to decide approval request');
+    }
+  });
+
+  // QA Reviews & Coaching Scorecards
+  router.get('/support/qa-reviews', requireAdmin, requireSupportPermission('support.view'), async (_req, res) => {
+    try {
+      const result = await opsHub.listQaReviews();
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to load QA reviews');
+    }
+  });
+
+  router.post('/support/qa-reviews', requireAdmin, requireSupportPermission('support.assign', 'support.manage_settings', 'support.reply'), async (req, res) => {
+    try {
+      const result = await opsHub.createQaReview(req.body || {}, req.adminUser);
+      res.status(201).json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to create QA review');
+    }
+  });
+
+  // AI Copilot Playground
+  router.post('/support/ai-playground', requireAdmin, requireSupportPermission('support.reply', 'support.view'), async (req, res) => {
+    try {
+      const result = await opsHub.runAiPlayground(req.body || {});
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to run AI Copilot playground');
+    }
+  });
+
+  // Automation Rules
+  router.get('/support/automation-rules', requireAdmin, requireSupportPermission('support.view'), async (_req, res) => {
+    try {
+      const result = await opsHub.listAutomationRules();
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to list automation rules');
+    }
+  });
+
+  router.post('/support/automation-rules', requireAdmin, requireSupportPermission('support.manage_settings', 'support.assign'), async (req, res) => {
+    try {
+      const result = await opsHub.createAutomationRule(req.body || {});
+      res.status(201).json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to create automation rule');
+    }
+  });
+
+  router.patch('/support/automation-rules/:id', requireAdmin, requireSupportPermission('support.manage_settings', 'support.assign'), async (req, res) => {
+    try {
+      const result = await opsHub.updateAutomationRule(req.params.id, req.body || {});
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to update automation rule');
+    }
+  });
+
+  router.delete('/support/automation-rules/:id', requireAdmin, requireSupportPermission('support.manage_settings', 'support.assign'), async (req, res) => {
+    try {
+      const result = await opsHub.deleteAutomationRule(req.params.id);
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to delete automation rule');
+    }
+  });
+
+  // Departments & Business Hours
+  router.get('/support/departments', requireAdmin, requireSupportPermission('support.view'), async (_req, res) => {
+    try {
+      const result = await opsHub.listDepartments();
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to list departments');
+    }
+  });
+
+  router.post('/support/departments', requireAdmin, requireSupportPermission('support.manage_settings', 'support.assign'), async (req, res) => {
+    try {
+      const result = await opsHub.createDepartment(req.body || {});
+      res.status(201).json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to create department');
+    }
+  });
+
+  router.patch('/support/departments/:id', requireAdmin, requireSupportPermission('support.manage_settings', 'support.assign'), async (req, res) => {
+    try {
+      const result = await opsHub.updateDepartment(req.params.id, req.body || {});
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to update department');
+    }
+  });
+
+  router.delete('/support/departments/:id', requireAdmin, requireSupportPermission('support.manage_settings', 'support.assign'), async (req, res) => {
+    try {
+      const result = await opsHub.deleteDepartment(req.params.id);
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to delete department');
+    }
+  });
+
+  // Spam & Abuse Blocklist
+  router.get('/support/blocklist', requireAdmin, requireSupportPermission('support.view'), async (_req, res) => {
+    try {
+      const result = await opsHub.listBlocklist();
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to list blocklist');
+    }
+  });
+
+  router.post('/support/blocklist', requireAdmin, requireSupportPermission('support.manage_settings', 'support.assign', 'support.reply'), async (req, res) => {
+    try {
+      const result = await opsHub.addBlocklistRule(req.body || {}, req.adminUser);
+      res.status(201).json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to add blocklist rule');
+    }
+  });
+
+  router.delete('/support/blocklist/:id', requireAdmin, requireSupportPermission('support.manage_settings', 'support.assign', 'support.reply'), async (req, res) => {
+    try {
+      const result = await opsHub.deleteBlocklistRule(req.params.id);
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to delete blocklist rule');
+    }
+  });
+
+  // Personal Staff Tasks (strictly scoped to req.adminUser.id)
+  router.get('/support/personal-tasks', requireAdmin, requireSupportPermission('support.view'), async (req, res) => {
+    try {
+      const result = await opsHub.listPersonalTasks(req.adminUser?.id);
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to list personal tasks');
+    }
+  });
+
+  router.post('/support/personal-tasks', requireAdmin, requireSupportPermission('support.view'), async (req, res) => {
+    try {
+      const result = await opsHub.createPersonalTask(req.adminUser?.id, req.body || {});
+      res.status(201).json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to create personal task');
+    }
+  });
+
+  router.patch('/support/personal-tasks/:id', requireAdmin, requireSupportPermission('support.view'), async (req, res) => {
+    try {
+      const result = await opsHub.updatePersonalTask(req.adminUser?.id, req.params.id, req.body || {});
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to update personal task');
+    }
+  });
+
+  router.delete('/support/personal-tasks/:id', requireAdmin, requireSupportPermission('support.view'), async (req, res) => {
+    try {
+      const result = await opsHub.deletePersonalTask(req.adminUser?.id, req.params.id);
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to delete personal task');
+    }
+  });
+
+  // Customer 360 Directory & Notes
+  router.get('/support/customers', requireAdmin, requireSupportPermission('support.view'), async (req, res) => {
+    try {
+      const ctx = await buildEffectiveAdminContext(req);
+      const result = await opsHub.listCustomers({
+        q: req.query?.q || '',
+        segment: req.query?.segment || '',
+        ...ctx
+      });
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to list customers');
+    }
+  });
+
+  router.get('/support/customers/:key', requireAdmin, requireSupportPermission('support.view'), async (req, res) => {
+    try {
+      const ctx = await buildEffectiveAdminContext(req);
+      const result = await opsHub.getCustomer360(req.params.key, ctx);
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to load Customer 360 profile');
+    }
+  });
+
+  router.post('/support/customers/:key/note', requireAdmin, requireSupportPermission('support.reply', 'support.assign'), async (req, res) => {
+    try {
+      const ctx = await buildEffectiveAdminContext(req);
+      const result = await opsHub.updateCustomerProfileNote(req.params.key, {
+        ...req.body,
+        ...ctx
+      });
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to update customer profile note');
+    }
+  });
+
+  // Staff Onboarding / Access Requests (Admin Review)
+  router.get('/support/access-requests', requireAdmin, requireSupportPermission('support.view'), async (req, res) => {
+    try {
+      const result = await opsHub.listStaffAccessRequests({ status: req.query?.status || '' });
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to list staff access requests');
+    }
+  });
+
+  router.post('/support/access-requests/:id/decide', requireAdmin, requireSupportPermission('support.manage_settings', 'support.assign'), async (req, res) => {
+    try {
+      const result = await opsHub.decideStaffAccessRequest(req.params.id, req.body || {}, req.adminUser);
+      res.json(result);
+    } catch (err) {
+      handleAdminSupportError(res, err, 'Failed to review staff access request');
     }
   });
 
