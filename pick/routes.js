@@ -10,7 +10,7 @@ import {
 } from '../server/db/addressVerification.js';
 import { PLATFORM_CONFIG } from '../server/config/platformConfig.js';
 import adminRoutes from './adminRoutes.js';
-import { findCoverageZone } from './coverage.js';
+import { findCoverageZone, isWorldwideCoverageEnabled } from './coverage.js';
 import {
   getPickGroceryDeliveryFee,
   getPickGroceryPickupLocation,
@@ -605,7 +605,9 @@ router.get('/coverage/status', requireUser, async (req, res, next) => {
     return res.json({
       hasLocation: true,
       address: profile.deliveryAddress || '',
-      coverage: findCoverageZone(profile.latitude, profile.longitude, zonesResult.rows)
+      coverage: findCoverageZone(profile.latitude, profile.longitude, zonesResult.rows, {
+        worldwide: await isWorldwideCoverageEnabled(queryPg)
+      })
     });
   } catch (error) {
     return next(error);
@@ -705,7 +707,9 @@ router.post('/address-verification', requireUser, async (req, res, next) => {
        WHERE active = TRUE
        ORDER BY radius_meters, name_en`
     );
-    const coverage = findCoverageZone(verified.latitude, verified.longitude, zonesResult.rows);
+    const coverage = findCoverageZone(verified.latitude, verified.longitude, zonesResult.rows, {
+      worldwide: await isWorldwideCoverageEnabled(queryPg)
+    });
     const profileResult = await client.query(
       `UPDATE pick.profiles
        SET delivery_address = $2, delivery_latitude = $3, delivery_longitude = $4,
@@ -1416,7 +1420,9 @@ router.post('/location/reverse-geocode', requireUser, async (req, res, next) => 
        WHERE active = TRUE
        ORDER BY radius_meters, name_en`
     );
-    const coverage = findCoverageZone(latitude, longitude, zonesResult.rows);
+    const coverage = findCoverageZone(latitude, longitude, zonesResult.rows, {
+      worldwide: await isWorldwideCoverageEnabled(queryPg)
+    });
     await queryPg(
       `UPDATE pick.profiles
        SET delivery_address = $2, delivery_latitude = $3, delivery_longitude = $4,
@@ -1474,7 +1480,9 @@ router.post('/coverage/waitlist', requireUser, async (req, res, next) => {
        FROM pick.coverage_zones
        WHERE active = TRUE`
     );
-    const coverage = findCoverageZone(profile.latitude, profile.longitude, zones.rows);
+    const coverage = findCoverageZone(profile.latitude, profile.longitude, zones.rows, {
+      worldwide: await isWorldwideCoverageEnabled(queryPg)
+    });
     if (coverage.available) {
       return res.status(409).json({ error: 'PICK already serves this location. Please refresh your location.' });
     }

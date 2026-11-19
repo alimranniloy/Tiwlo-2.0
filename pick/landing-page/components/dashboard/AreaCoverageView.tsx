@@ -27,6 +27,8 @@ interface CoverageData {
   locations: CoverageMapLocation[]
   waitlist: CoverageWaitlistEntry[]
   areas: { area: string; customers: number; covered: number; uncovered: number }[]
+  worldwideEnabled?: boolean
+  googleMapsApiKey?: string
   summary: {
     activeZones: number
     coveredLocations: number
@@ -55,8 +57,26 @@ export const AreaCoverageView: React.FC = () => {
   const [nameBn, setNameBn] = useState('')
   const [radiusMeters, setRadiusMeters] = useState('5000')
   const [saving, setSaving] = useState(false)
+  const [togglingWorldwide, setTogglingWorldwide] = useState(false)
   const [actionError, setActionError] = useState('')
   const summary = data?.summary || emptySummary
+  const worldwideEnabled = Boolean(data?.worldwideEnabled)
+
+  const toggleWorldwide = async () => {
+    setActionError('')
+    setTogglingWorldwide(true)
+    try {
+      await pickAdminRequest('/coverage/worldwide', {
+        method: 'PATCH',
+        body: JSON.stringify({ worldwide: !worldwideEnabled }),
+      })
+      await reload()
+    } catch (requestError) {
+      setActionError(requestError instanceof Error ? requestError.message : 'Could not update worldwide coverage.')
+    } finally {
+      setTogglingWorldwide(false)
+    }
+  }
 
   const startNewZone = () => {
     setEditingZone(null)
@@ -132,11 +152,11 @@ export const AreaCoverageView: React.FC = () => {
           <button onClick={() => { void reload() }} className="ml-3 font-semibold underline">Retry</button>
         </div>
       )}
-      {!loading && summary.activeZones === 0 && (
+      {!loading && summary.activeZones === 0 && !worldwideEnabled && (
         <section className="ios-card border border-amber-200 bg-amber-50 p-5">
           <h3 className="font-semibold text-amber-950">No service areas are active</h3>
           <p className="mt-1 text-sm leading-6 text-amber-900/75">
-            Customers will see “not available” until an administrator draws and activates a real PICK delivery area below.
+            Customers will see “not available” until an administrator draws and activates a real PICK delivery area below or enables Worldwide Testing Mode.
           </p>
         </section>
       )}
@@ -167,6 +187,7 @@ export const AreaCoverageView: React.FC = () => {
           locations={data?.locations || []}
           selectedPoint={selectedPoint}
           previewRadius={Number(radiusMeters) || 0}
+          googleMapsApiKey={data?.googleMapsApiKey}
           onSelectPoint={setSelectedPoint}
         />
         <div className="flex flex-wrap gap-4 border-t border-black/5 px-5 py-3 text-xs text-ink/55">
@@ -207,6 +228,40 @@ export const AreaCoverageView: React.FC = () => {
             {saving ? 'Saving…' : editingZone ? 'Save area' : 'Add service area'}
           </button>
         </form>
+      </section>
+
+      <section className="ios-card overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold">Available Everywhere (Worldwide Testing Mode)</h3>
+              {worldwideEnabled && (
+                <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800">
+                  Active Worldwide
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-ink/55">
+              Turn this on to make PICK &amp; PICK Delivery available everywhere across the globe for app testing and review.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={togglingWorldwide}
+            onClick={() => void toggleWorldwide()}
+            className={`rounded-xl px-4 py-2 text-xs font-semibold transition disabled:opacity-50 ${
+              worldwideEnabled
+                ? 'bg-green-600 text-white hover:bg-green-700'
+                : 'bg-ink text-white hover:opacity-90'
+            }`}
+          >
+            {togglingWorldwide
+              ? 'Updating…'
+              : worldwideEnabled
+                ? 'Worldwide: ON (Click to Turn Off)'
+                : 'Enable Worldwide Coverage'}
+          </button>
+        </div>
       </section>
 
       <section className="ios-card overflow-hidden">

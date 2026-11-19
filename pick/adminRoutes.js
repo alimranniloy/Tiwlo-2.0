@@ -15,7 +15,8 @@ import {
   getPickGroceryDeliveryFee,
   getPickGroceryPickupLocation
 } from './pricing.js';
-import { findCoverageZone, normalizeCoverageZone } from './coverage.js';
+import { findCoverageZone, isWorldwideCoverageEnabled, normalizeCoverageZone } from './coverage.js';
+import { getGoogleMapsApiKey } from '../server/db/googleMapsSettings.js';
 
 const require = createRequire(new URL('../server/package.json', import.meta.url));
 const express = require('express');
@@ -877,7 +878,7 @@ router.patch('/riders/:id', async (req, res, next) => {
 
 router.get('/coverage', async (_req, res, next) => {
   try {
-    const [zonesResult, locationsResult, waitlistResult] = await Promise.all([
+    const [zonesResult, locationsResult, waitlistResult, worldwideEnabled, googleMapsApiKey] = await Promise.all([
       queryPg(
         `SELECT id, name_en AS "nameEn", name_bn AS "nameBn",
                 center_latitude AS "centerLatitude",
@@ -906,12 +907,14 @@ router.get('/coverage', async (_req, res, next) => {
          FROM pick.coverage_waitlist w
          JOIN system_users u ON u.id = w.tiwlo_user_id
          ORDER BY w.updated_at DESC LIMIT 1000`
-      )
+      ),
+      isWorldwideCoverageEnabled(queryPg),
+      getGoogleMapsApiKey().catch(() => '')
     ]);
     const zones = zonesResult.rows;
     const locations = locationsResult.rows.map((location) => ({
       ...location,
-      coverage: findCoverageZone(location.latitude, location.longitude, zones)
+      coverage: findCoverageZone(location.latitude, location.longitude, zones, { worldwide: worldwideEnabled })
     }));
     const areas = new Map();
     for (const location of locations) {
@@ -926,6 +929,8 @@ router.get('/coverage', async (_req, res, next) => {
       locations,
       waitlist: waitlistResult.rows,
       areas: [...areas.values()].sort((a, b) => a.area.localeCompare(b.area)),
+      worldwideEnabled,
+      googleMapsApiKey: googleMapsApiKey || '',
       summary: {
         activeZones: zones.filter((zone) => zone.active).length,
         coveredLocations: locations.filter((location) => location.coverage.available).length,
@@ -933,6 +938,24 @@ router.get('/coverage', async (_req, res, next) => {
         waitlistCount: waitlistResult.rows.length
       }
     });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.patch('/coverage/worldwide', async (req, res, next) => {
+  try {
+    const enabled = Boolean(req.body?.worldwide);
+    await queryPg(
+      `INSERT INTO pick.settings (key, value, updated_by, updated_at)
+       VALUES ('coverage_worldwide', $1, $2, CURRENT_TIMESTAMP)
+       ON CONFLICT (key) DO UPDATE
+       SET value = EXCLUDED.value,
+           updated_by = EXCLUDED.updated_by,
+           updated_at = CURRENT_TIMESTAMP`,
+      [enabled ? 'true' : 'false', req.pickAdmin?.id || null]
+    );
+    return res.json({ worldwideEnabled: enabled });
   } catch (error) {
     return next(error);
   }

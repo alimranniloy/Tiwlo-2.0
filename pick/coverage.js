@@ -12,7 +12,20 @@ export function distanceBetweenCoordinatesMeters(latitude, longitude, otherLatit
   return 2 * EARTH_RADIUS_METERS * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
 }
 
-export function findCoverageZone(latitude, longitude, zones) {
+export async function isWorldwideCoverageEnabled(executor) {
+  if (typeof executor !== 'function') return false;
+  try {
+    const { rows } = await executor(
+      `SELECT value FROM pick.settings WHERE key = 'coverage_worldwide' LIMIT 1`
+    );
+    return String(rows?.[0]?.value || '').toLowerCase() === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function findCoverageZone(latitude, longitude, zones, options = {}) {
+  const worldwide = Boolean(options?.worldwide);
   const matches = zones
     .filter((zone) => zone.active !== false)
     .map((zone) => ({
@@ -32,7 +45,24 @@ export function findCoverageZone(latitude, longitude, zones) {
       Number(right.zone.radiusMeters ?? right.zone.radius_meters)
     );
 
-  if (!matches.length) return { available: false, zone: null, distanceMeters: null };
+  if (!matches.length) {
+    if (worldwide && Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude))) {
+      return {
+        available: true,
+        worldwide: true,
+        zone: {
+          id: 'worldwide',
+          nameEn: 'Worldwide (Testing Mode)',
+          nameBn: 'সারা বিশ্ব (টেস্টিং মোড)',
+          centerLatitude: Number(latitude),
+          centerLongitude: Number(longitude),
+          radiusMeters: 20_007_500
+        },
+        distanceMeters: 0
+      };
+    }
+    return { available: false, zone: null, distanceMeters: null };
+  }
   const { zone, distanceMeters } = matches[0];
   return {
     available: true,

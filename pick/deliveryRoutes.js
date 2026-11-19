@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 import { getPgPool, queryPg } from '../server/db/postgres.js';
-import { findCoverageZone } from './coverage.js';
+import { findCoverageZone, isWorldwideCoverageEnabled } from './coverage.js';
 import { getOpenDrivingEstimate } from './liveTracking.js';
 import {
   canTransitionDeliveryJob,
@@ -511,7 +511,8 @@ export function createPickDeliveryRouter({
         const coverage = findCoverageZone(
           profile.currentLatitude,
           profile.currentLongitude,
-          await loadCoverageZones(query)
+          await loadCoverageZones(query),
+          { worldwide: await isWorldwideCoverageEnabled(query) }
         );
         if (!coverage.available) {
           return res.status(409).json({ error: 'PICK Delivery is not available at your current location.' });
@@ -555,7 +556,9 @@ export function createPickDeliveryRouter({
         );
         return res.status(403).json({ error: 'Verify your Tiwlo address before sharing delivery location.' });
       }
-      const coverage = findCoverageZone(location.latitude, location.longitude, await loadCoverageZones());
+      const coverage = findCoverageZone(location.latitude, location.longitude, await loadCoverageZones(), {
+        worldwide: await isWorldwideCoverageEnabled(queryPg)
+      });
       const { rows } = await queryPg(
         `UPDATE pick.delivery_profiles
          SET current_latitude = $2, current_longitude = $3, current_accuracy = $4,
