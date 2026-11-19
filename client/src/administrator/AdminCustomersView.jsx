@@ -167,8 +167,9 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
         const token = localStorage.getItem('stockpro_session');
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
         const [custRes, pkgRes] = await Promise.all([
-          fetch(`${API_BASE}/admin/customers?q=${encodeURIComponent(search.trim())}`, {
+          globalThis.fetch(`${API_BASE}/admin/customers?q=${encodeURIComponent(search.trim())}`, {
             credentials: 'include',
+            cache: 'no-store',
             headers,
           }),
           fetch(`${API_BASE}/admin/packages`, { credentials: 'include', headers }).catch(() => null),
@@ -387,13 +388,13 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
     }
   };
 
-  // Toggle per-user OTP / 2FA requirement
+  // Toggle per-user Two-Factor / OTP requirement
   const handleToggleOtp = async (customer) => {
     if (!customer?.id) return;
     try {
       setActionLoading(true);
       const nextOtpDisabled = !customer.otpDisabled;
-      const res = await fetch(`${API_BASE}/admin/users/${encodeURIComponent(customer.id)}/otp`, {
+      const res = await globalThis.fetch(`${API_BASE}/admin/users/${encodeURIComponent(customer.id)}/otp`, {
         method: 'POST',
         headers: getAuthHeaders(),
         credentials: 'include',
@@ -401,12 +402,20 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json.success === false) {
-        throw new Error(json.error || 'Failed to update OTP setting.');
+        throw new Error(json.error || 'Failed to update Two-Factor setting.');
       }
-      showToast?.(json.message || (nextOtpDisabled ? 'OTP disabled for user.' : 'OTP enabled for user.'), 'success');
-      triggerReload();
+      const persistedDisabled = json.otpDisabled !== undefined ? Boolean(json.otpDisabled) : nextOtpDisabled;
+      setCustomers((prev) =>
+        prev.map((item) =>
+          item.id === customer.id ? { ...item, otpDisabled: persistedDisabled } : item
+        )
+      );
+      showToast?.(
+        json.message || (persistedDisabled ? 'Two-Factor disabled for user.' : 'Two-Factor enabled for user.'),
+        'success'
+      );
     } catch (err) {
-      showToast?.(err.message || 'Failed to update OTP setting.', 'error');
+      showToast?.(err.message || 'Failed to update Two-Factor setting.', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -1031,10 +1040,10 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                               aria-checked={!c.otpDisabled}
                               disabled={actionLoading}
                               onClick={() => handleToggleOtp(c)}
-                              title={c.otpDisabled ? 'OTP Off (Click to enable OTP/2FA)' : 'OTP On (Click to disable OTP/2FA)'}
+                              title={c.otpDisabled ? 'Two-Factor Off (Click to enable)' : 'Two-Factor On (Click to disable)'}
                               className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200/80 bg-white px-2.5 py-1 text-[11px] font-semibold text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
                             >
-                              <span>OTP</span>
+                              <span>Two-Factor</span>
                               <span
                                 className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
                                   !c.otpDisabled ? 'bg-[#1ED760]' : 'bg-neutral-300 dark:bg-neutral-700'

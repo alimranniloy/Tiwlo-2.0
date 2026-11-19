@@ -637,7 +637,7 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
     try {
       setActionLoading(true);
       const nextOtpDisabled = !user.otpDisabled;
-      const res = await adminFetch(
+      const res = await globalThis.fetch(
         `${API_BASE}/admin/users/${encodeURIComponent(user.id)}/otp`,
         {
           method: 'POST',
@@ -651,10 +651,13 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
       );
       const data = await res.json();
       if (res.ok && data.success) {
-        showToast?.(data.message || (nextOtpDisabled ? 'OTP disabled for user.' : 'OTP enabled for user.'));
-        await refreshAll(page);
+        const persisted = data.otpDisabled !== undefined ? Boolean(data.otpDisabled) : nextOtpDisabled;
+        setUsers((prev) =>
+          prev.map((u) => (u.id === user.id ? { ...u, otpDisabled: persisted } : u))
+        );
+        showToast?.(data.message || (persisted ? 'Two-Factor disabled for user.' : 'Two-Factor enabled for user.'));
       } else {
-        showToast?.(data.error || 'Failed to update OTP setting.', 'error');
+        showToast?.(data.error || 'Failed to update Two-Factor setting.', 'error');
       }
     } catch (err) {
       showToast?.(err.message || 'Error updating OTP setting.', 'error');
@@ -1219,10 +1222,10 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
                                 e.stopPropagation();
                                 handleToggleUserOtp(u);
                               }}
-                              title={u.otpDisabled ? 'OTP Off (Click to enable OTP/2FA)' : 'OTP On (Click to disable OTP/2FA)'}
+                              title={u.otpDisabled ? 'Two-Factor Off (Click to enable)' : 'Two-Factor On (Click to disable)'}
                               className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-[10px] font-semibold text-neutral-700 dark:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-700 disabled:opacity-50 transition-colors"
                             >
-                              <span>OTP</span>
+                              <span>Two-Factor</span>
                               <span
                                 className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
                                   !u.otpDisabled

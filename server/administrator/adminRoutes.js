@@ -1973,10 +1973,10 @@ router.post('/users/:id/otp', requireAdmin, async (req, res) => {
 
     return res.json({
       success: true,
-      otpDisabled: nextOtpDisabled,
-      message: nextOtpDisabled
-        ? `OTP & 2FA disabled for ${existingUser.email}.`
-        : `OTP & 2FA enabled for ${existingUser.email}.`
+      otpDisabled: Boolean(updated.otpDisabled),
+      message: updated.otpDisabled
+        ? `Two-Factor disabled for ${existingUser.email}.`
+        : `Two-Factor enabled for ${existingUser.email}.`
     });
   } catch (err) {
     console.error('[Admin Toggle User OTP Error]', err);
