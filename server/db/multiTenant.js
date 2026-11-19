@@ -162,6 +162,9 @@ export const MasterDB = {
           name: r.name || r.store_name,
           isBanned: r.is_banned === true,
           banReason: r.ban_reason || null,
+          isDeleted: r.is_deleted === true,
+          deletedAt: r.deleted_at || null,
+          otpDisabled: r.otp_disabled === true,
           identityVerified: r.identity_verified === true,
           identityVerificationRequired: r.identity_verification_required === true,
           addressVerified: Boolean(r.address_verified_at && r.address_verified_location),
@@ -302,6 +305,10 @@ export const MasterDB = {
         if (updates.banReason !== undefined) {
           fields.push(`ban_reason = $${valIndex++}`);
           values.push(updates.banReason);
+        }
+        if (updates.otpDisabled !== undefined) {
+          fields.push(`otp_disabled = $${valIndex++}`);
+          values.push(Boolean(updates.otpDisabled));
         }
         if (fields.length > 0) {
           fields.push(`updated_at = NOW()`);

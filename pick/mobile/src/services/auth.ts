@@ -351,6 +351,15 @@ async function postAuth(path: string, body: Record<string, unknown>): Promise<Au
     throw new Error(result.error || 'PICK authentication could not be completed.');
   }
   const challenge = result as AuthChallenge;
+  if (
+    challenge.sessionToken &&
+    challenge.user &&
+    !challenge.requires2FA &&
+    !challenge.requires2FASetup &&
+    !challenge.requiresEmailVerification
+  ) {
+    return await completePickAuthentication(challenge);
+  }
   await savePendingAuthChallenge(challenge);
   return challenge;
 }
@@ -710,4 +719,54 @@ export async function updatePickProfile(
     throw new Error(result.error || 'Could not update your PICK profile.');
   }
   return result.user as PickUser;
+}
+
+export async function requestPickDeleteOtp(): Promise<{ otpToken: string; emailMasked: string }> {
+  const sessionToken = await getPickAccessToken();
+  if (!sessionToken) throw new Error('Sign in to PICK to request an Email OTP.');
+
+  const response = await fetch(`${PICK_API_URL}/account/delete-otp`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${sessionToken}`
+    },
+    body: JSON.stringify({})
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result.success === false || !result.otpToken) {
+    throw new Error(result.error || 'Could not send Email OTP.');
+  }
+  return {
+    otpToken: String(result.otpToken),
+    emailMasked: String(result.emailMasked || '')
+  };
+}
+
+export async function deletePickAccount(input: {
+  confirmation: string;
+  otpToken: string;
+  otpCode: string;
+}): Promise<void> {
+  const sessionToken = await getPickAccessToken();
+  if (!sessionToken) throw new Error('Sign in to PICK to delete your account.');
+
+  const response = await fetch(`${PICK_API_URL}/account/delete`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${sessionToken}`
+    },
+    body: JSON.stringify(input)
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result.success === false) {
+    throw new Error(result.error || 'Could not delete your PICK account.');
+  }
+
+  await Promise.all([
+    SecureStore.deleteItemAsync(SESSION_KEY),
+    SecureStore.deleteItemAsync(APPEAL_SESSION_KEY),
+    clearPendingAuthChallenge()
+  ]);
 }

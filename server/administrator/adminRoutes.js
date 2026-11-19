@@ -1889,6 +1889,7 @@ router.get('/users', requireAdmin, async (req, res) => {
         bannedAt: u.bannedAt || null,
         emailVerified: u.emailVerified === true,
         twoFactorEnabled: u.twoFactorEnabled === true,
+        otpDisabled: u.otpDisabled === true,
         createdAt: u.createdAt || null
       };
     });
@@ -1933,6 +1934,51 @@ router.get('/users', requireAdmin, async (req, res) => {
   } catch (err) {
     console.error('[Admin Users Error]', err);
     res.status(500).json({ error: 'Failed to retrieve system users.' });
+  }
+});
+
+// POST /api/admin/users/:id/otp - Toggle login/2FA OTP requirement for a specific user
+router.post('/users/:id/otp', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const existingUser = await MasterDB.findUserByIdentifier(id);
+    if (!existingUser) {
+      return res.status(404).json({ error: 'User not found in system.' });
+    }
+    if (isSuperAdminUser(existingUser)) {
+      return res.status(403).json({ error: 'Super Administrator OTP settings cannot be modified here.' });
+    }
+    if (existingUser.role === 'admin' && !isSuperAdminUser(req.adminUser)) {
+      return res.status(403).json({ error: 'Only a super administrator can change another administrator account.' });
+    }
+
+    const nextOtpDisabled = req.body?.otpDisabled !== undefined
+      ? Boolean(req.body.otpDisabled)
+      : !existingUser.otpDisabled;
+
+    const updated = await MasterDB.updateUser(existingUser.id, { otpDisabled: nextOtpDisabled });
+    if (!updated) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    await recordSecurityEvent({
+      eventType: nextOtpDisabled ? 'admin.user_otp_disabled' : 'admin.user_otp_enabled',
+      severity: 'info',
+      userId: existingUser.id,
+      subject: existingUser.email,
+      details: { administrator: req.adminUser.email, otpDisabled: nextOtpDisabled }
+    }).catch(() => {});
+
+    return res.json({
+      success: true,
+      otpDisabled: nextOtpDisabled,
+      message: nextOtpDisabled
+        ? `OTP & 2FA disabled for ${existingUser.email}.`
+        : `OTP & 2FA enabled for ${existingUser.email}.`
+    });
+  } catch (err) {
+    console.error('[Admin Toggle User OTP Error]', err);
+    return res.status(500).json({ error: 'Failed to update user OTP setting.' });
   }
 });
 

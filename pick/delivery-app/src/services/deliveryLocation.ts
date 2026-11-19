@@ -149,6 +149,14 @@ export async function stopDeliveryLocationTracking(): Promise<void> {
   }
 }
 
+export async function hasBackgroundLocationPermission(): Promise<boolean> {
+  const [foreground, background] = await Promise.all([
+    Location.getForegroundPermissionsAsync(),
+    Location.getBackgroundPermissionsAsync()
+  ]);
+  return foreground.status === 'granted' && background.status === 'granted';
+}
+
 export async function goOnDeliveryDuty(): Promise<void> {
   await ensureLocationPermissions(true);
   try {

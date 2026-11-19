@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -13,6 +14,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { API_ORIGIN } from '../config/api';
 import { PickLogo } from '../components/common/PickLogo';
 import { ScreenContainer, SYSTEM_INSETS } from '../components/common/ScreenContainer';
 import { useLanguage } from '../context/LanguageContext';
@@ -650,6 +652,26 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           )}
           {Boolean(error) && <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text>}
           {Boolean(notice && !error) && <Text style={styles.noticeText}>{notice}</Text>}
+          <View style={styles.legalFooter}>
+            <Text style={styles.legalText}>
+              {t('By continuing, you agree to our ', 'চালিয়ে যাওয়ার মাধ্যমে আপনি আমাদের ')}
+            </Text>
+            <View style={styles.legalLinksRow}>
+              <TouchableOpacity
+                onPress={() => void Linking.openURL(`${API_ORIGIN}/privacy-policy`).catch(() => {})}
+                accessibilityRole="link"
+              >
+                <Text style={styles.legalLink}>{t('Privacy Policy', 'প্রাইভেসি পলিসি')}</Text>
+              </TouchableOpacity>
+              <Text style={styles.legalText}> · </Text>
+              <TouchableOpacity
+                onPress={() => void Linking.openURL(`${API_ORIGIN}/terms`).catch(() => {})}
+                accessibilityRole="link"
+              >
+                <Text style={styles.legalLink}>{t('Terms of Service', 'ব্যবহারের শর্তাবলি')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
       <Modal
@@ -886,5 +908,9 @@ const styles = StyleSheet.create({
   backLink: { alignItems: 'center', paddingBottom: 8 },
   backLinkText: { color: '#71717A', fontSize: 14 },
   errorText: { color: '#B91C1C', fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: 10 },
-  noticeText: { color: '#166534', fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: 10 }
+  noticeText: { color: '#166534', fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: 10 },
+  legalFooter: { marginTop: 18, alignItems: 'center', paddingBottom: 12 },
+  legalText: { color: '#71717A', fontSize: 12, textAlign: 'center' },
+  legalLinksRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  legalLink: { color: '#17A56B', fontSize: 12, fontWeight: '600', textDecorationLine: 'underline' }
 });

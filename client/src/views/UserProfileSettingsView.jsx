@@ -8,6 +8,7 @@ import {
   Camera,
   Check,
   Clock,
+  Copy,
   Eye,
   EyeOff,
   Globe,
@@ -288,6 +289,16 @@ export default function UserProfileSettingsView({
   // Sessions state
   const [sessions, setSessions] = useState([]);
   const [revokingSessionId, setRevokingSessionId] = useState('');
+
+  // Account deletion state
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteOtpToken, setDeleteOtpToken] = useState('');
+  const [deleteOtpCode, setDeleteOtpCode] = useState('');
+  const [deleteOtpMaskedEmail, setDeleteOtpMaskedEmail] = useState('');
+  const [sendingDeleteOtp, setSendingDeleteOtp] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [copiedDeleteLink, setCopiedDeleteLink] = useState(false);
 
   // Two-factor summary for shortcut card
   const [twoFactorSummary, setTwoFactorSummary] = useState({
@@ -1401,6 +1412,182 @@ export default function UserProfileSettingsView({
                   )}
                 </div>
               </div>
+
+              {/* Delete Account Card (Shadcn UI) */}
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setError('');
+                  setSuccessMsg('');
+                  if (!deleteOtpToken || !/^\d{6}$/.test(deleteOtpCode.trim())) {
+                    setError('Request an Email OTP and enter the 6-digit code to delete your account.');
+                    return;
+                  }
+                  if (deleteConfirmText.trim().toUpperCase() !== 'DELETE') {
+                    setError('Type DELETE to confirm account deletion.');
+                    return;
+                  }
+                  if (hasPassword && !deletePassword.trim()) {
+                    setError('Enter your account password to delete your account.');
+                    return;
+                  }
+                  setDeletingAccount(true);
+                  try {
+                    const res = await supportFetch('/api/user/account/delete', {
+                      method: 'POST',
+                      credentials: 'include',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        confirmation: deleteConfirmText.trim(),
+                        otpToken: deleteOtpToken,
+                        otpCode: deleteOtpCode.trim(),
+                        password: deletePassword || undefined
+                      })
+                    });
+                    await readJsonPayload(res, 'Failed to delete account.');
+                    try {
+                      localStorage.removeItem('stockpro_session');
+                      localStorage.removeItem('stockpro_user');
+                      sessionStorage.clear();
+                    } catch {}
+                    showToast?.('Your account has been deleted and can no longer sign in.');
+                    window.location.assign('/');
+                  } catch (err) {
+                    setError(err.message || 'Failed to delete account.');
+                  } finally {
+                    setDeletingAccount(false);
+                  }
+                }}
+                className={`${CARD_CLASS} overflow-hidden`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200/80 px-5 py-4 dark:border-neutral-800">
+                  <div className="flex items-center gap-2">
+                    <Trash2 className="size-4 text-rose-600 dark:text-rose-400" />
+                    <div>
+                      <h2 className="text-sm font-bold text-neutral-950 dark:text-white">
+                        Delete Account
+                      </h2>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                        Disable Tiwlo, PICK &amp; PICK Delivery login access while preserving billing history.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const url = typeof window !== 'undefined'
+                        ? `${window.location.origin}/delete-account`
+                        : 'https://tiwlo.com/delete-account';
+                      try {
+                        await navigator.clipboard.writeText(url);
+                        setCopiedDeleteLink(true);
+                        setTimeout(() => setCopiedDeleteLink(false), 2000);
+                      } catch {}
+                    }}
+                    className={SECONDARY_BTN_CLASS}
+                  >
+                    {copiedDeleteLink ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5" />}
+                    <span>{copiedDeleteLink ? 'Link Copied' : 'Copy Delete URL'}</span>
+                  </button>
+                </div>
+
+                <div className="space-y-4 p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-600 dark:text-neutral-400">
+                    <span>
+                      {deleteOtpMaskedEmail
+                        ? `Email OTP sent to ${deleteOtpMaskedEmail}`
+                        : 'Email OTP verification is required before deleting your account.'}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={sendingDeleteOtp}
+                      onClick={async () => {
+                        setError('');
+                        setSendingDeleteOtp(true);
+                        try {
+                          const res = await supportFetch('/api/user/account/otp-request', {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({})
+                          });
+                          const data = await readJsonPayload(res, 'Could not send Email OTP.');
+                          setDeleteOtpToken(data.otpToken || '');
+                          setDeleteOtpMaskedEmail(data.emailMasked || accountUser?.email || 'your email');
+                        } catch (err) {
+                          setError(err.message || 'Could not send Email OTP.');
+                        } finally {
+                          setSendingDeleteOtp(false);
+                        }
+                      }}
+                      className={SECONDARY_BTN_CLASS}
+                    >
+                      {sendingDeleteOtp && <Loader2 className="size-3.5 animate-spin" />}
+                      <span>{deleteOtpToken ? 'Resend Email OTP' : 'Send Email OTP'}</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                        6-Digit Email OTP
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={deleteOtpCode}
+                        onChange={(e) => setDeleteOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="123456"
+                        className={`${INPUT_CLASS} font-mono tracking-[0.2em]`}
+                      />
+                    </div>
+                    {hasPassword && (
+                      <div>
+                        <label className="mb-1.5 block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                          Account Password
+                        </label>
+                        <input
+                          type="password"
+                          value={deletePassword}
+                          onChange={(e) => setDeletePassword(e.target.value)}
+                          placeholder="Verify your password"
+                          className={INPUT_CLASS}
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                        Type <span className="font-mono text-rose-600 dark:text-rose-400">DELETE</span> to confirm
+                      </label>
+                      <input
+                        type="text"
+                        value={deleteConfirmText}
+                        onChange={(e) => setDeleteConfirmText(e.target.value)}
+                        placeholder="DELETE"
+                        className={`${INPUT_CLASS} font-mono`}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 border-t border-neutral-200/80 bg-[#fafafa] px-5 py-3.5 dark:border-neutral-800 dark:bg-neutral-900/40">
+                  <a
+                    href="/delete-account"
+                    className="text-[11px] font-medium text-neutral-600 hover:underline dark:text-neutral-400"
+                  >
+                    Open /delete-account page
+                  </a>
+                  <button
+                    type="submit"
+                    disabled={deletingAccount}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-rose-600 px-4 text-xs font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {deletingAccount ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+                    <span>{deletingAccount ? 'Deleting...' : 'Delete Account'}</span>
+                  </button>
+                </div>
+              </form>
             </div>
           )}
 

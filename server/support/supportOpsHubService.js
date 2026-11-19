@@ -257,7 +257,7 @@ export function createSupportOpsHubService(options = {}) {
     ticketingService = null,
     liveChatQueueService = null,
     executeAiFn = executeGeminiWithFailover,
-    MasterDB = defaultMasterDB,
+    MasterDB: customMasterDB = null,
     useMemory = false
   } = options;
 
@@ -266,6 +266,7 @@ export function createSupportOpsHubService(options = {}) {
 
   const getTicketing = () => ticketingService || defaultTicketingService;
   const getLiveChat = () => liveChatQueueService || getDefaultLiveChatQueueService();
+  const getMasterDb = () => customMasterDB || defaultMasterDB;
 
   // Map<collection, Map<itemId, { payload, updatedAt }>>
   const memStore = new Map();
@@ -717,9 +718,10 @@ export function createSupportOpsHubService(options = {}) {
         // Ignore if system_users table is absent in isolated tests
       }
     }
-    if (!matchedUser && typeof MasterDB?.findUserByIdentifier === 'function') {
+    const masterDb = getMasterDb();
+    if (!matchedUser && typeof masterDb?.findUserByIdentifier === 'function') {
       try {
-        const found = await MasterDB.findUserByIdentifier(cleanEmail);
+        const found = await masterDb.findUserByIdentifier(cleanEmail);
         if (found?.id) {
           matchedUser = {
             id: found.id,

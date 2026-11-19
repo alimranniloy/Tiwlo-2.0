@@ -27,6 +27,7 @@ import { WalletScreen } from '../screens/12_WalletScreen';
 import { ProfileScreen } from '../screens/13_ProfileScreen';
 import {
   clearStoredPickSession,
+  deletePickAccount,
   getPendingAuthChallenge,
   getStoredPickSession,
   PickAccountDisabledError,
@@ -1057,6 +1058,17 @@ export const AppNavigator: React.FC = () => {
             onBack={goBack}
             onNavigateToWallet={() => navigate('wallet')}
             onNavigateToOrders={() => navigate('orders')}
+            onNavigateToAddress={() => navigate('location_permission')}
+            onContactSupport={handleContactSupport}
+            onDeleteAccount={async (input) => {
+              await deletePickAccount(input);
+              setUser(null);
+              setCart([]);
+              setOrders([]);
+              setSelectedOrderId(null);
+              setSelectedVehicle(null);
+              setHistory(['auth']);
+            }}
             user={user}
             onSignOut={async () => {
               try {

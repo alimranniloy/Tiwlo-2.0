@@ -31,6 +31,16 @@ import {
   getPickAppUpdatePublicInfo,
   getPickAppUpdateSettings
 } from './appUpdates.js';
+import {
+  generateSecureOtp,
+  verifySecureOtp,
+  sendTwoFactorOtpEmail
+} from '../server/db/emailService.js';
+import {
+  OTP_EXPIRY_MINUTES,
+  USER_ACCOUNT_OTP_PURPOSE,
+  maskEmail
+} from '../server/routes/userAccountRoutes.js';
 import { readMediaBuffer } from '../server/db/mediaStorage.js';
 import { getOpenDrivingEstimate } from './liveTracking.js';
 
@@ -216,6 +226,12 @@ async function requireUser(req, res, next) {
   try {
     const session = await getTiwloSession(req);
     if (!session?.user) return res.status(401).json({ error: 'Tiwlo sign-in required.' });
+    if (session.user.isDeleted) {
+      return res.status(403).json({
+        error: "You deleted this account and can't login.",
+        isDeleted: true
+      });
+    }
     if (session.user.isBanned) {
       const profile = await queryPg(
         'SELECT * FROM pick.profiles WHERE tiwlo_user_id = $1',
@@ -1485,6 +1501,86 @@ router.post('/coverage/waitlist', requireUser, async (req, res, next) => {
       ]
     );
     return res.status(201).json({ joined: true });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post('/account/delete-otp', requireUser, async (req, res, next) => {
+  try {
+    const user = req.tiwloSession.user;
+    if (!user.email) {
+      return res.status(400).json({ error: 'A verified email address is required to send an OTP.' });
+    }
+    const { code, token, expiresAt } = await generateSecureOtp(
+      user.email,
+      USER_ACCOUNT_OTP_PURPOSE,
+      OTP_EXPIRY_MINUTES
+    );
+    const delivery = await sendTwoFactorOtpEmail(
+      user.email,
+      code,
+      user.name || user.storeName || 'Tiwlo User'
+    );
+    if (delivery && delivery.success === false) {
+      return res.status(503).json({ error: delivery.error || 'Could not send Email OTP.' });
+    }
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({
+      success: true,
+      otpToken: token,
+      emailMasked: maskEmail(user.email),
+      expiresAt,
+      expiresInSeconds: OTP_EXPIRY_MINUTES * 60
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post('/account/delete', requireUser, async (req, res, next) => {
+  try {
+    const user = req.tiwloSession.user;
+    const userId = String(user.id);
+    if (user.role === 'super_admin' || String(user.email || '').toLowerCase().trim() === 'tiwloltd@gmail.com') {
+      return res.status(403).json({ error: 'Super Administrator accounts cannot be self-deleted.' });
+    }
+    const confirmation = String(req.body?.confirmation || '').trim().toUpperCase();
+    if (confirmation !== 'DELETE') {
+      return res.status(400).json({ error: 'Please type DELETE to confirm account deletion.' });
+    }
+    const otpCode = String(req.body?.otpCode || '').trim();
+    const otpToken = String(req.body?.otpToken || '').trim();
+    if (!otpCode || !otpToken) {
+      return res.status(400).json({ error: 'Email OTP verification is required to delete your account.' });
+    }
+    const otpCheck = await verifySecureOtp(otpToken, otpCode, USER_ACCOUNT_OTP_PURPOSE);
+    if (!otpCheck?.valid) {
+      return res.status(400).json({ error: otpCheck?.error || 'Invalid or expired Email OTP code.' });
+    }
+
+    await queryPg(
+      `UPDATE pick.delivery_profiles
+       SET is_on_duty = FALSE, expo_push_token = NULL, updated_at = CURRENT_TIMESTAMP
+       WHERE tiwlo_user_id = $1`,
+      [userId]
+    );
+    await MasterDB.revokeUserSessions(userId);
+    await queryPg(
+      `UPDATE system_users
+       SET is_deleted = TRUE,
+           deleted_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [userId]
+    );
+
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({
+      success: true,
+      deleted: true,
+      message: "Your account has been deleted and can't be used to login."
+    });
   } catch (error) {
     return next(error);
   }

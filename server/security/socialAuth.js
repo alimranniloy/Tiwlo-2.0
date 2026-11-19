@@ -322,6 +322,12 @@ export async function findOrCreateSocialUser({
       user.emailVerified = true;
     }
 
+    if (user.isDeleted) {
+      const error = new Error("You deleted this account and can't login.");
+      error.code = 'ACCOUNT_DELETED';
+      throw error;
+    }
+
     if (user.isBanned) {
       const error = new Error('This Tiwlo account has been disabled.');
       error.code = 'ACCOUNT_DISABLED';

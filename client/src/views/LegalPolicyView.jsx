@@ -16,7 +16,7 @@ const POLICY_TABS = [
   { id: 'security-policy', label: 'Data Security & SLA', icon: Lock },
 ];
 
-const LAST_UPDATED = 'November 15, 2026';
+const LAST_UPDATED = 'November 19, 2026';
 
 export default function LegalPolicyView({
   initialSection = 'privacy-policy',
@@ -123,6 +123,23 @@ export default function LegalPolicyView({
               <a href={`mailto:${contactEmail}`} className="block font-medium text-emerald-600 dark:text-[#1ED760] hover:underline break-all">
                 {contactEmail}
               </a>
+              <div className="pt-2 border-t border-neutral-200/80 dark:border-neutral-800">
+                <a
+                  href="/delete-account"
+                  onClick={(e) => {
+                    if (onNavigate) {
+                      e.preventDefault();
+                      try {
+                        window.history.pushState(null, '', '/delete-account');
+                      } catch {}
+                      onNavigate('delete-account');
+                    }
+                  }}
+                  className="inline-flex items-center font-medium text-rose-600 dark:text-rose-400 hover:underline"
+                >
+                  Account &amp; Data Deletion →
+                </a>
+              </div>
               <p className="pt-1 text-[11px] text-neutral-400">Effective: {LAST_UPDATED}</p>
             </div>
           </aside>
@@ -144,40 +161,61 @@ export default function LegalPolicyView({
                 <section className="space-y-2">
                   <h2 className="text-base font-semibold text-neutral-950 dark:text-white">1. Scope &amp; Data Controller</h2>
                   <p>
-                    Tiwlo Technologies Inc. (&ldquo;Tiwlo&rdquo;, &ldquo;we&rdquo;, &ldquo;our&rdquo;) provides cloud infrastructure, online storefront hosting, POS management, Workspace messaging, and identity services across <strong>{domain}</strong> and its subdomains. When you create an account or use our services, Tiwlo acts as the Data Controller for account, billing, and security records, and as a Data Processor for customer orders operated inside a merchant&apos;s isolated storefront.
+                    Tiwlo Technologies Inc. (&ldquo;Tiwlo&rdquo;, &ldquo;we&rdquo;, &ldquo;our&rdquo;) provides cloud infrastructure, online storefront hosting, POS management, Workspace messaging, identity services, and the <strong>PICK</strong> mobile ecosystem (<strong>PICK Customer App</strong> <code>com.pick.tiwlo</code> and <strong>PICK Delivery Partner App</strong> <code>com.pick.delivery</code>) across <strong>{domain}</strong> and its subdomains. When you create an account or use our web or mobile services, Tiwlo acts as the Data Controller for account, delivery, billing, and security records, and as a Data Processor for merchant storefront orders.
                   </p>
                 </section>
 
                 <section className="space-y-2">
                   <h2 className="text-base font-semibold text-neutral-950 dark:text-white">2. Information We Collect</h2>
                   <ul className="list-disc pl-5 space-y-1.5">
-                    <li><strong>Account &amp; Identity Data:</strong> Full name, verified email address, country/region, encrypted credentials, optional avatar, and isolated Billing/Tiwlo ID.</li>
-                    <li><strong>Authentication &amp; Security Telemetry:</strong> Session identifiers, Two-Factor Authentication status (Email OTP / TOTP authenticator configuration), IP address, device headers, and opt-in or IP-derived login location records used solely to prevent unauthorized access and account abuse.</li>
-                    <li><strong>Merchant &amp; Workspace Content:</strong> Storefront catalogs, orders, customer/supplier records, custom domain mappings, team/staff role invitations scoped to your account, and Workspace operational logs.</li>
-                    <li><strong>Billing &amp; Marketing Communication Preferences:</strong> Payment gateway transaction references (processed through PCI-compliant third-party processors — Tiwlo never stores raw full card PANs), tax/billing address, and explicit marketing vs transactional email choices managed in Profile Settings.</li>
+                    <li><strong>Account &amp; Identity Data:</strong> Full name, verified email address, phone number, country/region, encrypted credentials, optional avatar, and isolated Billing/Tiwlo ID shared across Tiwlo, PICK, and PICK Delivery.</li>
+                    <li><strong>Location Data (PICK &amp; PICK Delivery):</strong> Delivery addresses, map coordinates, and GPS fixes. In <strong>PICK (`com.pick.tiwlo`)</strong>, foreground location is used only when you choose or verify a delivery address and check service coverage. In <strong>PICK Delivery (`com.pick.delivery`)</strong>, foreground and background location (`ACCESS_BACKGROUND_LOCATION`) are collected <strong>only while you are actively on duty</strong>, even when the app is closed or minimized, to match nearby parcel/grocery jobs and provide live tracking to customers.</li>
+                    <li><strong>Camera &amp; Verification Data:</strong> Camera access and verification photos are used solely when you complete identity/address verification or upload parcel delivery proof. We do not use biometric or verification media for advertising.</li>
+                    <li><strong>Authentication &amp; Security Telemetry:</strong> Session identifiers, Two-Factor Authentication status (Email OTP / TOTP authenticator configuration), push notification tokens, IP address, and device headers used to prevent unauthorized access and account abuse.</li>
+                    <li><strong>Merchant &amp; Order Content:</strong> Storefront catalogs, grocery/parcel orders, delivery status, customer/supplier records, and Workspace operational logs.</li>
+                    <li><strong>Billing &amp; Communication Preferences:</strong> Payment gateway transaction references (processed through PCI-compliant third-party processors — Tiwlo never stores raw full card PANs), billing address, and explicit marketing vs transactional email choices managed in Profile Settings.</li>
                   </ul>
                 </section>
 
                 <section className="space-y-2">
                   <h2 className="text-base font-semibold text-neutral-950 dark:text-white">3. Legal Basis &amp; How We Use Information</h2>
                   <ul className="list-disc pl-5 space-y-1.5">
-                    <li><strong>Contract Performance:</strong> Provisioning stores, droplets, email/social services, processing orders, and executing team invitations requested by you.</li>
+                    <li><strong>Contract Performance:</strong> Provisioning stores, droplets, email/social services, fulfilling PICK grocery and parcel deliveries, dispatching nearby delivery partners, and processing payments requested by you.</li>
                     <li><strong>Security &amp; Fraud Prevention:</strong> Detecting impossible-travel logins, rate-limiting abuse, enforcing Two-Factor Authentication, and preserving audit trails under legitimate interest and legal compliance.</li>
-                    <li><strong>Marketing &amp; Service Notices (Consent-Driven):</strong> Transactional receipts and critical security alerts are sent as required for account safety; promotional/product updates are sent only when enabled in your Notification Preferences and may be unsubscribed at any time.</li>
+                    <li><strong>Marketing &amp; Service Notices (Consent-Driven):</strong> Transactional receipts, delivery status alerts, and critical security notices are sent as required for service operation; promotional/product updates are sent only when enabled in your Notification Preferences.</li>
                   </ul>
                 </section>
 
                 <section className="space-y-2">
                   <h2 className="text-base font-semibold text-neutral-950 dark:text-white">4. Multi-Tenant Isolation &amp; Data Sharing</h2>
                   <p>
-                    Each merchant storefront and Workspace team directory is strictly isolated by owner account ID (`ownerUserId` / `tiwiId`). We never sell personal data to third-party data brokers. Sub-processors (payment gateways, SMTP mail relays, cloud DNS/hosting nodes) receive only the minimum payload required to execute your requested operation under confidentiality obligations.
+                    Each merchant storefront and Workspace team directory is strictly isolated by owner account ID (`ownerUserId` / `tiwiId`). We never sell personal data to third-party data brokers or advertisers. Sub-processors (payment gateways, map/geocoding providers, push notification services, SMTP mail relays, cloud nodes) receive only the minimum payload required to execute your requested operation under confidentiality obligations.
                   </p>
                 </section>
 
                 <section className="space-y-2">
-                  <h2 className="text-base font-semibold text-neutral-950 dark:text-white">5. Retention &amp; Your Privacy Rights</h2>
+                  <h2 className="text-base font-semibold text-neutral-950 dark:text-white">5. Retention, Account Deletion &amp; Your Privacy Rights</h2>
                   <p>
-                    You have the right to access, export (via <strong>Workspace Data Export</strong>), rectify (via <strong>Profile Settings</strong>), restrict marketing communications, revoke active sessions, or request account erasure subject to statutory financial and fraud-prevention retention windows (typically up to 7 years for settled billing invoices, and 30 days for soft-deleted operational caches). Contact <a href={`mailto:${contactEmail}`} className="font-medium text-emerald-600 dark:text-[#1ED760] hover:underline">{contactEmail}</a> to exercise any right.
+                    You have the right to access, export (via <strong>Workspace Data Export</strong>), rectify (via <strong>Profile Settings</strong>), restrict marketing communications, revoke active sessions, or permanently delete your account. Because Tiwlo is the central identity provider, deleting your Tiwlo account automatically deletes your linked <strong>PICK Customer</strong> and <strong>PICK Delivery</strong> profiles, saved addresses, active sessions, and storefront data.
+                  </p>
+                  <p>
+                    You can delete your account at any time in-app (from <strong>Profile → Delete Account</strong> in PICK / PICK Delivery or <strong>User Settings</strong> on {domain}) or directly via our dedicated deletion portal:{' '}
+                    <a
+                      href="/delete-account"
+                      onClick={(e) => {
+                        if (onNavigate) {
+                          e.preventDefault();
+                          try {
+                            window.history.pushState(null, '', '/delete-account');
+                          } catch {}
+                          onNavigate('delete-account');
+                        }
+                      }}
+                      className="font-semibold text-emerald-600 dark:text-[#1ED760] hover:underline"
+                    >
+                      https://{domain}/delete-account
+                    </a>
+                    . Statutory financial and fraud-prevention records may be retained only where required by law (typically up to 7 years for settled billing invoices). Contact <a href={`mailto:${contactEmail}`} className="font-medium text-emerald-600 dark:text-[#1ED760] hover:underline">{contactEmail}</a> with any privacy request.
                   </p>
                 </section>
               </div>

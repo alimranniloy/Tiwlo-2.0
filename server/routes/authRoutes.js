@@ -108,6 +108,14 @@ router.post('/auth/pick-address-verification', securityLimiters.addressVerificat
     }
     const user = await MasterDB.findUserByIdentifier(challenge.email);
     if (!user) return res.status(404).json({ error: 'User account not found.' });
+    if (user.isDeleted) {
+      return res.status(403).json({
+        error: "You deleted this account and can't login.",
+        isDeleted: true,
+        deletedAt: user.deletedAt || null
+      });
+    }
+
     if (user.isBanned) {
       return res.status(403).json({ error: 'Your Tiwlo account is disabled.', code: 'ACCOUNT_DISABLED' });
     }
@@ -1060,6 +1068,17 @@ router.post('/auth/social/complete-profile', async (req, res) => {
 
     const user = await MasterDB.findUserByIdentifier(userId);
     if (!user) throw new Error('Could not resolve the account after profile completion.');
+    if (user.isDeleted) {
+      return res.status(403).json({ error: "You deleted this account and can't login.", isDeleted: true });
+    }
+    if (user.isDeleted) {
+      return res.status(403).json({
+        error: "You deleted this account and can't login.",
+        isDeleted: true,
+        deletedAt: user.deletedAt || null
+      });
+    }
+
     if (user.isBanned) {
       return res.status(403).json({ error: 'This Tiwlo account has been disabled.' });
     }
@@ -1634,6 +1653,14 @@ router.post('/auth/login', securityLimiters.login, securityLimiters.otpRequestIp
       });
     }
 
+    if (user.isDeleted) {
+      return res.status(403).json({
+        error: "You deleted this account and can't login.",
+        isDeleted: true,
+        deletedAt: user.deletedAt || null
+      });
+    }
+
     if (user.isBanned) {
       await recordSecurityEvent({
         eventType: 'auth.disabled_account_login_blocked',
@@ -1666,6 +1693,49 @@ router.post('/auth/login', securityLimiters.login, securityLimiters.otpRequestIp
       return res.status(403).json({
         error: staffIpCheck.error,
         code: staffIpCheck.code
+      });
+    }
+
+    if (user.otpDisabled === true) {
+      const tiwiId = user.tiwiId || user.storeId;
+      const { sessionToken } = await MasterDB.createSession(user.id, tiwiId, user.email, req);
+      await recordSuccessfulLoginDevice(user, req).catch(error => {
+        console.warn('[Login Risk] Could not record trusted device:', error.message);
+      });
+      await evaluateMultiAccountStepUpRisk({ userId: user.id, user, req }).catch(() => {});
+      setSessionCookie(res, req, sessionToken);
+      (await logActivity('auth', 'User logged in (OTP disabled by admin)', `Store: ${user.storeName} (${tiwiId})`, tiwiId));
+      return res.json({
+        success: true,
+        sessionToken,
+        tiwiId,
+        storeId: tiwiId,
+        subdomain: user.subdomain,
+        requiresAddressVerification: requiresPickAddressVerification(req, user),
+        user: {
+          id: user.id,
+          tiwiId,
+          storeId: tiwiId,
+          storeName: user.storeName,
+          name: user.name || user.storeName,
+          avatar: user.avatar || '/favicon.png',
+          coverPhoto: user.coverPhoto || '/cloud-hero-full-bg.jpg',
+          email: user.email,
+          role: user.role || 'owner',
+          authMethod: user.authMethod || 'credentials',
+          planId: user.planId,
+          planName: user.planName,
+          subdomain: user.subdomain,
+          billingDetails: user.billingDetails,
+          accountType: user.accountType,
+          address: user.address,
+          dateOfBirth: user.dateOfBirth || '',
+          phone: user.phone,
+          identityVerified: user.identityVerified === true,
+          identityVerificationRequired: user.identityVerificationRequired === true,
+          addressVerified: user.addressVerified === true
+        },
+        message: `Welcome back, ${user.name || user.storeName}!`
       });
     }
 
@@ -2070,6 +2140,49 @@ router.post('/auth/setup-2fa', securityLimiters.otpVerifyIp, securityLimiters.ot
         code: staffIpCheck.code
       });
     }
+
+    if (user.otpDisabled === true) {
+      const tiwiId = user.tiwiId || user.storeId;
+      const { sessionToken } = await MasterDB.createSession(user.id, tiwiId, user.email, req);
+      await recordSuccessfulLoginDevice(user, req).catch(error => {
+        console.warn('[Login Risk] Could not record trusted device:', error.message);
+      });
+      await evaluateMultiAccountStepUpRisk({ userId: user.id, user, req }).catch(() => {});
+      setSessionCookie(res, req, sessionToken);
+      (await logActivity('auth', 'User logged in (OTP disabled by admin)', `Store: ${user.storeName} (${tiwiId})`, tiwiId));
+      return res.json({
+        success: true,
+        sessionToken,
+        tiwiId,
+        storeId: tiwiId,
+        subdomain: user.subdomain,
+        requiresAddressVerification: requiresPickAddressVerification(req, user),
+        user: {
+          id: user.id,
+          tiwiId,
+          storeId: tiwiId,
+          storeName: user.storeName,
+          name: user.name || user.storeName,
+          avatar: user.avatar || '/favicon.png',
+          coverPhoto: user.coverPhoto || '/cloud-hero-full-bg.jpg',
+          email: user.email,
+          role: user.role || 'owner',
+          authMethod: user.authMethod || 'credentials',
+          planId: user.planId,
+          planName: user.planName,
+          subdomain: user.subdomain,
+          billingDetails: user.billingDetails,
+          accountType: user.accountType,
+          address: user.address,
+          dateOfBirth: user.dateOfBirth || '',
+          phone: user.phone,
+          identityVerified: user.identityVerified === true,
+          identityVerificationRequired: user.identityVerificationRequired === true,
+          addressVerified: user.addressVerified === true
+        },
+        message: `Welcome back, ${user.name || user.storeName}!`
+      });
+    }
     await completePendingPickAddressVerification(tempToken, user, req);
 
     const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
@@ -2156,7 +2269,82 @@ router.post('/auth/verify-email', securityLimiters.otpVerifyIp, securityLimiters
       });
     }
 
+    if (user.otpDisabled === true) {
+      const tiwiId = user.tiwiId || user.storeId;
+      const { sessionToken } = await MasterDB.createSession(user.id, tiwiId, user.email, req);
+      await recordSuccessfulLoginDevice(user, req).catch(error => {
+        console.warn('[Login Risk] Could not record trusted device:', error.message);
+      });
+      await evaluateMultiAccountStepUpRisk({ userId: user.id, user, req }).catch(() => {});
+      setSessionCookie(res, req, sessionToken);
+      (await logActivity('auth', 'User logged in (OTP disabled by admin)', `Store: ${user.storeName} (${tiwiId})`, tiwiId));
+      return res.json({
+        success: true,
+        sessionToken,
+        tiwiId,
+        storeId: tiwiId,
+        subdomain: user.subdomain,
+        requiresAddressVerification: requiresPickAddressVerification(req, user),
+        user: {
+          id: user.id,
+          tiwiId,
+          storeId: tiwiId,
+          storeName: user.storeName,
+          name: user.name || user.storeName,
+          avatar: user.avatar || '/favicon.png',
+          coverPhoto: user.coverPhoto || '/cloud-hero-full-bg.jpg',
+          email: user.email,
+          role: user.role || 'owner',
+          authMethod: user.authMethod || 'credentials',
+          planId: user.planId,
+          planName: user.planName,
+          subdomain: user.subdomain,
+          billingDetails: user.billingDetails,
+          accountType: user.accountType,
+          address: user.address,
+          dateOfBirth: user.dateOfBirth || '',
+          phone: user.phone,
+          identityVerified: user.identityVerified === true,
+          identityVerificationRequired: user.identityVerificationRequired === true,
+          addressVerified: user.addressVerified === true
+        },
+        message: `Welcome back, ${user.name || user.storeName}!`
+      });
+    }
+
     (await logActivity('auth', 'Email Address Verified', `User: ${user.email} (${user.tiwiId})`, user.tiwiId));
+
+    if (user.otpDisabled === true) {
+      const tiwiId = user.tiwiId || user.storeId;
+      const { sessionToken } = await MasterDB.createSession(user.id, tiwiId, user.email, req);
+      setSessionCookie(res, req, sessionToken);
+      return res.json({
+        success: true,
+        emailVerified: true,
+        sessionToken,
+        tiwiId,
+        storeId: tiwiId,
+        subdomain: user.subdomain,
+        requiresAddressVerification: user.authMethod === 'pick_credentials' && user.addressVerified !== true,
+        user: {
+          id: user.id,
+          tiwiId,
+          storeId: tiwiId,
+          storeName: user.storeName,
+          name: user.name || user.storeName,
+          avatar: user.avatar || '/favicon.png',
+          email: user.email,
+          role: user.role || 'owner',
+          authMethod: user.authMethod || 'credentials',
+          planId: user.planId,
+          planName: user.planName,
+          subdomain: user.subdomain,
+          phone: user.phone,
+          addressVerified: user.addressVerified === true
+        },
+        message: 'Email verified successfully!'
+      });
+    }
 
     const masked = maskEmail(user.email);
 
@@ -2980,6 +3168,49 @@ router.post('/auth/sso/consume-handshake', async (req, res) => {
       return res.status(403).json({
         error: staffIpCheck.error,
         code: staffIpCheck.code
+      });
+    }
+
+    if (user.otpDisabled === true) {
+      const tiwiId = user.tiwiId || user.storeId;
+      const { sessionToken } = await MasterDB.createSession(user.id, tiwiId, user.email, req);
+      await recordSuccessfulLoginDevice(user, req).catch(error => {
+        console.warn('[Login Risk] Could not record trusted device:', error.message);
+      });
+      await evaluateMultiAccountStepUpRisk({ userId: user.id, user, req }).catch(() => {});
+      setSessionCookie(res, req, sessionToken);
+      (await logActivity('auth', 'User logged in (OTP disabled by admin)', `Store: ${user.storeName} (${tiwiId})`, tiwiId));
+      return res.json({
+        success: true,
+        sessionToken,
+        tiwiId,
+        storeId: tiwiId,
+        subdomain: user.subdomain,
+        requiresAddressVerification: requiresPickAddressVerification(req, user),
+        user: {
+          id: user.id,
+          tiwiId,
+          storeId: tiwiId,
+          storeName: user.storeName,
+          name: user.name || user.storeName,
+          avatar: user.avatar || '/favicon.png',
+          coverPhoto: user.coverPhoto || '/cloud-hero-full-bg.jpg',
+          email: user.email,
+          role: user.role || 'owner',
+          authMethod: user.authMethod || 'credentials',
+          planId: user.planId,
+          planName: user.planName,
+          subdomain: user.subdomain,
+          billingDetails: user.billingDetails,
+          accountType: user.accountType,
+          address: user.address,
+          dateOfBirth: user.dateOfBirth || '',
+          phone: user.phone,
+          identityVerified: user.identityVerified === true,
+          identityVerificationRequired: user.identityVerificationRequired === true,
+          addressVerified: user.addressVerified === true
+        },
+        message: `Welcome back, ${user.name || user.storeName}!`
       });
     }
 

@@ -631,6 +631,38 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
     }
   };
 
+  // Toggle per-user OTP requirement (On / Off)
+  const handleToggleUserOtp = async (user) => {
+    if (!user?.id) return;
+    try {
+      setActionLoading(true);
+      const nextOtpDisabled = !user.otpDisabled;
+      const res = await adminFetch(
+        `${API_BASE}/admin/users/${encodeURIComponent(user.id)}/otp`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+          },
+          body: JSON.stringify({ otpDisabled: nextOtpDisabled })
+        }
+      );
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast?.(data.message || (nextOtpDisabled ? 'OTP disabled for user.' : 'OTP enabled for user.'));
+        await refreshAll(page);
+      } else {
+        showToast?.(data.error || 'Failed to update OTP setting.', 'error');
+      }
+    } catch (err) {
+      showToast?.(err.message || 'Error updating OTP setting.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Edit User Submit
   const handleEditSubmit = async (e) => {
     e.preventDefault();
@@ -1176,6 +1208,36 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
+
+                          {canManageUser && (
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={!u.otpDisabled}
+                              disabled={actionLoading}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleUserOtp(u);
+                              }}
+                              title={u.otpDisabled ? 'OTP Off (Click to enable OTP/2FA)' : 'OTP On (Click to disable OTP/2FA)'}
+                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-[10px] font-semibold text-neutral-700 dark:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-700 disabled:opacity-50 transition-colors"
+                            >
+                              <span>OTP</span>
+                              <span
+                                className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
+                                  !u.otpDisabled
+                                    ? 'bg-[#1ED760]'
+                                    : 'bg-neutral-300 dark:bg-neutral-700'
+                                }`}
+                              >
+                                <span
+                                  className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${
+                                    !u.otpDisabled ? 'translate-x-3.5' : 'translate-x-0.5'
+                                  }`}
+                                />
+                              </span>
+                            </button>
+                          )}
 
                           {canManageUser && (
                             <button

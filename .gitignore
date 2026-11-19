@@ -9,6 +9,9 @@ build/
 .expo/
 *.apk
 *.aab
+*.jks
+*.keystore
+keystore.properties
 
 # Environment and local configs
 .env

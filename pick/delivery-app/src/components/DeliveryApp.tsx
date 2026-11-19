@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   AppState,
+  Linking,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,11 +25,14 @@ import {
 import { Colors } from '../../../mobile/src/theme/colors';
 import { SYSTEM_INSETS } from '../../../mobile/src/components/common/ScreenContainer';
 import type { PickUser } from '../../../mobile/src/services/auth';
+import { API_ORIGIN } from '../../../mobile/src/config/api';
 import {
   clearStoredPickSession,
+  deletePickAccount,
   getStoredPickSession,
   PickAccountDisabledError,
-  PickAccountRestoredError
+  PickAccountRestoredError,
+  requestPickDeleteOtp
 } from '../../../mobile/src/services/auth';
 import {
   acceptDeliveryOffer,
@@ -47,6 +52,7 @@ import {
 import {
   goOffDeliveryDuty,
   goOnDeliveryDuty,
+  hasBackgroundLocationPermission,
   restoreDeliveryTracking,
   stopDeliveryLocationTracking
 } from '../services/deliveryLocation';
@@ -301,7 +307,8 @@ function DeliveryProfileScreen({
   error,
   signOutError,
   onSubmitted,
-  onSignOut
+  onSignOut,
+  onDeleteAccount
 }: {
   userName: string;
   profile: DeliveryProfile | null;
@@ -310,8 +317,63 @@ function DeliveryProfileScreen({
   signOutError: string;
   onSubmitted: (profile: DeliveryProfile) => void;
   onSignOut: () => void;
+  onDeleteAccount: (input: { confirmation: string; otpToken: string; otpCode: string }) => Promise<void>;
 }) {
   const needsApplication = !profile || profile.applicationStatus === 'rejected';
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [deleteOtpToken, setDeleteOtpToken] = useState('');
+  const [deleteOtpCode, setDeleteOtpCode] = useState('');
+  const [deleteOtpMaskedEmail, setDeleteOtpMaskedEmail] = useState('');
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  const openLegalUrl = (path: string) => {
+    void Linking.openURL(`${API_ORIGIN}${path}`).catch(() => {});
+  };
+
+  const handleSendDeleteOtp = async () => {
+    setDeleteError('');
+    setSendingOtp(true);
+    try {
+      const res = await requestPickDeleteOtp();
+      setDeleteOtpToken(res.otpToken);
+      setDeleteOtpMaskedEmail(res.emailMasked);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Could not send Email OTP.');
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    setDeleteError('');
+    if (!deleteOtpToken || !/^\d{6}$/.test(deleteOtpCode.trim())) {
+      setDeleteError('Request an Email OTP and enter the 6-digit code.');
+      return;
+    }
+    if (deleteConfirmation.trim().toUpperCase() !== 'DELETE') {
+      setDeleteError('Type DELETE to confirm account deletion.');
+      return;
+    }
+    setDeleting(true);
+    try {
+      await onDeleteAccount({
+        confirmation: deleteConfirmation.trim(),
+        otpToken: deleteOtpToken,
+        otpCode: deleteOtpCode.trim()
+      });
+      setDeleteModalVisible(false);
+      setDeleteConfirmation('');
+      setDeleteOtpToken('');
+      setDeleteOtpCode('');
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Could not delete your account.');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <ScrollView
@@ -359,9 +421,110 @@ function DeliveryProfileScreen({
         </View>
       )}
 
+      <View style={styles.card}>
+        <Text style={styles.cardEyebrow}>PRIVACY &amp; COMPLIANCE</Text>
+        <Pressable style={styles.legalRow} onPress={() => openLegalUrl('/privacy-policy')}>
+          <Text style={styles.legalRowText}>Privacy Policy</Text>
+          <PickIcon name="chevron-right" size={16} color={Colors.mutedForeground} />
+        </Pressable>
+        <View style={styles.profileDivider} />
+        <Pressable style={styles.legalRow} onPress={() => openLegalUrl('/terms')}>
+          <Text style={styles.legalRowText}>Terms of Service</Text>
+          <PickIcon name="chevron-right" size={16} color={Colors.mutedForeground} />
+        </Pressable>
+        <View style={styles.profileDivider} />
+        <Pressable
+          style={styles.legalRow}
+          onPress={() => {
+            setDeleteError('');
+            setDeleteConfirmation('');
+            setDeleteOtpToken('');
+            setDeleteOtpCode('');
+            setDeleteOtpMaskedEmail('');
+            setDeleteModalVisible(true);
+          }}
+        >
+          <Text style={styles.deleteRowText}>Delete Account</Text>
+          <PickIcon name="chevron-right" size={16} color={Colors.destructive} />
+        </Pressable>
+      </View>
+
       {error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}
       {signOutError ? <Text accessibilityRole="alert" style={styles.errorText}>{signOutError}</Text> : null}
       <PrimaryButton title="Sign out" onPress={onSignOut} secondary />
+
+      <Modal
+        visible={deleteModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!deleting) setDeleteModalVisible(false);
+        }}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Delete Tiwlo &amp; PICK Delivery Account</Text>
+            <Text style={styles.modalBody}>
+              Deleting your account disables login access to Tiwlo and PICK Delivery. Request an Email OTP and type DELETE to confirm.
+            </Text>
+            <Pressable
+              style={[styles.modalBtn, styles.secondaryButton, { flex: 0, marginBottom: 10 }]}
+              onPress={() => void handleSendDeleteOtp()}
+              disabled={sendingOtp || deleting}
+            >
+              <Text style={styles.secondaryButtonText}>
+                {sendingOtp
+                  ? 'Sending OTP…'
+                  : deleteOtpToken
+                    ? `Resend Email OTP (${deleteOtpMaskedEmail || 'email'})`
+                    : 'Send Email OTP'}
+              </Text>
+            </Pressable>
+            <TextInput
+              style={[styles.input, { marginBottom: 10 }]}
+              value={deleteOtpCode}
+              onChangeText={(v) => setDeleteOtpCode(v.replace(/\D/g, '').slice(0, 6))}
+              placeholder="6-digit Email OTP"
+              keyboardType="number-pad"
+              maxLength={6}
+              editable={!deleting}
+            />
+            <TextInput
+              style={styles.input}
+              value={deleteConfirmation}
+              onChangeText={setDeleteConfirmation}
+              placeholder="DELETE"
+              autoCapitalize="characters"
+              autoCorrect={false}
+              editable={!deleting}
+            />
+            {deleteError ? <Text style={styles.errorText}>{deleteError}</Text> : null}
+            <Pressable
+              style={styles.modalLinkBtn}
+              onPress={() => openLegalUrl('/delete-account')}
+              disabled={deleting}
+            >
+              <Text style={styles.modalLinkText}>Open web deletion page (tiwlo.com/delete-account)</Text>
+            </Pressable>
+            <View style={styles.modalActions}>
+              <Pressable
+                style={[styles.modalBtn, styles.secondaryButton]}
+                onPress={() => setDeleteModalVisible(false)}
+                disabled={deleting}
+              >
+                <Text style={styles.secondaryButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modalBtn, styles.modalDangerBtn, deleting && styles.buttonDisabled]}
+                onPress={() => void confirmDelete()}
+                disabled={deleting}
+              >
+                <Text style={styles.modalDangerText}>{deleting ? 'Deleting…' : 'Delete Forever'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -731,6 +894,7 @@ export function DeliveryApp({ user, onSignOut, onAccountDisabled }: DeliveryAppP
   const [error, setError] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
   const [signOutError, setSignOutError] = useState('');
+  const [locationDisclosureVisible, setLocationDisclosureVisible] = useState(false);
 
   const loadProfile = useCallback(async () => {
     const [profileResponse, optionsResponse] = await Promise.all([
@@ -841,7 +1005,7 @@ export function DeliveryApp({ user, onSignOut, onAccountDisabled }: DeliveryAppP
     };
   }, [onAccountDisabled, onSignOut]);
 
-  const changeDuty = async (enabled: boolean) => {
+  const executeDutyChange = async (enabled: boolean) => {
     setActionBusy(true);
     setError('');
     try {
@@ -856,6 +1020,17 @@ export function DeliveryApp({ user, onSignOut, onAccountDisabled }: DeliveryAppP
     } finally {
       setActionBusy(false);
     }
+  };
+
+  const changeDuty = async (enabled: boolean) => {
+    if (enabled) {
+      const granted = await hasBackgroundLocationPermission();
+      if (!granted) {
+        setLocationDisclosureVisible(true);
+        return;
+      }
+    }
+    await executeDutyChange(enabled);
   };
 
   const acceptOffer = async (offer: DeliveryOffer) => {
@@ -976,6 +1151,18 @@ export function DeliveryApp({ user, onSignOut, onAccountDisabled }: DeliveryAppP
               setActiveTab('home');
             }}
             onSignOut={() => void signOutSafely()}
+            onDeleteAccount={async (input) => {
+              if (profile?.isOnDuty && jobs.length > 0) {
+                throw new Error('Complete your active parcel before deleting your account.');
+              }
+              if (profile?.isOnDuty) {
+                await goOffDeliveryDuty().catch(() => {});
+              }
+              await removeDeliveryPushToken().catch(() => {});
+              await stopDeliveryLocationTracking().catch(() => {});
+              await deletePickAccount(input);
+              await onSignOut();
+            }}
           />
         ) : (
           <DeliveryHome
@@ -989,6 +1176,43 @@ export function DeliveryApp({ user, onSignOut, onAccountDisabled }: DeliveryAppP
         )}
       </View>
       <DeliveryBottomNav activeTab={activeTab} onTabPress={setActiveTab} />
+
+      <Modal
+        visible={locationDisclosureVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLocationDisclosureVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.eyebrow}>BACKGROUND LOCATION DISCLOSURE</Text>
+            <Text style={styles.modalTitle}>Allow background location while on duty</Text>
+            <Text style={styles.modalBody}>
+              PICK Delivery collects location data in the background even when the app is closed or not in use to match you with nearby parcel and grocery delivery requests and provide live delivery tracking to customers while you are on duty.
+            </Text>
+            <Text style={styles.modalBody}>
+              Location tracking stops automatically as soon as you go off duty.
+            </Text>
+            <View style={styles.modalActions}>
+              <Pressable
+                style={[styles.modalBtn, styles.secondaryButton]}
+                onPress={() => setLocationDisclosureVisible(false)}
+              >
+                <Text style={styles.secondaryButtonText}>Not now</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modalBtn, styles.modalPrimaryBtn]}
+                onPress={() => {
+                  setLocationDisclosureVisible(false);
+                  void executeDutyChange(true);
+                }}
+              >
+                <Text style={styles.primaryButtonText}>Agree &amp; Continue</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1071,5 +1295,19 @@ const styles = StyleSheet.create({
   bottomNavLabel: { color: Colors.mutedForeground, fontSize: 11, fontWeight: '500', marginTop: 4 },
   bottomNavLabelActive: { color: Colors.foreground, fontWeight: '700' },
   apiErrorCard: { backgroundColor: '#FEF2F2', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#FECACA', marginBottom: 14 },
-  apiErrorTitle: { color: Colors.destructive, fontSize: 14, fontWeight: '700' }
+  apiErrorTitle: { color: Colors.destructive, fontSize: 14, fontWeight: '700' },
+  legalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6 },
+  legalRowText: { color: Colors.foreground, fontSize: 14, fontWeight: '600' },
+  deleteRowText: { color: Colors.destructive, fontSize: 14, fontWeight: '600' },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(9, 9, 11, 0.55)', justifyContent: 'center', paddingHorizontal: 20 },
+  modalCard: { backgroundColor: Colors.card, borderRadius: 18, padding: 20, borderWidth: 1, borderColor: Colors.border },
+  modalTitle: { color: Colors.foreground, fontSize: 17, fontWeight: '700', marginBottom: 8 },
+  modalBody: { color: Colors.mutedForeground, fontSize: 13, lineHeight: 20, marginBottom: 12 },
+  modalLinkBtn: { marginTop: 10, marginBottom: 14 },
+  modalLinkText: { color: Colors.primary, fontSize: 12, fontWeight: '600' },
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: 6 },
+  modalBtn: { flex: 1, minHeight: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  modalPrimaryBtn: { backgroundColor: Colors.primary },
+  modalDangerBtn: { backgroundColor: Colors.destructive },
+  modalDangerText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' }
 });

@@ -26,7 +26,7 @@ export const AppUpdateGate: React.FC<AppUpdateGateProps> = ({ appId, children })
         ? compareAppVersions(currentVersion, latest.version)
         : null;
       const installAvailable = Boolean(
-        (latest.playStoreEnabled && latest.playStoreUrl) || latest.apkUrl
+        latest.playStoreEnabled && latest.playStoreUrl
       );
       setUpdate(comparison !== null && comparison < 0 && installAvailable ? latest : null);
     } catch (error) {

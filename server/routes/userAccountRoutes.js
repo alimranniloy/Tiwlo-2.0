@@ -1190,6 +1190,9 @@ export function createUserAccountRouter(overrides = {}) {
       if (!sessionData?.user) {
         return res.status(401).json({ error: 'Authentication required' });
       }
+      if (sessionData.user.isDeleted) {
+        return res.status(403).json({ error: "You deleted this account and can't login.", isDeleted: true });
+      }
       if (sessionData.user.isBanned) {
         return res.status(403).json({ error: 'This Tiwlo account is disabled.' });
       }
@@ -3243,6 +3246,124 @@ export function createUserAccountRouter(overrides = {}) {
       return res.status(500).json({ error: 'Failed to record backup checkpoint.' });
     }
   });
+
+  async function handleAccountDeletion(req, res) {
+    try {
+      res.setHeader('Cache-Control', 'no-store');
+      const user = req.accountUser;
+      const userId = String(user.id);
+
+      const isSuperAdmin =
+        user.role === 'super_admin' ||
+        String(user.email || '').toLowerCase().trim() === 'tiwloltd@gmail.com';
+      if (isSuperAdmin) {
+        return res.status(403).json({
+          error: 'Super Administrator accounts cannot be self-deleted.'
+        });
+      }
+
+      const confirmation = String(req.body?.confirmation || '').trim().toUpperCase();
+      if (confirmation !== 'DELETE') {
+        return res.status(400).json({
+          error: 'Please type DELETE to confirm account deletion.'
+        });
+      }
+
+      const otpCode = String(req.body?.otpCode || '').trim();
+      const otpToken = String(req.body?.otpToken || '').trim();
+      if (!otpCode || !otpToken) {
+        return res.status(400).json({
+          error: 'Email OTP verification is required to delete your account.',
+          requiresOtp: true
+        });
+      }
+
+      const otpVerification = await deps.verifySecureOtp(otpToken, otpCode, USER_ACCOUNT_OTP_PURPOSE);
+      if (!otpVerification?.valid) {
+        return res.status(400).json({
+          error: otpVerification?.error || 'Invalid or expired Email OTP code.'
+        });
+      }
+
+      const storedOtp = await loadOtpChallenge(userId);
+      if (storedOtp?.token && storedOtp.token !== otpToken) {
+        return res.status(400).json({ error: 'Verification token mismatch. Please request a new Email OTP.' });
+      }
+
+      const suppliedPassword = typeof req.body?.password === 'string' ? req.body.password : '';
+      if (suppliedPassword) {
+        if (typeof deps.verifyPasswordWithRust !== 'function') {
+          return res.status(500).json({ error: 'Password verification service unavailable.' });
+        }
+        const passwordResult = await deps.verifyPasswordWithRust(userId, suppliedPassword);
+        if (!passwordResult?.valid) {
+          return res.status(401).json({ error: 'Incorrect account password.' });
+        }
+      }
+
+      // Preserve billing history, invoices, and orders: disable PICK duty/push alerts
+      // and soft-delete the central system_users record so the user can never log in again.
+      try {
+        await deps.queryPg(
+          `UPDATE pick.delivery_profiles
+           SET is_on_duty = FALSE, expo_push_token = NULL, updated_at = CURRENT_TIMESTAMP
+           WHERE tiwlo_user_id = $1`,
+          [userId]
+        );
+      } catch (pickCleanupErr) {
+        if (pickCleanupErr?.code && !['42P01', '3F000'].includes(pickCleanupErr.code)) {
+          throw pickCleanupErr;
+        }
+      }
+
+      if (typeof deps.masterDb.revokeUserSessions === 'function') {
+        await deps.masterDb.revokeUserSessions(userId);
+      }
+
+      const deletion = await deps.queryPg(
+        `UPDATE system_users
+         SET is_deleted = TRUE,
+             deleted_at = CURRENT_TIMESTAMP,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [userId]
+      );
+      if (deletion && typeof deletion.rowCount === 'number' && deletion.rowCount === 0) {
+        return res.status(404).json({ error: 'Account not found.' });
+      }
+
+      await clearOtpChallenge(userId);
+
+      await recordSecurityEvent({
+        eventType: 'user.account_deleted',
+        severity: 'warning',
+        userId,
+        subject: user.email || userId,
+        details: {
+          selfService: true,
+          softDelete: true,
+          billingHistoryPreserved: true,
+          tiwiId: user.tiwiId || user.storeId || null
+        }
+      }).catch(() => {});
+
+      res.clearCookie?.('tiwlo_host_session', { path: '/' });
+      res.clearCookie?.('tiwlo_session', { path: '/' });
+
+      return res.json({
+        success: true,
+        deleted: true,
+        message: "Your account has been deleted and can no longer be used to sign in."
+      });
+    } catch (error) {
+      console.error('[UserAccount] Account deletion error:', error);
+      return res.status(500).json({ error: 'Failed to delete account. Please try again or contact support.' });
+    }
+  }
+
+  // 28. POST /user/account/delete & DELETE /user/account
+  router.post('/user/account/delete', requireAuthenticatedUser, handleAccountDeletion);
+  router.delete('/user/account', requireAuthenticatedUser, handleAccountDeletion);
 
   return router;
 }

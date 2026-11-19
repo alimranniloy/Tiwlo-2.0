@@ -748,6 +748,21 @@ function UserAccountSettingsModalContent({
                     />
                   </div>
                 </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200/80 bg-rose-50/40 p-4 dark:border-rose-900/50 dark:bg-rose-950/15">
+                  <div>
+                    <p className="text-xs font-semibold text-neutral-950 dark:text-white">Delete Account</p>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                      Permanently remove your Tiwlo and linked PICK accounts.
+                    </p>
+                  </div>
+                  <a
+                    href="/delete-account"
+                    className="inline-flex h-8 items-center rounded-lg bg-rose-600 px-3 text-xs font-semibold text-white transition hover:bg-rose-700"
+                  >
+                    Open Delete Account
+                  </a>
+                </div>
               </div>
             )}
 

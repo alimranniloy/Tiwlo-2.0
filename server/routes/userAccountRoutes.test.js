@@ -1315,3 +1315,103 @@ test('Webhook routes reject DNS rebinding on create/test and enforce manual redi
   assert.equal(blockedTestRes.status, 400);
   assert.equal(fetchCalls.length, 1);
 });
+
+test('Account deletion requires Email OTP + DELETE confirmation, checks password when supplied, soft-deletes system_users to preserve billing history, and blocks super_admin', async (t) => {
+  let revokedUserId = null;
+  const harness = createMockHarness();
+  harness.deps.masterDb.revokeUserSessions = async (uid) => {
+    revokedUserId = uid;
+  };
+  const call = await withApp(t, harness.deps);
+  const authHeaders = {
+    Authorization: 'Bearer valid-session-token',
+    'Content-Type': 'application/json'
+  };
+
+  // Reject missing DELETE confirmation
+  const badConfirmRes = await call('/api/user/account/delete', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ confirmation: 'NOPE' })
+  });
+  assert.equal(badConfirmRes.status, 400);
+
+  // Reject missing Email OTP
+  const missingOtpRes = await call('/api/user/account/delete', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({ confirmation: 'DELETE', password: 'CurrentPass123!' })
+  });
+  assert.equal(missingOtpRes.status, 400);
+  const missingOtpBody = await missingOtpRes.json();
+  assert.equal(missingOtpBody.requiresOtp, true);
+
+  // Request Email OTP
+  const otpReqRes = await call('/api/user/account/otp-request', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({})
+  });
+  assert.equal(otpReqRes.status, 200);
+  const otpReqBody = await otpReqRes.json();
+  const otpCode = harness.sentEmails[0].code;
+
+  // Reject wrong password when password is supplied
+  const wrongPassRes = await call('/api/user/account/delete', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      confirmation: 'DELETE',
+      otpToken: otpReqBody.otpToken,
+      otpCode,
+      password: 'WrongPassword!'
+    })
+  });
+  assert.equal(wrongPassRes.status, 401);
+
+  // Request a fresh OTP since verifySecureOtp consumed the previous one
+  const otpReqRes2 = await call('/api/user/account/otp-request', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({})
+  });
+  const otpReqBody2 = await otpReqRes2.json();
+  const otpCode2 = harness.sentEmails[1].code;
+
+  // Succeed with valid Email OTP, DELETE confirmation, and password
+  const okRes = await call('/api/user/account/delete', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      confirmation: 'DELETE',
+      otpToken: otpReqBody2.otpToken,
+      otpCode: otpCode2,
+      password: 'CurrentPass123!'
+    })
+  });
+  assert.equal(okRes.status, 200);
+  const okBody = await okRes.json();
+  assert.equal(okBody.success, true);
+  assert.equal(okBody.deleted, true);
+  assert.equal(revokedUserId, 'usr_100');
+
+  const sqlList = harness.pgQueries.map((q) => q.sql);
+  assert.ok(sqlList.some((s) => /UPDATE pick\.delivery_profiles/i.test(s)));
+  assert.ok(sqlList.some((s) => /UPDATE system_users\s+SET is_deleted = TRUE/i.test(s)));
+  assert.ok(!sqlList.some((s) => /DELETE FROM system_users/i.test(s)));
+  assert.ok(!sqlList.some((s) => /DELETE FROM pick\.orders/i.test(s)));
+});
+
+test('Super Administrator account cannot be self-deleted', async (t) => {
+  const harness = createMockHarness({ role: 'super_admin' });
+  const call = await withApp(t, harness.deps);
+  const res = await call('/api/user/account/delete', {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer valid-session-token',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ confirmation: 'DELETE' })
+  });
+  assert.equal(res.status, 403);
+});

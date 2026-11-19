@@ -55,6 +55,7 @@ const UserProfileSettingsView = lazy(() => import('./views/UserProfileSettingsVi
 const UserTwoFactorView = lazy(() => import('./views/UserTwoFactorView'));
 const UserTeamManagementView = lazy(() => import('./views/UserTeamManagementView'));
 const LegalPolicyView = lazy(() => import('./views/LegalPolicyView'));
+const DeleteAccountView = lazy(() => import('./views/DeleteAccountView'));
 const NotFoundView = lazy(() => import('./views/NotFoundView'));
 const UnavailablePage = lazy(() => import('./components/UnavailablePage'));
 const StoreSuspendedPage = lazy(() => import('./components/StoreSuspendedPage'));
@@ -528,6 +529,7 @@ export default function App() {
         if (pathname === 'terms' || pathname === 'terms-of-service') return 'terms';
         if (pathname === 'cookie-policy' || pathname === 'cookies') return 'cookie-policy';
         if (pathname === 'security-policy' || pathname === 'security') return 'security-policy';
+        if (pathname === 'delete-account' || pathname === 'account-deletion') return 'delete-account';
 
         if (pathname === 'profile-settings' || pathname.startsWith('profile-settings/')) {
           return pathname;
@@ -2378,6 +2380,16 @@ export default function App() {
           initialSection={activeTab}
           onBack={() => handleTabChange(currentUser ? 'workspace' : 'landing')}
           onNavigate={handleTabChange}
+        />
+      ) : activeTab === 'delete-account' ? (
+        <DeleteAccountView
+          currentUser={currentUser}
+          onBack={() => handleTabChange(currentUser ? 'profile-settings/security' : 'landing')}
+          onNavigate={handleTabChange}
+          onAccountDeleted={() => {
+            setCurrentUser(null);
+            handleTabChange('landing');
+          }}
         />
       ) : (!currentUser && activeTab !== 'store' && activeTab !== 'verification' && activeTab !== 'create-account' && !activeTab.startsWith('create-store') && activeTab !== 'mobile-help-support' && activeTab !== 'help-support/mobile' && activeTab !== 'help-support' && !(typeof activeTab === 'string' && activeTab.startsWith('help-support/')) && activeTab !== 'tpanel' && activeTab !== 'landing' && activeTab !== 'subdomain' && !(typeof activeTab === 'string' && (activeTab.startsWith('subdomain') || activeTab.startsWith('uidis')))) ? (
         <LoginView

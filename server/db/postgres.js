@@ -118,6 +118,9 @@ export async function initPgSchema() {
       ALTER TABLE system_users ADD COLUMN IF NOT EXISTS postal_code VARCHAR(32);
       ALTER TABLE system_users ADD COLUMN IF NOT EXISTS account_type VARCHAR(32) DEFAULT 'personal';
       ALTER TABLE system_users ADD COLUMN IF NOT EXISTS business_name VARCHAR(255);
+      ALTER TABLE system_users ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE;
+      ALTER TABLE system_users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE system_users ADD COLUMN IF NOT EXISTS otp_disabled BOOLEAN DEFAULT FALSE;
       ALTER TABLE system_users ADD COLUMN IF NOT EXISTS free_subdomain_claimed_at TIMESTAMP WITH TIME ZONE;
       ALTER TABLE system_users ADD COLUMN IF NOT EXISTS free_subdomain_id VARCHAR(64);
       ALTER TABLE system_users ADD COLUMN IF NOT EXISTS identity_verified BOOLEAN NOT NULL DEFAULT FALSE;
