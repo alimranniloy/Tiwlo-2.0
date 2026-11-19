@@ -387,6 +387,31 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
     }
   };
 
+  // Toggle per-user OTP / 2FA requirement
+  const handleToggleOtp = async (customer) => {
+    if (!customer?.id) return;
+    try {
+      setActionLoading(true);
+      const nextOtpDisabled = !customer.otpDisabled;
+      const res = await fetch(`${API_BASE}/admin/users/${encodeURIComponent(customer.id)}/otp`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({ otpDisabled: nextOtpDisabled }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.success === false) {
+        throw new Error(json.error || 'Failed to update OTP setting.');
+      }
+      showToast?.(json.message || (nextOtpDisabled ? 'OTP disabled for user.' : 'OTP enabled for user.'), 'success');
+      triggerReload();
+    } catch (err) {
+      showToast?.(err.message || 'Failed to update OTP setting.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Upgrade / Change Plan & Add-ons (POST /api/admin/stores/:tiwiId/plan)
   const handleSaveStorePlan = async (e) => {
     e.preventDefault();
@@ -998,6 +1023,31 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                             <Store className="h-3 w-3" />
                             Stores ({c.storeCount || stores.length})
                           </button>
+
+                          {c.role !== 'super_admin' && c.email !== 'tiwloltd@gmail.com' && (
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={!c.otpDisabled}
+                              disabled={actionLoading}
+                              onClick={() => handleToggleOtp(c)}
+                              title={c.otpDisabled ? 'OTP Off (Click to enable OTP/2FA)' : 'OTP On (Click to disable OTP/2FA)'}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200/80 bg-white px-2.5 py-1 text-[11px] font-semibold text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                            >
+                              <span>OTP</span>
+                              <span
+                                className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
+                                  !c.otpDisabled ? 'bg-[#1ED760]' : 'bg-neutral-300 dark:bg-neutral-700'
+                                }`}
+                              >
+                                <span
+                                  className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${
+                                    !c.otpDisabled ? 'translate-x-3.5' : 'translate-x-0.5'
+                                  }`}
+                                />
+                              </span>
+                            </button>
+                          )}
 
                           {c.role !== 'super_admin' && c.email !== 'tiwloltd@gmail.com' && (
                             <button
