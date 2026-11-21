@@ -405,6 +405,11 @@ export const AppNavigator: React.FC = () => {
       setDeliveryCoverage(savedCoverage.coverage);
       replaceScreen(savedCoverage.coverage.available ? 'rain_delay' : 'coverage_unavailable');
     } catch (error) {
+      if (error instanceof PickAccountDisabledError) {
+        setUser(error.user);
+        replaceScreen('account_disabled');
+        return;
+      }
       showNotice(
         'Coverage unavailable',
         error instanceof Error ? error.message : 'Could not refresh your delivery coverage.'

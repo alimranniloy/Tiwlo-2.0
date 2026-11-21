@@ -56,6 +56,36 @@ export class PickAccountRestoredError extends Error {
   }
 }
 
+export function isAccountDisabledResponse(status: number, result: Record<string, any> | null | undefined): boolean {
+  if (!result || typeof result !== 'object') return false;
+  return Boolean(
+    result.isBanned === true ||
+    result.banned === true ||
+    (status === 403 && result.error === 'ACCOUNT_DISABLED')
+  );
+}
+
+export function buildBannedPickUser(result: Record<string, any> | null | undefined): PickUser {
+  const raw = (result?.user && typeof result.user === 'object' ? result.user : result) || {};
+  return {
+    id: String(raw.id || ''),
+    tiwiId: String(raw.tiwiId || raw.storeId || ''),
+    name: String(raw.name || raw.storeName || 'Tiwlo User'),
+    email: String(raw.email || ''),
+    phone: String(raw.phone || ''),
+    avatar: raw.avatar ? String(raw.avatar) : null,
+    deliveryAddress: String(raw.deliveryAddress || ''),
+    deliveryAddressVerified: Boolean(raw.deliveryAddressVerified),
+    deliveryLatitude: typeof raw.deliveryLatitude === 'number' ? raw.deliveryLatitude : null,
+    deliveryLongitude: typeof raw.deliveryLongitude === 'number' ? raw.deliveryLongitude : null,
+    deliveryArea: String(raw.deliveryArea || ''),
+    deliveryPostalCode: String(raw.deliveryPostalCode || ''),
+    deliveryPlusCode: String(raw.deliveryPlusCode || ''),
+    isBanned: true,
+    banReason: String(raw.banReason || result?.banReason || result?.reason || '')
+  };
+}
+
 export interface AuthChallenge {
   success: boolean;
   isBanned?: boolean;
@@ -341,6 +371,14 @@ async function postAuth(path: string, body: Record<string, unknown>): Promise<Au
       throw error;
     }
   }
+  if (isAccountDisabledResponse(response.status, result)) {
+    return {
+      ...result,
+      success: true,
+      isBanned: true,
+      user: buildBannedPickUser(result)
+    } as AuthChallenge;
+  }
   if (!response.ok || !result.success) {
     if (response.status === 429) {
       throw new AuthRateLimitError(
@@ -583,7 +621,7 @@ export async function submitPickAccountAppeal(message: string): Promise<PickAcco
 }
 
 export async function verifyPickEmail(tempToken: string, otpCode: string): Promise<AuthChallenge> {
-  return postAuth('verify-email', { tempToken, otpCode });
+  return postAuth('verify-email', { tempToken, otpCode, clientSource: 'pick_app' });
 }
 
 export async function resendPickEmailVerification(tempToken: string): Promise<AuthChallenge> {
@@ -601,7 +639,7 @@ export async function verifyPickTwoFactor(
   otpCode: string,
   setup: boolean
 ): Promise<AuthChallenge> {
-  const result = await postAuth(setup ? 'setup-2fa' : 'verify-2fa', { tempToken, otpCode });
+  const result = await postAuth(setup ? 'setup-2fa' : 'verify-2fa', { tempToken, otpCode, clientSource: 'pick_app' });
   return completePickAuthentication(result);
 }
 

@@ -1,5 +1,11 @@
 import * as Location from 'expo-location';
-import { getPickAccessToken, PickUser } from './auth';
+import {
+  buildBannedPickUser,
+  getPickAccessToken,
+  isAccountDisabledResponse,
+  PickAccountDisabledError,
+  PickUser
+} from './auth';
 import { API_ORIGIN, PICK_API_URL } from '../config/api';
 
 async function getCurrentLocationPosition() {
@@ -47,6 +53,13 @@ export async function getSavedDeliveryCoverage(): Promise<SavedDeliveryCoverage>
     headers: { Authorization: `Bearer ${sessionToken}` }
   });
   const result = await response.json().catch(() => ({}));
+  if (isAccountDisabledResponse(response.status, result)) {
+    throw new PickAccountDisabledError(
+      sessionToken,
+      buildBannedPickUser(result),
+      result.reason || result.error || 'This Tiwlo account is disabled.'
+    );
+  }
   if (!response.ok || typeof result.hasLocation !== 'boolean') {
     throw new Error(result.error || 'Could not refresh your delivery coverage.');
   }
