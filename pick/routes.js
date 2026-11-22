@@ -9,6 +9,10 @@ import {
   verifyGoogleAddress
 } from '../server/db/addressVerification.js';
 import { getGoogleMapsApiKey } from '../server/db/googleMapsSettings.js';
+import {
+  listEnrichedUserSessions,
+  revokeUserSessionByHash
+} from '../server/security/sessionMetadata.js';
 import { PLATFORM_CONFIG } from '../server/config/platformConfig.js';
 import adminRoutes from './adminRoutes.js';
 import { findCoverageZone, isWorldwideCoverageEnabled } from './coverage.js';
@@ -512,6 +516,56 @@ router.get('/me', requireUser, async (req, res, next) => {
       [req.tiwloSession.user.id]
     );
     return res.json({ user: serializeUser(req.tiwloSession.user, profile.rows[0]) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get('/sessions', requireUser, async (req, res, next) => {
+  try {
+    res.setHeader('Cache-Control', 'no-store');
+    const data = await listEnrichedUserSessions(
+      queryPg,
+      req.tiwloSession.user.id,
+      getSessionToken(req)
+    );
+    return res.json({ success: true, ...data });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.delete('/sessions', requireUser, async (req, res, next) => {
+  try {
+    const currentToken = getSessionToken(req);
+    await MasterDB.revokeUserSessions(req.tiwloSession.user.id, currentToken);
+    const data = await listEnrichedUserSessions(
+      queryPg,
+      req.tiwloSession.user.id,
+      currentToken
+    );
+    return res.json({ success: true, ...data });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.delete('/sessions/:sessionId', requireUser, async (req, res, next) => {
+  try {
+    const sessionId = String(req.params.sessionId || '').trim();
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Session ID is required.' });
+    }
+    const removed = await revokeUserSessionByHash(queryPg, req.tiwloSession.user.id, sessionId);
+    if (!removed) {
+      return res.status(404).json({ error: 'Session not found.' });
+    }
+    const data = await listEnrichedUserSessions(
+      queryPg,
+      req.tiwloSession.user.id,
+      getSessionToken(req)
+    );
+    return res.json({ success: true, ...data });
   } catch (error) {
     return next(error);
   }

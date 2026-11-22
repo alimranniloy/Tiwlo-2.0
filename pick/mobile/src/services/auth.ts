@@ -8,6 +8,7 @@ import {
   PICK_AUTH_CALLBACK,
   PICK_DELIVERY_AUTH_CALLBACK
 } from '../config/api';
+import { getPickDeviceHeaders } from '../utils/deviceHeaders';
 
 const SESSION_KEY = 'pick.tiwlo.session';
 const APPEAL_SESSION_KEY = 'pick.tiwlo.appeal_session';
@@ -24,12 +25,22 @@ export async function fetchWithTimeoutAndRetry(
   const timeoutMs = options.timeoutMs ?? 15000;
   const retries = options.retries ?? 2;
   let lastError: unknown;
+  const mergedHeaders = {
+    ...getPickDeviceHeaders(),
+    ...(init.headers && typeof init.headers === 'object' && !Array.isArray(init.headers)
+      ? (init.headers as Record<string, string>)
+      : {})
+  };
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const response = await fetch(url, { ...init, signal: controller.signal });
+      const response = await fetch(url, {
+        ...init,
+        headers: mergedHeaders,
+        signal: controller.signal
+      });
       if (attempt < retries && (response.status === 502 || response.status === 503 || response.status === 504)) {
         await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 400 : 1000));
         continue;
@@ -236,11 +247,11 @@ async function exchangeCallbackUrl(callbackUrl: string, app: 'pick' | 'delivery'
     throw new Error('The sign-in request expired. Please try again.');
   }
 
-  const response = await fetch(`${PICK_API_URL}/auth/mobile-token`, {
+  const response = await fetchWithTimeoutAndRetry(`${PICK_API_URL}/auth/mobile-token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code, codeVerifier })
-  });
+  }, { retries: 0 });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !result.success || !result.user) {
     throw new Error(result.error || 'Could not complete PICK sign-in.');
@@ -629,7 +640,7 @@ export async function loginPickAccount(identifier: string, password: string): Pr
 export async function getPickAccountAppeal(): Promise<PickAccountAppeal | null> {
   const sessionToken = await getPickAccessToken();
   if (!sessionToken) throw new Error('Sign in to PICK to view your account review request.');
-  const response = await fetch(`${PICK_API_URL}/account-appeals`, {
+  const response = await fetchWithTimeoutAndRetry(`${PICK_API_URL}/account-appeals`, {
     headers: { Authorization: `Bearer ${sessionToken}` }
   });
   const result = await response.json().catch(() => ({}));
@@ -642,14 +653,14 @@ export async function getPickAccountAppeal(): Promise<PickAccountAppeal | null> 
 export async function submitPickAccountAppeal(message: string): Promise<PickAccountAppeal> {
   const sessionToken = await getPickAccessToken();
   if (!sessionToken) throw new Error('Sign in to PICK before contacting support.');
-  const response = await fetch(`${PICK_API_URL}/account-appeals`, {
+  const response = await fetchWithTimeoutAndRetry(`${PICK_API_URL}/account-appeals`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${sessionToken}`
     },
     body: JSON.stringify({ message })
-  });
+  }, { retries: 0 });
   const result = await response.json().catch(() => ({}));
   if ((!response.ok && response.status !== 409) || !result.appeal) {
     throw new Error(result.error || 'Could not submit your account review request.');
@@ -810,10 +821,10 @@ export async function clearStoredPickSession(): Promise<void> {
   ]);
   try {
     for (const sessionToken of new Set(sessionTokens.filter((token): token is string => Boolean(token)))) {
-      const response = await fetch(`${PICK_API_URL}/auth/logout`, {
+      const response = await fetchWithTimeoutAndRetry(`${PICK_API_URL}/auth/logout`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${sessionToken}` }
-      });
+      }, { timeoutMs: 8000, retries: 0 });
       if (!response.ok) throw new Error('Could not sign out from PICK.');
     }
   } finally {
@@ -837,14 +848,14 @@ export async function updatePickProfile(
   const sessionToken = await getPickAccessToken();
   if (!sessionToken) throw new Error('PICK sign-in is required to update your profile.');
 
-  const response = await fetch(`${PICK_API_URL}/profile`, {
+  const response = await fetchWithTimeoutAndRetry(`${PICK_API_URL}/profile`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${sessionToken}`
     },
     body: JSON.stringify(updates)
-  });
+  }, { retries: 0 });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !result.user) {
     throw new Error(result.error || 'Could not update your PICK profile.');
@@ -856,14 +867,14 @@ export async function requestPickDeleteOtp(): Promise<{ otpToken: string; emailM
   const sessionToken = await getPickAccessToken();
   if (!sessionToken) throw new Error('Sign in to PICK to request an Email OTP.');
 
-  const response = await fetch(`${PICK_API_URL}/account/delete-otp`, {
+  const response = await fetchWithTimeoutAndRetry(`${PICK_API_URL}/account/delete-otp`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${sessionToken}`
     },
     body: JSON.stringify({})
-  });
+  }, { retries: 0 });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || result.success === false || !result.otpToken) {
     throw new Error(result.error || 'Could not send Email OTP.');
@@ -882,14 +893,14 @@ export async function deletePickAccount(input: {
   const sessionToken = await getPickAccessToken();
   if (!sessionToken) throw new Error('Sign in to PICK to delete your account.');
 
-  const response = await fetch(`${PICK_API_URL}/account/delete`, {
+  const response = await fetchWithTimeoutAndRetry(`${PICK_API_URL}/account/delete`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${sessionToken}`
     },
     body: JSON.stringify(input)
-  });
+  }, { retries: 0 });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || result.success === false) {
     throw new Error(result.error || 'Could not delete your PICK account.');

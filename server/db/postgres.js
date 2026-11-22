@@ -147,6 +147,9 @@ export async function initPgSchema() {
       ALTER TABLE system_sessions ADD COLUMN IF NOT EXISTS session_token VARCHAR(128);
       ALTER TABLE system_sessions ADD COLUMN IF NOT EXISTS device_fingerprint VARCHAR(128);
       ALTER TABLE system_sessions ADD COLUMN IF NOT EXISTS user_agent TEXT;
+      ALTER TABLE system_sessions ADD COLUMN IF NOT EXISTS device_name TEXT;
+      ALTER TABLE system_sessions ADD COLUMN IF NOT EXISTS app_name VARCHAR(64);
+      ALTER TABLE system_sessions ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
       CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_session_token_unique ON system_sessions(session_token);
 
       CREATE TABLE IF NOT EXISTS system_user_device_identities (

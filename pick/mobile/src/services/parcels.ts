@@ -1,6 +1,6 @@
 import type { IconName } from '../components/common/PickIcon';
 import { PICK_API_URL } from '../config/api';
-import { getPickAccessToken } from './auth';
+import { fetchWithTimeoutAndRetry, getPickAccessToken } from './auth';
 import { OrderSubmission, PaymentMethod } from './orders';
 
 export interface ParcelVehicle {
@@ -20,14 +20,15 @@ const VEHICLE_ICONS: IconName[] = ['scooter', 'car', 'pickup', 'truck'];
 async function parcelRequest(path: string, init: RequestInit = {}): Promise<Record<string, unknown>> {
   const token = await getPickAccessToken();
   if (!token) throw new Error('Sign in with Tiwlo to continue.');
-  const response = await fetch(`${PICK_API_URL}${path}`, {
+  const method = (init.method || 'GET').toUpperCase();
+  const response = await fetchWithTimeoutAndRetry(`${PICK_API_URL}${path}`, {
     ...init,
     headers: {
       ...(init.body ? { 'Content-Type': 'application/json' } : {}),
       Authorization: `Bearer ${token}`,
       ...init.headers
     }
-  });
+  }, { retries: method === 'GET' ? 2 : 0 });
   const value: unknown = await response.json().catch(() => null);
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('The PICK server returned an invalid response.');

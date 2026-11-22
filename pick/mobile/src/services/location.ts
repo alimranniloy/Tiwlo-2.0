@@ -148,21 +148,21 @@ export async function verifyAndSaveCurrentDeliveryAddress(): Promise<{
     accuracy: position.coords.accuracy ?? 0
   };
 
-  const verificationResponse = await fetch(`${API_ORIGIN}/api/address-verification`, {
+  const verificationResponse = await fetchWithTimeoutAndRetry(`${API_ORIGIN}/api/address-verification`, {
     method: 'POST',
     headers,
     body: JSON.stringify(location)
-  });
+  }, { retries: 0 });
   const verification = await verificationResponse.json().catch(() => ({}));
   if (!verificationResponse.ok || verification.verified !== true) {
     throw new Error(verification.error || 'Tiwlo could not verify your current location.');
   }
 
-  const saveResponse = await fetch(`${PICK_API_URL}/address-verification`, {
+  const saveResponse = await fetchWithTimeoutAndRetry(`${PICK_API_URL}/address-verification`, {
     method: 'POST',
     headers,
     body: JSON.stringify({})
-  });
+  }, { retries: 0 });
   const saved = await saveResponse.json().catch(() => ({}));
   if (!saveResponse.ok || !saved.user || !saved.coverage ||
       typeof saved.coverage.available !== 'boolean') {
@@ -190,7 +190,7 @@ export async function setCurrentDeliveryLocation(): Promise<Pick<PickUser,
   const sessionToken = await getPickAccessToken();
   if (!sessionToken) throw new Error('Tiwlo sign-in is required to save your location.');
 
-  const response = await fetch(`${PICK_API_URL}/location/reverse-geocode`, {
+  const response = await fetchWithTimeoutAndRetry(`${PICK_API_URL}/location/reverse-geocode`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -201,7 +201,7 @@ export async function setCurrentDeliveryLocation(): Promise<Pick<PickUser,
       longitude: position.coords.longitude,
       accuracy: position.coords.accuracy ?? 0
     })
-  });
+  }, { retries: 1 });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !result.address || !result.coverage ||
       typeof result.coverage.available !== 'boolean') {
@@ -223,10 +223,10 @@ export async function setCurrentDeliveryLocation(): Promise<Pick<PickUser,
 export async function joinCoverageWaitlist(): Promise<void> {
   const sessionToken = await getPickAccessToken();
   if (!sessionToken) throw new Error('Tiwlo sign-in is required to join the waitlist.');
-  const response = await fetch(`${PICK_API_URL}/coverage/waitlist`, {
+  const response = await fetchWithTimeoutAndRetry(`${PICK_API_URL}/coverage/waitlist`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${sessionToken}` }
-  });
+  }, { retries: 0 });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || result.joined !== true) {
     throw new Error(result.error || 'Could not join the coverage waitlist.');

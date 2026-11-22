@@ -1,5 +1,6 @@
 import { readState, saveState, listState } from './stateDocuments.js';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { extractSessionClientMetadata } from '../security/sessionMetadata.js';
 import {
   normalizePhoneIdentifier,
   normalizeSignupEmail,
@@ -87,6 +88,28 @@ function createEmptyTenantStore(tiwiId) {
       timezone: 'UTC+6 (Asia/Dhaka)'
     }
   };
+}
+
+const SESSION_TOUCH_INTERVAL_MS = 60 * 1000;
+const sessionTouchTimestamps = new Map();
+
+function hashSessionTokenForMeta(token) {
+  return createHash('sha256').update(String(token || '')).digest('hex');
+}
+
+async function persistSessionMetadata(sessionToken, req) {
+  if (!sessionToken || !req) return;
+  const meta = extractSessionClientMetadata(req);
+  const tokenHash = hashSessionTokenForMeta(sessionToken);
+  await queryPg(
+    `UPDATE system_sessions
+     SET ip = COALESCE(NULLIF($2, ''), ip),
+         device_name = COALESCE(NULLIF($3, ''), device_name),
+         app_name = COALESCE(NULLIF($4, ''), app_name),
+         last_active_at = CURRENT_TIMESTAMP
+     WHERE session_token = $1 OR token = $1`,
+    [tokenHash, meta.ip || '', meta.deviceName || '', meta.appName || '']
+  );
 }
 
 // ====================================================================
@@ -445,6 +468,7 @@ export const MasterDB = {
     const user = await this.findUserByIdentifier(userId);
     if (!user) throw new Error('Cannot create a session for an unknown user.');
     const session = await createAuthSessionWithRust({ user, tiwiId, email, request: req });
+    await persistSessionMetadata(session.sessionToken, req).catch(() => {});
     if (req?.cookies?.tiwlo_guest_support) {
       import('../support/ticketingService.js')
         .then(({ defaultTicketingService }) =>
@@ -465,6 +489,19 @@ export const MasterDB = {
     if (!isPgActive()) throw new Error('PostgreSQL is unavailable; session validation is disabled.');
     const session = await resolveAuthSessionWithRust({ token, request: req });
     if (!session) return null;
+    if (req) {
+      const touchKey = hashSessionTokenForMeta(token);
+      const now = Date.now();
+      const lastTouched = sessionTouchTimestamps.get(touchKey) || 0;
+      if (now - lastTouched >= SESSION_TOUCH_INTERVAL_MS) {
+        sessionTouchTimestamps.set(touchKey, now);
+        if (sessionTouchTimestamps.size > 5000) {
+          const oldestKey = sessionTouchTimestamps.keys().next().value;
+          if (oldestKey) sessionTouchTimestamps.delete(oldestKey);
+        }
+        persistSessionMetadata(token, req).catch(() => {});
+      }
+    }
     const user = await this.findUserByIdentifier(session.userId || session.email);
     return { session, user };
   },

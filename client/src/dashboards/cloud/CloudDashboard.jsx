@@ -52,6 +52,7 @@ import OneProfileSettingsView from '../../oneprofile/views/OneProfileSettingsVie
 import IdentityView from './views/IdentityView';
 import UserProfileSettingsView from '../../views/UserProfileSettingsView';
 import UserTwoFactorView from '../../views/UserTwoFactorView';
+import UserSessionsView from '../../views/UserSessionsView';
 import UserTeamManagementView from '../../views/UserTeamManagementView';
 import WorkspacePerformanceView from '../../views/workspace/WorkspacePerformanceView';
 import WorkspaceSecurityAlertsView from '../../views/workspace/WorkspaceSecurityAlertsView';
@@ -179,6 +180,7 @@ export default function CloudDashboard({
         identity: '/identity',
         'whatsapp-automation': '/whatsapp-automation',
         'profile-settings': '/profile-settings',
+        'active-sessions': '/active-sessions',
         'two-factor-auth': '/two-factor-auth',
         'team-management': '/team-management',
       };
@@ -418,6 +420,8 @@ export default function CloudDashboard({
               navigateCloudView(`profile-settings/${tab}`);
             } else if (tab === 'two-factor-auth') {
               navigateCloudView('two-factor-auth');
+            } else if (tab === 'active-sessions' || tab === 'sessions') {
+              navigateCloudView('active-sessions');
             } else if (tab === 'team-management') {
               navigateCloudView('team-management');
             } else if (tab && tab.includes('/')) {
@@ -635,7 +639,15 @@ export default function CloudDashboard({
                 onUserUpdated={(updatedUser) => setProfileUser((prev) => ({ ...(prev || {}), ...updatedUser }))}
                 onBack={() => navigateCloudView('dashboard')}
                 onOpenTwoFactor={() => navigateCloudView('two-factor-auth')}
+                onOpenSessions={() => navigateCloudView('active-sessions')}
                 onOpenTeamManagement={() => navigateCloudView('team-management')}
+                showToast={showToast}
+              />
+            </div>
+          ) : activeNav === 'active-sessions' ? (
+            <div className="max-w-[1500px] mx-auto">
+              <UserSessionsView
+                onBack={() => navigateCloudView('profile-settings/security')}
                 showToast={showToast}
               />
             </div>

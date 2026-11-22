@@ -24,6 +24,7 @@ interface ProfileScreenProps {
   onNavigateToWallet: () => void;
   onNavigateToOrders: () => void;
   onNavigateToAddress: () => void;
+  onNavigateToSessions: () => void;
   onContactSupport: () => void;
   onDeleteAccount: (input: { confirmation: string; otpToken: string; otpCode: string }) => Promise<void>;
   onSignOut: () => void;
@@ -36,6 +37,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onNavigateToWallet,
   onNavigateToOrders,
   onNavigateToAddress,
+  onNavigateToSessions,
   onContactSupport,
   onDeleteAccount,
   onSignOut,
@@ -126,6 +128,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       title: t('Saved Places', 'সংরক্ষিত ঠিকানা'),
       icon: 'location-pin',
       action: onNavigateToAddress,
+    },
+    {
+      id: 'sessions',
+      title: t('Logged-in Devices & Sessions', 'লগইন করা ডিভাইস ও সেশন'),
+      icon: 'phone',
+      action: onNavigateToSessions,
     },
     {
       id: 'settings',

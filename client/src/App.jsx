@@ -53,6 +53,7 @@ const SecurityCheckupView = lazy(() => import('./views/SecurityCheckupView'));
 const AddressVerificationView = lazy(() => import('./views/AddressVerificationView'));
 const UserProfileSettingsView = lazy(() => import('./views/UserProfileSettingsView'));
 const UserTwoFactorView = lazy(() => import('./views/UserTwoFactorView'));
+const UserSessionsView = lazy(() => import('./views/UserSessionsView'));
 const UserTeamManagementView = lazy(() => import('./views/UserTeamManagementView'));
 const LegalPolicyView = lazy(() => import('./views/LegalPolicyView'));
 const DeleteAccountView = lazy(() => import('./views/DeleteAccountView'));
@@ -544,6 +545,7 @@ export default function App() {
           return `profile-settings/${pathname.slice('account-settings/'.length)}`;
         }
         if (pathname === 'two-factor-auth') return 'two-factor-auth';
+        if (pathname === 'active-sessions' || pathname === 'sessions') return 'active-sessions';
         if (pathname === 'team-management') return 'team-management';
 
         // Unrecognized route -> 404
@@ -2614,6 +2616,7 @@ export default function App() {
         activeTab === 'profile-settings' ||
         activeTab.startsWith('profile-settings/') ||
         activeTab === 'two-factor-auth' ||
+        activeTab === 'active-sessions' ||
         activeTab === 'team-management'
       ) ? (
         <CloudDashboard
@@ -2632,6 +2635,7 @@ export default function App() {
                     activeTab === 'profile-settings' ||
                     activeTab.startsWith('profile-settings/') ||
                     activeTab === 'two-factor-auth' ||
+                    activeTab === 'active-sessions' ||
                     activeTab === 'team-management')
                     ? activeTab
                     : 'dashboard'
@@ -2946,7 +2950,16 @@ export default function App() {
               onUserUpdated={(updated) => setCurrentUser((prev) => (prev ? { ...prev, ...updated } : updated))}
               onBack={() => handleTabChange('ecommerce-dashboard')}
               onOpenTwoFactor={() => handleTabChange('two-factor-auth')}
+              onOpenSessions={() => handleTabChange('active-sessions')}
               onOpenTeamManagement={() => handleTabChange('team-management')}
+              showToast={showToast}
+            />
+          )}
+
+          {/* TAB: ACTIVE SESSIONS & DEVICES */}
+          {activeTab === 'active-sessions' && (
+            <UserSessionsView
+              onBack={() => handleTabChange('profile-settings/security')}
               showToast={showToast}
             />
           )}

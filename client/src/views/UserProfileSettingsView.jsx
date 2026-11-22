@@ -31,10 +31,12 @@ import {
 import { supportFetch } from '../utils/supportFetch';
 import { resolveAvatarUrl } from '../utils/mediaUtils';
 import { COUNTRIES, findCountry } from '../utils/countries';
+import UserSessionsView from './UserSessionsView';
 
 const PROFILE_SECTIONS = [
   { id: 'profile', label: 'Profile & Photo', icon: UserRound },
-  { id: 'security', label: 'Password, PIN & Sessions', icon: ShieldCheck },
+  { id: 'security', label: 'Password & Security PIN', icon: ShieldCheck },
+  { id: 'sessions', label: 'Active Sessions', icon: Smartphone },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'widgets', label: 'Widget Settings', icon: LayoutGrid },
   { id: 'activity', label: 'Activity Log', icon: Activity }
@@ -241,6 +243,7 @@ export default function UserProfileSettingsView({
   onBack,
   onOpenTwoFactor,
   onOpenTeamManagement,
+  onOpenSessions,
   showToast
 }) {
   const [section, setSection] = useState(() =>
@@ -890,6 +893,30 @@ export default function UserProfileSettingsView({
               </button>
             )}
 
+            {onOpenSessions && (
+              <button
+                type="button"
+                onClick={onOpenSessions}
+                className={`${CARD_CLASS} group flex w-full items-start justify-between gap-3 p-4 text-left transition hover:border-neutral-300 hover:bg-[#fafafa] dark:hover:border-neutral-700 dark:hover:bg-neutral-900/60`}
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="size-4 text-neutral-700 dark:text-neutral-300" />
+                    <span className="text-xs font-bold text-neutral-950 dark:text-white">
+                      Sessions &amp; Devices
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                    Inspect logged-in phones, browsers, IPs &amp; sign out remotely.
+                  </p>
+                  <span className="mt-1 inline-flex items-center rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold text-neutral-600 tabular-nums dark:bg-neutral-800 dark:text-neutral-300">
+                    {sessions.length} Active
+                  </span>
+                </div>
+                <ArrowRight className="mt-0.5 size-4 shrink-0 text-neutral-400 transition group-hover:translate-x-0.5 group-hover:text-neutral-900 dark:group-hover:text-white" />
+              </button>
+            )}
+
             {onOpenTeamManagement && (
               <button
                 type="button"
@@ -1332,84 +1359,30 @@ export default function UserProfileSettingsView({
                 </div>
               </form>
 
-              {/* Active Sessions Card */}
-              <div className={`${CARD_CLASS} overflow-hidden`}>
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200/80 px-5 py-4 dark:border-neutral-800">
-                  <div className="flex items-center gap-2">
-                    <Laptop className="size-4 text-neutral-500" />
-                    <div>
-                      <h2 className="text-sm font-bold text-neutral-950 dark:text-white">
-                        Active Sessions <span className="tabular-nums text-neutral-500">({sessions.length})</span>
-                      </h2>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                        Devices currently signed into your Tiwlo account.
-                      </p>
-                    </div>
+              {/* Active Sessions Dedicated Page Card */}
+              <div className={`${CARD_CLASS} flex flex-wrap items-center justify-between gap-4 p-5`}>
+                <div className="flex items-start gap-3">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-[#fafafa] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200">
+                    <Smartphone className="size-4" />
                   </div>
-                  {sessions.some((item) => !item.isCurrent) && (
-                    <button
-                      type="button"
-                      disabled={revokingSessionId === 'others'}
-                      onClick={() => handleRevokeSession('')}
-                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 disabled:opacity-60 dark:border-rose-900/60 dark:bg-neutral-900 dark:text-rose-400 dark:hover:bg-rose-950/30"
-                    >
-                      {revokingSessionId === 'others' && <Loader2 className="size-3 animate-spin" />}
-                      <span>Sign out other sessions</span>
-                    </button>
-                  )}
+                  <div>
+                    <h2 className="text-sm font-bold text-neutral-950 dark:text-white">
+                      Active Sessions &amp; Devices <span className="tabular-nums text-neutral-500">({sessions.length})</span>
+                    </h2>
+                    <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                      View mobile devices, web browsers, IP addresses, and remotely sign out sessions on the dedicated Sessions page.
+                    </p>
+                  </div>
                 </div>
-
-                <div className="p-5">
-                  {sessions.length === 0 ? (
-                    <div className={`${SURFACE_CLASS} p-6 text-center text-xs text-neutral-500 dark:text-neutral-400`}>
-                      No additional active sessions found.
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-neutral-200/70 rounded-xl border border-neutral-200/80 dark:divide-neutral-800 dark:border-neutral-800">
-                      {sessions.map((session) => {
-                        const isMobile = /Android|iOS|iPhone|iPad/i.test(session.device || session.userAgent || '');
-                        return (
-                          <div
-                            key={session.id}
-                            className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-                          >
-                            <div className="flex min-w-0 items-center gap-3">
-                              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-[#fafafa] text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
-                                {isMobile ? <Smartphone className="size-4" /> : <Laptop className="size-4" />}
-                              </div>
-                              <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <p className="truncate text-xs font-semibold text-neutral-950 dark:text-white">
-                                    {session.device || 'Web Browser Session'}
-                                  </p>
-                                  {session.isCurrent && (
-                                    <span className="rounded-full bg-[#1ED760]/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-[#1ED760]">
-                                      Current Session
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="mt-0.5 truncate text-[11px] text-neutral-500 tabular-nums dark:text-neutral-400">
-                                  IP: {session.ip || 'Unknown'}
-                                  {session.createdAt ? ` · Signed in ${formatDateTime(session.createdAt)}` : ''}
-                                </p>
-                              </div>
-                            </div>
-
-                            {!session.isCurrent && (
-                              <button
-                                type="button"
-                                disabled={revokingSessionId === session.id}
-                                onClick={() => handleRevokeSession(session.id)}
-                                className={SECONDARY_BTN_CLASS}
-                              >
-                                {revokingSessionId === session.id ? 'Signing out...' : 'Sign out'}
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => (onOpenSessions ? onOpenSessions() : setSection('sessions'))}
+                    className={SECONDARY_BTN_CLASS}
+                  >
+                    <span>Manage Sessions</span>
+                    <ArrowRight className="size-3.5" />
+                  </button>
                 </div>
               </div>
 
@@ -1589,6 +1562,15 @@ export default function UserProfileSettingsView({
                 </div>
               </form>
             </div>
+          )}
+
+          {/* SECTION 2B: DEDICATED ACTIVE SESSIONS & DEVICES */}
+          {section === 'sessions' && (
+            <UserSessionsView
+              embedded
+              onSessionsChanged={setSessions}
+              showToast={showToast}
+            />
           )}
 
           {/* SECTION 3: NOTIFICATIONS & REGIONAL PREFERENCES */}

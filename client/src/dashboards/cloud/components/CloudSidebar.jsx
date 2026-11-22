@@ -24,6 +24,7 @@ import {
   Server,
   ShieldAlert,
   ShoppingBag,
+  Smartphone,
   Sparkles,
   Store,
   UserRound,
@@ -113,6 +114,7 @@ export default function CloudSidebar({
       items: [
         { id: 'identity', label: 'Identity', icon: Fingerprint },
         { id: 'profile-settings', label: 'User Settings', icon: UserRound },
+        { id: 'active-sessions', label: 'Active Sessions', icon: Smartphone },
         { id: 'two-factor-auth', label: 'Two-Factor Auth (2FA)', icon: KeyRound },
         { id: 'team-management', label: 'Team Management', icon: Users },
         { id: 'help-support', label: 'Help & support', icon: HelpCircle },

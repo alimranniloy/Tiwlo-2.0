@@ -26,6 +26,11 @@ import {
   verifyPasswordWithRust
 } from '../security/rustAuthSessionClient.js';
 import { scanAndSanitizeImage } from '../security/index.js';
+import {
+  listEnrichedUserSessions,
+  revokeUserSessionByHash,
+  summarizeSessionDevice
+} from '../security/sessionMetadata.js';
 import { normalizeSignupEmail, normalizePhoneIdentifier } from '../security/signupIdentity.js';
 import { SocialDB } from '../social/socialDb.js';
 import { logActivity } from '../db/storeDataAdapter.js';
@@ -754,25 +759,8 @@ export function hashSessionIdentifier(tokenValue) {
     .slice(0, 24);
 }
 
-export function summarizeDeviceFromUserAgent(userAgent = '') {
-  const ua = String(userAgent || '');
-  if (!ua) return 'Unknown device';
-
-  let os = 'Unknown OS';
-  if (/Windows NT/i.test(ua)) os = 'Windows';
-  else if (/Mac OS X|Macintosh/i.test(ua)) os = 'macOS';
-  else if (/Android/i.test(ua)) os = 'Android';
-  else if (/iPhone|iPad|iPod/i.test(ua)) os = 'iOS';
-  else if (/Linux/i.test(ua)) os = 'Linux';
-
-  let browser = 'Browser';
-  if (/Edg\//i.test(ua)) browser = 'Edge';
-  else if (/Chrome\//i.test(ua) && !/Chromium/i.test(ua)) browser = 'Chrome';
-  else if (/Firefox\//i.test(ua)) browser = 'Firefox';
-  else if (/Safari\//i.test(ua) && !/Chrome\//i.test(ua)) browser = 'Safari';
-  else if (/curl|node|undici/i.test(ua)) browser = 'API Client';
-
-  return `${browser} on ${os}`;
+export function summarizeDeviceFromUserAgent(userAgent = '', deviceName = '', appName = '') {
+  return summarizeSessionDevice(userAgent, deviceName, appName).device;
 }
 
 const BLOCKED_WEBHOOK_HOSTNAMES = new Set([
@@ -1275,34 +1263,9 @@ export function createUserAccountRouter(overrides = {}) {
   }
 
   async function listUserSessions(userId, currentToken) {
-    const currentHash = crypto.createHash('sha256').update(String(currentToken || '')).digest('hex');
     try {
-      const result = await deps.queryPg(
-        `SELECT COALESCE(NULLIF(session_token, ''), token) AS token_ref,
-                ip, user_agent, created_at, expires_at
-         FROM system_sessions
-         WHERE user_id = $1
-           AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-         ORDER BY created_at DESC
-         LIMIT 25`,
-        [String(userId)]
-      );
-      return (result?.rows || []).map((row) => {
-        const ref = String(row.token_ref || '');
-        const isCurrent = Boolean(
-          currentToken &&
-          (ref === currentToken || ref === currentHash)
-        );
-        return {
-          id: hashSessionIdentifier(ref),
-          ip: row.ip || 'Unknown IP',
-          userAgent: row.user_agent || '',
-          device: summarizeDeviceFromUserAgent(row.user_agent),
-          createdAt: row.created_at || null,
-          expiresAt: row.expires_at || null,
-          isCurrent
-        };
-      });
+      const { sessions } = await listEnrichedUserSessions(deps.queryPg, userId, currentToken);
+      return sessions;
     } catch {
       return [];
     }
@@ -1831,6 +1794,63 @@ export function createUserAccountRouter(overrides = {}) {
     } catch (error) {
       console.error('[UserAccount] Failed to revoke sessions:', error.message);
       return res.status(500).json({ error: 'Failed to revoke sessions.' });
+    }
+  });
+
+  // 5b. GET /user/account/sessions
+  router.get('/user/account/sessions', requireAuthenticatedUser, async (req, res) => {
+    try {
+      res.setHeader('Cache-Control', 'no-store');
+      const data = await listEnrichedUserSessions(deps.queryPg, req.accountUser.id, req.accountSessionToken);
+      return res.json({ success: true, ...data });
+    } catch (error) {
+      console.error('[UserAccount] Failed to load active sessions:', error.message);
+      return res.status(500).json({ error: 'Failed to load active sessions.' });
+    }
+  });
+
+  // 5c. DELETE /user/account/sessions (revoke all other sessions)
+  router.delete('/user/account/sessions', requireAuthenticatedUser, async (req, res) => {
+    try {
+      const user = req.accountUser;
+      await deps.masterDb.revokeUserSessions(user.id, req.accountSessionToken);
+      await appendUserActivity(user.id, {
+        type: 'session_revoked',
+        category: 'security',
+        title: 'Other sessions revoked',
+        description: 'Signed out of all other active sessions',
+        ip: getClientIp(req),
+        userAgent: req.headers?.['user-agent']
+      });
+      const data = await listEnrichedUserSessions(deps.queryPg, user.id, req.accountSessionToken);
+      return res.json({ success: true, ...data });
+    } catch (error) {
+      console.error('[UserAccount] Failed to revoke other sessions:', error.message);
+      return res.status(500).json({ error: 'Failed to revoke other sessions.' });
+    }
+  });
+
+  // 5d. DELETE /user/account/sessions/:sessionId
+  router.delete('/user/account/sessions/:sessionId', requireAuthenticatedUser, async (req, res) => {
+    try {
+      const user = req.accountUser;
+      const sessionId = String(req.params.sessionId || '').trim();
+      if (!sessionId) return res.status(400).json({ error: 'Session ID is required.' });
+      const removed = await revokeUserSessionByHash(deps.queryPg, user.id, sessionId);
+      if (!removed) return res.status(404).json({ error: 'Session not found.' });
+      await appendUserActivity(user.id, {
+        type: 'session_revoked',
+        category: 'security',
+        title: 'Session revoked',
+        description: `Signed out device session ${sessionId}`,
+        ip: getClientIp(req),
+        userAgent: req.headers?.['user-agent']
+      });
+      const data = await listEnrichedUserSessions(deps.queryPg, user.id, req.accountSessionToken);
+      return res.json({ success: true, ...data });
+    } catch (error) {
+      console.error('[UserAccount] Failed to revoke session:', error.message);
+      return res.status(500).json({ error: 'Failed to revoke session.' });
     }
   });
 

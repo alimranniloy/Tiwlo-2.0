@@ -25,7 +25,7 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const storage = createTemporaryFileStorage('secure-upload');
+const storage = multer.diskStorage(createTemporaryFileStorage('secure-upload'));
 
 const upload = multer({
   storage,

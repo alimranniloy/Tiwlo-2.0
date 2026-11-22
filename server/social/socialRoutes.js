@@ -59,7 +59,7 @@ const ROOT_UPLOAD_DIR = path.resolve(__dirname, '../../upload');
 // Initialize database
 SocialDB.init();
 
-const storage = createTemporaryFileStorage('social-upload');
+const storage = multer.diskStorage(createTemporaryFileStorage('social-upload'));
 
 const upload = multer({
   storage,

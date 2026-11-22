@@ -138,7 +138,7 @@ import {
 } from './currencyHelpers.js';
 import { getMarketUsdRates } from './marketCurrencyRates.js';
 
-const storage = createTemporaryFileStorage('store-upload');
+const storage = multer.diskStorage(createTemporaryFileStorage('store-upload'));
 
 const upload = multer({
   storage,

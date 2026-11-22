@@ -25,6 +25,7 @@ import { OrdersScreen } from '../screens/11_OrdersScreen';
 import { PaymentResultScreen, PaymentResultState } from '../screens/PaymentResultScreen';
 import { WalletScreen } from '../screens/12_WalletScreen';
 import { ProfileScreen } from '../screens/13_ProfileScreen';
+import { SessionsScreen } from '../screens/SessionsScreen';
 import {
   clearStoredPickSession,
   deletePickAccount,
@@ -84,7 +85,8 @@ export type ScreenKey =
   | 'payment_result'
   | 'orders'
   | 'wallet'
-  | 'profile';
+  | 'profile'
+  | 'sessions';
 
 export const AppNavigator: React.FC = () => {
   const networkState = useNetworkState();
@@ -1091,6 +1093,7 @@ export const AppNavigator: React.FC = () => {
             onNavigateToWallet={() => navigate('wallet')}
             onNavigateToOrders={() => navigate('orders')}
             onNavigateToAddress={() => navigate('location_permission')}
+            onNavigateToSessions={() => navigate('sessions')}
             onContactSupport={handleContactSupport}
             onDeleteAccount={async (input) => {
               await deletePickAccount(input);
@@ -1137,6 +1140,17 @@ export const AppNavigator: React.FC = () => {
               }
             }}
             onTabPress={handleTabPress}
+          />
+        );
+
+      case 'sessions':
+        return (
+          <SessionsScreen
+            onBack={goBack}
+            onAccountDisabled={(disabledUser) => {
+              setUser(disabledUser);
+              setHistory(['account_disabled']);
+            }}
           />
         );
 

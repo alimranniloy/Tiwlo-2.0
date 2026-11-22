@@ -1,5 +1,5 @@
 import { PICK_API_URL } from '../config/api';
-import { getPickAccessToken } from './auth';
+import { fetchWithTimeoutAndRetry, getPickAccessToken } from './auth';
 
 export interface CartEntry {
   productId: string;
@@ -145,14 +145,15 @@ export interface PickOrder {
 async function authenticatedRequest(path: string, init: RequestInit = {}): Promise<Response> {
   const token = await getPickAccessToken();
   if (!token) throw new Error('Sign in with Tiwlo to continue.');
-  return fetch(`${PICK_API_URL}${path}`, {
+  const method = (init.method || 'GET').toUpperCase();
+  return fetchWithTimeoutAndRetry(`${PICK_API_URL}${path}`, {
     ...init,
     headers: {
       ...(init.body ? { 'Content-Type': 'application/json' } : {}),
       Authorization: `Bearer ${token}`,
       ...init.headers
     }
-  });
+  }, { retries: method === 'GET' ? 2 : 0 });
 }
 
 async function readResponse(response: Response): Promise<Record<string, unknown>> {
