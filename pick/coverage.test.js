@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {
   distanceBetweenCoordinatesMeters,
   findCoverageZone,
-  normalizeCoverageZone
+  isGuestLoginEnabled,
+  normalizeCoverageZone,
+  setGuestLoginEnabled
 } from './coverage.js';
 
 const dhakaZone = {
@@ -55,4 +57,20 @@ test('validates coverage areas before they are saved', () => {
     centerLongitude: 90.4125,
     radiusMeters: 20
   }), /radius/i);
+});
+
+test('guest login setting defaults to enabled and respects persisted toggles', async () => {
+  assert.equal(await isGuestLoginEnabled(), true);
+  assert.equal(await isGuestLoginEnabled(async () => ({ rows: [] })), true);
+  assert.equal(await isGuestLoginEnabled(async () => ({ rows: [{ value: 'true' }] })), true);
+  assert.equal(await isGuestLoginEnabled(async () => ({ rows: [{ value: ' false ' }] })), false);
+  assert.equal(await isGuestLoginEnabled(async () => { throw new Error('db'); }), true);
+
+  let recordedParams = null;
+  const saved = await setGuestLoginEnabled(false, 'admin-1', async (_sql, params) => {
+    recordedParams = params;
+    return { rows: [] };
+  });
+  assert.equal(saved, false);
+  assert.deepEqual(recordedParams, ['false', 'admin-1']);
 });

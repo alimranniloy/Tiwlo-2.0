@@ -24,6 +24,36 @@ export async function isWorldwideCoverageEnabled(executor) {
   }
 }
 
+export async function isGuestLoginEnabled(executor) {
+  if (typeof executor !== 'function') return true;
+  try {
+    const { rows } = await executor(
+      `SELECT value FROM pick.settings WHERE key = 'guest_login_enabled' LIMIT 1`
+    );
+    if (!rows || rows.length === 0) return true;
+    return String(rows[0]?.value ?? '').trim().toLowerCase() !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+export async function setGuestLoginEnabled(enabled, adminUserId, executor) {
+  if (typeof executor !== 'function') {
+    throw new TypeError('Database executor is required to update guest login setting.');
+  }
+  const normalized = Boolean(enabled);
+  await executor(
+    `INSERT INTO pick.settings (key, value, updated_by, updated_at)
+     VALUES ('guest_login_enabled', $1, $2, CURRENT_TIMESTAMP)
+     ON CONFLICT (key) DO UPDATE
+     SET value = EXCLUDED.value,
+         updated_by = EXCLUDED.updated_by,
+         updated_at = CURRENT_TIMESTAMP`,
+    [normalized ? 'true' : 'false', adminUserId || null]
+  );
+  return normalized;
+}
+
 export function findCoverageZone(latitude, longitude, zones, options = {}) {
   const worldwide = Boolean(options?.worldwide);
   const matches = zones

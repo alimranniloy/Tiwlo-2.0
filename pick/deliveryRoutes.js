@@ -329,25 +329,39 @@ function sendInputError(res, error) {
 
 export function createPickDeliveryRouter({
   requireUser,
+  requireAvailabilityAccess = requireUser,
   query = queryPg,
   estimateDrivingRoute = getOpenDrivingEstimate
 }) {
   const router = express.Router();
 
-  router.get('/availability', requireUser, async (req, res, next) => {
+  router.get('/availability', requireAvailabilityAccess, async (req, res, next) => {
     try {
-      const { rows: profileRows } = await query(
-        `SELECT delivery_latitude::float8 AS latitude,
-                delivery_longitude::float8 AS longitude
-         FROM pick.profiles
-         WHERE tiwlo_user_id = $1`,
-        [req.tiwloSession.user.id]
-      );
-      const location = profileRows[0];
-      if (location?.latitude === null || location?.latitude === undefined ||
-          location?.longitude === null || location?.longitude === undefined ||
-          !Number.isFinite(Number(location.latitude)) ||
-          !Number.isFinite(Number(location.longitude))) {
+      let latitude = null;
+      let longitude = null;
+      if (req.tiwloSession?.user?.id) {
+        const { rows: profileRows } = await query(
+          `SELECT delivery_latitude::float8 AS latitude,
+                  delivery_longitude::float8 AS longitude
+           FROM pick.profiles
+           WHERE tiwlo_user_id = $1`,
+          [req.tiwloSession.user.id]
+        );
+        latitude = profileRows[0]?.latitude;
+        longitude = profileRows[0]?.longitude;
+      } else {
+        const queryLat = Number(req.query?.latitude);
+        const queryLng = Number(req.query?.longitude);
+        if (Number.isFinite(queryLat) && queryLat >= -90 && queryLat <= 90 &&
+            Number.isFinite(queryLng) && queryLng >= -180 && queryLng <= 180) {
+          latitude = queryLat;
+          longitude = queryLng;
+        }
+      }
+      if (latitude === null || latitude === undefined ||
+          longitude === null || longitude === undefined ||
+          !Number.isFinite(Number(latitude)) ||
+          !Number.isFinite(Number(longitude))) {
         return res.json({ status: 'unknown', count: 0 });
       }
 
@@ -384,8 +398,8 @@ export function createPickDeliveryRouter({
 
       const count = countAvailableNearbyDrivers({
         drivers,
-        deliveryLatitude: Number(location.latitude),
-        deliveryLongitude: Number(location.longitude),
+        deliveryLatitude: Number(latitude),
+        deliveryLongitude: Number(longitude),
         pickupLocation,
         coverageZones,
         worldwide

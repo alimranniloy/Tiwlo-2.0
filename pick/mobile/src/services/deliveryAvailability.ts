@@ -1,4 +1,5 @@
 import { fetchWithTimeoutAndRetry, getPickAccessToken } from './auth';
+import { getGuestSession } from './guest';
 import { PICK_API_URL } from '../config/api';
 
 export interface DeliveryAvailability {
@@ -8,13 +9,23 @@ export interface DeliveryAvailability {
 
 export async function getDeliveryAvailability(): Promise<DeliveryAvailability> {
   const token = await getPickAccessToken();
-  if (!token) throw new Error('Sign in to check nearby delivery partners.');
+  let url = `${PICK_API_URL}/delivery/availability`;
+  const headers: Record<string, string> = {
+    Accept: 'application/json'
+  };
 
-  const response = await fetchWithTimeoutAndRetry(`${PICK_API_URL}/delivery/availability`, {
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${token}`
-    },
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  } else {
+    const guest = await getGuestSession();
+    if (!guest?.active || guest.deliveryLatitude === null || guest.deliveryLongitude === null) {
+      return { status: 'unknown', count: 0 };
+    }
+    url = `${url}?latitude=${encodeURIComponent(String(guest.deliveryLatitude))}&longitude=${encodeURIComponent(String(guest.deliveryLongitude))}`;
+  }
+
+  const response = await fetchWithTimeoutAndRetry(url, {
+    headers,
     cache: 'no-store'
   }, { timeoutMs: 12000, retries: 1 });
 

@@ -315,8 +315,12 @@ async function handlePickPaymentReturn(req, res, { ipn = false, providerOverride
   }
 }
 
-export function registerPickPaymentRoutes(router, requireUser) {
-  router.get('/payments/providers', requireUser, async (_req, res, next) => {
+export function registerPickPaymentRoutes(
+  router,
+  requireUser,
+  { requireProvidersAccess = requireUser } = {}
+) {
+  router.get('/payments/providers', requireProvidersAccess, async (_req, res, next) => {
     try {
       const gateways = await getPlatformPaymentGatewaysRaw();
       return res.json({ providers: getPickPaymentProviders(gateways) });

@@ -307,3 +307,70 @@ test('active parcel route is calculated only for the assigned delivery partner',
     encodedPolyline: 'route'
   });
 });
+
+test('delivery availability supports guest coordinate queries when allowed', async () => {
+  const now = new Date();
+  const router = createPickDeliveryRouter({
+    requireUser: (_req, res) => res.status(401).json({ error: 'Sign in required' }),
+    requireAvailabilityAccess: (req, _res, next) => {
+      req.tiwloSession = null;
+      req.isPickGuest = true;
+      return next();
+    },
+    query: async (sql) => {
+      if (sql.includes('grocery_pickup_location')) {
+        return { rows: [{ value: JSON.stringify({ address: 'PICK Hub', latitude: 23.81, longitude: 90.41 }) }] };
+      }
+      if (sql.includes('pick.coverage_zones')) {
+        return {
+          rows: [{
+            id: 'dhaka',
+            nameEn: 'Dhaka',
+            nameBn: 'ঢাকা',
+            centerLatitude: 23.81,
+            centerLongitude: 90.41,
+            radiusMeters: 5000,
+            active: true
+          }]
+        };
+      }
+      if (sql.includes('coverage_worldwide')) {
+        return { rows: [{ value: 'false' }] };
+      }
+      return {
+        rows: [{
+          vehicleType: 'bicycle',
+          vehicleCapacityKg: 20,
+          applicationStatus: 'approved',
+          isOnDuty: true,
+          latitude: 23.811,
+          longitude: 90.411,
+          accuracy: 15,
+          currentLocationAt: now.toISOString(),
+          maxCapacityKg: 25,
+          pickupRangeMeters: 4000,
+          deliveryRangeMeters: 12000
+        }]
+      };
+    }
+  });
+  const availabilityRoute = router.stack.find((layer) => layer.route?.path === '/availability')?.route;
+  const handler = availabilityRoute.stack[availabilityRoute.stack.length - 1].handle;
+  const runRequest = async (query) => {
+    let body;
+    let routeError;
+    await handler(
+      { query, tiwloSession: null, isPickGuest: true },
+      { json(payload) { body = payload; return payload; } },
+      (error) => { routeError = error; }
+    );
+    assert.equal(routeError, undefined);
+    return body;
+  };
+
+  assert.deepEqual(await runRequest({}), { status: 'unknown', count: 0 });
+  assert.deepEqual(await runRequest({ latitude: '23.8105', longitude: '90.4105' }), {
+    status: 'available',
+    count: 1
+  });
+});

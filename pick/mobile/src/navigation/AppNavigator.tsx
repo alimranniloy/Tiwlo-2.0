@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StyleSheet, BackHandler, AppState, Linking } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { SplashScreen } from '../screens/1_SplashScreen';
@@ -59,6 +59,19 @@ import {
   SavedDeliveryCoverage,
   setCurrentDeliveryLocation
 } from '../services/location';
+import {
+  checkGuestLocation,
+  clearGuestSession,
+  clearSavedCartStorage,
+  createEmptyGuestSession,
+  fetchPickPublicConfig,
+  getGuestSession,
+  getSavedCartFromStorage,
+  GuestLoginDisabledError,
+  GuestSessionData,
+  saveCartToStorage,
+  saveGuestSession
+} from '../services/guest';
 import { openPickPaymentCheckout } from '../services/payments';
 import { WarningSheet } from '../components/common/WarningSheet';
 
@@ -119,6 +132,12 @@ export const AppNavigator: React.FC = () => {
   const [parcelVehicles, setParcelVehicles] = useState<ParcelVehicle[]>([]);
   const [parcelVehiclesLoading, setParcelVehiclesLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
+  const [guestSession, setGuestSession] = useState<GuestSessionData | null>(null);
+  const [guestLoginEnabled, setGuestLoginEnabled] = useState(true);
+  const [authPromptBanner, setAuthPromptBanner] = useState('');
+  const postAuthTargetRef = useRef<ScreenKey | null>(null);
+  const cartHydratedRef = useRef(false);
 
   const [packageData, setPackageData] = useState<PackageDetailsData>({
     categoryId: 'docs',
@@ -171,6 +190,27 @@ export const AppNavigator: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    getSavedCartFromStorage()
+      .then((savedCart) => {
+        if (active && savedCart.length) {
+          setCart((current) => (current.length ? current : savedCart));
+        }
+      })
+      .finally(() => {
+        if (active) cartHydratedRef.current = true;
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!cartHydratedRef.current) return;
+    void saveCartToStorage(cart);
+  }, [cart]);
+
+  useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
       setAppIsActive(state === 'active');
     });
@@ -199,24 +239,33 @@ export const AppNavigator: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isOffline || currentScreen !== 'checkout' || !user) return;
+    if (isOffline || currentScreen !== 'checkout' || (!user && !isGuest)) return;
     let active = true;
     getGroceryDeliveryFee()
       .then((fee) => {
         if (active) setDeliveryFee(fee);
       })
       .catch((error) => {
-        if (active) {
-          showNotice(
-            'Checkout unavailable',
-            error instanceof Error ? error.message : 'Delivery pricing could not be loaded.'
-          );
+        if (!active) return;
+        if (error instanceof GuestLoginDisabledError ||
+            (error instanceof Error && /guest login is currently disabled/i.test(error.message))) {
+          setGuestLoginEnabled(false);
+          setIsGuest(false);
+          setGuestSession(null);
+          void clearGuestSession();
+          setAuthPromptBanner('Guest login has been disabled by admin. Please sign in to continue.');
+          replaceScreen('auth');
+          return;
         }
+        showNotice(
+          'Checkout unavailable',
+          error instanceof Error ? error.message : 'Delivery pricing could not be loaded.'
+        );
       });
     return () => {
       active = false;
     };
-  }, [currentScreen, isOffline, showNotice, user]);
+  }, [currentScreen, isGuest, isOffline, replaceScreen, showNotice, user]);
 
   useEffect(() => {
     if (isOffline ||
@@ -244,7 +293,7 @@ export const AppNavigator: React.FC = () => {
   }, [currentScreen, isOffline, showNotice, user]);
 
   useEffect(() => {
-    if (isOffline || !user ||
+    if (isOffline || (!user && !isGuest) ||
         !['checkout', 'parcel_review', 'wallet'].includes(currentScreen)) return;
     let active = true;
     getPaymentProviders()
@@ -265,7 +314,7 @@ export const AppNavigator: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [currentScreen, isOffline, showNotice, user]);
+  }, [currentScreen, isGuest, isOffline, showNotice, user]);
 
   useEffect(() => {
     if (isOffline || currentScreen !== 'send_parcel' || !user) return;
@@ -316,8 +365,8 @@ export const AppNavigator: React.FC = () => {
   const navigate = useCallback((screen: ScreenKey) => {
     if (currentScreen === screen) return;
     if (screen === 'checkout') setDeliveryFee(null);
-    if (screen === 'orders' || screen === 'order_tracking' ||
-        screen === 'payment_result' || screen === 'parcel_intro') {
+    if ((screen === 'orders' || screen === 'order_tracking' ||
+         screen === 'payment_result' || screen === 'parcel_intro') && !(isGuest && !user)) {
       setOrdersLoading(true);
     }
     if (['checkout', 'parcel_review', 'wallet'].includes(screen)) {
@@ -335,7 +384,7 @@ export const AppNavigator: React.FC = () => {
     } else {
       setHistory((prev) => [...prev, screen]);
     }
-  }, [currentScreen]);
+  }, [currentScreen, isGuest, user]);
 
   const goBack = () => {
     if (history.length > 1) {
@@ -363,15 +412,29 @@ export const AppNavigator: React.FC = () => {
     return () => subscription.remove();
   }, [history]);
 
+  const redirectGuestToAuth = useCallback((target: ScreenKey, bannerMessage: string) => {
+    postAuthTargetRef.current = target;
+    setAuthPromptBanner(bannerMessage);
+    navigate('auth');
+  }, [navigate]);
+
   const handleTabPress = (tab: string) => {
     switch (tab) {
       case 'home':
         navigate('home');
         break;
       case 'orders':
+        if (isGuest && !user) {
+          redirectGuestToAuth('orders', 'Sign in to view your orders and live delivery tracking.');
+          return;
+        }
         navigate('orders');
         break;
       case 'wallet':
+        if (isGuest && !user) {
+          redirectGuestToAuth('wallet', 'Sign in to view your Tiwlo wallet and payment methods.');
+          return;
+        }
         navigate('wallet');
         break;
       case 'profile':
@@ -385,6 +448,26 @@ export const AppNavigator: React.FC = () => {
     }
   };
 
+  const completePendingNavigationAfterAuth = useCallback((target: ScreenKey | null) => {
+    if (!target || target === 'home' || target === 'splash' || target === 'auth') {
+      return false;
+    }
+    if (target === 'checkout') {
+      setDeliveryFee(null);
+      setPaymentProvidersLoading(true);
+      setPaymentProviders([]);
+    } else if (target === 'orders' || target === 'parcel_intro') {
+      setOrdersLoading(true);
+    } else if (target === 'wallet') {
+      setPaymentProvidersLoading(true);
+      setPaymentProviders([]);
+    } else if (target === 'send_parcel') {
+      setParcelVehiclesLoading(true);
+    }
+    setHistory(target === 'coverage_unavailable' ? [target] : ['home', target]);
+    return true;
+  }, []);
+
   const routeSignedInUser = useCallback(async (
     signedInUser: PickUser,
     options?: { cachedCoverage?: SavedDeliveryCoverage | null }
@@ -394,11 +477,12 @@ export const AppNavigator: React.FC = () => {
       ...current,
       senderName: signedInUser.name,
       senderPhone: signedInUser.phone,
-      senderAddress: signedInUser.deliveryAddress,
-      senderLatitude: signedInUser.deliveryLatitude,
-      senderLongitude: signedInUser.deliveryLongitude
+      senderAddress: current.senderAddress || signedInUser.deliveryAddress,
+      senderLatitude: current.senderLatitude ?? signedInUser.deliveryLatitude,
+      senderLongitude: current.senderLongitude ?? signedInUser.deliveryLongitude
     }));
     if (signedInUser.isBanned) {
+      postAuthTargetRef.current = null;
       replaceScreen('account_disabled');
       return;
     }
@@ -406,12 +490,20 @@ export const AppNavigator: React.FC = () => {
       replaceScreen('address_verification');
       return;
     }
+    const pendingTarget = postAuthTargetRef.current;
     if (options?.cachedCoverage) {
       if (!options.cachedCoverage.hasLocation || !options.cachedCoverage.coverage) {
         replaceScreen('location_permission');
         return;
       }
       setDeliveryCoverage(options.cachedCoverage.coverage);
+      if (pendingTarget) {
+        postAuthTargetRef.current = null;
+        if (options.cachedCoverage.coverage.available &&
+            completePendingNavigationAfterAuth(pendingTarget)) {
+          return;
+        }
+      }
       replaceScreen(options.cachedCoverage.coverage.available ? 'rain_delay' : 'coverage_unavailable');
       return;
     }
@@ -422,9 +514,17 @@ export const AppNavigator: React.FC = () => {
         return;
       }
       setDeliveryCoverage(savedCoverage.coverage);
+      if (pendingTarget) {
+        postAuthTargetRef.current = null;
+        if (savedCoverage.coverage.available &&
+            completePendingNavigationAfterAuth(pendingTarget)) {
+          return;
+        }
+      }
       replaceScreen(savedCoverage.coverage.available ? 'rain_delay' : 'coverage_unavailable');
     } catch (error) {
       if (error instanceof PickAccountDisabledError) {
+        postAuthTargetRef.current = null;
         setUser(error.user);
         replaceScreen('account_disabled');
         return;
@@ -435,11 +535,57 @@ export const AppNavigator: React.FC = () => {
       );
       replaceScreen('location_permission');
     }
-  }, [replaceScreen, showNotice]);
+  }, [completePendingNavigationAfterAuth, replaceScreen, showNotice]);
 
   const handlePickAuthentication = (signedInUser: PickUser) => {
+    setIsGuest(false);
+    setGuestSession(null);
+    setAuthPromptBanner('');
+    void clearGuestSession();
     void routeSignedInUser(signedInUser);
   };
+
+  const handleContinueAsGuest = useCallback(async () => {
+    setAuthPromptBanner('');
+    postAuthTargetRef.current = null;
+    try {
+      if (!isOffline) {
+        const publicConfig = await fetchPickPublicConfig().catch(() => null);
+        if (publicConfig && !publicConfig.guestLoginEnabled) {
+          setGuestLoginEnabled(false);
+          setIsGuest(false);
+          setGuestSession(null);
+          await clearGuestSession();
+          setAuthPromptBanner('Guest login is currently disabled by admin. Please sign in to continue.');
+          return;
+        }
+        if (publicConfig) setGuestLoginEnabled(publicConfig.guestLoginEnabled);
+      }
+      setIsGuest(true);
+      const existing = await getGuestSession();
+      if (existing?.deliveryLatitude !== null && existing?.deliveryLongitude !== null && existing?.coverage) {
+        setGuestSession(existing);
+        setDeliveryCoverage(existing.coverage);
+        setRecipientData((current) => ({
+          ...current,
+          senderAddress: existing.deliveryAddress,
+          senderLatitude: existing.deliveryLatitude,
+          senderLongitude: existing.deliveryLongitude
+        }));
+        replaceScreen(existing.coverage.available ? 'rain_delay' : 'coverage_unavailable');
+        return;
+      }
+      const freshGuest = createEmptyGuestSession();
+      await saveGuestSession(freshGuest);
+      setGuestSession(freshGuest);
+      replaceScreen('location_permission');
+    } catch (error) {
+      showNotice(
+        'Guest login unavailable',
+        error instanceof Error ? error.message : 'Could not start guest browsing.'
+      );
+    }
+  }, [isOffline, replaceScreen, showNotice]);
 
   const handleAccountRestored = useCallback(async (
     restoredUser: PickUser,
@@ -467,20 +613,62 @@ export const AppNavigator: React.FC = () => {
     setWaitlistError('');
     setRecipientData((current) => ({
       ...current,
-      senderAddress: result.user.deliveryAddress,
-      senderLatitude: result.user.deliveryLatitude,
-      senderLongitude: result.user.deliveryLongitude
+      senderAddress: current.senderAddress || result.user.deliveryAddress,
+      senderLatitude: current.senderLatitude ?? result.user.deliveryLatitude,
+      senderLongitude: current.senderLongitude ?? result.user.deliveryLongitude
     }));
+    const pendingTarget = postAuthTargetRef.current;
+    postAuthTargetRef.current = null;
+    if (result.coverage.available && pendingTarget &&
+        completePendingNavigationAfterAuth(pendingTarget)) {
+      return;
+    }
     replaceScreen(result.coverage.available ? 'location_success' : 'coverage_unavailable');
   };
 
   const handleSplashNext = useCallback(async () => {
     try {
+      const publicConfig = await fetchPickPublicConfig()
+        .catch(() => ({ guestLoginEnabled: true, worldwideEnabled: false }));
+      setGuestLoginEnabled(publicConfig.guestLoginEnabled);
+
+      const savedCart = await getSavedCartFromStorage();
+      if (savedCart.length) {
+        setCart((current) => (current.length ? current : savedCart));
+      }
+
       const hasToken = await hasStoredPickToken();
       if (!hasToken) {
+        const savedGuest = await getGuestSession();
+        if (savedGuest?.active && publicConfig.guestLoginEnabled) {
+          setIsGuest(true);
+          setGuestSession(savedGuest);
+          if (savedGuest.deliveryLatitude !== null && savedGuest.deliveryLongitude !== null && savedGuest.coverage) {
+            setDeliveryCoverage(savedGuest.coverage);
+            setRecipientData((current) => ({
+              ...current,
+              senderAddress: savedGuest.deliveryAddress,
+              senderLatitude: savedGuest.deliveryLatitude,
+              senderLongitude: savedGuest.deliveryLongitude
+            }));
+            replaceScreen(savedGuest.coverage.available ? 'rain_delay' : 'coverage_unavailable');
+          } else {
+            replaceScreen('location_permission');
+          }
+          return;
+        }
+        if (savedGuest?.active && !publicConfig.guestLoginEnabled) {
+          await clearGuestSession();
+          setIsGuest(false);
+          setGuestSession(null);
+          setAuthPromptBanner('Guest login has been disabled by admin. Please sign in to continue.');
+        }
         replaceScreen('auth');
         return;
       }
+
+      setIsGuest(false);
+      setGuestSession(null);
       const [cachedUser, cachedCoverage] = await Promise.all([
         getCachedPickUser(),
         getCachedDeliveryCoverage()
@@ -578,10 +766,60 @@ export const AppNavigator: React.FC = () => {
     };
   }, [appIsActive, currentScreen, currentUserId, isOffline]);
 
+  useEffect(() => {
+    if (isOffline || !appIsActive || currentScreen === 'splash') return;
+    if (currentUserId && !isGuest) return;
+    let active = true;
+    let checking = false;
+    const syncGuestConfig = async () => {
+      if (!active || checking) return;
+      checking = true;
+      try {
+        const publicConfig = await fetchPickPublicConfig();
+        if (!active) return;
+        setGuestLoginEnabled(publicConfig.guestLoginEnabled);
+        if (isGuest && !publicConfig.guestLoginEnabled) {
+          await clearGuestSession();
+          if (!active) return;
+          setIsGuest(false);
+          setGuestSession(null);
+          postAuthTargetRef.current = null;
+          setAuthPromptBanner('Guest login has been disabled by admin. Please sign in to continue.');
+          replaceScreen('auth');
+        }
+      } catch {
+        // Keep current browsing state on transient config poll failure.
+      } finally {
+        checking = false;
+      }
+    };
+    const timer = setInterval(() => void syncGuestConfig(), 30000);
+    void syncGuestConfig();
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [appIsActive, currentScreen, currentUserId, isGuest, isOffline, replaceScreen]);
+
   const handleUseLocation = async () => {
     if (locationLoading) return;
     setLocationLoading(true);
     try {
+      if (isGuest && !user) {
+        const nextGuest = await checkGuestLocation();
+        setGuestSession(nextGuest);
+        setDeliveryCoverage(nextGuest.coverage);
+        setWaitlistJoined(false);
+        setWaitlistError('');
+        setRecipientData((current) => ({
+          ...current,
+          senderAddress: nextGuest.deliveryAddress,
+          senderLatitude: nextGuest.deliveryLatitude,
+          senderLongitude: nextGuest.deliveryLongitude
+        }));
+        replaceScreen(nextGuest.coverage?.available ? 'location_success' : 'coverage_unavailable');
+        return;
+      }
       const location = await setCurrentDeliveryLocation();
       const { coverage, ...address } = location;
       setDeliveryCoverage(coverage);
@@ -596,6 +834,15 @@ export const AppNavigator: React.FC = () => {
       }));
       replaceScreen(coverage.available ? 'location_success' : 'coverage_unavailable');
     } catch (error) {
+      if (error instanceof GuestLoginDisabledError) {
+        setGuestLoginEnabled(false);
+        setIsGuest(false);
+        setGuestSession(null);
+        await clearGuestSession();
+        setAuthPromptBanner('Guest login has been disabled by admin. Please sign in to continue.');
+        replaceScreen('auth');
+        return;
+      }
       showNotice(
         'Location unavailable',
         error instanceof Error ? error.message : 'Could not determine your location.'
@@ -606,6 +853,10 @@ export const AppNavigator: React.FC = () => {
   };
 
   const handleJoinCoverageWaitlist = async () => {
+    if (isGuest && !user) {
+      redirectGuestToAuth('coverage_unavailable', 'Sign in to join the coverage waitlist for your area.');
+      return;
+    }
     setWaitlistJoining(true);
     setWaitlistError('');
     try {
@@ -679,6 +930,13 @@ export const AppNavigator: React.FC = () => {
   };
 
   const handlePlaceGroceryOrder = async (paymentMethod: PaymentMethod) => {
+    if (isGuest && !user) {
+      redirectGuestToAuth(
+        'checkout',
+        'Sign in to place your order and proceed to payment. Your cart items stay saved.'
+      );
+      return;
+    }
     try {
       const order = await createGroceryOrder(cart, paymentMethod);
       await finishOrderSubmission(order, true);
@@ -733,7 +991,20 @@ export const AppNavigator: React.FC = () => {
         return <SplashScreen onNext={handleSplashNext} />;
 
       case 'auth':
-        return <AuthScreen onAuthenticated={handlePickAuthentication} offline={isOffline} />;
+        return (
+          <AuthScreen
+            onAuthenticated={handlePickAuthentication}
+            offline={isOffline}
+            guestLoginEnabled={guestLoginEnabled}
+            onContinueAsGuest={() => void handleContinueAsGuest()}
+            onBack={history.length > 1 && isGuest ? () => {
+              postAuthTargetRef.current = null;
+              setAuthPromptBanner('');
+              goBack();
+            } : undefined}
+            authPromptBanner={authPromptBanner}
+          />
+        );
 
       case 'account_disabled':
         return (
@@ -772,7 +1043,7 @@ export const AppNavigator: React.FC = () => {
           <CoverageAvailableScreen
             onContinue={() => replaceScreen('rain_delay')}
             onEditLocation={() => navigate('location_permission')}
-            address={user?.deliveryAddress || ''}
+            address={user?.deliveryAddress || guestSession?.deliveryAddress || ''}
             areaNameEn={deliveryCoverage?.zone?.nameEn || ''}
             areaNameBn={deliveryCoverage?.zone?.nameBn || ''}
           />
@@ -784,7 +1055,7 @@ export const AppNavigator: React.FC = () => {
       case 'coverage_unavailable':
         return (
           <CoverageUnavailableScreen
-            address={user?.deliveryAddress || ''}
+            address={user?.deliveryAddress || guestSession?.deliveryAddress || ''}
             onJoinWaitlist={handleJoinCoverageWaitlist}
             onChangeLocation={handleUseLocation}
             changingLocation={locationLoading}
@@ -797,7 +1068,7 @@ export const AppNavigator: React.FC = () => {
       case 'home':
         return (
           <HomeScreen
-            deliveryAddress={user?.deliveryAddress || ''}
+            deliveryAddress={user?.deliveryAddress || guestSession?.deliveryAddress || ''}
             categories={catalog.categories}
             products={catalog.products}
             catalogLoading={catalogLoading}
@@ -815,7 +1086,13 @@ export const AppNavigator: React.FC = () => {
               setSelectedProductId(productId);
               navigate('product_detail');
             }}
-            onOpenNotifications={() => navigate('orders')}
+            onOpenNotifications={() => {
+              if (isGuest && !user) {
+                redirectGuestToAuth('orders', 'Sign in to view your orders and live updates.');
+                return;
+              }
+              navigate('orders');
+            }}
             onOpenProfile={() => navigate('profile')}
             onOpenCheckout={() => navigate('checkout')}
             onContactSupport={handleContactSupport}
@@ -829,12 +1106,18 @@ export const AppNavigator: React.FC = () => {
           .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0] ?? null;
         return (
           <ParcelLandingScreen
-            area={user?.deliveryArea || deliveryCoverage?.zone?.nameEn || ''}
+            area={user?.deliveryArea || guestSession?.deliveryArea || deliveryCoverage?.zone?.nameEn || ''}
             coverageAvailable={deliveryCoverage?.available === true}
             latestParcel={latestParcel}
             loading={ordersLoading}
             onBack={goBack}
-            onSendParcel={() => navigate('send_parcel')}
+            onSendParcel={() => {
+              if (isGuest && !user) {
+                redirectGuestToAuth('send_parcel', 'Sign in to send a parcel with PICK Delivery.');
+                return;
+              }
+              navigate('send_parcel');
+            }}
           />
         );
       }
@@ -982,8 +1265,14 @@ export const AppNavigator: React.FC = () => {
             onBack={goBack}
             onPlaceOrder={handlePlaceGroceryOrder}
             onChangeAddress={() => navigate('location_permission')}
-            onChangePayment={() => navigate('wallet')}
-            address={user?.deliveryAddress || ''}
+            onChangePayment={() => {
+              if (isGuest && !user) {
+                redirectGuestToAuth('wallet', 'Sign in to view your Tiwlo wallet and payment methods.');
+                return;
+              }
+              navigate('wallet');
+            }}
+            address={user?.deliveryAddress || guestSession?.deliveryAddress || ''}
             products={catalog.products}
             cart={cart}
             deliveryFee={deliveryFee}
@@ -1090,14 +1379,31 @@ export const AppNavigator: React.FC = () => {
         return (
           <ProfileScreen
             onBack={goBack}
-            onNavigateToWallet={() => navigate('wallet')}
-            onNavigateToOrders={() => navigate('orders')}
+            onNavigateToWallet={() => {
+              if (isGuest && !user) {
+                redirectGuestToAuth('wallet', 'Sign in to view your Tiwlo wallet and payment methods.');
+                return;
+              }
+              navigate('wallet');
+            }}
+            onNavigateToOrders={() => {
+              if (isGuest && !user) {
+                redirectGuestToAuth('orders', 'Sign in to view your orders and live delivery tracking.');
+                return;
+              }
+              navigate('orders');
+            }}
             onNavigateToAddress={() => navigate('location_permission')}
             onNavigateToSessions={() => navigate('sessions')}
             onContactSupport={handleContactSupport}
+            isGuest={isGuest && !user}
+            onSignIn={() => redirectGuestToAuth('home', 'Sign in or create an account to unlock orders, wallet, and parcels.')}
             onDeleteAccount={async (input) => {
               await deletePickAccount(input);
+              await Promise.all([clearGuestSession(), clearSavedCartStorage()]);
               setUser(null);
+              setIsGuest(false);
+              setGuestSession(null);
               setCart([]);
               setOrders([]);
               setSelectedOrderId(null);
@@ -1106,8 +1412,22 @@ export const AppNavigator: React.FC = () => {
             }}
             user={user}
             onSignOut={async () => {
+              if (isGuest && !user) {
+                await clearGuestSession();
+                setIsGuest(false);
+                setGuestSession(null);
+                postAuthTargetRef.current = null;
+                setAuthPromptBanner('');
+                setHistory(['auth']);
+                return;
+              }
               try {
-                await Promise.all([clearStoredPickSession(), clearCachedDeliveryCoverage()]);
+                await Promise.all([
+                  clearStoredPickSession(),
+                  clearCachedDeliveryCoverage(),
+                  clearGuestSession(),
+                  clearSavedCartStorage()
+                ]);
               } catch (error) {
                 showNotice(
                   'Sign-out warning',
@@ -1115,6 +1435,8 @@ export const AppNavigator: React.FC = () => {
                 );
               } finally {
                 setUser(null);
+                setIsGuest(false);
+                setGuestSession(null);
                 setCart([]);
                 setOrders([]);
                 setSelectedOrderId(null);
@@ -1157,7 +1479,7 @@ export const AppNavigator: React.FC = () => {
       default:
         return (
           <HomeScreen
-            deliveryAddress={user?.deliveryAddress || ''}
+            deliveryAddress={user?.deliveryAddress || guestSession?.deliveryAddress || ''}
             categories={catalog.categories}
             products={catalog.products}
             catalogLoading={catalogLoading}

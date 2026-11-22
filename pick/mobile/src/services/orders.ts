@@ -265,8 +265,21 @@ export async function getDeliveryRouteEstimate(orderId: string): Promise<Deliver
   };
 }
 
+async function publicOrAuthenticatedRequest(path: string, init: RequestInit = {}): Promise<Response> {
+  const token = await getPickAccessToken();
+  const method = (init.method || 'GET').toUpperCase();
+  return fetchWithTimeoutAndRetry(`${PICK_API_URL}${path}`, {
+    ...init,
+    headers: {
+      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init.headers
+    }
+  }, { retries: method === 'GET' ? 2 : 0 });
+}
+
 export async function getGroceryDeliveryFee(): Promise<number> {
-  const result = await readResponse(await authenticatedRequest('/checkout/config'));
+  const result = await readResponse(await publicOrAuthenticatedRequest('/checkout/config'));
   if (typeof result.deliveryFee !== 'number' || !Number.isFinite(result.deliveryFee)) {
     throw new Error('The PICK server returned an invalid delivery fee.');
   }
@@ -274,7 +287,7 @@ export async function getGroceryDeliveryFee(): Promise<number> {
 }
 
 export async function getPaymentProviders(): Promise<PaymentProvider[]> {
-  const result = await readResponse(await authenticatedRequest('/payments/providers'));
+  const result = await readResponse(await publicOrAuthenticatedRequest('/payments/providers'));
   if (!Array.isArray(result.providers)) throw new Error('The payment provider response is invalid.');
   return result.providers.map((value): PaymentProvider => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {

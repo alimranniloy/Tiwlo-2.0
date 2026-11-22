@@ -15,7 +15,11 @@ import {
 } from '../server/security/sessionMetadata.js';
 import { PLATFORM_CONFIG } from '../server/config/platformConfig.js';
 import adminRoutes from './adminRoutes.js';
-import { findCoverageZone, isWorldwideCoverageEnabled } from './coverage.js';
+import {
+  findCoverageZone,
+  isGuestLoginEnabled,
+  isWorldwideCoverageEnabled
+} from './coverage.js';
 import {
   getPickGroceryDeliveryFee,
   getPickGroceryPickupLocation,
@@ -257,6 +261,76 @@ async function requireUser(req, res, next) {
   }
 }
 
+async function requireUserOrGuest(req, res, next) {
+  try {
+    if (getSessionToken(req)) {
+      return requireUser(req, res, next);
+    }
+    const guestEnabled = await isGuestLoginEnabled(queryPg);
+    if (!guestEnabled) {
+      return res.status(403).json({
+        error: 'Guest login is currently disabled.',
+        code: 'GUEST_LOGIN_DISABLED'
+      });
+    }
+    req.tiwloSession = null;
+    req.isPickGuest = true;
+    return next();
+  } catch (error) {
+    return next(error);
+  }
+}
+
+router.get('/public-config', async (_req, res, next) => {
+  try {
+    const [guestLoginEnabled, worldwideEnabled] = await Promise.all([
+      isGuestLoginEnabled(queryPg),
+      isWorldwideCoverageEnabled(queryPg)
+    ]);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({ guestLoginEnabled, worldwideEnabled });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post('/guest/location-check', securityLimiters.addressVerification, async (req, res, next) => {
+  try {
+    const guestEnabled = await isGuestLoginEnabled(queryPg);
+    if (!guestEnabled) {
+      return res.status(403).json({
+        error: 'Guest login is currently disabled.',
+        code: 'GUEST_LOGIN_DISABLED'
+      });
+    }
+    const { latitude, longitude, accuracy } = req.body || {};
+    if (!isValidLiveLocation({ latitude, longitude, accuracy })) {
+      return res.status(400).json({ error: 'A valid GPS location is required.' });
+    }
+    const address = await reverseGeocodeAddress({
+      latitude,
+      longitude,
+      apiKey: await getGoogleMapsApiKey()
+    });
+    const zonesResult = await queryPg(
+      `SELECT id, name_en AS "nameEn", name_bn AS "nameBn",
+              center_latitude AS "centerLatitude",
+              center_longitude AS "centerLongitude",
+              radius_meters AS "radiusMeters", active
+       FROM pick.coverage_zones
+       WHERE active = TRUE
+       ORDER BY radius_meters, name_en`
+    );
+    const coverage = findCoverageZone(latitude, longitude, zonesResult.rows, {
+      worldwide: await isWorldwideCoverageEnabled(queryPg)
+    });
+    return res.json({ address, coverage });
+  } catch (error) {
+    if (error instanceof TypeError) return res.status(400).json({ error: error.message });
+    return next(error);
+  }
+});
+
 router.get('/auth/mobile-start', async (req, res, next) => {
   try {
     const codeChallenge = String(req.query.code_challenge || '');
@@ -274,7 +348,10 @@ router.get('/auth/mobile-start', async (req, res, next) => {
   }
 });
 
-router.use('/delivery', createPickDeliveryRouter({ requireUser }));
+router.use('/delivery', createPickDeliveryRouter({
+  requireUser,
+  requireAvailabilityAccess: requireUserOrGuest
+}));
 
 router.post('/auth/verify-address', requireUser, securityLimiters.addressVerification, async (req, res, next) => {
   try {
@@ -891,7 +968,7 @@ router.get('/catalog/products', async (req, res, next) => {
 
 export { parseGroceryDeliveryFee };
 
-router.get('/checkout/config', requireUser, async (_req, res, next) => {
+router.get('/checkout/config', requireUserOrGuest, async (_req, res, next) => {
   try {
     const deliveryFee = await getPickGroceryDeliveryFee();
     if (deliveryFee === null) {
@@ -1649,7 +1726,9 @@ router.post('/account/delete', requireUser, async (req, res, next) => {
   }
 });
 
-registerPickPaymentRoutes(router, requireUser);
+registerPickPaymentRoutes(router, requireUser, {
+  requireProvidersAccess: requireUserOrGuest
+});
 router.use('/admin', adminRoutes);
 
 export default router;

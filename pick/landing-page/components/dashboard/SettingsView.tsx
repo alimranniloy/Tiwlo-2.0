@@ -7,6 +7,7 @@ interface PickSettings {
   groceryDeliveryFee: number | null
   groceryPickupLocation: { address: string; latitude: number; longitude: number } | null
   paymentProviders: { id: string; name: string; currency: string }[]
+  guestLoginEnabled?: boolean
   appUpdates: Record<'pick' | 'delivery', {
     version: string
     playStoreEnabled: boolean
@@ -46,6 +47,8 @@ export const SettingsView: React.FC<{
     delivery: null,
   })
   const [busyUpdate, setBusyUpdate] = useState<UpdateAppId | null>(null)
+  const [togglingGuest, setTogglingGuest] = useState(false)
+  const guestLoginEnabled = data?.guestLoginEnabled !== false
 
   useEffect(() => {
     if (data?.groceryDeliveryFee !== null && data?.groceryDeliveryFee !== undefined) {
@@ -146,6 +149,29 @@ export const SettingsView: React.FC<{
     }
   }
 
+  const toggleGuestLogin = async () => {
+    setTogglingGuest(true)
+    setMessage('')
+    setActionError('')
+    try {
+      const nextValue = !guestLoginEnabled
+      const result = await pickAdminRequest<{ guestLoginEnabled: boolean }>('/settings/guest-login', {
+        method: 'PATCH',
+        body: JSON.stringify({ guestLoginEnabled: nextValue }),
+      })
+      setMessage(
+        result.guestLoginEnabled
+          ? 'Guest login enabled. Customers can browse and build a cart before signing in.'
+          : 'Guest login disabled. Customers will be prompted to sign in before entering PICK.'
+      )
+      await reload()
+    } catch (requestError) {
+      setActionError(requestError instanceof Error ? requestError.message : 'Could not update guest login setting.')
+    } finally {
+      setTogglingGuest(false)
+    }
+  }
+
   const deleteApk = async (appId: UpdateAppId) => {
     setBusyUpdate(appId)
     setMessage('')
@@ -178,6 +204,44 @@ export const SettingsView: React.FC<{
 
       {section !== 'app_updates' && (
         <>
+      <section className="ios-card max-w-2xl p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold">Guest Login (Browse Without Sign-In)</h3>
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                  guestLoginEnabled
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-black/5 text-ink/60'
+                }`}
+              >
+                {guestLoginEnabled ? 'ON' : 'OFF'}
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-ink/55">
+              Allow customers to browse items and add to cart before signing in. Checkout payment, orders, wallet, and parcels still require login. Turning this OFF ends active guest sessions automatically.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={loading || togglingGuest}
+            onClick={() => void toggleGuestLogin()}
+            className={`rounded-xl px-4 py-2 text-xs font-semibold transition disabled:opacity-50 ${
+              guestLoginEnabled
+                ? 'bg-green-600 text-white hover:bg-green-700'
+                : 'bg-ink text-white hover:opacity-90'
+            }`}
+          >
+            {togglingGuest
+              ? 'Updating…'
+              : guestLoginEnabled
+                ? 'Guest Login: ON (Turn Off)'
+                : 'Enable Guest Login'}
+          </button>
+        </div>
+      </section>
+
       <form onSubmit={saveDeliveryFee} className="ios-card max-w-2xl space-y-4 p-5">
         <div><h3 className="font-semibold">Grocery delivery fee</h3><p className="mt-1 text-sm text-ink/55">The fee is calculated by Tiwlo when the app loads checkout and creates an order.</p></div>
         <label className="block text-sm font-medium">Delivery fee (৳)<input required type="number" min="0" max="1000000" step="0.01" value={deliveryFee} onChange={(event) => setDeliveryFee(event.target.value)} placeholder={data?.groceryDeliveryFee === null ? 'Not configured' : undefined} disabled={loading} className="mt-1 h-10 w-full max-w-sm" /></label>

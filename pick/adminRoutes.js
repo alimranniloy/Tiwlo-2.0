@@ -15,7 +15,13 @@ import {
   getPickGroceryDeliveryFee,
   getPickGroceryPickupLocation
 } from './pricing.js';
-import { findCoverageZone, isWorldwideCoverageEnabled, normalizeCoverageZone } from './coverage.js';
+import {
+  findCoverageZone,
+  isGuestLoginEnabled,
+  isWorldwideCoverageEnabled,
+  normalizeCoverageZone,
+  setGuestLoginEnabled
+} from './coverage.js';
 import { getGoogleMapsApiKey } from '../server/db/googleMapsSettings.js';
 
 const require = createRequire(new URL('../server/package.json', import.meta.url));
@@ -570,10 +576,11 @@ router.get('/finance', async (_req, res, next) => {
 
 router.get('/settings', async (_req, res, next) => {
   try {
-    const [deliveryFee, groceryPickupLocation, providers, appUpdates] = await Promise.all([
+    const [deliveryFee, groceryPickupLocation, providers, guestLoginEnabled, appUpdates] = await Promise.all([
       getPickGroceryDeliveryFee(),
       getPickGroceryPickupLocation(),
       getAvailablePickPaymentProviders(),
+      isGuestLoginEnabled(queryPg),
       Promise.all(Object.keys(PICK_APP_UPDATE_TARGETS).map(async (appId) => {
         const settings = await getPickAppUpdateSettings(appId);
         return [appId, {
@@ -584,12 +591,31 @@ router.get('/settings', async (_req, res, next) => {
         }];
       }))
     ]);
+    res.setHeader('Cache-Control', 'no-store');
     return res.json({
       groceryDeliveryFee: deliveryFee,
       groceryPickupLocation,
       paymentProviders: providers,
+      guestLoginEnabled,
       appUpdates: Object.fromEntries(appUpdates)
     });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.patch('/settings/guest-login', async (req, res, next) => {
+  try {
+    if (typeof req.body?.guestLoginEnabled !== 'boolean') {
+      return res.status(400).json({ error: 'Choose whether Guest Login is enabled or disabled.' });
+    }
+    const guestLoginEnabled = await setGuestLoginEnabled(
+      req.body.guestLoginEnabled,
+      req.adminUser?.id || null,
+      queryPg
+    );
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({ guestLoginEnabled });
   } catch (error) {
     return next(error);
   }

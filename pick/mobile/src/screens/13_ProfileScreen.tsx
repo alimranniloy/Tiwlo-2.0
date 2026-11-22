@@ -30,6 +30,8 @@ interface ProfileScreenProps {
   onSignOut: () => void;
   onTabPress: (tab: string) => void;
   user: PickUser | null;
+  isGuest?: boolean;
+  onSignIn?: () => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
@@ -43,6 +45,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onSignOut,
   onTabPress,
   user,
+  isGuest = false,
+  onSignIn,
 }) => {
   const { language, toggleLanguage, setLanguage, t } = useLanguage();
   const isEn = language === 'en';
@@ -161,6 +165,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     },
   ];
 
+  const visibleMenuItems = isGuest
+    ? menuItems.filter((item) => !['orders', 'wallet', 'sessions'].includes(item.id))
+    : menuItems;
+
   return (
     <ScreenContainer applyTopInset applyBottomInset={false}>
       <Header title={t('Profile', 'প্রোফাইল')} onBack={onBack} />
@@ -175,18 +183,34 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         {/* User Info directly on background */}
         <View style={styles.userSection}>
           <Image
-            source={user?.avatar?.startsWith('https://')
+            source={!isGuest && user?.avatar?.startsWith('https://')
               ? { uri: user.avatar }
               : require('../../assets/icon.png')}
             style={styles.avatar}
           />
           <View style={styles.userInfo}>
             <Text style={styles.userName}>
-              {user?.name || t('Name not set', 'নাম দেওয়া হয়নি')}
+              {isGuest
+                ? t('Guest', 'গেস্ট')
+                : user?.name || t('Name not set', 'নাম দেওয়া হয়নি')}
             </Text>
-            <Text style={styles.userPhone}>{user?.phone || user?.email || ''}</Text>
+            <Text style={styles.userPhone}>
+              {isGuest
+                ? t('Browsing as guest · Cart stays saved', 'গেস্ট হিসেবে ব্রাউজ করছেন · কার্ট সংরক্ষিত থাকবে')
+                : user?.phone || user?.email || ''}
+            </Text>
           </View>
         </View>
+
+        {isGuest && onSignIn && (
+          <TouchableOpacity
+            style={styles.guestSignInBtn}
+            onPress={onSignIn}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.guestSignInText}>{t('Sign in / Login', 'সাইন ইন / লগইন')}</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Language Selection Row in Settings */}
         <Text style={styles.sectionHeading}>
@@ -227,12 +251,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
         {/* Menu Items */}
         <Text style={styles.sectionHeading}>
-          {t('Account & Activity', 'অ্যাকাউন্ট ও কার্যক্রম')}
+          {isGuest
+            ? t('App & Support', 'অ্যাপ ও সহায়তা')
+            : t('Account & Activity', 'অ্যাকাউন্ট ও কার্যক্রম')}
         </Text>
 
         <View style={styles.menuSection}>
-          {menuItems.map((item, index) => {
-            const isLast = index === menuItems.length - 1;
+          {visibleMenuItems.map((item, index) => {
+            const isLast = index === visibleMenuItems.length - 1;
             return (
               <React.Fragment key={item.id}>
                 <TouchableOpacity
@@ -250,30 +276,34 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           })}
         </View>
 
-        {/* Sign Out Button */}
+        {/* Sign Out / Exit Guest Button */}
         <TouchableOpacity
           style={styles.signOutBtn}
           onPress={onSignOut}
           activeOpacity={0.7}
         >
-          <Text style={styles.signOutText}>{t('Sign Out', 'সাইন আউট')}</Text>
+          <Text style={[styles.signOutText, isGuest && styles.guestExitText]}>
+            {isGuest ? t('Exit Guest Mode', 'গেস্ট মোড থেকে বের হন') : t('Sign Out', 'সাইন আউট')}
+          </Text>
         </TouchableOpacity>
 
         {/* Delete Account Button */}
-        <TouchableOpacity
-          style={styles.deleteAccountBtn}
-          onPress={() => {
-            setDeleteError('');
-            setDeleteConfirmation('');
-            setDeleteOtpToken('');
-            setDeleteOtpCode('');
-            setDeleteOtpMaskedEmail('');
-            setDeleteModalVisible(true);
-          }}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.deleteAccountText}>{t('Delete Account', 'অ্যাকাউন্ট ডিলিট করুন')}</Text>
-        </TouchableOpacity>
+        {!isGuest && (
+          <TouchableOpacity
+            style={styles.deleteAccountBtn}
+            onPress={() => {
+              setDeleteError('');
+              setDeleteConfirmation('');
+              setDeleteOtpToken('');
+              setDeleteOtpCode('');
+              setDeleteOtpMaskedEmail('');
+              setDeleteModalVisible(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.deleteAccountText}>{t('Delete Account', 'অ্যাকাউন্ট ডিলিট করুন')}</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       <Modal
@@ -390,6 +420,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F4F5',
   },
   userInfo: {
+    flex: 1,
     marginLeft: 14,
   },
   userName: {
@@ -401,6 +432,22 @@ const styles = StyleSheet.create({
   userPhone: {
     fontSize: 14,
     color: '#71717A',
+  },
+  guestSignInBtn: {
+    height: 46,
+    backgroundColor: '#09090B',
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  guestSignInText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  guestExitText: {
+    color: '#18181B',
   },
   sectionHeading: {
     fontSize: 13,

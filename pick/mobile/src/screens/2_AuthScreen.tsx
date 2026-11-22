@@ -51,6 +51,10 @@ interface AuthScreenProps {
   onAuthenticated: (user: PickUser) => void;
   offline?: boolean;
   app?: 'pick' | 'delivery';
+  guestLoginEnabled?: boolean;
+  onContinueAsGuest?: () => void;
+  onBack?: () => void;
+  authPromptBanner?: string;
 }
 
 function isAuthChallenge(value: unknown): value is AuthChallenge {
@@ -73,7 +77,11 @@ function normalizePhoneIdentifier(value: string, dialingCode: string): string {
 export const AuthScreen: React.FC<AuthScreenProps> = ({
   onAuthenticated,
   offline = false,
-  app = 'pick'
+  app = 'pick',
+  guestLoginEnabled = false,
+  onContinueAsGuest,
+  onBack,
+  authPromptBanner = ''
 }) => {
   const { t } = useLanguage();
   const [mode, setMode] = useState<AuthMode>('login');
@@ -340,8 +348,25 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.logoWrap}>
+            {onBack && step === 'form' && (
+              <TouchableOpacity
+                style={styles.topBackLink}
+                onPress={onBack}
+                disabled={busy}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.topBackLinkText}>
+                  {t('← Back to browsing', '← পেছনে ফিরে যান')}
+                </Text>
+              </TouchableOpacity>
+            )}
             <PickLogo variant="stacked-black" width={94} height={72} />
           </View>
+          {Boolean(authPromptBanner) && (
+            <View style={styles.promptBanner}>
+              <Text style={styles.promptBannerText}>{authPromptBanner}</Text>
+            </View>
+          )}
           {offline && (
             <Text accessibilityRole="alert" style={styles.offlineNotice}>
               {t(
@@ -447,6 +472,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   <Text style={styles.primaryButtonText}>{t('Sign in', 'লগইন')}</Text>
                 )}
               </TouchableOpacity>
+
+              {app === 'pick' && guestLoginEnabled && onContinueAsGuest && (
+                <TouchableOpacity
+                  style={styles.guestLink}
+                  onPress={onContinueAsGuest}
+                  disabled={busy}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.guestLinkText}>
+                    {t('Continue as Guest', 'গেস্ট হিসেবে প্রবেশ করুন')}
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               <View style={styles.dividerRow}>
                 <View style={styles.divider} />
@@ -741,6 +779,18 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 24 },
   logoWrap: { marginBottom: 22 },
+  topBackLink: { alignSelf: 'flex-start', paddingVertical: 6, marginBottom: 8 },
+  topBackLinkText: { color: '#52525B', fontSize: 13, fontWeight: '600' },
+  promptBanner: {
+    backgroundColor: '#F4F4F5',
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    borderRadius: 9,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16
+  },
+  promptBannerText: { color: '#18181B', fontSize: 13, lineHeight: 19, fontWeight: '500' },
   headline: { fontSize: 26, fontWeight: '700', color: '#09090B', marginBottom: 6, letterSpacing: -0.4 },
   helperText: { fontSize: 15, lineHeight: 22, color: '#71717A', marginBottom: 22 },
   offlineNotice: {
@@ -889,6 +939,8 @@ const styles = StyleSheet.create({
   },
   disabledButton: { opacity: 0.65 },
   primaryButtonText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
+  guestLink: { alignItems: 'center', marginTop: 14, paddingVertical: 6 },
+  guestLinkText: { color: '#3F3F46', fontSize: 15, fontWeight: '600', textAlign: 'center' },
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 22, marginBottom: 16 },
   divider: { height: 1, flex: 1, backgroundColor: '#E4E4E7' },
   dividerText: { color: '#71717A', fontSize: 12, marginHorizontal: 12 },
