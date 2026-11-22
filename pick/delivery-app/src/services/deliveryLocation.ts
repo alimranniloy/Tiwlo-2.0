@@ -33,7 +33,7 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(
       return;
     }
     const { latitude, longitude, accuracy } = location.coords;
-    if (typeof accuracy !== 'number' || !Number.isFinite(accuracy) || accuracy > 200) {
+    if (typeof accuracy !== 'number' || !Number.isFinite(accuracy) || accuracy > 500) {
       console.warn('PICK Delivery skipped an inaccurate background GPS fix.');
       return;
     }
@@ -198,7 +198,7 @@ export async function restoreDeliveryTracking(): Promise<void> {
     await ensureLocationPermissions(false);
     const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
     const accuracy = location.coords.accuracy;
-    if (typeof accuracy !== 'number' || !Number.isFinite(accuracy) || accuracy > 200) {
+    if (typeof accuracy !== 'number' || !Number.isFinite(accuracy) || accuracy > 500) {
       throw new Error('GPS accuracy is too low to resume delivery tracking.');
     }
     const savedLocation = await saveDeliveryLocation({

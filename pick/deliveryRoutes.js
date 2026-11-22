@@ -5,6 +5,7 @@ import { getOpenDrivingEstimate } from './liveTracking.js';
 import {
   canTransitionDeliveryJob,
   countAvailableGroceryDrivers,
+  countAvailableNearbyDrivers,
   DEFAULT_DELIVERY_VEHICLE_POLICIES,
   getDeliveryOrderStatus,
   isGroceryDeliveryJobEligible,
@@ -20,7 +21,7 @@ import {
 
 const require = createRequire(new URL('../server/package.json', import.meta.url));
 const express = require('express');
-const LOCATION_MAX_AGE_MS = 120_000;
+const LOCATION_MAX_AGE_MS = 600_000;
 
 function isRecord(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -127,7 +128,8 @@ async function loadEligibleOffers(driver, executor = queryPg) {
        LIMIT 250`
     ),
     loadCoverageZones(executor),
-    getPickGroceryPickupLocation(executor)
+    getPickGroceryPickupLocation(executor),
+    isWorldwideCoverageEnabled(executor)
   ]);
   const policy = policyRows[0];
   if (!policy) return [];
@@ -147,7 +149,8 @@ async function loadEligibleOffers(driver, executor = queryPg) {
         order,
         pickupLocation,
         policy,
-        coverageZones: zones
+        coverageZones: zones,
+        worldwide
       });
     }
     const requestedType = normalizeDeliveryVehicleType(
@@ -157,7 +160,8 @@ async function loadEligibleOffers(driver, executor = queryPg) {
       driver: candidateDriver,
       order: { ...order, parcelDetails },
       policy,
-      coverageZones: zones
+      coverageZones: zones,
+      worldwide
     });
   }).map((order) => ({
     id: order.id,
@@ -258,7 +262,7 @@ export async function notifyDeliveryPartnersForOrder(orderId, executor = queryPg
        ON p.vehicle_type = d.vehicle_type AND p.active = TRUE
      WHERE d.application_status = 'approved'
        AND d.is_on_duty = TRUE
-       AND d.current_location_at >= CURRENT_TIMESTAMP - INTERVAL '2 minutes'
+       AND d.current_location_at >= CURRENT_TIMESTAMP - INTERVAL '10 minutes'
        AND NOT EXISTS (
          SELECT 1 FROM pick.delivery_assignments a
          WHERE a.rider_user_id = d.tiwlo_user_id
@@ -288,9 +292,10 @@ export async function notifyDeliveryPartnersForOrder(orderId, executor = queryPg
   const parcelDetails = typeof order.parcelDetails === 'string'
     ? JSON.parse(order.parcelDetails)
     : order.parcelDetails;
-  const [zones, pickupLocation] = await Promise.all([
+  const [zones, pickupLocation, worldwide] = await Promise.all([
     loadCoverageZones(executor),
-    getPickGroceryPickupLocation(executor)
+    getPickGroceryPickupLocation(executor),
+    isWorldwideCoverageEnabled(executor)
   ]);
   const tokens = drivers.filter((driver) => {
     if (order.orderType === 'grocery') {
@@ -299,7 +304,8 @@ export async function notifyDeliveryPartnersForOrder(orderId, executor = queryPg
         order,
         pickupLocation,
         policy: driver,
-        coverageZones: zones
+        coverageZones: zones,
+        worldwide
       });
     }
     return normalizeDeliveryVehicleType(`${order.requestedVehicleId} ${order.requestedVehicleName}`) === driver.vehicleType &&
@@ -307,7 +313,8 @@ export async function notifyDeliveryPartnersForOrder(orderId, executor = queryPg
         driver: { ...driver, currentLatitude: driver.latitude, currentLongitude: driver.longitude },
         order: { ...order, parcelDetails },
         policy: driver,
-        coverageZones: zones
+        coverageZones: zones,
+        worldwide
       });
   }).map((driver) => driver.pushToken)
     .filter((token) => typeof token === 'string' && token.length > 0);
@@ -344,9 +351,10 @@ export function createPickDeliveryRouter({
         return res.json({ status: 'unknown', count: 0 });
       }
 
-      const [pickupLocation, coverageZones, { rows: drivers }] = await Promise.all([
+      const [pickupLocation, coverageZones, worldwide, { rows: drivers }] = await Promise.all([
         getPickGroceryPickupLocation(query),
         loadCoverageZones(query),
+        isWorldwideCoverageEnabled(query),
         query(
           `SELECT d.vehicle_type AS "vehicleType",
                   d.vehicle_capacity_kg::float8 AS "vehicleCapacityKg",
@@ -365,7 +373,7 @@ export function createPickDeliveryRouter({
              ON p.vehicle_type = d.vehicle_type AND p.active = TRUE
            WHERE d.application_status = 'approved'
              AND d.is_on_duty = TRUE
-             AND d.current_location_at >= CURRENT_TIMESTAMP - INTERVAL '2 minutes'
+             AND d.current_location_at >= CURRENT_TIMESTAMP - INTERVAL '10 minutes'
              AND NOT EXISTS (
                SELECT 1 FROM pick.delivery_assignments a
                WHERE a.rider_user_id = d.tiwlo_user_id
@@ -374,15 +382,13 @@ export function createPickDeliveryRouter({
         )
       ]);
 
-      if (!pickupLocation) {
-        return res.json({ status: 'unavailable', count: 0 });
-      }
-      const count = countAvailableGroceryDrivers({
+      const count = countAvailableNearbyDrivers({
         drivers,
         deliveryLatitude: Number(location.latitude),
         deliveryLongitude: Number(location.longitude),
         pickupLocation,
-        coverageZones
+        coverageZones,
+        worldwide
       });
       return res.json({
         status: count > 0 ? 'available' : 'unavailable',
@@ -535,7 +541,7 @@ export function createPickDeliveryRouter({
     try {
       const location = req.body || {};
       if (!isValidDriverLocation(location)) {
-        return res.status(400).json({ error: 'Send a valid GPS location with accuracy within 200 metres.' });
+        return res.status(400).json({ error: 'Send a valid GPS location with accuracy within 500 metres.' });
       }
       const { rows: profileRows } = await queryPg(
         `SELECT application_status AS "applicationStatus", is_on_duty AS "isOnDuty"
@@ -711,7 +717,7 @@ export function createPickDeliveryRouter({
          JOIN pick.delivery_profiles d ON d.tiwlo_user_id = a.rider_user_id
          WHERE a.id = $1 AND a.rider_user_id = $2
            AND a.status IN ('accepted', 'picked_up')
-           AND d.current_location_at >= CURRENT_TIMESTAMP - INTERVAL '2 minutes'
+           AND d.current_location_at >= CURRENT_TIMESTAMP - INTERVAL '10 minutes'
            AND d.current_latitude IS NOT NULL AND d.current_longitude IS NOT NULL
          LIMIT 1`,
         [req.params.assignmentId, req.tiwloSession.user.id]
@@ -830,20 +836,26 @@ export function createPickDeliveryRouter({
         accuracy: driver.currentAccuracy
       };
       const transactionQuery = (sql, params) => client.query(sql, params);
+      const [coverageZones, worldwide] = await Promise.all([
+        loadCoverageZones(transactionQuery),
+        isWorldwideCoverageEnabled(transactionQuery)
+      ]);
       const eligible = driver && !activeJobs.length && (order.orderType === 'grocery'
         ? isGroceryDeliveryJobEligible({
           driver: driverForEligibility,
           order,
           pickupLocation,
           policy: driver,
-          coverageZones: await loadCoverageZones(transactionQuery)
+          coverageZones,
+          worldwide
         })
         : normalizeDeliveryVehicleType(`${order.requestedVehicleId} ${order.requestedVehicleName}`) === driver.vehicleType &&
           isDeliveryJobEligible({
           driver: driverForEligibility,
           order: { ...order, parcelDetails },
           policy: driver,
-          coverageZones: await loadCoverageZones(transactionQuery)
+          coverageZones,
+          worldwide
         }));
       if (!eligible) {
         await client.query('ROLLBACK');

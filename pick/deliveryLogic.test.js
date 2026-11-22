@@ -4,6 +4,7 @@ import {
   DEFAULT_DELIVERY_VEHICLE_POLICIES,
   canTransitionDeliveryJob,
   countAvailableGroceryDrivers,
+  countAvailableNearbyDrivers,
   getDeliveryOrderStatus,
   isGroceryDeliveryJobEligible,
   isDeliveryJobEligible,
@@ -150,4 +151,38 @@ test('enforces delivery-job transitions and mirrors progress to customer order s
   assert.equal(canTransitionDeliveryJob('accepted', 'delivered'), false);
   assert.equal(canTransitionDeliveryJob('picked_up', 'delivered'), true);
   assert.equal(getDeliveryOrderStatus('picked_up'), 'in_transit');
+});
+
+test('counts nearby on-duty riders in worldwide mode even without pickup hub or active zone circles', () => {
+  const nearbyWalking = {
+    ...driver,
+    vehicleType: 'walking',
+    vehicleCapacityKg: 8,
+    maxCapacityKg: 10,
+    pickupRangeMeters: 1500,
+    deliveryRangeMeters: 6000,
+    latitude: 21.4268,
+    longitude: 91.9983
+  };
+  const farAway = {
+    ...nearbyWalking,
+    latitude: 23.7067,
+    longitude: 90.4532
+  };
+  assert.equal(countAvailableNearbyDrivers({
+    drivers: [nearbyWalking, farAway],
+    deliveryLatitude: 21.427,
+    deliveryLongitude: 91.998,
+    pickupLocation: null,
+    coverageZones: [{ ...zones[0], active: false }],
+    worldwide: true
+  }), 1);
+  assert.equal(countAvailableNearbyDrivers({
+    drivers: [nearbyWalking],
+    deliveryLatitude: 21.427,
+    deliveryLongitude: 91.998,
+    pickupLocation: null,
+    coverageZones: [{ ...zones[0], active: false }],
+    worldwide: false
+  }), 0);
 });

@@ -77,7 +77,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     };
 
     void refreshAvailability();
-    const interval = setInterval(() => void refreshAvailability(), 60_000);
+    const interval = setInterval(() => void refreshAvailability(), 25_000);
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') void refreshAvailability();
     });
@@ -86,7 +86,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       clearInterval(interval);
       subscription.remove();
     };
-  }, []);
+  }, [deliveryAddress]);
 
   const availabilityKey = `${deliveryAvailability.status}-${deliveryAvailability.count}`;
   const dismissAvailabilityBanner = useCallback(() => {

@@ -1,4 +1,5 @@
-import { getPickAccessToken } from '../../../mobile/src/services/auth';
+import { fetchWithTimeoutAndRetry, getPickAccessToken } from '../../../mobile/src/services/auth';
+import { getPickDeviceHeaders } from '../../../mobile/src/utils/deviceHeaders';
 import { PICK_API_URL } from '../../../mobile/src/config/api';
 import type { DeliveryRouteEstimate } from '../../../mobile/src/services/orders';
 
@@ -104,27 +105,18 @@ export class DeliveryApiError extends Error {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await getPickAccessToken();
   if (!token) throw new Error('Sign in with your Tiwlo account to continue.');
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
-  let response: Response;
-  try {
-    response = await fetch(`${PICK_API_URL}/delivery${path}`, {
-      ...init,
-      signal: controller.signal,
-      headers: {
-        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
-        Authorization: `Bearer ${token}`,
-        ...init.headers
-      }
-    });
-  } catch (error) {
-    if (controller.signal.aborted) {
-      throw new Error('The delivery service timed out. Check your connection and try again.');
+  const method = (init.method || 'GET').toUpperCase();
+  const deviceHeaders = getPickDeviceHeaders();
+  const response = await fetchWithTimeoutAndRetry(`${PICK_API_URL}/delivery${path}`, {
+    ...init,
+    headers: {
+      ...deviceHeaders,
+      'X-App-Name': 'PICK Delivery',
+      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      Authorization: `Bearer ${token}`,
+      ...init.headers
     }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
+  }, { timeoutMs: 15000, retries: method === 'GET' ? 2 : 0 });
   if (response.status === 204) return undefined as T;
   const result: unknown = await response.json().catch(() => null);
   if (!response.ok) {

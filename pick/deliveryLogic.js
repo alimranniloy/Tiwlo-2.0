@@ -50,7 +50,7 @@ export function isValidDriverLocation(location) {
   const accuracy = Number(location?.accuracy);
   return Number.isFinite(latitude) && latitude >= -90 && latitude <= 90 &&
     Number.isFinite(longitude) && longitude >= -180 && longitude <= 180 &&
-    Number.isFinite(accuracy) && accuracy >= 0 && accuracy <= 200;
+    Number.isFinite(accuracy) && accuracy >= 0 && accuracy <= 500;
 }
 
 export function validateVehicleCapacity(value, policy) {
@@ -67,8 +67,9 @@ export function isDeliveryJobEligible({
   order,
   policy,
   coverageZones,
+  worldwide = false,
   now = Date.now(),
-  maxLocationAgeMs = 120_000
+  maxLocationAgeMs = 600_000
 }) {
   if (!driver || !order || !policy ||
       driver.applicationStatus !== 'approved' ||
@@ -80,7 +81,7 @@ export function isDeliveryJobEligible({
       !isValidDriverLocation(driver)) return false;
 
   const locationTime = Date.parse(driver.currentLocationAt);
-  if (!Number.isFinite(locationTime) || now - locationTime < 0 ||
+  if (!Number.isFinite(locationTime) || now - locationTime < -60_000 ||
       now - locationTime > maxLocationAgeMs) return false;
 
   const sender = order.parcelDetails?.sender;
@@ -93,12 +94,14 @@ export function isDeliveryJobEligible({
     return false;
   }
 
-  const driverZone = findCoverageZone(driver.latitude, driver.longitude, coverageZones);
-  const pickupZone = findCoverageZone(senderLatitude, senderLongitude, coverageZones);
-  const deliveryZone = findCoverageZone(recipientLatitude, recipientLongitude, coverageZones);
-  if (!driverZone.available || !pickupZone.available || !deliveryZone.available ||
-      driverZone.zone.id !== pickupZone.zone.id ||
-      pickupZone.zone.id !== deliveryZone.zone.id) return false;
+  if (!worldwide) {
+    const driverZone = findCoverageZone(driver.latitude, driver.longitude, coverageZones);
+    const pickupZone = findCoverageZone(senderLatitude, senderLongitude, coverageZones);
+    const deliveryZone = findCoverageZone(recipientLatitude, recipientLongitude, coverageZones);
+    if (!driverZone.available || !pickupZone.available || !deliveryZone.available ||
+        driverZone.zone.id !== pickupZone.zone.id ||
+        pickupZone.zone.id !== deliveryZone.zone.id) return false;
+  }
 
   const pickupDistanceMeters = distanceBetweenCoordinatesMeters(
     driver.latitude,
@@ -125,8 +128,9 @@ export function isGroceryDeliveryJobEligible({
   pickupLocation,
   policy,
   coverageZones,
+  worldwide = false,
   now = Date.now(),
-  maxLocationAgeMs = 120_000
+  maxLocationAgeMs = 600_000
 }) {
   if (!driver || !order || !pickupLocation || !policy ||
       driver.applicationStatus !== 'approved' ||
@@ -142,18 +146,20 @@ export function isGroceryDeliveryJobEligible({
   const pickupLongitude = Number(pickupLocation.longitude);
   const recipientLatitude = Number(order.deliveryLatitude);
   const recipientLongitude = Number(order.deliveryLongitude);
-  if (!Number.isFinite(locationTime) || now - locationTime < 0 ||
+  if (!Number.isFinite(locationTime) || now - locationTime < -60_000 ||
       now - locationTime > maxLocationAgeMs ||
       ![pickupLatitude, pickupLongitude, recipientLatitude, recipientLongitude].every(Number.isFinite)) {
     return false;
   }
 
-  const driverZone = findCoverageZone(driver.latitude, driver.longitude, coverageZones);
-  const pickupZone = findCoverageZone(pickupLatitude, pickupLongitude, coverageZones);
-  const deliveryZone = findCoverageZone(recipientLatitude, recipientLongitude, coverageZones);
-  if (!driverZone.available || !pickupZone.available || !deliveryZone.available ||
-      driverZone.zone.id !== pickupZone.zone.id ||
-      pickupZone.zone.id !== deliveryZone.zone.id) return false;
+  if (!worldwide) {
+    const driverZone = findCoverageZone(driver.latitude, driver.longitude, coverageZones);
+    const pickupZone = findCoverageZone(pickupLatitude, pickupLongitude, coverageZones);
+    const deliveryZone = findCoverageZone(recipientLatitude, recipientLongitude, coverageZones);
+    if (!driverZone.available || !pickupZone.available || !deliveryZone.available ||
+        driverZone.zone.id !== pickupZone.zone.id ||
+        pickupZone.zone.id !== deliveryZone.zone.id) return false;
+  }
 
   const pickupDistanceMeters = distanceBetweenCoordinatesMeters(
     driver.latitude,
@@ -177,8 +183,9 @@ export function countAvailableGroceryDrivers({
   deliveryLongitude,
   pickupLocation,
   coverageZones,
+  worldwide = false,
   now = Date.now(),
-  maxLocationAgeMs = 120_000
+  maxLocationAgeMs = 600_000
 }) {
   const order = { deliveryLatitude, deliveryLongitude };
   return drivers.filter((driver) => isGroceryDeliveryJobEligible({
@@ -187,9 +194,105 @@ export function countAvailableGroceryDrivers({
     pickupLocation,
     policy: driver,
     coverageZones,
+    worldwide,
     now,
     maxLocationAgeMs
   })).length;
+}
+
+export function isDriverNearbyCustomer({
+  driver,
+  deliveryLatitude,
+  deliveryLongitude,
+  coverageZones = [],
+  worldwide = false,
+  now = Date.now(),
+  maxLocationAgeMs = 600_000
+}) {
+  if (!driver ||
+      driver.applicationStatus !== 'approved' ||
+      driver.isOnDuty !== true ||
+      !Number.isFinite(Number(driver.vehicleCapacityKg)) ||
+      Number(driver.vehicleCapacityKg) <= 0 ||
+      !isValidDriverLocation(driver)) return false;
+
+  const locationTime = Date.parse(driver.currentLocationAt);
+  const targetLat = Number(deliveryLatitude);
+  const targetLng = Number(deliveryLongitude);
+  if (!Number.isFinite(locationTime) || now - locationTime < -60_000 ||
+      now - locationTime > maxLocationAgeMs ||
+      !Number.isFinite(targetLat) || !Number.isFinite(targetLng)) {
+    return false;
+  }
+
+  if (!worldwide) {
+    const driverZone = findCoverageZone(driver.latitude, driver.longitude, coverageZones);
+    const customerZone = findCoverageZone(targetLat, targetLng, coverageZones);
+    if (!driverZone.available || !customerZone.available ||
+        driverZone.zone.id !== customerZone.zone.id) {
+      return false;
+    }
+  }
+
+  const areaRangeMeters = Math.max(
+    Number(driver.deliveryRangeMeters) || 0,
+    Number(driver.pickupRangeMeters) || 0,
+    6000
+  );
+  const distanceMeters = distanceBetweenCoordinatesMeters(
+    driver.latitude,
+    driver.longitude,
+    targetLat,
+    targetLng
+  );
+  return distanceMeters <= areaRangeMeters;
+}
+
+export function countAvailableNearbyDrivers({
+  drivers,
+  deliveryLatitude,
+  deliveryLongitude,
+  pickupLocation = null,
+  coverageZones = [],
+  worldwide = false,
+  now = Date.now(),
+  maxLocationAgeMs = 600_000
+}) {
+  if (pickupLocation && !worldwide) {
+    return countAvailableGroceryDrivers({
+      drivers,
+      deliveryLatitude,
+      deliveryLongitude,
+      pickupLocation,
+      coverageZones,
+      worldwide: false,
+      now,
+      maxLocationAgeMs
+    });
+  }
+  return drivers.filter((driver) => {
+    if (pickupLocation && isGroceryDeliveryJobEligible({
+      driver,
+      order: { deliveryLatitude, deliveryLongitude },
+      pickupLocation,
+      policy: driver,
+      coverageZones,
+      worldwide,
+      now,
+      maxLocationAgeMs
+    })) {
+      return true;
+    }
+    return isDriverNearbyCustomer({
+      driver,
+      deliveryLatitude,
+      deliveryLongitude,
+      coverageZones,
+      worldwide,
+      now,
+      maxLocationAgeMs
+    });
+  }).length;
 }
 
 export function canTransitionDeliveryJob(currentStatus, nextStatus) {

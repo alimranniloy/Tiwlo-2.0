@@ -1,4 +1,4 @@
-import { getPickAccessToken } from './auth';
+import { fetchWithTimeoutAndRetry, getPickAccessToken } from './auth';
 import { PICK_API_URL } from '../config/api';
 
 export interface DeliveryAvailability {
@@ -10,26 +10,13 @@ export async function getDeliveryAvailability(): Promise<DeliveryAvailability> {
   const token = await getPickAccessToken();
   if (!token) throw new Error('Sign in to check nearby delivery partners.');
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
-  let response: Response;
-  try {
-    response = await fetch(`${PICK_API_URL}/delivery/availability`, {
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      cache: 'no-store'
-    });
-  } catch (error) {
-    if (controller.signal.aborted) {
-      throw new Error('Delivery partner availability check timed out.');
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
+  const response = await fetchWithTimeoutAndRetry(`${PICK_API_URL}/delivery/availability`, {
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    cache: 'no-store'
+  }, { timeoutMs: 12000, retries: 1 });
 
   const value: unknown = await response.json().catch(() => null);
   if (!response.ok) {
