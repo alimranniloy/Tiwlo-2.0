@@ -327,6 +327,12 @@ router.post('/guest/location-check', securityLimiters.addressVerification, async
     return res.json({ address, coverage });
   } catch (error) {
     if (error instanceof TypeError) return res.status(400).json({ error: error.message });
+    if (error instanceof Error && /Google|Maps API|location/i.test(error.message)) {
+      console.error('[PICK Address Lookup] Failed:', error.message);
+      return res.status(503).json({
+        error: 'Could not verify your address or location right now. Please try again.'
+      });
+    }
     return next(error);
   }
 });
@@ -401,6 +407,12 @@ router.post('/auth/verify-address', requireUser, securityLimiters.addressVerific
     });
   } catch (error) {
     if (error instanceof TypeError) return res.status(400).json({ error: error.message });
+    if (error instanceof Error && /Google|Maps API|location/i.test(error.message)) {
+      console.error('[PICK Address Lookup] Failed:', error.message);
+      return res.status(503).json({
+        error: 'Could not verify your address or location right now. Please try again.'
+      });
+    }
     return next(error);
   }
 });
@@ -472,6 +484,12 @@ router.post('/auth/mobile-token', async (req, res, next) => {
 
   } catch (error) {
     if (error instanceof TypeError) return res.status(400).json({ error: error.message });
+    if (error instanceof Error && /Google|Maps API|location/i.test(error.message)) {
+      console.error('[PICK Address Lookup] Failed:', error.message);
+      return res.status(503).json({
+        error: 'Could not verify your address or location right now. Please try again.'
+      });
+    }
     return next(error);
   }
 });
@@ -820,7 +838,6 @@ router.post('/address-verification', requireUser, async (req, res, next) => {
       typeof verified.area !== 'string' ||
       !verified.area.trim() ||
       typeof verified.postal_code !== 'string' ||
-      !verified.postal_code.trim() ||
       typeof verified.plus_code !== 'string' ||
       !verified.plus_code.trim()
     ) {
@@ -1584,6 +1601,12 @@ router.post('/location/reverse-geocode', requireUser, async (req, res, next) => 
     return res.json({ address, coverage });
   } catch (error) {
     if (error instanceof TypeError) return res.status(400).json({ error: error.message });
+    if (error instanceof Error && /Google|Maps API|location/i.test(error.message)) {
+      console.error('[PICK Address Lookup] Failed:', error.message);
+      return res.status(503).json({
+        error: 'Could not verify your address or location right now. Please try again.'
+      });
+    }
     return next(error);
   }
 });

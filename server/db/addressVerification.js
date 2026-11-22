@@ -1,28 +1,69 @@
+const AREA_COMPONENT_TYPES = [
+  'neighborhood',
+  'sublocality',
+  'sublocality_level_1',
+  'sublocality_level_2',
+  'locality',
+  'administrative_area_level_3',
+  'administrative_area_level_4',
+  'administrative_area_level_5',
+  'administrative_area_level_2',
+  'administrative_area_level_1',
+  'colloquial_area',
+  'route',
+  'country'
+];
+
 function getAddressComponent(components, acceptedTypes) {
-  const component = components.find(row =>
-    Array.isArray(row.types) && row.types.some(type => acceptedTypes.includes(type))
-  );
-  return component?.long_name?.trim() || '';
+  for (const acceptedType of acceptedTypes) {
+    const component = components.find(row =>
+      Array.isArray(row.types) && row.types.includes(acceptedType)
+    );
+    const name = component?.long_name?.trim();
+    if (name) return name;
+  }
+  return '';
+}
+
+function pickBestFormattedAddress(results) {
+  const streetCandidate = results.find(item => {
+    const addr = item?.formatted_address?.trim();
+    const types = Array.isArray(item?.types) ? item.types : [];
+    return Boolean(addr) && !types.includes('plus_code');
+  });
+  return streetCandidate?.formatted_address?.trim() ||
+    results.find(item => item?.formatted_address?.trim())?.formatted_address?.trim() ||
+    '';
 }
 
 function resolveGoogleAddress(result, response) {
-  const components = result.address_components || [];
-  const area = getAddressComponent(components, [
-    'neighborhood',
-    'sublocality',
-    'sublocality_level_1',
-    'locality',
-    'administrative_area_level_2',
-    'administrative_area_level_1'
-  ]);
-  const postalCode = getAddressComponent(components, ['postal_code']);
-  const plusCode = result.plus_code?.global_code ||
-    response.plus_code?.global_code ||
-    '';
-  const formattedAddress = result.formatted_address?.trim() || '';
+  const results = Array.isArray(response?.results) && response.results.length
+    ? response.results
+    : [result];
 
-  if (!formattedAddress || !area || !postalCode || !plusCode) {
-    throw new Error('Google did not return a complete address, area, postcode, and Plus Code.');
+  const allComponents = results.flatMap(item =>
+    Array.isArray(item?.address_components) ? item.address_components : []
+  );
+  const directComponents = Array.isArray(result?.address_components)
+    ? result.address_components
+    : [];
+
+  const area = getAddressComponent(directComponents, AREA_COMPONENT_TYPES) ||
+    getAddressComponent(allComponents, AREA_COMPONENT_TYPES);
+  const postalCode = getAddressComponent(directComponents, ['postal_code']) ||
+    getAddressComponent(allComponents, ['postal_code']);
+  const plusCode = result?.plus_code?.global_code ||
+    response?.plus_code?.global_code ||
+    results.find(item => item?.plus_code?.global_code)?.plus_code?.global_code ||
+    '';
+  const compoundPlusCode = result?.plus_code?.compound_code ||
+    response?.plus_code?.compound_code ||
+    results.find(item => item?.plus_code?.compound_code)?.plus_code?.compound_code ||
+    '';
+  const formattedAddress = result?.formatted_address?.trim() || pickBestFormattedAddress(results);
+
+  if (!formattedAddress || !area || !plusCode) {
+    throw new Error('Google did not return a complete address, area, and Plus Code.');
   }
 
   return {
@@ -30,10 +71,8 @@ function resolveGoogleAddress(result, response) {
     area,
     postalCode,
     plusCode,
-    compoundPlusCode: result.plus_code?.compound_code ||
-      response.plus_code?.compound_code ||
-      '',
-    placeId: result.place_id || ''
+    compoundPlusCode,
+    placeId: result?.place_id || results.find(item => item?.place_id)?.place_id || ''
   };
 }
 

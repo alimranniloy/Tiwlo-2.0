@@ -76,7 +76,70 @@ test('incomplete Google results fail verification', async () => {
       status: 'OK',
       results: [{ formatted_address: 'Dhaka, Bangladesh', address_components: [] }]
     })
-  }), /complete address, area, postcode, and Plus Code/);
+  }), /complete address, area, and Plus Code/);
+});
+
+test('Google reverse geocoding resolves areas without postcodes and merges components across results', async () => {
+  const result = await reverseGeocodeAddress({
+    latitude: 24.335,
+    longitude: 91.755,
+    apiKey: 'test-key',
+    fetchImpl: async () => Response.json({
+      status: 'OK',
+      plus_code: { global_code: '7MPH8QM3+XX', compound_code: '8QM3+XX Sreemangal, Bangladesh' },
+      results: [
+        {
+          formatted_address: '8QM3+XX Sreemangal, Bangladesh',
+          place_id: 'bd-rural-place',
+          types: ['plus_code'],
+          address_components: [
+            { long_name: 'Sreemangal', types: ['locality', 'political'] },
+            { long_name: 'Moulvi Bazar District', types: ['administrative_area_level_2', 'political'] }
+          ]
+        },
+        {
+          formatted_address: 'Nambihin Rasta, Sreemangal, Bangladesh',
+          place_id: 'bd-road-place',
+          types: ['route'],
+          address_components: [
+            { long_name: 'Nambihin Rasta', types: ['route'] },
+            { long_name: '3210', types: ['postal_code'] }
+          ]
+        }
+      ]
+    })
+  });
+
+  assert.deepEqual(result, {
+    formattedAddress: '8QM3+XX Sreemangal, Bangladesh',
+    area: 'Sreemangal',
+    postalCode: '3210',
+    plusCode: '7MPH8QM3+XX',
+    compoundPlusCode: '8QM3+XX Sreemangal, Bangladesh',
+    placeId: 'bd-rural-place'
+  });
+
+  const withoutPostcode = await reverseGeocodeAddress({
+    latitude: 24.285,
+    longitude: 91.745,
+    apiKey: 'test-key',
+    fetchImpl: async () => Response.json({
+      status: 'OK',
+      plus_code: { global_code: '7MPH7PMW+X2', compound_code: '7PMW+X2 Phulcherra, Bangladesh' },
+      results: [{
+        formatted_address: '7PMW+X2 Phulcherra, Bangladesh',
+        place_id: 'bd-tea-garden',
+        address_components: [
+          { long_name: 'Phulcherra', types: ['locality', 'political'] },
+          { long_name: 'Moulvi Bazar District', types: ['administrative_area_level_2', 'political'] }
+        ]
+      }]
+    })
+  });
+
+  assert.equal(withoutPostcode.area, 'Phulcherra');
+  assert.equal(withoutPostcode.postalCode, '');
+  assert.equal(withoutPostcode.plusCode, '7MPH7PMW+X2');
 });
 
 test('missing Google API key fails without requesting a non-Google fallback', async () => {
