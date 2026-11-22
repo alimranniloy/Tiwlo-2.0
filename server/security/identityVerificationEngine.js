@@ -387,6 +387,18 @@ export function buildSignedVerificationAttestation({ userId, documentFingerprint
  * or subnet signals. Instead of banning immediately on signup/login, triggers mandatory step-up
  * identity verification (`identityVerificationRequired = true`).
  */
+function isInternalProxyIp(ip) {
+  if (!ip || typeof ip !== 'string') return false;
+  if (ip === '127.0.0.1' || ip === '::1') return true;
+  if (ip.startsWith('10.') || ip.startsWith('192.168.')) return true;
+  const match = /^172\.(\d+)\./.exec(ip);
+  if (match) {
+    const second = Number(match[1]);
+    if (second >= 16 && second <= 31) return true;
+  }
+  return false;
+}
+
 export async function evaluateMultiAccountStepUpRisk({ userId, user = null, req = null, threshold = 2 } = {}) {
   if (!userId || !isPgActive()) {
     return { triggered: false, riskScore: 0, linkedAccountIds: [] };
@@ -400,7 +412,7 @@ export async function evaluateMultiAccountStepUpRisk({ userId, user = null, req 
   const uid = String(targetUser.id || userId);
   const uaHash = signals.userAgentHash || hashAbuseSignal('ua', 'unknown');
   const deviceHash = signals.fingerprintHash || signals.deviceTokenHash || uaHash;
-  const ipHash = signals.ipHash;
+  const ipHash = isInternalProxyIp(signals.ip) ? null : signals.ipHash;
 
   const { rows } = await queryPg(
     `SELECT DISTINCT user_id, device_hash, ip_hash

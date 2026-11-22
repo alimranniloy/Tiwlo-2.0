@@ -28,8 +28,10 @@ import { ProfileScreen } from '../screens/13_ProfileScreen';
 import {
   clearStoredPickSession,
   deletePickAccount,
+  getCachedPickUser,
   getPendingAuthChallenge,
   getStoredPickSession,
+  hasStoredPickToken,
   PickAccountDisabledError,
   PickAccountRestoredError,
   PickUser
@@ -48,9 +50,12 @@ import {
 } from '../services/orders';
 import { createParcelOrder, getParcelVehicles, ParcelVehicle } from '../services/parcels';
 import {
+  clearCachedDeliveryCoverage,
   DeliveryCoverage,
+  getCachedDeliveryCoverage,
   getSavedDeliveryCoverage,
   joinCoverageWaitlist,
+  SavedDeliveryCoverage,
   setCurrentDeliveryLocation
 } from '../services/location';
 import { openPickPaymentCheckout } from '../services/payments';
@@ -378,7 +383,10 @@ export const AppNavigator: React.FC = () => {
     }
   };
 
-  const routeSignedInUser = useCallback(async (signedInUser: PickUser) => {
+  const routeSignedInUser = useCallback(async (
+    signedInUser: PickUser,
+    options?: { cachedCoverage?: SavedDeliveryCoverage | null }
+  ) => {
     setUser(signedInUser);
     setRecipientData((current) => ({
       ...current,
@@ -394,6 +402,15 @@ export const AppNavigator: React.FC = () => {
     }
     if (!signedInUser.deliveryAddressVerified) {
       replaceScreen('address_verification');
+      return;
+    }
+    if (options?.cachedCoverage) {
+      if (!options.cachedCoverage.hasLocation || !options.cachedCoverage.coverage) {
+        replaceScreen('location_permission');
+        return;
+      }
+      setDeliveryCoverage(options.cachedCoverage.coverage);
+      replaceScreen(options.cachedCoverage.coverage.available ? 'rain_delay' : 'coverage_unavailable');
       return;
     }
     try {
@@ -455,19 +472,28 @@ export const AppNavigator: React.FC = () => {
     replaceScreen(result.coverage.available ? 'location_success' : 'coverage_unavailable');
   };
 
-  const handleSplashNext = async () => {
+  const handleSplashNext = useCallback(async () => {
     try {
+      const hasToken = await hasStoredPickToken();
+      if (!hasToken) {
+        replaceScreen('auth');
+        return;
+      }
+      const [cachedUser, cachedCoverage] = await Promise.all([
+        getCachedPickUser(),
+        getCachedDeliveryCoverage()
+      ]);
+      if (cachedUser) {
+        if (cachedUser.isBanned) {
+          setUser(cachedUser);
+          setHistory(['account_disabled']);
+          return;
+        }
+        await routeSignedInUser(cachedUser, { cachedCoverage });
+        return;
+      }
       const session = await getStoredPickSession();
       if (session) {
-        setUser(session.user);
-        setRecipientData((current) => ({
-          ...current,
-          senderName: session.user.name,
-          senderPhone: session.user.phone,
-          senderAddress: session.user.deliveryAddress,
-          senderLatitude: session.user.deliveryLatitude,
-          senderLongitude: session.user.deliveryLongitude
-        }));
         await routeSignedInUser(session.user);
       } else {
         replaceScreen('auth');
@@ -491,8 +517,9 @@ export const AppNavigator: React.FC = () => {
         'Connection error',
         error instanceof Error ? error.message : 'Could not load your Tiwlo account.'
       );
+      replaceScreen('auth');
     }
-  };
+  }, [replaceScreen, routeSignedInUser, showNotice]);
 
   useEffect(() => {
     if (
@@ -713,7 +740,7 @@ export const AppNavigator: React.FC = () => {
             onAccountRestored={handleAccountRestored}
             onSignOut={async () => {
               try {
-                await clearStoredPickSession();
+                await Promise.all([clearStoredPickSession(), clearCachedDeliveryCoverage()]);
               } catch (error) {
                 showNotice(
                   'Sign-out warning',
@@ -1077,7 +1104,7 @@ export const AppNavigator: React.FC = () => {
             user={user}
             onSignOut={async () => {
               try {
-                await clearStoredPickSession();
+                await Promise.all([clearStoredPickSession(), clearCachedDeliveryCoverage()]);
               } catch (error) {
                 showNotice(
                   'Sign-out warning',

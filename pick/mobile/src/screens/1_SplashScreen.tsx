@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -17,9 +17,18 @@ interface SplashScreenProps {
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onNext }) => {
   const [fadeAnim] = useState(() => new Animated.Value(0));
   const [scaleAnim] = useState(() => new Animated.Value(0.95));
+  const onNextRef = useRef(onNext);
+  onNextRef.current = onNext;
+  const triggeredRef = useRef(false);
   const { width, height } = useWindowDimensions();
   const footerSize = width * 1.45;
   const footerHeight = Math.min(290, width * 0.72, height * 0.3);
+
+  const triggerNext = () => {
+    if (triggeredRef.current) return;
+    triggeredRef.current = true;
+    onNextRef.current();
+  };
 
   useEffect(() => {
     Animated.parallel([
@@ -37,18 +46,18 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onNext }) => {
     ]).start();
 
     const timer = setTimeout(() => {
-      onNext();
+      triggerNext();
     }, 2200);
 
     return () => clearTimeout(timer);
-  }, [onNext, fadeAnim, scaleAnim]);
+  }, [fadeAnim, scaleAnim]);
 
   return (
     <ScreenContainer dark={false} applyTopInset applyBottomInset>
       <TouchableOpacity
         style={styles.container}
         activeOpacity={1}
-        onPress={onNext}
+        onPress={triggerNext}
       >
         <Animated.View
           style={[

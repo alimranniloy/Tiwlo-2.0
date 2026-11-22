@@ -1,12 +1,16 @@
 import * as Location from 'expo-location';
+import * as SecureStore from 'expo-secure-store';
 import {
   buildBannedPickUser,
+  fetchWithTimeoutAndRetry,
   getPickAccessToken,
   isAccountDisabledResponse,
   PickAccountDisabledError,
   PickUser
 } from './auth';
 import { API_ORIGIN, PICK_API_URL } from '../config/api';
+
+const CACHED_COVERAGE_KEY = 'pick.tiwlo.cached_coverage';
 
 async function getCurrentLocationPosition() {
   let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -46,10 +50,38 @@ export interface SavedDeliveryCoverage {
   coverage: DeliveryCoverage | null;
 }
 
+export async function cacheDeliveryCoverage(data: SavedDeliveryCoverage): Promise<void> {
+  try {
+    await SecureStore.setItemAsync(CACHED_COVERAGE_KEY, JSON.stringify(data));
+  } catch {
+    // Cache writes are best-effort.
+  }
+}
+
+export async function getCachedDeliveryCoverage(): Promise<SavedDeliveryCoverage | null> {
+  try {
+    const raw = await SecureStore.getItemAsync(CACHED_COVERAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as SavedDeliveryCoverage;
+    if (typeof parsed?.hasLocation !== 'boolean') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export async function clearCachedDeliveryCoverage(): Promise<void> {
+  try {
+    await SecureStore.deleteItemAsync(CACHED_COVERAGE_KEY);
+  } catch {
+    // Ignore cache clear failure.
+  }
+}
+
 export async function getSavedDeliveryCoverage(): Promise<SavedDeliveryCoverage> {
   const sessionToken = await getPickAccessToken();
   if (!sessionToken) throw new Error('Sign in to PICK before checking delivery coverage.');
-  const response = await fetch(`${PICK_API_URL}/coverage/status`, {
+  const response = await fetchWithTimeoutAndRetry(`${PICK_API_URL}/coverage/status`, {
     headers: { Authorization: `Bearer ${sessionToken}` }
   });
   const result = await response.json().catch(() => ({}));
@@ -66,7 +98,9 @@ export async function getSavedDeliveryCoverage(): Promise<SavedDeliveryCoverage>
   if (result.hasLocation && (!result.coverage || typeof result.coverage.available !== 'boolean')) {
     throw new Error('The saved delivery coverage response was invalid.');
   }
-  return result as SavedDeliveryCoverage;
+  const typed = result as SavedDeliveryCoverage;
+  await cacheDeliveryCoverage(typed);
+  return typed;
 }
 
 export async function verifyPreAuthPickAddress(tempToken: string): Promise<void> {

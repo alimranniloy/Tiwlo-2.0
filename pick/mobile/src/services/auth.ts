@@ -11,9 +11,46 @@ import {
 
 const SESSION_KEY = 'pick.tiwlo.session';
 const APPEAL_SESSION_KEY = 'pick.tiwlo.appeal_session';
+const CACHED_USER_KEY = 'pick.tiwlo.cached_user';
 const PENDING_VERIFIER_KEY = 'pick.auth.pending_verifier';
 const PENDING_STATE_KEY = 'pick.auth.pending_state';
 const PENDING_CHALLENGE_KEY = 'pick.auth.pending_challenge';
+
+export async function fetchWithTimeoutAndRetry(
+  url: string,
+  init: RequestInit = {},
+  options: { timeoutMs?: number; retries?: number } = {}
+): Promise<Response> {
+  const timeoutMs = options.timeoutMs ?? 15000;
+  const retries = options.retries ?? 2;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { ...init, signal: controller.signal });
+      if (attempt < retries && (response.status === 502 || response.status === 503 || response.status === 504)) {
+        await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 400 : 1000));
+        continue;
+      }
+      return response;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= retries) break;
+      await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 400 : 1000));
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  if (lastError instanceof Error && lastError.name === 'AbortError') {
+    throw new Error('Could not reach Tiwlo servers. Please check your connection and try again.');
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('Network request failed. Please check your connection.');
+}
 
 export interface PickUser {
   id: string;
@@ -349,11 +386,11 @@ export async function startPickSocialSignIn(
 }
 
 async function postAuth(path: string, body: Record<string, unknown>): Promise<AuthChallenge> {
-  const response = await fetch(`${API_ORIGIN}/api/auth/${path}`, {
+  const response = await fetchWithTimeoutAndRetry(`${API_ORIGIN}/api/auth/${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
-  });
+  }, { timeoutMs: 15000, retries: 1 });
   const result = await response.json().catch(() => ({}));
   if (result.isBanned && result.appealSessionToken) {
     await saveAppealSession(result.appealSessionToken);
@@ -656,17 +693,64 @@ export async function resendPickTwoFactor(
   return challenge;
 }
 
+export async function hasStoredPickToken(): Promise<boolean> {
+  const [sessionToken, appealToken] = await Promise.all([
+    SecureStore.getItemAsync(SESSION_KEY),
+    SecureStore.getItemAsync(APPEAL_SESSION_KEY)
+  ]);
+  return Boolean(sessionToken || appealToken);
+}
+
+export async function cachePickUser(user: PickUser): Promise<void> {
+  try {
+    const compact: PickUser = {
+      id: user.id,
+      tiwiId: user.tiwiId,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      avatar: null,
+      deliveryAddress: user.deliveryAddress,
+      deliveryAddressVerified: user.deliveryAddressVerified,
+      deliveryLatitude: user.deliveryLatitude,
+      deliveryLongitude: user.deliveryLongitude,
+      deliveryArea: user.deliveryArea,
+      deliveryPostalCode: user.deliveryPostalCode,
+      deliveryPlusCode: user.deliveryPlusCode,
+      isBanned: Boolean(user.isBanned),
+      banReason: user.banReason || ''
+    };
+    await SecureStore.setItemAsync(CACHED_USER_KEY, JSON.stringify(compact));
+  } catch {
+    // Cache writes are best-effort and must never fail sign-in.
+  }
+}
+
+export async function getCachedPickUser(): Promise<PickUser | null> {
+  try {
+    const raw = await SecureStore.getItemAsync(CACHED_USER_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PickUser;
+    return parsed && typeof parsed.id === 'string' && parsed.id ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getStoredPickSession(): Promise<AuthResult | null> {
   const sessionToken = await SecureStore.getItemAsync(SESSION_KEY);
   if (!sessionToken) {
     const appealToken = await SecureStore.getItemAsync(APPEAL_SESSION_KEY);
     if (!appealToken) return null;
-    const response = await fetch(`${PICK_API_URL}/account-status`, {
+    const response = await fetchWithTimeoutAndRetry(`${PICK_API_URL}/account-status`, {
       headers: { Authorization: `Bearer ${appealToken}` }
     });
     const result = await response.json().catch(() => ({}));
     if (response.status === 401) {
-      await SecureStore.deleteItemAsync(APPEAL_SESSION_KEY);
+      await Promise.all([
+        SecureStore.deleteItemAsync(APPEAL_SESSION_KEY),
+        SecureStore.deleteItemAsync(CACHED_USER_KEY)
+      ]);
       return null;
     }
     if (!response.ok || !result.user) {
@@ -674,6 +758,7 @@ export async function getStoredPickSession(): Promise<AuthResult | null> {
     }
     if (result.status === 'active' && typeof result.sessionToken === 'string') {
       await savePickSession(result.sessionToken);
+      await cachePickUser(result.user as PickUser);
       return { sessionToken: result.sessionToken, user: result.user as PickUser };
     }
     if (result.status === 'disabled') {
@@ -684,17 +769,23 @@ export async function getStoredPickSession(): Promise<AuthResult | null> {
       );
     }
     if (result.status === 'restored') {
-      await SecureStore.deleteItemAsync(APPEAL_SESSION_KEY);
+      await Promise.all([
+        SecureStore.deleteItemAsync(APPEAL_SESSION_KEY),
+        SecureStore.deleteItemAsync(CACHED_USER_KEY)
+      ]);
       throw new PickAccountRestoredError(result.user as PickUser);
     }
     throw new Error('The Tiwlo account status response was invalid.');
   }
 
-  const response = await fetch(`${PICK_API_URL}/me`, {
+  const response = await fetchWithTimeoutAndRetry(`${PICK_API_URL}/me`, {
     headers: { Authorization: `Bearer ${sessionToken}` }
   });
   if (response.status === 401) {
-    await SecureStore.deleteItemAsync(SESSION_KEY);
+    await Promise.all([
+      SecureStore.deleteItemAsync(SESSION_KEY),
+      SecureStore.deleteItemAsync(CACHED_USER_KEY)
+    ]);
     return null;
   }
   const result = await response.json().catch(() => ({}));
@@ -708,6 +799,7 @@ export async function getStoredPickSession(): Promise<AuthResult | null> {
   if (!response.ok || !result.user) {
     throw new Error(result.error || 'Could not load your PICK profile.');
   }
+  await cachePickUser(result.user as PickUser);
   return { sessionToken, user: result.user as PickUser };
 }
 
@@ -728,6 +820,7 @@ export async function clearStoredPickSession(): Promise<void> {
     await Promise.all([
       SecureStore.deleteItemAsync(SESSION_KEY),
       SecureStore.deleteItemAsync(APPEAL_SESSION_KEY),
+      SecureStore.deleteItemAsync(CACHED_USER_KEY),
       clearPendingAuthChallenge()
     ]);
   }

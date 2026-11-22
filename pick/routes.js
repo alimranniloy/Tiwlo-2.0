@@ -8,6 +8,7 @@ import {
   isValidLiveLocation,
   verifyGoogleAddress
 } from '../server/db/addressVerification.js';
+import { getGoogleMapsApiKey } from '../server/db/googleMapsSettings.js';
 import { PLATFORM_CONFIG } from '../server/config/platformConfig.js';
 import adminRoutes from './adminRoutes.js';
 import { findCoverageZone, isWorldwideCoverageEnabled } from './coverage.js';
