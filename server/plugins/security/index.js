@@ -175,12 +175,19 @@ export const securityLimiters = {
   addressVerification: createLimiter({
     policyId: 'address_verification_account',
     windowMs: hour,
-    limit: 5,
+    limit: 15,
     getIdentity: (req) => {
       const userId = req.activeUser?.id || req.tiwloSession?.user?.id;
       return userId ? `user:${userId}` : getClientNetwork(req);
     },
     error: 'Too many address verification attempts. Please try again later.'
+  }),
+  guestLocationCheck: createLimiter({
+    policyId: 'pick_guest_location_ip',
+    windowMs: hour,
+    limit: 60,
+    getIdentity: (req) => getClientNetwork(req),
+    error: 'Too many location checks from this network. Please wait and try again.'
   }),
   loginLocation: createLimiter({
     policyId: 'login_location_account',

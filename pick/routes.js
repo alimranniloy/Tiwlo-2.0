@@ -294,7 +294,7 @@ router.get('/public-config', async (_req, res, next) => {
   }
 });
 
-router.post('/guest/location-check', securityLimiters.addressVerification, async (req, res, next) => {
+router.post('/guest/location-check', securityLimiters.guestLocationCheck, async (req, res, next) => {
   try {
     const guestEnabled = await isGuestLoginEnabled(queryPg);
     if (!guestEnabled) {
