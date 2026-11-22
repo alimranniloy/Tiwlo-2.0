@@ -27,6 +27,7 @@ interface CheckoutScreenProps {
   deliveryFee: number | null;
   paymentProviders: PaymentProvider[];
   onCartChange: (item: CartEntry) => void;
+  isGuest?: boolean;
 }
 
 export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
@@ -40,6 +41,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
   deliveryFee,
   paymentProviders,
   onCartChange,
+  isGuest = false,
 }) => {
   const { language, t } = useLanguage();
   const isEn = language === 'en';
@@ -237,13 +239,17 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
         <TouchableOpacity
           style={styles.primaryButton}
           onPress={() => onPlaceOrder(paymentMethod)}
-          disabled={items.length === 0 || deliveryFee === null || !address.trim()}
+          disabled={items.length === 0 || !address.trim() || (!isGuest && deliveryFee === null)}
           activeOpacity={0.85}
         >
           <Text style={styles.primaryButtonText}>
-            {grandTotal === null
-              ? t('Ordering unavailable', 'অর্ডার করা যাচ্ছে না')
-              : `${t('Place Order', 'অর্ডার নিশ্চিত করুন')} • ৳${grandTotal}`}
+            {isGuest
+              ? grandTotal === null
+                ? t('Sign in to Place Order', 'অর্ডার করতে লগইন করুন')
+                : `${t('Sign in to Place Order', 'অর্ডার করতে লগইন করুন')} • ৳${grandTotal}`
+              : grandTotal === null
+                ? t('Ordering unavailable', 'অর্ডার করা যাচ্ছে না')
+                : `${t('Place Order', 'অর্ডার নিশ্চিত করুন')} • ৳${grandTotal}`}
           </Text>
         </TouchableOpacity>
       </View>

@@ -1278,6 +1278,7 @@ export const AppNavigator: React.FC = () => {
             deliveryFee={deliveryFee}
             paymentProviders={paymentProviders}
             onCartChange={updateCart}
+            isGuest={isGuest && !user}
           />
         );
 
