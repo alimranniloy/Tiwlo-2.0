@@ -37,6 +37,7 @@ const VIEW_REQUIRED_PERMISSIONS = {
   dns: ['manage_dns_domains'],
   'google-drive': ['manage_servers'],
   users: ['manage_users_security', 'ban_users'],
+  'user-profile': ['view_stores', 'manage_stores', 'manage_users_security', 'ban_users'],
   'user-locations': ['manage_users_security'],
   'support-desk': ['manage_orders', 'manage_users_security', 'manage_support', 'support_desk'],
   'compliance-audit': ['manage_users_security', 'view_financials', 'view_audit_logs', 'manage_orders'],

@@ -2,6 +2,7 @@ import { applicationFetch } from '../api/graphqlTransport.js';
 import { requestSensitiveActionGrant } from '../security/reauth.js';
 import { getDeviceTrackingHeaders } from '../utils/deviceFingerprint.js';
 import PaginationBar from '../components/PaginationBar';
+import AdminBiometricVaultCard from './components/AdminBiometricVaultCard.jsx';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
@@ -178,7 +179,7 @@ function sanitizeRidgeSvgToDataUrl(ridgeSvgMap) {
   return `data:image/svg+xml;utf8,${encodeURIComponent(cleaned)}`;
 }
 
-export default function AdminUsersView({ onBackToDashboard, showToast, currentUser, initialFilter = 'all' }) {
+export default function AdminUsersView({ onBackToDashboard, onNavigate, showToast, currentUser, initialFilter = 'all' }) {
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -440,6 +441,18 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
   };
 
   // Open Meta-Style Inspection Drawer
+  const handleOpenUserProfile = (targetUser) => {
+    if (isSuperAdminUser(targetUser) && !isSuperAdminActor) {
+      showToast?.('Restricted: Super Administrator activity is isolated.', 'error');
+      return;
+    }
+    if (onNavigate && targetUser?.id) {
+      onNavigate(`user-profile/${encodeURIComponent(targetUser.id)}`);
+      return;
+    }
+    openInspectionDrawer(targetUser);
+  };
+
   const openInspectionDrawer = async (targetUser) => {
     if (!targetUser?.id) return;
     if (isSuperAdminUser(targetUser) && !isSuperAdminActor) {
@@ -1068,16 +1081,16 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
                     <tr
                       key={u.id}
                       onClick={() => {
-                        if (!hideSuperAdminIntel) openInspectionDrawer(u);
+                        if (!hideSuperAdminIntel) handleOpenUserProfile(u);
                       }}
                       onKeyDown={(e) => {
                         if (!hideSuperAdminIntel && (e.key === 'Enter' || e.key === ' ')) {
                           e.preventDefault();
-                          openInspectionDrawer(u);
+                          handleOpenUserProfile(u);
                         }
                       }}
                       tabIndex={hideSuperAdminIntel ? undefined : 0}
-                      title={hideSuperAdminIntel ? undefined : 'Click to inspect user activity logs & dossier'}
+                      title={hideSuperAdminIntel ? undefined : 'Click to open full User Profile & Stored Fingerprint Page'}
                       className={`transition-colors ${
                         hideSuperAdminIntel
                           ? 'hover:bg-neutral-50/80 dark:hover:bg-neutral-900/40'
@@ -1273,13 +1286,13 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                openInspectionDrawer(u);
+                                handleOpenUserProfile(u);
                               }}
                               className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 hover:border-[#1ED760] hover:text-neutral-900 dark:hover:text-white transition-colors"
-                              title="Inspect Activity & Cluster Dossier"
+                              title="Open Full User Profile & Stored Fingerprint Page"
                             >
                               <Eye className="w-3 h-3" />
-                              <span className="hidden xl:inline">Inspect Activity</span>
+                              <span className="hidden xl:inline">Inspect Profile</span>
                             </button>
                           )}
 

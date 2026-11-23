@@ -17,6 +17,7 @@ import SystemInfoCard from './SystemInfoCard';
 import AdminCustomersView from './AdminCustomersView';
 import AdminUserLocationsView from './AdminUserLocationsView';
 import AdminUsersView from './AdminUsersView';
+import AdminUserDetailPage from './AdminUserDetailPage';
 import AdminGoogleDrivePage from './AdminGoogleDrivePage';
 import AdminIdentityVerificationPage from './AdminIdentityVerificationPage';
 import AdminIdentityReviewView from './AdminIdentityReviewView';
@@ -94,13 +95,19 @@ function AdminDashboardContent({
   const [staffAccess, setStaffAccess] = useState(null);
   const [staffLoading, setStaffLoading] = useState(true);
   const [safetyTelemetry, setSafetyTelemetry] = useState(null);
+  const [userProfileOrigin, setUserProfileOrigin] = useState('customers');
   const { isDark: isDarkMode, toggleTheme: toggleDarkMode } = useTheme();
   const { currency, activeRate, warning: rateWarning } = useAdminCurrency();
 
   const isSuperAdmin = isSuperAdminUser(currentUser, staffAccess);
 
   const handleNavigate = useCallback((view) => {
-    setActiveView(view);
+    setActiveView((prev) => {
+      if (String(view).startsWith('user-profile/') && (prev === 'customers' || prev === 'users')) {
+        setUserProfileOrigin(prev);
+      }
+      return view;
+    });
     const targetUrl = view === 'dashboard' ? '/administrator' : `/administrator/${view}`;
     if (window.location.pathname !== targetUrl) {
       window.history.pushState(null, '', targetUrl);
@@ -385,6 +392,19 @@ function AdminDashboardContent({
       return (
         <AdminUsersView
           onBackToDashboard={() => handleNavigate('dashboard')}
+          onNavigate={handleNavigate}
+          showToast={showToast}
+          currentUser={currentUser}
+        />
+      );
+    }
+    if (activeView.startsWith('user-profile/')) {
+      return (
+        <AdminUserDetailPage
+          userId={decodeURIComponent(activeView.slice('user-profile/'.length))}
+          backView={userProfileOrigin}
+          onBack={() => handleNavigate(userProfileOrigin || 'customers')}
+          onNavigate={handleNavigate}
           showToast={showToast}
           currentUser={currentUser}
         />

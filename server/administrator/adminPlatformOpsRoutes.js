@@ -1024,7 +1024,7 @@ export function createAdminPlatformOpsRouter({
   router.get('/customers', requireAdmin, async (req, res) => {
     try {
       const requesterIsSuperAdmin = isSuperAdminRequester(req.adminUser);
-      const [master, billingRows, loginRows, locationRows] = await Promise.all([
+      const [master, billingRows, loginRows, locationRows, biometricRows] = await Promise.all([
         d.MasterDB.getMasterData(),
         safeQueryRows(
           d.queryPg,
@@ -1043,6 +1043,12 @@ export function createAdminPlatformOpsRouter({
                   user_id, location_source, formatted_address, area, captured_at
            FROM system_user_login_locations
            ORDER BY user_id, captured_at DESC, id DESC`
+        ),
+        safeQueryRows(
+          d.queryPg,
+          `SELECT user_id, device_name, key_fingerprint, enrolled_at, last_used_at
+           FROM user_biometric_credentials
+           WHERE revoked_at IS NULL`
         )
       ]);
 
@@ -1054,6 +1060,7 @@ export function createAdminPlatformOpsRouter({
       const billingByUser = new Map(billingRows.map((b) => [String(b.user_id), b]));
       const loginByUser = new Map(loginRows.map((l) => [String(l.user_id), l.last_login_at]));
       const locationByUser = new Map(locationRows.map((l) => [String(l.user_id), l]));
+      const biometricByUser = new Map(biometricRows.map((b) => [String(b.user_id), b]));
 
       const nowMs = Date.now();
       const query = String(req.query.q || req.query.search || '').trim().toLowerCase();
@@ -1100,6 +1107,7 @@ export function createAdminPlatformOpsRouter({
         });
 
         const loc = locationByUser.get(String(u.id));
+        const bio = biometricByUser.get(String(u.id));
         return {
           id: u.id,
           tiwiId: u.tiwiId || u.storeId || '',
@@ -1107,6 +1115,16 @@ export function createAdminPlatformOpsRouter({
           email: u.email,
           avatar: u.avatar && !u.avatar.includes('unsplash.com') ? u.avatar : '/tiwlo-icon.png',
           role: u.role || 'owner',
+          otpDisabled: u.otpDisabled === true,
+          biometric: bio
+            ? {
+                enrolled: true,
+                deviceName: bio.device_name || null,
+                keyFingerprint: bio.key_fingerprint || null,
+                enrolledAt: bio.enrolled_at || null,
+                lastUsedAt: bio.last_used_at || null
+              }
+            : { enrolled: false },
           cashBalance: roundUsd(billing?.credits ?? 0),
           promoCreditBalance: promoActive ? roundUsd(billing.promotional_credits) : 0,
           promotionalExpiresAt: billing?.promotional_expires_at || null,

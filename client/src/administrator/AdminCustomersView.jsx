@@ -8,6 +8,7 @@ import {
   BadgeCheck,
   Coins,
   ExternalLink,
+  Fingerprint,
   Gift,
   Layers,
   MapPin,
@@ -20,6 +21,7 @@ import {
   SlidersHorizontal,
   Store,
   Trash2,
+  UserRound,
   Wallet,
   X,
 } from 'lucide-react';
@@ -807,7 +809,20 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                   return (
                     <tr
                       key={c.id}
-                      className="align-top transition-colors hover:bg-neutral-50/60 dark:hover:bg-neutral-900/40"
+                      onClick={(e) => {
+                        if (e.target.closest('button, a, input, select')) return;
+                        onNavigate?.(`user-profile/${encodeURIComponent(c.id)}`);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          if (e.target.closest('button, a, input, select')) return;
+                          e.preventDefault();
+                          onNavigate?.(`user-profile/${encodeURIComponent(c.id)}`);
+                        }
+                      }}
+                      tabIndex={0}
+                      title="Click to open full User Profile & Stored Fingerprint Page"
+                      className="align-top transition-colors cursor-pointer hover:bg-neutral-50/80 dark:hover:bg-neutral-900/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1ED760]/40"
                     >
                       {/* Merchant & Identity */}
                       <td className="px-4 py-3.5">
@@ -818,7 +833,7 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                             className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-neutral-200 dark:ring-neutral-700"
                           />
                           <div className="min-w-0">
-                            <p className="truncate font-semibold text-neutral-900 dark:text-white">
+                            <p className="truncate font-semibold text-neutral-900 dark:text-white hover:text-emerald-700 dark:hover:text-[#1ED760]">
                               {c.name}
                             </p>
                             <p className="truncate text-[11px] text-neutral-500 dark:text-neutral-400">
@@ -828,6 +843,19 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                               {c.tiwiId || '—'}
                             </p>
                             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                              {c.biometric?.enrolled && (
+                                <span
+                                  title={
+                                    c.biometric.deviceName
+                                      ? `Fingerprint enrolled on ${c.biometric.deviceName}`
+                                      : 'Fingerprint enrolled'
+                                  }
+                                  className="inline-flex items-center gap-1 rounded-full bg-[#1ED760]/15 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-[#1ED760]"
+                                >
+                                  <Fingerprint className="h-3 w-3" />
+                                  Fingerprint
+                                </span>
+                              )}
                               {c.identityVerified ? (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-[#1ED760]/15 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-[#1ED760]">
                                   <BadgeCheck className="h-3 w-3" />
@@ -1024,6 +1052,14 @@ export default function AdminCustomersView({ onBackToDashboard, onNavigate, show
                       {/* Actions */}
                       <td className="px-4 py-3.5 text-right">
                         <div className="flex flex-col items-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => onNavigate?.(`user-profile/${encodeURIComponent(c.id)}`)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-[#1ED760]/40 bg-[#1ED760]/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-800 transition hover:bg-[#1ED760]/20 dark:text-[#1ED760]"
+                          >
+                            <UserRound className="h-3 w-3" />
+                            View Profile
+                          </button>
                           <button
                             type="button"
                             onClick={() => setSelectedCustomerStores(c)}

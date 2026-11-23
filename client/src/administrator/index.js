@@ -13,6 +13,7 @@ export { AdminCurrencyProvider, useAdminCurrency } from './AdminCurrencyContext'
 export { default as AdminCustomersView } from './AdminCustomersView';
 export { default as AdminIdentityVerificationPage } from './AdminIdentityVerificationPage';
 export { default as AdminUsersView } from './AdminUsersView';
+export { default as AdminUserDetailPage } from './AdminUserDetailPage';
 export { default as AdminPlatformPaymentsView } from './AdminPlatformPaymentsView';
 export { default as AdminSupportDeskView } from './AdminSupportDeskView';
 export { default as AdminComplianceAuditView } from './AdminComplianceAuditView';
