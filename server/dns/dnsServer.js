@@ -267,7 +267,15 @@ async function handleDnsRequest(request, send, rinfo) {
         : queryDomain.slice(0, -(DNS_CONFIG.PRIMARY_DOMAIN.length + 1));
       const isDynamicTxt = queryType === Packet.TYPE.TXT &&
         (queryDomain.startsWith('_acme-challenge') || queryDomain === `_tiwlo-verification.${DNS_CONFIG.PRIMARY_DOMAIN}`);
-      if (isPgActive() && !isDynamicTxt) {
+      const isPlatformDbManagedQuery = [
+        Packet.TYPE.A,
+        Packet.TYPE.AAAA,
+        Packet.TYPE.CNAME,
+        Packet.TYPE.MX,
+        Packet.TYPE.NS,
+        Packet.TYPE.TXT
+      ].includes(queryType);
+      if (isPgActive() && isPlatformDbManagedQuery && !isDynamicTxt) {
         const { rows: exactRecords } = await queryPg(
           `SELECT type, content, ttl, priority, enabled FROM system_platform_dns_records
            WHERE zone=$1 AND name=$2 ORDER BY type, priority NULLS FIRST`,
