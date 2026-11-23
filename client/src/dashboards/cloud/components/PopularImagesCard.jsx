@@ -40,10 +40,15 @@ export default function PopularImagesCard({ images = [], onDeployImage }) {
 
               <button
                 type="button"
-                onClick={() => onDeployImage?.(img.name)}
-                className="px-2.5 py-1 rounded-lg bg-neutral-50/80 dark:bg-neutral-900/30 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-600 hover:text-white dark:hover:bg-neutral-600 dark:hover:text-white text-[11px] font-bold transition cursor-pointer"
+                disabled={img.available === false}
+                onClick={() => img.available !== false && onDeployImage?.(img.name)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${
+                  img.available === false
+                    ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed'
+                    : 'bg-[#1ED760]/15 text-[#0f7a37] dark:text-[#1ED760] hover:bg-[#1ED760] hover:text-black cursor-pointer'
+                }`}
               >
-                Deploy
+                {img.available === false ? 'Unavailable' : 'Deploy'}
               </button>
             </div>
             ))}

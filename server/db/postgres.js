@@ -812,8 +812,18 @@ export async function initPgSchema() {
         region_code VARCHAR(32),
         status VARCHAR(64) DEFAULT 'active',
         image VARCHAR(128),
+        access_username VARCHAR(64),
+        access_password_hash TEXT,
+        tenant_id VARCHAR(64),
+        node_id VARCHAR(64),
+        tags TEXT,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE cloud_droplets ADD COLUMN IF NOT EXISTS access_username VARCHAR(64);
+      ALTER TABLE cloud_droplets ADD COLUMN IF NOT EXISTS access_password_hash TEXT;
+      ALTER TABLE cloud_droplets ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);
+      ALTER TABLE cloud_droplets ADD COLUMN IF NOT EXISTS node_id VARCHAR(64);
+      ALTER TABLE cloud_droplets ADD COLUMN IF NOT EXISTS tags TEXT;
 
       CREATE TABLE IF NOT EXISTS cloud_activities (
         id VARCHAR(64) PRIMARY KEY,

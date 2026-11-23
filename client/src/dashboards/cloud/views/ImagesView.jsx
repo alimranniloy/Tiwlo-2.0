@@ -18,20 +18,20 @@ const CATALOG = [
   {
     category: 'Featured OS',
     items: [
-      { id: 'ubuntu-24', name: 'Ubuntu 24.04 LTS', os: 'Ubuntu', desc: 'Canonical LTS release with modern kernel and cloud-init.', version: 'Noble Numbat', badge: 'Recommended', logo: '🐧' },
-      { id: 'ubuntu-22', name: 'Ubuntu 22.04 LTS', os: 'Ubuntu', desc: 'Industry-standard stable LTS for node and docker microservices.', version: 'Jammy Jellyfish', logo: '🐧' },
-      { id: 'debian-12', name: 'Debian 12', os: 'Debian', desc: 'Known for rock-solid stability and zero bloatware.', version: 'Bookworm Stable', logo: '🌀' },
-      { id: 'almalinux-9', name: 'AlmaLinux 9', os: 'AlmaLinux', desc: '1:1 binary compatible alternative to Red Hat Enterprise Linux.', version: 'RHEL 9 Compatible', logo: '💼' },
-      { id: 'fedora-40', name: 'Fedora 40', os: 'Fedora', desc: 'Bleeding-edge upstream development packages and tooling.', version: 'Cloud Base Edition', logo: '⚡' }
+      { id: 'ubuntu-24', name: 'Ubuntu 24.04 LTS', os: 'Ubuntu', desc: 'Connected server shared Ubuntu runtime (tiwlo-ubuntu-shared-runtime:24.04).', version: '24.04 LTS · Shared Runtime Linked', badge: 'Connected', logo: '🐧', available: true },
+      { id: 'ubuntu-22', name: 'Ubuntu 22.04 LTS', os: 'Ubuntu', desc: 'Industry-standard stable LTS for node and docker microservices.', version: 'Jammy Jellyfish', logo: '🐧', available: false },
+      { id: 'debian-12', name: 'Debian 12', os: 'Debian', desc: 'Known for rock-solid stability and zero bloatware.', version: 'Bookworm Stable', logo: '🌀', available: false },
+      { id: 'almalinux-9', name: 'AlmaLinux 9', os: 'AlmaLinux', desc: '1:1 binary compatible alternative to Red Hat Enterprise Linux.', version: 'RHEL 9 Compatible', logo: '💼', available: false },
+      { id: 'fedora-40', name: 'Fedora 40', os: 'Fedora', desc: 'Bleeding-edge upstream development packages and tooling.', version: 'Cloud Base Edition', logo: '⚡', available: false }
     ]
   },
   {
     category: '1-Click Application Stacks',
     items: [
-      { id: 'app-tpanel', name: 'TPanel 1.0 Control Panel', os: 'TPanel', desc: 'Tiwlo automated web hosting panel with MySQL, Node.js & PHP.', version: 'Production Host Ready', badge: '1-Click Panel', logo: '🚀' },
-      { id: 'app-docker', name: 'Docker on Ubuntu', os: 'Docker', desc: 'Pre-configured Docker Engine with Docker Compose and TLS ready.', version: 'Docker 27.x CE', badge: 'Container Ready', logo: '🐳' },
-      { id: 'app-lemp', name: 'LEMP High-Performance', os: 'LEMP', desc: 'Nginx web server, MySQL 8 database, PHP 8.3-FPM stack.', version: 'Enterprise Web Stack', badge: 'High Traffic', logo: '⚡' },
-      { id: 'app-nodejs', name: 'Node.js & PM2 Stack', os: 'NodeJS', desc: 'Full Node LTS runtime, PM2 process supervisor, and Git hooks.', version: 'Node.js 22 LTS', badge: 'Backend Ready', logo: '🟢' }
+      { id: 'app-tpanel', name: 'TPanel 1.0 Control Panel', os: 'TPanel', desc: 'Deprecated / Disabled.', version: 'Unavailable', badge: 'Unavailable', logo: '🚀', available: false },
+      { id: 'app-docker', name: 'Docker on Ubuntu', os: 'Docker', desc: 'Pre-configured Docker Engine with Docker Compose and TLS ready.', version: 'Docker 27.x CE', badge: 'Unavailable', logo: '🐳', available: false },
+      { id: 'app-lemp', name: 'LEMP High-Performance', os: 'LEMP', desc: 'Nginx web server, PostgreSQL database, PHP 8.3-FPM stack.', version: 'Enterprise Web Stack', badge: 'Unavailable', logo: '⚡', available: false },
+      { id: 'app-nodejs', name: 'Node.js & PM2 Stack', os: 'NodeJS', desc: 'Full Node LTS runtime, PM2 process supervisor, and Git hooks.', version: 'Node.js 22 LTS', badge: 'Unavailable', logo: '🟢', available: false }
     ]
   }
 ];
@@ -113,14 +113,20 @@ export default function ImagesView({ onDeployImage, onBack }) {
                   </div>
 
                   <div className="pt-4 mt-4 border-t border-neutral-100 dark:border-gray-800/80 flex items-center justify-between">
-                    <span className="text-[11px] text-neutral-400">NVMe Optimized</span>
+                    <span className="text-[11px] text-neutral-400">
+                      {item.available ? 'Connected Server Ready' : 'Not Connected'}
+                    </span>
                     <button
                       type="button"
-                      onClick={() => onDeployImage?.(item.name)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-50 hover:bg-neutral-600 dark:bg-neutral-900/30 dark:hover:bg-neutral-600 text-neutral-600 hover:text-white dark:text-neutral-400 dark:hover:text-white text-xs font-semibold transition cursor-pointer"
+                      disabled={!item.available}
+                      onClick={() => item.available && onDeployImage?.(item.name)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                        item.available
+                          ? 'bg-[#1ED760]/15 hover:bg-[#1ED760] text-[#0f7a37] hover:text-black dark:text-[#1ED760] dark:hover:text-black cursor-pointer'
+                          : 'bg-neutral-100 dark:bg-gray-800 text-neutral-400 cursor-not-allowed'
+                      }`}
                     >
-                      <span>Deploy Droplet</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
+                      {item.available ? 'Deploy Ubuntu' : 'Unavailable'}
                     </button>
                   </div>
                 </div>

@@ -484,6 +484,11 @@ export default function CloudDashboard({
             <div className="max-w-[1500px] mx-auto">
               <CreateDropletView
                 onBack={() => setActiveNav('dashboard')}
+                onDropletCreated={() => {
+                  loadCloudData();
+                  setActiveNav('my-droplets');
+                }}
+                showToast={showToast}
                 initialImage={initialDropletImage}
               />
             </div>

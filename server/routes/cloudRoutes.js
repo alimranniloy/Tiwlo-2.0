@@ -67,6 +67,16 @@ router.get('/dashboard', async (req, res) => {
   }
 });
 
+router.get('/droplets/catalog', async (_req, res) => {
+  try {
+    const catalog = await CloudDB.getDropletCatalog();
+    res.json({ success: true, ...catalog });
+  } catch (err) {
+    console.error('Error loading droplet catalog:', err);
+    res.status(500).json({ error: 'Failed to load droplet catalog' });
+  }
+});
+
 router.get('/droplets', async (req, res) => {
   try {
     const userId = getReqUserId(req);
@@ -82,11 +92,14 @@ router.post('/droplets', async (req, res) => {
   try {
     const userId = getReqUserId(req);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-    const droplet = await CloudDB.createDroplet(userId, req.body);
-    res.status(501).json(droplet);
+    const result = await CloudDB.createDroplet(userId, req.body || {});
+    res.status(201).json({ success: true, ...result });
   } catch (err) {
-    console.error('Error creating droplet:', err);
-    res.status(501).json({ error: err.message || 'Cloud provisioning is not configured' });
+    const status = Number.isInteger(err?.statusCode) && err.statusCode >= 400 && err.statusCode < 500
+      ? err.statusCode
+      : 500;
+    if (status >= 500) console.error('Error creating droplet:', err);
+    res.status(status).json({ error: err.message || 'Failed to provision droplet' });
   }
 });
 

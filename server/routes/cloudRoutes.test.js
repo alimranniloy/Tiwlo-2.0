@@ -173,3 +173,88 @@ test('late verified payment is still settled after a checkout was cancelled', as
   assert.equal(lookup.mock.callCount(), 1);
   assert.equal(verify.mock.calls[0].arguments[0].status, 'cancelled');
 });
+
+test('droplets catalog exposes connected Ubuntu image and active region while marking unlinked ones unavailable', async t => {
+  const call = await createClient(t);
+  const res = await call('/api/cloud/droplets/catalog');
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.success, true);
+
+  const availableImages = data.images.filter((i) => i.available);
+  const unavailableImages = data.images.filter((i) => !i.available);
+  assert.equal(availableImages.length, 1);
+  assert.equal(availableImages[0].id, 'ubuntu-24');
+  assert.equal(availableImages[0].runtimeImage, 'tiwlo-ubuntu-shared-runtime:24.04');
+  assert.ok(unavailableImages.some((i) => i.name === 'Debian 12'));
+
+  const availableRegions = data.regions.filter((r) => r.available);
+  const unavailableRegions = data.regions.filter((r) => !r.available);
+  assert.equal(availableRegions.length, 1);
+  assert.equal(availableRegions[0].id, 'dhk1');
+  assert.ok(unavailableRegions.some((r) => r.id === 'fra1'));
+});
+
+test('POST /api/cloud/droplets rejects unavailable image/region or weak credentials and provisions valid requests', async t => {
+  const call = await createClient(t);
+  const headers = { 'x-user-id': 'usr_cloud_1', 'content-type': 'application/json' };
+
+  const badImg = await call('/api/cloud/droplets', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      imageId: 'debian-12',
+      regionId: 'dhk1',
+      hostname: 'my-node-01',
+      username: 'tiwlo_user',
+      password: 'StrongPassword1!'
+    })
+  });
+  assert.equal(badImg.status, 400);
+
+  const badRegion = await call('/api/cloud/droplets', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      imageId: 'ubuntu-24',
+      regionId: 'fra1',
+      hostname: 'my-node-01',
+      username: 'tiwlo_user',
+      password: 'StrongPassword1!'
+    })
+  });
+  assert.equal(badRegion.status, 400);
+
+  const badPass = await call('/api/cloud/droplets', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      imageId: 'ubuntu-24',
+      regionId: 'dhk1',
+      hostname: 'my-node-01',
+      username: 'tiwlo_user',
+      password: '123'
+    })
+  });
+  assert.equal(badPass.status, 400);
+
+  const createSpy = t.mock.method(CloudDB, 'createDroplet', async (userId, body) => ({
+    droplet: { id: 'drp_1', userId, name: body.hostname, image: 'Ubuntu 24.04 LTS', accessUsername: body.username },
+    tenant: { tenantId: 'ubt_1', nodeId: 'primary-ubuntu-node' }
+  }));
+  const ok = await call('/api/cloud/droplets', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      imageId: 'ubuntu-24',
+      regionId: 'dhk1',
+      hostname: 'my-node-01',
+      username: 'tiwlo_user',
+      password: 'StrongPassword1!'
+    })
+  });
+  assert.equal(ok.status, 201);
+  assert.equal(createSpy.mock.callCount(), 1);
+  const json = await ok.json();
+  assert.equal(json.droplet.accessUsername, 'tiwlo_user');
+});

@@ -16,6 +16,13 @@ import {
   probeServerConnectivity,
   updateServerNode
 } from './serverFleetService.js';
+import {
+  SHARED_UBUNTU_RUNTIME_IMAGE,
+  ensureUbuntuTenantSchema,
+  listUbuntuTenants,
+  migrateUbuntuTenantNode,
+  registerUbuntuTenant
+} from '../ubuntu/tenantLayout.js';
 
 function createFallbackRequireAdmin() {
   return function fallbackRequireAdmin(req, res, next) {
@@ -70,6 +77,9 @@ export function createAdminServerFleetRouter({
   // Best-effort idempotent schema bootstrap (falls back gracefully when PG is inactive).
   ensureServerFleetSchema().catch((err) => {
     console.warn('[Admin Server Fleet Schema Warning]', err?.message || err);
+  });
+  ensureUbuntuTenantSchema().catch((err) => {
+    console.warn('[Admin Ubuntu Tenant Schema Warning]', err?.message || err);
   });
 
   router.use((_req, res, next) => {
@@ -218,6 +228,56 @@ export function createAdminServerFleetRouter({
       });
     } catch (err) {
       return handleRouteError(res, err, 'Failed to load node connectivity logs.');
+    }
+  });
+
+  // GET /api/admin/fleet/ubuntu/tenants
+  router.get('/ubuntu/tenants', requireAdmin, async (req, res) => {
+    try {
+      const tenants = await listUbuntuTenants({
+        nodeId: req.query?.nodeId || '',
+        userId: req.query?.userId || ''
+      });
+      return res.json({
+        success: true,
+        sharedRuntimeImage: SHARED_UBUNTU_RUNTIME_IMAGE,
+        tenants
+      });
+    } catch (err) {
+      return handleRouteError(res, err, 'Failed to load Ubuntu tenant placements.');
+    }
+  });
+
+  // POST /api/admin/fleet/ubuntu/tenants
+  router.post('/ubuntu/tenants', requireAdmin, requireRecentReauth, async (req, res) => {
+    try {
+      const tenant = await registerUbuntuTenant(req.body || {});
+      return res.status(201).json({
+        success: true,
+        tenant
+      });
+    } catch (err) {
+      return handleRouteError(res, err, 'Failed to register Ubuntu tenant.');
+    }
+  });
+
+  // POST /api/admin/fleet/ubuntu/tenants/:tenantId/migrate
+  router.post('/ubuntu/tenants/:tenantId/migrate', requireAdmin, requireRecentReauth, async (req, res) => {
+    try {
+      const targetNodeId = String(req.body?.targetNodeId || '').trim();
+      const tenant = await migrateUbuntuTenantNode({
+        tenantId: req.params.tenantId,
+        targetNodeId
+      });
+      if (!tenant) {
+        return res.status(404).json({ error: 'Ubuntu tenant record not found.' });
+      }
+      return res.json({
+        success: true,
+        tenant
+      });
+    } catch (err) {
+      return handleRouteError(res, err, 'Failed to migrate Ubuntu tenant node mapping.');
     }
   });
 
