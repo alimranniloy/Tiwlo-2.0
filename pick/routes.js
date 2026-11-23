@@ -167,8 +167,22 @@ function getSessionToken(req) {
 }
 
 async function getTiwloSession(req) {
-  const token = getSessionToken(req);
-  return token ? MasterDB.getSession(token, req) : null;
+  const authorization = req.headers.authorization;
+  const rawCandidates = [
+    authorization?.startsWith('Bearer ') ? authorization.slice(7).trim() : '',
+    req.cookies?.tiwlo_host_session,
+    req.headers?.['x-session-token']
+  ].filter((t) => typeof t === 'string' && t.trim() && t !== '[object Object]');
+
+  const seen = new Set();
+  for (const token of rawCandidates) {
+    const clean = token.trim();
+    if (seen.has(clean)) continue;
+    seen.add(clean);
+    const resolved = await MasterDB.getSession(clean, req);
+    if (resolved?.user) return resolved;
+  }
+  return null;
 }
 
 export function getPickMobileLoginUrl({ codeChallenge, state, mode, app = 'pick' }) {

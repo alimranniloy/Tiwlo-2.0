@@ -15,6 +15,12 @@ import {
   X
 } from 'lucide-react';
 import { resolveAvatarUrl } from '../utils/mediaUtils';
+import {
+  MONTH_OPTIONS,
+  formatIsoBirthDate,
+  getDaysInBirthMonth,
+  parseDateOfBirthParts
+} from '../utils/accountFormOptions';
 
 const TABS = [
   { id: 'profile', label: 'Profile & Photo', icon: UserRound },
@@ -88,9 +94,10 @@ function UserAccountSettingsModalContent({
   const [storeName, setStoreName] = useState(currentUser?.storeName || '');
   const [phone, setPhone] = useState(currentUser?.phone || '');
   const [address, setAddress] = useState(currentUser?.address || '');
-  const [dateOfBirth, setDateOfBirth] = useState(
-    currentUser?.dateOfBirth ? String(currentUser.dateOfBirth).slice(0, 10) : ''
-  );
+  const initialDobParts = parseDateOfBirthParts(currentUser?.dateOfBirth);
+  const [birthMonth, setBirthMonth] = useState(initialDobParts.birthMonth);
+  const [birthDay, setBirthDay] = useState(initialDobParts.birthDay);
+  const [birthYear, setBirthYear] = useState(initialDobParts.birthYear);
   const [avatar, setAvatar] = useState(currentUser?.avatar || '');
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState('');
 
@@ -152,9 +159,10 @@ function UserAccountSettingsModalContent({
       setPhone(userData.phone || '');
       setInitialPhone(userData.phone || '');
       setAddress(userData.address || '');
-      setDateOfBirth(
-        userData.dateOfBirth ? String(userData.dateOfBirth).slice(0, 10) : ''
-      );
+      const dobParts = parseDateOfBirthParts(userData.dateOfBirth);
+      setBirthMonth(dobParts.birthMonth);
+      setBirthDay(dobParts.birthDay);
+      setBirthYear(dobParts.birthYear);
       setAvatar(userData.avatar || '');
       setEmail(userData.email || '');
       setInitialEmail(userData.email || '');
@@ -335,6 +343,16 @@ function UserAccountSettingsModalContent({
       return;
     }
 
+    const hasAnyDobInput = Boolean(birthMonth || birthDay.trim() || birthYear.trim());
+    const formattedDob = hasAnyDobInput
+      ? formatIsoBirthDate({ birthYear, birthMonth, birthDay })
+      : '';
+    if (hasAnyDobInput && (!formattedDob || new Date(`${formattedDob}T00:00:00.000Z`) > new Date())) {
+      setError('Enter a valid date of birth (Month, Day, and 4-digit Year).');
+      setActiveTab('profile');
+      return;
+    }
+
     setSaving(true);
     try {
       const payload = {
@@ -342,7 +360,7 @@ function UserAccountSettingsModalContent({
         storeName: storeName.trim(),
         phone: phone.trim(),
         address: address.trim(),
-        dateOfBirth: dateOfBirth.trim(),
+        dateOfBirth: formattedDob,
         email: email.trim(),
         twoFactorEnabled,
         preferences,
@@ -574,16 +592,53 @@ function UserAccountSettingsModalContent({
                       className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
                     />
                   </div>
-                  <div>
+                  <div className="sm:col-span-2">
                     <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
                       Date of Birth
                     </label>
-                    <input
-                      type="date"
-                      value={dateOfBirth}
-                      onChange={(e) => setDateOfBirth(e.target.value)}
-                      className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
-                    />
+                    <div className="grid grid-cols-3 gap-2">
+                      <select
+                        aria-label="Birth month"
+                        value={birthMonth}
+                        onChange={(e) => setBirthMonth(e.target.value)}
+                        className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-2.5 text-sm text-neutral-950 outline-none transition focus:border-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+                      >
+                        <option value="">Month</option>
+                        {MONTH_OPTIONS.map((m) => (
+                          <option key={m.value} value={m.value}>{m.name}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={2}
+                        aria-label="Birth day"
+                        placeholder="Day"
+                        value={String(birthDay || '').replace(/\D/g, '').slice(0, 2)}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, '').slice(0, 2);
+                          const maxDay = getDaysInBirthMonth(birthMonth, birthYear);
+                          if (digits && Number(digits) > maxDay) {
+                            setBirthDay(String(maxDay));
+                          } else {
+                            setBirthDay(digits);
+                          }
+                        }}
+                        className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+                      />
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={4}
+                        aria-label="Birth year"
+                        placeholder="Year"
+                        value={String(birthYear || '').replace(/\D/g, '').slice(0, 4)}
+                        onChange={(e) => setBirthYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                        className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-950 outline-none transition focus:border-neutral-900 dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+                      />
+                    </div>
                   </div>
                 </div>
 

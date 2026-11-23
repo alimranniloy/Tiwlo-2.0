@@ -736,7 +736,7 @@ impl Repository {
     pub async fn resolve_auth_session(
         &self,
         token: &str,
-        user_agent: &str,
+        _user_agent: &str,
     ) -> Result<Option<AuthSession>, RepositoryError> {
         let token_hash = hash_token(token);
         let row = sqlx::query_as::<
@@ -747,11 +747,9 @@ impl Repository {
                 Option<String>,
                 Option<String>,
                 Option<String>,
-                Option<String>,
             ),
         >(
-            "SELECT user_id, session_token, tiwi_id, email, expires_at::text,
-                    device_fingerprint
+            "SELECT user_id, session_token, tiwi_id, email, expires_at::text
              FROM system_sessions
              WHERE (session_token = $1 OR session_token = $2 OR token = $2)
                AND expires_at > CURRENT_TIMESTAMP
@@ -764,16 +762,9 @@ impl Repository {
         let Some(row) = row else {
             return Ok(None);
         };
-        let current_fingerprint = session_fingerprint(user_agent);
-        if row
-            .5
-            .as_deref()
-            .is_some_and(|stored| stored != current_fingerprint)
-        {
-            self.record_auth_event("auth.session_fingerprint_mismatch", &row.0, user_agent)
-                .await?;
-            return Ok(None);
-        }
+        // Note: Do not reject valid cryptographic session tokens when User-Agent changes
+        // (e.g., mobile browser toggling "Desktop Site" mode). Real invalidation is enforced
+        // by deleting system_sessions rows on logout or session revocation.
         Ok(Some(AuthSession {
             session_token: token.to_owned(),
             user_id: row.0,
@@ -814,17 +805,18 @@ impl Repository {
         user_id: &str,
         except_token: Option<&str>,
     ) -> Result<(), RepositoryError> {
-        let except_hash = except_token.map(hash_token);
+        let non_empty_except = except_token.map(str::trim).filter(|t| !t.is_empty());
+        let except_hash = non_empty_except.map(hash_token);
         let mut transaction = self.pool.begin().await?;
         let result = sqlx::query(
             "DELETE FROM system_sessions
              WHERE user_id = $1
                AND ($2::varchar IS NULL
-                    OR COALESCE(session_token, token) NOT IN ($2, $3))",
+                    OR COALESCE(NULLIF(session_token, ''), token) NOT IN ($2, $3))",
         )
         .bind(user_id)
         .bind(except_hash.as_deref())
-        .bind(except_token)
+        .bind(non_empty_except)
         .execute(&mut *transaction)
         .await?;
         if result.rows_affected() > 0 {

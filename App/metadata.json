@@ -1,6 +1,0 @@
-{
-  "name": "Tiwlo",
-  "description": "Unified cloud computing, e-commerce storefront, POS, email, and digital identity console built with shadcn UI.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

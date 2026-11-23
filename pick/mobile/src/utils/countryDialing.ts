@@ -7,15 +7,36 @@ export interface CountryDialingOption {
   flag: string;
 }
 
-export const COUNTRY_DIALING_OPTIONS: CountryDialingOption[] = getAllCountries()
+const NAME_OVERRIDES: Record<string, string> = {
+  US: 'United States',
+  GB: 'United Kingdom',
+  AE: 'United Arab Emirates',
+  KR: 'South Korea',
+  TW: 'Taiwan',
+  VN: 'Vietnam',
+  RU: 'Russia'
+};
+
+const rawDialingOptions: CountryDialingOption[] = getAllCountries()
   .filter((country) => /^\d{1,3}$/.test(country.countryCallingCode))
-  .map((country) => ({
-    code: country.countryCode,
-    name: country.countryNameEn,
-    dial: `+${country.countryCallingCode}`,
-    flag: country.flag
-  }))
+  .map((country) => {
+    const code = String(country.countryCode).toUpperCase();
+    return {
+      code,
+      name: NAME_OVERRIDES[code] || country.countryNameEn,
+      dial: `+${country.countryCallingCode}`,
+      flag: country.flag
+    };
+  })
   .sort((a, b) => a.name.localeCompare(b.name));
+
+const bangladeshIndex = rawDialingOptions.findIndex((country) => country.code === 'BD');
+if (bangladeshIndex > 0) {
+  const [bangladesh] = rawDialingOptions.splice(bangladeshIndex, 1);
+  rawDialingOptions.unshift(bangladesh);
+}
+
+export const COUNTRY_DIALING_OPTIONS: CountryDialingOption[] = rawDialingOptions;
 
 export const DEFAULT_COUNTRY_DIALING_OPTION =
   COUNTRY_DIALING_OPTIONS.find((country) => country.code === 'BD') ??

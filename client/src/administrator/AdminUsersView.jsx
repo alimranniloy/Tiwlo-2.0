@@ -148,6 +148,36 @@ function getSeverityBadge(severity) {
   return 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700';
 }
 
+function countryCodeToFlag(countryCode) {
+  const normalized = String(countryCode || '').trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(normalized)) return '';
+  return String.fromCodePoint(...[...normalized].map((ch) => 127397 + ch.charCodeAt(0)));
+}
+
+function sanitizeRidgeSvgToDataUrl(ridgeSvgMap) {
+  if (!ridgeSvgMap || typeof ridgeSvgMap !== 'string') return null;
+  const trimmed = ridgeSvgMap.trim();
+  if (!trimmed) return null;
+  if (/^data:image\/svg\+xml/i.test(trimmed)) {
+    const decoded = (() => {
+      try {
+        return decodeURIComponent(trimmed);
+      } catch {
+        return trimmed;
+      }
+    })();
+    if (/<script|on\w+\s*=|javascript:|<foreignObject/i.test(decoded)) return null;
+    return trimmed;
+  }
+  if (!/<svg[\s>]/i.test(trimmed)) return null;
+  const cleaned = trimmed
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+    .replace(/<foreignObject[\s\S]*?>[\s\S]*?<\/foreignObject>/gi, '')
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/javascript:/gi, '');
+  return `data:image/svg+xml;utf8,${encodeURIComponent(cleaned)}`;
+}
+
 export default function AdminUsersView({ onBackToDashboard, showToast, currentUser, initialFilter = 'all' }) {
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
@@ -197,6 +227,7 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
   const [dossierError, setDossierError] = useState('');
   const [dossierTab, setDossierTab] = useState('timeline');
   const [terminatingSessions, setTerminatingSessions] = useState(false);
+  const [revokingBiometric, setRevokingBiometric] = useState(false);
   const [govPage, setGovPage] = useState(1);
   const [govPageSize, setGovPageSize] = useState(10);
 
@@ -492,6 +523,32 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
       showToast?.(err.message || 'Session termination failed.', 'error');
     } finally {
       setTerminatingSessions(false);
+    }
+  };
+
+  const handleRevokeBiometric = async (userId) => {
+    if (!userId || revokingBiometric) return;
+    setRevokingBiometric(true);
+    try {
+      const res = await adminFetch(`${API_BASE}/admin/users/${encodeURIComponent(userId)}/biometric/revoke`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reason: 'Revoked from User Inspection Dossier'
+        })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.success === false) {
+        throw new Error(json.error || 'Could not revoke biometric credential.');
+      }
+      showToast?.(json.message || 'Mobile biometric credential revoked.', 'success');
+      await refreshAll(page);
+      if (inspectTarget) await openInspectionDrawer(inspectTarget);
+    } catch (err) {
+      showToast?.(err.message || 'Biometric revocation failed.', 'error');
+    } finally {
+      setRevokingBiometric(false);
     }
   };
 
@@ -1053,6 +1110,31 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
                               <span className="font-mono text-[10px] text-neutral-500 dark:text-neutral-400 tabular-nums">
                                 {u.tiwiId || u.id}
                               </span>
+                              {(u.mainCountryCode || u.mainCountry) && (
+                                <span
+                                  title={`Main Country: ${u.mainCountry || u.mainCountryCode}`}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border border-neutral-200/80 dark:border-neutral-700"
+                                >
+                                  <span>{countryCodeToFlag(u.mainCountryCode) || '🌐'}</span>
+                                  <span>{u.mainCountryCode || u.mainCountry}</span>
+                                </span>
+                              )}
+                              {(u.lastLoginCountryCode || u.lastLoginCountry) && (
+                                <span
+                                  title={`Last Login Country: ${u.lastLoginCountry || u.lastLoginCountryCode}`}
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${
+                                    u.mainCountryCode &&
+                                    u.lastLoginCountryCode &&
+                                    u.mainCountryCode !== u.lastLoginCountryCode
+                                      ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                                      : 'bg-neutral-50 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-300 border-neutral-200/70 dark:border-neutral-800'
+                                  }`}
+                                >
+                                  <span>Login:</span>
+                                  <span>{countryCodeToFlag(u.lastLoginCountryCode) || '🌐'}</span>
+                                  <span>{u.lastLoginCountryCode || u.lastLoginCountry}</span>
+                                </span>
+                              )}
                               {u.deliveryRegistration ? (
                                 <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
                                   {u.deliveryRegistration.status === 'pending'
@@ -1106,6 +1188,14 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
                           {u.twoFactorEnabled && (
                             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900">
                               <Lock className="w-2.5 h-2.5" /> 2FA
+                            </span>
+                          )}
+                          {u.biometric?.enrolled && (
+                            <span
+                              title={u.biometric.deviceName ? `Biometric: ${u.biometric.deviceName}` : 'Mobile biometric enrolled'}
+                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#1ED760]/10 text-emerald-700 dark:text-[#1ED760] border border-[#1ED760]/30"
+                            >
+                              <Fingerprint className="w-2.5 h-2.5" /> Bio
                             </span>
                           )}
                         </div>
@@ -1340,6 +1430,33 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
                     </span>
                   </p>
                   <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    {(dossier?.mainCountryCode || dossierUser?.mainCountryCode || dossier?.mainCountry || dossierUser?.mainCountry) && (() => {
+                      const mainCode = dossier?.mainCountryCode || dossierUser?.mainCountryCode;
+                      const mainName = dossier?.mainCountry || dossierUser?.mainCountry || mainCode;
+                      const lastCode = dossier?.lastLoginCountryCode || dossierUser?.lastLoginCountryCode;
+                      const lastName = dossier?.lastLoginCountry || dossierUser?.lastLoginCountry || lastCode;
+                      const crossBorder = Boolean(mainCode && lastCode && mainCode !== lastCode);
+                      return (
+                        <>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-neutral-100 dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 border border-neutral-200/80 dark:border-neutral-800">
+                            <span>{countryCodeToFlag(mainCode) || '🌐'}</span>
+                            <span>Main: {mainName}</span>
+                          </span>
+                          {(lastCode || lastName) && (
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
+                                crossBorder
+                                  ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                                  : 'bg-neutral-100 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 border-neutral-200/80 dark:border-neutral-800'
+                              }`}
+                            >
+                              <span>{countryCodeToFlag(lastCode) || '🌐'}</span>
+                              <span>Last Login: {lastName}</span>
+                            </span>
+                          )}
+                        </>
+                      );
+                    })()}
                     {(dossierIntel.flags || []).map((flag) => (
                       <span
                         key={flag}
@@ -1489,6 +1606,277 @@ export default function AdminUsersView({ onBackToDashboard, showToast, currentUs
                       </div>
                     )}
                   </section>
+
+                  {/* Mobile Fingerprint & Biometric Reference Card + Identity & Country Policy */}
+                  {(() => {
+                    const bio = dossier?.biometric || {};
+                    const bioLogs = Array.isArray(bio.logs) ? bio.logs : [];
+                    const ridgeUrl = sanitizeRidgeSvgToDataUrl(bio.ridgeSvgMap);
+                    const idSummary = dossier?.identityVerification || {};
+                    const latestReview = idSummary.latestReview || null;
+                    const evidenceFiles = Array.isArray(idSummary.evidenceFiles) ? idSummary.evidenceFiles : [];
+                    const policy = dossier?.countryFeaturePolicy || dossierUser?.countryFeaturePolicy || {
+                      countryCode: dossier?.mainCountryCode || dossierUser?.mainCountryCode || null,
+                      lastLoginCountryCode: dossier?.lastLoginCountryCode || dossierUser?.lastLoginCountryCode || null,
+                      featureFlags: {}
+                    };
+                    const policyFlagEntries = Object.entries(policy.featureFlags || {});
+
+                    return (
+                      <section className="space-y-3">
+                        <div className="rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 p-3.5 space-y-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <h4 className="text-xs font-semibold text-neutral-900 dark:text-white flex items-center gap-1.5">
+                              <Fingerprint className="w-3.5 h-3.5 text-[#1ED760]" />
+                              Mobile Fingerprint &amp; Biometric Reference
+                            </h4>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                                  bio.enrolled
+                                    ? 'bg-[#1ED760]/10 text-emerald-700 dark:text-[#1ED760] border-[#1ED760]/30'
+                                    : bio.revokedAt
+                                      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25'
+                                      : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border-neutral-200/80 dark:border-neutral-700'
+                                }`}
+                              >
+                                {bio.enrolled ? 'Enrolled' : bio.revokedAt ? 'Revoked' : 'Not Enrolled'}
+                              </span>
+                              {bio.enrolled && bio.hardwareBacked && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900">
+                                  Hardware-Backed
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-[96px_1fr] gap-3 items-start">
+                            {/* Ridge SVG Map Preview */}
+                            <div className="w-24 h-24 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 flex flex-col items-center justify-center p-1.5 overflow-hidden shrink-0">
+                              {ridgeUrl ? (
+                                <img
+                                  src={ridgeUrl}
+                                  alt="Biometric fingerprint ridge map"
+                                  className="w-full h-full object-contain"
+                                />
+                              ) : (
+                                <>
+                                  <Fingerprint
+                                    className={`w-8 h-8 ${
+                                      bio.enrolled
+                                        ? 'text-[#1ED760]'
+                                        : 'text-neutral-300 dark:text-neutral-700'
+                                    }`}
+                                  />
+                                  <span className="text-[9px] text-neutral-400 text-center mt-1 leading-tight">
+                                    {bio.enrolled ? 'No SVG Map' : 'No Credential'}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+
+                            {/* Credential Metadata & Remote Revoke Controls */}
+                            <div className="space-y-2 min-w-0">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                                <div className="rounded-xl border border-neutral-200/70 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-2.5 py-2 min-w-0">
+                                  <span className="text-[10px] text-neutral-400 block">Registered Device</span>
+                                  <span className="font-semibold text-neutral-900 dark:text-white truncate block">
+                                    {bio.deviceName || '—'}
+                                  </span>
+                                  {(bio.deviceModel || bio.osVersion) && (
+                                    <span className="text-[10px] text-neutral-500 truncate block">
+                                      {[bio.deviceModel, bio.osVersion].filter(Boolean).join(' · ')}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="rounded-xl border border-neutral-200/70 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-2.5 py-2 min-w-0">
+                                  <span className="text-[10px] text-neutral-400 block">Key Fingerprint</span>
+                                  <span
+                                    title={bio.keyFingerprint || ''}
+                                    className="font-mono text-[10px] font-semibold text-neutral-900 dark:text-white truncate block"
+                                  >
+                                    {bio.keyFingerprint || '—'}
+                                  </span>
+                                  <span className="text-[10px] text-neutral-400 block tabular-nums">
+                                    {bio.lastUsedAt
+                                      ? `Last used ${formatDateTime(bio.lastUsedAt)}`
+                                      : bio.enrolledAt
+                                        ? `Enrolled ${formatDateTime(bio.enrolledAt)}`
+                                        : 'Never used'}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {canManageDossierUser && (
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <button
+                                    type="button"
+                                    disabled={terminatingSessions}
+                                    onClick={() => handleTerminateUserSessions(dossierUser?.id || inspectTarget?.id)}
+                                    className="inline-flex items-center gap-1 rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50/70 dark:bg-rose-950/30 px-2.5 py-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400 hover:bg-rose-100 disabled:opacity-50"
+                                  >
+                                    <LogOut className="w-3 h-3" />
+                                    {terminatingSessions ? 'Revoking Sessions...' : 'Revoke Remote Sessions'}
+                                  </button>
+                                  {bio.enrolled && (
+                                    <button
+                                      type="button"
+                                      disabled={revokingBiometric}
+                                      onClick={() => handleRevokeBiometric(dossierUser?.id || inspectTarget?.id)}
+                                      className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-2.5 py-1 text-[11px] font-semibold text-neutral-700 dark:text-neutral-200 hover:border-rose-500 hover:text-rose-600 disabled:opacity-50"
+                                    >
+                                      <Fingerprint className="w-3 h-3" />
+                                      {revokingBiometric ? 'Revoking Key...' : 'Revoke Biometric Key'}
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Biometric Login History */}
+                          <div className="space-y-1.5">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 block">
+                              Biometric Login History ({bioLogs.length})
+                            </span>
+                            {bioLogs.length === 0 ? (
+                              <p className="text-[11px] text-neutral-400 py-2 px-2.5 rounded-xl border border-dashed border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-950/60">
+                                No biometric enrollment or sign-in events recorded yet.
+                              </p>
+                            ) : (
+                              <div className="max-h-36 overflow-y-auto space-y-1.5 pr-0.5">
+                                {bioLogs.slice(0, 10).map((log, idx) => (
+                                  <div
+                                    key={log.id || `${log.eventType}-${idx}`}
+                                    className="px-2.5 py-1.5 rounded-xl border border-neutral-200/70 dark:border-neutral-800 bg-white dark:bg-neutral-950 flex items-center justify-between gap-2 text-[11px]"
+                                  >
+                                    <div className="min-w-0 flex items-center gap-2">
+                                      <span
+                                        className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold ${
+                                          log.success === false
+                                            ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                            : 'bg-[#1ED760]/10 text-emerald-700 dark:text-[#1ED760]'
+                                        }`}
+                                      >
+                                        {log.eventType}
+                                      </span>
+                                      <span className="text-neutral-700 dark:text-neutral-200 truncate">
+                                        {log.deviceName || 'Mobile Device'}
+                                      </span>
+                                      {log.countryCode && (
+                                        <span className="text-[10px] text-neutral-500 shrink-0">
+                                          {countryCodeToFlag(log.countryCode)} {log.countryCode}
+                                        </span>
+                                      )}
+                                      {log.ipAddress && (
+                                        <span className="font-mono text-[10px] text-neutral-400 hidden sm:inline">
+                                          {log.ipAddress}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="text-[10px] text-neutral-400 tabular-nums shrink-0">
+                                      {formatDateTime(log.createdAt)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* NID / Identity Verification & Country Feature Policy */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                            {/* NID / Identity Verification Summary */}
+                            <div className="rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-3 space-y-1.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[11px] font-semibold text-neutral-900 dark:text-white flex items-center gap-1.5">
+                                  <ShieldCheck className="w-3.5 h-3.5 text-[#1ED760]" />
+                                  NID / Identity Summary
+                                </span>
+                                <span
+                                  className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold border ${
+                                    idSummary.identityVerified ?? dossierUser?.identityVerified
+                                      ? 'bg-[#1ED760]/10 text-emerald-700 dark:text-[#1ED760] border-[#1ED760]/30'
+                                      : idSummary.identityVerificationRequired ?? dossierUser?.identityVerificationRequired
+                                        ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                                        : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 border-neutral-200/80 dark:border-neutral-700'
+                                  }`}
+                                >
+                                  {idSummary.identityVerified ?? dossierUser?.identityVerified
+                                    ? 'Verified'
+                                    : idSummary.identityVerificationRequired ?? dossierUser?.identityVerificationRequired
+                                      ? 'ID Required'
+                                      : 'Unverified'}
+                                </span>
+                              </div>
+                              {latestReview ? (
+                                <div className="text-[11px] text-neutral-600 dark:text-neutral-300 space-y-0.5">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="font-semibold text-neutral-800 dark:text-neutral-100">
+                                      {latestReview.documentTypeLabel || 'Identity Document'}
+                                    </span>
+                                    <span className="text-[10px] font-mono uppercase text-neutral-500">
+                                      {latestReview.status}
+                                    </span>
+                                  </div>
+                                  {latestReview.fullName && (
+                                    <p className="text-[10px] text-neutral-500 truncate">
+                                      Name: {latestReview.fullName}
+                                      {latestReview.maskedDocumentNumber ? ` · #${latestReview.maskedDocumentNumber}` : ''}
+                                    </p>
+                                  )}
+                                  <p className="text-[10px] text-neutral-400 tabular-nums">
+                                    Evidence files: {evidenceFiles.length}
+                                    {latestReview.aiConfidence != null ? ` · AI ${(Number(latestReview.aiConfidence) * (Number(latestReview.aiConfidence) <= 1 ? 100 : 1)).toFixed(0)}%` : ''}
+                                  </p>
+                                </div>
+                              ) : (
+                                <p className="text-[11px] text-neutral-400">
+                                  No NID / Passport review submissions found. Evidence files: {evidenceFiles.length}.
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Country-Wise Feature Policy Readiness Box */}
+                            <div className="rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-3 space-y-1.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[11px] font-semibold text-neutral-900 dark:text-white flex items-center gap-1.5">
+                                  <Globe className="w-3.5 h-3.5 text-[#1ED760]" />
+                                  Country Feature Policy
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded-md text-[9px] font-mono font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
+                                  Policy Ready
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                                <span className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 font-medium">
+                                  Primary: {countryCodeToFlag(policy.countryCode) || '🌐'} {policy.countryCode || 'UNSET'}
+                                </span>
+                                <span className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 font-medium">
+                                  Login: {countryCodeToFlag(policy.lastLoginCountryCode) || '🌐'} {policy.lastLoginCountryCode || 'UNSET'}
+                                </span>
+                              </div>
+                              {policyFlagEntries.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {policyFlagEntries.map(([flagKey, flagVal]) => (
+                                    <span
+                                      key={flagKey}
+                                      className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-[#1ED760]/10 text-emerald-700 dark:text-[#1ED760]"
+                                    >
+                                      {flagKey}: {String(flagVal)}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-[10px] text-neutral-400">
+                                  Extensible regional rollout hooks active (`featureFlags: {'{}'}`).
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </section>
+                    );
+                  })()}
 
                   {/* Chronological Dossier Tabs */}
                   <section className="space-y-3">

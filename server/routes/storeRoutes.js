@@ -1991,8 +1991,8 @@ router.patch('/stores/:tiwiId/status', async (req, res) => {
     const userId = getReqUserId(req);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     const status = String(req.body?.status || '').toLowerCase();
-    if (!['active', 'suspended'].includes(status)) {
-      return res.status(400).json({ error: 'Store status must be active or suspended.' });
+    if (!['active', 'paused', 'offline', 'suspended'].includes(status)) {
+      return res.status(400).json({ error: 'Store status must be active, paused, offline, or suspended.' });
     }
     const store = await MasterDB.setStoreStatusForUser(userId, req.params.tiwiId, status);
     if (!store) return res.status(404).json({ error: 'Store not found.' });

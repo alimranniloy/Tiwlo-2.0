@@ -1,6 +1,20 @@
 import { readState, saveState, listState } from './stateDocuments.js';
 import { createHash, randomUUID } from 'node:crypto';
-import { extractSessionClientMetadata } from '../security/sessionMetadata.js';
+import {
+  extractSessionClientMetadata,
+  getCandidateSessionTokens
+} from '../security/sessionMetadata.js';
+import {
+  SESSION_TOUCH_INTERVAL_MS,
+  clearAllSessionTouchCache,
+  clearSessionTouchCache,
+  getLastSessionTouch,
+  markSessionTouched
+} from '../security/sessionTouchCache.js';
+import {
+  evaluateAdminSessionPolicy,
+  getAdminSessionPolicy
+} from '../security/adminSessionPolicy.js';
 import {
   normalizePhoneIdentifier,
   normalizeSignupEmail,
@@ -90,9 +104,6 @@ function createEmptyTenantStore(tiwiId) {
   };
 }
 
-const SESSION_TOUCH_INTERVAL_MS = 60 * 1000;
-const sessionTouchTimestamps = new Map();
-
 function hashSessionTokenForMeta(token) {
   return createHash('sha256').update(String(token || '')).digest('hex');
 }
@@ -107,8 +118,8 @@ async function persistSessionMetadata(sessionToken, req) {
          device_name = COALESCE(NULLIF($3, ''), device_name),
          app_name = COALESCE(NULLIF($4, ''), app_name),
          last_active_at = CURRENT_TIMESTAMP
-     WHERE session_token = $1 OR token = $1`,
-    [tokenHash, meta.ip || '', meta.deviceName || '', meta.appName || '']
+     WHERE session_token = $1 OR token = $1 OR session_token = $5 OR token = $5`,
+    [tokenHash, meta.ip || '', meta.deviceName || '', meta.appName || '', String(sessionToken)]
   );
 }
 
@@ -116,6 +127,31 @@ async function persistSessionMetadata(sessionToken, req) {
 // 1. MASTER DATABASE ENGINE
 // Manages: system_users, system_stores, subscriptions
 // ====================================================================
+function formatPgDateOnly(value) {
+  if (!value) return null;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return [
+      String(value.getFullYear()).padStart(4, '0'),
+      String(value.getMonth() + 1).padStart(2, '0'),
+      String(value.getDate()).padStart(2, '0')
+    ].join('-');
+  }
+  const str = String(value).trim();
+  if (!str) return null;
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(str);
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+  const parsed = new Date(str);
+  if (!Number.isNaN(parsed.getTime())) {
+    return [
+      String(parsed.getFullYear()).padStart(4, '0'),
+      String(parsed.getMonth() + 1).padStart(2, '0'),
+      String(parsed.getDate()).padStart(2, '0')
+    ].join('-');
+  }
+  return str;
+}
+
 export const MasterDB = {
   async getMasterData() {
     const directory = await readState('master', 'directory', { stores: [], subscriptions: [] });
@@ -165,8 +201,8 @@ export const MasterDB = {
           email: r.email,
           password: r.password_hash || r.password,
           role: r.role,
-          dateOfBirth: r.date_of_birth,
-          birthday: r.date_of_birth,
+          dateOfBirth: formatPgDateOnly(r.date_of_birth),
+          birthday: formatPgDateOnly(r.date_of_birth),
           accountType: r.account_type || (r.role === 'owner' ? 'business' : 'personal'),
           billingDetails: {
             address: r.address,
@@ -402,8 +438,8 @@ export const MasterDB = {
       email: normalizedEmail,
       password: passwordHash,
       role: assignedRole,
-      dateOfBirth: userData.dateOfBirth || userData.birthday || '',
-      birthday: userData.birthday || userData.dateOfBirth || '',
+      dateOfBirth: formatPgDateOnly(userData.dateOfBirth || userData.birthday) || '',
+      birthday: formatPgDateOnly(userData.birthday || userData.dateOfBirth) || '',
       gender: userData.gender || '',
       billingDetails: userData.billingDetails || {
         address: '',
@@ -469,6 +505,36 @@ export const MasterDB = {
     if (!user) throw new Error('Cannot create a session for an unknown user.');
     const session = await createAuthSessionWithRust({ user, tiwiId, email, request: req });
     await persistSessionMetadata(session.sessionToken, req).catch(() => {});
+
+    const roleLower = String(user.role || '').trim().toLowerCase();
+    const isAdminActor = roleLower === 'admin' || roleLower === 'super_admin';
+    if (isAdminActor) {
+      try {
+        const policy = await getAdminSessionPolicy({ queryPg });
+        if (policy.singleActiveSessionOnly) {
+          await this.revokeUserSessions(user.id, session.sessionToken).catch(() => {});
+        }
+        if (policy.notifyOnNewAdminLogin) {
+          const meta = extractSessionClientMetadata(req);
+          await recordSecurityEvent({
+            eventType: 'admin.session_created',
+            severity: 'info',
+            userId: user.id,
+            subject: user.email || email || user.id,
+            ip: meta.ip || undefined,
+            userAgent: req?.headers?.['user-agent'],
+            details: {
+              deviceName: meta.deviceName || undefined,
+              appName: meta.appName || undefined,
+              singleActiveSessionOnly: policy.singleActiveSessionOnly === true
+            }
+          }).catch(() => {});
+        }
+      } catch {
+        // Policy check must not break session creation
+      }
+    }
+
     if (req?.cookies?.tiwlo_guest_support) {
       import('../support/ticketingService.js')
         .then(({ defaultTicketingService }) =>
@@ -488,45 +554,100 @@ export const MasterDB = {
     if (!token) return null;
     if (!isPgActive()) throw new Error('PostgreSQL is unavailable; session validation is disabled.');
     const session = await resolveAuthSessionWithRust({ token, request: req });
-    if (!session) return null;
-    if (req) {
-      const touchKey = hashSessionTokenForMeta(token);
-      const now = Date.now();
-      const lastTouched = sessionTouchTimestamps.get(touchKey) || 0;
-      if (now - lastTouched >= SESSION_TOUCH_INTERVAL_MS) {
-        sessionTouchTimestamps.set(touchKey, now);
-        if (sessionTouchTimestamps.size > 5000) {
-          const oldestKey = sessionTouchTimestamps.keys().next().value;
-          if (oldestKey) sessionTouchTimestamps.delete(oldestKey);
+    if (!session) {
+      clearSessionTouchCache(token);
+      return null;
+    }
+    const user = await this.findUserByIdentifier(session.userId || session.email);
+    if (!user) return null;
+
+    const roleLower = String(user.role || '').trim().toLowerCase();
+    const isAdminActor = roleLower === 'admin' || roleLower === 'super_admin';
+    if (isAdminActor) {
+      try {
+        const policy = await getAdminSessionPolicy({ queryPg });
+        if (policy.enforceIdleTimeout || policy.enforceMaxSessionAge || policy.strictIpBinding) {
+          const tokenHash = hashSessionTokenForMeta(token);
+          const metaRes = await queryPg(
+            `SELECT ip, created_at, last_active_at
+             FROM system_sessions
+             WHERE session_token = $1 OR token = $1 OR session_token = $2 OR token = $2
+             LIMIT 1`,
+            [tokenHash, String(token)]
+          );
+          const sessionRow = metaRes?.rows?.[0] || null;
+          const requestIp = extractSessionClientMetadata(req).ip || '';
+          const check = evaluateAdminSessionPolicy({
+            policy,
+            sessionRow,
+            requestIp
+          });
+          if (!check.allowed) {
+            await this.deleteSession(token).catch(() => {});
+            await recordSecurityEvent({
+              eventType: 'admin.session_policy_enforced',
+              severity: 'warning',
+              userId: user.id,
+              subject: user.email || user.id,
+              ip: requestIp || undefined,
+              userAgent: req?.headers?.['user-agent'],
+              details: { code: check.code, reason: check.reason }
+            }).catch(() => {});
+            return null;
+          }
         }
+      } catch {
+        // Fail open on transient policy lookup error; token itself is already verified
+      }
+    }
+
+    if (req) {
+      const now = Date.now();
+      const lastTouched = getLastSessionTouch(token);
+      if (now - lastTouched >= SESSION_TOUCH_INTERVAL_MS) {
+        markSessionTouched(token, now);
         persistSessionMetadata(token, req).catch(() => {});
       }
     }
-    const user = await this.findUserByIdentifier(session.userId || session.email);
     return { session, user };
+  },
+
+  async resolveSessionFromRequest(req) {
+    const candidates = getCandidateSessionTokens(req);
+    for (const candidate of candidates) {
+      const resolved = await this.getSession(candidate, req);
+      if (resolved?.user) {
+        return { ...resolved, token: candidate };
+      }
+    }
+    return null;
   },
 
   async deleteSession(token) {
     if (!token) return;
     if (!isPgActive()) throw new Error('PostgreSQL is unavailable; session revocation cannot be completed.');
+    clearSessionTouchCache(token);
     await revokeAuthSessionWithRust(token);
   },
 
   async revokeUserSessions(userId, exceptToken = null) {
     if (!userId) throw new Error('User ID is required to revoke sessions.');
     if (!isPgActive()) throw new Error('PostgreSQL is unavailable; session revocation cannot be completed.');
+    clearAllSessionTouchCache(exceptToken ? [exceptToken] : []);
     await revokeUserAuthSessionsWithRust(userId, exceptToken);
   },
 
   async revokeDeviceSessions(userId, userAgent) {
     if (!userId || !userAgent) throw new Error('User ID and device identity are required.');
     if (!isPgActive()) throw new Error('PostgreSQL is unavailable; session revocation cannot be completed.');
+    clearAllSessionTouchCache();
     await revokeDeviceAuthSessionsWithRust(userId, userAgent);
   },
 
   async updatePasswordAndRevokeSessions(userId, passwordHash, exceptToken = null) {
     if (!userId || !passwordHash) throw new Error('User ID and password hash are required.');
     if (!isPgActive()) throw new Error('PostgreSQL is unavailable; password reset cannot be completed.');
+    clearAllSessionTouchCache(exceptToken ? [exceptToken] : []);
     await updatePasswordAndRevokeSessionsWithRust(userId, passwordHash, exceptToken);
   },
 
@@ -592,15 +713,17 @@ export const MasterDB = {
   },
 
   async setStoreStatusForUser(userId, tiwiId, status) {
-    if (!['active', 'suspended'].includes(String(status || '').toLowerCase())) {
-      throw new Error('Store status must be active or suspended.');
+    const normalizedStatus = String(status || '').toLowerCase();
+    if (!['active', 'paused', 'offline', 'suspended'].includes(normalizedStatus)) {
+      throw new Error('Store status must be active, paused, offline, or suspended.');
     }
     const master = await this.getMasterData();
     const store = (master.stores || []).find(entry =>
       String(entry.tiwiId) === String(tiwiId) && String(entry.ownerId) === String(userId)
     );
     if (!store) return null;
-    store.status = String(status).toLowerCase();
+    store.status = normalizedStatus;
+    store.updatedAt = new Date().toISOString();
     await this.saveMasterData(master);
     return store;
   },

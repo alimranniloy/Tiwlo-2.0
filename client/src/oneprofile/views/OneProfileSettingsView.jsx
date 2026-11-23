@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Camera, Check } from 'lucide-react';
+import {
+  MONTH_OPTIONS,
+  formatIsoBirthDate,
+  getDaysInBirthMonth,
+  parseDateOfBirthParts
+} from '../../utils/accountFormOptions';
 
 export default function OneProfileSettingsView({ currentUser, profile, onProfileUpdated, onUserUpdated }) {
   const [name, setName] = useState('');
@@ -7,7 +13,9 @@ export default function OneProfileSettingsView({ currentUser, profile, onProfile
   const [headline, setHeadline] = useState('');
   const [bio, setBio] = useState('');
   const [avatar, setAvatar] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [birthMonth, setBirthMonth] = useState('');
+  const [birthDay, setBirthDay] = useState('');
+  const [birthYear, setBirthYear] = useState('');
   const [address, setAddress] = useState('');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -17,7 +25,10 @@ export default function OneProfileSettingsView({ currentUser, profile, onProfile
     setName(currentUser?.name || '');
     setStoreName(currentUser?.storeName || '');
     setAvatar(currentUser?.avatar || '');
-    setDateOfBirth(currentUser?.dateOfBirth || '');
+    const dobParts = parseDateOfBirthParts(currentUser?.dateOfBirth);
+    setBirthMonth(dobParts.birthMonth);
+    setBirthDay(dobParts.birthDay);
+    setBirthYear(dobParts.birthYear);
     setAddress(currentUser?.address || '');
     setHeadline(profile?.headline || '');
     setBio(profile?.bio || '');
@@ -61,6 +72,14 @@ export default function OneProfileSettingsView({ currentUser, profile, onProfile
   const handleSave = async (e) => {
     e.preventDefault();
     setError('');
+    const hasAnyDobInput = Boolean(birthMonth || birthDay.trim() || birthYear.trim());
+    const formattedDob = hasAnyDobInput
+      ? formatIsoBirthDate({ birthYear, birthMonth, birthDay })
+      : '';
+    if (hasAnyDobInput && (!formattedDob || new Date(`${formattedDob}T00:00:00.000Z`) > new Date())) {
+      setError('Enter a valid date of birth (Month, Day, and 4-digit Year).');
+      return;
+    }
     try {
       const response = await fetch('/api/auth/profile', {
         method: 'PUT',
@@ -70,7 +89,7 @@ export default function OneProfileSettingsView({ currentUser, profile, onProfile
           name: name.trim(),
           storeName: storeName.trim(),
           avatar,
-          dateOfBirth,
+          ...(formattedDob ? { dateOfBirth: formattedDob } : {}),
           address: address.trim()
         })
       });
@@ -153,13 +172,45 @@ export default function OneProfileSettingsView({ currentUser, profile, onProfile
 
         <div>
           <label className="block text-xs font-bold text-neutral-700 mb-1.5">Date of Birth</label>
-          <input
-            type="date"
-            max={new Date().toISOString().slice(0, 10)}
-            value={dateOfBirth}
-            onChange={(e) => setDateOfBirth(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 bg-neutral-50 text-sm font-semibold text-neutral-900 focus:bg-white focus:outline-none focus:border-neutral-500"
-          />
+          <div className="grid grid-cols-3 gap-2">
+            <select
+              aria-label="Birth month"
+              value={birthMonth}
+              onChange={(e) => setBirthMonth(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl border border-neutral-200 bg-neutral-50 text-sm font-semibold text-neutral-900 focus:bg-white focus:outline-none focus:border-neutral-500"
+            >
+              <option value="">Month</option>
+              {MONTH_OPTIONS.map((m) => (
+                <option key={m.value} value={m.value}>{m.name}</option>
+              ))}
+            </select>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={2}
+              aria-label="Birth day"
+              placeholder="Day"
+              value={String(birthDay || '').replace(/\D/g, '').slice(0, 2)}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, '').slice(0, 2);
+                const maxDay = getDaysInBirthMonth(birthMonth, birthYear);
+                setBirthDay(digits && Number(digits) > maxDay ? String(maxDay) : digits);
+              }}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 bg-neutral-50 text-sm font-semibold text-neutral-900 focus:bg-white focus:outline-none focus:border-neutral-500"
+            />
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={4}
+              aria-label="Birth year"
+              placeholder="Year"
+              value={String(birthYear || '').replace(/\D/g, '').slice(0, 4)}
+              onChange={(e) => setBirthYear(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-200 bg-neutral-50 text-sm font-semibold text-neutral-900 focus:bg-white focus:outline-none focus:border-neutral-500"
+            />
+          </div>
         </div>
 
         <div>

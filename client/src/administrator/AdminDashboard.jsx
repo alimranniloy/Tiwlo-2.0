@@ -349,6 +349,8 @@ function AdminDashboardContent({
           onBackToDashboard={() => handleNavigate('dashboard')}
           onNavigate={handleNavigate}
           showToast={showToast}
+          currentUser={currentUser}
+          onLogout={onLogout}
         />
       );
     }

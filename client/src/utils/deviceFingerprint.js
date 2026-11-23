@@ -60,14 +60,14 @@ async function computeFingerprintHash() {
     }
   })();
 
+  // Exclude viewport/platform hints (navigator.platform, maxTouchPoints, screen width/height)
+  // so toggling mobile "Desktop Site" mode or resizing/rotating screens preserves the same device hash.
   const material = [
-    nav.platform || '',
     nav.hardwareConcurrency || '',
     nav.deviceMemory || '',
-    nav.maxTouchPoints || 0,
     nav.language || '',
     Array.isArray(nav.languages) ? nav.languages.join(',') : '',
-    `${scr.width || 0}x${scr.height || 0}x${scr.colorDepth || 0}`,
+    String(scr.colorDepth || 0),
     tz,
     getCanvasWebGLSignal()
   ].join('||');

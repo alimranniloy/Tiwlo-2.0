@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import express from 'express';
 import { once } from 'node:events';
 import {
@@ -85,6 +86,8 @@ function createMockHarness(initialUser = {}, initialPrefs = {}, options = {}) {
   const pgQueries = [];
   let passwordUpdates = [];
   const totpEncryptionSecret = 'unit-test-totp-cipher-secret-32chars!';
+  const issuedSessions = new Map();
+  let sessionSeq = 0;
 
   const deps = {
     isPgActive: () => false,
@@ -105,7 +108,37 @@ function createMockHarness(initialUser = {}, initialPrefs = {}, options = {}) {
             user: { ...u }
           };
         }
+        if (issuedSessions.has(token)) {
+          const session = issuedSessions.get(token);
+          const u = users.get(session.userId);
+          return u ? { session, user: { ...u } } : null;
+        }
         return null;
+      },
+      async findUserByIdentifier(identifier) {
+        if (!identifier) return null;
+        const clean = String(identifier).trim().toLowerCase();
+        for (const u of users.values()) {
+          if (
+            String(u.id || '').toLowerCase() === clean ||
+            String(u.email || '').toLowerCase() === clean ||
+            String(u.tiwiId || '').toLowerCase() === clean ||
+            String(u.storeId || '').toLowerCase() === clean ||
+            String(u.phone || '').toLowerCase() === clean
+          ) {
+            return { ...u };
+          }
+        }
+        return null;
+      },
+      async createSession(userId, tiwiId, email) {
+        const u = users.get(userId);
+        assert.ok(u, `Unknown user ${userId}`);
+        sessionSeq += 1;
+        const sessionToken = `bio-session-token-${sessionSeq}`;
+        const session = { sessionToken, userId: u.id, tiwiId: tiwiId || u.tiwiId, email: email || u.email };
+        issuedSessions.set(sessionToken, session);
+        return session;
       },
       async updateUser(userId, updates) {
         const existing = users.get(userId);
@@ -1414,4 +1447,174 @@ test('Super Administrator account cannot be self-deleted', async (t) => {
     body: JSON.stringify({ confirmation: 'DELETE' })
   });
   assert.equal(res.status, 403);
+});
+
+test('Mobile fingerprint biometric register, update, challenge+login, wrong-key rejection, and removal', async (t) => {
+  const harness = createMockHarness();
+  const call = await withApp(t, harness.deps);
+  const authHeaders = {
+    Authorization: 'Bearer valid-session-token',
+    'Content-Type': 'application/json'
+  };
+
+  // 1. Initial status is not enrolled
+  const status0Res = await call('/api/user/account/biometric/status', {
+    headers: { Authorization: 'Bearer valid-session-token' }
+  });
+  assert.equal(status0Res.status, 200);
+  const status0 = await status0Res.json();
+  assert.equal(status0.success, true);
+  assert.equal(status0.enrolled, false);
+  assert.equal(status0.enrolledOnMobileOnly, true);
+  assert.equal(status0.keyFingerprint, null);
+
+  // 2. Reject invalid / non-EC public key
+  const { publicKey: rsaPub } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const badKeyRes = await call('/api/user/account/biometric/register', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      publicKeySpki: rsaPub.export({ format: 'pem', type: 'spki' }),
+      deviceName: 'Bad Key Phone'
+    })
+  });
+  assert.equal(badKeyRes.status, 400);
+
+  // 3. Register first ECDSA P-256 key (raw Base64 DER without PEM headers)
+  const keyPair1 = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const rawBase64Spki1 = keyPair1.publicKey.export({ format: 'der', type: 'spki' }).toString('base64');
+  const regRes = await call('/api/user/account/biometric/register', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      publicKeySpki: rawBase64Spki1,
+      deviceName: 'Pixel 8 Pro'
+    })
+  });
+  assert.equal(regRes.status, 200);
+  const regBody = await regRes.json();
+  assert.equal(regBody.success, true);
+  assert.equal(regBody.enrolled, true);
+  assert.equal(regBody.isUpdate, false);
+  assert.equal(regBody.deviceName, 'Pixel 8 Pro');
+  assert.match(regBody.keyFingerprint, /^[0-9a-f]{16}$/);
+  assert.ok(regBody.enrolledAt);
+
+  // 4. Update with second ECDSA P-256 key (PEM format) and preserve enrolledAt
+  const keyPair2 = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const pemSpki2 = keyPair2.publicKey.export({ format: 'pem', type: 'spki' });
+  const updRes = await call('/api/user/account/biometric/register', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      publicKeySpki: pemSpki2,
+      deviceName: 'Pixel 9 Pro'
+    })
+  });
+  assert.equal(updRes.status, 200);
+  const updBody = await updRes.json();
+  assert.equal(updBody.success, true);
+  assert.equal(updBody.enrolled, true);
+  assert.equal(updBody.isUpdate, true);
+  assert.equal(updBody.deviceName, 'Pixel 9 Pro');
+  assert.equal(updBody.enrolledAt, regBody.enrolledAt);
+  assert.notEqual(updBody.keyFingerprint, regBody.keyFingerprint);
+
+  // 5. Challenge for unenrolled user returns 404
+  const notEnrolledRes = await call('/api/user/account/biometric/challenge', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier: 'nadia@example.com' })
+  });
+  assert.equal(notEnrolledRes.status, 404);
+
+  // 6. Request challenge by identifier and reject wrong key (e.g. different user's key or old key)
+  const chal1Res = await call('/api/user/account/biometric/challenge', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier: 'tariq@example.com' })
+  });
+  assert.equal(chal1Res.status, 200);
+  const chal1 = await chal1Res.json();
+  assert.equal(chal1.success, true);
+  assert.ok(chal1.challengeId);
+  assert.match(chal1.challenge, /^[0-9a-f]{64}$/);
+  assert.equal(chal1.keyFingerprint, updBody.keyFingerprint);
+
+  const wrongKeyPair = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const wrongSig = crypto.sign('sha256', Buffer.from(chal1.challenge, 'utf8'), wrongKeyPair.privateKey).toString('base64');
+  const wrongLoginRes = await call('/api/user/account/biometric/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ challengeId: chal1.challengeId, signatureBase64: wrongSig })
+  });
+  assert.equal(wrongLoginRes.status, 401);
+
+  // Challenge is single-use: replaying with valid signature must still fail 401
+  const replaySig = crypto.sign('sha256', Buffer.from(chal1.challenge, 'utf8'), keyPair2.privateKey).toString('base64');
+  const replayRes = await call('/api/user/account/biometric/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ challengeId: chal1.challengeId, signatureBase64: replaySig })
+  });
+  assert.equal(replayRes.status, 401);
+
+  // 7. Request fresh challenge (by tiwiId) and sign with enrolled private key -> succeeds & issues session
+  const chal2Res = await call('/api/user/account/biometric/challenge', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier: 'tiwi_100' })
+  });
+  assert.equal(chal2Res.status, 200);
+  const chal2 = await chal2Res.json();
+
+  const validSig = crypto.sign('sha256', Buffer.from(chal2.challenge, 'utf8'), keyPair2.privateKey).toString('base64');
+  const loginRes = await call('/api/user/account/biometric/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ challengeId: chal2.challengeId, signatureBase64: validSig })
+  });
+  assert.equal(loginRes.status, 200);
+  const loginBody = await loginRes.json();
+  assert.equal(loginBody.success, true);
+  assert.ok(loginBody.token);
+  assert.equal(loginBody.user.id, 'usr_100');
+  assert.equal(loginBody.user.email, 'tariq@example.com');
+  assert.equal(loginBody.user.password, undefined);
+  const setCookieHeader = loginRes.headers.get('set-cookie') || '';
+  assert.match(setCookieHeader, /tiwlo_host_session=/);
+  assert.ok(harness.stateDocs.get('user_account_totp:usr_100')?.biometricCredential?.lastUsedAt);
+
+  // Issued token works against authenticated endpoints
+  const authedStatusRes = await call('/api/user/account/biometric/status', {
+    headers: { Authorization: `Bearer ${loginBody.token}` }
+  });
+  assert.equal(authedStatusRes.status, 200);
+  const authedStatus = await authedStatusRes.json();
+  assert.equal(authedStatus.enrolled, true);
+  assert.equal(authedStatus.keyFingerprint, updBody.keyFingerprint);
+
+  // 8. Delete biometric credential -> disables enrollment and blocks further challenges
+  const delRes = await call('/api/user/account/biometric', {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${loginBody.token}` }
+  });
+  assert.equal(delRes.status, 200);
+  const delBody = await delRes.json();
+  assert.equal(delBody.success, true);
+  assert.equal(delBody.enrolled, false);
+
+  const statusAfterDelRes = await call('/api/user/account/biometric/status', {
+    headers: { Authorization: 'Bearer valid-session-token' }
+  });
+  const statusAfterDel = await statusAfterDelRes.json();
+  assert.equal(statusAfterDel.enrolled, false);
+  assert.equal(statusAfterDel.keyFingerprint, null);
+
+  const chalAfterDelRes = await call('/api/user/account/biometric/challenge', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier: 'tariq@example.com' })
+  });
+  assert.equal(chalAfterDelRes.status, 404);
 });

@@ -2,6 +2,7 @@ import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useState, useEffect } from 'react';
 import JsBarcode from 'jsbarcode';
 import { formatStoreCurrency } from '../themes/TiwiMart/storefrontUtils';
+import CountrySelect from '../components/CountrySelect';
 import {
   Receipt,
   Plus,
@@ -677,18 +678,36 @@ export default function SalesView({
             <div className="sm:col-span-2 grid gap-3 rounded-xl border border-neutral-200 p-3 sm:grid-cols-2">
               <h3 className="sm:col-span-2 text-xs font-bold text-neutral-800">Delivery address</h3>
               {['street', 'city', 'region', 'postalCode', 'country'].map(field => (
-                <label key={field} className="text-[11px] font-semibold capitalize text-neutral-600">
-                  {field}
-                  <input
-                    value={orderForm.shippingAddress?.[field] || ''}
-                    disabled={!['Pending', 'Confirmed'].includes(managingOrder.status || 'Pending')}
-                    onChange={event => setOrderForm(current => ({
-                      ...current,
-                      shippingAddress: { ...current.shippingAddress, [field]: event.target.value }
-                    }))}
-                    className="mt-1 w-full rounded-lg border border-neutral-300 px-2.5 py-2 disabled:bg-neutral-50"
-                  />
-                </label>
+                field === 'country' ? (
+                  <div key={field} className="text-[11px] font-semibold capitalize text-neutral-600">
+                    <span className="block mb-1">{field}</span>
+                    <CountrySelect
+                      value={orderForm.shippingAddress?.country || ''}
+                      disabled={!['Pending', 'Confirmed'].includes(managingOrder.status || 'Pending')}
+                      onChange={(countryName, countryObj) => setOrderForm(current => ({
+                        ...current,
+                        shippingAddress: {
+                          ...current.shippingAddress,
+                          country: countryName,
+                          countryCode: countryObj?.code || current.shippingAddress?.countryCode || ''
+                        }
+                      }))}
+                    />
+                  </div>
+                ) : (
+                  <label key={field} className="text-[11px] font-semibold capitalize text-neutral-600">
+                    {field}
+                    <input
+                      value={orderForm.shippingAddress?.[field] || ''}
+                      disabled={!['Pending', 'Confirmed'].includes(managingOrder.status || 'Pending')}
+                      onChange={event => setOrderForm(current => ({
+                        ...current,
+                        shippingAddress: { ...current.shippingAddress, [field]: event.target.value }
+                      }))}
+                      className="mt-1 w-full rounded-lg border border-neutral-300 px-2.5 py-2 disabled:bg-neutral-50"
+                    />
+                  </label>
+                )
               ))}
               <label className="sm:col-span-2 flex items-center gap-2 text-[11px] font-semibold text-neutral-600">
                 <input type="checkbox" checked={Boolean(orderForm.billingAddress)} disabled={!['Pending', 'Confirmed'].includes(managingOrder.status || 'Pending')} onChange={event => setOrderForm(current => ({
@@ -700,18 +719,36 @@ export default function SalesView({
                 Separate billing address
               </label>
               {orderForm.billingAddress && ['street', 'city', 'region', 'postalCode', 'country'].map(field => (
-                <label key={`billing-${field}`} className="text-[11px] font-semibold capitalize text-neutral-600">
-                  Billing {field}
-                  <input
-                    value={orderForm.billingAddress[field] || ''}
-                    disabled={!['Pending', 'Confirmed'].includes(managingOrder.status || 'Pending')}
-                    onChange={event => setOrderForm(current => ({
-                      ...current,
-                      billingAddress: { ...current.billingAddress, [field]: event.target.value }
-                    }))}
-                    className="mt-1 w-full rounded-lg border border-neutral-300 px-2.5 py-2 disabled:bg-neutral-50"
-                  />
-                </label>
+                field === 'country' ? (
+                  <div key={`billing-${field}`} className="text-[11px] font-semibold capitalize text-neutral-600">
+                    <span className="block mb-1">Billing {field}</span>
+                    <CountrySelect
+                      value={orderForm.billingAddress.country || ''}
+                      disabled={!['Pending', 'Confirmed'].includes(managingOrder.status || 'Pending')}
+                      onChange={(countryName, countryObj) => setOrderForm(current => ({
+                        ...current,
+                        billingAddress: {
+                          ...current.billingAddress,
+                          country: countryName,
+                          countryCode: countryObj?.code || current.billingAddress?.countryCode || ''
+                        }
+                      }))}
+                    />
+                  </div>
+                ) : (
+                  <label key={`billing-${field}`} className="text-[11px] font-semibold capitalize text-neutral-600">
+                    Billing {field}
+                    <input
+                      value={orderForm.billingAddress[field] || ''}
+                      disabled={!['Pending', 'Confirmed'].includes(managingOrder.status || 'Pending')}
+                      onChange={event => setOrderForm(current => ({
+                        ...current,
+                        billingAddress: { ...current.billingAddress, [field]: event.target.value }
+                      }))}
+                      className="mt-1 w-full rounded-lg border border-neutral-300 px-2.5 py-2 disabled:bg-neutral-50"
+                    />
+                  </label>
+                )
               ))}
             </div>
             <label className="text-xs font-semibold text-neutral-700">

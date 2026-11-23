@@ -1329,6 +1329,7 @@ export default function App() {
   useEffect(() => {
     const syncLiveUser = async () => {
       try {
+        if (isAuthSubdomain()) return;
         const token = localStorage.getItem('stockpro_session');
         const currentSaved = localStorage.getItem('stockpro_user');
 

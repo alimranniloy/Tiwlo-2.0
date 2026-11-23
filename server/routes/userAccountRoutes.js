@@ -7,7 +7,13 @@ import https from 'node:https';
 import net from 'node:net';
 import QRCode from 'qrcode';
 import { MasterDB } from '../db/multiTenant.js';
-import { queryPg, isPgActive } from '../db/postgres.js';
+import {
+  appendUserBiometricLog,
+  isPgActive,
+  queryPg,
+  revokeUserBiometricCredential,
+  upsertUserBiometricCredential
+} from '../db/postgres.js';
 import { readState, saveState } from '../db/stateDocuments.js';
 import { createTemporaryFileStorage } from '../db/temporaryFileStorage.js';
 import { getPublicMediaUrl, inferMediaType, storeMedia } from '../db/mediaStorage.js';
@@ -20,17 +26,19 @@ import {
 } from '../db/emailService.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
 import { renderBaseEmail } from '../email/index.js';
-import { getPlatformUrl } from '../config/platformConfig.js';
+import { getPlatformUrl, PLATFORM_CONFIG } from '../config/platformConfig.js';
 import {
   hashPasswordWithRust,
   verifyPasswordWithRust
 } from '../security/rustAuthSessionClient.js';
 import { scanAndSanitizeImage } from '../security/index.js';
 import {
+  getCandidateSessionTokens,
   listEnrichedUserSessions,
   revokeUserSessionByHash,
   summarizeSessionDevice
 } from '../security/sessionMetadata.js';
+import { clearAllSessionTouchCache } from '../security/sessionTouchCache.js';
 import { normalizeSignupEmail, normalizePhoneIdentifier } from '../security/signupIdentity.js';
 import { SocialDB } from '../social/socialDb.js';
 import { logActivity } from '../db/storeDataAdapter.js';
@@ -548,6 +556,103 @@ export async function verifyUserTotpOrRecoveryCode(userId, submittedCode, depsOv
   return { valid: false, method: null };
 }
 
+export function parseBiometricPublicKey(rawPublicKeySpki) {
+  if (typeof rawPublicKeySpki !== 'string') return null;
+  const trimmed = rawPublicKeySpki.trim();
+  if (!trimmed || trimmed.length > 8192) return null;
+
+  let pemCandidate = trimmed;
+  if (!trimmed.includes('-----BEGIN PUBLIC KEY-----')) {
+    const cleanB64 = trimmed.replace(/\s+/g, '');
+    if (!cleanB64 || cleanB64.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(cleanB64)) {
+      return null;
+    }
+    const lines = cleanB64.match(/.{1,64}/g);
+    if (!lines) return null;
+    pemCandidate = `-----BEGIN PUBLIC KEY-----\n${lines.join('\n')}\n-----END PUBLIC KEY-----`;
+  }
+
+  try {
+    const keyObject = crypto.createPublicKey({ key: pemCandidate, format: 'pem', type: 'spki' });
+    if (keyObject.type !== 'public' || keyObject.asymmetricKeyType !== 'ec') {
+      return null;
+    }
+    const spkiDer = keyObject.export({ format: 'der', type: 'spki' });
+    const publicKeySpki = keyObject.export({ format: 'pem', type: 'spki' });
+    const keyFingerprint = crypto.createHash('sha256').update(spkiDer).digest('hex').slice(0, 16);
+    return { keyObject, publicKeySpki, keyFingerprint };
+  } catch {
+    return null;
+  }
+}
+
+export function verifyBiometricSignature(publicKeyInput, challenge, signatureBase64) {
+  if (typeof challenge !== 'string' || !challenge || typeof signatureBase64 !== 'string') {
+    return false;
+  }
+  const cleanSig = signatureBase64.trim().replace(/\s+/g, '');
+  if (!cleanSig || !/^[A-Za-z0-9+/]+={0,2}$/.test(cleanSig)) {
+    return false;
+  }
+  const signatureBuffer = Buffer.from(cleanSig, 'base64');
+  if (signatureBuffer.length === 0) {
+    return false;
+  }
+
+  let keyObject = publicKeyInput;
+  if (typeof publicKeyInput === 'string') {
+    const parsed = parseBiometricPublicKey(publicKeyInput);
+    if (!parsed) return false;
+    keyObject = parsed.keyObject;
+  }
+  if (!keyObject || keyObject.type !== 'public' || keyObject.asymmetricKeyType !== 'ec') {
+    return false;
+  }
+
+  try {
+    if (crypto.createVerify('SHA256').update(challenge).verify(keyObject, signatureBuffer)) {
+      return true;
+    }
+  } catch {
+    // Fall through to IEEE P1363 format check (common in WebCrypto / Android / iOS keystores)
+  }
+
+  try {
+    return crypto
+      .createVerify('SHA256')
+      .update(challenge)
+      .verify({ key: keyObject, dsaEncoding: 'ieee-p1363' }, signatureBuffer);
+  } catch {
+    return false;
+  }
+}
+
+function setBiometricSessionCookie(res, req, sessionToken) {
+  const isSecure =
+    process.env.NODE_ENV === 'production' ||
+    req?.secure ||
+    req?.headers?.['x-forwarded-proto'] === 'https';
+  const host = String(req?.headers?.host || req?.hostname || '').toLowerCase().replace(/:\d+$/, '');
+  const cookieDomain = [PLATFORM_CONFIG.primaryDomain, PLATFORM_CONFIG.freeSubdomainDomain]
+    .find((domain) => host === domain || host.endsWith(`.${domain}`));
+  const cookieOptions = {
+    httpOnly: true,
+    secure: isSecure,
+    sameSite: 'lax',
+    path: '/',
+    ...(cookieDomain ? { domain: `.${cookieDomain}` } : {})
+  };
+  for (const domain of new Set([PLATFORM_CONFIG.cookieDomain, PLATFORM_CONFIG.primaryDomain])) {
+    res.clearCookie?.('tiwlo_session', { path: '/', domain, secure: isSecure, sameSite: 'lax' });
+  }
+  res.clearCookie?.('tiwlo_session', { path: '/', secure: isSecure, sameSite: 'lax' });
+  res.clearCookie?.('tiwlo_session');
+  res.cookie?.('tiwlo_host_session', sessionToken, {
+    ...cookieOptions,
+    maxAge: 30 * 24 * 60 * 60 * 1000
+  });
+}
+
 const ALLOWED_AVATAR_MIME_TYPES = new Set([
   'image/jpeg',
   'image/jpg',
@@ -560,11 +665,7 @@ const ALLOWED_AVATAR_MIME_TYPES = new Set([
 const avatarStorage = multer.diskStorage(createTemporaryFileStorage('user-avatar'));
 
 export function getRequestSessionToken(req) {
-  const authHeader = req?.headers?.authorization;
-  return req?.cookies?.tiwlo_host_session ||
-    (authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7).trim() : null) ||
-    req?.headers?.['x-session-token'] ||
-    null;
+  return getCandidateSessionTokens(req)[0] || null;
 }
 
 export function maskEmail(email) {
@@ -1022,6 +1123,7 @@ export function createUserAccountRouter(overrides = {}) {
     logActivity,
     dnsLookup: dns.lookup,
     webhookFetch: null,
+    createSession: null,
     ...overrides
   };
 
@@ -1033,6 +1135,56 @@ export function createUserAccountRouter(overrides = {}) {
   const inMemoryTeamFallback = new Map();
   const inMemoryWebhooksFallback = new Map();
   const inMemoryBackupPolicyFallback = new Map();
+
+  const BIOMETRIC_CHALLENGE_TTL_MS = 3 * 60 * 1000;
+  const MAX_BIOMETRIC_CHALLENGES = 2000;
+  const biometricChallenges = new Map();
+
+  function storeBiometricChallenge(userId) {
+    const now = Date.now();
+    for (const [id, entry] of biometricChallenges.entries()) {
+      if (!entry || entry.expiresAt <= now) {
+        biometricChallenges.delete(id);
+      }
+    }
+    while (biometricChallenges.size >= MAX_BIOMETRIC_CHALLENGES) {
+      const oldestKey = biometricChallenges.keys().next().value;
+      if (!oldestKey) break;
+      biometricChallenges.delete(oldestKey);
+    }
+    const challengeId = `bio_chal_${crypto.randomUUID()}`;
+    const nonce = crypto.randomBytes(32).toString('hex');
+    biometricChallenges.set(challengeId, {
+      userId: String(userId),
+      nonce,
+      expiresAt: now + BIOMETRIC_CHALLENGE_TTL_MS
+    });
+    return { challengeId, nonce };
+  }
+
+  async function findAccountUserByIdentifier(identifier) {
+    const clean = String(identifier || '').trim();
+    if (!clean) return null;
+    if (typeof deps.masterDb?.findUserByIdentifier === 'function') {
+      return deps.masterDb.findUserByIdentifier(clean);
+    }
+    if (typeof deps.masterDb?.getUsers === 'function') {
+      const users = await deps.masterDb.getUsers();
+      const lower = clean.toLowerCase();
+      const direct = (users || []).find((u) =>
+        (u.id && String(u.id).toLowerCase() === lower) ||
+        (u.email && String(u.email).toLowerCase() === lower) ||
+        (u.tiwiId && String(u.tiwiId).toLowerCase() === lower) ||
+        (u.storeId && String(u.storeId).toLowerCase() === lower)
+      );
+      if (direct) return direct;
+      const phone = normalizePhoneIdentifier(clean);
+      if (!phone) return null;
+      const phoneMatches = (users || []).filter((u) => normalizePhoneIdentifier(u.phone || '') === phone);
+      return phoneMatches.length === 1 ? phoneMatches[0] : null;
+    }
+    return null;
+  }
 
   async function loadStateDoc(namespace, key, defaultDoc, fallbackMap) {
     const strKey = String(key);
@@ -1170,12 +1322,21 @@ export function createUserAccountRouter(overrides = {}) {
 
   async function requireAuthenticatedUser(req, res, next) {
     try {
-      const token = getRequestSessionToken(req);
-      if (!token || token === '[object Object]') {
+      const candidates = getCandidateSessionTokens(req);
+      if (candidates.length === 0) {
         return res.status(401).json({ error: 'Authentication required' });
       }
-      const sessionData = await deps.masterDb.getSession(token, req);
-      if (!sessionData?.user) {
+      let sessionData = null;
+      let resolvedToken = null;
+      for (const candidate of candidates) {
+        const result = await deps.masterDb.getSession(candidate, req);
+        if (result?.user) {
+          sessionData = result;
+          resolvedToken = candidate;
+          break;
+        }
+      }
+      if (!sessionData?.user || !resolvedToken) {
         return res.status(401).json({ error: 'Authentication required' });
       }
       if (sessionData.user.isDeleted) {
@@ -1184,7 +1345,7 @@ export function createUserAccountRouter(overrides = {}) {
       if (sessionData.user.isBanned) {
         return res.status(403).json({ error: 'This Tiwlo account is disabled.' });
       }
-      req.accountSessionToken = token;
+      req.accountSessionToken = resolvedToken;
       req.accountUser = sessionData.user;
       return next();
     } catch (error) {
@@ -1757,25 +1918,12 @@ export function createUserAccountRouter(overrides = {}) {
 
       if (scope === 'others') {
         await deps.masterDb.revokeUserSessions(user.id, req.accountSessionToken);
+        clearAllSessionTouchCache(req.accountSessionToken ? [req.accountSessionToken] : []);
       } else if (sessionId) {
-        const result = await deps.queryPg(
-          `SELECT token, session_token
-           FROM system_sessions
-           WHERE user_id = $1`,
-          [String(user.id)]
-        );
-        const match = (result?.rows || []).find((row) => {
-          const ref = String(row.session_token || row.token || '');
-          return hashSessionIdentifier(ref) === sessionId;
-        });
-        if (!match) {
+        const removed = await revokeUserSessionByHash(deps.queryPg, user.id, sessionId);
+        if (!removed) {
           return res.status(404).json({ error: 'Session not found.' });
         }
-        await deps.queryPg(
-          `DELETE FROM system_sessions
-           WHERE user_id = $1 AND (token = $2 OR session_token = $3)`,
-          [String(user.id), match.token || '', match.session_token || '']
-        );
       } else {
         return res.status(400).json({ error: 'Specify a sessionId or scope: "others".' });
       }
@@ -1814,6 +1962,7 @@ export function createUserAccountRouter(overrides = {}) {
     try {
       const user = req.accountUser;
       await deps.masterDb.revokeUserSessions(user.id, req.accountSessionToken);
+      clearAllSessionTouchCache(req.accountSessionToken ? [req.accountSessionToken] : []);
       await appendUserActivity(user.id, {
         type: 'session_revoked',
         category: 'security',
@@ -2171,6 +2320,377 @@ export function createUserAccountRouter(overrides = {}) {
     } catch (error) {
       console.error('[UserAccount] Failed to regenerate recovery codes:', error.message);
       return res.status(500).json({ error: 'Failed to regenerate recovery codes.' });
+    }
+  });
+
+  // 10b. GET /user/account/biometric/status
+  router.get('/user/account/biometric/status', requireAuthenticatedUser, async (req, res) => {
+    try {
+      res.setHeader('Cache-Control', 'no-store');
+      const user = req.accountUser;
+      const { doc: totpDoc } = await loadStateDoc('user_account_totp', user.id, {}, inMemoryTotpFallback);
+      const biometricCredential = totpDoc?.biometricCredential && typeof totpDoc.biometricCredential === 'object'
+        ? totpDoc.biometricCredential
+        : null;
+
+      return res.json({
+        success: true,
+        enrolled: Boolean(biometricCredential?.publicKeySpki),
+        enrolledOnMobileOnly: true,
+        deviceName: biometricCredential?.deviceName || null,
+        keyFingerprint: biometricCredential?.keyFingerprint || null,
+        enrolledAt: biometricCredential?.enrolledAt || null,
+        updatedAt: biometricCredential?.updatedAt || null
+      });
+    } catch (error) {
+      console.error('[UserAccount] Failed to load biometric status:', error.message);
+      return res.status(500).json({ error: 'Failed to load biometric status.' });
+    }
+  });
+
+  // 10c. POST /user/account/biometric/register
+  router.post('/user/account/biometric/register', requireAuthenticatedUser, async (req, res) => {
+    try {
+      res.setHeader('Cache-Control', 'no-store');
+      const user = req.accountUser;
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const parsedKey = parseBiometricPublicKey(body.publicKeySpki);
+      if (!parsedKey) {
+        return res.status(400).json({ error: 'A valid ECDSA SPKI public key is required.' });
+      }
+
+      const signatureBase64 = typeof body.signatureBase64 === 'string' ? body.signatureBase64.trim() : '';
+      const challenge = typeof body.challenge === 'string' ? body.challenge : '';
+      if (signatureBase64) {
+        if (!challenge || !verifyBiometricSignature(parsedKey.keyObject, challenge, signatureBase64)) {
+          return res.status(401).json({ error: 'Biometric key proof-of-possession verification failed.' });
+        }
+      }
+
+      const deviceName = typeof body.deviceName === 'string' && body.deviceName.trim()
+        ? body.deviceName.trim().slice(0, 120)
+        : null;
+      const deviceModel = typeof body.deviceModel === 'string' && body.deviceModel.trim()
+        ? body.deviceModel.trim().slice(0, 120)
+        : deviceName;
+      const osVersion = typeof body.osVersion === 'string' && body.osVersion.trim()
+        ? body.osVersion.trim().slice(0, 80)
+        : null;
+      const ridgeSvgMap = typeof body.ridgeSvgMap === 'string' && body.ridgeSvgMap.trim().startsWith('<svg')
+        ? body.ridgeSvgMap.trim().slice(0, 16000)
+        : null;
+
+      const { doc: totpDoc, snapshotSource } = await loadStateDoc('user_account_totp', user.id, {}, inMemoryTotpFallback);
+      const existingCred = totpDoc?.biometricCredential &&
+        typeof totpDoc.biometricCredential === 'object' &&
+        totpDoc.biometricCredential.publicKeySpki
+        ? totpDoc.biometricCredential
+        : null;
+      const isUpdate = Boolean(existingCred);
+      const nowIso = new Date().toISOString();
+      const enrolledAt = existingCred?.enrolledAt || nowIso;
+
+      const biometricCredential = {
+        id: existingCred?.id || `bio_${crypto.randomUUID()}`,
+        publicKeySpki: parsedKey.publicKeySpki,
+        keyFingerprint: parsedKey.keyFingerprint,
+        deviceName,
+        deviceModel,
+        osVersion,
+        ridgeSvgMap: ridgeSvgMap || existingCred?.ridgeSvgMap || null,
+        enrolledAt,
+        updatedAt: nowIso,
+        lastUsedAt: existingCred?.lastUsedAt || null
+      };
+
+      const nextDoc = {
+        ...totpDoc,
+        biometricCredential,
+        updatedAt: nowIso
+      };
+      await persistStateDoc('user_account_totp', user.id, nextDoc, snapshotSource, inMemoryTotpFallback, {});
+      await touchAccountSecurityRecord(user.id);
+
+      await upsertUserBiometricCredential({
+        id: biometricCredential.id,
+        userId: user.id,
+        deviceName,
+        deviceModel,
+        osVersion,
+        publicKeySpki: biometricCredential.publicKeySpki,
+        keyFingerprint: biometricCredential.keyFingerprint,
+        ridgeSvgMap: biometricCredential.ridgeSvgMap,
+        hardwareBacked: true,
+        enrolledAt,
+        updatedAt: nowIso,
+      });
+      await appendUserBiometricLog({
+        userId: user.id,
+        credentialId: biometricCredential.id,
+        eventType: isUpdate ? 'biometric_updated' : 'biometric_enabled',
+        deviceName,
+        ipAddress: getClientIp(req),
+        userAgent: req.headers?.['user-agent'] || null,
+        success: true,
+        details: { keyFingerprint: biometricCredential.keyFingerprint }
+      });
+
+      await appendUserActivity(user.id, {
+        type: isUpdate ? 'biometric_updated' : 'biometric_enabled',
+        category: 'security',
+        title: isUpdate ? 'Mobile fingerprint login updated' : 'Mobile fingerprint login enabled',
+        description: deviceName
+          ? `Fingerprint credential ${isUpdate ? 'updated' : 'registered'} on ${deviceName}.`
+          : `Fingerprint credential ${isUpdate ? 'updated' : 'registered'} on mobile device.`,
+        ip: getClientIp(req),
+        userAgent: req.headers?.['user-agent']
+      });
+
+      return res.json({
+        success: true,
+        enrolled: true,
+        isUpdate,
+        deviceName: biometricCredential.deviceName,
+        keyFingerprint: biometricCredential.keyFingerprint,
+        enrolledAt: biometricCredential.enrolledAt,
+        updatedAt: biometricCredential.updatedAt
+      });
+    } catch (error) {
+      console.error('[UserAccount] Failed to register biometric credential:', error.message);
+      return res.status(500).json({ error: 'Failed to register biometric credential.' });
+    }
+  });
+
+  // 10d. POST /user/account/biometric/challenge (public or authenticated)
+  router.post('/user/account/biometric/challenge', async (req, res) => {
+    try {
+      res.setHeader('Cache-Control', 'no-store');
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const identifier = typeof body.identifier === 'string' ? body.identifier.trim() : '';
+
+      let user = null;
+      if (identifier) {
+        user = await findAccountUserByIdentifier(identifier);
+      } else if (req.accountUser) {
+        user = req.accountUser;
+      } else {
+        const token = getRequestSessionToken(req);
+        if (!token || token === '[object Object]') {
+          return res.status(400).json({ error: 'Account identifier is required.' });
+        }
+        const sessionData = await deps.masterDb.getSession(token, req);
+        user = sessionData?.user || null;
+        if (!user) {
+          return res.status(401).json({ error: 'Authentication required' });
+        }
+      }
+
+      if (!user) {
+        return res.status(404).json({ error: 'Fingerprint is not enrolled for this account.' });
+      }
+      if (user.isDeleted) {
+        return res.status(403).json({ error: "You deleted this account and can't login.", isDeleted: true });
+      }
+      if (user.isBanned) {
+        return res.status(403).json({ error: 'This Tiwlo account is disabled.' });
+      }
+
+      const { doc: totpDoc } = await loadStateDoc('user_account_totp', user.id, {}, inMemoryTotpFallback);
+      const biometricCredential = totpDoc?.biometricCredential && typeof totpDoc.biometricCredential === 'object'
+        ? totpDoc.biometricCredential
+        : null;
+      if (!biometricCredential?.publicKeySpki) {
+        return res.status(404).json({ error: 'Fingerprint is not enrolled for this account.' });
+      }
+
+      const { challengeId, nonce } = storeBiometricChallenge(user.id);
+      return res.json({
+        success: true,
+        challengeId,
+        challenge: nonce,
+        keyFingerprint: biometricCredential.keyFingerprint || null
+      });
+    } catch (error) {
+      console.error('[UserAccount] Failed to issue biometric challenge:', error.message);
+      return res.status(500).json({ error: 'Failed to create biometric challenge.' });
+    }
+  });
+
+  // 10e. POST /user/account/biometric/login (public)
+  router.post('/user/account/biometric/login', async (req, res) => {
+    try {
+      res.setHeader('Cache-Control', 'no-store');
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const challengeId = typeof body.challengeId === 'string' ? body.challengeId.trim() : '';
+      const signatureBase64 = typeof body.signatureBase64 === 'string' ? body.signatureBase64.trim() : '';
+      if (!challengeId || !signatureBase64) {
+        return res.status(400).json({ error: 'Challenge ID and signature are required.' });
+      }
+
+      const entry = biometricChallenges.get(challengeId);
+      biometricChallenges.delete(challengeId);
+      if (!entry || entry.expiresAt <= Date.now()) {
+        return res.status(401).json({ error: 'Biometric challenge expired or invalid. Please try again.' });
+      }
+
+      const user = await findAccountUserByIdentifier(entry.userId);
+      if (!user) {
+        return res.status(401).json({ error: 'Fingerprint verification failed.' });
+      }
+      if (user.isDeleted) {
+        return res.status(403).json({ error: "You deleted this account and can't login.", isDeleted: true });
+      }
+      if (user.isBanned) {
+        return res.status(403).json({ error: 'This Tiwlo account is disabled.' });
+      }
+
+      const { doc: totpDoc, snapshotSource } = await loadStateDoc('user_account_totp', user.id, {}, inMemoryTotpFallback);
+      const biometricCredential = totpDoc?.biometricCredential && typeof totpDoc.biometricCredential === 'object'
+        ? totpDoc.biometricCredential
+        : null;
+      if (!biometricCredential?.publicKeySpki) {
+        return res.status(401).json({ error: 'Fingerprint verification failed.' });
+      }
+
+      const verified = verifyBiometricSignature(
+        biometricCredential.publicKeySpki,
+        entry.nonce,
+        signatureBase64
+      );
+      if (!verified) {
+        return res.status(401).json({ error: 'Fingerprint verification failed.' });
+      }
+
+      const nowIso = new Date().toISOString();
+      const nextDoc = {
+        ...totpDoc,
+        biometricCredential: {
+          ...biometricCredential,
+          lastUsedAt: nowIso
+        },
+        updatedAt: nowIso
+      };
+      await persistStateDoc('user_account_totp', user.id, nextDoc, snapshotSource, inMemoryTotpFallback, {});
+
+      await upsertUserBiometricCredential({
+        id: biometricCredential.id,
+        userId: user.id,
+        deviceName: biometricCredential.deviceName,
+        deviceModel: biometricCredential.deviceModel || biometricCredential.deviceName,
+        osVersion: biometricCredential.osVersion || null,
+        publicKeySpki: biometricCredential.publicKeySpki,
+        keyFingerprint: biometricCredential.keyFingerprint,
+        ridgeSvgMap: biometricCredential.ridgeSvgMap || null,
+        hardwareBacked: true,
+        lastUsedAt: nowIso,
+      });
+      await appendUserBiometricLog({
+        userId: user.id,
+        credentialId: biometricCredential.id,
+        eventType: 'biometric_login',
+        deviceName: biometricCredential.deviceName || null,
+        ipAddress: getClientIp(req),
+        userAgent: req.headers?.['user-agent'] || null,
+        success: true,
+        details: { tiwiId: user.tiwiId || null }
+      });
+
+      const createSessionFn = typeof deps.createSession === 'function'
+        ? deps.createSession
+        : (typeof deps.masterDb?.createSession === 'function'
+          ? deps.masterDb.createSession.bind(deps.masterDb)
+          : null);
+      if (!createSessionFn) {
+        return res.status(500).json({ error: 'Session creation service unavailable.' });
+      }
+
+      const tiwiId = user.tiwiId || user.storeId || null;
+      const sessionResult = await createSessionFn(user.id, tiwiId, user.email, req);
+      const token = sessionResult?.sessionToken || sessionResult?.token || (typeof sessionResult === 'string' ? sessionResult : null);
+      if (!token) {
+        return res.status(500).json({ error: 'Failed to create login session.' });
+      }
+
+      setBiometricSessionCookie(res, req, token);
+
+      await appendUserActivity(user.id, {
+        type: 'biometric_login',
+        category: 'security',
+        title: 'Signed in with fingerprint',
+        description: biometricCredential.deviceName
+          ? `Biometric sign-in from ${biometricCredential.deviceName}.`
+          : 'Biometric sign-in verified.',
+        ip: getClientIp(req),
+        userAgent: req.headers?.['user-agent']
+      });
+
+      try {
+        await deps.logActivity(
+          'auth',
+          'User signed in with mobile fingerprint',
+          `Store: ${user.storeName || user.name || user.id} (${tiwiId || user.id})`,
+          tiwiId
+        );
+      } catch {
+        // ignore
+      }
+
+      return res.json({
+        success: true,
+        token,
+        sessionToken: token,
+        tiwiId,
+        storeId: tiwiId,
+        user: toSafeUserProfile(user)
+      });
+    } catch (error) {
+      console.error('[UserAccount] Biometric login error:', error.message);
+      return res.status(500).json({ error: 'Failed to complete fingerprint login.' });
+    }
+  });
+
+  // 10f. DELETE /user/account/biometric
+  router.delete('/user/account/biometric', requireAuthenticatedUser, async (req, res) => {
+    try {
+      res.setHeader('Cache-Control', 'no-store');
+      const user = req.accountUser;
+      const { doc: totpDoc, snapshotSource } = await loadStateDoc('user_account_totp', user.id, {}, inMemoryTotpFallback);
+      const nowIso = new Date().toISOString();
+      const nextDoc = {
+        ...totpDoc,
+        biometricCredential: null,
+        updatedAt: nowIso
+      };
+      await persistStateDoc('user_account_totp', user.id, nextDoc, snapshotSource, inMemoryTotpFallback, {});
+      await revokeUserBiometricCredential(user.id, { revokedAt: nowIso });
+      await appendUserBiometricLog({
+        userId: user.id,
+        credentialId: totpDoc?.biometricCredential?.id || null,
+        eventType: 'biometric_removed',
+        deviceName: totpDoc?.biometricCredential?.deviceName || null,
+        ipAddress: getClientIp(req),
+        userAgent: req.headers?.['user-agent'] || null,
+        success: true,
+      });
+      await touchAccountSecurityRecord(user.id);
+
+      await appendUserActivity(user.id, {
+        type: 'biometric_removed',
+        category: 'security',
+        title: 'Mobile fingerprint login removed',
+        description: 'Biometric public key credential was removed from this account.',
+        severity: 'warning',
+        ip: getClientIp(req),
+        userAgent: req.headers?.['user-agent']
+      });
+
+      return res.json({
+        success: true,
+        enrolled: false
+      });
+    } catch (error) {
+      console.error('[UserAccount] Failed to remove biometric credential:', error.message);
+      return res.status(500).json({ error: 'Failed to remove biometric credential.' });
     }
   });
 

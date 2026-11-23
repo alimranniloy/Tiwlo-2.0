@@ -26,6 +26,7 @@ import { createGraphQLMiddleware } from './graphql/index.js';
 import { createApplicationGraphQL, protectAsyncRouter } from './graphql/applicationApi.js';
 import { InputSanitizer } from './security/cryptoSecurity.js';
 import { requiresAddressVerificationForRequest } from './security/authGuards.js';
+import { getCandidateSessionTokens } from './security/sessionMetadata.js';
 import {
   getRateLimitStore,
   initializeOptionalSecurity,
@@ -262,14 +263,18 @@ app.use((req, res, next) => {
 app.use(async (req, res, next) => {
   if (req.path === '/api/tls/allow') return next();
   try {
-    const authHeader = req.headers.authorization;
-    let token = req.cookies?.tiwlo_host_session ||
-      (authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7).trim() : null) ||
-      req.headers?.['x-session-token'];
+    const candidates = getCandidateSessionTokens(req);
+    let sessionData = null;
+    for (const candidateToken of candidates) {
+      const resolved = await MasterDB.getSession(candidateToken, req);
+      if (resolved?.user) {
+        sessionData = resolved;
+        req.activeSessionToken = candidateToken;
+        break;
+      }
+    }
 
-    if (token && token !== '[object Object]') {
-      const sessionData = await MasterDB.getSession(token, req);
-      if (sessionData?.user) {
+    if (sessionData?.user) {
         req.activeUser = sessionData.user;
         const isPickAccountStatusRequest = req.path === '/api/pick/me' ||
           req.path === '/api/pick/account-status' ||
@@ -330,7 +335,6 @@ app.use(async (req, res, next) => {
             redirectUrl: '/address-verification'
           });
         }
-      }
     }
 
   } catch (e) {

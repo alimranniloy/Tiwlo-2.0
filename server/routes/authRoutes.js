@@ -48,6 +48,7 @@ import {
   createPickMobileHandoff,
   isValidPickCodeChallenge
 } from '../../pick/routes.js';
+import { getCandidateSessionTokens } from '../security/sessionMetadata.js';
 import { recordSecurityEvent } from '../db/securityPersistence.js';
 import {
   securityLimiters,
@@ -273,11 +274,18 @@ async function movePendingPickAddressVerification(oldToken, newToken, userId) {
 }
 
 function getRequestSessionToken(req) {
-  const authHeader = req.headers.authorization;
-  return req.cookies?.tiwlo_host_session ||
-    (authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7).trim() : null) ||
-    req.headers?.['x-session-token'] ||
-    null;
+  return getCandidateSessionTokens(req)[0] || null;
+}
+
+async function resolveAuthRequestSession(req) {
+  const candidates = getCandidateSessionTokens(req);
+  for (const candidate of candidates) {
+    const sessionData = await MasterDB.getSession(candidate, req);
+    if (sessionData?.user) {
+      return { ...sessionData, token: candidate };
+    }
+  }
+  return null;
 }
 
 const PLAN_CATALOG = {
@@ -490,6 +498,59 @@ function hashSocialProfileChallenge(token) {
   return crypto.createHash('sha256').update(token).digest();
 }
 
+const MONTH_NAME_TO_NUMBER = {
+  jan: '01', january: '01',
+  feb: '02', february: '02',
+  mar: '03', march: '03',
+  apr: '04', april: '04',
+  may: '05',
+  jun: '06', june: '06',
+  jul: '07', july: '07',
+  aug: '08', august: '08',
+  sep: '09', sept: '09', september: '09',
+  oct: '10', october: '10',
+  nov: '11', november: '11',
+  dec: '12', december: '12'
+};
+
+function formatIsoDateOnly(value) {
+  if (!value) return '';
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return '';
+    return [
+      String(value.getFullYear()).padStart(4, '0'),
+      String(value.getMonth() + 1).padStart(2, '0'),
+      String(value.getDate()).padStart(2, '0')
+    ].join('-');
+  }
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  const isoMatch = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:$|T|\s)/.exec(trimmed);
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2].padStart(2, '0')}-${isoMatch[3].padStart(2, '0')}`;
+  }
+  const dmyMatch = /^(\d{1,2})\s+([a-zA-Z]+),?\s+(\d{4})$/.exec(trimmed);
+  if (dmyMatch) {
+    const month = MONTH_NAME_TO_NUMBER[dmyMatch[2].toLowerCase()];
+    if (month) return `${dmyMatch[3]}-${month}-${dmyMatch[1].padStart(2, '0')}`;
+  }
+  const mdyMatch = /^([a-zA-Z]+)\s+(\d{1,2}),?\s+(\d{4})$/.exec(trimmed);
+  if (mdyMatch) {
+    const month = MONTH_NAME_TO_NUMBER[mdyMatch[1].toLowerCase()];
+    if (month) return `${mdyMatch[3]}-${month}-${mdyMatch[2].padStart(2, '0')}`;
+  }
+  const parsed = new Date(trimmed);
+  if (!Number.isNaN(parsed.getTime()) && /\b\d{4}\b/.test(trimmed)) {
+    return [
+      String(parsed.getFullYear()).padStart(4, '0'),
+      String(parsed.getMonth() + 1).padStart(2, '0'),
+      String(parsed.getDate()).padStart(2, '0')
+    ].join('-');
+  }
+  return '';
+}
+
 function isValidSocialBirthDate(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const parsed = new Date(`${value}T00:00:00.000Z`);
@@ -560,14 +621,17 @@ async function fetchSocialProfile(provider, code, credentials) {
         { headers: { Authorization: `Bearer ${token.access_token}` } },
         'Google People API'
       );
-      const birthday = personalProfile.birthdays?.find(item => item.metadata?.primary)?.date ||
-        personalProfile.birthdays?.[0]?.date;
+      const birthday = personalProfile.birthdays?.find(item => item.metadata?.primary && item.date?.year && item.date?.month && item.date?.day)?.date ||
+        personalProfile.birthdays?.find(item => item.date?.year && item.date?.month && item.date?.day)?.date;
       if (birthday?.year && birthday.month && birthday.day) {
-        dateOfBirth = [
+        const candidateDob = [
           String(birthday.year).padStart(4, '0'),
           String(birthday.month).padStart(2, '0'),
           String(birthday.day).padStart(2, '0')
         ].join('-');
+        if (isValidSocialBirthDate(candidateDob)) {
+          dateOfBirth = candidateDob;
+        }
       }
       address = personalProfile.addresses?.find(item => item.metadata?.primary)?.formattedValue ||
         personalProfile.addresses?.find(item => item.formattedValue)?.formattedValue ||
@@ -892,7 +956,7 @@ router.get('/auth/social/profile-challenge', async (req, res) => {
       profile: {
         name: rows[0].name || rows[0].store_name || '',
         email: rows[0].email,
-        dateOfBirth: rows[0].date_of_birth ? String(rows[0].date_of_birth).slice(0, 10) : '',
+        dateOfBirth: formatIsoDateOnly(rows[0].date_of_birth),
         address: rows[0].address || '',
         avatar: rows[0].avatar || '',
         phone: rows[0].phone || '',
@@ -963,7 +1027,10 @@ router.post('/auth/social/check-handle', async (req, res) => {
 
 router.post('/auth/social/complete-profile', async (req, res) => {
   const challengeToken = getSocialProfileChallengeToken(req);
-  const dateOfBirth = req.body?.dateOfBirth;
+  const rawDateOfBirth = req.body?.dateOfBirth;
+  const dateOfBirth = typeof rawDateOfBirth === 'string'
+    ? (formatIsoDateOnly(rawDateOfBirth) || rawDateOfBirth.trim())
+    : rawDateOfBirth;
   let address = typeof req.body?.address === 'string' ? req.body.address.trim() : '';
   const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
   const handle = typeof req.body?.handle === 'string'
@@ -1174,7 +1241,7 @@ router.post('/auth/social/complete-profile', async (req, res) => {
         billingDetails: user.billingDetails,
         accountType: user.accountType,
         address: user.address,
-        dateOfBirth: user.dateOfBirth || '',
+        dateOfBirth: formatIsoDateOnly(user.dateOfBirth),
         phone: user.phone,
         identityVerified: user.identityVerified === true,
         identityVerificationRequired: user.identityVerificationRequired === true,
@@ -1423,6 +1490,11 @@ router.post('/auth/register', selectRegistrationGuards, blockBannedDeviceMiddlew
       postalCode: billingDetails?.postalCode || ''
     };
 
+    const rawRegisterDob = dateOfBirth || birthday || '';
+    const normalizedRegisterDob = typeof rawRegisterDob === 'string' && rawRegisterDob.trim()
+      ? (formatIsoDateOnly(rawRegisterDob) || rawRegisterDob.trim())
+      : '';
+
     const newUser = await MasterDB.createUser({
       signupBrowserKey: req.signupBrowserKey,
       tiwiId,
@@ -1434,8 +1506,8 @@ router.post('/auth/register', selectRegistrationGuards, blockBannedDeviceMiddlew
       phone: accountPhone,
       email: normalizedEmail,
       password,
-      dateOfBirth: dateOfBirth || birthday || '',
-      birthday: birthday || dateOfBirth || '',
+      dateOfBirth: normalizedRegisterDob,
+      birthday: normalizedRegisterDob,
       gender: gender || '',
       billingDetails: finalBillingDetails,
       planId: selectedPlan.planId,
@@ -1729,7 +1801,7 @@ router.post('/auth/login', securityLimiters.login, securityLimiters.otpRequestIp
           billingDetails: user.billingDetails,
           accountType: user.accountType,
           address: user.address,
-          dateOfBirth: user.dateOfBirth || '',
+          dateOfBirth: formatIsoDateOnly(user.dateOfBirth),
           phone: user.phone,
           identityVerified: user.identityVerified === true,
           identityVerificationRequired: user.identityVerificationRequired === true,
@@ -1999,7 +2071,7 @@ router.post('/auth/verify-2fa', securityLimiters.otpVerifyIp, securityLimiters.o
         billingDetails: user.billingDetails,
         accountType: user.accountType,
         address: user.address,
-        dateOfBirth: user.dateOfBirth || '',
+        dateOfBirth: formatIsoDateOnly(user.dateOfBirth),
         phone: user.phone,
         identityVerified: user.identityVerified === true,
         identityVerificationRequired: user.identityVerificationRequired === true,
@@ -2174,7 +2246,7 @@ router.post('/auth/setup-2fa', securityLimiters.otpVerifyIp, securityLimiters.ot
           billingDetails: user.billingDetails,
           accountType: user.accountType,
           address: user.address,
-          dateOfBirth: user.dateOfBirth || '',
+          dateOfBirth: formatIsoDateOnly(user.dateOfBirth),
           phone: user.phone,
           identityVerified: user.identityVerified === true,
           identityVerificationRequired: user.identityVerificationRequired === true,
@@ -2230,7 +2302,7 @@ router.post('/auth/setup-2fa', securityLimiters.otpVerifyIp, securityLimiters.ot
         billingDetails: user.billingDetails,
         accountType: user.accountType,
         address: user.address,
-        dateOfBirth: user.dateOfBirth || '',
+        dateOfBirth: formatIsoDateOnly(user.dateOfBirth),
         phone: user.phone,
         identityVerified: user.identityVerified === true,
         identityVerificationRequired: user.identityVerificationRequired === true,
@@ -2302,7 +2374,7 @@ router.post('/auth/verify-email', securityLimiters.otpVerifyIp, securityLimiters
           billingDetails: user.billingDetails,
           accountType: user.accountType,
           address: user.address,
-          dateOfBirth: user.dateOfBirth || '',
+          dateOfBirth: formatIsoDateOnly(user.dateOfBirth),
           phone: user.phone,
           identityVerified: user.identityVerified === true,
           identityVerificationRequired: user.identityVerificationRequired === true,
@@ -2728,18 +2800,13 @@ router.post('/admin/email-test', requireAdmin, async (req, res) => {
 // Session
 router.get('/auth/session', async (req, res) => {
   try {
-    const token = getRequestSessionToken(req);
-
-    if (!token) {
-      return res.json({ authenticated: false });
-    }
-
-    const sessionData = await MasterDB.getSession(token, req);
+    const sessionData = await resolveAuthRequestSession(req);
     if (!sessionData || !sessionData.user) {
+      if (req.cookies?.tiwlo_host_session) clearSessionCookie(res, req);
       return res.json({ authenticated: false });
     }
 
-    const { user } = sessionData;
+    const { user, token } = sessionData;
     const tiwiId = user.tiwiId || user.storeId;
     migrateSessionCookie(res, req, token);
 
@@ -2772,17 +2839,12 @@ router.get('/auth/session', async (req, res) => {
 // Me
 router.get('/auth/me', async (req, res) => {
   try {
-    const token = getRequestSessionToken(req);
-
-    let targetUser = null;
-    if (token) {
-      const sessionData = await MasterDB.getSession(token, req);
-      if (sessionData && sessionData.user) {
-        targetUser = sessionData.user;
-      }
-    }
+    const sessionData = await resolveAuthRequestSession(req);
+    const targetUser = sessionData?.user || null;
+    const token = sessionData?.token || null;
 
     if (!targetUser) {
+      if (req.cookies?.tiwlo_host_session) clearSessionCookie(res, req);
       return res.json({ success: false, authenticated: false, user: null });
     }
 
@@ -2860,18 +2922,14 @@ router.get('/auth/me', async (req, res) => {
 // Sync Session
 router.get('/auth/sync-session', async (req, res) => {
   try {
-    const token = getRequestSessionToken(req);
-
-    if (!token) {
-      return res.json({ success: false, authenticated: false, user: null });
-    }
-
-    const sessionData = await MasterDB.getSession(token, req);
+    const sessionData = await resolveAuthRequestSession(req);
     if (!sessionData || !sessionData.user) {
+      if (req.cookies?.tiwlo_host_session) clearSessionCookie(res, req);
       return res.json({ success: false, authenticated: false, user: null });
     }
 
     const targetUser = sessionData.user;
+    const token = sessionData.token;
     const allUsers = await MasterDB.getUsers();
     const freshUser = allUsers.find(u => u.id === targetUser.id || u.tiwiId === targetUser.tiwiId) || targetUser;
 
@@ -2954,19 +3012,9 @@ router.get('/auth/sso/web-start', async (req, res) => {
     });
     if (!allowedReturn) return res.status(400).json({ error: 'Invalid SSO return URL' });
 
-    const token = getRequestSessionToken(req);
-    if (!token) {
-      const dashboardBridgeUrl = getWebSsoBridgeUrl(returnTo, {
-        platformUrl: `https://${PLATFORM_CONFIG.primaryDomain}`,
-        dashboardHost: PLATFORM_CONFIG.dashboardHost,
-        mailHost: `${PLATFORM_CONFIG.mailSubdomain}.${PLATFORM_CONFIG.primaryDomain}`
-      });
-      if (dashboardBridgeUrl) return res.redirect(dashboardBridgeUrl);
-      return res.redirect(`${PLATFORM_CONFIG.authDomain.startsWith('http') ? PLATFORM_CONFIG.authDomain : `https://${PLATFORM_CONFIG.authDomain}`}/login?return_to=${encodeURIComponent(returnTo)}&sso_login=1`);
-    }
-
-    const sessionData = await MasterDB.getSession(token, req);
+    const sessionData = await resolveAuthRequestSession(req);
     if (!sessionData?.user) {
+      if (req.cookies?.tiwlo_host_session) clearSessionCookie(res, req);
       const dashboardBridgeUrl = getWebSsoBridgeUrl(returnTo, {
         platformUrl: `https://${PLATFORM_CONFIG.primaryDomain}`,
         dashboardHost: PLATFORM_CONFIG.dashboardHost,
@@ -2996,13 +3044,7 @@ router.post('/auth/sso/web-start', async (req, res) => {
     if (!allowedReturn) return res.status(400).json({ error: 'Invalid SSO return URL' });
 
     res.setHeader('Cache-Control', 'no-store');
-    const authHeader = req.headers.authorization;
-    const token = authHeader?.startsWith('Bearer ')
-      ? authHeader.substring(7).trim()
-      : getRequestSessionToken(req);
-    if (!token) return res.status(401).json({ error: 'Authentication required' });
-
-    const sessionData = await MasterDB.getSession(token, req);
+    const sessionData = await resolveAuthRequestSession(req);
     if (!sessionData?.user) {
       return res.status(401).json({ error: 'Authentication required' });
     }
@@ -3204,7 +3246,7 @@ router.post('/auth/sso/consume-handshake', async (req, res) => {
           billingDetails: user.billingDetails,
           accountType: user.accountType,
           address: user.address,
-          dateOfBirth: user.dateOfBirth || '',
+          dateOfBirth: formatIsoDateOnly(user.dateOfBirth),
           phone: user.phone,
           identityVerified: user.identityVerified === true,
           identityVerificationRequired: user.identityVerificationRequired === true,
@@ -3315,10 +3357,13 @@ router.put('/auth/profile', async (req, res) => {
       updates.address = address.trim();
     }
     if (dateOfBirth !== undefined) {
-      if (!isValidSocialBirthDate(dateOfBirth)) {
+      const normalizedDob = typeof dateOfBirth === 'string'
+        ? (formatIsoDateOnly(dateOfBirth) || dateOfBirth.trim())
+        : dateOfBirth;
+      if (!isValidSocialBirthDate(normalizedDob)) {
         return res.status(422).json({ error: 'Enter a valid date of birth that is not in the future.' });
       }
-      updates.dateOfBirth = dateOfBirth;
+      updates.dateOfBirth = normalizedDob;
     }
 
     const updated = await MasterDB.updateUser(userId, updates);
@@ -3339,7 +3384,7 @@ router.put('/auth/profile', async (req, res) => {
         storeName: updated.storeName,
         email: updated.email,
         avatar: updated.avatar,
-        dateOfBirth: updated.dateOfBirth || '',
+        dateOfBirth: formatIsoDateOnly(updated.dateOfBirth),
         address: updated.address || '',
         role: updated.role,
         planId: updated.planId,
@@ -3445,20 +3490,11 @@ router.put('/oneprofile/profile', async (req, res) => {
 // Logout
 router.post('/auth/logout', async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    const token = authHeader?.startsWith('Bearer ')
-      ? authHeader.substring(7).trim()
-      : getRequestSessionToken(req);
+    const candidates = getCandidateSessionTokens(req);
     clearSessionCookie(res, req);
 
-    if (token) {
-      const sessionData = await MasterDB.getSession(token, req);
-      const userAgent = String(req.headers['user-agent'] || '').slice(0, 512);
-      if (sessionData?.user && userAgent) {
-        await MasterDB.revokeDeviceSessions(sessionData.user.id, userAgent);
-      } else {
-        await MasterDB.deleteSession(token);
-      }
+    for (const tok of candidates) {
+      await MasterDB.deleteSession(tok).catch(() => {});
     }
 
     res.json({ success: true, message: 'Logged out successfully' });

@@ -2,17 +2,27 @@ import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { requestSensitiveActionGrant } from '../security/reauth.js';
 import {
+  AlertCircle,
   ArrowLeft,
   ArrowLeftRight,
   ArrowRight,
   Bot,
+  ChevronDown,
+  ChevronUp,
+  Clock,
   Coins,
   Download,
   Edit3,
   Eye,
   EyeOff,
+  Globe,
   KeyRound,
+  Laptop,
+  Lock,
+  LogOut,
   Map,
+  MapPin,
+  MonitorSmartphone,
   Play,
   Plus,
   RefreshCw,
@@ -20,6 +30,8 @@ import {
   Save,
   Settings,
   ShieldCheck,
+  Smartphone,
+  Terminal,
   Trash2,
 } from 'lucide-react';
 import { useAdminCurrency } from './AdminCurrencyContext';
@@ -142,7 +154,49 @@ function formatKeyStatusLabel(keyObj) {
   return 'Active';
 }
 
-export default function AdminSystemSettingsView({ onBackToDashboard, onNavigate, showToast }) {
+const DEFAULT_ADMIN_SECURITY_POLICY = {
+  enforceIdleTimeout: false,
+  idleTimeoutMinutes: 60,
+  enforceMaxSessionAge: false,
+  maxSessionAgeHours: 168,
+  singleActiveSessionOnly: false,
+  strictIpBinding: false,
+  requireReauthForSecurityChanges: true,
+  revokeOtherSessionsOnPasswordChange: true,
+  notifyOnNewAdminLogin: true,
+};
+
+function formatSessionTimestamp(iso) {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function formatSessionRelative(iso) {
+  if (!iso) return 'Active now';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+  const diffSec = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  if (diffSec < 60) return 'Active now';
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+  return `${Math.floor(diffSec / 86400)}d ago`;
+}
+
+export default function AdminSystemSettingsView({
+  onBackToDashboard,
+  onNavigate,
+  showToast,
+  currentUser,
+  onLogout,
+}) {
   const currencyCtx = useAdminCurrency();
   const activeCurrency = currencyCtx?.currency || 'USD';
   const rates = useMemo(
@@ -205,6 +259,23 @@ export default function AdminSystemSettingsView({ onBackToDashboard, onNavigate,
   const [savingSys, setSavingSys] = useState(false);
   const [downloadingBackup, setDownloadingBackup] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Admin Account Sessions & Strict Security Policy state
+  const [adminAccountMeta, setAdminAccountMeta] = useState(null);
+  const [adminSessions, setAdminSessions] = useState([]);
+  const [sessionSummary, setSessionSummary] = useState({
+    total: 0,
+    mobileCount: 0,
+    desktopCount: 0,
+    uniqueIpCount: 0,
+  });
+  const [sessionPolicy, setSessionPolicy] = useState(DEFAULT_ADMIN_SECURITY_POLICY);
+  const [loadingSecurity, setLoadingSecurity] = useState(false);
+  const [refreshingSecurity, setRefreshingSecurity] = useState(false);
+  const [revokingSessionId, setRevokingSessionId] = useState('');
+  const [confirmRevokeOthers, setConfirmRevokeOthers] = useState(false);
+  const [expandedSessionIds, setExpandedSessionIds] = useState({});
+  const [savingPolicy, setSavingPolicy] = useState(false);
 
   const getAuthHeaders = useCallback(() => {
     const token = localStorage.getItem('stockpro_session');
@@ -628,6 +699,130 @@ export default function AdminSystemSettingsView({ onBackToDashboard, onNavigate,
     }
   };
 
+  const loadAdminSecurity = useCallback(async ({ silent = false } = {}) => {
+    try {
+      if (silent) setRefreshingSecurity(true);
+      else setLoadingSecurity(true);
+      const token = localStorage.getItem('stockpro_session');
+      const res = await fetch(`${API_BASE}/admin/sessions`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.success === false) {
+        throw new Error(json.error || 'Could not load admin account sessions.');
+      }
+      const nextSessions = Array.isArray(json.sessions) ? json.sessions : [];
+      setAdminSessions(nextSessions);
+      setSessionSummary(json.summary || {
+        total: nextSessions.length,
+        mobileCount: nextSessions.filter((s) => s.platform === 'mobile').length,
+        desktopCount: nextSessions.filter((s) => s.platform === 'desktop').length,
+        uniqueIpCount: new Set(nextSessions.map((s) => s.ip).filter(Boolean)).size,
+      });
+      if (json.account) setAdminAccountMeta(json.account);
+      if (json.policy) {
+        setSessionPolicy({ ...DEFAULT_ADMIN_SECURITY_POLICY, ...json.policy });
+      }
+      setErrorMsg('');
+    } catch (err) {
+      setErrorMsg(err.message || 'Could not load admin account sessions.');
+    } finally {
+      setLoadingSecurity(false);
+      setRefreshingSecurity(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'security') return undefined;
+    const timer = setTimeout(() => {
+      loadAdminSecurity();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [activeTab, loadAdminSecurity]);
+
+  const handleRevokeAdminSession = async (sessionId = '') => {
+    const targetKey = sessionId || 'others';
+    try {
+      setRevokingSessionId(targetKey);
+      setErrorMsg('');
+      const token = localStorage.getItem('stockpro_session');
+      const endpoint = sessionId
+        ? `${API_BASE}/admin/sessions/${encodeURIComponent(sessionId)}`
+        : `${API_BASE}/admin/sessions`;
+      const res = await fetch(endpoint, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.success === false) {
+        throw new Error(json.error || 'Failed to revoke session.');
+      }
+      if (json.revokedCurrent) {
+        showToast?.('Current session revoked. Signing out...', 'success');
+        onLogout?.();
+        return;
+      }
+      const nextSessions = Array.isArray(json.sessions)
+        ? json.sessions
+        : (sessionId
+            ? adminSessions.filter((s) => s.id !== sessionId)
+            : adminSessions.filter((s) => s.isCurrent));
+      setAdminSessions(nextSessions);
+      setSessionSummary(json.summary || {
+        total: nextSessions.length,
+        mobileCount: nextSessions.filter((s) => s.platform === 'mobile').length,
+        desktopCount: nextSessions.filter((s) => s.platform === 'desktop').length,
+        uniqueIpCount: new Set(nextSessions.map((s) => s.ip).filter(Boolean)).size,
+      });
+      setConfirmRevokeOthers(false);
+      showToast?.(
+        json.message || (sessionId ? 'Session revoked immediately.' : 'All other active sessions revoked.'),
+        'success'
+      );
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to revoke session.');
+      showToast?.(err.message || 'Failed to revoke session.', 'error');
+    } finally {
+      setRevokingSessionId('');
+    }
+  };
+
+  const handleSaveSessionPolicy = async (e) => {
+    e.preventDefault();
+    try {
+      setSavingPolicy(true);
+      setErrorMsg('');
+      const headers = getAuthHeaders();
+      headers['x-tiwlo-reauth-grant'] = await requestSensitiveActionGrant(headers, API_ORIGIN);
+      const res = await fetch(`${API_BASE}/admin/session-security-policy`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({ policy: sessionPolicy }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.success === false) {
+        throw new Error(json.error || 'Failed to save admin session security policy.');
+      }
+      if (json.policy) {
+        setSessionPolicy({ ...DEFAULT_ADMIN_SECURITY_POLICY, ...json.policy });
+      }
+      showToast?.(json.message || 'Admin session security policy saved.', 'success');
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to save admin session security policy.');
+      showToast?.(err.message || 'Failed to save admin session security policy.', 'error');
+    } finally {
+      setSavingPolicy(false);
+    }
+  };
+
+  const toggleSecurityPolicyField = (field) => {
+    setSessionPolicy((prev) => ({ ...prev, [field]: !prev[field] }));
+  };
+
   const allCurrencyCodes = useMemo(() => {
     const known = new Set(CURRENCY_CHOICES.map((c) => c.code));
     Object.keys(effectiveRates).forEach((k) => known.add(k));
@@ -672,6 +867,7 @@ export default function AdminSystemSettingsView({ onBackToDashboard, onNavigate,
           { id: 'currency', label: 'Currency & Live Converter', icon: Coins },
           { id: 'platform', label: 'Platform Configuration', icon: Settings },
           { id: 'chat-system', label: 'Chat System & AI Keys', icon: Bot },
+          { id: 'security', label: 'Account Sessions & Security', icon: Lock },
           { id: 'backup', label: 'Backups & Integrations', icon: Download },
         ].map((tab) => {
           const Icon = tab.icon;
@@ -1546,6 +1742,406 @@ export default function AdminSystemSettingsView({ onBackToDashboard, onNavigate,
                 <ArrowRight className="h-4 w-4 text-neutral-400" />
               </span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'security' && (
+        <div className="space-y-5">
+          {/* Admin Account & Quick Revocation Header */}
+          <div className="flex flex-col justify-between gap-4 rounded-xl border border-neutral-200/80 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950 sm:flex-row sm:items-center">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-sm font-semibold text-neutral-950 dark:text-white">
+                  Admin Account Sessions &amp; Security
+                </h2>
+                <span className="rounded-full bg-[#1ED760]/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-[#1ED760]">
+                  {adminAccountMeta?.email || currentUser?.email || 'Signed-in Admin'}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-neutral-500">
+                Inspect every browser and mobile session currently authenticated as your admin account. Revoking immediately invalidates cookies and mobile Bearer tokens.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => loadAdminSecurity({ silent: true })}
+                disabled={refreshingSecurity || loadingSecurity}
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-neutral-200/80 bg-white px-3 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${refreshingSecurity ? 'animate-spin' : ''}`} />
+                {refreshingSecurity ? 'Refreshing...' : 'Refresh'}
+              </button>
+              {adminSessions.some((s) => !s.isCurrent) && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmRevokeOthers(true)}
+                  disabled={revokingSessionId === 'others'}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-rose-600 px-3.5 text-xs font-semibold text-white transition hover:bg-rose-700 disabled:opacity-50"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  Revoke All Other Sessions
+                </button>
+              )}
+            </div>
+          </div>
+
+          {confirmRevokeOthers && (
+            <div className="flex flex-col justify-between gap-3 rounded-xl border border-rose-300/80 bg-rose-50/70 p-4 dark:border-rose-900/70 dark:bg-rose-950/30 sm:flex-row sm:items-center">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" />
+                <div>
+                  <p className="text-xs font-semibold text-neutral-950 dark:text-white">
+                    Revoke all other active sessions for {adminAccountMeta?.email || currentUser?.email || 'your admin account'}?
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-neutral-600 dark:text-neutral-400">
+                    Every other signed-in browser tab and mobile device token will immediately fail with HTTP 401 on the next request.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmRevokeOthers(false)}
+                  disabled={revokingSessionId === 'others'}
+                  className="h-8 rounded-lg border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRevokeAdminSession('')}
+                  disabled={revokingSessionId === 'others'}
+                  className="h-8 rounded-lg bg-rose-600 px-3 text-xs font-semibold text-white transition hover:bg-rose-700 disabled:opacity-50"
+                >
+                  {revokingSessionId === 'others' ? 'Revoking...' : 'Confirm Revoke Others'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* KPI Strip */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-xl border border-neutral-200/80 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
+              <p className="text-[11px] font-medium text-neutral-500">Active Sessions</p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-neutral-950 dark:text-white">
+                {sessionSummary.total}
+              </p>
+            </div>
+            <div className="rounded-xl border border-neutral-200/80 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
+              <p className="text-[11px] font-medium text-neutral-500">Mobile Sessions</p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-neutral-950 dark:text-white">
+                {sessionSummary.mobileCount}
+              </p>
+            </div>
+            <div className="rounded-xl border border-neutral-200/80 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
+              <p className="text-[11px] font-medium text-neutral-500">Web &amp; Desktop</p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-neutral-950 dark:text-white">
+                {sessionSummary.desktopCount}
+              </p>
+            </div>
+            <div className="rounded-xl border border-neutral-200/80 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
+              <p className="text-[11px] font-medium text-neutral-500">Unique IPs</p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-neutral-950 dark:text-white">
+                {sessionSummary.uniqueIpCount}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+            {/* Active Sessions List */}
+            <div className="rounded-xl border border-neutral-200/80 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950 lg:col-span-7">
+              <div className="flex items-center justify-between gap-2 pb-4">
+                <div className="flex items-center gap-2">
+                  <MonitorSmartphone className="h-4 w-4 text-neutral-500" />
+                  <h3 className="text-sm font-semibold text-neutral-950 dark:text-white">
+                    Active Signed-In Sessions
+                  </h3>
+                </div>
+                <span className="text-[11px] text-neutral-500">
+                  Real-time `system_sessions` ledger
+                </span>
+              </div>
+
+              {loadingSecurity ? (
+                <div className="py-10 text-center text-xs text-neutral-500">
+                  Loading active admin sessions...
+                </div>
+              ) : adminSessions.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-neutral-200 p-8 text-center text-xs text-neutral-500 dark:border-neutral-800">
+                  No active sessions found for this admin account.
+                </div>
+              ) : (
+                <div className="divide-y divide-neutral-200/80 rounded-xl border border-neutral-200/80 dark:divide-neutral-800 dark:border-neutral-800">
+                  {adminSessions.map((session) => {
+                    const isExpanded = Boolean(expandedSessionIds[session.id]);
+                    const DeviceIcon =
+                      session.platform === 'mobile'
+                        ? Smartphone
+                        : session.platform === 'api'
+                          ? Terminal
+                          : Laptop;
+                    return (
+                      <div key={session.id} className="p-4 transition-colors hover:bg-neutral-50/70 dark:hover:bg-neutral-900/30">
+                        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                          <div className="flex min-w-0 items-start gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-neutral-200/80 bg-[#fafafa] text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200">
+                              <DeviceIcon className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0 space-y-1">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <p className="truncate text-xs font-bold text-neutral-950 dark:text-white">
+                                  {session.device || session.deviceName || 'Unknown Device'}
+                                </p>
+                                {session.isCurrent && (
+                                  <span className="rounded-full bg-[#1ED760] px-2 py-0.5 text-[10px] font-bold text-black">
+                                    Current
+                                  </span>
+                                )}
+                                {session.browser && (
+                                  <span className="rounded-md bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+                                    {session.browser}
+                                  </span>
+                                )}
+                                {session.os && session.os !== 'Unknown OS' && (
+                                  <span className="rounded-md border border-neutral-200 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
+                                    {session.os}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-neutral-500 tabular-nums dark:text-neutral-400">
+                                <span className="inline-flex items-center gap-1 font-mono text-neutral-700 dark:text-neutral-300">
+                                  <Globe className="h-3 w-3 text-neutral-400" />
+                                  {session.ip || 'Unknown IP'}
+                                </span>
+                                <span className="inline-flex items-center gap-1">
+                                  <MapPin className="h-3 w-3 text-neutral-400" />
+                                  {session.location || 'Unknown Location'}
+                                </span>
+                                <span className="inline-flex items-center gap-1">
+                                  <Clock className="h-3 w-3 text-neutral-400" />
+                                  {formatSessionRelative(session.lastActiveAt || session.createdAt)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex shrink-0 items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedSessionIds((prev) => ({
+                                  ...prev,
+                                  [session.id]: !prev[session.id],
+                                }))
+                              }
+                              className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-medium text-neutral-600 transition hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                            >
+                              {isExpanded ? 'Hide' : 'Details'}
+                              {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={revokingSessionId === session.id}
+                              onClick={() => handleRevokeAdminSession(session.id)}
+                              className={`inline-flex h-8 items-center gap-1 rounded-lg border px-2.5 text-[11px] font-semibold transition disabled:opacity-50 ${
+                                session.isCurrent
+                                  ? 'border-neutral-200 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800'
+                                  : 'border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/30'
+                              }`}
+                            >
+                              <LogOut className="h-3 w-3" />
+                              {revokingSessionId === session.id ? 'Revoking...' : 'Revoke'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="mt-3 grid grid-cols-1 gap-2 rounded-lg bg-[#fafafa] p-3 text-[11px] sm:grid-cols-3 dark:bg-neutral-900/60">
+                            <div>
+                              <span className="font-semibold text-neutral-500">Channel:</span>{' '}
+                              <span className="text-neutral-900 dark:text-neutral-100">{session.appName || 'Tiwlo Web'}</span>
+                            </div>
+                            <div>
+                              <span className="font-semibold text-neutral-500">Signed In:</span>{' '}
+                              <span className="tabular-nums text-neutral-900 dark:text-neutral-100">{formatSessionTimestamp(session.createdAt)}</span>
+                            </div>
+                            <div>
+                              <span className="font-semibold text-neutral-500">Expires:</span>{' '}
+                              <span className="tabular-nums text-neutral-900 dark:text-neutral-100">{formatSessionTimestamp(session.expiresAt)}</span>
+                            </div>
+                            <div className="sm:col-span-3">
+                              <span className="font-semibold text-neutral-500">User-Agent:</span>{' '}
+                              <span className="break-all font-mono text-[10px] text-neutral-600 dark:text-neutral-300">
+                                {session.userAgent || 'Not provided'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Strict Session Security Policy Controls */}
+            <form
+              onSubmit={handleSaveSessionPolicy}
+              className="space-y-4 rounded-xl border border-neutral-200/80 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-950 lg:col-span-5"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-neutral-950 dark:text-white">
+                    Strict Session Security Policy
+                  </h3>
+                  <p className="mt-0.5 text-xs text-neutral-500">
+                    Real enforcement applied on admin API checks and sign-ins.
+                  </p>
+                </div>
+                <ShieldCheck className="h-4 w-4 shrink-0 text-[#1ED760]" />
+              </div>
+
+              <div className="space-y-3">
+                <label className="flex items-start justify-between gap-3 rounded-xl border border-neutral-200/80 bg-[#fafafa] p-3.5 dark:border-neutral-800 dark:bg-neutral-900/50">
+                  <div>
+                    <span className="block text-xs font-semibold text-neutral-950 dark:text-white">
+                      Enforce Admin Idle Timeout
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-neutral-500">
+                      Automatically revoke admin sessions inactive past threshold.
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={sessionPolicy.enforceIdleTimeout}
+                    onChange={() => toggleSecurityPolicyField('enforceIdleTimeout')}
+                    className="mt-0.5 h-4 w-4 rounded accent-[#1ED760]"
+                  />
+                </label>
+
+                {sessionPolicy.enforceIdleTimeout && (
+                  <div className="pl-1">
+                    <label className="block text-[11px] font-medium text-neutral-500">
+                      Idle Timeout (minutes, 5–1440)
+                    </label>
+                    <input
+                      type="number"
+                      min="5"
+                      max="1440"
+                      value={sessionPolicy.idleTimeoutMinutes}
+                      onChange={(e) =>
+                        setSessionPolicy((prev) => ({
+                          ...prev,
+                          idleTimeoutMinutes: e.target.value,
+                        }))
+                      }
+                      className="mt-1 h-9 w-full rounded-xl border border-neutral-200 bg-white px-3 text-xs tabular-nums text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+                    />
+                  </div>
+                )}
+
+                <label className="flex items-start justify-between gap-3 rounded-xl border border-neutral-200/80 bg-[#fafafa] p-3.5 dark:border-neutral-800 dark:bg-neutral-900/50">
+                  <div>
+                    <span className="block text-xs font-semibold text-neutral-950 dark:text-white">
+                      Enforce Maximum Session Lifetime
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-neutral-500">
+                      Force fresh login once an admin session exceeds max age.
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={sessionPolicy.enforceMaxSessionAge}
+                    onChange={() => toggleSecurityPolicyField('enforceMaxSessionAge')}
+                    className="mt-0.5 h-4 w-4 rounded accent-[#1ED760]"
+                  />
+                </label>
+
+                {sessionPolicy.enforceMaxSessionAge && (
+                  <div className="pl-1">
+                    <label className="block text-[11px] font-medium text-neutral-500">
+                      Max Session Age (hours, 1–720)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="720"
+                      value={sessionPolicy.maxSessionAgeHours}
+                      onChange={(e) =>
+                        setSessionPolicy((prev) => ({
+                          ...prev,
+                          maxSessionAgeHours: e.target.value,
+                        }))
+                      }
+                      className="mt-1 h-9 w-full rounded-xl border border-neutral-200 bg-white px-3 text-xs tabular-nums text-neutral-900 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+                    />
+                  </div>
+                )}
+
+                {[
+                  {
+                    key: 'singleActiveSessionOnly',
+                    label: 'Single Active Session Only',
+                    description: 'Automatically revoke older admin sessions on new sign-in.',
+                  },
+                  {
+                    key: 'strictIpBinding',
+                    label: 'Strict Admin IP Binding',
+                    description: 'Invalidate admin session immediately if request IP changes.',
+                  },
+                  {
+                    key: 'requireReauthForSecurityChanges',
+                    label: 'Require Re-Authentication Grant',
+                    description: 'Require fresh password/OTP check before saving security policies.',
+                  },
+                  {
+                    key: 'revokeOtherSessionsOnPasswordChange',
+                    label: 'Revoke Sessions on Password Reset',
+                    description: 'Sign out all other admin sessions when password is updated.',
+                  },
+                  {
+                    key: 'notifyOnNewAdminLogin',
+                    label: 'Audit Alert on New Admin Login',
+                    description: 'Log security event whenever a new admin session is created.',
+                  },
+                ].map((item) => (
+                  <label
+                    key={item.key}
+                    className="flex items-start justify-between gap-3 rounded-xl border border-neutral-200/80 bg-[#fafafa] p-3.5 dark:border-neutral-800 dark:bg-neutral-900/50"
+                  >
+                    <div>
+                      <span className="block text-xs font-semibold text-neutral-950 dark:text-white">
+                        {item.label}
+                      </span>
+                      <span className="mt-0.5 block text-[11px] text-neutral-500">
+                        {item.description}
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(sessionPolicy[item.key])}
+                      onChange={() => toggleSecurityPolicyField(item.key)}
+                      className="mt-0.5 h-4 w-4 rounded accent-[#1ED760]"
+                    />
+                  </label>
+                ))}
+              </div>
+
+              <p className="rounded-lg bg-emerald-50/70 px-3 py-2 text-[11px] text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
+                Desktop-Site User-Agent switches and screen resizes preserve active authenticated sessions without disruption.
+              </p>
+
+              <button
+                type="submit"
+                disabled={savingPolicy}
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#1ED760] px-4 text-xs font-semibold text-black transition hover:bg-[#19c354] disabled:opacity-50"
+              >
+                <Save className="h-3.5 w-3.5" />
+                {savingPolicy ? 'Saving Policy...' : 'Save Session Security Policy'}
+              </button>
+            </form>
           </div>
         </div>
       )}

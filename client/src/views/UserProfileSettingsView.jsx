@@ -11,6 +11,7 @@ import {
   Copy,
   Eye,
   EyeOff,
+  Fingerprint,
   Globe,
   KeyRound,
   Laptop,
@@ -30,7 +31,8 @@ import {
 } from 'lucide-react';
 import { supportFetch } from '../utils/supportFetch';
 import { resolveAvatarUrl } from '../utils/mediaUtils';
-import { COUNTRIES, findCountry } from '../utils/countries';
+import { findCountry } from '../utils/countries';
+import CountrySelect from '../components/CountrySelect';
 import UserSessionsView from './UserSessionsView';
 
 const PROFILE_SECTIONS = [
@@ -289,6 +291,18 @@ export default function UserProfileSettingsView({
   const [confirmRemovePin, setConfirmRemovePin] = useState(false);
   const [removingPin, setRemovingPin] = useState(false);
 
+  // Mobile Fingerprint Password state
+  const [biometricStatus, setBiometricStatus] = useState({
+    loading: true,
+    enrolled: false,
+    deviceName: '',
+    keyFingerprint: '',
+    enrolledAt: null,
+    updatedAt: null,
+    removing: false
+  });
+  const [confirmRemoveBiometric, setConfirmRemoveBiometric] = useState(false);
+
   // Sessions state
   const [sessions, setSessions] = useState([]);
   const [revokingSessionId, setRevokingSessionId] = useState('');
@@ -396,6 +410,30 @@ export default function UserProfileSettingsView({
     }
   }, []);
 
+  const loadBiometricStatus = useCallback(async () => {
+    setBiometricStatus((prev) => ({ ...prev, loading: true }));
+    try {
+      const response = await supportFetch('/api/user/account/biometric/status', { method: 'GET' });
+      const data = await readJsonPayload(response, 'Could not load mobile fingerprint status.');
+      const bio = data?.biometric || data || {};
+      setBiometricStatus({
+        loading: false,
+        enrolled: Boolean(bio.enrolled),
+        deviceName: bio.deviceName || '',
+        keyFingerprint: bio.keyFingerprint || '',
+        enrolledAt: bio.enrolledAt || null,
+        updatedAt: bio.updatedAt || null,
+        removing: false
+      });
+    } catch {
+      setBiometricStatus((prev) => ({
+        ...prev,
+        loading: false,
+        removing: false
+      }));
+    }
+  }, []);
+
   const loadAccount = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -425,8 +463,8 @@ export default function UserProfileSettingsView({
   }, []);
 
   useEffect(() => {
-    void Promise.resolve().then(loadAccount);
-  }, [loadAccount]);
+    void Promise.resolve().then(() => Promise.all([loadAccount(), loadBiometricStatus()]));
+  }, [loadAccount, loadBiometricStatus]);
 
   useEffect(() => {
     if (section === 'activity' && !logsLoaded && !loadingLogs) {
@@ -639,6 +677,32 @@ export default function UserProfileSettingsView({
       setError(err.message || 'Failed to remove security PIN.');
     } finally {
       setRemovingPin(false);
+    }
+  };
+
+  const handleRemoveBiometric = async () => {
+    clearBanners();
+    setBiometricStatus((prev) => ({ ...prev, removing: true }));
+    try {
+      const response = await supportFetch('/api/user/account/biometric', {
+        method: 'DELETE'
+      });
+      await readJsonPayload(response, 'Failed to remove mobile fingerprint.');
+      setBiometricStatus({
+        loading: false,
+        enrolled: false,
+        deviceName: '',
+        keyFingerprint: '',
+        enrolledAt: null,
+        updatedAt: null,
+        removing: false
+      });
+      setConfirmRemoveBiometric(false);
+      setSuccessMsg('Mobile fingerprint credential removed.');
+      showToast?.('Mobile fingerprint removed');
+    } catch (err) {
+      setError(err.message || 'Failed to remove mobile fingerprint.');
+      setBiometricStatus((prev) => ({ ...prev, removing: false }));
     }
   };
 
@@ -1047,18 +1111,11 @@ export default function UserProfileSettingsView({
                       <label className="mb-1.5 block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                         Country / Region
                       </label>
-                      <select
+                      <CountrySelect
                         value={country}
-                        onChange={(e) => setCountry(e.target.value)}
-                        className={INPUT_CLASS}
-                      >
-                        <option value="">Select country</option>
-                        {COUNTRIES.map((item) => (
-                          <option key={item.code} value={item.name}>
-                            {item.flag ? `${item.flag} ` : ''}{item.name} ({item.code})
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(nextCountry) => setCountry(nextCountry)}
+                        placeholder="Select country"
+                      />
                     </div>
 
                     <div>
@@ -1358,6 +1415,143 @@ export default function UserProfileSettingsView({
                   </button>
                 </div>
               </form>
+
+              {/* Mobile Fingerprint Password Card */}
+              <div className={`${CARD_CLASS} overflow-hidden`}>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200/80 px-5 py-4 dark:border-neutral-800">
+                  <div className="flex items-center gap-2">
+                    <Fingerprint className="size-4 text-neutral-500" />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-sm font-bold text-neutral-950 dark:text-white">
+                          Mobile Fingerprint Password
+                        </h2>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                            biometricStatus.loading
+                              ? 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400'
+                              : biometricStatus.enrolled
+                                ? 'bg-[#1ED760]/15 text-emerald-700 dark:text-[#1ED760]'
+                                : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400'
+                          }`}
+                        >
+                          {biometricStatus.loading
+                            ? 'Checking...'
+                            : biometricStatus.enrolled
+                              ? 'Enrolled'
+                              : 'Not enrolled'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                        Biometric unlock credential linked from your Tiwlo mobile device.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4 p-5">
+                  {biometricStatus.loading ? (
+                    <div className={`${SURFACE_CLASS} flex items-center gap-2.5 p-4 text-xs text-neutral-500 dark:text-neutral-400`}>
+                      <Loader2 className="size-4 animate-spin text-neutral-400" />
+                      <span>Checking mobile fingerprint enrollment status...</span>
+                    </div>
+                  ) : biometricStatus.enrolled ? (
+                    <div className={`${SURFACE_CLASS} space-y-3 p-4`}>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-neutral-900 dark:text-white">
+                          <Smartphone className="size-4 text-emerald-600 dark:text-[#1ED760]" />
+                          <span>Enrolled on {biometricStatus.deviceName || 'Mobile Device'}</span>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-3">
+                        <div>
+                          <span className="block text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
+                            Enrolled
+                          </span>
+                          <span className="mt-0.5 block font-medium text-neutral-900 dark:text-neutral-100">
+                            {biometricStatus.enrolledAt ? formatDateTime(biometricStatus.enrolledAt) : 'Unknown'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="block text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
+                            Updated
+                          </span>
+                          <span className="mt-0.5 block font-medium text-neutral-900 dark:text-neutral-100">
+                            {biometricStatus.updatedAt
+                              ? formatDateTime(biometricStatus.updatedAt)
+                              : biometricStatus.enrolledAt
+                                ? formatDateTime(biometricStatus.enrolledAt)
+                                : 'Unknown'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="block text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
+                            Key Fingerprint
+                          </span>
+                          <span className="mt-0.5 block truncate font-mono text-[11px] text-neutral-800 dark:text-neutral-200" title={biometricStatus.keyFingerprint || ''}>
+                            {biometricStatus.keyFingerprint || '—'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={`${SURFACE_CLASS} flex items-center justify-between gap-3 p-4`}>
+                      <div className="flex items-center gap-2.5 text-xs text-neutral-600 dark:text-neutral-300">
+                        <Fingerprint className="size-4 shrink-0 text-neutral-400" />
+                        <span className="font-medium">Not enrolled</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                    Fingerprint credentials can only be added on the Tiwlo mobile app. You can remove an enrolled device here anytime.
+                  </p>
+
+                  {!biometricStatus.loading && biometricStatus.enrolled && confirmRemoveBiometric && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50/70 p-3.5 dark:border-rose-900/50 dark:bg-rose-950/20">
+                      <p className="text-xs text-rose-700 dark:text-rose-300">
+                        Remove mobile fingerprint credential for {biometricStatus.deviceName || 'this device'}?
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={biometricStatus.removing}
+                          onClick={() => setConfirmRemoveBiometric(false)}
+                          className={SECONDARY_BTN_CLASS}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={biometricStatus.removing}
+                          onClick={handleRemoveBiometric}
+                          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-rose-600 px-3.5 text-xs font-semibold text-white transition hover:bg-rose-700 disabled:opacity-60"
+                        >
+                          {biometricStatus.removing ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="size-3.5" />
+                          )}
+                          <span>{biometricStatus.removing ? 'Removing...' : 'Confirm Remove'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {!biometricStatus.loading && biometricStatus.enrolled && !confirmRemoveBiometric && (
+                  <div className="flex items-center justify-end border-t border-neutral-200/80 bg-[#fafafa] px-5 py-3.5 dark:border-neutral-800 dark:bg-neutral-900/40">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmRemoveBiometric(true)}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 dark:border-rose-900/60 dark:bg-neutral-900 dark:text-rose-400 dark:hover:bg-rose-950/30"
+                    >
+                      <Trash2 className="size-3.5" />
+                      <span>Remove Fingerprint</span>
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* Active Sessions Dedicated Page Card */}
               <div className={`${CARD_CLASS} flex flex-wrap items-center justify-between gap-4 p-5`}>

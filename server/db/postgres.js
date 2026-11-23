@@ -171,6 +171,47 @@ export async function initPgSchema() {
       CREATE INDEX IF NOT EXISTS idx_user_device_identities_ip
         ON system_user_device_identities(ip_hash, last_seen_at DESC);
 
+      CREATE TABLE IF NOT EXISTS user_biometric_credentials (
+        id VARCHAR(128) PRIMARY KEY,
+        user_id VARCHAR(64) NOT NULL UNIQUE REFERENCES system_users(id) ON DELETE CASCADE,
+        device_name VARCHAR(255),
+        device_model VARCHAR(255),
+        os_version VARCHAR(128),
+        public_key_spki TEXT NOT NULL,
+        key_fingerprint VARCHAR(128),
+        ridge_svg_map TEXT,
+        signing_cert_sha256 VARCHAR(128),
+        main_country_code VARCHAR(8),
+        last_login_country_code VARCHAR(8),
+        hardware_backed BOOLEAN NOT NULL DEFAULT TRUE,
+        enrolled_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_used_at TIMESTAMP WITH TIME ZONE,
+        revoked_at TIMESTAMP WITH TIME ZONE
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_user_biometric_credentials_user_unique
+        ON user_biometric_credentials(user_id);
+      CREATE INDEX IF NOT EXISTS idx_user_biometric_credentials_fp
+        ON user_biometric_credentials(key_fingerprint);
+
+      CREATE TABLE IF NOT EXISTS user_biometric_logs (
+        id BIGSERIAL PRIMARY KEY,
+        user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
+        credential_id VARCHAR(128),
+        event_type VARCHAR(64) NOT NULL,
+        device_name VARCHAR(255),
+        ip_address VARCHAR(128),
+        country_code VARCHAR(8),
+        user_agent TEXT,
+        success BOOLEAN NOT NULL DEFAULT TRUE,
+        details JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_biometric_logs_user_created
+        ON user_biometric_logs(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_user_biometric_logs_credential
+        ON user_biometric_logs(credential_id, created_at DESC);
+
       CREATE TABLE IF NOT EXISTS system_otp_challenges (
         token_hash CHAR(64) PRIMARY KEY,
         email VARCHAR(255) NOT NULL,
@@ -1523,5 +1564,257 @@ export async function recordPlatformBillingOrder({
     return rows[0] ? { id: rows[0].id, orderNumber: rows[0].order_number } : null;
   } catch {
     return null;
+  }
+}
+
+function getActiveBiometricPgPool() {
+  const p = getPgPool();
+  if (!p) return null;
+  if (isConnected) return p;
+  if (p.query?.mock || Object.prototype.hasOwnProperty.call(p, 'query')) return p;
+  return null;
+}
+
+function normalizeIso2CountryCode(value) {
+  if (value === null || value === undefined) return null;
+  const code = String(value).trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(code) ? code : null;
+}
+
+function formatBiometricCredentialRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    userId: row.user_id,
+    deviceName: row.device_name || null,
+    deviceModel: row.device_model || null,
+    osVersion: row.os_version || null,
+    publicKeySpki: row.public_key_spki || null,
+    keyFingerprint: row.key_fingerprint || null,
+    ridgeSvgMap: row.ridge_svg_map || null,
+    signingCertSha256: row.signing_cert_sha256 || null,
+    mainCountryCode: row.main_country_code || null,
+    lastLoginCountryCode: row.last_login_country_code || null,
+    hardwareBacked: row.hardware_backed !== false,
+    enrolledAt: row.enrolled_at || null,
+    updatedAt: row.updated_at || null,
+    lastUsedAt: row.last_used_at || null,
+    revokedAt: row.revoked_at || null
+  };
+}
+
+function formatBiometricLogRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    userId: row.user_id,
+    credentialId: row.credential_id || null,
+    eventType: row.event_type,
+    deviceName: row.device_name || null,
+    ipAddress: row.ip_address || null,
+    countryCode: row.country_code || null,
+    userAgent: row.user_agent || null,
+    success: row.success !== false,
+    details: row.details && typeof row.details === 'object' ? row.details : {},
+    createdAt: row.created_at || null
+  };
+}
+
+/**
+ * Upsert a user's mobile biometric credential in PostgreSQL.
+ * Gracefully no-ops and returns null when pgPool is not active.
+ */
+export async function upsertUserBiometricCredential({
+  id = null,
+  userId,
+  deviceName = null,
+  deviceModel = null,
+  osVersion = null,
+  publicKeySpki,
+  keyFingerprint = null,
+  ridgeSvgMap = null,
+  signingCertSha256 = null,
+  mainCountryCode = null,
+  lastLoginCountryCode = null,
+  hardwareBacked = true,
+  enrolledAt = null,
+  updatedAt = null,
+  lastUsedAt = null,
+  revokedAt = null
+} = {}) {
+  try {
+    const p = getActiveBiometricPgPool();
+    const uid = userId ? String(userId).trim().slice(0, 64) : '';
+    const spki = publicKeySpki ? String(publicKeySpki).trim() : '';
+    if (!p || !uid || !spki) return null;
+
+    const credId = id ? String(id).trim().slice(0, 128) : `bio_${randomUUID()}`;
+    const nowIso = new Date().toISOString();
+    const { rows } = await p.query(
+      `INSERT INTO user_biometric_credentials (
+         id, user_id, device_name, device_model, os_version, public_key_spki,
+         key_fingerprint, ridge_svg_map, signing_cert_sha256,
+         main_country_code, last_login_country_code, hardware_backed,
+         enrolled_at, updated_at, last_used_at, revoked_at
+       ) VALUES (
+         $1, $2, $3, $4, $5, $6,
+         $7, $8, $9,
+         $10, $11, $12,
+         COALESCE($13::timestamptz, CURRENT_TIMESTAMP),
+         COALESCE($14::timestamptz, CURRENT_TIMESTAMP),
+         $15::timestamptz,
+         $16::timestamptz
+       )
+       ON CONFLICT (user_id) DO UPDATE SET
+         id = COALESCE(EXCLUDED.id, user_biometric_credentials.id),
+         device_name = COALESCE(EXCLUDED.device_name, user_biometric_credentials.device_name),
+         device_model = COALESCE(EXCLUDED.device_model, user_biometric_credentials.device_model),
+         os_version = COALESCE(EXCLUDED.os_version, user_biometric_credentials.os_version),
+         public_key_spki = EXCLUDED.public_key_spki,
+         key_fingerprint = COALESCE(EXCLUDED.key_fingerprint, user_biometric_credentials.key_fingerprint),
+         ridge_svg_map = COALESCE(EXCLUDED.ridge_svg_map, user_biometric_credentials.ridge_svg_map),
+         signing_cert_sha256 = COALESCE(EXCLUDED.signing_cert_sha256, user_biometric_credentials.signing_cert_sha256),
+         main_country_code = COALESCE(EXCLUDED.main_country_code, user_biometric_credentials.main_country_code),
+         last_login_country_code = COALESCE(EXCLUDED.last_login_country_code, user_biometric_credentials.last_login_country_code),
+         hardware_backed = EXCLUDED.hardware_backed,
+         updated_at = COALESCE(EXCLUDED.updated_at, CURRENT_TIMESTAMP),
+         last_used_at = COALESCE(EXCLUDED.last_used_at, user_biometric_credentials.last_used_at),
+         revoked_at = EXCLUDED.revoked_at
+       RETURNING *`,
+      [
+        credId,
+        uid,
+        deviceName ? String(deviceName).trim().slice(0, 255) : null,
+        deviceModel ? String(deviceModel).trim().slice(0, 255) : null,
+        osVersion ? String(osVersion).trim().slice(0, 128) : null,
+        spki,
+        keyFingerprint ? String(keyFingerprint).trim().slice(0, 128) : null,
+        ridgeSvgMap ? String(ridgeSvgMap) : null,
+        signingCertSha256 ? String(signingCertSha256).trim().slice(0, 128) : null,
+        normalizeIso2CountryCode(mainCountryCode),
+        normalizeIso2CountryCode(lastLoginCountryCode),
+        hardwareBacked !== false,
+        enrolledAt || nowIso,
+        updatedAt || nowIso,
+        lastUsedAt || null,
+        revokedAt || null
+      ]
+    );
+    return formatBiometricCredentialRow(rows?.[0]);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Retrieve a user's biometric credential from PostgreSQL.
+ * Gracefully no-ops and returns null when pgPool is not active.
+ */
+export async function getUserBiometricCredential(userId, { includeRevoked = false } = {}) {
+  try {
+    const p = getActiveBiometricPgPool();
+    const uid = userId ? String(userId).trim().slice(0, 64) : '';
+    if (!p || !uid) return null;
+
+    const sql = includeRevoked
+      ? 'SELECT * FROM user_biometric_credentials WHERE user_id = $1 ORDER BY updated_at DESC LIMIT 1'
+      : 'SELECT * FROM user_biometric_credentials WHERE user_id = $1 AND revoked_at IS NULL ORDER BY updated_at DESC LIMIT 1';
+    const { rows } = await p.query(sql, [uid]);
+    return formatBiometricCredentialRow(rows?.[0]);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Revoke a user's active biometric credential in PostgreSQL.
+ * Gracefully no-ops and returns null when pgPool is not active.
+ */
+export async function revokeUserBiometricCredential(userId, { revokedAt = null } = {}) {
+  try {
+    const p = getActiveBiometricPgPool();
+    const uid = userId ? String(userId).trim().slice(0, 64) : '';
+    if (!p || !uid) return null;
+
+    const { rows } = await p.query(
+      `UPDATE user_biometric_credentials
+       SET revoked_at = COALESCE($2::timestamptz, CURRENT_TIMESTAMP),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE user_id = $1 AND revoked_at IS NULL
+       RETURNING *`,
+      [uid, revokedAt || new Date().toISOString()]
+    );
+    return formatBiometricCredentialRow(rows?.[0]);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Append a biometric audit log row in PostgreSQL.
+ * Gracefully no-ops and returns null when pgPool is not active.
+ */
+export async function appendUserBiometricLog({
+  userId,
+  credentialId = null,
+  eventType,
+  deviceName = null,
+  ipAddress = null,
+  countryCode = null,
+  userAgent = null,
+  success = true,
+  details = {}
+} = {}) {
+  try {
+    const p = getActiveBiometricPgPool();
+    const uid = userId ? String(userId).trim().slice(0, 64) : '';
+    const evt = eventType ? String(eventType).trim().slice(0, 64) : '';
+    if (!p || !uid || !evt) return null;
+
+    const { rows } = await p.query(
+      `INSERT INTO user_biometric_logs (
+         user_id, credential_id, event_type, device_name, ip_address,
+         country_code, user_agent, success, details
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
+       RETURNING *`,
+      [
+        uid,
+        credentialId ? String(credentialId).trim().slice(0, 128) : null,
+        evt,
+        deviceName ? String(deviceName).trim().slice(0, 255) : null,
+        ipAddress ? String(ipAddress).trim().slice(0, 128) : null,
+        normalizeIso2CountryCode(countryCode),
+        userAgent ? String(userAgent).slice(0, 1024) : null,
+        success !== false,
+        JSON.stringify(details && typeof details === 'object' ? details : {})
+      ]
+    );
+    return formatBiometricLogRow(rows?.[0]);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch recent biometric audit logs for a user from PostgreSQL.
+ * Gracefully no-ops and returns [] when pgPool is not active.
+ */
+export async function getUserBiometricLogs(userId, { limit = 50 } = {}) {
+  try {
+    const p = getActiveBiometricPgPool();
+    const uid = userId ? String(userId).trim().slice(0, 64) : '';
+    if (!p || !uid) return [];
+
+    const safeLimit = Math.min(200, Math.max(1, Number.parseInt(limit, 10) || 50));
+    const { rows } = await p.query(
+      `SELECT * FROM user_biometric_logs
+       WHERE user_id = $1
+       ORDER BY created_at DESC, id DESC
+       LIMIT $2`,
+      [uid, safeLimit]
+    );
+    return Array.isArray(rows) ? rows.map(formatBiometricLogRow) : [];
+  } catch {
+    return [];
   }
 }

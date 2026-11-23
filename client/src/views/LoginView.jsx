@@ -1,6 +1,11 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useState, useEffect, useRef } from 'react';
-import { COUNTRY_OPTIONS, MONTH_OPTIONS, getDaysInBirthMonth } from '../utils/accountFormOptions';
+import {
+  COUNTRY_OPTIONS,
+  MONTH_OPTIONS,
+  getDaysInBirthMonth,
+  parseDateOfBirthParts
+} from '../utils/accountFormOptions';
 import { returnSocialSignInToApp } from '../utils/mobileAppSso';
 import {
   Eye,
@@ -138,7 +143,7 @@ export default function LoginView({
           throw new Error(result.error || 'Profile completion session expired. Please sign in again.');
         }
         if (active) {
-          const [birthYear = '', birthMonth = '', birthDay = ''] = (result.profile.dateOfBirth || '').split('-');
+          const { birthYear, birthMonth, birthDay } = parseDateOfBirthParts(result.profile.dateOfBirth);
           const country = result.profile.country || 'Bangladesh';
           setSocialProfile({
             ...result.profile,
@@ -1040,7 +1045,7 @@ export default function LoginView({
                         inputMode="numeric"
                         pattern="[0-9]*"
                         maxLength={2}
-                        value={socialProfile.birthDay}
+                        value={String(socialProfile.birthDay || '').replace(/\D/g, '').slice(0, 2)}
                         onChange={event => setSocialProfile(current => ({
                           ...current,
                           birthDay: event.target.value.replace(/\D/g, '').slice(0, 2)
@@ -1055,7 +1060,7 @@ export default function LoginView({
                         inputMode="numeric"
                         pattern="[0-9]*"
                         maxLength={4}
-                        value={socialProfile.birthYear}
+                        value={String(socialProfile.birthYear || '').replace(/\D/g, '').slice(0, 4)}
                         onChange={event => setSocialProfile(current => ({
                           ...current,
                           birthYear: event.target.value.replace(/\D/g, '').slice(0, 4)

@@ -16,13 +16,16 @@ import {
   isVerificationFetchError,
   VERIFICATION_CONNECTION_ERROR,
 } from '../../utils/verificationErrors';
+import {
+  MONTH_OPTIONS,
+  formatIsoBirthDate,
+  getDaysInBirthMonth,
+  normalizeIsoDateInput,
+  parseDateOfBirthParts,
+} from '../../../utils/accountFormOptions';
 
 function normalizeDateInput(value) {
-  if (typeof value !== 'string') return '';
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-  const isoMatch = /^(\d{4}-\d{2}-\d{2})/.exec(trimmed);
-  return isoMatch ? isoMatch[1] : '';
+  return normalizeIsoDateInput(value);
 }
 
 /**
@@ -58,7 +61,18 @@ export default function ConfirmNameStep({ onNext = null, onBack = null }) {
   );
 
   const [fullName, setFullName] = useState(() => detectedName || accountName || '');
-  const [dateOfBirth, setDateOfBirth] = useState(() => detectedDob || accountDob || '');
+  const initialDobParts = parseDateOfBirthParts(detectedDob || accountDob || '');
+  const [birthMonth, setBirthMonth] = useState(() => initialDobParts.birthMonth);
+  const [birthDay, setBirthDay] = useState(() => initialDobParts.birthDay);
+  const [birthYear, setBirthYear] = useState(() => initialDobParts.birthYear);
+  const dateOfBirth = formatIsoBirthDate({ birthYear, birthMonth, birthDay });
+  const hasAnyDobInput = Boolean(birthMonth || birthDay.trim() || birthYear.trim());
+  const applyDobString = (rawDob) => {
+    const parts = parseDateOfBirthParts(rawDob);
+    setBirthMonth(parts.birthMonth);
+    setBirthDay(parts.birthDay);
+    setBirthYear(parts.birthYear);
+  };
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [confirmationMessage, setConfirmationMessage] = useState('');
@@ -92,12 +106,12 @@ export default function ConfirmNameStep({ onNext = null, onBack = null }) {
     }
 
     const trimmedDob = dateOfBirth.trim();
-    if ((hasDobMismatch || missingAccountDob || Boolean(detectedDob)) && !trimmedDob) {
+    if ((hasDobMismatch || missingAccountDob || Boolean(detectedDob)) && !hasAnyDobInput) {
       setErrorMessage('Please enter your date of birth as shown on your document.');
       return;
     }
-    if (trimmedDob && !/^\d{4}-\d{2}-\d{2}$/.test(trimmedDob)) {
-      setErrorMessage('Please enter a valid date of birth (YYYY-MM-DD).');
+    if (hasAnyDobInput && (!trimmedDob || !/^\d{4}-\d{2}-\d{2}$/.test(trimmedDob) || new Date(`${trimmedDob}T00:00:00.000Z`) > new Date())) {
+      setErrorMessage('Please enter a valid date of birth (Month, Day, and 4-digit Year).');
       return;
     }
 
@@ -317,29 +331,66 @@ export default function ConfirmNameStep({ onNext = null, onBack = null }) {
 
           <div>
             <label
-              htmlFor="confirm-date-of-birth"
+              htmlFor="confirm-birth-month"
               className="flex items-center gap-1.5 text-[13px] font-semibold text-neutral-800 mb-1.5 px-0.5"
             >
               <Calendar className="h-3.5 w-3.5 text-neutral-500" />
               <span>Date of Birth</span>
             </label>
-            <input
-              id="confirm-date-of-birth"
-              type="date"
-              value={dateOfBirth}
-              max={new Date().toISOString().slice(0, 10)}
-              onChange={(event) => {
-                setDateOfBirth(event.target.value);
-                if (errorMessage) setErrorMessage('');
-              }}
-              disabled={isSubmitting}
-              autoComplete="bday"
-              className="w-full rounded-xl border border-neutral-300 bg-white px-3.5 py-2.5 text-[14.5px] font-medium text-neutral-900 shadow-2xs transition focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 disabled:bg-neutral-100 disabled:text-neutral-500"
-            />
+            <div className="grid grid-cols-3 gap-2">
+              <select
+                id="confirm-birth-month"
+                aria-label="Birth month"
+                value={birthMonth}
+                onChange={(event) => {
+                  setBirthMonth(event.target.value);
+                  if (errorMessage) setErrorMessage('');
+                }}
+                disabled={isSubmitting}
+                className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-[14.5px] font-medium text-neutral-900 shadow-2xs transition focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 disabled:bg-neutral-100 disabled:text-neutral-500"
+              >
+                <option value="">Month</option>
+                {MONTH_OPTIONS.map((m) => (
+                  <option key={m.value} value={m.value}>{m.name}</option>
+                ))}
+              </select>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={2}
+                aria-label="Birth day"
+                placeholder="Day"
+                value={String(birthDay || '').replace(/\D/g, '').slice(0, 2)}
+                onChange={(event) => {
+                  const digits = event.target.value.replace(/\D/g, '').slice(0, 2);
+                  const maxDay = getDaysInBirthMonth(birthMonth, birthYear);
+                  setBirthDay(digits && Number(digits) > maxDay ? String(maxDay) : digits);
+                  if (errorMessage) setErrorMessage('');
+                }}
+                disabled={isSubmitting}
+                className="w-full rounded-xl border border-neutral-300 bg-white px-3.5 py-2.5 text-[14.5px] font-medium text-neutral-900 shadow-2xs transition focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 disabled:bg-neutral-100 disabled:text-neutral-500"
+              />
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={4}
+                aria-label="Birth year"
+                placeholder="Year"
+                value={String(birthYear || '').replace(/\D/g, '').slice(0, 4)}
+                onChange={(event) => {
+                  setBirthYear(event.target.value.replace(/\D/g, '').slice(0, 4));
+                  if (errorMessage) setErrorMessage('');
+                }}
+                disabled={isSubmitting}
+                className="w-full rounded-xl border border-neutral-300 bg-white px-3.5 py-2.5 text-[14.5px] font-medium text-neutral-900 shadow-2xs transition focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 disabled:bg-neutral-100 disabled:text-neutral-500"
+              />
+            </div>
             {detectedDob && dateOfBirth !== detectedDob && (
               <button
                 type="button"
-                onClick={() => setDateOfBirth(detectedDob)}
+                onClick={() => applyDobString(detectedDob)}
                 className="mt-1.5 text-[12px] font-medium text-neutral-600 hover:text-neutral-900 underline cursor-pointer"
               >
                 Use detected document DOB ({detectedDob})

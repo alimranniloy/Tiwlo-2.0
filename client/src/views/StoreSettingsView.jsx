@@ -34,6 +34,7 @@ import { StoreSettingsProvider, useStoreSettings } from '../context/StoreSetting
 import { THEME_COLOR_PRESETS, AVAILABLE_THEMES, THEME_CATEGORIES, DEFAULT_HERO_BANNERS } from '../themes/themeConfig';
 import { getStoreUrl } from '../config/platformConfig';
 import { openMaterialDialog } from '../components/MaterialDialogProvider.jsx';
+import CountrySelect from '../components/CountrySelect';
 
 const toDateTimeLocal = value => {
   if (!value) return '';
@@ -1345,22 +1346,34 @@ function StoreSettingsContent({
                     />
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {[
-                      ['City', storeCity, setStoreCity, 'address-level2'],
-                      ['Country', storeCountry, setStoreCountry, 'country-name'],
-                      ['Postal code', storePostalCode, setStorePostalCode, 'postal-code']
-                    ].map(([label, value, setter, autoComplete]) => (
-                      <label key={label} className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
-                        {label}
-                        <input
-                          value={value}
-                          onChange={e => setter(e.target.value)}
-                          maxLength={100}
-                          autoComplete={autoComplete}
-                          className="mt-1 w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500"
-                        />
-                      </label>
-                    ))}
+                    <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                      City
+                      <input
+                        value={storeCity}
+                        onChange={e => setStoreCity(e.target.value)}
+                        maxLength={100}
+                        autoComplete="address-level2"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500"
+                      />
+                    </label>
+                    <div className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                      <span className="block mb-1">Country</span>
+                      <CountrySelect
+                        value={storeCountry}
+                        onChange={(nextCountry) => setStoreCountry(nextCountry)}
+                        placeholder="Select country"
+                      />
+                    </div>
+                    <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                      Postal code
+                      <input
+                        value={storePostalCode}
+                        onChange={e => setStorePostalCode(e.target.value)}
+                        maxLength={100}
+                        autoComplete="postal-code"
+                        className="mt-1 w-full px-3.5 py-2.5 bg-neutral-50 dark:bg-gray-900 border border-neutral-200 dark:border-gray-700 rounded-xl text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-500"
+                      />
+                    </label>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">

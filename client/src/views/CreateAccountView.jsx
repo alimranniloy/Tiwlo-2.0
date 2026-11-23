@@ -1,7 +1,14 @@
 import { applicationFetch as fetch } from '../api/graphqlTransport.js';
 import React, { useState, useEffect } from 'react';
 import { getPlatformUrl } from '../config/platformConfig';
-import { COUNTRY_OPTIONS, MONTH_OPTIONS, getDaysInBirthMonth } from '../utils/accountFormOptions';
+import {
+  COUNTRY_OPTIONS,
+  MONTH_OPTIONS,
+  formatIsoBirthDate,
+  getDaysInBirthMonth,
+  normalizeIsoDateInput,
+  parseDateOfBirthParts
+} from '../utils/accountFormOptions';
 import { returnSocialSignInToApp } from '../utils/mobileAppSso';
 import {
   Eye,
@@ -161,7 +168,9 @@ export default function CreateAccountView({
           throw new Error(result.error || 'Profile completion session expired. Please sign in again.');
         }
         const profile = result.profile;
-        const [birthYear = '', birthMonth = '', birthDay = ''] = (profile.dateOfBirth || '').split('-');
+        const { birthYear, birthMonth, birthDay } = parseDateOfBirthParts(profile.dateOfBirth);
+        const normalizedProfileDob = formatIsoBirthDate({ birthYear, birthMonth, birthDay }) ||
+          normalizeIsoDateInput(profile.dateOfBirth);
         const matchedCountry = COUNTRY_OPTIONS.find(country => country.name === profile.country) || COUNTRY_OPTIONS[0];
         const rawPhone = profile.phone || '';
         const phoneCountry = COUNTRY_OPTIONS.find(country =>
@@ -186,7 +195,7 @@ export default function CreateAccountView({
           birthDay,
           birthYear,
           gender: profile.gender || '',
-          dateOfBirth: profile.dateOfBirth || '',
+          dateOfBirth: normalizedProfileDob,
           phoneCountryCode: phoneCountry.dial,
           phoneNational,
           phone: rawPhone,
@@ -404,11 +413,18 @@ export default function CreateAccountView({
       }
       setSelectedCountry(matchedCountry);
 
+      const ssoDobParts = parseDateOfBirthParts(initialSsoData.dateOfBirth || initialSsoData.birthday);
+      const ssoNormalizedDob = formatIsoBirthDate(ssoDobParts);
+
       setFormData(prev => ({
         ...prev,
         email: initialSsoData.email,
         fullName: initialSsoData.name || prev.fullName,
         ownerName: initialSsoData.name || prev.ownerName,
+        birthMonth: ssoDobParts.birthMonth || prev.birthMonth,
+        birthDay: ssoDobParts.birthDay || prev.birthDay,
+        birthYear: ssoDobParts.birthYear || prev.birthYear,
+        dateOfBirth: ssoNormalizedDob || prev.dateOfBirth,
         isSso: true,
         ssoProvider: initialSsoData.provider || 'Google',
         accountType: initialSsoData.accountType || prev.accountType,
@@ -606,10 +622,7 @@ export default function CreateAccountView({
       ? formData.businessName.trim()
       : formData.fullName.trim();
 
-    const monthObj = MONTH_OPTIONS.find(m => m.value === formData.birthMonth);
-    const birthFormatted = (formData.birthYear && formData.birthMonth && formData.birthDay)
-      ? `${monthObj ? monthObj.name : formData.birthMonth} ${formData.birthDay}, ${formData.birthYear}`
-      : (formData.dateOfBirth || '');
+    const normalizedBirthIso = formatIsoBirthDate(formData) || normalizeIsoDateInput(formData.dateOfBirth);
 
     if (socialProfileMode) {
       const handle = (formData.handle || '').trim().replace(/^@/, '').toLowerCase();
@@ -732,7 +745,7 @@ export default function CreateAccountView({
 
     setFormData(prev => ({
       ...prev,
-      dateOfBirth: birthFormatted,
+      dateOfBirth: normalizedBirthIso,
       phone: completePhone,
       billingAddress: prev.address,
       billingCity: prev.city,
@@ -872,10 +885,7 @@ export default function CreateAccountView({
         ? formData.businessName.trim()
         : formData.fullName.trim();
 
-      const monthObj = MONTH_OPTIONS.find(m => m.value === formData.birthMonth);
-      const birthFormatted = (formData.birthYear && formData.birthMonth && formData.birthDay)
-        ? `${monthObj ? monthObj.name : formData.birthMonth} ${formData.birthDay}, ${formData.birthYear}`
-        : (formData.dateOfBirth || '');
+      const normalizedBirthIso = formatIsoBirthDate(formData) || normalizeIsoDateInput(formData.dateOfBirth);
 
       const payload = {
         email: formData.email.trim(),
@@ -890,8 +900,8 @@ export default function CreateAccountView({
         storeName: displayName,
         address: formData.address.trim(),
         phone: formData.phone.trim(),
-        dateOfBirth: birthFormatted,
-        birthday: birthFormatted,
+        dateOfBirth: normalizedBirthIso,
+        birthday: normalizedBirthIso,
         gender: formData.gender || '',
         billingDetails: {
           name: activeBilling?.name || displayName,
@@ -1711,7 +1721,7 @@ export default function CreateAccountView({
                               inputMode="numeric"
                               pattern="[0-9]*"
                               maxLength={2}
-                              value={formData.birthDay}
+                              value={String(formData.birthDay || '').replace(/\D/g, '').slice(0, 2)}
                               onChange={(e) => updateField('birthDay', e.target.value.replace(/\D/g, '').slice(0, 2))}
                               placeholder="Day"
                               required
@@ -1725,7 +1735,7 @@ export default function CreateAccountView({
                               inputMode="numeric"
                               pattern="[0-9]*"
                               maxLength={4}
-                              value={formData.birthYear}
+                              value={String(formData.birthYear || '').replace(/\D/g, '').slice(0, 4)}
                               onChange={(e) => updateField('birthYear', e.target.value.replace(/\D/g, '').slice(0, 4))}
                               placeholder="Year"
                               required

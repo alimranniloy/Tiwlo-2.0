@@ -4,6 +4,7 @@ import { BadgeCheck, MapPin, Package, ShieldCheck, UserRound } from 'lucide-reac
 import { useStoreSettings } from '../../../context/StoreSettingsContext';
 import { formatStoreCurrency } from '../storefrontUtils';
 import { openMaterialDialog } from '../../../components/MaterialDialogProvider.jsx';
+import CountrySelect from '../../../components/CountrySelect';
 
 const emptyAddress = {
   label: 'Home',
@@ -326,6 +327,25 @@ export default function CustomerAccountPage({ onNavigate, showToast }) {
                     ].map(([key, label]) => {
                       const nested = key.startsWith('shippingAddress.');
                       const value = nested ? orderEdit.shippingAddress[key.split('.')[1]] : orderEdit[key];
+                      if (key === 'shippingAddress.country') {
+                        return (
+                          <div key={key} className="text-[11px] font-semibold text-neutral-600">
+                            <span className="mb-1 block">{label}</span>
+                            <CountrySelect
+                              required
+                              value={value || ''}
+                              onChange={(countryName, countryObj) => setOrderEdit(current => ({
+                                ...current,
+                                shippingAddress: {
+                                  ...current.shippingAddress,
+                                  country: countryName,
+                                  countryCode: countryObj?.code || current.shippingAddress?.countryCode || ''
+                                }
+                              }))}
+                            />
+                          </div>
+                        );
+                      }
                       return <label key={key} className="text-[11px] font-semibold text-neutral-600">{label}<input required={nested && ['street', 'country'].includes(key.split('.')[1])} value={value || ''} onChange={event => setOrderEdit(current => nested ? { ...current, shippingAddress: { ...current.shippingAddress, [key.split('.')[1]]: event.target.value } } : { ...current, [key]: event.target.value })} className="mt-1 w-full rounded-lg border border-neutral-200 px-2.5 py-2 text-xs" /></label>;
                     })}
                     <label className="sm:col-span-2 flex items-center gap-2 text-[11px] font-semibold text-neutral-600">
@@ -337,12 +357,30 @@ export default function CustomerAccountPage({ onNavigate, showToast }) {
                       Use a separate billing address
                     </label>
                     {orderEdit.hasBillingAddress && ['street', 'city', 'region', 'postalCode', 'country'].map(key => (
-                      <label key={key} className="text-[11px] font-semibold capitalize text-neutral-600">Billing {key}
-                        <input required={['street', 'country'].includes(key)} value={orderEdit.billingAddress?.[key] || ''} onChange={event => setOrderEdit(current => ({
-                          ...current,
-                          billingAddress: { ...current.billingAddress, [key]: event.target.value }
-                        }))} className="mt-1 w-full rounded-lg border border-neutral-200 px-2.5 py-2 text-xs" />
-                      </label>
+                      key === 'country' ? (
+                        <div key={key} className="text-[11px] font-semibold capitalize text-neutral-600">
+                          <span className="mb-1 block">Billing {key}</span>
+                          <CountrySelect
+                            required
+                            value={orderEdit.billingAddress?.country || ''}
+                            onChange={(countryName, countryObj) => setOrderEdit(current => ({
+                              ...current,
+                              billingAddress: {
+                                ...current.billingAddress,
+                                country: countryName,
+                                countryCode: countryObj?.code || current.billingAddress?.countryCode || ''
+                              }
+                            }))}
+                          />
+                        </div>
+                      ) : (
+                        <label key={key} className="text-[11px] font-semibold capitalize text-neutral-600">Billing {key}
+                          <input required={['street', 'country'].includes(key)} value={orderEdit.billingAddress?.[key] || ''} onChange={event => setOrderEdit(current => ({
+                            ...current,
+                            billingAddress: { ...current.billingAddress, [key]: event.target.value }
+                          }))} className="mt-1 w-full rounded-lg border border-neutral-200 px-2.5 py-2 text-xs" />
+                        </label>
+                      )
                     ))}
                     <div className="sm:col-span-2 flex justify-end gap-2"><button type="button" onClick={() => { setEditOrderId(''); setOrderEdit(null); }} className="rounded-lg border border-neutral-200 px-3 py-2 text-xs">Cancel</button><button disabled={busy} className="rounded-lg bg-neutral-600 px-3 py-2 text-xs font-bold text-white">Save changes</button></div>
                   </form>
@@ -375,7 +413,24 @@ export default function CustomerAccountPage({ onNavigate, showToast }) {
           </div>
           <form onSubmit={saveAddress} className="grid gap-2 rounded-2xl border border-neutral-200 bg-white p-4 sm:grid-cols-2">
             <h2 className="sm:col-span-2 text-sm font-bold">{editingAddressId ? 'Edit delivery address' : 'Add delivery address'}</h2>
-            {Object.entries({ label: 'Label', recipient: 'Recipient', phone: 'Phone', line1: 'Address line 1', line2: 'Address line 2', city: 'City', region: 'State/region', postalCode: 'Postal code', country: 'Country', countryCode: 'Country code (ISO-2, optional)' }).map(([key, label]) => <label key={key} className="text-[11px] font-semibold text-neutral-600">{label}<input required={!['line2', 'region', 'postalCode', 'countryCode'].includes(key)} maxLength={key === 'countryCode' ? 2 : undefined} value={address[key]} onChange={event => setAddress(current => ({ ...current, [key]: event.target.value }))} className="mt-1 w-full rounded-lg border border-neutral-200 px-2.5 py-2 text-xs" /></label>)}
+            {Object.entries({ label: 'Label', recipient: 'Recipient', phone: 'Phone', line1: 'Address line 1', line2: 'Address line 2', city: 'City', region: 'State/region', postalCode: 'Postal code', country: 'Country' }).map(([key, label]) => (
+              key === 'country' ? (
+                <div key={key} className="text-[11px] font-semibold text-neutral-600">
+                  <span className="mb-1 block">{label}</span>
+                  <CountrySelect
+                    required
+                    value={address.country || ''}
+                    onChange={(countryName, countryObj) => setAddress(current => ({
+                      ...current,
+                      country: countryName,
+                      countryCode: countryObj?.code || current.countryCode || ''
+                    }))}
+                  />
+                </div>
+              ) : (
+                <label key={key} className="text-[11px] font-semibold text-neutral-600">{label}<input required={!['line2', 'region', 'postalCode'].includes(key)} value={address[key]} onChange={event => setAddress(current => ({ ...current, [key]: event.target.value }))} className="mt-1 w-full rounded-lg border border-neutral-200 px-2.5 py-2 text-xs" /></label>
+              )
+            ))}
             <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={address.isDefault} onChange={event => setAddress(current => ({ ...current, isDefault: event.target.checked }))} />Default address</label>
             <button disabled={busy} className="rounded-lg bg-neutral-600 px-3 py-2 text-xs font-bold text-white">{editingAddressId ? 'Update address' : 'Save address'}</button>
           </form>

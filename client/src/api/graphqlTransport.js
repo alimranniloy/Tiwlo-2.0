@@ -56,7 +56,7 @@ export async function applicationFetch(resource, options = {}) {
     (method === 'POST' || method === 'PUT' || method === 'DELETE') && /^\/api\/(?:domains\/[^/]+(?:\/provision)?|staff(?:\/[^/]+)?|store\/payment-providers\/[^/]+|admin\/users\/[^/]+(?:\/ban)?)$/.test(url.pathname) ||
     (method === 'PUT' || method === 'DELETE') && /^\/api\/admin\/users\/[^/]+$/.test(url.pathname) ||
     method === 'POST' && /^\/api\/domains\/[^/]+\/verify$/.test(url.pathname) ||
-    method === 'PUT' && /^\/api\/(?:system\/settings|admin\/social-login\/[^/]+)$/.test(url.pathname) ||
+    method === 'PUT' && /^\/api\/(?:system\/settings|admin\/social-login\/[^/]+|admin\/session-security-policy)$/.test(url.pathname) ||
     method === 'POST' && /^\/api\/admin\/storage\/(?:google-drive(?:\/[^/]+\/activate)?|sync\/[^/]+)$/.test(url.pathname) ||
     method === 'GET' && /^\/api\/system\/backup$/.test(url.pathname);
   const actionHeaders = new Headers(mergedOptions.headers);

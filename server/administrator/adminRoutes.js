@@ -2,9 +2,11 @@ import express from 'express';
 import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { isIPv4, isIPv6 } from 'node:net';
+import geoip from 'geoip-lite';
 import { MasterDB, TenantDB } from '../db/multiTenant.js';
 import { getEcommerceCatalog, getEcommercePackageById, saveEcommerceCatalog } from '../db/packages.js';
 import {
@@ -23,7 +25,16 @@ import {
   identityVerificationEmailNotifications
 } from '../db/emailService.js';
 import { RestoreSessions } from '../db/restoreSessions.js';
-import { getPgPool, isPgActive, queryPg, recordPlatformBillingOrder } from '../db/postgres.js';
+import {
+  getPgPool,
+  isPgActive,
+  queryPg,
+  recordPlatformBillingOrder,
+  getUserBiometricCredential,
+  getUserBiometricLogs,
+  revokeUserBiometricCredential,
+  appendUserBiometricLog
+} from '../db/postgres.js';
 import { BillingDB } from '../db/billing.js';
 import { deleteMedia } from '../db/mediaStorage.js';
 import { purgeStoreMediaAssets, syncStoreLifecycleOnPlanChange } from '../db/storeLifecycle.js';
@@ -46,8 +57,10 @@ import { createAdminPlatformOpsRouter } from './adminPlatformOpsRoutes.js';
 import { createAdminSupportRouter } from './adminSupportRoutes.js';
 import { createAdminChatSystemRouter } from './adminChatSystemRoutes.js';
 import { createAdminTelemetryRouter } from './adminTelemetryRoutes.js';
+import { createAdminSessionSecurityRouter } from './adminSessionSecurityRoutes.js';
+import { getCandidateSessionTokens } from '../security/sessionMetadata.js';
 import { defaultTicketingService } from '../support/ticketingService.js';
-import { enrichUsersWithRiskIntel, isSuperAdminAccount } from './identityRiskGraph.js';
+import { buildUserActivityDossier, enrichUsersWithRiskIntel, isSuperAdminAccount } from './identityRiskGraph.js';
 import { getMarketUsdRates } from '../routes/marketCurrencyRates.js';
 import { normalizeCurrencyCode, normalizeUsdRates } from '../routes/currencyHelpers.js';
 import {
@@ -83,6 +96,443 @@ async function loadStaffSecurityService() {
   }
 }
 
+const require = createRequire(import.meta.url);
+const isoCountries = require('i18n-iso-countries');
+isoCountries.registerLocale(require('i18n-iso-countries/langs/en.json'));
+
+const COUNTRY_ALIAS_TO_ISO2 = Object.freeze({
+  UK: 'GB',
+  'GREAT BRITAIN': 'GB',
+  ENGLAND: 'GB',
+  UAE: 'AE',
+  'U.A.E.': 'AE',
+  USA: 'US',
+  'U.S.': 'US',
+  'U.S.A.': 'US',
+  'UNITED STATES OF AMERICA': 'US',
+  KSA: 'SA',
+  'SOUTH KOREA': 'KR',
+  'NORTH KOREA': 'KP',
+  RUSSIA: 'RU',
+  TURKIYE: 'TR',
+  VIETNAM: 'VN',
+  BD: 'BD',
+  BANGLADESH: 'BD'
+});
+
+function hasActivePgOrMock() {
+  const pool = getPgPool();
+  return Boolean(pool && (isPgActive() || pool.query?.mock || Object.prototype.hasOwnProperty.call(pool, 'query')));
+}
+
+function resolveCountryToken(token) {
+  const clean = String(token || '').trim();
+  if (!clean) return { countryName: null, countryCode: null };
+  const upper = clean.toUpperCase();
+
+  if (/^[A-Z]{2}$/.test(upper)) {
+    const code = COUNTRY_ALIAS_TO_ISO2[upper] || upper;
+    const name = isoCountries.getName(code, 'en');
+    if (name) return { countryName: name, countryCode: code };
+  }
+  if (/^[A-Z]{3}$/.test(upper)) {
+    const alpha2 = isoCountries.alpha3ToAlpha2(upper);
+    if (alpha2) {
+      return { countryName: isoCountries.getName(alpha2, 'en') || clean, countryCode: alpha2 };
+    }
+  }
+  if (COUNTRY_ALIAS_TO_ISO2[upper]) {
+    const code = COUNTRY_ALIAS_TO_ISO2[upper];
+    return { countryName: isoCountries.getName(code, 'en') || clean, countryCode: code };
+  }
+  const byName = isoCountries.getAlpha2Code(clean, 'en');
+  if (byName) {
+    return { countryName: isoCountries.getName(byName, 'en') || clean, countryCode: byName };
+  }
+  return { countryName: null, countryCode: null };
+}
+
+function resolveCountryInfo(rawInput) {
+  if (!rawInput || typeof rawInput !== 'string') return { countryName: null, countryCode: null };
+  const trimmed = rawInput.trim();
+  if (!trimmed) return { countryName: null, countryCode: null };
+
+  const direct = resolveCountryToken(trimmed);
+  if (direct.countryCode) return direct;
+
+  // Check comma-separated location segments from right to left (e.g. "Dhaka 1205, Bangladesh")
+  const parts = trimmed.split(',').map((p) => p.trim()).filter(Boolean);
+  for (let i = parts.length - 1; i >= 0; i -= 1) {
+    const seg = parts[i].replace(/\d+/g, '').trim();
+    const resolved = resolveCountryToken(seg);
+    if (resolved.countryCode) return resolved;
+  }
+
+  return { countryName: parts.length === 1 ? trimmed : null, countryCode: null };
+}
+
+function isPrivateOrLocalIp(ip) {
+  const clean = String(ip || '').replace(/^::ffff:/i, '').trim();
+  if (!clean) return true;
+  if (clean === '127.0.0.1' || clean === '::1' || clean === 'localhost') return true;
+  if (clean.startsWith('10.') || clean.startsWith('192.168.') || clean.startsWith('169.254.')) return true;
+  const octets = clean.split('.');
+  if (octets.length === 4 && octets[0] === '172') {
+    const second = Number(octets[1]);
+    if (second >= 16 && second <= 31) return true;
+  }
+  return false;
+}
+
+function resolveCountryFromIp(ip) {
+  const clean = String(ip || '').replace(/^::ffff:/i, '').trim();
+  if (!clean || isPrivateOrLocalIp(clean)) return { countryName: null, countryCode: null };
+  try {
+    const hit = geoip.lookup(clean);
+    if (hit?.country) {
+      return resolveCountryInfo(hit.country);
+    }
+  } catch {
+    // ignore geoip lookup failures
+  }
+  return { countryName: null, countryCode: null };
+}
+
+function buildCountryFeaturePolicy({ mainCountryCode = null, lastLoginCountryCode = null } = {}) {
+  return {
+    countryCode: mainCountryCode || null,
+    lastLoginCountryCode: lastLoginCountryCode || null,
+    featureFlags: {}
+  };
+}
+
+function resolveUserCountrySummary({
+  user,
+  loginLocations = [],
+  sessions = [],
+  securityEvents = [],
+  biometricCred = null,
+  biometricLogs = []
+} = {}) {
+  const rawMain = user?.billingDetails?.country || user?.country || biometricCred?.mainCountryCode || '';
+  const mainResolved = resolveCountryInfo(rawMain);
+  const mainCountryCode = mainResolved.countryCode || null;
+  const mainCountry = mainResolved.countryName || (rawMain ? String(rawMain).trim() : null);
+
+  let lastResolved = { countryName: null, countryCode: null };
+  for (const loc of Array.isArray(loginLocations) ? loginLocations : []) {
+    const candidate = resolveCountryInfo(loc?.formatted_address || loc?.formattedAddress || loc?.area || '');
+    if (candidate.countryCode || candidate.countryName) {
+      lastResolved = candidate;
+      break;
+    }
+  }
+  if (!lastResolved.countryCode) {
+    for (const sess of Array.isArray(sessions) ? sessions : []) {
+      const candidate = resolveCountryFromIp(sess?.ip);
+      if (candidate.countryCode) {
+        lastResolved = candidate;
+        break;
+      }
+    }
+  }
+  if (!lastResolved.countryCode) {
+    for (const log of Array.isArray(biometricLogs) ? biometricLogs : []) {
+      const candidate = log?.countryCode
+        ? resolveCountryInfo(log.countryCode)
+        : resolveCountryFromIp(log?.ipAddress);
+      if (candidate.countryCode) {
+        lastResolved = candidate;
+        break;
+      }
+    }
+  }
+  if (!lastResolved.countryCode && biometricCred?.lastLoginCountryCode) {
+    lastResolved = resolveCountryInfo(biometricCred.lastLoginCountryCode);
+  }
+  if (!lastResolved.countryCode) {
+    for (const ev of Array.isArray(securityEvents) ? securityEvents : []) {
+      const candidate = resolveCountryFromIp(ev?.remote_ip || ev?.ip);
+      if (candidate.countryCode) {
+        lastResolved = candidate;
+        break;
+      }
+    }
+  }
+
+  const lastLoginCountryCode = lastResolved.countryCode || null;
+  const lastLoginCountry = lastResolved.countryName || null;
+
+  return {
+    mainCountry,
+    mainCountryCode,
+    lastLoginCountry,
+    lastLoginCountryCode,
+    countryFeaturePolicy: buildCountryFeaturePolicy({ mainCountryCode, lastLoginCountryCode })
+  };
+}
+
+function buildBiometricObject({
+  sqlCred = null,
+  totpCred = null,
+  logs = [],
+  securityEvents = [],
+  fallbackCountryCode = null
+} = {}) {
+  let activeCred = null;
+  let revokedAt = sqlCred?.revokedAt || null;
+
+  if (sqlCred && !sqlCred.revokedAt && sqlCred.publicKeySpki) {
+    activeCred = sqlCred;
+  } else if (totpCred && typeof totpCred === 'object' && totpCred.publicKeySpki) {
+    const totpUpdatedMs = totpCred.updatedAt ? new Date(totpCred.updatedAt).getTime() : 0;
+    const sqlRevokedMs = sqlCred?.revokedAt ? new Date(sqlCred.revokedAt).getTime() : 0;
+    if (!sqlCred || !sqlCred.revokedAt || totpUpdatedMs > sqlRevokedMs) {
+      activeCred = {
+        id: totpCred.id || null,
+        deviceName: totpCred.deviceName || null,
+        deviceModel: totpCred.deviceModel || null,
+        osVersion: totpCred.osVersion || null,
+        keyFingerprint: totpCred.keyFingerprint || null,
+        ridgeSvgMap: totpCred.ridgeSvgMap || null,
+        signingCertSha256: totpCred.signingCertSha256 || null,
+        hardwareBacked: totpCred.hardwareBacked !== false,
+        mainCountryCode: totpCred.mainCountryCode || fallbackCountryCode || null,
+        lastLoginCountryCode: totpCred.lastLoginCountryCode || null,
+        enrolledAt: totpCred.enrolledAt || null,
+        updatedAt: totpCred.updatedAt || null,
+        lastUsedAt: totpCred.lastUsedAt || null
+      };
+      revokedAt = null;
+    }
+  }
+
+  const normalizedLogs = Array.isArray(logs) && logs.length > 0
+    ? logs
+    : (Array.isArray(securityEvents) ? securityEvents : [])
+        .filter((ev) => /biometric/i.test(String(ev?.event_type || ev?.eventType || '')))
+        .map((ev) => {
+          const ip = ev?.remote_ip || ev?.ip || null;
+          const geo = ip ? resolveCountryFromIp(ip) : { countryCode: null };
+          return {
+            id: ev.id || null,
+            userId: ev.user_id || ev.userId || null,
+            credentialId: ev.details?.credentialId || null,
+            eventType: ev.event_type || ev.eventType,
+            deviceName: ev.details?.deviceName || activeCred?.deviceName || null,
+            ipAddress: ip,
+            countryCode: ev.details?.countryCode || geo.countryCode || null,
+            userAgent: ev.user_agent || ev.userAgent || null,
+            success: String(ev.severity || '').toLowerCase() !== 'error',
+            details: ev.details || {},
+            createdAt: ev.created_at || ev.createdAt || null
+          };
+        });
+
+  return {
+    enrolled: Boolean(activeCred),
+    credentialId: activeCred?.id || null,
+    deviceName: activeCred?.deviceName || null,
+    deviceModel: activeCred?.deviceModel || null,
+    osVersion: activeCred?.osVersion || null,
+    keyFingerprint: activeCred?.keyFingerprint || null,
+    ridgeSvgMap: activeCred?.ridgeSvgMap || null,
+    signingCertSha256: activeCred?.signingCertSha256 || null,
+    hardwareBacked: activeCred ? activeCred.hardwareBacked !== false : false,
+    mainCountryCode: activeCred?.mainCountryCode || fallbackCountryCode || null,
+    lastLoginCountryCode: activeCred?.lastLoginCountryCode || null,
+    enrolledAt: activeCred?.enrolledAt || null,
+    updatedAt: activeCred?.updatedAt || null,
+    lastUsedAt: activeCred?.lastUsedAt || null,
+    revokedAt,
+    logs: normalizedLogs
+  };
+}
+
+async function batchLoadUserEnrichment(userList = []) {
+  const users = Array.isArray(userList) ? userList.filter((u) => u?.id) : [];
+  const ids = [...new Set(users.map((u) => String(u.id)))];
+  const locByUser = new Map();
+  const sessByUser = new Map();
+  const bioSqlByUser = new Map();
+  const bioTotpByUser = new Map();
+
+  if (ids.length > 0 && hasActivePgOrMock()) {
+    const safeBatch = async (sql, params) => {
+      try {
+        const res = await queryPg(sql, params);
+        return Array.isArray(res?.rows) ? res.rows : [];
+      } catch {
+        return [];
+      }
+    };
+
+    const [locRows, sessRows, bioRows, totpRows] = await Promise.all([
+      safeBatch(
+        `SELECT DISTINCT ON (user_id)
+                user_id, location_source, formatted_address, area, captured_at
+         FROM system_user_login_locations
+         WHERE user_id = ANY($1::varchar[])
+         ORDER BY user_id, captured_at DESC, id DESC`,
+        [ids]
+      ),
+      safeBatch(
+        `SELECT DISTINCT ON (user_id)
+                user_id, ip, created_at
+         FROM system_sessions
+         WHERE user_id = ANY($1::varchar[]) AND ip IS NOT NULL
+         ORDER BY user_id, created_at DESC`,
+        [ids]
+      ),
+      safeBatch(
+        `SELECT id, user_id, device_name, device_model, os_version, public_key_spki,
+                key_fingerprint, ridge_svg_map, signing_cert_sha256,
+                main_country_code, last_login_country_code, hardware_backed,
+                enrolled_at, updated_at, last_used_at, revoked_at
+         FROM user_biometric_credentials
+         WHERE user_id = ANY($1::varchar[])`,
+        [ids]
+      ),
+      safeBatch(
+        `SELECT document_key, data->'biometricCredential' AS biometric_credential
+         FROM system_state_documents
+         WHERE namespace = 'user_account_totp' AND document_key = ANY($1::text[])`,
+        [ids]
+      )
+    ]);
+
+    for (const r of locRows) {
+      locByUser.set(String(r.user_id), [r]);
+    }
+    for (const r of sessRows) {
+      sessByUser.set(String(r.user_id), [r]);
+    }
+    for (const r of bioRows) {
+      bioSqlByUser.set(String(r.user_id), {
+        id: r.id,
+        userId: r.user_id,
+        deviceName: r.device_name || null,
+        deviceModel: r.device_model || null,
+        osVersion: r.os_version || null,
+        publicKeySpki: r.public_key_spki || null,
+        keyFingerprint: r.key_fingerprint || null,
+        ridgeSvgMap: r.ridge_svg_map || null,
+        signingCertSha256: r.signing_cert_sha256 || null,
+        mainCountryCode: r.main_country_code || null,
+        lastLoginCountryCode: r.last_login_country_code || null,
+        hardwareBacked: r.hardware_backed !== false,
+        enrolledAt: r.enrolled_at || null,
+        updatedAt: r.updated_at || null,
+        lastUsedAt: r.last_used_at || null,
+        revokedAt: r.revoked_at || null
+      });
+    }
+    for (const r of totpRows) {
+      if (r.biometric_credential && typeof r.biometric_credential === 'object') {
+        bioTotpByUser.set(String(r.document_key), r.biometric_credential);
+      }
+    }
+  }
+
+  return users.map((u) => {
+    const uid = String(u.id);
+    const sqlCred = bioSqlByUser.get(uid) || null;
+    const totpCred = bioTotpByUser.get(uid) || null;
+    const countryInfo = resolveUserCountrySummary({
+      user: u,
+      loginLocations: locByUser.get(uid) || [],
+      sessions: sessByUser.get(uid) || [],
+      biometricCred: sqlCred || totpCred || null
+    });
+    const biometric = buildBiometricObject({
+      sqlCred,
+      totpCred,
+      fallbackCountryCode: countryInfo.mainCountryCode
+    });
+    return {
+      ...u,
+      ...countryInfo,
+      biometric: {
+        enrolled: biometric.enrolled,
+        deviceName: biometric.deviceName,
+        keyFingerprint: biometric.keyFingerprint,
+        enrolledAt: biometric.enrolledAt,
+        lastUsedAt: biometric.lastUsedAt
+      }
+    };
+  });
+}
+
+async function loadUserIdentitySummary(user) {
+  if (!user?.id) {
+    return {
+      identityVerified: false,
+      identityVerificationRequired: false,
+      latestReview: null,
+      reviews: [],
+      evidenceFiles: []
+    };
+  }
+  const uid = String(user.id);
+  let userReviews = [];
+  try {
+    const allReviews = await identityReviewStore.listReviews({ status: 'all' });
+    userReviews = (Array.isArray(allReviews) ? allReviews : [])
+      .filter((r) => String(r.userId) === uid)
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  } catch {
+    userReviews = [];
+  }
+
+  let storedEvidence = [];
+  try {
+    storedEvidence = await identityVerificationEvidence.listForUser({
+      id: uid,
+      tiwiId: user.tiwiId || user.storeId || uid
+    });
+  } catch {
+    storedEvidence = [];
+  }
+
+  const formattedReviews = userReviews.map((r) => {
+    const docType = normalizeReviewDocumentType(r.documentType);
+    const extracted = r.extractedData && typeof r.extractedData === 'object' ? r.extractedData : {};
+    return {
+      id: r.id,
+      documentType: docType,
+      documentTypeLabel: formatDocumentTypeLabel(docType),
+      status: r.status,
+      source: r.source,
+      aiConfidence: r.aiConfidence ?? null,
+      aiReason: r.aiReason || null,
+      reviewReason: r.reviewReason || null,
+      reviewedAt: r.reviewedAt || null,
+      reviewedByEmail: r.reviewedByEmail || null,
+      isPermanentlyClosed: Boolean(r.isPermanentlyClosed),
+      documentFingerprint: r.documentFingerprint || null,
+      maskedDocumentNumber: extracted.maskedDocumentNumber || null,
+      fullName: extracted.fullName || extracted.full_name || null,
+      dateOfBirth: extracted.dateOfBirth || extracted.date_of_birth || null,
+      country: extracted.country || extracted.nationality || null,
+      expiryDate: extracted.expiryDate || extracted.expiry_date || null,
+      evidenceFiles: Array.isArray(r.evidenceFiles) ? r.evidenceFiles : [],
+      createdAt: r.createdAt || null,
+      updatedAt: r.updatedAt || null
+    };
+  });
+
+  const latestReview = formattedReviews[0] || null;
+  const evidenceFiles = mergeEvidenceFiles(storedEvidence, latestReview?.evidenceFiles || []);
+
+  return {
+    identityVerified: user.identityVerified === true,
+    identityVerificationRequired: user.identityVerificationRequired === true,
+    latestReview,
+    reviews: formattedReviews,
+    evidenceFiles
+  };
+}
+
 export const adminStaffRouter = createAdminStaffRouter({ requireAdmin, requireRecentReauth, getMasterDb: () => MasterDB });
 export const adminRiskRouter = createAdminRiskRouter({ requireAdmin, requireRecentReauth });
 export const adminFleetRouter = createAdminServerFleetRouter({ requireAdmin, requireRecentReauth });
@@ -90,6 +540,225 @@ export const adminPlatformOpsRouter = createAdminPlatformOpsRouter({ requireAdmi
 export const adminSupportRouter = createAdminSupportRouter({ requireAdmin, requireRecentReauth });
 export const adminChatSystemRouter = createAdminChatSystemRouter({ requireAdmin, requireRecentReauth });
 export const adminTelemetryRouter = createAdminTelemetryRouter({ requireAdmin, requireRecentReauth });
+export const adminSessionSecurityRouter = createAdminSessionSecurityRouter({ requireAdmin, requireRecentReauth, getMasterDb: () => MasterDB });
+router.use('/', adminSessionSecurityRouter);
+
+// ---- Enriched Country Flag, Biometric & Identity Dossier Routes (precede adminRiskRouter) ----
+router.get('/users/risk-intel', requireAdmin, async (req, res) => {
+  try {
+    const viewerIsSuperAdmin = isSuperAdminUser(req.adminUser);
+    const rawUsers = await MasterDB.getUsers();
+    const sanitizedUsers = rawUsers.map((u) => ({
+      id: u.id,
+      tiwiId: u.tiwiId || u.storeId || '',
+      name: u.name || u.storeName || 'System User',
+      email: u.email,
+      phone: u.phone || '',
+      country: u.billingDetails?.country || u.country || null,
+      billingDetails: u.billingDetails || null,
+      role: u.role || 'owner',
+      planId: u.planId || 'free',
+      planName: u.planName || u.planId || 'Free Starter',
+      avatar: u.avatar && !String(u.avatar).includes('unsplash.com') ? u.avatar : '/tiwlo-icon.png',
+      isBanned: Boolean(u.isBanned),
+      banReason: u.banReason || '',
+      emailVerified: u.emailVerified === true,
+      twoFactorEnabled: u.twoFactorEnabled === true,
+      identityVerified: u.identityVerified === true,
+      identityVerificationRequired: u.identityVerificationRequired === true,
+      createdAt: u.createdAt || null
+    }));
+
+    const { users: enrichedUsers, summary, riskByUserId } = await enrichUsersWithRiskIntel(
+      sanitizedUsers,
+      { viewerIsSuperAdmin }
+    );
+
+    const flaggedBase = enrichedUsers
+      .filter((u) => viewerIsSuperAdmin || !isSuperAdminAccount(u))
+      .filter((u) =>
+        (u.riskIntelligence?.riskScore || 0) > 0 ||
+        (u.riskIntelligence?.flags?.length || 0) > 0 ||
+        u.isBanned
+      )
+      .sort((a, b) => (b.riskIntelligence?.riskScore || 0) - (a.riskIntelligence?.riskScore || 0));
+
+    const flaggedUsers = await batchLoadUserEnrichment(flaggedBase);
+
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({
+      success: true,
+      summary,
+      flaggedUsers,
+      riskByUserId
+    });
+  } catch (error) {
+    console.error('[Admin Risk Intel Error]', error.message);
+    return res.status(500).json({ error: 'Failed to compute identity risk intelligence.' });
+  }
+});
+
+router.get('/users/:id/activity', requireAdmin, async (req, res) => {
+  try {
+    const viewerIsSuperAdmin = isSuperAdminUser(req.adminUser);
+    const dossier = await buildUserActivityDossier(req.params.id, { viewerIsSuperAdmin });
+
+    if (dossier?.forbidden) {
+      return res.status(403).json({ error: dossier.error || 'Forbidden.' });
+    }
+    if (!dossier) {
+      return res.status(404).json({ error: 'User not found in system.' });
+    }
+
+    const uid = String(dossier.user.id);
+    let masterUser = null;
+    if (!dossier.user.country) {
+      masterUser = await safeFindReviewUser(uid);
+    }
+
+    let totpCred = null;
+    if (hasActivePgOrMock()) {
+      try {
+        const totpRes = await queryPg(
+          `SELECT data->'biometricCredential' AS biometric_credential
+           FROM system_state_documents
+           WHERE namespace = 'user_account_totp' AND document_key = $1
+           LIMIT 1`,
+          [uid]
+        );
+        totpCred = totpRes.rows?.[0]?.biometric_credential || null;
+      } catch {
+        totpCred = null;
+      }
+    }
+
+    const [sqlCred, biometricLogs, identityVerification] = await Promise.all([
+      getUserBiometricCredential(uid, { includeRevoked: true }),
+      getUserBiometricLogs(uid, { limit: 30 }),
+      loadUserIdentitySummary(dossier.user)
+    ]);
+
+    const countrySummary = resolveUserCountrySummary({
+      user: {
+        ...dossier.user,
+        billingDetails: masterUser?.billingDetails || null,
+        country: dossier.user.country || masterUser?.billingDetails?.country || null
+      },
+      loginLocations: dossier.loginLocations || [],
+      sessions: dossier.activeSessions || [],
+      securityEvents: dossier.securityEvents || [],
+      biometricCred: sqlCred || totpCred || null,
+      biometricLogs
+    });
+
+    const biometric = buildBiometricObject({
+      sqlCred,
+      totpCred,
+      logs: biometricLogs,
+      securityEvents: dossier.securityEvents || [],
+      fallbackCountryCode: countrySummary.mainCountryCode
+    });
+
+    safeRecordSecurityEvent({
+      eventType: 'admin.user_activity_dossier_viewed',
+      severity: 'info',
+      userId: req.adminUser.id,
+      ip: req.ip,
+      userAgent: req.get?.('user-agent'),
+      details: {
+        viewedUserId: dossier.user.id,
+        riskScore: dossier.riskIntelligence?.riskScore || 0
+      }
+    });
+
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({
+      success: true,
+      ...dossier,
+      user: {
+        ...dossier.user,
+        ...countrySummary
+      },
+      ...countrySummary,
+      biometric,
+      identityVerification
+    });
+  } catch (error) {
+    console.error('[Admin User Activity Error]', error.message);
+    return res.status(500).json({ error: 'Failed to load user activity dossier.' });
+  }
+});
+
+router.post('/users/:id/biometric/revoke', requireAdmin, requirePermission('manage_users_security'), async (req, res) => {
+  try {
+    const targetUser = await MasterDB.findUserByIdentifier(req.params.id);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found in system.' });
+    }
+    if (isSuperAdminUser(targetUser) && !isSuperAdminUser(req.adminUser)) {
+      return res.status(403).json({ error: 'Super Administrator biometric credentials cannot be modified.' });
+    }
+
+    const revokedRow = await revokeUserBiometricCredential(targetUser.id);
+    if (hasActivePgOrMock()) {
+      try {
+        await queryPg(
+          `UPDATE system_state_documents
+           SET data = jsonb_set(data, '{biometricCredential}', 'null'::jsonb, true),
+               version = version + 1,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE namespace = 'user_account_totp' AND document_key = $1`,
+          [String(targetUser.id)]
+        );
+      } catch {
+        // non-fatal if no totp state document exists
+      }
+    }
+
+    const reason = typeof req.body?.reason === 'string' && req.body.reason.trim()
+      ? req.body.reason.trim().slice(0, 300)
+      : 'Revoked by administrator from User Dossier';
+
+    await appendUserBiometricLog({
+      userId: targetUser.id,
+      credentialId: revokedRow?.id || null,
+      eventType: 'admin_revoked',
+      deviceName: revokedRow?.deviceName || null,
+      ipAddress: req.ip || null,
+      countryCode: resolveCountryFromIp(req.ip).countryCode,
+      userAgent: req.get?.('user-agent') || null,
+      success: true,
+      details: {
+        adminId: req.adminUser.id,
+        adminEmail: req.adminUser.email,
+        reason
+      }
+    });
+
+    await safeRecordSecurityEvent({
+      eventType: 'admin.biometric_revoked',
+      severity: 'warning',
+      userId: targetUser.id,
+      subject: targetUser.email || targetUser.id,
+      ip: req.ip,
+      userAgent: req.get?.('user-agent'),
+      details: {
+        administrator: req.adminUser.email,
+        credentialId: revokedRow?.id || null,
+        reason
+      }
+    });
+
+    return res.json({
+      success: true,
+      revoked: true,
+      message: 'Mobile biometric credential revoked for user.'
+    });
+  } catch (error) {
+    console.error('[Admin Biometric Revoke Error]', error.message);
+    return res.status(500).json({ error: 'Failed to revoke biometric credential.' });
+  }
+});
 
 // ---- Sub-router mounting (Staff/PIN, Identity Risk, Server Fleet, Platform Ops, Support Desk, Chat AI, Telemetry) ----
 // Mounted before legacy routes so the platform (non-retail) handlers take precedence.
@@ -319,17 +988,23 @@ router.post('/storage/sync/:direction', requireAdmin, requireRecentReauth, async
 
 // Middleware to verify Admin / Super Admin access
 export function requireAdmin(req, res, next) {
-  const token = req.cookies?.tiwlo_host_session ||
-    (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')
-      ? req.headers.authorization.substring(7)
-      : null) ||
-    req.headers?.['x-session-token'];
-
-  if (!token) {
+  const candidates = getCandidateSessionTokens(req);
+  if (candidates.length === 0) {
     return res.status(401).json({ error: 'Unauthorized. Admin credentials required.' });
   }
 
-  MasterDB.getSession(token, req).then(sessionData => {
+  (async () => {
+    let sessionData = null;
+    let resolvedToken = null;
+    for (const candidate of candidates) {
+      const resolved = await MasterDB.getSession(candidate, req);
+      if (resolved?.user) {
+        sessionData = resolved;
+        resolvedToken = candidate;
+        break;
+      }
+    }
+
     if (!sessionData || !sessionData.user) {
       return res.status(401).json({ error: 'Session expired or invalid.' });
     }
@@ -338,22 +1013,22 @@ export function requireAdmin(req, res, next) {
       return res.status(403).json({ error: 'Forbidden. Admin privileges required.' });
     }
     req.adminUser = user;
+    req.adminSessionToken = resolvedToken;
     if (isSuperAdminUser(user)) return next();
     // Optional per-staff IP whitelist: block immediately when configured and not matched.
-    return loadStaffSecurityService().then(async (staffSvc) => {
-      if (staffSvc && typeof staffSvc.enforceStaffIpForLogin === 'function') {
-        const check = await staffSvc.enforceStaffIpForLogin(user, req);
-        req.adminProfile = check?.profile || null;
-        if (check && check.allowed === false) {
-          return res.status(check.statusCode || 403).json({
-            error: check.error || 'Your IP is not whitelisted',
-            code: check.code || 'ADMIN_IP_NOT_ALLOWED'
-          });
-        }
+    const staffSvc = await loadStaffSecurityService();
+    if (staffSvc && typeof staffSvc.enforceStaffIpForLogin === 'function') {
+      const check = await staffSvc.enforceStaffIpForLogin(user, req);
+      req.adminProfile = check?.profile || null;
+      if (check && check.allowed === false) {
+        return res.status(check.statusCode || 403).json({
+          error: check.error || 'Your IP is not whitelisted',
+          code: check.code || 'ADMIN_IP_NOT_ALLOWED'
+        });
       }
-      return next();
-    });
-  }).catch(err => {
+    }
+    return next();
+  })().catch(err => {
     console.error('[Admin Auth Error]', err);
     res.status(500).json({ error: 'Authentication check failed.' });
   });
@@ -1830,19 +2505,27 @@ router.get('/users', requireAdmin, async (req, res) => {
     const requesterIsSuperAdmin = isSuperAdminUser(req.adminUser);
     const rawUsers = requesterIsSuperAdmin ? allUsers : allUsers.filter(u => !isSuperAdminUser(u));
     const { allStores: stores } = (await getAggregatedStoreData());
-    const pickUsersResult = await queryPg(
-      `SELECT pu.tiwlo_user_id, pu.registration_source,
-              d.application_status AS delivery_application_status,
-              d.vehicle_type AS delivery_vehicle_type,
-              d.is_on_duty AS delivery_is_on_duty
-       FROM pick.users pu
-       LEFT JOIN pick.delivery_profiles d ON d.tiwlo_user_id = pu.tiwlo_user_id`
-    );
+    let pickUsersRows = [];
+    if (hasActivePgOrMock()) {
+      try {
+        const pickUsersResult = await queryPg(
+          `SELECT pu.tiwlo_user_id, pu.registration_source,
+                  d.application_status AS delivery_application_status,
+                  d.vehicle_type AS delivery_vehicle_type,
+                  d.is_on_duty AS delivery_is_on_duty
+           FROM pick.users pu
+           LEFT JOIN pick.delivery_profiles d ON d.tiwlo_user_id = pu.tiwlo_user_id`
+        );
+        pickUsersRows = Array.isArray(pickUsersResult?.rows) ? pickUsersResult.rows : [];
+      } catch {
+        pickUsersRows = [];
+      }
+    }
     const registrationSources = new Map(
-      pickUsersResult.rows.map(row => [row.tiwlo_user_id, row.registration_source])
+      pickUsersRows.map(row => [row.tiwlo_user_id, row.registration_source])
     );
     const deliveryRegistrations = new Map(
-      pickUsersResult.rows
+      pickUsersRows
         .filter(row => row.delivery_application_status)
         .map(row => [row.tiwlo_user_id, {
           status: row.delivery_application_status,
@@ -1865,14 +2548,15 @@ router.get('/users', requireAdmin, async (req, res) => {
         (u.storeId && s.tiwiId === u.storeId)
       );
 
-        const storeCount = userStores.length;
-        const deliveryRegistration = deliveryRegistrations.get(u.id);
+      const storeCount = userStores.length;
+      const deliveryRegistration = deliveryRegistrations.get(u.id);
 
       return {
         id: u.id,
         tiwiId: u.tiwiId || u.storeId || '',
         name: u.name || u.storeName || 'System User',
         email: u.email,
+        country: u.billingDetails?.country || u.country || null,
         registrationSource: registrationSources.get(u.id) || 'tiwlo',
         deliveryRegistration: deliveryRegistration
           ? { ...deliveryRegistration, isOnDuty: deliveryRegistration.isOnDuty && !u.isBanned }
@@ -1891,7 +2575,6 @@ router.get('/users', requireAdmin, async (req, res) => {
         bannedAt: u.bannedAt || null,
         emailVerified: u.emailVerified === true,
         twoFactorEnabled: u.twoFactorEnabled === true,
-        otpDisabled: u.otpDisabled === true,
         createdAt: u.createdAt || null
       };
     });
@@ -1923,7 +2606,9 @@ router.get('/users', requireAdmin, async (req, res) => {
     const totalPages = Math.ceil(total / limit);
     const safePage = totalPages ? Math.min(page, totalPages) : 1;
     const startIndex = (safePage - 1) * limit;
-    const paginatedUsers = sanitizedUsers.slice(startIndex, startIndex + limit);
+    const paginatedUsers = await batchLoadUserEnrichment(
+      sanitizedUsers.slice(startIndex, startIndex + limit)
+    );
 
     res.json({
       success: true,

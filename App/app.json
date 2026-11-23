@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Tiwlo",
+    "slug": "tiwlo-app",
+    "scheme": "tiwlo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tiwlo.app"
+    },
+    "android": {
+      "package": "com.tiwlo.app"
+    }
+  }
+}
