@@ -96,17 +96,21 @@ prune_docker_caches() {
   if ! command -v docker >/dev/null 2>&1; then
     return
   fi
-  echo "--- Pruning stale Docker images, build cache, and exited containers (preserving volumes, PostgreSQL, /srv/tiwlo-tenants, and /srv/tiwlo-backups) ---"
+  echo "--- Purging ALL old unused Docker images, dangling layers, build cache & exited containers (preserving volumes, PostgreSQL, /srv/tiwlo-tenants, and /srv/tiwlo-backups) ---"
   # Never pass --volumes or touch active PostgreSQL, /srv/tiwlo-tenants, or /srv/tiwlo-backups
   docker container prune -f || true
-  docker image prune -af --filter "until=24h" || true
-  docker builder prune -af --filter "until=24h" || true
+  docker image prune -af || true
+  docker builder prune -af || true
+  docker network prune -f || true
 }
 
 clean_client_build_temp() {
   if [[ -d "$ROOT_DIR/client" ]]; then
     echo "--- Clearing stale client build temp folders ---"
-    rm -rf "$ROOT_DIR/client/.vite" || true
+    rm -rf "$ROOT_DIR/client/dist" "$ROOT_DIR/client/.vite" "$ROOT_DIR/.vite" || true
+  fi
+  if [[ -d "$ROOT_DIR/.git" ]]; then
+    git -C "$ROOT_DIR" clean -fd -e .env -e docker/.env.production -e server_config.local.json -e upload/ || true
   fi
 }
 
@@ -161,7 +165,8 @@ EOF
   fi
   clean_client_build_temp
   cd "$ROOT_DIR"
-  docker compose --env-file .env --env-file docker/.env.production -f docker/docker-compose.production.yml up -d --build --remove-orphans --wait --wait-timeout 1200
+  docker compose --env-file .env --env-file docker/.env.production -f docker/docker-compose.production.yml build --pull --no-cache app dns
+  docker compose --env-file .env --env-file docker/.env.production -f docker/docker-compose.production.yml up -d --build --force-recreate --remove-orphans --wait --wait-timeout 1200
   prune_docker_caches
 
   echo "--- Provisioning host Postfix for Docker mail ---"
