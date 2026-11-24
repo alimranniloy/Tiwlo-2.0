@@ -228,11 +228,11 @@ test('buildDropletNetworkProfile distinguishes IPv6-only LAN node vs node after 
   assert.equal(ipv6OnlyProfile.connectivityMode, 'ipv6-only');
   assert.equal(ipv6OnlyProfile.relayRequiredForIpv4Clients, true);
   assert.equal(ipv6OnlyProfile.ipv4SshCommand, null);
-  assert.equal(ipv6OnlyProfile.ipv6SshCommand, 'ssh root@[2001:db8:10:20::42] -p 22015');
-  assert.equal(ipv6OnlyProfile.primarySshCommand, 'ssh root@[2001:db8:10:20::42] -p 22015');
+  assert.equal(ipv6OnlyProfile.ipv6SshCommand, 'ssh root@2001:db8:10:20::42 -p 22015');
+  assert.equal(ipv6OnlyProfile.primarySshCommand, 'ssh root@2001:db8:10:20::42 -p 22015');
   assert.equal(
     ipv6OnlyProfile.bastionProxyCommand,
-    'ssh -J jump.tiwlo.com root@[2001:db8:10:20::42] -p 22015'
+    'ssh -J jump.tiwlo.com root@2001:db8:10:20::42 -p 22015'
   );
   assert.equal(
     ipv6OnlyProfile.cloudflareAccessCommand,
@@ -267,7 +267,7 @@ test('buildDropletNetworkProfile distinguishes IPv6-only LAN node vs node after 
   assert.equal(dualStackProfile.relayRequiredForIpv4Clients, false);
   assert.equal(dualStackProfile.ipv4SshCommand, 'ssh root@198.51.100.42 -p 22015');
   assert.equal(dualStackProfile.primarySshCommand, 'ssh root@198.51.100.42 -p 22015');
-  assert.equal(dualStackProfile.ipv6SshCommand, 'ssh root@[2001:db8:10:20::42] -p 22015');
+  assert.equal(dualStackProfile.ipv6SshCommand, 'ssh root@2001:db8:10:20::42 -p 22015');
   assert.equal(dualStackProfile.webTerminalSupported, true);
 });
 

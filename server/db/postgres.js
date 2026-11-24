@@ -521,7 +521,10 @@ export async function initPgSchema() {
       CREATE TABLE IF NOT EXISTS system_custom_domains (
         id VARCHAR(64) PRIMARY KEY,
         user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
-        tiwi_id VARCHAR(64) NOT NULL,
+        tiwi_id VARCHAR(64),
+        droplet_id VARCHAR(64),
+        target_port INTEGER NOT NULL DEFAULT 80,
+        proxy_enabled BOOLEAN NOT NULL DEFAULT TRUE,
         domain VARCHAR(253) NOT NULL UNIQUE,
         verification_token VARCHAR(128) NOT NULL,
         status VARCHAR(32) NOT NULL DEFAULT 'pending_verification',
@@ -531,8 +534,27 @@ export async function initPgSchema() {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE system_custom_domains ALTER COLUMN tiwi_id DROP NOT NULL;
+      ALTER TABLE system_custom_domains ADD COLUMN IF NOT EXISTS droplet_id VARCHAR(64);
+      ALTER TABLE system_custom_domains ADD COLUMN IF NOT EXISTS target_port INTEGER NOT NULL DEFAULT 80;
+      ALTER TABLE system_custom_domains ADD COLUMN IF NOT EXISTS proxy_enabled BOOLEAN NOT NULL DEFAULT TRUE;
       CREATE INDEX IF NOT EXISTS idx_custom_domains_user ON system_custom_domains(user_id);
       CREATE INDEX IF NOT EXISTS idx_custom_domains_status ON system_custom_domains(status, ssl_status);
+      CREATE INDEX IF NOT EXISTS idx_custom_domains_droplet ON system_custom_domains(droplet_id);
+
+      CREATE TABLE IF NOT EXISTS system_custom_domain_records (
+        id VARCHAR(64) PRIMARY KEY,
+        domain_id VARCHAR(64) NOT NULL REFERENCES system_custom_domains(id) ON DELETE CASCADE,
+        type VARCHAR(8) NOT NULL CHECK (type IN ('A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS')),
+        name VARCHAR(253) NOT NULL,
+        value TEXT NOT NULL,
+        priority INTEGER,
+        ttl INTEGER NOT NULL DEFAULT 300 CHECK (ttl BETWEEN 60 AND 86400),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (domain_id, type, name, value)
+      );
+      CREATE INDEX IF NOT EXISTS idx_custom_domain_records_domain
+        ON system_custom_domain_records(domain_id);
 
       CREATE TABLE IF NOT EXISTS system_free_subdomains (
         id VARCHAR(64) PRIMARY KEY,
@@ -831,6 +853,45 @@ export async function initPgSchema() {
       CREATE UNIQUE INDEX IF NOT EXISTS idx_cloud_droplets_ssh_gateway_user
         ON cloud_droplets(ssh_gateway_user)
         WHERE ssh_gateway_user IS NOT NULL;
+
+      CREATE TABLE IF NOT EXISTS cloud_droplet_domains (
+        id VARCHAR(64) PRIMARY KEY,
+        droplet_id VARCHAR(64) REFERENCES cloud_droplets(id) ON DELETE SET NULL,
+        user_id VARCHAR(64) NOT NULL REFERENCES system_users(id) ON DELETE CASCADE,
+        hostname VARCHAR(253) NOT NULL UNIQUE,
+        root_domain VARCHAR(253) NOT NULL,
+        record_type VARCHAR(16) NOT NULL DEFAULT 'A+AAAA',
+        target_port INTEGER NOT NULL DEFAULT 80 CHECK (target_port BETWEEN 1 AND 65535),
+        proxy_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+        ttl INTEGER NOT NULL DEFAULT 300 CHECK (ttl BETWEEN 60 AND 86400),
+        verification_token VARCHAR(64) NOT NULL,
+        status VARCHAR(32) NOT NULL DEFAULT 'pending_dns',
+        ssl_status VARCHAR(32) NOT NULL DEFAULT 'pending',
+        auto_update_on_prefix_change BOOLEAN NOT NULL DEFAULT TRUE,
+        verified_at TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      ALTER TABLE cloud_droplet_domains ALTER COLUMN droplet_id DROP NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_cloud_droplet_domains_droplet
+        ON cloud_droplet_domains(droplet_id, user_id);
+      CREATE INDEX IF NOT EXISTS idx_cloud_droplet_domains_user
+        ON cloud_droplet_domains(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_cloud_droplet_domains_status
+        ON cloud_droplet_domains(hostname, status);
+
+      CREATE TABLE IF NOT EXISTS cloud_droplet_domain_records (
+        id VARCHAR(64) PRIMARY KEY,
+        domain_id VARCHAR(64) NOT NULL REFERENCES cloud_droplet_domains(id) ON DELETE CASCADE,
+        type VARCHAR(8) NOT NULL CHECK (type IN ('A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS')),
+        name VARCHAR(253) NOT NULL,
+        value TEXT NOT NULL,
+        ttl INTEGER NOT NULL DEFAULT 300 CHECK (ttl BETWEEN 60 AND 86400),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (domain_id, type, name, value)
+      );
+      CREATE INDEX IF NOT EXISTS idx_cloud_droplet_domain_records_domain
+        ON cloud_droplet_domain_records(domain_id);
 
       CREATE TABLE IF NOT EXISTS cloud_activities (
         id VARCHAR(64) PRIMARY KEY,

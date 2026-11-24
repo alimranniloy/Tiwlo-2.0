@@ -166,14 +166,39 @@ async function findAuthoritativeZone(queryDomain) {
      LIMIT 1`,
     [candidates]
   );
-  const zone = rows[0] ? {
+  let zone = rows[0] ? {
     domain: rows[0].domain,
     platform: false,
+    dropletDomainId: null,
     verified: ['verified', 'active'].includes(rows[0].status),
     active: rows[0].status === 'active',
     verificationToken: rows[0].verification_token
   } : null;
-  authorityCache.set(host, { zone, expiresAt: Date.now() + (zone ? 10000 : 2000) });
+
+  if (!zone) {
+    const { rows: vpsRows } = await queryPg(
+      `SELECT id, hostname, root_domain, verification_token, status
+       FROM cloud_droplet_domains
+       WHERE hostname = ANY($1::text[])
+          OR root_domain = ANY($1::text[])
+       ORDER BY CASE WHEN status = 'active' THEN 0 ELSE 1 END,
+                LENGTH(hostname) DESC
+       LIMIT 1`,
+      [candidates]
+    ).catch(() => ({ rows: [] }));
+    if (vpsRows[0]) {
+      zone = {
+        domain: vpsRows[0].root_domain || vpsRows[0].hostname,
+        platform: false,
+        dropletDomainId: vpsRows[0].id,
+        verified: vpsRows[0].status === 'active',
+        active: vpsRows[0].status === 'active',
+        verificationToken: vpsRows[0].verification_token
+      };
+    }
+  }
+
+  authorityCache.set(host, { zone, expiresAt: Date.now() + (zone ? 3000 : 1000) });
   return zone;
 }
 
@@ -252,6 +277,40 @@ async function handleDnsRequest(request, send, rinfo) {
           response.answers.push({ name, type: Packet.TYPE.CNAME, class: Packet.CLASS.IN, ttl: record.ttl, domain: record.value });
         } else if (record.type === 'TXT' && queryType === Packet.TYPE.TXT) {
           response.answers.push({ name, type: Packet.TYPE.TXT, class: Packet.CLASS.IN, ttl: record.ttl, data: record.value });
+        } else if (record.type === 'NS' && queryType === Packet.TYPE.NS) {
+          response.answers.push({ name, type: Packet.TYPE.NS, class: Packet.CLASS.IN, ttl: record.ttl, ns: record.value });
+        }
+      }
+      if (response.answers.length > 0) return send(response);
+    }
+
+    // Custom VPS / droplet domain zone records (overrides default shared edge answers when user configures explicit records)
+    if (isPgActive() && !authorityZone.platform && authorityZone.dropletDomainId) {
+      const zoneRows = (await queryPg(
+        `SELECT type, name, value, ttl FROM cloud_droplet_domain_records WHERE domain_id = $1`,
+        [authorityZone.dropletDomainId]
+      ).catch(() => ({ rows: [] }))).rows;
+      for (const record of zoneRows) {
+        const recordHost = record.name === '@'
+          ? authorityZone.domain
+          : record.name === '*'
+            ? `*.${authorityZone.domain}`
+            : record.name.endsWith(`.${authorityZone.domain}`)
+              ? record.name
+              : `${record.name}.${authorityZone.domain}`;
+        const wildcardMatch = record.name === '*' && queryDomain.endsWith(`.${authorityZone.domain}`) && queryDomain !== authorityZone.domain;
+        if (recordHost !== queryDomain && !wildcardMatch) continue;
+        const name = question.name;
+        if (record.type === 'A' && queryType === Packet.TYPE.A) {
+          addARecord(response, name, record.value, record.ttl);
+        } else if (record.type === 'AAAA' && queryType === Packet.TYPE.AAAA) {
+          addAaaaRecord(response, name, record.value, record.ttl);
+        } else if (record.type === 'CNAME' && (queryType === Packet.TYPE.CNAME || queryType === Packet.TYPE.A || queryType === Packet.TYPE.AAAA)) {
+          response.answers.push({ name, type: Packet.TYPE.CNAME, class: Packet.CLASS.IN, ttl: record.ttl, domain: record.value });
+        } else if (record.type === 'MX' && queryType === Packet.TYPE.MX) {
+          response.answers.push({ name, type: Packet.TYPE.MX, class: Packet.CLASS.IN, ttl: record.ttl, exchange: record.value, priority: 10 });
+        } else if (record.type === 'TXT' && queryType === Packet.TYPE.TXT) {
+          response.answers.push({ name, type: Packet.TYPE.TXT, class: Packet.CLASS.IN, ttl: record.ttl, data: record.value.match(/.{1,240}/g) || [record.value] });
         } else if (record.type === 'NS' && queryType === Packet.TYPE.NS) {
           response.answers.push({ name, type: Packet.TYPE.NS, class: Packet.CLASS.IN, ttl: record.ttl, ns: record.value });
         }

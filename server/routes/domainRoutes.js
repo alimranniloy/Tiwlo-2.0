@@ -177,7 +177,8 @@ router.post('/:id/provision', domainActionLimiter, requireRecentReauth, async (r
       userId: getUserId(req)
     });
     provisioningStarted = true;
-    const issued = await provisionCustomDomain(domain.domain);
+    const sslProvider = String(process.env.SSL_PROVIDER || '').trim().toLowerCase();
+    const issued = sslProvider === 'caddy' ? true : await provisionCustomDomain(domain.domain);
     if (!issued) throw new Error('Certificate provisioning is not supported on this server platform.');
 
     const activeDomain = await markDomainSslStatus({

@@ -14,7 +14,6 @@ import {
   Edit3,
   Globe,
   HardDrive,
-  Lock,
   Network,
   Pencil,
   Plus,
@@ -853,9 +852,16 @@ export default function DropletDetailView({
   // DNS Binding inline form state
   const [dnsHostname, setDnsHostname] = useState('');
   const [dnsRecordType, setDnsRecordType] = useState('A+AAAA');
-  const [dnsTtl, setDnsTtl] = useState('300');
+  const [dnsTargetPort, setDnsTargetPort] = useState('80');
+  const [dnsTtl] = useState('300');
   const [dnsSubmitting, setDnsSubmitting] = useState(false);
+  const [dnsVerifyingId, setDnsVerifyingId] = useState(null);
   const [dnsRemovingId, setDnsRemovingId] = useState(null);
+  const [sshMethodTab, setSshMethodTab] = useState(() =>
+    typeof navigator !== 'undefined' && /mac|linux|ubuntu|darwin|x11/i.test(navigator.platform || navigator.userAgent || '')
+      ? 'unix'
+      : 'windows'
+  );
 
   // Firewall Rule inline form state
   const [fwDirection, setFwDirection] = useState('inbound');
@@ -938,21 +944,25 @@ export default function DropletDetailView({
     const sshPort = net.sshPort || droplet?.sshPort || 22;
     const accessUsername = net.username || net.accessUsername || droplet?.accessUsername || 'root';
     const sshGatewayUser = net.sshGatewayUser || droplet?.sshGatewayUser || null;
-    const sshGatewayHost = net.sshGatewayHost || droplet?.sshGatewayHost || null;
-    const sshGatewayCommand =
+    const rawGatewayHost = net.sshGatewayHost || droplet?.sshGatewayHost || null;
+    const sshGatewayHost = rawGatewayHost ? String(rawGatewayHost).trim().replace(/^\[|\]$/g, '') : null;
+    const rawSshGatewayCommand =
       net.sshGatewayCommand ||
       droplet?.sshGatewayCommand ||
-      (sshGatewayUser && sshGatewayHost
-        ? String(sshGatewayHost).includes(':')
-          ? `ssh ${sshGatewayUser}@[${sshGatewayHost}]`
-          : `ssh ${sshGatewayUser}@${sshGatewayHost}`
-        : null);
+      (sshGatewayUser && sshGatewayHost ? `ssh ${sshGatewayUser}@${sshGatewayHost}` : null);
+    const sshGatewayCommand = rawSshGatewayCommand ? String(rawSshGatewayCommand).replace(/\[([^\]]+)\]/g, '$1') : null;
     const sshIpv4Cmd = ipv4 ? `ssh ${accessUsername}@${ipv4}${sshPort !== 22 ? ` -p ${sshPort}` : ''}` : null;
     const sshIpv6Cmd = sshGatewayCommand && sshGatewayHost?.includes(':')
       ? sshGatewayCommand
       : ipv6
-        ? `ssh ${accessUsername}@[${ipv6}]${sshPort !== 22 ? ` -p ${sshPort}` : ''}`
+        ? `ssh ${accessUsername}@${String(ipv6).replace(/^\[|\]$/g, '')}${sshPort !== 22 ? ` -p ${sshPort}` : ''}`
         : null;
+    const relayCommands = net.sshRelayCommands || droplet?.sshRelayCommands || null;
+    const publicHostDomain = relayCommands?.domain || (typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'tiwlo.com');
+    const cleanIdForUrl = droplet?.id || dropletId;
+    const sshBridgeUrl = net.sshBridgeUrl || droplet?.sshBridgeUrl || `wss://${publicHostDomain}/ssh/${cleanIdForUrl}`;
+    const sshPortalUrl = net.sshPortalUrl || droplet?.sshPortalUrl || `https://${publicHostDomain}/ssh/${cleanIdForUrl}`;
+    const sshHttpsUrl = net.sshHttpsUrl || droplet?.sshHttpsUrl || `https://${publicHostDomain}/cloud/droplets/${cleanIdForUrl}/console`;
     const ipLifecycleStatus = net.ipLifecycleStatus || droplet?.ipLifecycleStatus || (droplet?.status === 'suspended' ? 'held' : 'active');
     const prefixSyncLogs = Array.isArray(net.prefixSyncLogs)
       ? net.prefixSyncLogs
@@ -969,13 +979,17 @@ export default function DropletDetailView({
       sshGatewayUser,
       sshGatewayHost,
       sshGatewayCommand,
+      sshBridgeUrl,
+      sshPortalUrl,
+      sshHttpsUrl,
+      sshRelayCommands: relayCommands,
       sshIpv4Cmd,
       sshIpv6Cmd,
       ipLifecycleStatus,
       heldUntil: net.heldUntil || droplet?.purgeAt || null,
       prefixSyncLogs,
     };
-  }, [detailPayload, droplet]);
+  }, [detailPayload, droplet, dropletId]);
 
   const dnsRecords = useMemo(() => {
     if (Array.isArray(detailPayload?.dnsRecords)) return detailPayload.dnsRecords;
@@ -1120,18 +1134,44 @@ export default function DropletDetailView({
         body: JSON.stringify({
           hostname: cleanHost,
           recordType: dnsRecordType,
+          targetPort: Number.parseInt(String(dnsTargetPort || '80'), 10) || 80,
           ttl: Number(dnsTtl) || 300,
+          proxyEnabled: true,
         }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || `DNS binding failed (HTTP ${res.status}).`);
       setDnsHostname('');
-      showToast?.(`DNS record bound for ${cleanHost}.`, 'success');
+      showToast?.(json?.message || `Domain bound for ${cleanHost}.`, 'success');
       await loadDetail();
     } catch (err) {
-      showToast?.(err?.message || 'Could not bind DNS record.', 'error');
+      showToast?.(err?.message || 'Could not bind domain.', 'error');
     } finally {
       setDnsSubmitting(false);
+    }
+  };
+
+  const handleVerifyDns = async (recordId) => {
+    if (!recordId) return;
+    setDnsVerifyingId(recordId);
+    try {
+      const res = await fetch(`/api/cloud/droplets/${encodeURIComponent(dropletId)}/dns/${encodeURIComponent(recordId)}/verify`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || 'Could not verify DNS.');
+      if (json.verified) {
+        showToast?.(`${json?.domain?.hostname || 'Domain'} verified and SSL activated.`, 'success');
+      } else {
+        showToast?.('Nameservers or AAAA record not detected yet. Allow a minute for DNS propagation and retry.', 'warning');
+      }
+      await loadDetail();
+    } catch (err) {
+      showToast?.(err?.message || 'Verification failed.', 'error');
+    } finally {
+      setDnsVerifyingId(null);
     }
   };
 
@@ -1634,38 +1674,44 @@ export default function DropletDetailView({
                     <Terminal className="size-4 text-[#1ED760]" aria-hidden="true" />
                     Quick SSH &amp; Network Access
                   </CardTitle>
-                  <CardDescription>Direct connection endpoints for this VPS</CardDescription>
+                  <CardDescription>Connect via tiwlo.com (Port 443 · any ISP/Wi-Fi) or direct IPv6</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3 text-xs">
-                  <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/20">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold text-emerald-800 dark:text-emerald-300">
-                        Single-Port SSH Gateway (Port 22 · Zero Router Ports)
-                      </span>
-                      {(networkInfo.sshGatewayCommand || networkInfo.sshIpv6Cmd) && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleCopy(
-                              'ov-ssh-gw',
-                              networkInfo.sshGatewayCommand || networkInfo.sshIpv6Cmd,
-                              'Gateway SSH command'
-                            )
-                          }
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 hover:text-black dark:text-emerald-300 dark:hover:text-white cursor-pointer"
-                        >
-                          {copiedKey === 'ov-ssh-gw' ? <Check className="size-3 text-[#1ED760]" /> : <Copy className="size-3" />}
-                          {copiedKey === 'ov-ssh-gw' ? 'Copied' : 'Copy'}
-                        </button>
-                      )}
-                    </div>
-                    <code className="mt-1.5 block truncate font-mono text-[11px] text-neutral-900 dark:text-neutral-100">
-                      {networkInfo.sshGatewayCommand || networkInfo.sshIpv6Cmd || 'Gateway SSH pending assignment'}
-                    </code>
-                    <p className="mt-1 text-[10px] text-neutral-500 dark:text-neutral-400">
-                      Uses main server Port 22 multiplexer ({networkInfo.sshGatewayUser || networkInfo.accessUsername}) · Use Browser Console (HTTPS 443) from IPv4-only networks.
-                    </p>
-                  </div>
+                  {(() => {
+                    const relay = networkInfo.sshRelayCommands;
+                    const preferredCmd =
+                      sshMethodTab === 'unix'
+                        ? relay?.unixCommand || networkInfo.sshGatewayCommand || networkInfo.sshIpv6Cmd
+                        : relay?.windowsCommand || networkInfo.sshGatewayCommand || networkInfo.sshIpv6Cmd;
+                    return (
+                      <div className="rounded-lg border border-neutral-200 bg-neutral-50/70 p-3 dark:border-neutral-800 dark:bg-neutral-900/50">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-neutral-700 dark:text-neutral-200">
+                            SSH Terminal via tiwlo.com (Works without IPv6)
+                          </span>
+                          {preferredCmd && (
+                            <button
+                              type="button"
+                              onClick={() => handleCopy('ov-ssh-gw', preferredCmd, 'SSH command')}
+                              className="inline-flex items-center gap-1 rounded border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-medium text-neutral-700 hover:text-black dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-200 dark:hover:text-white cursor-pointer"
+                            >
+                              {copiedKey === 'ov-ssh-gw' ? <Check className="size-3 text-[#1ED760]" /> : <Copy className="size-3" />}
+                              {copiedKey === 'ov-ssh-gw' ? 'Copied' : 'Copy'}
+                            </button>
+                          )}
+                        </div>
+                        <code className="mt-1.5 block truncate font-mono text-[11px] text-neutral-900 dark:text-neutral-100">
+                          {preferredCmd || 'SSH gateway assignment pending'}
+                        </code>
+                        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-200/70 pt-2 text-[11px] text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+                          <span>
+                            Portal: <a href={networkInfo.sshPortalUrl} target="_blank" rel="noreferrer" className="font-mono text-neutral-800 underline decoration-neutral-300 underline-offset-2 hover:text-black dark:text-neutral-200 dark:hover:text-white">{networkInfo.sshPortalUrl}</a>
+                          </span>
+                          <span>User: <code className="font-mono text-neutral-800 dark:text-neutral-200">{networkInfo.sshGatewayUser || networkInfo.accessUsername}</code></span>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {networkInfo.sshIpv4Cmd && (
                     <div className="rounded-xl border border-neutral-200/80 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/50">
@@ -1744,24 +1790,24 @@ export default function DropletDetailView({
                     )}
                   </div>
 
-                  <div className="rounded-xl border border-neutral-200/80 bg-neutral-950 p-3 text-neutral-100">
+                  <div className="rounded-xl border border-neutral-200/80 bg-neutral-50/80 p-3 dark:border-neutral-800 dark:bg-neutral-900/60">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-medium text-neutral-400">
-                        {networkInfo.sshIpv4Cmd ? 'SSH Login Command (IPv4)' : 'Browser SSH Console (IPv4 & IPv6 HTTPS 443)'}
+                      <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
+                        {networkInfo.sshIpv4Cmd ? 'Direct SSH (IPv4)' : 'IPv4 Clients (No Public IPv4)'}
                       </span>
                       {networkInfo.sshIpv4Cmd && (
                         <button
                           type="button"
                           onClick={() => handleCopy('net-ssh4', networkInfo.sshIpv4Cmd, 'IPv4 SSH command')}
-                          className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold text-[#1ED760] hover:bg-white/10 cursor-pointer"
+                          className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-neutral-700 hover:bg-neutral-200/70 dark:text-neutral-300 dark:hover:bg-neutral-800 cursor-pointer"
                         >
-                          {copiedKey === 'net-ssh4' ? <Check className="size-3" /> : <Copy className="size-3" />}
+                          {copiedKey === 'net-ssh4' ? <Check className="size-3 text-[#1ED760]" /> : <Copy className="size-3" />}
                           {copiedKey === 'net-ssh4' ? 'Copied' : 'Copy'}
                         </button>
                       )}
                     </div>
-                    <code className="mt-1.5 block overflow-x-auto font-mono text-xs text-white">
-                      {networkInfo.sshIpv4Cmd || 'No public IPv4 — use Browser Console above (works on all IPv4/IPv6 networks)'}
+                    <code className="mt-1.5 block overflow-x-auto font-mono text-xs text-neutral-900 dark:text-neutral-100">
+                      {networkInfo.sshIpv4Cmd || 'Use tiwlo.com SSH Access below — works on any IPv4 Wi-Fi or mobile network.'}
                     </code>
                   </div>
                 </CardContent>
@@ -1772,19 +1818,19 @@ export default function DropletDetailView({
                 <CardHeader>
                   <div className="flex items-center justify-between gap-2">
                     <CardTitle className="flex items-center gap-2">
-                      <Network className="size-4 text-[#1ED760]" aria-hidden="true" />
+                      <Network className="size-4 text-neutral-600 dark:text-neutral-300" aria-hidden="true" />
                       Dedicated IPv6 ({networkInfo.ipv6Prefix || '/128'})
                     </CardTitle>
-                    <Badge variant={networkInfo.ipv6 ? 'brand' : 'secondary'}>
-                      {networkInfo.ipv6 ? 'Dual-Stack /128' : 'Not Assigned'}
+                    <Badge variant={networkInfo.ipv6 ? 'secondary' : 'secondary'}>
+                      {networkInfo.ipv6 ? 'Assigned' : 'Not Assigned'}
                     </Badge>
                   </div>
-                  <CardDescription>Dedicated single-host IPv6 allocation routed to this instance</CardDescription>
+                  <CardDescription>Server IPv6 endpoint for IPv6-capable networks</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3 text-xs">
                   <div className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200/80 bg-neutral-50 px-3 py-2.5 dark:border-neutral-800 dark:bg-neutral-900/50">
                     <div className="min-w-0">
-                      <div className="text-[11px] text-neutral-500">IPv6 /128 Address</div>
+                      <div className="text-[11px] text-neutral-500">IPv6 Address</div>
                       <div className="mt-0.5 truncate font-mono text-sm font-semibold text-neutral-950 dark:text-white">
                         {networkInfo.ipv6 ? `${networkInfo.ipv6}${networkInfo.ipv6Prefix || '/128'}` : 'Not assigned'}
                       </div>
@@ -1801,27 +1847,182 @@ export default function DropletDetailView({
                     )}
                   </div>
 
-                  <div className="rounded-xl border border-neutral-200/80 bg-neutral-950 p-3 text-neutral-100">
+                  <div className="rounded-xl border border-neutral-200/80 bg-neutral-50/80 p-3 dark:border-neutral-800 dark:bg-neutral-900/60">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-medium text-neutral-400">SSH Login Command (IPv6)</span>
+                      <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">Direct IPv6 SSH (Port 22 · IPv6 ISP only)</span>
                       {networkInfo.sshIpv6Cmd && (
                         <button
                           type="button"
                           onClick={() => handleCopy('net-ssh6', networkInfo.sshIpv6Cmd, 'IPv6 SSH command')}
-                          className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold text-[#1ED760] hover:bg-white/10 cursor-pointer"
+                          className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium text-neutral-700 hover:bg-neutral-200/70 dark:text-neutral-300 dark:hover:bg-neutral-800 cursor-pointer"
                         >
-                          {copiedKey === 'net-ssh6' ? <Check className="size-3" /> : <Copy className="size-3" />}
+                          {copiedKey === 'net-ssh6' ? <Check className="size-3 text-[#1ED760]" /> : <Copy className="size-3" />}
                           {copiedKey === 'net-ssh6' ? 'Copied' : 'Copy'}
                         </button>
                       )}
                     </div>
-                    <code className="mt-1.5 block overflow-x-auto font-mono text-xs text-white">
+                    <code className="mt-1.5 block overflow-x-auto font-mono text-xs text-neutral-900 dark:text-neutral-100">
                       {networkInfo.sshIpv6Cmd || 'Assign an IPv6 prefix on the host node to enable IPv6 SSH'}
                     </code>
                   </div>
                 </CardContent>
               </Card>
             </div>
+
+            {/* Clean Minimalist Terminal & SSH Access via tiwlo.com (Directly below IPv4 & IPv6 Cards) */}
+            {(() => {
+              const relay = networkInfo.sshRelayCommands;
+              const activeCode =
+                sshMethodTab === 'windows'
+                  ? relay?.windowsCommand || networkInfo.sshGatewayCommand || ''
+                  : sshMethodTab === 'unix'
+                    ? relay?.unixCommand || networkInfo.sshGatewayCommand || ''
+                    : sshMethodTab === 'config'
+                      ? (typeof navigator !== 'undefined' && /mac|linux|ubuntu|darwin|x11/i.test(navigator.platform || navigator.userAgent || '')
+                        ? relay?.sshConfigUnix
+                        : relay?.sshConfigWindows) || ''
+                      : networkInfo.sshIpv6Cmd || '';
+
+              const activeCaption =
+                sshMethodTab === 'windows'
+                  ? 'Run in Windows PowerShell or Command Prompt and enter your VPS root password. Works on IPv4-only Wi-Fi and mobile data.'
+                  : sshMethodTab === 'unix'
+                    ? 'Run in macOS Terminal or Linux shell (uses built-in Python 3). Works on IPv4-only and IPv6 networks.'
+                    : sshMethodTab === 'config'
+                      ? `Save this block into ~/.ssh/config once, then connect anytime with: ssh ${droplet?.name || dropletId}`
+                      : 'Direct Port 22 skips the HTTPS bridge and works only when your ISP or router assigns an IPv6 route.';
+
+              return (
+                <Card>
+                  <CardHeader className="pb-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <CardTitle>SSH &amp; Terminal Access via tiwlo.com</CardTitle>
+                        <CardDescription>
+                          Root container access on Port 443 — connects cleanly even if your local internet has no IPv6.
+                        </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => onSectionChange?.('console')}
+                          disabled={!statusMeta.isRunning}
+                        >
+                          <Terminal className="size-3.5" />
+                          Open Web Terminal
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="space-y-4 text-xs">
+                    {/* Crisp 3-column metadata strip */}
+                    <div className="grid grid-cols-1 divide-y divide-neutral-200 rounded-lg border border-neutral-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-950 md:grid-cols-3 md:divide-x md:divide-y-0">
+                      <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                        <div className="min-w-0">
+                          <div className="text-[11px] text-neutral-500">SSH Username (Root Access)</div>
+                          <div className="mt-0.5 truncate font-mono text-xs font-semibold text-neutral-950 dark:text-white">
+                            {networkInfo.sshGatewayUser || networkInfo.accessUsername || '—'}
+                          </div>
+                        </div>
+                        {networkInfo.sshGatewayUser && (
+                          <button
+                            type="button"
+                            onClick={() => handleCopy('net-gw-user', networkInfo.sshGatewayUser, 'SSH username')}
+                            className="shrink-0 rounded border border-neutral-200 px-2 py-1 text-[11px] font-medium text-neutral-600 hover:border-neutral-300 hover:text-neutral-950 dark:border-neutral-800 dark:text-neutral-300 dark:hover:text-white cursor-pointer"
+                          >
+                            {copiedKey === 'net-gw-user' ? 'Copied' : 'Copy'}
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                        <div className="min-w-0">
+                          <div className="text-[11px] text-neutral-500">tiwlo.com SSH Endpoint</div>
+                          <div className="mt-0.5 truncate font-mono text-xs font-semibold text-neutral-950 dark:text-white">
+                            {networkInfo.sshBridgeUrl}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy('net-bridge-url', networkInfo.sshBridgeUrl, 'SSH endpoint')}
+                          className="shrink-0 rounded border border-neutral-200 px-2 py-1 text-[11px] font-medium text-neutral-600 hover:border-neutral-300 hover:text-neutral-950 dark:border-neutral-800 dark:text-neutral-300 dark:hover:text-white cursor-pointer"
+                        >
+                          {copiedKey === 'net-bridge-url' ? 'Copied' : 'Copy'}
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                        <div className="min-w-0">
+                          <div className="text-[11px] text-neutral-500">Direct Web SSH Link</div>
+                          <a
+                            href={networkInfo.sshPortalUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-0.5 block truncate font-mono text-xs font-medium text-neutral-900 underline decoration-neutral-300 underline-offset-2 hover:text-black dark:text-neutral-100 dark:decoration-neutral-700 dark:hover:text-white"
+                          >
+                            {networkInfo.sshPortalUrl}
+                          </a>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy('net-portal-url', networkInfo.sshPortalUrl, 'Web SSH link')}
+                          className="shrink-0 rounded border border-neutral-200 px-2 py-1 text-[11px] font-medium text-neutral-600 hover:border-neutral-300 hover:text-neutral-950 dark:border-neutral-800 dark:text-neutral-300 dark:hover:text-white cursor-pointer"
+                        >
+                          {copiedKey === 'net-portal-url' ? 'Copied' : 'Copy'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Method Switcher + Single Clean Code Field */}
+                    <div className="space-y-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="inline-flex flex-wrap rounded-lg border border-neutral-200 bg-neutral-100/70 p-0.5 dark:border-neutral-800 dark:bg-neutral-900">
+                          {[
+                            { id: 'windows', label: 'Windows (PowerShell / CMD)' },
+                            { id: 'unix', label: 'macOS / Linux' },
+                            { id: 'config', label: 'SSH Config' },
+                            { id: 'ipv6', label: 'IPv6 Port 22' },
+                          ].map((tab) => (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => setSshMethodTab(tab.id)}
+                              className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer ${
+                                sshMethodTab === tab.id
+                                  ? 'bg-white text-neutral-950 shadow-xs dark:bg-neutral-800 dark:text-white'
+                                  : 'text-neutral-600 hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-white'
+                              }`}
+                            >
+                              {tab.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {activeCode && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleCopy(`net-ssh-${sshMethodTab}`, activeCode, 'SSH command')}
+                          >
+                            {copiedKey === `net-ssh-${sshMethodTab}` ? <Check className="size-3.5 text-[#1ED760]" /> : <Copy className="size-3.5" />}
+                            {copiedKey === `net-ssh-${sshMethodTab}` ? 'Copied' : 'Copy Command'}
+                          </Button>
+                        )}
+                      </div>
+
+                      <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-lg border border-neutral-200 bg-neutral-50/80 px-3.5 py-3 font-mono text-[12px] leading-relaxed text-neutral-900 dark:border-neutral-800 dark:bg-neutral-900/70 dark:text-neutral-100">
+                        {activeCode || 'Command unavailable until SSH gateway user is assigned.'}
+                      </pre>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                        {activeCaption}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
 
             {/* IP Lifecycle & Prefix Sync Log */}
             <Card>
@@ -1905,26 +2106,29 @@ export default function DropletDetailView({
         {/* TAB 3: PER-VPS DNS & FIREWALL */}
         {safeSection === 'dns' && (
           <div className="space-y-5">
-            {/* Explicit Policy Notice: User-Managed SSL */}
+            {/* Domain Routing & Nameserver Info */}
             <Alert variant="info">
-              <Lock className="mt-0.5 size-4 shrink-0" />
-              <div>
-                <p className="font-semibold">SSL Certificate: User-Managed inside VPS (Platform SSL Disabled)</p>
-                <p className="mt-0.5 text-[11px]">
-                  Domains bound to this VPS route directly via A / AAAA DNS records to your instance IPv4/IPv6. Configure TLS certificates (such as Certbot / ACME or Nginx) inside your VPS.
+              <Globe className="mt-0.5 size-4 shrink-0" />
+              <div className="space-y-1">
+                <p className="font-semibold">Custom Domains, Tiwlo Nameservers &amp; Cloudflare Origin Routing</p>
+                <p className="text-[11px]">
+                  Point your domain&apos;s nameservers to <code className="font-mono font-semibold">dns1.tiwlo.com</code> &amp;{' '}
+                  <code className="font-mono font-semibold">dns2.tiwlo.com</code>, or add a Cloudflare <code className="font-mono">AAAA</code> record pointing to{' '}
+                  <code className="font-mono font-semibold">{networkInfo.sshGatewayHost || '2401:f40:126f:f0:b62e:99ff:fe5b:df13'}</code> (Proxy ON for IPv4+IPv6 global CDN).
+                  Tiwlo automatically terminates HTTPS (Port 443) and forwards web &amp; WebSocket traffic to your chosen container port.
                 </p>
               </div>
             </Alert>
 
-            {/* Per-VPS DNS Bindings */}
+            {/* Per-VPS Domain Bindings */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Globe className="size-4 text-[#1ED760]" aria-hidden="true" />
-                  Per-VPS DNS Records (A / AAAA)
+                  Connected Domains &amp; Container Port Mapping
                 </CardTitle>
                 <CardDescription>
-                  Bind custom domains or subdomains directly to this VPS's IPv4 ({networkInfo.ipv4 || '—'}) and IPv6 ({networkInfo.ipv6 || '—'}). Records auto-update on prefix changes.
+                  Connect any custom domain (e.g. app.yourdomain.com) or your free .uids.app domain to {droplet?.name || 'this VPS'}.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1941,14 +2145,14 @@ export default function DropletDetailView({
                       type="text"
                       value={dnsHostname}
                       onChange={(e) => setDnsHostname(e.target.value)}
-                      placeholder="app.example.com"
+                      placeholder="example.com or app.example.com"
                       required
                       className="h-9 w-full rounded-lg border border-neutral-200/80 bg-white px-3 text-xs text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
                     />
                   </div>
                   <div className="sm:col-span-3">
                     <label htmlFor="vps-dns-type" className="mb-1 block text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">
-                      Record Type
+                      DNS Mode
                     </label>
                     <select
                       id="vps-dns-type"
@@ -1956,85 +2160,101 @@ export default function DropletDetailView({
                       onChange={(e) => setDnsRecordType(e.target.value)}
                       className="h-9 w-full rounded-lg border border-neutral-200/80 bg-white px-2.5 text-xs text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
                     >
-                      <option value="A+AAAA">A + AAAA (Dual-Stack)</option>
-                      <option value="A">A (IPv4 only)</option>
-                      <option value="AAAA">AAAA (IPv6 only)</option>
+                      <option value="A+AAAA">Nameserver / Edge Proxy</option>
+                      <option value="AAAA">AAAA (IPv6 Edge)</option>
+                      <option value="A">A (IPv4 Edge)</option>
                     </select>
                   </div>
                   <div className="sm:col-span-2">
-                    <label htmlFor="vps-dns-ttl" className="mb-1 block text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">
-                      TTL (sec)
+                    <label htmlFor="vps-dns-port" className="mb-1 block text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">
+                      VPS HTTP Port
                     </label>
-                    <select
-                      id="vps-dns-ttl"
-                      value={dnsTtl}
-                      onChange={(e) => setDnsTtl(e.target.value)}
+                    <input
+                      id="vps-dns-port"
+                      type="number"
+                      min="1"
+                      max="65535"
+                      value={dnsTargetPort}
+                      onChange={(e) => setDnsTargetPort(e.target.value)}
+                      placeholder="80"
                       className="h-9 w-full rounded-lg border border-neutral-200/80 bg-white px-2.5 text-xs text-neutral-950 outline-none focus:border-[#1ED760] dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
-                    >
-                      <option value="60">60s</option>
-                      <option value="300">300s</option>
-                      <option value="3600">3600s</option>
-                    </select>
+                    />
                   </div>
                   <div className="flex items-end sm:col-span-2">
                     <Button type="submit" className="w-full" disabled={dnsSubmitting || !dnsHostname.trim()}>
                       <Plus className="size-3.5" />
-                      {dnsSubmitting ? 'Binding…' : 'Bind DNS'}
+                      {dnsSubmitting ? 'Saving…' : 'Connect'}
                     </Button>
                   </div>
                 </form>
 
                 {dnsRecords.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-center text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
-                    No domains or subdomains are bound to this VPS yet.
+                    No domains are connected to this VPS yet.
                   </div>
                 ) : (
                   <div className="overflow-x-auto rounded-xl border border-neutral-200/80 dark:border-neutral-800">
-                    <table className="w-full min-w-[580px] text-left text-xs">
+                    <table className="w-full min-w-[640px] text-left text-xs">
                       <thead className="border-b border-neutral-200/80 bg-neutral-50 text-[11px] uppercase tracking-wider text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900">
                         <tr>
-                          <th className="px-3.5 py-2.5 font-semibold">Type</th>
                           <th className="px-3.5 py-2.5 font-semibold">Hostname</th>
-                          <th className="px-3.5 py-2.5 font-semibold">Target IP</th>
-                          <th className="px-3.5 py-2.5 font-semibold">Prefix Sync</th>
-                          <th className="px-3.5 py-2.5 font-semibold">TTL</th>
+                          <th className="px-3.5 py-2.5 font-semibold">Target</th>
+                          <th className="px-3.5 py-2.5 font-semibold">Port</th>
+                          <th className="px-3.5 py-2.5 font-semibold">Status &amp; SSL</th>
                           <th className="px-3.5 py-2.5 text-right font-semibold">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800/80">
                         {dnsRecords.map((rec) => {
-                          const recType = rec.type || rec.recordType || 'A';
-                          const targetVal = rec.value || rec.target || (recType === 'AAAA' ? networkInfo.ipv6 : networkInfo.ipv4) || '—';
+                          const isActiveDomain = rec.status === 'active';
+                          const targetVal = rec.serverIpv6 || rec.value || rec.target || networkInfo.sshGatewayHost || '—';
                           return (
-                            <tr key={rec.id || `${recType}-${rec.hostname || rec.domain}`}>
+                            <tr key={rec.id || rec.hostname || rec.domain}>
                               <td className="px-3.5 py-2.5">
-                                <Badge variant="outline" className="font-mono">{recType}</Badge>
-                              </td>
-                              <td className="px-3.5 py-2.5 font-mono font-medium text-neutral-950 dark:text-white">
-                                {rec.hostname || rec.domain}
+                                <div className="font-mono font-medium text-neutral-950 dark:text-white">
+                                  {rec.hostname || rec.domain}
+                                </div>
+                                {!isActiveDomain && rec.verificationTxt?.value && (
+                                  <div className="mt-0.5 text-[10px] text-neutral-500">
+                                    TXT verify: <code className="font-mono">{rec.verificationTxt.name}</code>
+                                  </div>
+                                )}
                               </td>
                               <td className="px-3.5 py-2.5 font-mono text-neutral-600 dark:text-neutral-300">
                                 {targetVal}
                               </td>
+                              <td className="px-3.5 py-2.5 font-mono text-neutral-700 dark:text-neutral-200">
+                                :{rec.targetPort || 80}
+                              </td>
                               <td className="px-3.5 py-2.5">
-                                <Badge variant={rec.autoUpdateOnPrefixChange === false ? 'secondary' : 'brand'}>
-                                  {rec.autoUpdateOnPrefixChange === false ? 'Manual' : 'Auto-Sync'}
+                                <Badge variant={isActiveDomain ? 'success' : 'warning'}>
+                                  {isActiveDomain ? 'Active · SSL Ready' : 'Pending DNS'}
                                 </Badge>
                               </td>
-                              <td className="px-3.5 py-2.5 tabular-nums text-neutral-500">
-                                {rec.ttl || 300}s
-                              </td>
                               <td className="px-3.5 py-2.5 text-right">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  disabled={dnsRemovingId === rec.id}
-                                  onClick={() => handleRemoveDns(rec.id)}
-                                  className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/40"
-                                >
-                                  <Trash2 className="size-3.5" />
-                                  Remove
-                                </Button>
+                                <div className="inline-flex items-center gap-1.5">
+                                  {!isActiveDomain && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={dnsVerifyingId === rec.id}
+                                      onClick={() => handleVerifyDns(rec.id)}
+                                    >
+                                      <RefreshCw className={`size-3 ${dnsVerifyingId === rec.id ? 'animate-spin' : ''}`} />
+                                      {dnsVerifyingId === rec.id ? 'Checking…' : 'Verify'}
+                                    </Button>
+                                  )}
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    disabled={dnsRemovingId === rec.id}
+                                    onClick={() => handleRemoveDns(rec.id)}
+                                    className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                    Remove
+                                  </Button>
+                                </div>
                               </td>
                             </tr>
                           );

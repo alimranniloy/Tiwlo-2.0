@@ -115,9 +115,6 @@ export function formatGatewaySshCommand({ gatewayUser, gatewayHost } = {}) {
   const user = String(gatewayUser || '').trim();
   const host = String(gatewayHost || '').trim().replace(/^\[|\]$/g, '');
   if (!user || !host) return null;
-  if (net.isIPv6(host)) {
-    return `ssh ${user}@[${host}]`;
-  }
   return `ssh ${user}@${host}`;
 }
 
@@ -232,19 +229,46 @@ export async function getDropletStatsFromHost(dropletId, opts = {}) {
   return callHostAgentJson('GET', `/host/v1/droplets/${cleanId}/stats`, null, { timeoutMs: 10000, ...opts });
 }
 
-export async function openHostDropletTerminalWs(dropletId, { cols = 120, rows = 32 } = {}) {
+export function resolveHostAgentHttpConfig() {
   const cfg = resolveHostProvisionerConfig();
   if (!cfg.secret) {
     throw Object.assign(new Error('Host daemon secret not configured'), { statusCode: 503 });
   }
   const parsed = new URL(cfg.baseUrl);
-  const wsProto = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
-  const cleanId = encodeURIComponent(String(dropletId || '').trim());
-  const targetUrl = `${wsProto}//${parsed.host}/host/v1/droplets/${cleanId}/terminal?cols=${cols}&rows=${rows}`;
+  return {
+    baseUrl: cfg.baseUrl,
+    secret: cfg.secret,
+    hostname: parsed.hostname,
+    port: parsed.port ? Number(parsed.port) : (parsed.protocol === 'https:' ? 443 : 80),
+    isTls: parsed.protocol === 'https:'
+  };
+}
+
+function openHostDaemonWebSocket(pathAndQuery, { timeoutMs = 8000 } = {}) {
+  const cfg = resolveHostAgentHttpConfig();
+  const wsProto = cfg.isTls ? 'wss:' : 'ws:';
+  const targetUrl = `${wsProto}//${cfg.hostname}:${cfg.port}${pathAndQuery}`;
   return connectWebSocketClient(targetUrl, {
     headers: {
       Authorization: `Bearer ${cfg.secret}`
     },
-    timeoutMs: 8000
+    timeoutMs
   });
+}
+
+export async function openHostDropletTerminalWs(dropletId, { cols = 120, rows = 32 } = {}) {
+  const cleanId = encodeURIComponent(String(dropletId || '').trim());
+  return openHostDaemonWebSocket(`/host/v1/droplets/${cleanId}/terminal?cols=${cols}&rows=${rows}`);
+}
+
+export async function openHostDropletSshBridgeWs(dropletId, { gatewayUser = '' } = {}) {
+  const cleanId = encodeURIComponent(String(dropletId || '').trim());
+  const qs = gatewayUser ? `?gatewayUser=${encodeURIComponent(String(gatewayUser).trim())}` : '';
+  return openHostDaemonWebSocket(`/host/v1/droplets/${cleanId}/ssh-bridge${qs}`);
+}
+
+export async function openHostDropletTcpTunnelWs(dropletId, { port = 80 } = {}) {
+  const cleanId = encodeURIComponent(String(dropletId || '').trim());
+  const cleanPort = Number.parseInt(String(port || '80'), 10) || 80;
+  return openHostDaemonWebSocket(`/host/v1/droplets/${cleanId}/tcp-tunnel?port=${cleanPort}`);
 }

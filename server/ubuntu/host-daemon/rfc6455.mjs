@@ -85,6 +85,24 @@ export function wrapWebSocket(socket, initialHead = Buffer.alloc(0), { isClient 
     emitter.emit('close', { code, reason });
   };
 
+  const pendingMessages = [];
+  const emitMessage = (msg) => {
+    if (emitter.listenerCount('message') > 0) {
+      emitter.emit('message', msg);
+    } else if (pendingMessages.length < 256) {
+      pendingMessages.push(msg);
+    }
+  };
+  emitter.on('newListener', (event) => {
+    if (event === 'message' && pendingMessages.length > 0) {
+      queueMicrotask(() => {
+        while (pendingMessages.length > 0 && emitter.listenerCount('message') > 0) {
+          emitter.emit('message', pendingMessages.shift());
+        }
+      });
+    }
+  });
+
   const processBuffer = () => {
     while (buffer.length >= 2 && !closed) {
       const b0 = buffer[0];
@@ -169,7 +187,7 @@ export function wrapWebSocket(socket, initialHead = Buffer.alloc(0), { isClient 
           const resolvedOp = fragmentedOpcode;
           fragmentedOpcode = null;
           fragmentedChunks = [];
-          emitter.emit('message', {
+          emitMessage({
             opcode: resolvedOp,
             data: resolvedOp === 0x1 ? assembled.toString('utf8') : assembled
           });
@@ -183,7 +201,7 @@ export function wrapWebSocket(socket, initialHead = Buffer.alloc(0), { isClient 
         continue;
       }
 
-      emitter.emit('message', {
+      emitMessage({
         opcode,
         data: opcode === 0x1 ? rawPayload.toString('utf8') : rawPayload
       });
@@ -201,7 +219,9 @@ export function wrapWebSocket(socket, initialHead = Buffer.alloc(0), { isClient 
   });
 
   socket.on('error', (err) => {
-    emitter.emit('error', err);
+    if (emitter.listenerCount('error') > 0) {
+      emitter.emit('error', err);
+    }
     if (!closed) {
       closed = true;
       emitter.emit('close', { code: 1006, reason: err?.message || 'Socket error' });

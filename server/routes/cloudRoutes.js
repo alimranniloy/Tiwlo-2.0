@@ -9,6 +9,15 @@ import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { getPlatformPaymentGatewaysRaw } from '../administrator/adminRoutes.js';
 import { issueVpsTerminalTicket } from '../ubuntu/vpsTerminalWs.js';
 import { getDropletStatsFromHost } from '../ubuntu/hostProvisionerClient.js';
+import {
+  addCloudDomainZoneRecord,
+  bindCloudCustomDomain,
+  deleteCloudDomainZoneRecord,
+  linkCloudCustomDomainToDroplet,
+  listDropletDomainsForUser,
+  removeCloudCustomDomain,
+  verifyCloudCustomDomain
+} from '../ubuntu/dropletDomainService.js';
 
 const creditCheckoutLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -317,13 +326,174 @@ router.post('/droplets/:id/dns', async (req, res) => {
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     const existing = await CloudDB.getDropletById(req.params.id);
     if (!existing || existing.userId !== userId) return res.status(404).json({ error: 'Droplet not found' });
+
+    const { hostname, recordType, targetPort, ttl, proxyEnabled } = req.body || {};
+    const result = await bindCloudCustomDomain({
+      userId,
+      dropletId: existing.id,
+      hostname,
+      recordType: recordType || 'A+AAAA',
+      targetPort: targetPort ?? 80,
+      ttl: ttl ?? 300,
+      proxyEnabled: proxyEnabled !== false
+    });
     res.status(201).json({
       success: true,
-      sslPolicy: 'User-Managed inside VPS (Platform SSL Disabled)',
-      message: 'Configure your domain A/AAAA record under /domains or connect via custom nameservers dns1.tiwlo.com / dns2.tiwlo.com.'
+      record: result.domain,
+      verification: result.verification,
+      message: result.domain.status === 'active'
+        ? `${result.domain.hostname} is active and routing traffic to ${existing.name} (port ${result.domain.targetPort}).`
+        : `${result.domain.hostname} saved. Point nameservers to ${result.domain.nameservers.join(' & ')} or add Cloudflare AAAA -> ${result.domain.serverIpv6}, then click Verify.`
     });
-  } catch {
-    res.status(500).json({ error: 'Failed to bind DNS record' });
+  } catch (err) {
+    res.status(err?.statusCode || 500).json({ error: err?.message || 'Failed to bind DNS record', ...(err?.details || {}) });
+  }
+});
+
+router.post('/droplets/:id/dns/:recordId/verify', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const existing = await CloudDB.getDropletById(req.params.id);
+    if (!existing || existing.userId !== userId) return res.status(404).json({ error: 'Droplet not found' });
+
+    const result = await verifyCloudCustomDomain({
+      userId,
+      domainId: req.params.recordId,
+      dropletId: existing.id
+    });
+    res.json({ success: result.verified, ...result });
+  } catch (err) {
+    res.status(err?.statusCode || 500).json({ error: err?.message || 'Verification check failed' });
+  }
+});
+
+router.delete('/droplets/:id/dns/:recordId', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const ok = await removeCloudCustomDomain({
+      userId,
+      domainId: req.params.recordId,
+      dropletId: req.params.id
+    });
+    if (!ok) return res.status(404).json({ error: 'DNS domain binding not found' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(err?.statusCode || 500).json({ error: err?.message || 'Failed to remove DNS domain binding' });
+  }
+});
+
+// ==========================================
+// CLOUD VPS CUSTOM DOMAINS & NAMESERVER ZONES
+// ==========================================
+router.get('/domains', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const domains = await listDropletDomainsForUser({ userId });
+    res.json({ success: true, domains });
+  } catch (err) {
+    res.status(err?.statusCode || 500).json({ error: err?.message || 'Failed to list custom domains' });
+  }
+});
+
+router.post('/domains', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const { domain, hostname, dropletId, targetPort, ttl, proxyEnabled } = req.body || {};
+    const result = await bindCloudCustomDomain({
+      userId,
+      hostname: hostname || domain,
+      dropletId: dropletId || null,
+      targetPort: targetPort ?? 80,
+      ttl: ttl ?? 300,
+      proxyEnabled: proxyEnabled !== false
+    });
+    res.status(201).json({ success: true, ...result });
+  } catch (err) {
+    res.status(err?.statusCode || 500).json({ error: err?.message || 'Failed to add custom domain' });
+  }
+});
+
+router.post('/domains/:domainId/verify', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const result = await verifyCloudCustomDomain({
+      userId,
+      domainId: req.params.domainId
+    });
+    res.json({ success: result.verified, ...result });
+  } catch (err) {
+    res.status(err?.statusCode || 500).json({ error: err?.message || 'Domain verification failed' });
+  }
+});
+
+router.patch('/domains/:domainId/droplet', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const updated = await linkCloudCustomDomainToDroplet({
+      userId,
+      domainId: req.params.domainId,
+      dropletId: req.body?.dropletId || null,
+      targetPort: req.body?.targetPort ?? 80,
+      proxyEnabled: req.body?.proxyEnabled !== false
+    });
+    res.json({ success: true, domain: updated });
+  } catch (err) {
+    res.status(err?.statusCode || 500).json({ error: err?.message || 'Failed to update VPS link' });
+  }
+});
+
+router.delete('/domains/:domainId', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const ok = await removeCloudCustomDomain({
+      userId,
+      domainId: req.params.domainId
+    });
+    if (!ok) return res.status(404).json({ error: 'Custom domain not found' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(err?.statusCode || 500).json({ error: err?.message || 'Failed to delete custom domain' });
+  }
+});
+
+router.post('/domains/:domainId/records', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const record = await addCloudDomainZoneRecord({
+      userId,
+      domainId: req.params.domainId,
+      type: req.body?.type,
+      name: req.body?.name,
+      value: req.body?.value,
+      ttl: req.body?.ttl ?? 300
+    });
+    res.status(201).json({ success: true, record });
+  } catch (err) {
+    res.status(err?.statusCode || 500).json({ error: err?.message || 'Failed to add zone record' });
+  }
+});
+
+router.delete('/domains/:domainId/records/:recordId', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const ok = await deleteCloudDomainZoneRecord({
+      userId,
+      domainId: req.params.domainId,
+      recordId: req.params.recordId
+    });
+    if (!ok) return res.status(404).json({ error: 'Zone record not found' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(err?.statusCode || 500).json({ error: err?.message || 'Failed to remove zone record' });
   }
 });
 

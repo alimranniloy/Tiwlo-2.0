@@ -351,6 +351,65 @@ if ! sshd -t; then
 fi
 systemctl reload ssh >/dev/null 2>&1 || systemctl reload sshd >/dev/null 2>&1 || true
 
+# Isolated loopback-only OpenSSH gateway for Cloudflare HTTPS Port-443 SSH WebSocket bridge.
+# Never exposes host root SSH over the bridge: strictly binds 127.0.0.1:2222 with PermitRootLogin no
+# and AllowUsers twvps_* only.
+GATEWAY_PORT="${TIWLO_SSH_GATEWAY_PORT:-2222}"
+GATEWAY_SSHD_CONF="/etc/ssh/sshd_tiwlo_gateway_config"
+cat > "${GATEWAY_SSHD_CONF}.tmp" <<SSHGWEOF
+ListenAddress 127.0.0.1:${GATEWAY_PORT}
+PidFile /run/sshd-tiwlo-gateway.pid
+UsePAM yes
+PermitRootLogin no
+AllowUsers twvps_*
+PasswordAuthentication yes
+KbdInteractiveAuthentication yes
+PubkeyAuthentication yes
+PermitEmptyPasswords no
+PermitTTY yes
+AllowTcpForwarding no
+AllowAgentForwarding no
+AllowStreamLocalForwarding no
+X11Forwarding no
+PermitTunnel no
+GatewayPorts no
+MaxAuthTries 4
+LoginGraceTime 30
+ClientAliveInterval 30
+ClientAliveCountMax 4
+PrintMotd no
+AcceptEnv LANG LC_*
+Subsystem sftp internal-sftp
+ForceCommand /usr/local/bin/tiwlo-vps-ssh-mux
+SSHGWEOF
+chmod 0644 "${GATEWAY_SSHD_CONF}.tmp"
+mkdir -p /run/sshd
+chmod 0755 /run/sshd
+if ! sshd -t -f "${GATEWAY_SSHD_CONF}.tmp"; then
+  rm -f "${GATEWAY_SSHD_CONF}.tmp"
+  echo "sshd -t validation failed for ${GATEWAY_SSHD_CONF}" >&2
+  exit 1
+fi
+mv -f "${GATEWAY_SSHD_CONF}.tmp" "${GATEWAY_SSHD_CONF}"
+
+cat > /etc/systemd/system/tiwlo-vps-ssh-gateway.service <<EOF
+[Unit]
+Description=Tiwlo Isolated Customer SSH Gateway (127.0.0.1:${GATEWAY_PORT})
+After=network.target ssh.service tiwlo-vps-daemon.service
+Wants=tiwlo-vps-daemon.service
+
+[Service]
+Type=simple
+ExecStartPre=/usr/bin/mkdir -p /run/sshd
+ExecStartPre=/usr/sbin/sshd -t -f ${GATEWAY_SSHD_CONF}
+ExecStart=/usr/sbin/sshd -D -f ${GATEWAY_SSHD_CONF}
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 # Install systemd unit & start tiwlo-vps-daemon
 cat > /etc/systemd/system/tiwlo-vps-daemon.service <<EOF
 [Unit]
@@ -371,18 +430,20 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable tiwlo-vps-daemon.service
+systemctl enable tiwlo-vps-daemon.service tiwlo-vps-ssh-gateway.service
 systemctl restart tiwlo-vps-daemon.service
+systemctl restart tiwlo-vps-ssh-gateway.service
 
-# Wait up to 15s for daemon health check
+# Wait up to 15s for daemon + SSH gateway health check
 for _ in $(seq 1 15); do
-  if curl -fsS -H "Authorization: Bearer ${SECRET}" "http://127.0.0.1:${AGENT_PORT}/agent/v1/health" >/dev/null 2>&1; then
-    echo "Tiwlo VPS daemon ready on 127.0.0.1:${AGENT_PORT} and ${BRIDGE_IP}:${AGENT_PORT}."
+  if curl -fsS -H "Authorization: Bearer ${SECRET}" "http://127.0.0.1:${AGENT_PORT}/agent/v1/health" >/dev/null 2>&1 \
+     && systemctl is-active --quiet tiwlo-vps-ssh-gateway.service; then
+    echo "Tiwlo VPS daemon ready on 127.0.0.1:${AGENT_PORT} and ${BRIDGE_IP}:${AGENT_PORT} (SSH gateway on 127.0.0.1:${GATEWAY_PORT})."
     exit 0
   fi
   sleep 1
 done
 
-echo "tiwlo-vps-daemon failed health check!" >&2
-journalctl -u tiwlo-vps-daemon.service -n 30 --no-pager >&2 || true
+echo "tiwlo-vps-daemon or tiwlo-vps-ssh-gateway failed health check!" >&2
+journalctl -u tiwlo-vps-daemon.service -u tiwlo-vps-ssh-gateway.service -n 30 --no-pager >&2 || true
 exit 1

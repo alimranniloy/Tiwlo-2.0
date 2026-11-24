@@ -366,7 +366,7 @@ export function formatIpv6SshCommand({ ipv6, username = 'root', port = 22 } = {}
   const normalized = normalizeIpv6(ipv6);
   const cleanUser = String(username || 'root').trim() || 'root';
   const cleanPort = Number.isInteger(Number(port)) && Number(port) > 0 ? Number(port) : 22;
-  return `ssh ${cleanUser}@[${normalized}] -p ${cleanPort}`;
+  return `ssh ${cleanUser}@${normalized} -p ${cleanPort}`;
 }
 
 function getQueryRunner(queryFn = null) {

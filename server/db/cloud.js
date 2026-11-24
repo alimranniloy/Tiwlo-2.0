@@ -49,6 +49,8 @@ import {
   resolvePublicSshGatewayHost,
   setDropletPowerOnHost
 } from '../ubuntu/hostProvisionerClient.js';
+import { buildSshRelayMetadata } from '../ubuntu/sshBridgeScripts.js';
+import { listDropletDomainsForUser } from '../ubuntu/dropletDomainService.js';
 
 function mapDroplet(row, { node = null } = {}) {
   if (!row) return null;
@@ -77,6 +79,11 @@ function mapDroplet(row, { node = null } = {}) {
       : ipv6
         ? formatIpv6SshCommand({ username: accessUsername, ipv6, port: sshPort || 22 })
         : null;
+  const sshRelayCommands = buildSshRelayMetadata({
+    dropletId: row.id,
+    gatewayUser: sshGatewayUser,
+    hostname: row.name
+  });
 
   return {
     ...safeRow,
@@ -92,6 +99,10 @@ function mapDroplet(row, { node = null } = {}) {
     sshGatewayUser,
     sshGatewayHost,
     sshGatewayCommand,
+    sshBridgeUrl: sshRelayCommands?.sshBridgeUrl || null,
+    sshPortalUrl: sshRelayCommands?.sshPortalUrl || null,
+    sshHttpsUrl: sshRelayCommands?.webConsoleUrl || null,
+    sshRelayCommands,
     sshPort,
     sshCommand,
     sshIpv6Command,
@@ -690,25 +701,27 @@ export const CloudDB = {
       );
     `).catch(() => {});
 
-    const [fwRes, snapRes, invRes, ipv6EventsRes] = await Promise.all([
+    const [fwRes, snapRes, invRes, ipv6EventsRes, dnsRecords] = await Promise.all([
       queryPg('SELECT * FROM cloud_droplet_firewall_rules WHERE droplet_id = $1 AND user_id = $2 ORDER BY created_at DESC', [id, userId]).catch(() => ({ rows: [] })),
       queryPg('SELECT * FROM cloud_droplet_snapshots WHERE droplet_id = $1 AND user_id = $2 ORDER BY created_at DESC', [id, userId]).catch(() => ({ rows: [] })),
       queryPg('SELECT * FROM cloud_droplet_invoices WHERE droplet_id = $1 AND user_id = $2 ORDER BY created_at DESC LIMIT 24', [id, userId]).catch(() => ({ rows: [] })),
       queryPg(
         'SELECT * FROM system_ipv6_change_events WHERE droplet_id = $1 OR (droplet_id IS NULL AND node_id = $2) ORDER BY created_at DESC LIMIT 10',
         [id, row.node_id || 'primary-ubuntu-node']
-      ).catch(() => ({ rows: [] }))
+      ).catch(() => ({ rows: [] })),
+      listDropletDomainsForUser({ userId, dropletId: id }).catch(() => [])
     ]);
 
     return {
       droplet,
       networkProfile,
       liveStats,
+      dnsRecords,
       firewallRules: fwRes.rows,
       snapshots: snapRes.rows,
       invoices: invRes.rows,
       ipv6Events: ipv6EventsRes.rows,
-      sslPolicy: 'User-Managed inside VPS (Platform SSL Disabled)'
+      sslPolicy: 'Managed Edge SSL (Auto HTTPS 443 via Tiwlo Nameservers / Cloudflare) & User-Managed Inside VPS'
     };
   },
 

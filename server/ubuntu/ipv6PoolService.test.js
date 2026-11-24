@@ -86,7 +86,7 @@ test('allocateDropletIpv6 yields deterministic unique collision-free /128 addres
     assert.equal(alloc.prefix, prefix);
     assert.equal(alloc.status, 'active');
     assert.equal(alloc.sshCommand, formatIpv6SshCommand({ ipv6: alloc.ipv6, username: 'root', port: 22000 + i }));
-    assert.match(alloc.sshCommand, /^ssh root@\[.+\] -p 22\d{3}$/);
+    assert.match(alloc.sshCommand, /^ssh root@[0-9a-f:]+ -p 22\d{3}$/i);
 
     assert.equal(allocatedSet.has(alloc.ipv6), false, 'Every droplet must receive a unique IPv6');
     assert.equal(suffixSet.has(alloc.hostSuffix), false, 'Every droplet must receive a unique suffix');
@@ -557,14 +557,14 @@ test('renderServerIpv6ChangedEmail escapes unsafe HTML and uses Tiwlo branded la
     dropletName: 'prod & staging',
     oldIpv6: '2001:db8:1::10',
     newIpv6: '2001:db8:2::10',
-    sshCommand: 'ssh root@[2001:db8:2::10] -p 22001'
+    sshCommand: 'ssh root@2001:db8:2::10 -p 22001'
   });
 
   assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
   assert.match(html, /prod &amp; staging/);
   assert.match(html, /2001:db8:2::10/);
-  assert.match(html, /ssh root@\[2001:db8:2::10\] -p 22001/);
+  assert.match(html, /ssh root@2001:db8:2::10 -p 22001/);
   assert.match(html, /Open Cloud Dashboard/);
 });
 

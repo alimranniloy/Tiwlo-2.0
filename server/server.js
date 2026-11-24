@@ -69,6 +69,12 @@ import { warmupFaceLivenessEngine } from './security/faceLivenessEngine.js';
 import { startAutomatedLogRetentionScheduler } from './db/logRotationService.js';
 import { ensureServiceSubscriptionsSchema, startServiceRenewalScheduler } from './db/serviceSubscriptions.js';
 import { attachVpsTerminalWebSocket } from './ubuntu/vpsTerminalWs.js';
+import { vpsWebProxyMiddleware, handleVpsWebProxyUpgrade } from './ubuntu/vpsWebProxy.js';
+import {
+  WINDOWS_RELAY_SCRIPT_CONTENT,
+  UNIX_RELAY_SCRIPT_CONTENT,
+  buildSshRelayMetadata
+} from './ubuntu/sshBridgeScripts.js';
 import { createSmartTrafficShieldMiddleware } from './security/smartTrafficShield.js';
 import whatsappRoutes from './whatsapp/whatsappRoutes.js';
 import { WhatsAppManager } from './whatsapp/whatsappManager.js';
@@ -93,6 +99,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.disable('x-powered-by');
 configureTrustedProxy(app);
+app.use(vpsWebProxyMiddleware);
 const PORT = process.env.PORT || 5000;
 const HTTP_PORT = Number.parseInt(process.env.HTTP_PORT || String(Number(PORT) + 1), 10);
 const LISTEN_ADDRESS = process.env.TIWLO_BIND_ADDRESS ||
@@ -528,6 +535,34 @@ app.use('/api/subdomains', subdomainRoutes);
 
 // Cloud & Droplets
 app.use('/api/cloud', cloudRoutes);
+app.get('/ssh/relay-v1.ps1', (_req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.type('text/plain; charset=utf-8').send(WINDOWS_RELAY_SCRIPT_CONTENT);
+});
+app.get('/ssh/relay-v1.py', (_req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.type('text/plain; charset=utf-8').send(UNIX_RELAY_SCRIPT_CONTENT);
+});
+app.get('/ssh/:dropletId', (req, res) => {
+  const rawId = String(req.params.dropletId || '').trim();
+  if (!/^[a-zA-Z0-9_-]{4,64}$/.test(rawId)) {
+    return res.status(400).json({ error: 'Invalid VPS droplet identifier' });
+  }
+  const accept = String(req.headers.accept || '');
+  if (accept.includes('text/html')) {
+    return res.redirect(302, `/cloud/droplets/${encodeURIComponent(rawId)}/console`);
+  }
+  const meta = buildSshRelayMetadata({ dropletId: rawId, gatewayUser: `twvps_${rawId}` });
+  return res.json({
+    dropletId: rawId,
+    sshBridgeUrl: meta?.sshBridgeUrl || null,
+    webConsoleUrl: meta?.webConsoleUrl || null,
+    scripts: {
+      windows: '/ssh/relay-v1.ps1',
+      unix: '/ssh/relay-v1.py'
+    }
+  });
+});
 app.use('/api/verification', verificationRoutes);
 
 // Live Visitor Telemetry & Audit
@@ -942,7 +977,7 @@ async function startServer() {
     const httpsServer = https.createServer(httpsOptions, app);
     httpsServer.keepAliveTimeout = 65_000;
     httpsServer.headersTimeout = 66_000;
-    attachVpsTerminalWebSocket(httpsServer);
+    attachVpsTerminalWebSocket(httpsServer, { onCustomDomainUpgrade: handleVpsWebProxyUpgrade });
     httpsServer.listen(PORT, LISTEN_ADDRESS, () => {
       console.log(`🔒 Tiwlo StockPro Secure HTTPS Server running on https://${LISTEN_ADDRESS}:${PORT}`);
     });
@@ -950,7 +985,7 @@ async function startServer() {
     const httpServer = http.createServer(app);
     httpServer.keepAliveTimeout = 65_000;
     httpServer.headersTimeout = 66_000;
-    attachVpsTerminalWebSocket(httpServer);
+    attachVpsTerminalWebSocket(httpServer, { onCustomDomainUpgrade: handleVpsWebProxyUpgrade });
     httpServer.listen(HTTP_PORT, LISTEN_ADDRESS, () => {
       console.log(`🌐 Tiwlo internal HTTP Server running on http://${LISTEN_ADDRESS}:${HTTP_PORT}`);
     });
@@ -960,11 +995,11 @@ async function startServer() {
     });
     fallbackServer.keepAliveTimeout = 65_000;
     fallbackServer.headersTimeout = 66_000;
-    attachVpsTerminalWebSocket(fallbackServer);
+    attachVpsTerminalWebSocket(fallbackServer, { onCustomDomainUpgrade: handleVpsWebProxyUpgrade });
     const inboundHttpServer = http.createServer(app);
     inboundHttpServer.keepAliveTimeout = 65_000;
     inboundHttpServer.headersTimeout = 66_000;
-    attachVpsTerminalWebSocket(inboundHttpServer);
+    attachVpsTerminalWebSocket(inboundHttpServer, { onCustomDomainUpgrade: handleVpsWebProxyUpgrade });
     inboundHttpServer.listen(HTTP_PORT, LISTEN_ADDRESS, () => {
       console.log(`Tiwlo local mail-delivery endpoint listening on ${LISTEN_ADDRESS}:${HTTP_PORT}`);
     });

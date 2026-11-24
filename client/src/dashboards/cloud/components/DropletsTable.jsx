@@ -48,12 +48,20 @@ function resolveRegionFlagUrl(item) {
 }
 
 function resolveSshCommand(item) {
-  if (item?.sshGatewayCommand) return item.sshGatewayCommand;
-  if (item?.sshCommand) return item.sshCommand;
-  if (item?.sshGatewayUser && item?.sshGatewayHost) {
-    const h = String(item.sshGatewayHost).trim();
-    return h.includes(':') ? `ssh ${item.sshGatewayUser}@[${h}]` : `ssh ${item.sshGatewayUser}@${h}`;
+  const relay = item?.sshRelayCommands;
+  if (relay) {
+    const isUnix =
+      typeof navigator !== 'undefined' &&
+      /mac|linux|ubuntu|darwin|x11/i.test(navigator.platform || navigator.userAgent || '');
+    if (isUnix && relay.unixCommand) return relay.unixCommand;
+    if (relay.windowsCommand) return relay.windowsCommand;
   }
+  if (item?.sshGatewayUser && item?.sshGatewayHost) {
+    const h = String(item.sshGatewayHost).trim().replace(/^\[|\]$/g, '');
+    return `ssh ${item.sshGatewayUser}@${h}`;
+  }
+  if (item?.sshGatewayCommand) return String(item.sshGatewayCommand).replace(/\[([^\]]+)\]/g, '$1');
+  if (item?.sshCommand) return String(item.sshCommand).replace(/\[([^\]]+)\]/g, '$1');
   const username = item?.accessUsername || 'root';
   const host = item?.publicIpv4 || (item?.ip && item.ip !== 'Unavailable' ? item.ip : null);
   if (host && item?.sshPort && Number(item.sshPort) !== 22) return `ssh ${username}@${host} -p ${item.sshPort}`;

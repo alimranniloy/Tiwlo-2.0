@@ -297,8 +297,12 @@ export async function verifyUserDomain({ userId, id }) {
   if (row.status === 'verified' || row.status === 'active') return serializeDomain(row, liveConfig);
 
   const expected = `${VERIFICATION_PREFIX}${row.verification_token}`;
-  const records = await resolveTxtRecords(`_tiwlo-verification.${row.domain}`);
-  if (!records.includes(expected)) {
+  const [records, addrCheck, nsCheck] = await Promise.all([
+    resolveTxtRecords(`_tiwlo-verification.${row.domain}`),
+    verifyDomainAddress(row.domain).catch(() => ({ ready: false })),
+    verifyDomainNameservers(row.domain).catch(() => ({ ready: false }))
+  ]);
+  if (!records.includes(expected) && !addrCheck.ready && !nsCheck.ready) {
     throw new DomainServiceError('DNS ownership has not been verified yet.', 409, {
       verification: {
         type: 'TXT',
@@ -391,6 +395,7 @@ export async function findProvisionableCustomDomain(domain) {
   const normalized = domainToASCII(String(domain || '').trim().toLowerCase().replace(/\.$/, ''));
   if (!normalized) return false;
   const candidates = normalized.split('.').map((_label, index, labels) => labels.slice(index).join('.'));
+  const hostVariants = normalized.startsWith('www.') ? [normalized, normalized.slice(4)] : [normalized];
   const { rows } = await queryPg(
     `SELECT domain FROM system_custom_domains
      WHERE domain = ANY($1::text[])
@@ -398,8 +403,12 @@ export async function findProvisionableCustomDomain(domain) {
          (status = 'active' AND ssl_status = 'active')
          OR (status = 'verified' AND ssl_status IN ('pending', 'provisioning'))
        )
+     UNION ALL
+     SELECT hostname AS domain FROM cloud_droplet_domains
+     WHERE hostname = ANY($2::text[])
+       AND status IN ('verified', 'active')
      LIMIT 1`,
-    [candidates]
+    [candidates, hostVariants]
   );
   return rows.length > 0;
 }

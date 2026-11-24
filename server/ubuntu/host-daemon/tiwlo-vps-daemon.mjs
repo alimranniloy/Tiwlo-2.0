@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { execFile, spawn } from 'node:child_process';
@@ -12,6 +13,8 @@ const execFileAsync = promisify(execFile);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number.parseInt(process.env.TIWLO_AGENT_PORT || '9443', 10) || 9443;
+const SSH_GATEWAY_HOST = String(process.env.TIWLO_SSH_GATEWAY_HOST || '127.0.0.1').trim() || '127.0.0.1';
+const SSH_GATEWAY_PORT = Number.parseInt(process.env.TIWLO_SSH_GATEWAY_PORT || '2222', 10) || 2222;
 const SHARED_SECRET = String(
   process.env.TIWLO_INTERNAL_IDENTITY_SECRET || process.env.TIWLO_AGENT_TOKEN || ''
 ).trim();
@@ -548,6 +551,161 @@ function isAuthorized(authHeader) {
   return crypto.timingSafeEqual(a, b);
 }
 
+const containerIpCache = new Map();
+
+async function resolveRunningContainerIp(entry, inspectRunning = inspectContainer) {
+  const cached = containerIpCache.get(entry.containerName);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.ip;
+  }
+  const inspected = await inspectRunning(entry.containerName);
+  if (!inspected?.State?.Running) {
+    containerIpCache.delete(entry.containerName);
+    return null;
+  }
+  const networks = inspected.NetworkSettings?.Networks || {};
+  const primary = networks[VPS_NETWORK]?.IPAddress;
+  const fallback = Object.values(networks).find((n) => n?.IPAddress)?.IPAddress;
+  const ip = String(primary || fallback || '').trim();
+  if (!ip) return null;
+  containerIpCache.set(entry.containerName, { ip, expiresAt: Date.now() + 5000 });
+  return ip;
+}
+
+function parseProxyTargetPort(raw) {
+  const num = Number.parseInt(String(raw ?? '80'), 10);
+  if (!Number.isInteger(num) || num < 1 || num > 65535) return null;
+  return num;
+}
+
+const HOP_BY_HOP_PROXY_HEADERS = new Set([
+  'connection',
+  'keep-alive',
+  'proxy-authenticate',
+  'proxy-authorization',
+  'te',
+  'trailer',
+  'transfer-encoding',
+  'upgrade',
+  'x-tiwlo-daemon-auth',
+  'x-tiwlo-proxy-port',
+  'x-tiwlo-proxy-path',
+  'x-tiwlo-proxy-host',
+  'x-tiwlo-proxy-proto'
+]);
+
+function forwardHttpToContainer(req, res, { containerIp, targetPort, targetPath, targetHost, proto }) {
+  const headers = {};
+  for (const [key, value] of Object.entries(req.headers || {})) {
+    const lower = key.toLowerCase();
+    if (HOP_BY_HOP_PROXY_HEADERS.has(lower) || value === undefined) continue;
+    headers[lower] = value;
+  }
+  if (req.headers['transfer-encoding']) {
+    delete headers['content-length'];
+  }
+  if (targetHost) headers.host = targetHost;
+  headers['x-forwarded-proto'] = proto || 'https';
+  if (!headers['x-forwarded-host'] && targetHost) headers['x-forwarded-host'] = targetHost;
+
+  const upstreamReq = http.request(
+    {
+      hostname: containerIp,
+      port: targetPort,
+      path: targetPath || '/',
+      method: req.method || 'GET',
+      headers,
+      timeout: 30000
+    },
+    (upstreamRes) => {
+      const respHeaders = {};
+      for (const [k, v] of Object.entries(upstreamRes.headers || {})) {
+        if (k.toLowerCase() === 'transfer-encoding' || v === undefined) continue;
+        respHeaders[k] = v;
+      }
+      res.writeHead(upstreamRes.statusCode || 502, respHeaders);
+      upstreamRes.pipe(res);
+    }
+  );
+
+  upstreamReq.on('timeout', () => {
+    upstreamReq.destroy(Object.assign(new Error('Upstream VPS request timed out'), { code: 'ETIMEDOUT' }));
+  });
+
+  upstreamReq.on('error', (err) => {
+    if (!res.headersSent) {
+      const code = err?.code || 'UPSTREAM_ERROR';
+      res.writeHead(502, {
+        'Content-Type': 'application/json',
+        'X-Tiwlo-Upstream-Error': code
+      });
+      res.end(JSON.stringify({ ok: false, error: err?.message || 'Upstream container connection failed', code }));
+    } else {
+      try { res.destroy(); } catch {}
+    }
+  });
+
+  req.pipe(upstreamReq);
+}
+
+function bridgeTcpSocketToWebSocket(req, socket, head, targetHost, targetPort) {
+  const tcp = net.createConnection({ host: targetHost, port: targetPort });
+  let upgraded = false;
+  const connectTimer = setTimeout(() => {
+    if (!upgraded) {
+      try { tcp.destroy(); } catch {}
+      rejectUpgrade(socket, 504, 'Gateway Timeout');
+    }
+  }, 5000);
+
+  tcp.once('error', () => {
+    clearTimeout(connectTimer);
+    if (!upgraded) {
+      rejectUpgrade(socket, 503, 'Service Unavailable');
+    }
+  });
+
+  tcp.once('connect', () => {
+    clearTimeout(connectTimer);
+    if (socket.destroyed) {
+      try { tcp.destroy(); } catch {}
+      return;
+    }
+    tcp.setNoDelay(true);
+    upgraded = true;
+    const ws = acceptWebSocketUpgrade(req, socket, head);
+    if (!ws) {
+      try { tcp.destroy(); } catch {}
+      return;
+    }
+
+    ws.on('error', () => {
+      try { tcp.destroy(); } catch {}
+    });
+    tcp.on('data', (chunk) => {
+      if (!ws.isClosed) ws.sendBinary(chunk);
+    });
+    tcp.on('end', () => {
+      if (!ws.isClosed) ws.close(1000, 'Upstream ended');
+    });
+    tcp.on('close', () => {
+      if (!ws.isClosed) ws.close(1000, 'Upstream closed');
+    });
+    tcp.on('error', () => {
+      if (!ws.isClosed) ws.close(1011, 'Upstream error');
+    });
+    ws.on('message', ({ data }) => {
+      const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
+      if (!tcp.destroyed && buf.length > 0) {
+        tcp.write(buf);
+      }
+    });
+    ws.on('close', () => {
+      try { tcp.destroy(); } catch {}
+    });
+  });
+}
+
 async function readJsonBody(req, limitBytes = 2 * 1024 * 1024) {
   const chunks = [];
   let total = 0;
@@ -576,18 +734,84 @@ function isLoopbackRemoteAddress(addr) {
   return clean === '127.0.0.1' || clean === '::1';
 }
 
-export function createVpsDaemonServer() {
+function rejectUpgrade(socket, status, message) {
+  try {
+    socket.write(`HTTP/1.1 ${status} ${message}\r\nConnection: close\r\n\r\n`);
+    socket.destroy();
+  } catch {}
+}
+
+async function resolveActiveRunningEntry(dropletId, {
+  readRegistry = loadRegistry,
+  inspectRunning = inspectContainer,
+  expectedGatewayUser = ''
+} = {}, socket) {
+  const reg = readRegistry();
+  const entry = reg?.droplets?.[dropletId];
+  if (!entry || entry.status !== 'active') {
+    rejectUpgrade(socket, 409, 'Conflict');
+    return null;
+  }
+  if (expectedGatewayUser && entry.sshGatewayUser && entry.sshGatewayUser !== expectedGatewayUser) {
+    rejectUpgrade(socket, 403, 'Forbidden');
+    return null;
+  }
+  const inspected = await inspectRunning(entry.containerName);
+  if (!inspected?.State?.Running) {
+    rejectUpgrade(socket, 503, 'Service Unavailable');
+    return null;
+  }
+  return entry;
+}
+
+export function createVpsDaemonServer(options = {}) {
+  const secretToken = String(options.sharedSecret ?? SHARED_SECRET ?? '').trim();
+  const checkAuth = (authHeader) => {
+    if (!secretToken || typeof authHeader !== 'string') return false;
+    const expected = `Bearer ${secretToken}`;
+    const a = Buffer.from(authHeader);
+    const b = Buffer.from(expected);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  };
+  const sshGatewayHost = String(options.sshGatewayHost || SSH_GATEWAY_HOST).trim() || '127.0.0.1';
+  const sshGatewayPort = Number.parseInt(String(options.sshGatewayPort ?? SSH_GATEWAY_PORT), 10) || 2222;
+  const readRegistry = typeof options.loadRegistry === 'function' ? options.loadRegistry : loadRegistry;
+  const inspectRunning = typeof options.inspectContainer === 'function' ? options.inspectContainer : inspectContainer;
+
   const server = http.createServer(async (req, res) => {
     try {
-      if (!SHARED_SECRET) {
+      if (!secretToken) {
         return sendJson(res, 503, { ok: false, error: 'Host daemon secret not configured' });
       }
-      if (!isAuthorized(req.headers.authorization)) {
+      if (!checkAuth(req.headers['x-tiwlo-daemon-auth'] || req.headers.authorization)) {
         return sendJson(res, 401, { ok: false, error: 'Unauthorized' });
       }
 
       const urlObj = new URL(req.url || '/', `http://127.0.0.1:${PORT}`);
       const pathname = urlObj.pathname;
+
+      const httpProxyMatch = pathname.match(/^\/host\/v1\/droplets\/([a-zA-Z0-9_-]+)\/http-proxy$/);
+      if (httpProxyMatch) {
+        const dropletId = sanitizeDropletId(httpProxyMatch[1]);
+        const reg = readRegistry();
+        const entry = reg?.droplets?.[dropletId];
+        if (!entry || entry.status !== 'active') {
+          return sendJson(res, 409, { ok: false, error: 'Instance inactive or missing', code: 'DROPLET_INACTIVE' });
+        }
+        const targetPort = parseProxyTargetPort(req.headers['x-tiwlo-proxy-port'] || urlObj.searchParams.get('port') || '80');
+        if (!targetPort) {
+          return sendJson(res, 400, { ok: false, error: 'Invalid target port' });
+        }
+        const containerIp = await resolveRunningContainerIp(entry, inspectRunning);
+        if (!containerIp) {
+          return sendJson(res, 503, { ok: false, error: 'VPS container is not running', code: 'CONTAINER_STOPPED' });
+        }
+        const rawTargetPath = String(req.headers['x-tiwlo-proxy-path'] || '/');
+        const targetPath = rawTargetPath.startsWith('/') ? rawTargetPath : `/${rawTargetPath}`;
+        const targetHost = String(req.headers['x-tiwlo-proxy-host'] || '').slice(0, 255);
+        const proto = String(req.headers['x-tiwlo-proxy-proto'] || 'https') === 'http' ? 'http' : 'https';
+        return forwardHttpToContainer(req, res, { containerIp, targetPort, targetPath, targetHost, proto });
+      }
 
       if (req.method === 'GET' && pathname === '/agent/v1/health') {
         const reg = loadRegistry();
@@ -695,37 +919,54 @@ export function createVpsDaemonServer() {
 
   server.on('upgrade', async (req, socket, head) => {
     try {
-      if (!SHARED_SECRET || !isAuthorized(req.headers.authorization)) {
-        socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
-        socket.destroy();
-        return;
+      if (!secretToken || !checkAuth(req.headers['x-tiwlo-daemon-auth'] || req.headers.authorization)) {
+        return rejectUpgrade(socket, 401, 'Unauthorized');
       }
       const urlObj = new URL(req.url || '/', `http://127.0.0.1:${PORT}`);
       const termMatch = urlObj.pathname.match(/^\/host\/v1\/droplets\/([a-zA-Z0-9_-]+)\/terminal$/);
-      if (!termMatch) {
-        socket.write('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n');
-        socket.destroy();
-        return;
+      const sshBridgeMatch = urlObj.pathname.match(/^\/host\/v1\/droplets\/([a-zA-Z0-9_-]+)\/ssh-bridge$/);
+      const tcpTunnelMatch = urlObj.pathname.match(/^\/host\/v1\/droplets\/([a-zA-Z0-9_-]+)\/tcp-tunnel$/);
+      if (!termMatch && !sshBridgeMatch && !tcpTunnelMatch) {
+        return rejectUpgrade(socket, 404, 'Not Found');
       }
 
-      const dropletId = sanitizeDropletId(termMatch[1]);
-      const reg = loadRegistry();
-      const entry = reg.droplets[dropletId];
-      if (!entry || entry.status !== 'active') {
-        socket.write('HTTP/1.1 409 Conflict\r\nConnection: close\r\n\r\n');
-        socket.destroy();
-        return;
+      const rawId = termMatch ? termMatch[1] : sshBridgeMatch ? sshBridgeMatch[1] : tcpTunnelMatch[1];
+      const dropletId = sanitizeDropletId(rawId);
+
+      if (sshBridgeMatch) {
+        const expectedGatewayUser = String(urlObj.searchParams.get('gatewayUser') || '').trim();
+        if (expectedGatewayUser && !SAFE_GATEWAY_USER_RE.test(expectedGatewayUser)) {
+          return rejectUpgrade(socket, 400, 'Bad Request');
+        }
+        const entry = await resolveActiveRunningEntry(
+          dropletId,
+          { readRegistry, inspectRunning, expectedGatewayUser },
+          socket
+        );
+        if (!entry) return;
+        return bridgeTcpSocketToWebSocket(req, socket, head, sshGatewayHost, sshGatewayPort);
       }
 
-      const inspected = await inspectContainer(entry.containerName);
-      if (!inspected?.State?.Running) {
-        socket.write('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n');
-        socket.destroy();
-        return;
+      if (tcpTunnelMatch) {
+        const targetPort = parseProxyTargetPort(urlObj.searchParams.get('port') || '80');
+        if (!targetPort) {
+          return rejectUpgrade(socket, 400, 'Bad Request');
+        }
+        const entry = await resolveActiveRunningEntry(dropletId, { readRegistry, inspectRunning }, socket);
+        if (!entry) return;
+        const containerIp = await resolveRunningContainerIp(entry, inspectRunning);
+        if (!containerIp) {
+          return rejectUpgrade(socket, 503, 'Service Unavailable');
+        }
+        return bridgeTcpSocketToWebSocket(req, socket, head, containerIp, targetPort);
       }
+
+      const entry = await resolveActiveRunningEntry(dropletId, { readRegistry, inspectRunning }, socket);
+      if (!entry) return;
 
       const ws = acceptWebSocketUpgrade(req, socket, head);
       if (!ws) return;
+      ws.on('error', () => {});
 
       const cols = Math.min(500, Math.max(20, Number.parseInt(urlObj.searchParams.get('cols') || '120', 10) || 120));
       const rows = Math.min(200, Math.max(5, Number.parseInt(urlObj.searchParams.get('rows') || '32', 10) || 32));

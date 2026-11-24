@@ -14,7 +14,6 @@ import {
   RefreshCw,
   Search,
   Server,
-  ShieldAlert,
   ShieldCheck,
   ShoppingBag,
   Trash2,
@@ -167,14 +166,17 @@ export default function DomainsView({ currentUser, showToast }) {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   // Add Domain flow state
+  const [addDomainMode, setAddDomainMode] = useState('custom');
   const [newDomainInput, setNewDomainInput] = useState('');
   const [availability, setAvailability] = useState(null);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [claimingDomain, setClaimingDomain] = useState(false);
   const [newlyCreatedDomain, setNewlyCreatedDomain] = useState(null);
+  const [verifyingDomainId, setVerifyingDomainId] = useState(null);
 
   // Connect VPS / Droplet state
   const [selectedDropletId, setSelectedDropletId] = useState('');
+  const [targetProxyPort, setTargetProxyPort] = useState('80');
   const [connectingDroplet, setConnectingDroplet] = useState(false);
 
   // Notices, clipboard, propagation health, lock preferences
@@ -186,20 +188,59 @@ export default function DomainsView({ currentUser, showToast }) {
   const [autoRenewPrefs, setAutoRenewPrefs] = useState({});
 
   const fetchAllDomainData = useCallback(async () => {
-    const [domainsRes, dropletsRes, configRes] = await Promise.allSettled([
+    const [domainsRes, customDomainsRes, dropletsRes, configRes] = await Promise.allSettled([
       fetch('/api/subdomains', { credentials: 'include' }),
+      fetch('/api/cloud/domains', { credentials: 'include' }),
       fetch('/api/cloud/droplets', { credentials: 'include' }),
       fetch('/api/domains/config/dns', { credentials: 'include' })
     ]);
 
-    if (domainsRes.status !== 'fulfilled') {
+    let freeDomains = [];
+    if (domainsRes.status === 'fulfilled' && domainsRes.value.ok) {
+      const domainsPayload = await domainsRes.value.json().catch(() => ({}));
+      freeDomains = (Array.isArray(domainsPayload.domains) ? domainsPayload.domains : []).map((d) => ({
+        ...d,
+        domainKind: 'subdomain'
+      }));
+    }
+
+    let customDomains = [];
+    const customRecordsMap = {};
+    if (customDomainsRes.status === 'fulfilled' && customDomainsRes.value.ok) {
+      const customPayload = await customDomainsRes.value.json().catch(() => ({}));
+      const rawCustom = Array.isArray(customPayload.domains) ? customPayload.domains : [];
+      customDomains = rawCustom
+        .filter((cd) => !freeDomains.some((fd) => String(fd.domain || '').toLowerCase() === String(cd.hostname || '').toLowerCase()))
+        .map((cd) => {
+          customRecordsMap[cd.id] = Array.isArray(cd.records) ? cd.records : [];
+          return {
+            ...cd,
+            domain: cd.hostname || cd.domain,
+            name: cd.hostname || cd.domain,
+            domainKind: 'custom'
+          };
+        });
+      // Annotate free subdomains that also have active VPS proxy bindings
+      freeDomains = freeDomains.map((fd) => {
+        const match = rawCustom.find((cd) => String(cd.hostname || '').toLowerCase() === String(fd.domain || '').toLowerCase());
+        return match
+          ? {
+            ...fd,
+            cloudBindingId: match.id,
+            dropletId: match.dropletId,
+            dropletName: match.dropletName,
+            targetPort: match.targetPort,
+            proxyEnabled: match.proxyEnabled
+          }
+          : fd;
+      });
+    }
+
+    if (domainsRes.status !== 'fulfilled' && customDomainsRes.status !== 'fulfilled') {
       throw new Error('Could not load domains.');
     }
-    const domainsPayload = await domainsRes.value.json().catch(() => ({}));
-    if (!domainsRes.value.ok) {
-      throw new Error(domainsPayload.error || 'Could not load domains.');
-    }
-    const nextDomains = Array.isArray(domainsPayload.domains) ? domainsPayload.domains : [];
+
+    const nextDomains = [...customDomains, ...freeDomains];
 
     let nextDroplets = [];
     if (dropletsRes.status === 'fulfilled' && dropletsRes.value.ok) {
@@ -226,9 +267,9 @@ export default function DomainsView({ currentUser, showToast }) {
       }
     }
 
-    // Load DNS records for each domain so portfolio status badges (A, AAAA, VPS link) are accurate
+    // Load DNS records for free subdomains (custom domain records are already included)
     const recordEntries = await Promise.all(
-      nextDomains.map(async (dom) => {
+      freeDomains.map(async (dom) => {
         try {
           const recRes = await fetch(`/api/subdomains/${encodeURIComponent(dom.id)}/records`, { credentials: 'include' });
           if (!recRes.ok) return [dom.id, null];
@@ -240,7 +281,7 @@ export default function DomainsView({ currentUser, showToast }) {
       })
     );
 
-    const nextRecordsMap = {};
+    const nextRecordsMap = { ...customRecordsMap };
     for (const [domId, recList] of recordEntries) {
       if (recList) nextRecordsMap[domId] = recList;
     }
@@ -386,9 +427,9 @@ export default function DomainsView({ currentUser, showToast }) {
     };
   }, [currentUser?.id, refreshDomains, showToast]);
 
-  // Debounced availability check in Add Domain flow
+  // Debounced availability check ONLY in Free Subdomain mode
   useEffect(() => {
-    if (viewMode !== 'add') return undefined;
+    if (viewMode !== 'add' || addDomainMode !== 'subdomain') return undefined;
     const cleaned = newDomainInput.trim().toLowerCase();
     if (!cleaned) return undefined;
 
@@ -418,10 +459,13 @@ export default function DomainsView({ currentUser, showToast }) {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [newDomainInput, viewMode]);
+  }, [addDomainMode, newDomainInput, viewMode]);
 
   const loadRecords = useCallback(async (domainObj) => {
     if (!domainObj?.id) return [];
+    if (domainObj.domainKind === 'custom') {
+      return recordsByDomainId[domainObj.id] || domainObj.records || [];
+    }
     setLoadingRecords(true);
     try {
       const response = await fetch(`/api/subdomains/${encodeURIComponent(domainObj.id)}/records`, { credentials: 'include' });
@@ -436,7 +480,7 @@ export default function DomainsView({ currentUser, showToast }) {
     } finally {
       setLoadingRecords(false);
     }
-  }, [showToast]);
+  }, [recordsByDomainId, showToast]);
 
   const selectDomain = (domainObj) => {
     setSelected(domainObj);
@@ -471,18 +515,23 @@ export default function DomainsView({ currentUser, showToast }) {
     const domRecords = recordsByDomainId[domainObj.id] || [];
     const aRecords = domRecords.filter((r) => r.type === 'A');
     const aaaaRecords = domRecords.filter((r) => r.type === 'AAAA');
-    const hasA = aRecords.length > 0;
-    const hasAAAA = aaaaRecords.length > 0;
+    const isCustom = domainObj.domainKind === 'custom';
+    const hasA = aRecords.length > 0 || (isCustom && Boolean(platformDns.ipv4));
+    const hasAAAA = aaaaRecords.length > 0 || (isCustom && Boolean(domainObj.serverIpv6 || platformDns.ipv6));
     const isVerified = ['active', 'verified'].includes(String(domainObj.status || '').toLowerCase());
 
-    let linkedDroplet = null;
-    for (const d of droplets) {
-      const { ipv4, ipv6 } = getDropletIps(d);
-      const matchesV4 = ipv4 && aRecords.some((r) => r.value === ipv4);
-      const matchesV6 = ipv6 && aaaaRecords.some((r) => r.value === ipv6);
-      if (matchesV4 || matchesV6) {
-        linkedDroplet = d;
-        break;
+    let linkedDroplet = domainObj.dropletId
+      ? droplets.find((d) => String(d.id) === String(domainObj.dropletId)) || null
+      : null;
+    if (!linkedDroplet) {
+      for (const d of droplets) {
+        const { ipv4, ipv6 } = getDropletIps(d);
+        const matchesV4 = ipv4 && aRecords.some((r) => r.value === ipv4);
+        const matchesV6 = ipv6 && aaaaRecords.some((r) => r.value === ipv6);
+        if (matchesV4 || matchesV6) {
+          linkedDroplet = d;
+          break;
+        }
       }
     }
 
@@ -495,10 +544,10 @@ export default function DomainsView({ currentUser, showToast }) {
       needsDns: !hasA && !hasAAAA,
       linkedDroplet,
       nsList,
-      primaryIpv4: aRecords[0]?.value || '',
-      primaryIpv6: aaaaRecords[0]?.value || ''
+      primaryIpv4: aRecords[0]?.value || (isCustom ? platformDns.ipv4 : ''),
+      primaryIpv6: aaaaRecords[0]?.value || (isCustom ? (domainObj.serverIpv6 || platformDns.ipv6) : '')
     };
-  }, [droplets, platformDns.nameservers, recordsByDomainId]);
+  }, [droplets, platformDns.ipv4, platformDns.ipv6, platformDns.nameservers, recordsByDomainId]);
 
   const filterCounts = useMemo(() => {
     let activeCount = 0;
@@ -542,12 +591,15 @@ export default function DomainsView({ currentUser, showToast }) {
     event.preventDefault();
     if (!selected?.id || savingRecord) return;
     setSavingRecord(true);
-    const url = editing
-      ? `/api/subdomains/${encodeURIComponent(selected.id)}/records/${encodeURIComponent(editing.id)}`
-      : `/api/subdomains/${encodeURIComponent(selected.id)}/records`;
+    const isCustom = selected.domainKind === 'custom';
+    const url = isCustom
+      ? `/api/cloud/domains/${encodeURIComponent(selected.id)}/records`
+      : editing
+        ? `/api/subdomains/${encodeURIComponent(selected.id)}/records/${encodeURIComponent(editing.id)}`
+        : `/api/subdomains/${encodeURIComponent(selected.id)}/records`;
     try {
       const response = await fetch(url, {
-        method: editing ? 'PATCH' : 'POST',
+        method: !isCustom && editing ? 'PATCH' : 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(record)
@@ -558,7 +610,7 @@ export default function DomainsView({ currentUser, showToast }) {
         const current = prev[selected.id] || [];
         const updated = editing
           ? current.map((item) => (item.id === editing.id ? payload.record : item))
-          : [...current, payload.record];
+          : [...current.filter((item) => item.id !== payload.record?.id), payload.record];
         return { ...prev, [selected.id]: updated };
       });
       setRecord(EMPTY_RECORD);
@@ -573,9 +625,12 @@ export default function DomainsView({ currentUser, showToast }) {
 
   const deleteRecord = async (item) => {
     if (!selected?.id) return;
+    const isCustom = selected.domainKind === 'custom';
     try {
       const response = await fetch(
-        `/api/subdomains/${encodeURIComponent(selected.id)}/records/${encodeURIComponent(item.id)}`,
+        isCustom
+          ? `/api/cloud/domains/${encodeURIComponent(selected.id)}/records/${encodeURIComponent(item.id)}`
+          : `/api/subdomains/${encodeURIComponent(selected.id)}/records/${encodeURIComponent(item.id)}`,
         { method: 'DELETE', credentials: 'include' }
       );
       const payload = response.status === 204 ? null : await response.json();
@@ -613,6 +668,33 @@ export default function DomainsView({ currentUser, showToast }) {
     return payload.record;
   };
 
+  const handleVerifyCustomDomain = async (domainObj) => {
+    const target = domainObj || selected;
+    if (!target?.id || target.domainKind !== 'custom') return;
+    setVerifyingDomainId(target.id);
+    try {
+      const response = await fetch(`/api/cloud/domains/${encodeURIComponent(target.id)}/verify`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Verification failed.');
+      if (payload.verified) {
+        const updated = { ...payload.domain, domainKind: 'custom', name: payload.domain.hostname };
+        setDomains((prev) => prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
+        if (selected?.id === updated.id) setSelected((prev) => ({ ...prev, ...updated }));
+        if (newlyCreatedDomain?.id === updated.id) setNewlyCreatedDomain((prev) => ({ ...prev, ...updated }));
+        showToast?.(`${updated.domain} verified and live with automatic SSL.`, 'success');
+      } else {
+        showToast?.('Nameservers or edge AAAA record not detected yet. Wait a minute for propagation and retry.', 'warning');
+      }
+    } catch (error) {
+      showToast?.(error.message || 'Verification failed.', 'error');
+    } finally {
+      setVerifyingDomainId(null);
+    }
+  };
+
   const connectDomainToDroplet = async (targetDomain, dropletId) => {
     const target = targetDomain || selected;
     const droplet = droplets.find((d) => String(d.id) === String(dropletId));
@@ -620,38 +702,67 @@ export default function DomainsView({ currentUser, showToast }) {
       showToast?.('Select a valid VPS / Droplet first.', 'error');
       return;
     }
-    const { ipv4, ipv6 } = getDropletIps(droplet);
-    if (!ipv4 && !ipv6) {
-      showToast?.(`${droplet.name || 'Selected VPS'} does not have a public IPv4 or IPv6 address yet.`, 'error');
-      return;
-    }
 
+    const parsedPort = Math.min(65535, Math.max(1, Number.parseInt(String(targetProxyPort || '80'), 10) || 80));
     setConnectingDroplet(true);
     try {
-      const currentRecords = recordsByDomainId[target.id] || (await loadRecords(target));
-      const syncedTypes = [];
-      let nextRecords = [...currentRecords];
+      if (target.domainKind === 'custom') {
+        const res = await fetch(`/api/cloud/domains/${encodeURIComponent(target.id)}/droplet`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dropletId: droplet.id, targetPort: parsedPort, proxyEnabled: true })
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(payload.error || 'Could not link VPS droplet.');
+        const updated = { ...target, dropletId: droplet.id, dropletName: droplet.name, targetPort: parsedPort, proxyEnabled: true };
+        setDomains((prev) => prev.map((d) => (d.id === target.id ? updated : d)));
+        if (selected?.id === target.id) setSelected(updated);
+        if (newlyCreatedDomain?.id === target.id) setNewlyCreatedDomain(updated);
+        showToast?.(`Connected ${target.domain} -> ${droplet.name} (port ${parsedPort}).`);
+        return;
+      }
 
-      if (ipv4) {
-        const savedA = await upsertApexRecord(target.id, nextRecords, 'A', ipv4);
+      // Free .uids.app subdomain: point apex AAAA/A to platform edge & bind HTTP proxy to selected droplet container!
+      const edgeIpv4 = platformDns.ipv4 || '';
+      const edgeIpv6 = platformDns.ipv6 || getDropletIps(droplet).ipv6 || '';
+      const currentRecords = recordsByDomainId[target.id] || (await loadRecords(target));
+      let nextRecords = [...currentRecords];
+      if (edgeIpv4) {
+        const savedA = await upsertApexRecord(target.id, nextRecords, 'A', edgeIpv4);
         nextRecords = nextRecords.some((r) => r.id === savedA.id)
           ? nextRecords.map((r) => (r.id === savedA.id ? savedA : r))
           : [...nextRecords, savedA];
-        syncedTypes.push(`A (${ipv4})`);
       }
-
-      if (ipv6) {
-        const savedAAAA = await upsertApexRecord(target.id, nextRecords, 'AAAA', ipv6);
+      if (edgeIpv6) {
+        const savedAAAA = await upsertApexRecord(target.id, nextRecords, 'AAAA', edgeIpv6);
         nextRecords = nextRecords.some((r) => r.id === savedAAAA.id)
           ? nextRecords.map((r) => (r.id === savedAAAA.id ? savedAAAA : r))
           : [...nextRecords, savedAAAA];
-        syncedTypes.push(`AAAA (${ipv6})`);
       }
 
+      const bindRes = await fetch('/api/cloud/domains', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hostname: target.domain,
+          dropletId: droplet.id,
+          targetPort: parsedPort,
+          proxyEnabled: true
+        })
+      });
+      const bindPayload = await bindRes.json().catch(() => ({}));
+      if (!bindRes.ok) throw new Error(bindPayload.error || 'Could not activate VPS web proxy.');
+
       setRecordsByDomainId((prev) => ({ ...prev, [target.id]: nextRecords }));
-      showToast?.(`Connected ${target.domain} to ${droplet.name}: synced ${syncedTypes.join(' & ')}.`);
+      const updated = { ...target, dropletId: droplet.id, dropletName: droplet.name, targetPort: parsedPort, proxyEnabled: true };
+      setDomains((prev) => prev.map((d) => (d.id === target.id ? updated : d)));
+      if (selected?.id === target.id) setSelected(updated);
+      if (newlyCreatedDomain?.id === target.id) setNewlyCreatedDomain(updated);
+      showToast?.(`Connected ${target.domain} -> ${droplet.name} (port ${parsedPort}) with automatic SSL.`);
     } catch (error) {
-      showToast?.(error.message || 'Could not sync VPS DNS records.', 'error');
+      showToast?.(error.message || 'Could not sync VPS domain routing.', 'error');
     } finally {
       setConnectingDroplet(false);
     }
@@ -659,11 +770,46 @@ export default function DomainsView({ currentUser, showToast }) {
 
   const handleClaimNewDomain = async (event) => {
     event.preventDefault();
-    const cleaned = newDomainInput.trim().toLowerCase();
+    const cleaned = newDomainInput.trim().toLowerCase().replace(/^https?:\/\//, '').split(/[/?#]/, 1)[0];
     if (!cleaned || claimingDomain) return;
 
     setClaimingDomain(true);
     try {
+      if (addDomainMode === 'custom') {
+        const parsedPort = Math.min(65535, Math.max(1, Number.parseInt(String(targetProxyPort || '80'), 10) || 80));
+        const response = await fetch('/api/cloud/domains', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            hostname: cleaned,
+            dropletId: selectedDropletId || null,
+            targetPort: parsedPort,
+            proxyEnabled: true
+          })
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Could not add custom domain.');
+        const created = {
+          ...payload.domain,
+          domain: payload.domain.hostname,
+          name: payload.domain.hostname,
+          domainKind: 'custom'
+        };
+        setDomains((prev) => [created, ...prev.filter((d) => d.id !== created.id)]);
+        setSelected(created);
+        setNewlyCreatedDomain(created);
+        setRecordsByDomainId((prev) => ({ ...prev, [created.id]: created.records || [] }));
+        setNewDomainInput('');
+        setAvailability(null);
+        showToast?.(
+          created.status === 'active'
+            ? `${created.domain} added and active with SSL!`
+            : `${created.domain} added. Point nameservers to ${platformDns.nameservers.join(' & ')} below.`
+        );
+        return;
+      }
+
       const response = await fetch('/api/subdomains/claim', {
         method: 'POST',
         credentials: 'include',
@@ -674,7 +820,7 @@ export default function DomainsView({ currentUser, showToast }) {
       if (!response.ok) {
         throw new Error(payload.error || 'Could not add domain.');
       }
-      const created = payload.registration;
+      const created = payload.registration ? { ...payload.registration, domainKind: 'subdomain' } : null;
       if (created?.id) {
         setDomains((prev) => [created, ...prev.filter((d) => d.id !== created.id)]);
         setSelected(created);
@@ -682,10 +828,10 @@ export default function DomainsView({ currentUser, showToast }) {
         setNewDomainInput('');
         setAvailability(null);
         await loadRecords(created);
-        showToast?.(`${created.domain} added. Follow the Nameserver Setup Guide or connect a VPS below.`);
+        showToast?.(`${created.domain} added. Connect a VPS in Step 3 below.`);
       }
     } catch (error) {
-      showToast?.(error.message || 'Could not register domain.', 'error');
+      showToast?.(error.message || 'Could not add domain.', 'error');
     } finally {
       setClaimingDomain(false);
     }
@@ -918,30 +1064,67 @@ export default function DomainsView({ currentUser, showToast }) {
         </div>
 
         <Alert variant="info">
-          <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" />
+          <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5" />
           <div>
-            <p className="font-semibold">User-Managed SSL (Inside Your VPS — Platform SSL Disabled)</p>
+            <p className="font-semibold">Automatic Edge HTTPS + VPS Port Forwarding (Zero Router Config)</p>
             <p className="mt-0.5 text-[11px] opacity-90">
-              Tiwlo routes DNS directly to your VPS IPv4/IPv6 without proxying or terminating TLS. Configure Certbot, Nginx, or Caddy SSL directly inside your server.
+              Domains using Tiwlo Nameservers (<code className="font-mono">dns1.tiwlo.com</code> / <code className="font-mono">dns2.tiwlo.com</code>) or Cloudflare <code className="font-mono">AAAA</code> automatically get SSL via Tiwlo Edge and route traffic directly to your chosen VPS HTTP port.
             </p>
           </div>
         </Alert>
 
-        {/* Step 1: Enter & Save Domain */}
+        {/* Step 1: Enter & Save Domain (Custom Domain OR Free .uids.app Subdomain) */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Badge variant="brand">Step 1</Badge>
-                <CardTitle>Add Your Domain</CardTitle>
+                <CardTitle>Add Custom Domain or .{FREE_SUBDOMAIN_DOMAIN}</CardTitle>
               </div>
-              {newlyCreatedDomain && <Badge variant="success">Saved: {newlyCreatedDomain.domain}</Badge>}
+              {newlyCreatedDomain && (
+                <Badge variant={newlyCreatedDomain.status === 'active' ? 'success' : 'warning'}>
+                  Saved: {newlyCreatedDomain.domain} ({newlyCreatedDomain.status === 'active' ? 'Active' : 'Pending DNS'})
+                </Badge>
+              )}
             </div>
             <CardDescription>
-              Enter a domain label under .{FREE_SUBDOMAIN_DOMAIN} to provision its DNS zone immediately.
+              Add your own domain (e.g. mybrand.com) using Tiwlo nameservers, or claim a free .{FREE_SUBDOMAIN_DOMAIN} address.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            <div className="inline-flex rounded-lg border border-neutral-200 bg-neutral-100/70 p-0.5 dark:border-neutral-800 dark:bg-neutral-900">
+              <button
+                type="button"
+                onClick={() => {
+                  setAddDomainMode('custom');
+                  setNewDomainInput('');
+                  setAvailability(null);
+                }}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
+                  addDomainMode === 'custom'
+                    ? 'bg-white text-neutral-950 shadow-xs dark:bg-neutral-800 dark:text-white'
+                    : 'text-neutral-600 hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-white'
+                }`}
+              >
+                Custom Domain (Your Domain)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAddDomainMode('subdomain');
+                  setNewDomainInput('');
+                  setAvailability(null);
+                }}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
+                  addDomainMode === 'subdomain'
+                    ? 'bg-white text-neutral-950 shadow-xs dark:bg-neutral-800 dark:text-white'
+                    : 'text-neutral-600 hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-white'
+                }`}
+              >
+                Free .{FREE_SUBDOMAIN_DOMAIN}
+              </button>
+            </div>
+
             <form onSubmit={handleClaimNewDomain} className="flex flex-col gap-3 sm:flex-row sm:items-start">
               <div className="flex-1">
                 <div className="flex items-center rounded-xl border border-neutral-200/80 bg-neutral-50 px-3 py-2 focus-within:border-neutral-400 focus-within:bg-white dark:border-neutral-800 dark:bg-neutral-900 dark:focus-within:bg-neutral-950">
@@ -952,20 +1135,22 @@ export default function DomainsView({ currentUser, showToast }) {
                       setNewDomainInput(e.target.value.toLowerCase());
                       setAvailability(null);
                     }}
-                    placeholder="my-app"
-                    maxLength={63}
-                    aria-label="Domain label"
+                    placeholder={addDomainMode === 'custom' ? 'example.com or app.example.com' : 'my-app'}
+                    maxLength={253}
+                    aria-label="Domain name"
                     className="w-full bg-transparent text-sm font-medium text-neutral-950 placeholder:text-neutral-400 focus:outline-none dark:text-white"
                     required
                   />
-                  <span className="shrink-0 pl-2 font-mono text-xs font-semibold text-emerald-700 dark:text-[#1ED760]">
-                    .{FREE_SUBDOMAIN_DOMAIN}
-                  </span>
+                  {addDomainMode === 'subdomain' && (
+                    <span className="shrink-0 pl-2 font-mono text-xs font-semibold text-emerald-700 dark:text-[#1ED760]">
+                      .{FREE_SUBDOMAIN_DOMAIN}
+                    </span>
+                  )}
                 </div>
-                {checkingAvailability && (
+                {addDomainMode === 'subdomain' && checkingAvailability && (
                   <p className="mt-1.5 text-xs text-neutral-500">Checking availability…</p>
                 )}
-                {!checkingAvailability && availability && (
+                {addDomainMode === 'subdomain' && !checkingAvailability && availability && (
                   <p className={`mt-1.5 text-xs font-medium ${availability.available ? 'text-emerald-700 dark:text-[#1ED760]' : 'text-rose-600 dark:text-rose-400'}`}>
                     {availability.available
                       ? `${availability.domain} is available.`
@@ -977,7 +1162,11 @@ export default function DomainsView({ currentUser, showToast }) {
                 type="submit"
                 variant="primary"
                 size="lg"
-                disabled={claimingDomain || !newDomainInput.trim() || (availability && !availability.available)}
+                disabled={
+                  claimingDomain ||
+                  !newDomainInput.trim() ||
+                  (addDomainMode === 'subdomain' && availability && !availability.available)
+                }
               >
                 <Plus className="h-4 w-4" />
                 {claimingDomain ? 'Saving Domain…' : 'Save Domain'}
@@ -1036,6 +1225,30 @@ export default function DomainsView({ currentUser, showToast }) {
                 </div>
               ))}
             </div>
+            {(platformDns.ipv6 || platformDns.ipv4) && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-neutral-200/80 bg-neutral-50/70 px-3.5 py-2.5 text-xs dark:border-neutral-800 dark:bg-neutral-900/50">
+                <div>
+                  <span className="font-medium text-neutral-700 dark:text-neutral-200">
+                    Or via Cloudflare (IPv4 + IPv6 CDN):
+                  </span>{' '}
+                  <span className="text-neutral-500 dark:text-neutral-400">
+                    Add AAAA record <code className="font-mono text-neutral-900 dark:text-neutral-100">@ -&gt; {platformDns.ipv6 || platformDns.ipv4}</code> with Cloudflare Proxy ON.
+                  </span>
+                </div>
+                {activeTargetDomain?.domainKind === 'custom' && activeTargetDomain.status !== 'active' && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={verifyingDomainId === activeTargetDomain.id}
+                    onClick={() => handleVerifyCustomDomain(activeTargetDomain)}
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${verifyingDomainId === activeTargetDomain.id ? 'animate-spin' : ''}`} />
+                    {verifyingDomainId === activeTargetDomain.id ? 'Checking…' : 'Verify DNS & Activate'}
+                  </Button>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -1093,6 +1306,20 @@ export default function DomainsView({ currentUser, showToast }) {
                     })}
                   </select>
                 </div>
+                <div className="w-full space-y-1.5 sm:w-28">
+                  <label htmlFor="add-domain-vps-port" className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                    VPS Port
+                  </label>
+                  <input
+                    id="add-domain-vps-port"
+                    type="number"
+                    min="1"
+                    max="65535"
+                    value={targetProxyPort}
+                    onChange={(e) => setTargetProxyPort(e.target.value)}
+                    className="h-10 w-full rounded-xl border border-neutral-200/80 bg-white px-3 text-xs font-medium text-neutral-900 focus:border-neutral-400 focus:outline-none dark:border-neutral-800 dark:bg-neutral-950 dark:text-white"
+                  />
+                </div>
                 <Button
                   type="button"
                   variant="primary"
@@ -1101,7 +1328,7 @@ export default function DomainsView({ currentUser, showToast }) {
                   onClick={() => connectDomainToDroplet(activeTargetDomain, selectedDropletId)}
                 >
                   <Link2 className="h-4 w-4" />
-                  {connectingDroplet ? 'Syncing Records…' : 'Connect & Sync A / AAAA'}
+                  {connectingDroplet ? 'Connecting…' : 'Connect to VPS'}
                 </Button>
               </div>
             )}
@@ -1158,7 +1385,7 @@ export default function DomainsView({ currentUser, showToast }) {
               Domain Portfolio &amp; DNS Manager
             </h1>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              Manage your .{FREE_SUBDOMAIN_DOMAIN} domains, authoritative nameservers, dual-stack A/AAAA records, and VPS routing.
+              Manage custom domains, free .{FREE_SUBDOMAIN_DOMAIN} domains, Tiwlo nameservers, and live VPS routing.
             </p>
           </div>
 
@@ -1252,7 +1479,7 @@ export default function DomainsView({ currentUser, showToast }) {
                 <div className="rounded-xl border border-dashed border-neutral-200/80 bg-neutral-50/60 p-8 text-center dark:border-neutral-800 dark:bg-neutral-900/40">
                   <Globe2 className="mx-auto h-6 w-6 text-neutral-400" />
                   <p className="mt-2 text-sm font-semibold text-neutral-800 dark:text-neutral-200">
-                    {domains.length === 0 ? `No .${FREE_SUBDOMAIN_DOMAIN} domains registered yet` : 'No domains match this filter'}
+                    {domains.length === 0 ? 'No custom or free domains added yet' : 'No domains match this filter'}
                   </p>
                   <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                     {domains.length === 0
@@ -1517,6 +1744,43 @@ export default function DomainsView({ currentUser, showToast }) {
                       <Activity className="h-3.5 w-3.5" />
                       {loadingRecords ? 'Checking…' : 'Check Propagation'}
                     </Button>
+                    {selected.domainKind === 'custom' && selected.status !== 'active' && (
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="md"
+                        disabled={verifyingDomainId === selected.id}
+                        onClick={() => handleVerifyCustomDomain(selected)}
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${verifyingDomainId === selected.id ? 'animate-spin' : ''}`} />
+                        {verifyingDomainId === selected.id ? 'Verifying…' : 'Verify DNS'}
+                      </Button>
+                    )}
+                    {selected.domainKind === 'custom' && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="md"
+                        className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                        onClick={async () => {
+                          const res = await fetch(`/api/cloud/domains/${encodeURIComponent(selected.id)}`, {
+                            method: 'DELETE',
+                            credentials: 'include'
+                          });
+                          if (res.ok) {
+                            setDomains((prev) => {
+                              const next = prev.filter((d) => d.id !== selected.id);
+                              setSelected(next[0] || null);
+                              return next;
+                            });
+                            showToast?.(`Removed ${selected.domain}.`);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -1795,34 +2059,34 @@ export default function DomainsView({ currentUser, showToast }) {
                 {managerTab === 'ssl' && (
                   <div className="space-y-5">
                     <Card>
-                      <CardHeader>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <ShieldAlert className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                          <CardTitle>User-Managed SSL (Inside Your VPS — Platform SSL Disabled)</CardTitle>
-                          <HelpTooltip
-                            label="User-managed VPS SSL details"
-                            title="Why Platform SSL Is Disabled on VPS Domains"
-                            description="Tiwlo sends DNS traffic directly to your VPS IPv4/IPv6 address and does not terminate SSL on your behalf. Run Certbot (Let's Encrypt), Nginx, or Caddy inside your VPS to issue and renew certificates."
-                          />
-                        </div>
-                        <CardDescription>
-                          TLS certificates for VPS-backed domains are issued and terminated directly inside your own VPS.
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <Alert variant="warning">
-                          <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" />
-                          <div>
-                            <p className="font-semibold">Platform SSL Termination: Disabled</p>
-                            <p className="mt-0.5 text-[11px]">
-                              After pointing your A / AAAA records to your VPS, SSH into your droplet and run{' '}
-                              <code className="rounded bg-amber-500/15 px-1.5 py-0.5 font-mono">
-                                sudo certbot --nginx -d {selected.domain}
-                              </code>{' '}
-                              (or configure Caddy automatic HTTPS).
-                            </p>
-                          </div>
-                        </Alert>
+                  <CardHeader>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <ShieldCheck className="h-4 w-4 text-[#1ED760]" />
+                      <CardTitle>Edge SSL &amp; VPS Routing</CardTitle>
+                      <HelpTooltip
+                        label="Edge SSL details"
+                        title="How Tiwlo Edge SSL & VPS Routing Work"
+                        description="Tiwlo terminates HTTPS (Port 443) at the edge via Caddy and forwards HTTP & WebSocket traffic cleanly into your connected VPS container port (default 80), or you can use Cloudflare Proxy for IPv4+IPv6 global CDN."
+                      />
+                    </div>
+                    <CardDescription>
+                      Automatic HTTPS SSL &amp; container port forwarding for {selected.domain}.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Alert variant={selectedSummary.linkedDroplet ? 'success' : 'info'}>
+                      <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-semibold">
+                          {selectedSummary.linkedDroplet
+                            ? `Connected to ${selectedSummary.linkedDroplet.name} (Port ${selected.targetPort || 80})`
+                            : 'Ready to connect to a VPS Droplet'}
+                        </p>
+                        <p className="mt-0.5 text-[11px]">
+                          Set registrar nameservers to <code className="font-mono">{nameservers.join(' / ')}</code> (or Cloudflare <code className="font-mono">AAAA -&gt; {platformDns.ipv6 || 'server IPv6'}</code>) and connect any VPS droplet to serve HTTP/WebSocket apps with automatic TLS.
+                        </p>
+                      </div>
+                    </Alert>
 
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div className="rounded-xl border border-neutral-200/80 p-3.5 dark:border-neutral-800">

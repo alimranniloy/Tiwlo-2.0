@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import net from 'node:net';
 import { formatIpv6SshCommand, normalizeIpv6, parseIpv6ToBigInt } from './ipv6PoolService.js';
 import { formatGatewaySshCommand, resolvePublicSshGatewayHost } from './hostProvisionerClient.js';
+import { buildSshRelayMetadata } from './sshBridgeScripts.js';
 
 export const DEFAULT_SSH_EXEC_TIMEOUT_MS = 10_000;
 export const MAX_SSH_EXEC_TIMEOUT_MS = 60_000;
@@ -326,7 +327,7 @@ export function buildDropletNetworkProfile({
     : null;
 
   const cleanBastionHost = sanitizeOptionalHost(bastionHost);
-  const bastionTarget = publicIpv6Available ? `[${ipv6}]` : nodePrivateIpv4;
+  const bastionTarget = publicIpv6Available ? ipv6 : nodePrivateIpv4;
   const bastionProxyCommand =
     cleanBastionHost && bastionTarget ? `ssh -J ${cleanBastionHost} ${username}@${bastionTarget} -p ${sshPort}` : null;
 
@@ -335,8 +336,14 @@ export function buildDropletNetworkProfile({
     ? `ssh -o ProxyCommand="cloudflared access ssh --hostname ${cleanRelayHost}" ${username}@${cleanRelayHost} -p ${sshPort}`
     : null;
 
+  const sshRelayCommands = buildSshRelayMetadata({
+    dropletId: safeDroplet.id || safeDroplet.dropletId || null,
+    gatewayUser: sshGatewayUser,
+    hostname: safeDroplet.name || safeDroplet.hostname || null
+  });
+
   const primarySshCommand =
-    sshGatewayCommand || ipv4SshCommand || ipv6SshCommand || bastionProxyCommand || cloudflareAccessCommand || null;
+    sshRelayCommands?.windowsCommand || sshGatewayCommand || ipv4SshCommand || ipv6SshCommand || bastionProxyCommand || cloudflareAccessCommand || null;
 
   let connectivityMode = 'private-only';
   if (publicIpv4Available && publicIpv6Available) {
@@ -354,6 +361,10 @@ export function buildDropletNetworkProfile({
     sshGatewayUser,
     sshGatewayHost,
     sshGatewayCommand,
+    sshBridgeUrl: sshRelayCommands?.sshBridgeUrl || null,
+    sshPortalUrl: sshRelayCommands?.sshPortalUrl || null,
+    sshHttpsUrl: sshRelayCommands?.webConsoleUrl || null,
+    sshRelayCommands,
     publicIpv4,
     publicIpv4Available,
     publicIpv4Label,
