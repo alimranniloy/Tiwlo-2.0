@@ -14,6 +14,16 @@ export default class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('Captured by Tiwlo Application ErrorBoundary:', error, errorInfo);
+    const msg = String(error?.message || error || '');
+    const isChunkFailure =
+      /Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError|error loading dynamically imported module/i.test(msg);
+    if (isChunkFailure && typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
+      const retryKey = `tiwlo.chunkReload:${window.location.pathname}`;
+      if (!sessionStorage.getItem(retryKey)) {
+        sessionStorage.setItem(retryKey, String(Date.now()));
+        window.location.reload();
+      }
+    }
   }
 
   handleReload = () => {

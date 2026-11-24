@@ -58,8 +58,9 @@ export default function CloudHeader({
     fetch('/api/user/account/activity-log', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : { logs: [] }))
       .then((d) => {
-        if (!cancelled && Array.isArray(d.logs)) {
-          setNotifications(d.logs.slice(0, 15));
+        const entries = Array.isArray(d?.logs) ? d.logs : (Array.isArray(d?.activities) ? d.activities : []);
+        if (!cancelled && entries.length) {
+          setNotifications(entries.slice(0, 15));
         }
       })
       .catch(() => {})

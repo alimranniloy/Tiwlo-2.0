@@ -83,6 +83,47 @@ router.get('/media/stream/:ticket', (req, res) => {
 });
 
 // ==========================================
+// GOOGLE-STYLE CHALLENGE-RESPONSE (ANTI-BOT & ANTI-AI CLEARANCE)
+// Must stay accessible before requireAuthenticatedUser so challenged unauthenticated
+// browsers behind shared NAT IPs can request and verify PoW clearances cleanly.
+// ==========================================
+router.get('/security/challenge/issue', (req, res) => {
+  const existing = hasValidShieldClearance(req);
+  if (existing.cleared) {
+    return res.json({ cleared: true, alreadyVerified: true });
+  }
+  const difficulty = req.query?.strict === '1' ? 5 : 4;
+  const challenge = issueShieldChallenge(req, {
+    reason: String(req.query?.reason || 'security_verification').slice(0, 64),
+    difficulty
+  });
+  return res.json({ cleared: false, challenge });
+});
+
+router.post('/security/challenge/verify', (req, res) => {
+  const { challengeToken, solution } = req.body || {};
+  const result = verifyShieldChallengeSolution(req, { challengeToken, solution });
+  if (!result.valid) {
+    return res.status(400).json({
+      success: false,
+      error: result.reason || 'Verification failed.'
+    });
+  }
+  res.cookie(SHIELD_CLEARANCE_COOKIE, result.clearanceCookieValue, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: req.secure || process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 30 * 60 * 1000
+  });
+  return res.json({
+    success: true,
+    verified: true,
+    clearanceExpiresAt: result.clearanceExpiresAt
+  });
+});
+
+// ==========================================
 // MEDIA UPLOADS & INSPECTION
 // ==========================================
 // Apply the guard before multer can write files or inspection work can start.
@@ -438,45 +479,6 @@ router.get('/security/queue-stats', (req, res) => {
     queueLength: ContentQueue.queue.length,
     stats: ContentQueue.stats,
     memoryUsageMb: Math.round(process.memoryUsage().heapUsed / (1024 * 1024))
-  });
-});
-
-// ==========================================
-// GOOGLE-STYLE CHALLENGE-RESPONSE (ANTI-BOT & ANTI-AI CLEARANCE)
-// ==========================================
-router.get('/security/challenge/issue', (req, res) => {
-  const existing = hasValidShieldClearance(req);
-  if (existing.cleared) {
-    return res.json({ cleared: true, alreadyVerified: true });
-  }
-  const difficulty = req.query?.strict === '1' ? 5 : 4;
-  const challenge = issueShieldChallenge(req, {
-    reason: String(req.query?.reason || 'security_verification').slice(0, 64),
-    difficulty
-  });
-  return res.json({ cleared: false, challenge });
-});
-
-router.post('/security/challenge/verify', (req, res) => {
-  const { challengeToken, solution } = req.body || {};
-  const result = verifyShieldChallengeSolution(req, { challengeToken, solution });
-  if (!result.valid) {
-    return res.status(400).json({
-      success: false,
-      error: result.reason || 'Verification failed.'
-    });
-  }
-  res.cookie(SHIELD_CLEARANCE_COOKIE, result.clearanceCookieValue, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: req.secure || process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: 30 * 60 * 1000
-  });
-  return res.json({
-    success: true,
-    verified: true,
-    clearanceExpiresAt: result.clearanceExpiresAt
   });
 });
 

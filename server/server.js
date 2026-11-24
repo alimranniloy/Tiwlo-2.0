@@ -937,12 +937,16 @@ async function startServer() {
 
   if (httpsOptions) {
     const httpsServer = https.createServer(httpsOptions, app);
+    httpsServer.keepAliveTimeout = 65_000;
+    httpsServer.headersTimeout = 66_000;
     attachVpsTerminalWebSocket(httpsServer);
     httpsServer.listen(PORT, LISTEN_ADDRESS, () => {
       console.log(`🔒 Tiwlo StockPro Secure HTTPS Server running on https://${LISTEN_ADDRESS}:${PORT}`);
     });
 
     const httpServer = http.createServer(app);
+    httpServer.keepAliveTimeout = 65_000;
+    httpServer.headersTimeout = 66_000;
     attachVpsTerminalWebSocket(httpServer);
     httpServer.listen(HTTP_PORT, LISTEN_ADDRESS, () => {
       console.log(`🌐 Tiwlo internal HTTP Server running on http://${LISTEN_ADDRESS}:${HTTP_PORT}`);
@@ -951,8 +955,12 @@ async function startServer() {
     const fallbackServer = app.listen(PORT, LISTEN_ADDRESS, () => {
       console.log(`StockPro Backend Server running on http://${LISTEN_ADDRESS}:${PORT}`);
     });
+    fallbackServer.keepAliveTimeout = 65_000;
+    fallbackServer.headersTimeout = 66_000;
     attachVpsTerminalWebSocket(fallbackServer);
     const inboundHttpServer = http.createServer(app);
+    inboundHttpServer.keepAliveTimeout = 65_000;
+    inboundHttpServer.headersTimeout = 66_000;
     attachVpsTerminalWebSocket(inboundHttpServer);
     inboundHttpServer.listen(HTTP_PORT, LISTEN_ADDRESS, () => {
       console.log(`Tiwlo local mail-delivery endpoint listening on ${LISTEN_ADDRESS}:${HTTP_PORT}`);

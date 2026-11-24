@@ -405,10 +405,13 @@ export default function CloudDashboard({
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    applicationFetch('/api/user/account', { credentials: 'include' })
+    applicationFetch('/api/user/account/preferences', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        const order = d?.account?.preferences?.widgetConfig?.widgetOrder;
+        const order =
+          d?.account?.preferences?.widgetConfig?.widgetOrder ||
+          d?.preferences?.widgetConfig?.widgetOrder ||
+          d?.widgetConfig?.widgetOrder;
         if (!cancelled && Array.isArray(order) && order.length) {
           const valid = order.filter((id) => DEFAULT_DASH_WIDGET_ORDER.includes(id));
           const missing = DEFAULT_DASH_WIDGET_ORDER.filter((id) => !valid.includes(id));

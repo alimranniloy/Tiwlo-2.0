@@ -467,3 +467,40 @@ test('SSO rejects altered email and trust claims while allowing one use of the o
   assert.equal((await SsoSecurity.verifyAndConsumeTicket(ticket)).valid, true);
   assert.equal((await SsoSecurity.verifyAndConsumeTicket(ticket)).valid, false);
 });
+
+test('unauthenticated visitors can issue and verify PoW shield challenges while upload and queue routes still require auth', async () => {
+  await withServer(async base => {
+    const issueRes = await fetch(`${base}/api/security/challenge/issue?reason=unauthenticated_write_burst`, {
+      headers: { 'user-agent': 'Mozilla/5.0 RealBrowser' }
+    });
+    assert.equal(issueRes.status, 200);
+    const issueJson = await issueRes.json();
+    assert.ok(issueJson?.challenge?.challengeToken);
+
+    const token = issueJson.challenge.challengeToken;
+    const prefix = '0'.repeat(Number(issueJson.challenge.difficulty || 4));
+    let solution = '';
+    for (let n = 0; n < 500_000; n += 1) {
+      const candidate = n.toString(36);
+      const { createHash } = await import('node:crypto');
+      if (createHash('sha256').update(`${token}:${candidate}`).digest('hex').startsWith(prefix)) {
+        solution = candidate;
+        break;
+      }
+    }
+    assert.ok(solution, 'Expected PoW challenge solution');
+
+    const verifyRes = await fetch(`${base}/api/security/challenge/verify`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'user-agent': 'Mozilla/5.0 RealBrowser' },
+      body: JSON.stringify({ challengeToken: token, solution })
+    });
+    assert.equal(verifyRes.status, 200);
+    const verifyJson = await verifyRes.json();
+    assert.equal(verifyJson.verified, true);
+    assert.ok(String(verifyRes.headers.get('set-cookie') || '').includes('__tiwlo_shield_clearance='));
+
+    const protectedQueueRes = await fetch(`${base}/api/security/queue-stats`);
+    assert.equal(protectedQueueRes.status, 401);
+  });
+});

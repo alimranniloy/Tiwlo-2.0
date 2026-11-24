@@ -549,3 +549,53 @@ test('adversarial hardening: fail-closed shadow cache, requireVerifiedAuth anti-
     assert.equal(clearedHumanWrite.status, 201);
   });
 });
+
+test('read-only GraphQL queries and visitor telemetry heartbeats do not exhaust unauthenticated_write limit while mutations stay protected', async () => {
+  resetTrafficShieldForTests();
+
+  const app = express();
+  app.use(express.json());
+  app.use(createSmartTrafficShieldMiddleware({
+    requireVerifiedAuth: true,
+    unauthWriteBucketCapacity: 2,
+    unauthWriteBucketRefillPerSec: 0.01,
+    cooldownSeconds: 30
+  }));
+  app.post('/api/graphql', (_req, res) => res.json({ data: { applicationOperations: [] } }));
+  app.post('/api/telemetry/visitor/heartbeat', (_req, res) => res.json({ ok: true }));
+
+  await withServer(app, async (baseUrl) => {
+    for (let i = 0; i < 8; i += 1) {
+      const gqlRead = await fetch(`${baseUrl}/api/graphql`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'user-agent': 'Mozilla/5.0 Browser' },
+        body: JSON.stringify({ query: 'query Ops { applicationOperations { field } }' })
+      });
+      assert.equal(gqlRead.status, 200);
+
+      const telemetry = await fetch(`${baseUrl}/api/telemetry/visitor/heartbeat`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'user-agent': 'Mozilla/5.0 Browser' },
+        body: JSON.stringify({ visitorId: 'v1', sessionId: 's1' })
+      });
+      assert.equal(telemetry.status, 200);
+    }
+
+    // Mutations still enforce unauthWriteBucketCapacity (2 allowed, 3rd hits 429)
+    for (let i = 0; i < 2; i += 1) {
+      const mut = await fetch(`${baseUrl}/api/graphql`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'user-agent': 'Mozilla/5.0 Browser' },
+        body: JSON.stringify({ query: 'mutation Login { result { status } }' })
+      });
+      assert.equal(mut.status, 200);
+    }
+    const mutLimited = await fetch(`${baseUrl}/api/graphql`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'user-agent': 'Mozilla/5.0 Browser' },
+      body: JSON.stringify({ query: 'mutation Login { result { status } }' })
+    });
+    assert.equal(mutLimited.status, 429);
+    assert.equal((await mutLimited.json()).code, 'SHIELD_CHALLENGE_REQUIRED');
+  });
+});

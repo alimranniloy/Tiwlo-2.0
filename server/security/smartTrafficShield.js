@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { getOperationAST, parse } from 'graphql';
 import { scanPayloadForMalwareOrWebShell } from './malwareGuardService.js';
 
 const DEFAULT_CACHE_MAX_ENTRIES = 500;
@@ -10,8 +11,8 @@ const DEFAULT_READ_FLOOD_THRESHOLD = 20;
 const DEFAULT_SAME_PATH_FLOOD_THRESHOLD = 12;
 const DEFAULT_READ_BUCKET_CAPACITY = 24;
 const DEFAULT_READ_BUCKET_REFILL_PER_SEC = 3;
-const DEFAULT_UNAUTH_WRITE_BUCKET_CAPACITY = 6;
-const DEFAULT_UNAUTH_WRITE_BUCKET_REFILL_PER_SEC = 0.5;
+const DEFAULT_UNAUTH_WRITE_BUCKET_CAPACITY = 15;
+const DEFAULT_UNAUTH_WRITE_BUCKET_REFILL_PER_SEC = 1;
 const DEFAULT_UNAUTH_COOLDOWN_SECONDS = 30;
 const DEFAULT_TX_BUCKET_CAPACITY = 80;
 const DEFAULT_TX_BUCKET_REFILL_PER_SEC = 15;
@@ -567,6 +568,23 @@ function isPublicCacheableRead(req, reqPath, authInfo) {
   return false;
 }
 
+const TELEMETRY_READ_PATH_PATTERN = /^\/(?:api\/)?telemetry\/(?:visitor|pageview|events?)(?:\/|$)/i;
+
+function isPassiveTelemetryOrGraphqlQuery(req, reqPath) {
+  const method = String(req?.method || '').toUpperCase();
+  if (method !== 'POST') return false;
+  if (TELEMETRY_READ_PATH_PATTERN.test(reqPath)) return true;
+  if (!/^\/(?:api\/)?graphql\/?$/i.test(reqPath)) return false;
+  const queryText = req?.body?.query;
+  if (typeof queryText !== 'string' || !queryText.trim()) return false;
+  try {
+    const ast = parse(queryText);
+    return getOperationAST(ast, req?.body?.operationName)?.operation === 'query';
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Classifies incoming HTTP request intent for behavioral shaping and shadow caching.
  */
@@ -623,6 +641,20 @@ export function classifyRequestIntent(req, options = {}) {
   }
 
   if (MUTATION_METHODS.has(method) && !authInfo.isAuthenticated) {
+    if (isPassiveTelemetryOrGraphqlQuery(req, path)) {
+      return {
+        intent: 'public_read',
+        method,
+        path,
+        isAuthenticated: false,
+        sessionKey: null,
+        isTransactional: false,
+        isCacheablePublicRead: false,
+        isSuspicious: false,
+        transactionalDomain,
+        hackingSignature: null
+      };
+    }
     return {
       intent: 'unauthenticated_write',
       method,
