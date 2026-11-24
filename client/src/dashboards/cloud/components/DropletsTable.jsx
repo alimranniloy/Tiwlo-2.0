@@ -47,12 +47,20 @@ function resolveRegionFlagUrl(item) {
   return null;
 }
 
+function isUnixLikeClient() {
+  if (typeof navigator === 'undefined') return false;
+  const platform = String(navigator.platform || '');
+  const ua = String(navigator.userAgent || '');
+  if (/windows|win32|win64|wow64/i.test(platform)) return false;
+  return /mac|linux|ubuntu|fedora|debian|darwin|x11|android|iphone|ipad|ipod|termux|arm/i.test(
+    `${platform} ${ua}`
+  );
+}
+
 function resolveSshCommand(item) {
   const relay = item?.sshRelayCommands;
   if (relay) {
-    const isUnix =
-      typeof navigator !== 'undefined' &&
-      /mac|linux|ubuntu|darwin|x11/i.test(navigator.platform || navigator.userAgent || '');
+    const isUnix = isUnixLikeClient();
     if (isUnix && relay.unixCommand) return relay.unixCommand;
     if (relay.windowsCommand) return relay.windowsCommand;
   }

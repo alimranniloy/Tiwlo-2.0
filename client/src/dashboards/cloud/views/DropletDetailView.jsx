@@ -857,11 +857,17 @@ export default function DropletDetailView({
   const [dnsSubmitting, setDnsSubmitting] = useState(false);
   const [dnsVerifyingId, setDnsVerifyingId] = useState(null);
   const [dnsRemovingId, setDnsRemovingId] = useState(null);
-  const [sshMethodTab, setSshMethodTab] = useState(() =>
-    typeof navigator !== 'undefined' && /mac|linux|ubuntu|darwin|x11/i.test(navigator.platform || navigator.userAgent || '')
+  const [sshMethodTab, setSshMethodTab] = useState(() => {
+    if (typeof navigator === 'undefined') return 'windows';
+    const platform = String(navigator.platform || '');
+    const ua = String(navigator.userAgent || '');
+    if (/windows|win32|win64|wow64/i.test(platform)) return 'windows';
+    return /mac|linux|ubuntu|fedora|debian|darwin|x11|android|iphone|ipad|ipod|termux|arm/i.test(
+      `${platform} ${ua}`
+    )
       ? 'unix'
-      : 'windows'
-  );
+      : 'windows';
+  });
 
   // Firewall Rule inline form state
   const [fwDirection, setFwDirection] = useState('inbound');
@@ -1679,26 +1685,55 @@ export default function DropletDetailView({
                 <CardContent className="space-y-3 text-xs">
                   {(() => {
                     const relay = networkInfo.sshRelayCommands;
+                    const quickOsMode = sshMethodTab === 'unix' ? 'unix' : 'windows';
                     const preferredCmd =
-                      sshMethodTab === 'unix'
+                      quickOsMode === 'unix'
                         ? relay?.unixCommand || networkInfo.sshGatewayCommand || networkInfo.sshIpv6Cmd
                         : relay?.windowsCommand || networkInfo.sshGatewayCommand || networkInfo.sshIpv6Cmd;
                     return (
                       <div className="rounded-lg border border-neutral-200 bg-neutral-50/70 p-3 dark:border-neutral-800 dark:bg-neutral-900/50">
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                           <span className="font-medium text-neutral-700 dark:text-neutral-200">
-                            SSH Terminal via tiwlo.com (Works without IPv6)
+                            {quickOsMode === 'unix'
+                              ? 'SSH Terminal (Linux / macOS / Termux)'
+                              : 'SSH Terminal (Windows PowerShell / CMD)'}
                           </span>
-                          {preferredCmd && (
-                            <button
-                              type="button"
-                              onClick={() => handleCopy('ov-ssh-gw', preferredCmd, 'SSH command')}
-                              className="inline-flex items-center gap-1 rounded border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-medium text-neutral-700 hover:text-black dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-200 dark:hover:text-white cursor-pointer"
-                            >
-                              {copiedKey === 'ov-ssh-gw' ? <Check className="size-3 text-[#1ED760]" /> : <Copy className="size-3" />}
-                              {copiedKey === 'ov-ssh-gw' ? 'Copied' : 'Copy'}
-                            </button>
-                          )}
+                          <div className="flex items-center gap-1.5">
+                            <div className="inline-flex rounded border border-neutral-200 bg-white p-0.5 dark:border-neutral-700 dark:bg-neutral-950">
+                              <button
+                                type="button"
+                                onClick={() => setSshMethodTab('windows')}
+                                className={`rounded px-1.5 py-0.5 text-[10px] font-medium cursor-pointer ${
+                                  quickOsMode === 'windows'
+                                    ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
+                                    : 'text-neutral-600 dark:text-neutral-400'
+                                }`}
+                              >
+                                Windows
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSshMethodTab('unix')}
+                                className={`rounded px-1.5 py-0.5 text-[10px] font-medium cursor-pointer ${
+                                  quickOsMode === 'unix'
+                                    ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
+                                    : 'text-neutral-600 dark:text-neutral-400'
+                                }`}
+                              >
+                                Termux / Linux / Mac
+                              </button>
+                            </div>
+                            {preferredCmd && (
+                              <button
+                                type="button"
+                                onClick={() => handleCopy('ov-ssh-gw', preferredCmd, 'SSH command')}
+                                className="inline-flex items-center gap-1 rounded border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-medium text-neutral-700 hover:text-black dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-200 dark:hover:text-white cursor-pointer"
+                              >
+                                {copiedKey === 'ov-ssh-gw' ? <Check className="size-3 text-[#1ED760]" /> : <Copy className="size-3" />}
+                                {copiedKey === 'ov-ssh-gw' ? 'Copied' : 'Copy'}
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <code className="mt-1.5 block truncate font-mono text-[11px] text-neutral-900 dark:text-neutral-100">
                           {preferredCmd || 'SSH gateway assignment pending'}
@@ -1878,7 +1913,11 @@ export default function DropletDetailView({
                   : sshMethodTab === 'unix'
                     ? relay?.unixCommand || networkInfo.sshGatewayCommand || ''
                     : sshMethodTab === 'config'
-                      ? (typeof navigator !== 'undefined' && /mac|linux|ubuntu|darwin|x11/i.test(navigator.platform || navigator.userAgent || '')
+                      ? (typeof navigator !== 'undefined' &&
+                        !/windows|win32|win64|wow64/i.test(String(navigator.platform || '')) &&
+                        /mac|linux|ubuntu|fedora|debian|darwin|x11|android|iphone|ipad|ipod|termux|arm/i.test(
+                          `${navigator.platform || ''} ${navigator.userAgent || ''}`
+                        )
                         ? relay?.sshConfigUnix
                         : relay?.sshConfigWindows) || ''
                       : networkInfo.sshIpv6Cmd || '';
@@ -1887,7 +1926,7 @@ export default function DropletDetailView({
                 sshMethodTab === 'windows'
                   ? 'Run in Windows PowerShell or Command Prompt and enter your VPS root password. Works on IPv4-only Wi-Fi and mobile data.'
                   : sshMethodTab === 'unix'
-                    ? 'Run in macOS Terminal or Linux shell (uses built-in Python 3). Works on IPv4-only and IPv6 networks.'
+                    ? 'Run in Android Termux (install Python once with: pkg install -y python), macOS Terminal, or Linux shell.'
                     : sshMethodTab === 'config'
                       ? `Save this block into ~/.ssh/config once, then connect anytime with: ssh ${droplet?.name || dropletId}`
                       : 'Direct Port 22 skips the HTTPS bridge and works only when your ISP or router assigns an IPv6 route.';
@@ -1981,7 +2020,7 @@ export default function DropletDetailView({
                         <div className="inline-flex flex-wrap rounded-lg border border-neutral-200 bg-neutral-100/70 p-0.5 dark:border-neutral-800 dark:bg-neutral-900">
                           {[
                             { id: 'windows', label: 'Windows (PowerShell / CMD)' },
-                            { id: 'unix', label: 'macOS / Linux' },
+                            { id: 'unix', label: 'Linux / macOS / Termux' },
                             { id: 'config', label: 'SSH Config' },
                             { id: 'ipv6', label: 'IPv6 Port 22' },
                           ].map((tab) => (
