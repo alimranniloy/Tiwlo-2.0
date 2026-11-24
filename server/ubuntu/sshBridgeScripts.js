@@ -269,6 +269,7 @@ export function buildSshRelayMetadata({
     .replace(/^-+|-+$/g, '') || cleanId;
 
   const encodedId = encodeURIComponent(cleanId);
+  const hostKeyAlias = `${cleanId.toLowerCase().replace(/[^a-z0-9.-]/g, '-')}.ssh.${publicDomain}`;
   const sshBridgeUrl = `wss://${publicDomain}/ssh/${encodedId}`;
   const sshPortalUrl = `https://${publicDomain}/ssh/${encodedId}`;
   const webConsoleUrl = `https://${publicDomain}/cloud/droplets/${encodedId}/console`;
@@ -279,11 +280,12 @@ export function buildSshRelayMetadata({
   const unixProxyCommand =
     `sh -c '[ -s ~/.ssh/tiwlo-ssh-${UNIX_RELAY_SCRIPT_VERSION}.py ] || (mkdir -p ~/.ssh && curl -fsSL -o ~/.ssh/tiwlo-ssh-${UNIX_RELAY_SCRIPT_VERSION}.py https://${publicDomain}/ssh/relay-${UNIX_RELAY_SCRIPT_VERSION}.py); command -v python3 >/dev/null 2>&1 || { echo Install python3 first - Termux: pkg install -y python >&2; exit 1; }; exec python3 ~/.ssh/tiwlo-ssh-${UNIX_RELAY_SCRIPT_VERSION}.py ${sshBridgeUrl}'`;
 
-  const windowsCommand = `ssh -o ServerAliveInterval=30 -o "ProxyCommand=${windowsProxyCommand}" ${cleanUser}@${publicDomain}`;
-  const unixCommand = `ssh -o ServerAliveInterval=30 -o "ProxyCommand=${unixProxyCommand}" ${cleanUser}@${publicDomain}`;
+  const windowsCommand = `ssh -o StrictHostKeyChecking=accept-new -o HostKeyAlias=${hostKeyAlias} -o ServerAliveInterval=30 -o "ProxyCommand=${windowsProxyCommand}" ${cleanUser}@${publicDomain}`;
+  const unixCommand = `ssh -o StrictHostKeyChecking=accept-new -o HostKeyAlias=${hostKeyAlias} -o ServerAliveInterval=30 -o "ProxyCommand=${unixProxyCommand}" ${cleanUser}@${publicDomain}`;
 
   return {
     domain: publicDomain,
+    hostKeyAlias,
     endpointPath: `/ssh/${encodedId}`,
     sshPortalUrl,
     sshBridgeUrl,
@@ -297,6 +299,8 @@ export function buildSshRelayMetadata({
     sshConfigWindows: [
       `Host ${alias}`,
       `  HostName ${publicDomain}`,
+      `  HostKeyAlias ${hostKeyAlias}`,
+      `  StrictHostKeyChecking accept-new`,
       `  User ${cleanUser}`,
       `  ServerAliveInterval 30`,
       `  ProxyCommand ${windowsProxyCommand}`
@@ -304,6 +308,8 @@ export function buildSshRelayMetadata({
     sshConfigUnix: [
       `Host ${alias}`,
       `  HostName ${publicDomain}`,
+      `  HostKeyAlias ${hostKeyAlias}`,
+      `  StrictHostKeyChecking accept-new`,
       `  User ${cleanUser}`,
       `  ServerAliveInterval 30`,
       `  ProxyCommand ${unixProxyCommand}`
