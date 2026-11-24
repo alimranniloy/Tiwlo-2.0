@@ -71,7 +71,7 @@ import {
   createStoreGraphQL
 } from './graphql/cloudQueries';
 
-const VALID_DROPLET_SECTIONS = ['overview', 'network', 'dns', 'billing'];
+const VALID_DROPLET_SECTIONS = ['overview', 'console', 'network', 'dns', 'billing'];
 
 const CLOUD_NAV_PATH_MAP = {
   dashboard: '/cloud',

@@ -37,31 +37,50 @@ import {
 } from '../ubuntu/sshGatewayService.js';
 import {
   ensureDropletBillingSchema,
-  initializeMonthlyDropletSubscription
+  initializeMonthlyDropletSubscription,
+  rollbackInitialDropletCharge
 } from './cloudDropletBilling.js';
+import {
+  buildSshGatewayUsername,
+  destroyDropletOnHost,
+  formatGatewaySshCommand,
+  getDropletStatsFromHost,
+  provisionDropletOnHost,
+  resolvePublicSshGatewayHost,
+  setDropletPowerOnHost
+} from '../ubuntu/hostProvisionerClient.js';
 
-function mapDroplet(row) {
+function mapDroplet(row, { node = null } = {}) {
   if (!row) return null;
   const { access_password_hash: _omit, ...safeRow } = row;
   const accessUsername = row.access_username || 'root';
-  const sshPort = row.ssh_port ? Number(row.ssh_port) : null;
+  const sshGatewayUser = row.ssh_gateway_user || buildSshGatewayUsername({ hostname: row.name, dropletId: row.id });
+  const sshGatewayHost = resolvePublicSshGatewayHost({ node, droplet: row });
+  const sshGatewayCommand = formatGatewaySshCommand({ gatewayUser: sshGatewayUser, gatewayHost: sshGatewayHost });
+  const rawSshPort = row.ssh_port ? Number(row.ssh_port) : null;
+  const sshPort = sshGatewayCommand ? 22 : rawSshPort || 22;
   const publicIpValid = isPublicRoutableIpv4(row.ip);
   const ipv6 = row.ipv6 || null;
   const internalIp = row.internal_ip || allocateInternalDeviceIp(row.id);
-  const sshCommand = publicIpValid && sshPort
-    ? `ssh ${accessUsername}@${row.ip} -p ${sshPort}`
-    : publicIpValid
-      ? `ssh ${accessUsername}@${row.ip}`
+  const sshCommand =
+    sshGatewayCommand ||
+    (publicIpValid && sshPort && sshPort !== 22
+      ? `ssh ${accessUsername}@${row.ip} -p ${sshPort}`
+      : publicIpValid
+        ? `ssh ${accessUsername}@${row.ip}`
+        : ipv6
+          ? formatIpv6SshCommand({ username: accessUsername, ipv6, port: sshPort || 22 })
+          : null);
+  const sshIpv6Command =
+    sshGatewayUser && sshGatewayHost && sshGatewayHost.includes(':')
+      ? formatGatewaySshCommand({ gatewayUser: sshGatewayUser, gatewayHost: sshGatewayHost })
       : ipv6
         ? formatIpv6SshCommand({ username: accessUsername, ipv6, port: sshPort || 22 })
         : null;
-  const sshIpv6Command = ipv6
-    ? formatIpv6SshCommand({ username: accessUsername, ipv6, port: sshPort || 22 })
-    : null;
 
   return {
     ...safeRow,
-    ip: publicIpValid ? row.ip : 'Unavailable',
+    ip: publicIpValid ? row.ip : sshGatewayHost || 'Unavailable',
     publicIpv4: publicIpValid ? row.ip : null,
     publicIpv4Available: publicIpValid,
     ipv6,
@@ -70,6 +89,9 @@ function mapDroplet(row) {
     userId: row.user_id,
     regionCode: row.region_code,
     accessUsername,
+    sshGatewayUser,
+    sshGatewayHost,
+    sshGatewayCommand,
     sshPort,
     sshCommand,
     sshIpv6Command,
@@ -424,9 +446,18 @@ export const CloudDB = {
 
     await ensureIpv6PoolSchema().catch(() => {});
     await ensureDropletBillingSchema().catch(() => {});
+    await queryPg('ALTER TABLE cloud_droplets ADD COLUMN IF NOT EXISTS ssh_gateway_user VARCHAR(64)').catch(() => {});
 
-    const portRes = await queryPg('SELECT COALESCE(MAX(ssh_port), 22000) + 1 AS next_port FROM cloud_droplets');
-    const sshPort = Number(portRes.rows?.[0]?.next_port || 22001);
+    const existingGwRes = await queryPg(
+      'SELECT ssh_gateway_user FROM cloud_droplets WHERE ssh_gateway_user IS NOT NULL'
+    ).catch(() => ({ rows: [] }));
+    const takenGwUsers = new Set(existingGwRes.rows.map((r) => String(r.ssh_gateway_user || '').toLowerCase()));
+    const sshGatewayUser = buildSshGatewayUsername({
+      hostname,
+      dropletId,
+      existingUsers: takenGwUsers
+    });
+    const sshPort = 22;
     const passwordHash = hashServerPassword(rawPassword);
     const nodePublicIpCandidate = chosenNode?.ipAddress || process.env.VITE_SERVER_IPV4 || null;
     const serverIp = isPublicRoutableIpv4(nodePublicIpCandidate) ? nodePublicIpCandidate : 'Unavailable';
@@ -446,9 +477,9 @@ export const CloudDB = {
          id, user_id, name, specs, vcpus, memory, storage, ip, internal_ip,
          ipv6, ipv6_prefix, ipv6_host_suffix,
          region, region_code, status, image, access_username, access_password_hash,
-         ssh_port, tenant_id, node_id, tags, monthly_price, billing_cycle
+         ssh_gateway_user, ssh_port, tenant_id, node_id, tags, monthly_price, billing_cycle
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'active', $15, $16, $17, $18, $19, $20, $21, $22, 'monthly')
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'active', $15, $16, $17, $18, $19, $20, $21, $22, $23, 'monthly')
        RETURNING *`,
       [
         dropletId,
@@ -468,6 +499,7 @@ export const CloudDB = {
         selectedImage.name,
         accessUsername,
         passwordHash,
+        sshGatewayUser,
         sshPort,
         tenant.tenantId,
         assignedNodeId,
@@ -478,7 +510,7 @@ export const CloudDB = {
 
     await adjustNodeActiveDroplets(assignedNodeId, 1).catch(() => {});
 
-    const mappedDroplet = mapDroplet(rows[0]);
+    const mappedDroplet = mapDroplet(rows[0], { node: chosenNode });
     const billingInit = await initializeMonthlyDropletSubscription({
       userId,
       droplet: mappedDroplet,
@@ -493,6 +525,38 @@ export const CloudDB = {
       throw createInputError(
         `Insufficient cloud credits ($${monthlyPrice.toFixed(2)} USD required). Top up your billing wallet to deploy this server.`,
         402
+      );
+    }
+
+    // Provision the real Ubuntu container and single-port SSH multiplexer account on the host
+    try {
+      await provisionDropletOnHost({
+        dropletId,
+        tenantSlug: tenant.tenantSlug,
+        hostname,
+        sshGatewayUser,
+        accessUsername,
+        accessPasswordHash: passwordHash,
+        ramMb: ramLimitMb,
+        cpuLimit: Math.max(0.25, Number((cpuQuotaPercent / 100).toFixed(2)) || 1),
+        storageGb: storageLimitGb,
+        internalIp,
+        status: 'active'
+      });
+    } catch (hostErr) {
+      await rollbackInitialDropletCharge({
+        userId,
+        cashCreditUsed: billingInit?.chargeBreakdown?.cashCreditUsed || 0,
+        promoCreditUsed: billingInit?.chargeBreakdown?.promoCreditUsed || 0,
+        invoiceId: billingInit?.invoice?.id || null
+      }).catch(() => {});
+      await queryPg('DELETE FROM cloud_droplets WHERE id = $1 AND user_id = $2', [dropletId, userId]).catch(() => {});
+      await releaseDropletIpAllocations({ dropletId }).catch(() => {});
+      await reclaimUbuntuTenant({ tenantId: tenant.tenantId, userId }).catch(() => {});
+      await adjustNodeActiveDroplets(assignedNodeId, -1).catch(() => {});
+      throw createInputError(
+        hostErr?.message || 'Unable to provision real Ubuntu container right now; any deducted credits were returned.',
+        hostErr?.statusCode || 503
       );
     }
 
@@ -529,6 +593,8 @@ export const CloudDB = {
         402
       );
     }
+    await setDropletPowerOnHost(id, cleanStatus === 'active' ? 'start' : 'stop');
+
     const { rows } = await queryPg(
       'UPDATE cloud_droplets SET status = $1 WHERE id = $2 AND user_id = $3 RETURNING *',
       [cleanStatus, id, userId]
@@ -551,6 +617,16 @@ export const CloudDB = {
   },
 
   async deleteDroplet(userId, id) {
+    const preRes = await queryPg(
+      `SELECT d.ssh_gateway_user, t.tenant_slug
+       FROM cloud_droplets d
+       LEFT JOIN system_ubuntu_tenants t ON t.id = d.tenant_id
+       WHERE d.id = $1 AND d.user_id = $2
+       LIMIT 1`,
+      [id, userId]
+    ).catch(() => ({ rows: [] }));
+    const preRow = preRes.rows?.[0] || null;
+
     const { rows } = await queryPg(
       'DELETE FROM cloud_droplets WHERE id = $1 AND user_id = $2 RETURNING *',
       [id, userId]
@@ -558,6 +634,10 @@ export const CloudDB = {
     const removed = rows[0];
     if (!removed) return false;
 
+    await destroyDropletOnHost(id, {
+      sshGatewayUser: removed.ssh_gateway_user || preRow?.ssh_gateway_user || null,
+      tenantSlug: preRow?.tenant_slug || null
+    }).catch((err) => console.warn('[Cloud] Host container cleanup notice:', err?.message || err));
     await releaseDropletIpAllocations({ dropletId: id }).catch(() => {});
     if (removed.tenant_id) {
       await reclaimUbuntuTenant({ tenantId: removed.tenant_id, userId }).catch(() => {});
@@ -581,9 +661,10 @@ export const CloudDB = {
     const row = rows[0];
     if (!row) return null;
 
-    const droplet = mapDroplet(row);
     const node = row.node_id ? await getServerNodeById(row.node_id).catch(() => null) : null;
+    const droplet = mapDroplet(row, { node });
     const networkProfile = buildDropletNetworkProfile({ droplet, node });
+    const liveStats = await getDropletStatsFromHost(id).catch(() => null);
 
     await queryPg(`
       CREATE TABLE IF NOT EXISTS cloud_droplet_firewall_rules (
@@ -621,6 +702,7 @@ export const CloudDB = {
     return {
       droplet,
       networkProfile,
+      liveStats,
       firewallRules: fwRes.rows,
       snapshots: snapRes.rows,
       invoices: invRes.rows,

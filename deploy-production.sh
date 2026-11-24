@@ -98,10 +98,10 @@ prune_docker_caches() {
   fi
   echo "--- Purging ALL old unused Docker images, dangling layers, build cache & exited containers (preserving volumes, PostgreSQL, /srv/tiwlo-tenants, and /srv/tiwlo-backups) ---"
   # Never pass --volumes or touch active PostgreSQL, /srv/tiwlo-tenants, or /srv/tiwlo-backups
-  docker container prune -f || true
-  docker image prune -af || true
+  docker container prune -f --filter "label!=tiwlo.managed=vps" || true
+  docker image prune -af --filter "label!=tiwlo.role=vps-runtime" || true
   docker builder prune -af || true
-  docker network prune -f || true
+  docker network prune -f --filter "label!=tiwlo.role=vps-network" || true
 }
 
 clean_client_build_temp() {
@@ -165,6 +165,10 @@ EOF
   fi
   clean_client_build_temp
   cd "$ROOT_DIR"
+  if [[ -f "$ROOT_DIR/server/ubuntu/host-daemon/install-host-daemon.sh" ]]; then
+    echo "--- Installing/updating Tiwlo VPS host daemon, SSH mux, and Ubuntu VPS runtime ---"
+    bash "$ROOT_DIR/server/ubuntu/host-daemon/install-host-daemon.sh"
+  fi
   docker compose --env-file .env --env-file docker/.env.production -f docker/docker-compose.production.yml build --pull --no-cache app dns
   docker compose --env-file .env --env-file docker/.env.production -f docker/docker-compose.production.yml up -d --build --force-recreate --remove-orphans --wait --wait-timeout 1200
   prune_docker_caches

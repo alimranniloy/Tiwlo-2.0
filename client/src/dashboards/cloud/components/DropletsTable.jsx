@@ -48,10 +48,15 @@ function resolveRegionFlagUrl(item) {
 }
 
 function resolveSshCommand(item) {
+  if (item?.sshGatewayCommand) return item.sshGatewayCommand;
   if (item?.sshCommand) return item.sshCommand;
+  if (item?.sshGatewayUser && item?.sshGatewayHost) {
+    const h = String(item.sshGatewayHost).trim();
+    return h.includes(':') ? `ssh ${item.sshGatewayUser}@[${h}]` : `ssh ${item.sshGatewayUser}@${h}`;
+  }
   const username = item?.accessUsername || 'root';
-  const host = item?.ip || item?.ipv4;
-  if (host && item?.sshPort) return `ssh ${username}@${host} -p ${item.sshPort}`;
+  const host = item?.publicIpv4 || (item?.ip && item.ip !== 'Unavailable' ? item.ip : null);
+  if (host && item?.sshPort && Number(item.sshPort) !== 22) return `ssh ${username}@${host} -p ${item.sshPort}`;
   if (host && item?.accessUsername) return `ssh ${username}@${host}`;
   return null;
 }
@@ -229,14 +234,17 @@ export default function DropletsTable({
     []
   );
 
-  const navigateToDroplet = (item) => {
+  const navigateToDroplet = (item, section = 'overview') => {
     if (!item?.id) return;
     if (onOpenDroplet) {
-      onOpenDroplet(item, 'overview');
+      onOpenDroplet(item, section);
       return;
     }
     try {
-      const targetPath = `/cloud/droplets/${encodeURIComponent(item.id)}`;
+      const targetPath =
+        section && section !== 'overview'
+          ? `/cloud/droplets/${encodeURIComponent(item.id)}/${encodeURIComponent(section)}`
+          : `/cloud/droplets/${encodeURIComponent(item.id)}`;
       if (window.location.pathname !== targetPath) {
         window.history.pushState(null, '', targetPath);
         window.dispatchEvent(new PopStateEvent('popstate'));
@@ -638,7 +646,18 @@ export default function DropletsTable({
                         <div className="inline-flex items-center gap-1.5">
                           <button
                             type="button"
-                            onClick={() => navigateToDroplet(item)}
+                            disabled={!isRunning}
+                            onClick={() => navigateToDroplet(item, 'console')}
+                            title="Open Browser SSH Console (HTTPS Port 443)"
+                            className="inline-flex items-center gap-1 rounded-xl border border-neutral-200/80 bg-neutral-900 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-neutral-800 disabled:opacity-40 dark:border-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200 transition cursor-pointer"
+                          >
+                            <Terminal className="w-3 h-3 text-[#1ED760]" />
+                            <span>Console</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => navigateToDroplet(item, 'overview')}
                             className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200/80 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-neutral-800 hover:border-[#1ED760] hover:bg-[#1ED760]/10 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:border-[#1ED760] transition cursor-pointer"
                           >
                             <Settings className="w-3 h-3 text-[#1ED760]" />

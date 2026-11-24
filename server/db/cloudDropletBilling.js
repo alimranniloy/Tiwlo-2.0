@@ -6,6 +6,7 @@ import { renderBaseEmail } from '../email/index.js';
 import { getPlatformUrl } from '../config/platformConfig.js';
 import { reclaimUbuntuTenant, updateUbuntuTenantStatus } from '../ubuntu/tenantLayout.js';
 import { adjustNodeActiveDroplets } from '../administrator/serverFleetService.js';
+import { destroyDropletOnHost, setDropletPowerOnHost } from '../ubuntu/hostProvisionerClient.js';
 
 export const DROPLET_BILLING_PERIOD_DAYS = 30;
 export const DROPLET_GRACE_PERIOD_DAYS = 3;
@@ -773,6 +774,8 @@ async function updateDropletFields(dropletId, patch = {}) {
 }
 
 async function defaultStopDroplet(droplet) {
+  if (!droplet?.id) return;
+  await setDropletPowerOnHost(droplet.id, 'suspend').catch(() => {});
   if (!droplet?.tenant_id) return;
   await updateUbuntuTenantStatus({
     tenantId: droplet.tenant_id,
@@ -782,6 +785,8 @@ async function defaultStopDroplet(droplet) {
 }
 
 async function defaultResumeDroplet(droplet) {
+  if (!droplet?.id) return;
+  await setDropletPowerOnHost(droplet.id, 'start').catch(() => {});
   if (!droplet?.tenant_id) return;
   await updateUbuntuTenantStatus({
     tenantId: droplet.tenant_id,
@@ -791,6 +796,11 @@ async function defaultResumeDroplet(droplet) {
 }
 
 async function defaultReclaimDroplet(droplet) {
+  if (droplet?.id) {
+    await destroyDropletOnHost(droplet.id, {
+      sshGatewayUser: droplet.ssh_gateway_user || droplet.sshGatewayUser || null
+    }).catch(() => {});
+  }
   if (droplet?.tenant_id) {
     await reclaimUbuntuTenant({
       tenantId: droplet.tenant_id,
@@ -1363,12 +1373,58 @@ export async function initializeMonthlyDropletSubscription({
   return {
     success: true,
     charged,
+    chargeBreakdown: {
+      chargedAmount: roundMoney(chargeRes?.chargedAmount || 0),
+      cashCreditUsed: roundMoney(chargeRes?.cashCreditUsed || 0),
+      promoCreditUsed: roundMoney(chargeRes?.promoCreditUsed || 0)
+    },
     droplet: updatedDroplet,
     invoice,
     emailResult,
     notification,
     activity
   };
+}
+
+export async function rollbackInitialDropletCharge({
+  userId,
+  cashCreditUsed = 0,
+  promoCreditUsed = 0,
+  invoiceId = null
+} = {}) {
+  if (!userId) return { ok: false };
+  const cash = roundMoney(Math.max(0, Number(cashCreditUsed) || 0));
+  const promo = roundMoney(Math.max(0, Number(promoCreditUsed) || 0));
+  const total = roundMoney(cash + promo);
+
+  if (!isPgActive()) {
+    const wallet = memoryWallets.get(String(userId));
+    if (wallet && total > 0) {
+      wallet.credits = roundMoney((wallet.credits || 0) + cash);
+      wallet.promotionalCredits = roundMoney((wallet.promotionalCredits || 0) + promo);
+      wallet.monthlySpend = roundMoney(Math.max(0, (wallet.monthlySpend || 0) - total));
+    }
+    if (invoiceId && memoryInvoices.has(String(invoiceId))) {
+      memoryInvoices.get(String(invoiceId)).status = 'void';
+    }
+    return { ok: true, cashRefunded: cash, promoRefunded: promo };
+  }
+
+  if (total > 0) {
+    await queryPg(
+      `UPDATE cloud_billing_accounts
+       SET credits = COALESCE(credits, 0) + $2::numeric,
+           promotional_credits = COALESCE(promotional_credits, 0) + $3::numeric,
+           monthly_spend = GREATEST(0, COALESCE(monthly_spend, 0) - $4::numeric),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE user_id = $1`,
+      [String(userId), cash, promo, total]
+    ).catch(() => {});
+  }
+  if (invoiceId) {
+    await queryPg(`UPDATE cloud_droplet_invoices SET status = 'void' WHERE id = $1`, [String(invoiceId)]).catch(() => {});
+  }
+  return { ok: true, cashRefunded: cash, promoRefunded: promo };
 }
 
 export async function predictUpcomingRenewalRisks({

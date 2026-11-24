@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { isPgActive, queryPg } from '../db/postgres.js';
 import { holdDropletIpAllocations } from '../ubuntu/ipv6PoolService.js';
+import { setDropletPowerOnHost } from '../ubuntu/hostProvisionerClient.js';
 import { enforceUserAccountHold, HOLD_TYPES } from './accountLifecycleEnforcer.js';
 
 export const DEFAULT_BLOCKED_ABUSE_PORTS = Object.freeze([25, 465, 587]);
@@ -398,6 +399,7 @@ async function suspendSpecificDropletAndHoldIp(runner, {
         [dropletId]
       );
     }
+    await setDropletPowerOnHost(dropletId, 'suspend').catch(() => {});
   }
 
   if (typeof holdIpFn === 'function') {

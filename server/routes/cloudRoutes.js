@@ -7,6 +7,8 @@ import { attemptAutoUnsuspendForUser } from '../db/cloudDropletBilling.js';
 import { getUserWelcomePromoStatus } from '../db/promotions.js';
 import { PLATFORM_CONFIG } from '../config/platformConfig.js';
 import { getPlatformPaymentGatewaysRaw } from '../administrator/adminRoutes.js';
+import { issueVpsTerminalTicket } from '../ubuntu/vpsTerminalWs.js';
+import { getDropletStatsFromHost } from '../ubuntu/hostProvisionerClient.js';
 
 const creditCheckoutLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -183,6 +185,36 @@ router.get('/droplets/:id/detail', async (req, res) => {
   } catch (err) {
     console.error('Error loading droplet detail:', err);
     res.status(500).json({ error: 'Failed to load droplet detail' });
+  }
+});
+
+router.post('/droplets/:id/terminal-ticket', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const existing = await CloudDB.getDropletById(req.params.id);
+    if (!existing || existing.userId !== userId) return res.status(404).json({ error: 'Droplet not found' });
+    if (String(existing.status || '').toLowerCase() !== 'active') {
+      return res.status(409).json({ error: `VPS is ${existing.status}. Power it on to open terminal.` });
+    }
+    const issued = issueVpsTerminalTicket({ userId, dropletId: existing.id });
+    res.json({ success: true, ...issued });
+  } catch (err) {
+    console.error('Error issuing terminal ticket:', err);
+    res.status(500).json({ error: 'Failed to prepare WebSocket terminal session' });
+  }
+});
+
+router.get('/droplets/:id/stats', async (req, res) => {
+  try {
+    const userId = getReqUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const existing = await CloudDB.getDropletById(req.params.id);
+    if (!existing || existing.userId !== userId) return res.status(404).json({ error: 'Droplet not found' });
+    const stats = await getDropletStatsFromHost(existing.id);
+    res.json({ success: true, stats });
+  } catch (err) {
+    res.status(err?.statusCode || 503).json({ error: err?.message || 'Unable to query droplet stats' });
   }
 });
 

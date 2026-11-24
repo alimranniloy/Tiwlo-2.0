@@ -66,14 +66,20 @@ export async function getCloudDashboardData(userId = null) {
           memory
           storage
           ip
+          ipv6
+          internalIp
           region
           regionCode
           regionFlag
           status
           image
           accessUsername
+          sshGatewayUser
+          sshGatewayHost
+          sshGatewayCommand
           sshPort
           sshCommand
+          sshIpv6Command
           tenantId
           nodeId
           tags

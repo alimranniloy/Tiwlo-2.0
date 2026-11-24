@@ -18,14 +18,20 @@ export const schema = buildSchema(`
     memory: String!
     storage: String!
     ip: String!
+    ipv6: String
+    internalIp: String
     region: String!
     regionCode: String
     regionFlag: String
     status: String!
     image: String
     accessUsername: String
+    sshGatewayUser: String
+    sshGatewayHost: String
+    sshGatewayCommand: String
     sshPort: Int
     sshCommand: String
+    sshIpv6Command: String
     tenantId: String
     nodeId: String
     tags: String
@@ -669,12 +675,12 @@ export const rootValue = {
     return await CloudDB.createDroplet(userId, input);
   },
 
-  async updateDropletStatus({ id, status }) {
-    return await CloudDB.updateDropletStatus(id, status);
+  async updateDropletStatus({ userId, id, status }) {
+    return await CloudDB.updateDropletStatus(userId, id, status);
   },
 
-  async deleteDroplet({ id }) {
-    return await CloudDB.deleteDroplet(id);
+  async deleteDroplet({ userId, id }) {
+    return await CloudDB.deleteDroplet(userId, id);
   },
 
   async createUserStore({ userId, input }, context) {

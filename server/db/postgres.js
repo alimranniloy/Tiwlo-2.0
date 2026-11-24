@@ -827,6 +827,10 @@ export async function initPgSchema() {
       ALTER TABLE cloud_droplets ADD COLUMN IF NOT EXISTS node_id VARCHAR(64);
       ALTER TABLE cloud_droplets ADD COLUMN IF NOT EXISTS tags TEXT;
       ALTER TABLE cloud_droplets ADD COLUMN IF NOT EXISTS internal_ip VARCHAR(64);
+      ALTER TABLE cloud_droplets ADD COLUMN IF NOT EXISTS ssh_gateway_user VARCHAR(64);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_cloud_droplets_ssh_gateway_user
+        ON cloud_droplets(ssh_gateway_user)
+        WHERE ssh_gateway_user IS NOT NULL;
 
       CREATE TABLE IF NOT EXISTS cloud_activities (
         id VARCHAR(64) PRIMARY KEY,

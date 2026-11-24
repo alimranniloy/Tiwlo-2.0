@@ -12,6 +12,7 @@ import {
   updateUbuntuTenantStatus
 } from '../ubuntu/tenantLayout.js';
 import { adjustNodeActiveDroplets } from '../administrator/serverFleetService.js';
+import { setDropletPowerOnHost } from '../ubuntu/hostProvisionerClient.js';
 
 export const HOLD_TYPES = Object.freeze({
   NID_REVIEW: 'nid_review',
@@ -987,6 +988,7 @@ export async function enforceUserAccountHold({
         );
       }
       affectedDroplets.push(d.id);
+      await setDropletPowerOnHost(d.id, 'suspend').catch(() => {});
 
       const ipResult = await invokeHoldIp(runner, holdIpFn, d.id, cleanReason);
       if (ipResult?.heldAddresses?.length > 0) {
@@ -1504,6 +1506,7 @@ export async function restoreUserAccountServices({
         );
       }
       restoredDroplets.push(d.id);
+      await setDropletPowerOnHost(d.id, targetStatus === 'active' ? 'start' : 'stop').catch(() => {});
 
       const ipRes = await invokeRestoreIp(runner, restoreIpFn, d, {
         mustExist: heldIpDropletSet.has(d.id)

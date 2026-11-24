@@ -534,6 +534,11 @@ fi
 BKPEOF
 chmod 0700 /usr/local/lib/tiwlo-node/tiwlo-cross-node-backup.sh
 
+if [[ -f "${SCRIPT_DIR}/host-daemon/install-host-daemon.sh" ]]; then
+  echo "Installing Tiwlo VPS host daemon, SSH mux, and Ubuntu VPS runtime..."
+  TIWLO_AGENT_PORT="${AGENT_PORT}" TIWLO_AGENT_TOKEN="${AGENT_TOKEN}" bash "${SCRIPT_DIR}/host-daemon/install-host-daemon.sh"
+fi
+
 echo "Ubuntu node ready."
 echo "- Agent Port: ${AGENT_PORT} (systemd persistent across reboots)"
 echo "- Docker live-restore: enabled (containers survive daemon updates/restarts)"

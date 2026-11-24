@@ -68,6 +68,7 @@ import { startSupportAutomationScheduler } from './support/ticketingService.js';
 import { warmupFaceLivenessEngine } from './security/faceLivenessEngine.js';
 import { startAutomatedLogRetentionScheduler } from './db/logRotationService.js';
 import { ensureServiceSubscriptionsSchema, startServiceRenewalScheduler } from './db/serviceSubscriptions.js';
+import { attachVpsTerminalWebSocket } from './ubuntu/vpsTerminalWs.js';
 import { createSmartTrafficShieldMiddleware } from './security/smartTrafficShield.js';
 import whatsappRoutes from './whatsapp/whatsappRoutes.js';
 import { WhatsAppManager } from './whatsapp/whatsappManager.js';
@@ -871,7 +872,8 @@ async function startServer() {
         { ensureDropletTelemetrySchema },
         { ensureAccountLifecycleSchema, runPermanentBanPurgeSweep },
         { ensureVpsAbuseGuardSchema },
-        { deactivateAllIpBlockSignals }
+        { deactivateAllIpBlockSignals },
+        { reconcileExistingDropletsWithHost }
       ] = await Promise.all([
         import('./ubuntu/ipv6PoolService.js'),
         import('./db/cloudDropletBilling.js'),
@@ -879,7 +881,8 @@ async function startServer() {
         import('./db/dropletTelemetry.js'),
         import('./security/accountLifecycleEnforcer.js'),
         import('./security/vpsAbuseGuardService.js'),
-        import('./security/freeTierAbuseGuard.js')
+        import('./security/freeTierAbuseGuard.js'),
+        import('./ubuntu/reconcileDropletsService.js')
       ]);
 
       await Promise.all([
@@ -891,6 +894,12 @@ async function startServer() {
         ensureVpsAbuseGuardSchema(),
         deactivateAllIpBlockSignals()
       ]);
+
+      const reconSummary = await reconcileExistingDropletsWithHost().catch((err) => ({
+        ok: false,
+        error: err?.message || String(err)
+      }));
+      console.log('[Cloud VPS Startup Reconciler]', JSON.stringify(reconSummary));
 
       const billingTimer = setInterval(() => {
         runMonthlyDropletBillingSweep().catch((err) =>
@@ -928,19 +937,23 @@ async function startServer() {
 
   if (httpsOptions) {
     const httpsServer = https.createServer(httpsOptions, app);
+    attachVpsTerminalWebSocket(httpsServer);
     httpsServer.listen(PORT, LISTEN_ADDRESS, () => {
       console.log(`🔒 Tiwlo StockPro Secure HTTPS Server running on https://${LISTEN_ADDRESS}:${PORT}`);
     });
 
     const httpServer = http.createServer(app);
+    attachVpsTerminalWebSocket(httpServer);
     httpServer.listen(HTTP_PORT, LISTEN_ADDRESS, () => {
       console.log(`🌐 Tiwlo internal HTTP Server running on http://${LISTEN_ADDRESS}:${HTTP_PORT}`);
     });
   } else {
-    app.listen(PORT, LISTEN_ADDRESS, () => {
+    const fallbackServer = app.listen(PORT, LISTEN_ADDRESS, () => {
       console.log(`StockPro Backend Server running on http://${LISTEN_ADDRESS}:${PORT}`);
     });
+    attachVpsTerminalWebSocket(fallbackServer);
     const inboundHttpServer = http.createServer(app);
+    attachVpsTerminalWebSocket(inboundHttpServer);
     inboundHttpServer.listen(HTTP_PORT, LISTEN_ADDRESS, () => {
       console.log(`Tiwlo local mail-delivery endpoint listening on ${LISTEN_ADDRESS}:${HTTP_PORT}`);
     });

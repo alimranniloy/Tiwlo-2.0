@@ -1135,6 +1135,15 @@ export function detectLocalHostHardware() {
 
   const ipv4List = [];
   const ipv6List = [];
+  const envPublicIpv4 = String(process.env.VITE_SERVER_IPV4 || '').trim();
+  const envPublicIpv6 = String(process.env.VITE_SERVER_IPV6 || '').trim();
+  if (envPublicIpv4 && net.isIPv4(envPublicIpv4) && !isBlockedMetadataOrSsrfIp(envPublicIpv4)) {
+    ipv4List.push(envPublicIpv4);
+  }
+  if (envPublicIpv6 && net.isIPv6(envPublicIpv6) && !isBlockedMetadataOrSsrfIp(envPublicIpv6)) {
+    ipv6List.push(envPublicIpv6);
+  }
+
   const ifaces = os.networkInterfaces();
   for (const entries of Object.values(ifaces)) {
     for (const iface of entries || []) {

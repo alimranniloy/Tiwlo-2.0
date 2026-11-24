@@ -43,8 +43,9 @@ import {
   TabsList,
   TabsTrigger,
 } from '../../../components/ui/shadcnPrimitives';
+import DropletTerminalPanel from '../components/DropletTerminalPanel';
 
-const VALID_SECTIONS = ['overview', 'network', 'dns', 'billing'];
+const VALID_SECTIONS = ['overview', 'console', 'network', 'dns', 'billing'];
 
 const TELEMETRY_RANGES = [
   { id: '1h', label: '1H Live' },
@@ -929,14 +930,29 @@ export default function DropletDetailView({
 
   // Resolved network, DNS, firewall, storage, and billing sections
   const networkInfo = useMemo(() => {
-    const net = detailPayload?.network || {};
-    const ipv4 = net.ipv4 || droplet?.ipv4 || droplet?.ip || null;
+    const net = detailPayload?.networkProfile || detailPayload?.network || {};
+    const rawIpv4 = net.publicIpv4 || net.ipv4 || droplet?.publicIpv4 || (droplet?.ip && droplet.ip !== 'Unavailable' ? droplet.ip : null);
+    const ipv4 = rawIpv4 && !String(rawIpv4).includes(':') ? rawIpv4 : null;
     const ipv6 = net.ipv6 || droplet?.ipv6 || null;
-    const ipv6Prefix = net.ipv6Prefix || (ipv6 ? '/128' : null);
+    const ipv6Prefix = net.ipv6Prefix || droplet?.ipv6Prefix || (ipv6 ? '/128' : null);
     const sshPort = net.sshPort || droplet?.sshPort || 22;
-    const accessUsername = net.accessUsername || droplet?.accessUsername || 'root';
-    const sshIpv4Cmd = ipv4 ? `ssh ${accessUsername}@${ipv4} -p ${sshPort}` : null;
-    const sshIpv6Cmd = ipv6 ? `ssh ${accessUsername}@[${ipv6}] -p ${sshPort}` : null;
+    const accessUsername = net.username || net.accessUsername || droplet?.accessUsername || 'root';
+    const sshGatewayUser = net.sshGatewayUser || droplet?.sshGatewayUser || null;
+    const sshGatewayHost = net.sshGatewayHost || droplet?.sshGatewayHost || null;
+    const sshGatewayCommand =
+      net.sshGatewayCommand ||
+      droplet?.sshGatewayCommand ||
+      (sshGatewayUser && sshGatewayHost
+        ? String(sshGatewayHost).includes(':')
+          ? `ssh ${sshGatewayUser}@[${sshGatewayHost}]`
+          : `ssh ${sshGatewayUser}@${sshGatewayHost}`
+        : null);
+    const sshIpv4Cmd = ipv4 ? `ssh ${accessUsername}@${ipv4}${sshPort !== 22 ? ` -p ${sshPort}` : ''}` : null;
+    const sshIpv6Cmd = sshGatewayCommand && sshGatewayHost?.includes(':')
+      ? sshGatewayCommand
+      : ipv6
+        ? `ssh ${accessUsername}@[${ipv6}]${sshPort !== 22 ? ` -p ${sshPort}` : ''}`
+        : null;
     const ipLifecycleStatus = net.ipLifecycleStatus || droplet?.ipLifecycleStatus || (droplet?.status === 'suspended' ? 'held' : 'active');
     const prefixSyncLogs = Array.isArray(net.prefixSyncLogs)
       ? net.prefixSyncLogs
@@ -947,8 +963,12 @@ export default function DropletDetailView({
       ipv4,
       ipv6,
       ipv6Prefix,
+      internalIp: net.internalIp || droplet?.internalIp || null,
       sshPort,
       accessUsername,
+      sshGatewayUser,
+      sshGatewayHost,
+      sshGatewayCommand,
       sshIpv4Cmd,
       sshIpv6Cmd,
       ipLifecycleStatus,
@@ -1423,6 +1443,16 @@ export default function DropletDetailView({
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   size="sm"
+                  variant="default"
+                  onClick={() => onSectionChange?.('console')}
+                  disabled={!statusMeta.isRunning}
+                >
+                  <Terminal className="size-3.5" aria-hidden="true" />
+                  Open Console
+                </Button>
+
+                <Button
+                  size="sm"
                   variant={statusMeta.isRunning ? 'outline' : 'default'}
                   onClick={handlePowerToggle}
                   disabled={powerUpdating || statusMeta.isSuspended}
@@ -1530,6 +1560,10 @@ export default function DropletDetailView({
               <Activity className="size-3.5" aria-hidden="true" />
               Overview &amp; Metrics
             </TabsTrigger>
+            <TabsTrigger value="console">
+              <Terminal className="size-3.5" aria-hidden="true" />
+              Browser Console
+            </TabsTrigger>
             <TabsTrigger value="network">
               <Network className="size-3.5" aria-hidden="true" />
               Network &amp; IPv6
@@ -1544,6 +1578,17 @@ export default function DropletDetailView({
             </TabsTrigger>
           </TabsList>
         </div>
+
+        {/* TAB: INTERACTIVE BROWSER SSH CONSOLE */}
+        {safeSection === 'console' && (
+          <DropletTerminalPanel
+            dropletId={dropletId}
+            dropletName={droplet?.name || dropletId}
+            sshCommand={networkInfo.sshGatewayCommand || networkInfo.sshIpv6Cmd || networkInfo.sshIpv4Cmd}
+            isRunning={statusMeta.isRunning}
+            isSuspended={statusMeta.isSuspended}
+          />
+        )}
 
         {/* TAB 1: OVERVIEW & METRICS */}
         {safeSection === 'overview' && (
@@ -1592,10 +1637,40 @@ export default function DropletDetailView({
                   <CardDescription>Direct connection endpoints for this VPS</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3 text-xs">
-                  <div className="rounded-xl border border-neutral-200/80 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/50">
+                  <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/20">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium text-neutral-500">IPv4 SSH Command</span>
-                      {networkInfo.sshIpv4Cmd && (
+                      <span className="font-semibold text-emerald-800 dark:text-emerald-300">
+                        Single-Port SSH Gateway (Port 22 · Zero Router Ports)
+                      </span>
+                      {(networkInfo.sshGatewayCommand || networkInfo.sshIpv6Cmd) && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleCopy(
+                              'ov-ssh-gw',
+                              networkInfo.sshGatewayCommand || networkInfo.sshIpv6Cmd,
+                              'Gateway SSH command'
+                            )
+                          }
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 hover:text-black dark:text-emerald-300 dark:hover:text-white cursor-pointer"
+                        >
+                          {copiedKey === 'ov-ssh-gw' ? <Check className="size-3 text-[#1ED760]" /> : <Copy className="size-3" />}
+                          {copiedKey === 'ov-ssh-gw' ? 'Copied' : 'Copy'}
+                        </button>
+                      )}
+                    </div>
+                    <code className="mt-1.5 block truncate font-mono text-[11px] text-neutral-900 dark:text-neutral-100">
+                      {networkInfo.sshGatewayCommand || networkInfo.sshIpv6Cmd || 'Gateway SSH pending assignment'}
+                    </code>
+                    <p className="mt-1 text-[10px] text-neutral-500 dark:text-neutral-400">
+                      Uses main server Port 22 multiplexer ({networkInfo.sshGatewayUser || networkInfo.accessUsername}) · Use Browser Console (HTTPS 443) from IPv4-only networks.
+                    </p>
+                  </div>
+
+                  {networkInfo.sshIpv4Cmd && (
+                    <div className="rounded-xl border border-neutral-200/80 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/50">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-neutral-500">Public IPv4 SSH Command</span>
                         <button
                           type="button"
                           onClick={() => handleCopy('ov-ssh4', networkInfo.sshIpv4Cmd, 'IPv4 SSH command')}
@@ -1604,40 +1679,26 @@ export default function DropletDetailView({
                           {copiedKey === 'ov-ssh4' ? <Check className="size-3 text-[#1ED760]" /> : <Copy className="size-3" />}
                           {copiedKey === 'ov-ssh4' ? 'Copied' : 'Copy'}
                         </button>
-                      )}
+                      </div>
+                      <code className="mt-1.5 block truncate font-mono text-[11px] text-neutral-900 dark:text-neutral-100">
+                        {networkInfo.sshIpv4Cmd}
+                      </code>
                     </div>
-                    <code className="mt-1.5 block truncate font-mono text-[11px] text-neutral-900 dark:text-neutral-100">
-                      {networkInfo.sshIpv4Cmd || 'IPv4 address pending assignment'}
-                    </code>
-                  </div>
-
-                  <div className="rounded-xl border border-neutral-200/80 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/50">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium text-neutral-500">Dedicated IPv6 (/128) SSH</span>
-                      {networkInfo.sshIpv6Cmd && (
-                        <button
-                          type="button"
-                          onClick={() => handleCopy('ov-ssh6', networkInfo.sshIpv6Cmd, 'IPv6 SSH command')}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-neutral-700 hover:text-black dark:text-neutral-300 dark:hover:text-white cursor-pointer"
-                        >
-                          {copiedKey === 'ov-ssh6' ? <Check className="size-3 text-[#1ED760]" /> : <Copy className="size-3" />}
-                          {copiedKey === 'ov-ssh6' ? 'Copied' : 'Copy'}
-                        </button>
-                      )}
-                    </div>
-                    <code className="mt-1.5 block truncate font-mono text-[11px] text-neutral-900 dark:text-neutral-100">
-                      {networkInfo.sshIpv6Cmd || 'No dedicated IPv6 (/128) assigned yet'}
-                    </code>
-                  </div>
+                  )}
 
                   <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                     <span className="text-neutral-500">
-                      SSH User: <strong className="font-mono text-neutral-800 dark:text-neutral-200">{networkInfo.accessUsername}</strong> · Port{' '}
-                      <strong className="font-mono text-neutral-800 dark:text-neutral-200">{networkInfo.sshPort}</strong>
+                      Gateway User: <strong className="font-mono text-neutral-800 dark:text-neutral-200">{networkInfo.sshGatewayUser || networkInfo.accessUsername}</strong> · Container User{' '}
+                      <strong className="font-mono text-neutral-800 dark:text-neutral-200">{networkInfo.accessUsername}</strong>
                     </span>
-                    <Button size="sm" variant="outline" onClick={() => onSectionChange?.('network')}>
-                      Full Network Details
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="default" onClick={() => onSectionChange?.('console')} disabled={!statusMeta.isRunning}>
+                        Open Terminal
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => onSectionChange?.('network')}>
+                        Full Network Details
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1685,7 +1746,9 @@ export default function DropletDetailView({
 
                   <div className="rounded-xl border border-neutral-200/80 bg-neutral-950 p-3 text-neutral-100">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-medium text-neutral-400">SSH Login Command (IPv4)</span>
+                      <span className="text-[11px] font-medium text-neutral-400">
+                        {networkInfo.sshIpv4Cmd ? 'SSH Login Command (IPv4)' : 'Browser SSH Console (IPv4 & IPv6 HTTPS 443)'}
+                      </span>
                       {networkInfo.sshIpv4Cmd && (
                         <button
                           type="button"
@@ -1698,7 +1761,7 @@ export default function DropletDetailView({
                       )}
                     </div>
                     <code className="mt-1.5 block overflow-x-auto font-mono text-xs text-white">
-                      {networkInfo.sshIpv4Cmd || 'SSH command unavailable'}
+                      {networkInfo.sshIpv4Cmd || 'No public IPv4 — use Browser Console above (works on all IPv4/IPv6 networks)'}
                     </code>
                   </div>
                 </CardContent>

@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import net from 'node:net';
 import { formatIpv6SshCommand, normalizeIpv6, parseIpv6ToBigInt } from './ipv6PoolService.js';
+import { formatGatewaySshCommand, resolvePublicSshGatewayHost } from './hostProvisionerClient.js';
 
 export const DEFAULT_SSH_EXEC_TIMEOUT_MS = 10_000;
 export const MAX_SSH_EXEC_TIMEOUT_MS = 60_000;
@@ -314,6 +315,16 @@ export function buildDropletNetworkProfile({
   const ipv4SshCommand = publicIpv4Available ? `ssh ${username}@${publicIpv4} -p ${sshPort}` : null;
   const ipv6SshCommand = publicIpv6Available ? formatIpv6SshCommand({ ipv6, username, port: sshPort }) : null;
 
+  const rawGatewayUser = safeDroplet.sshGatewayUser ?? safeDroplet.ssh_gateway_user ?? null;
+  const sshGatewayUser =
+    typeof rawGatewayUser === 'string' && /^twvps_[a-z0-9_-]{2,26}$/i.test(rawGatewayUser.trim())
+      ? rawGatewayUser.trim().toLowerCase()
+      : null;
+  const sshGatewayHost = resolvePublicSshGatewayHost({ node, droplet: safeDroplet });
+  const sshGatewayCommand = sshGatewayUser
+    ? formatGatewaySshCommand({ gatewayUser: sshGatewayUser, gatewayHost: sshGatewayHost })
+    : null;
+
   const cleanBastionHost = sanitizeOptionalHost(bastionHost);
   const bastionTarget = publicIpv6Available ? `[${ipv6}]` : nodePrivateIpv4;
   const bastionProxyCommand =
@@ -325,7 +336,7 @@ export function buildDropletNetworkProfile({
     : null;
 
   const primarySshCommand =
-    ipv4SshCommand || ipv6SshCommand || bastionProxyCommand || cloudflareAccessCommand || null;
+    sshGatewayCommand || ipv4SshCommand || ipv6SshCommand || bastionProxyCommand || cloudflareAccessCommand || null;
 
   let connectivityMode = 'private-only';
   if (publicIpv4Available && publicIpv6Available) {
@@ -340,6 +351,9 @@ export function buildDropletNetworkProfile({
     dropletId: safeDroplet.id || safeDroplet.dropletId || null,
     username,
     sshPort,
+    sshGatewayUser,
+    sshGatewayHost,
+    sshGatewayCommand,
     publicIpv4,
     publicIpv4Available,
     publicIpv4Label,
